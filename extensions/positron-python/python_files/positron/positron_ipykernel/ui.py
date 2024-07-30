@@ -23,7 +23,7 @@ from .ui_comm import (
     UiFrontendEvent,
     WorkingDirectoryParams,
 )
-from .utils import JsonData, JsonRecord, alias_home
+from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
 
 logger = logging.getLogger(__name__)
 
@@ -179,9 +179,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if not self._comm:
             return False
 
-        # Check if the url starts with 'file://', and if it does send the comm message
-        # for opening an html file and ends with '.html' or '.htm' to open the file in the browser
-        if url.startswith("file://") and (url.endswith(".html") or url.endswith(".htm")):
+        # If url is pointing to an HTML file, route to the ShowHtmlFile comm
+        if is_local_html_file(url):
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
                 payload={
