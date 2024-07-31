@@ -781,6 +781,10 @@ class ColumnHistogram(BaseModel):
         description="Absolute count of values in each histogram bin",
     )
 
+    quantiles: List[ColumnQuantileValue] = Field(
+        description="Sample quantiles that were also requested",
+    )
+
 
 class ColumnFrequencyTableParams(BaseModel):
     """
@@ -807,7 +811,7 @@ class ColumnFrequencyTable(BaseModel):
 
     other_count: Optional[StrictInt] = Field(
         default=None,
-        description="Number of other values not accounted for in counts. May be omitted",
+        description="Number of other values not accounted for in counts, excluding nulls/NA values. May be omitted",
     )
 
 

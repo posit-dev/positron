@@ -673,6 +673,11 @@ export interface ColumnHistogram {
 	 */
 	bin_counts: Array<number>;
 
+	/**
+	 * Sample quantiles that were also requested
+	 */
+	quantiles: Array<ColumnQuantileValue>;
+
 }
 
 /**
@@ -701,7 +706,8 @@ export interface ColumnFrequencyTable {
 	counts: Array<number>;
 
 	/**
-	 * Number of other values not accounted for in counts. May be omitted
+	 * Number of other values not accounted for in counts, excluding nulls/NA
+	 * values. May be omitted
 	 */
 	other_count?: number;
 

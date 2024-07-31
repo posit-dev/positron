@@ -1061,7 +1061,8 @@
 				"description": "Result from a histogram profile request",
 				"required": [
 					"bin_edges",
-					"bin_counts"
+					"bin_counts",
+					"quantiles"
 				],
 				"properties": {
 					"bin_edges": {
@@ -1076,6 +1077,13 @@
 						"description": "Absolute count of values in each histogram bin",
 						"items": {
 							"type": "integer"
+						}
+					},
+					"quantiles": {
+						"type": "array",
+						"description": "Sample quantiles that were also requested",
+						"items": {
+							"$ref": "#/components/schemas/column_quantile_value"
 						}
 					}
 				}
@@ -1117,7 +1125,7 @@
 					},
 					"other_count": {
 						"type": "integer",
-						"description": "Number of other values not accounted for in counts. May be omitted"
+						"description": "Number of other values not accounted for in counts, excluding nulls/NA values. May be omitted"
 					}
 				}
 			},

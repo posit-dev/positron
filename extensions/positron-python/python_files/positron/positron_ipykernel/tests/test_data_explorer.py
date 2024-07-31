@@ -2554,6 +2554,7 @@ def test_pandas_profile_histogram(dxf: DataExplorerFixture):
             {
                 "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
                 "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
             },
         ),
         (
@@ -2567,6 +2568,7 @@ def test_pandas_profile_histogram(dxf: DataExplorerFixture):
                     "2000-01-11 00:00:00",
                 ],
                 "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
             },
         ),
         (
@@ -2582,6 +2584,7 @@ def test_pandas_profile_histogram(dxf: DataExplorerFixture):
                     "10.00",
                 ],
                 "bin_counts": [1, 1, 1, 3, 2, 1],
+                "quantiles": [],
             },
         ),
     ]

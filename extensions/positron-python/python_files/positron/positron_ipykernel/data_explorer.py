@@ -1610,7 +1610,11 @@ class PandasView(DataExplorerTableView):
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
-        return ColumnHistogram(bin_edges=formatted_edges, bin_counts=[int(x) for x in bin_counts])
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     SUPPORTED_FILTERS = {
         RowFilterType.Between,
