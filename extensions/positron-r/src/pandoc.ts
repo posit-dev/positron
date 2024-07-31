@@ -17,7 +17,7 @@ export function getPandocPath(): string | undefined {
 	const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
 
 	// Check for architecure-specific pandoc
-	if (existsSync(path.join(pandocPath, arch))) {
+	if (existsSync(path.join(pandocPath, arch, 'pandoc'))) {
 		return path.join(pandocPath, arch);
 	}
 
