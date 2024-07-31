@@ -2537,16 +2537,26 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
-def test_pandas_profile_histogram(dxf: DataExplorerFixture):
+def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
     df = pd.DataFrame(
         {
             "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             "b": pd.date_range("2000-01-01", periods=11),
             "c": [1.5, np.nan, 3.5, 5.0, 10, np.nan, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
         }
     )
-    name = "df"
-    dxf.register_table(name, df)
+    dfp = pl.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": list(df["b"]),
+            "c": [1.5, None, 3.5, 5.0, 10, None, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+        }
+    )
+
+    dxf.register_table("df", df)
+    dxf.register_table("dfp", dfp)
 
     cases = [
         (
@@ -2587,33 +2597,46 @@ def test_pandas_profile_histogram(dxf: DataExplorerFixture):
                 "quantiles": [],
             },
         ),
+        (
+            _get_histogram(3, 4),
+            {
+                "bin_edges": [
+                    "0.00",
+                    "2.50",
+                    "5.00",
+                    "7.50",
+                    "10.00",
+                ],
+                "bin_counts": [5, 0, 0, 6],
+                "quantiles": [],
+            },
+        ),
     ]
 
-    for profile, ex_result in cases:
-        result = dxf.get_column_profiles(name, [profile])
-        assert result[0]["histogram"] == ex_result
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["histogram"] == ex_result
 
 
-def test_pandas_profile_frequency_table(dxf: DataExplorerFixture):
-    df = pd.DataFrame(
-        {
-            "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
-            "b": [
-                "foo",
-                "foo",
-                "foo",
-                "foo",
-                "b0",
-                "b0",
-                "b1",
-                "b2",
-                "b3",
-                None,
-            ],
-        }
-    )
-    name = "df"
-    dxf.register_table(name, df)
+def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
+    data = {
+        "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
+        "b": [
+            "foo",
+            "foo",
+            "foo",
+            "foo",
+            "b0",
+            "b0",
+            "b1",
+            "b2",
+            "b3",
+            None,
+        ],
+    }
+    dxf.register_table("df", pd.DataFrame(data))
+    dxf.register_table("dfp", pl.DataFrame(data))
 
     cases = [
         (
@@ -2634,9 +2657,10 @@ def test_pandas_profile_frequency_table(dxf: DataExplorerFixture):
         ),
     ]
 
-    for profile, ex_result in cases:
-        result = dxf.get_column_profiles(name, [profile])
-        assert result[0]["frequency_table"] == ex_result
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["frequency_table"] == ex_result
 
 
 # ----------------------------------------------------------------------

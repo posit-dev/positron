@@ -2281,7 +2281,21 @@ class PolarsView(DataExplorerTableView):
         params: ColumnFrequencyTableParams,
         format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
-        raise NotImplementedError
+        col = self._get_column(column_index).alias("values")
+
+        col = col.filter(col.is_not_null())
+        counts = col.value_counts().sort(by=["count", "values"], descending=[True, False])
+
+        top_counts = counts[: params.limit]
+        other_count = int(counts[params.limit :, 1].sum())
+
+        formatted_groups = self._format_values(top_counts[:, 0], format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts[:, 1]],
+            other_count=other_count,
+        )
 
     def _prof_histogram(
         self,
@@ -2289,7 +2303,49 @@ class PolarsView(DataExplorerTableView):
         params: ColumnHistogramParams,
         format_options: FormatOptions,
     ) -> ColumnHistogram:
-        raise NotImplementedError
+        col = self._get_column(column_index)
+
+        # remove nulls
+        data = col.filter(col.is_not_null())
+        dtype = data.dtype
+
+        if isinstance(dtype, (pl_.Datetime, pl_.Time)):
+            data = data.cast(pl_.Int64)
+            cast_bin_edges = True
+        elif isinstance(dtype, pl_.Date):
+            data = data.cast(pl_.Int32)
+            cast_bin_edges = True
+        else:
+            cast_bin_edges = False
+
+        min_value = data.min()
+        max_value = data.max()
+        data_span = max_value - min_value  # type: ignore
+        num_bins = params.num_bins
+        bin_size = data_span / num_bins
+
+        indices = ((data - min_value) / data_span) * num_bins
+        indices = indices.cast(pl_.Int64).alias("indices")
+
+        # The last bin right edge is inclusive, so we adjust down
+        indices[indices == num_bins] = num_bins - 1
+
+        freq_table = indices.value_counts()
+        index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
+        bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
+
+        bin_edges = min_value + pl_.arange(params.num_bins + 1, eager=True) * bin_size
+
+        if cast_bin_edges:
+            bin_edges = bin_edges.cast(dtype)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
