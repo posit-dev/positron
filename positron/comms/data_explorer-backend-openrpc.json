@@ -8,11 +8,11 @@
 		{
 			"name": "get_schema",
 			"summary": "Request schema",
-			"description": "Request full schema for a table-like object",
+			"description": "Request subset of column schemas for a table-like object",
             "params": [
                 {
                     "name": "column_indices",
-                    "description": "The column indices to fetch",
+                    "description": "The column indices (relative to the filtered/selected columns) to fetch",
                     "required": true,
                     "schema": {
                         "type": "array",
@@ -30,8 +30,8 @@
 		},
 		{
 			"name": "search_schema",
-			"summary": "Search schema with column filters",
-			"description": "Search schema for column names matching a passed substring",
+			"summary": "Search full, unfiltered table schema with column filters",
+			"description": "Search full, unfiltered table schema for column names matching one or more column filters",
 			"params": [
 				{
 					"name": "filters",
@@ -310,7 +310,7 @@
 							"description": "Variable name or other string to display for tab name in UI"
 						},
 						"table_shape": {
-							"description": "Number of rows and columns in table with filters applied",
+							"description": "Number of rows and columns in table with row/column filters applied",
 							"$ref": "#/components/schemas/table_shape"
 						},
 						"table_unfiltered_shape": {
@@ -319,21 +319,21 @@
 						},
 						"column_filters": {
 							"type": "array",
-							"description": "The set of currently applied column filters",
+							"description": "The currently applied column filters",
 							"items": {
 								"$ref": "#/components/schemas/column_filter"
 							}
 						},
 						"row_filters": {
 							"type": "array",
-							"description": "The set of currently applied row filters",
+							"description": "The currently applied row filters",
 							"items": {
 								"$ref": "#/components/schemas/row_filter"
 							}
 						},
 						"sort_keys": {
 							"type": "array",
-							"description": "The set of currently applied sorts",
+							"description": "The currently applied column sort keys",
 							"items": {
 								"$ref": "#/components/schemas/column_sort_key"
 							}
@@ -382,7 +382,7 @@
 					},
 					"column_index": {
 						"type": "integer",
-						"description": "The position of the column within the schema"
+						"description": "The position of the column within the table without any column filters"
 					},
 					"type_name": {
 						"type": "string",
@@ -811,7 +811,7 @@
 				"properties": {
 					"column_index": {
 						"type": "integer",
-						"description": "The ordinal column index to profile"
+						"description": "The column index (absolute, relative to unfiltered table) to profile"
 					},
 					"profiles": {
 						"type": "array",
@@ -1189,7 +1189,7 @@
 				"properties": {
 					"column_index": {
 						"type": "integer",
-						"description": "Column index to sort by"
+						"description": "Column index (absolute, relative to unfiltered table) to sort by"
 					},
 					"ascending": {
 						"type": "boolean",
@@ -1342,7 +1342,7 @@
 				"properties": {
 					"kind": {
 						"type": "string",
-						"description": "Type of selection",
+						"description": "Type of selection, all indices relative to filtered row/column indices",
 						"enum": [
 							"single_cell",
 							"cell_range",

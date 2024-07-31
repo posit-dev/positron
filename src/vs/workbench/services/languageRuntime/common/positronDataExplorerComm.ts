@@ -69,7 +69,7 @@ export interface BackendState {
 	display_name: string;
 
 	/**
-	 * Number of rows and columns in table with filters applied
+	 * Number of rows and columns in table with row/column filters applied
 	 */
 	table_shape: TableShape;
 
@@ -79,17 +79,17 @@ export interface BackendState {
 	table_unfiltered_shape: TableShape;
 
 	/**
-	 * The set of currently applied column filters
+	 * The currently applied column filters
 	 */
 	column_filters: Array<ColumnFilter>;
 
 	/**
-	 * The set of currently applied row filters
+	 * The currently applied row filters
 	 */
 	row_filters: Array<RowFilter>;
 
 	/**
-	 * The set of currently applied sorts
+	 * The currently applied column sort keys
 	 */
 	sort_keys: Array<ColumnSortKey>;
 
@@ -110,7 +110,7 @@ export interface ColumnSchema {
 	column_name: string;
 
 	/**
-	 * The position of the column within the schema
+	 * The position of the column within the table without any column filters
 	 */
 	column_index: number;
 
@@ -410,7 +410,7 @@ export interface ColumnFilterTypeSupportStatus {
  */
 export interface ColumnProfileRequest {
 	/**
-	 * The ordinal column index to profile
+	 * The column index (absolute, relative to unfiltered table) to profile
 	 */
 	column_index: number;
 
@@ -745,7 +745,7 @@ export interface ColumnQuantileValue {
  */
 export interface ColumnSortKey {
 	/**
-	 * Column index to sort by
+	 * Column index (absolute, relative to unfiltered table) to sort by
 	 */
 	column_index: number;
 
@@ -873,7 +873,7 @@ export interface SetSortColumnsFeatures {
  */
 export interface DataSelection {
 	/**
-	 * Type of selection
+	 * Type of selection, all indices relative to filtered row/column indices
 	 */
 	kind: DataSelectionKind;
 
@@ -1121,9 +1121,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Request schema
 	 *
-	 * Request full schema for a table-like object
+	 * Request subset of column schemas for a table-like object
 	 *
-	 * @param columnIndices The column indices to fetch
+	 * @param columnIndices The column indices (relative to the
+	 * filtered/selected columns) to fetch
 	 *
 	 * @returns undefined
 	 */
@@ -1132,9 +1133,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Search schema with column filters
+	 * Search full, unfiltered table schema with column filters
 	 *
-	 * Search schema for column names matching a passed substring
+	 * Search full, unfiltered table schema for column names matching one or
+	 * more column filters
 	 *
 	 * @param filters Column filters to apply when searching
 	 * @param startIndex Index (starting from zero) of first result to fetch

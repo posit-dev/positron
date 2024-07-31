@@ -244,7 +244,7 @@ class BackendState(BaseModel):
     )
 
     table_shape: TableShape = Field(
-        description="Number of rows and columns in table with filters applied",
+        description="Number of rows and columns in table with row/column filters applied",
     )
 
     table_unfiltered_shape: TableShape = Field(
@@ -252,15 +252,15 @@ class BackendState(BaseModel):
     )
 
     column_filters: List[ColumnFilter] = Field(
-        description="The set of currently applied column filters",
+        description="The currently applied column filters",
     )
 
     row_filters: List[RowFilter] = Field(
-        description="The set of currently applied row filters",
+        description="The currently applied row filters",
     )
 
     sort_keys: List[ColumnSortKey] = Field(
-        description="The set of currently applied sorts",
+        description="The currently applied column sort keys",
     )
 
     supported_features: SupportedFeatures = Field(
@@ -278,7 +278,7 @@ class ColumnSchema(BaseModel):
     )
 
     column_index: StrictInt = Field(
-        description="The position of the column within the schema",
+        description="The position of the column within the table without any column filters",
     )
 
     type_name: StrictStr = Field(
@@ -542,7 +542,7 @@ class ColumnProfileRequest(BaseModel):
     """
 
     column_index: StrictInt = Field(
-        description="The ordinal column index to profile",
+        description="The column index (absolute, relative to unfiltered table) to profile",
     )
 
     profiles: List[ColumnProfileSpec] = Field(
@@ -843,7 +843,7 @@ class ColumnSortKey(BaseModel):
     """
 
     column_index: StrictInt = Field(
-        description="Column index to sort by",
+        description="Column index (absolute, relative to unfiltered table) to sort by",
     )
 
     ascending: StrictBool = Field(
@@ -954,7 +954,7 @@ class DataSelection(BaseModel):
     """
 
     kind: DataSelectionKind = Field(
-        description="Type of selection",
+        description="Type of selection, all indices relative to filtered row/column indices",
     )
 
     selection: Selection = Field(
@@ -1062,7 +1062,7 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Request schema
     GetSchema = "get_schema"
 
-    # Search schema with column filters
+    # Search full, unfiltered table schema with column filters
     SearchSchema = "search_schema"
 
     # Get a rectangle of data values
@@ -1089,17 +1089,17 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
 class GetSchemaParams(BaseModel):
     """
-    Request full schema for a table-like object
+    Request subset of column schemas for a table-like object
     """
 
     column_indices: List[StrictInt] = Field(
-        description="The column indices to fetch",
+        description="The column indices (relative to the filtered/selected columns) to fetch",
     )
 
 
 class GetSchemaRequest(BaseModel):
     """
-    Request full schema for a table-like object
+    Request subset of column schemas for a table-like object
     """
 
     params: GetSchemaParams = Field(
@@ -1118,7 +1118,8 @@ class GetSchemaRequest(BaseModel):
 
 class SearchSchemaParams(BaseModel):
     """
-    Search schema for column names matching a passed substring
+    Search full, unfiltered table schema for column names matching one or
+    more column filters
     """
 
     filters: List[ColumnFilter] = Field(
@@ -1136,7 +1137,8 @@ class SearchSchemaParams(BaseModel):
 
 class SearchSchemaRequest(BaseModel):
     """
-    Search schema for column names matching a passed substring
+    Search full, unfiltered table schema for column names matching one or
+    more column filters
     """
 
     params: SearchSchemaParams = Field(
