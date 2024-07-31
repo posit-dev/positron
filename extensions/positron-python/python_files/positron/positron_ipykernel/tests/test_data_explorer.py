@@ -1992,7 +1992,10 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
 
         state = view.state
 
-        new_view = PandasView(table, DataExplorerState(name, state.filters, state.sort_keys))
+        new_view = PandasView(
+            table,
+            DataExplorerState(name, row_filters=state.row_filters, sort_keys=state.sort_keys),
+        )
 
         schema_updated, new_state = new_view.get_updated_state(table)
 
@@ -2002,7 +2005,7 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
         else:
             assert not schema_updated
 
-        assert new_state.filters == state.filters
+        assert new_state.row_filters == state.row_filters
         assert new_state.sort_keys == state.sort_keys
 
 
