@@ -68,15 +68,22 @@ export class IPyWidgetClientInstance extends Disposable {
 		}));
 
 		// Forward messages from the runtime client to the webview.
-		this._register(_client.onDidReceiveData(data => {
-			this._logService.trace('RECV comm_msg:', data);
+		this._register(_client.onDidReceiveData(event => {
+			const data = event.data;
+			this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
+
+			if (event.buffers && event.buffers.length > 0) {
+				console.log('Client received message with buffers:', event.buffers);
+			}
 
 			switch (data.method) {
+				case 'custom':
 				case 'update':
 					this._messaging.postMessage({
 						type: 'comm_msg',
 						comm_id: this._client.getClientId(),
 						data: data,
+						buffers: event.buffers?.map(vsBuffer => vsBuffer.buffer),
 					});
 					break;
 				default:
@@ -119,12 +126,18 @@ export class IPyWidgetClientInstance extends Disposable {
 			this._logService.trace('SEND comm_msg:', data);
 			const reply = await this._client.performRpc(data, 5000);
 
+			if (reply.buffers && reply.buffers.length > 0) {
+				console.log('Client received message with buffers:', reply.buffers);
+			}
+
 			// Forward the output to the webview.
 			this._logService.trace('RECV comm_msg:', reply);
 			this._messaging.postMessage({
 				type: 'comm_msg',
 				comm_id: this._client.getClientId(),
-				data: reply,
+				data: reply.data,
+				// TODO: Figure out these types...
+				buffers: reply.buffers?.map(vsBuffer => vsBuffer.buffer),
 				parent_id: message.msg_id,
 			});
 		} else {

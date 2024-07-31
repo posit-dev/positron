@@ -202,6 +202,8 @@ declare module 'positron' {
 
 		/** Additional metadata, if any */
 		metadata?: Map<any, any>;
+
+		buffers?: Array<Uint8Array>;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */

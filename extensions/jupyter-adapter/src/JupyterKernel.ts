@@ -959,6 +959,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			type: 'jupyter-message',
 			message: msg.content,
 			metadata: msg.metadata,
+			buffers: msg.buffers,
 			msgId: msg.header.msg_id,
 			msgType: msg.header.msg_type,
 			when: msg.header.date,
@@ -1286,6 +1287,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private async sendToSocket(id: string, type: string, dest: JupyterSocket,
 		parent: JupyterMessageHeader, message: JupyterMessageSpec, metadata: object = {}) {
 		const msg: JupyterMessage = {
+			// TODO: Do comms ever try to send buffers back to the kernel?
 			buffers: [],
 			content: message,
 			header: this.generateMessageHeader(id, type),

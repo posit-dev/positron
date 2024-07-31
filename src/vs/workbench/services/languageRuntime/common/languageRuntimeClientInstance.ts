@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from 'vs/base/common/buffer';
 import { Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
@@ -72,10 +73,10 @@ export enum RuntimeClientType {
  * be notified via the onDidChangeClientState event.
  */
 export interface IRuntimeClientInstance<Input, Output> extends Disposable {
-	onDidReceiveData: Event<Output>;
+	onDidReceiveData: Event<{ data: Output; buffers?: Array<VSBuffer> }>;
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
-	performRpc(request: Input, timeout: number): Promise<Output>;
+	performRpc(request: Input, timeout: number): Promise<{ data: Output; buffers?: Array<VSBuffer> }>;
 	sendMessage(message: any): void;
 	messageCounter: ISettableObservable<number>;
 	clientState: ISettableObservable<RuntimeClientState>;

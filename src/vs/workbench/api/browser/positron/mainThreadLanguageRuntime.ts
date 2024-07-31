@@ -37,6 +37,8 @@ import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -886,7 +888,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	extends Disposable
 	implements IRuntimeClientInstance<Input, Output> {
 
-	private readonly _dataEmitter = new Emitter<Output>();
+	private readonly _dataEmitter = new Emitter<{ data: Output; buffers?: Array<VSBuffer> }>();
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
@@ -923,12 +925,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpc<T>(request: Input, timeout: number): Promise<T> {
+	performRpc<T>(request: Input, timeout: number): Promise<{ data: T; buffers: Array<VSBuffer> }> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
 		// Add the promise to the list of pending RPCs.
-		const promise = new DeferredPromise<T>();
+		const promise = new DeferredPromise<{ data: T; buffers: Array<VSBuffer> }>();
 		this._pendingRpcs.set(messageId, promise);
 
 		// Send the message to the server side.
@@ -984,11 +986,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		if (message.parent_id && this._pendingRpcs.has(message.parent_id)) {
 			// This is a response to an RPC call; resolve the deferred promise.
 			const promise = this._pendingRpcs.get(message.parent_id);
-			promise?.complete(message.data);
+			promise?.complete(message);
 			this._pendingRpcs.delete(message.parent_id);
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			this._dataEmitter.fire(message.data as Output);
+			// TODO: Handle buffers
+			this._dataEmitter.fire({ data: message.data as Output, buffers: [] });
 		}
 	}
 
@@ -1001,7 +1004,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.clientState.set(state, undefined);
 	}
 
-	onDidReceiveData: Event<Output>;
+	onDidReceiveData: Event<{ data: Output; buffers?: Array<VSBuffer> }>;
 
 	getClientId(): string {
 		return this._id;
@@ -1097,8 +1100,8 @@ export class MainThreadLanguageRuntime
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void {
-		this.findSession(handle).handleRuntimeMessage(message, handled);
+	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this.findSession(handle).handleRuntimeMessage(message.value, handled);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {

@@ -58,9 +58,7 @@ export function deserializeJupyterMessage(message: any[], key: string, channel: 
 		parent_header: JSON.parse(parent), // eslint-disable-line
 		metadata: JSON.parse(metadata),
 		content: JSON.parse(content),
-
-		// TODO: Do we need to pass buffers?
-		buffers: []
+		buffers: message.slice(5),
 	};
 
 	return msg;

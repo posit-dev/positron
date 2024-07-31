@@ -12,6 +12,11 @@ import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
 import { PromiseHandles, delay, uuidv4 } from './utils';
 
+export interface RuntimeClientMessage {
+	data: { [key: string]: any };
+	buffers?: Array<Uint8Array>;
+}
+
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
  */
@@ -28,9 +33,9 @@ export class RuntimeClientAdapter {
 	 * and the value is a promise that will be resolved when the RPC response is
 	 * received.
 	 */
-	private _pendingRpcs = new Map<string, PromiseHandles<any>>();
+	private _pendingRpcs = new Map<string, PromiseHandles<RuntimeClientMessage>>();
 
-	private readonly _messageEmitter = new vscode.EventEmitter<{ [key: string]: any }>();
+	private readonly _messageEmitter = new vscode.EventEmitter<RuntimeClientMessage>();
 	readonly onDidReceiveCommMsg = this._messageEmitter.event;
 
 	constructor(
@@ -255,7 +260,7 @@ export class RuntimeClientAdapter {
 					`RPC already settled (timed out?)`);
 			} else {
 				// Otherwise, resolve the promise with the message data.
-				promise.resolve(message.data);
+				promise.resolve({ data: message.data, buffers: msg.buffers });
 			}
 
 			// Remove the RPC from the pending list
@@ -263,7 +268,8 @@ export class RuntimeClientAdapter {
 		} else {
 
 			// Not an RPC response, so emit the message
-			this._messageEmitter.fire(message.data);
+			// TODO: Emit buffers too
+			this._messageEmitter.fire({ data: message.data, buffers: msg.buffers });
 		}
 	}
 

@@ -36,4 +36,6 @@ export interface JupyterMessagePacket {
 
 	/** Additional metadata, if any */
 	metadata?: Map<any, any>;
+
+	buffers?: Array<Uint8Array>;
 }
