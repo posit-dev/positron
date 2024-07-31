@@ -25,27 +25,16 @@
         "mimeTypes": [
           "application/vnd.jupyter.widget-view+json"
         ],
-        "entrypoint": "./renderer-out/index.js",
+        "entrypoint": "./renderer/dist/index.js",
         "requiresMessaging": "always"
       }
     ]
   },
   "scripts": {
     "vscode:prepublish": "yarn build-renderer",
-    "build-renderer": "node ./esbuild-renderer"
+    "build-renderer": "node ./esbuild-renderer",
+    "postinstall": "yarn install --cwd renderer"
   },
-  "dependencies": {
-    "@fortawesome/fontawesome-free": "^5.15.4",
-    "@jupyter-widgets/base": "^6.0.7",
-    "@jupyter-widgets/base-manager": "^1.0.8",
-    "@jupyter-widgets/controls": "^5.0.8",
-    "@jupyter-widgets/output": "^6.0.7",
-    "@jupyterlab/services": "^7.2.3",
-    "@lumino/coreutils": "^2.1.2",
-    "@lumino/widgets": "^2.3.2"
-  },
-  "devDependencies": {
-    "@types/vscode-webview": "^1.57.5",
-    "typescript": "^5.4.5"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }

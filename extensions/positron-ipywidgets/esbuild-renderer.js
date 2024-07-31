@@ -6,8 +6,8 @@
 // @ts-check
 const path = require('path');
 
-const srcDir = path.join(__dirname, 'renderer');
-const outDir = path.join(__dirname, 'renderer-out');
+const srcDir = path.join(__dirname, 'renderer/src');
+const outDir = path.join(__dirname, 'renderer/dist');
 
 require('../esbuild-webview-common').run({
 	entryPoints: [
