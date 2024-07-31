@@ -23,8 +23,6 @@ import { EXTENSION_ROOT_DIR } from '../common/constants';
 import { JupyterKernelSpec } from '../jupyter-adapter.d';
 import { IEnvironmentVariablesProvider } from '../common/variables/types';
 import { checkAndInstallPython } from './extension';
-import { showErrorMessage } from '../common/vscodeApis/windowApis';
-import { CreateEnv } from '../common/utils/localize';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -63,9 +61,6 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
                     // An interpreter was added.
                     const interpreterPath = event.new.path;
                     await checkAndInstallPython(interpreterPath, serviceContainer);
-                    if (!fs.existsSync(interpreterPath)) {
-                        showErrorMessage(`${CreateEnv.pathDoesntExist} ${interpreterPath}`);
-                    }
                     await this.registerLanguageRuntimeFromPath(interpreterPath);
                 }
             }),
