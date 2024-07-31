@@ -265,7 +265,9 @@ export class DataExplorerCache extends Disposable {
 			columnIndices.map(column_index => {
 				return {
 					column_index,
-					profile_type: ColumnProfileType.SummaryStats
+					profiles: [
+						{ profile_type: ColumnProfileType.SummaryStats }
+					]
 				};
 			})
 		);
@@ -446,7 +448,9 @@ export class DataExplorerCache extends Disposable {
 				columnNullCountIndices.map(column_index => {
 					return {
 						column_index,
-						profile_type: ColumnProfileType.NullCount
+						profiles: [
+							{ profile_type: ColumnProfileType.NullCount }
+						]
 					};
 				})
 			);
