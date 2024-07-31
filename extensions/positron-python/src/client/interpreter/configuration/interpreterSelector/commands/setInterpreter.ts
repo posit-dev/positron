@@ -3,9 +3,6 @@
 
 'use strict';
 
-// --- Start Positron ---
-import * as fs from 'fs-extra';
-// --- End Positron --
 import { inject, injectable } from 'inversify';
 import { cloneDeep } from 'lodash';
 import * as path from 'path';
@@ -23,10 +20,8 @@ import { Commands, Octicons, ThemeIcons } from '../../../../common/constants';
 import { isParentPath } from '../../../../common/platform/fs-paths';
 import { IPlatformService } from '../../../../common/platform/types';
 import { IConfigurationService, IPathUtils, Resource } from '../../../../common/types';
-// --- Start Positron ---
-// add CreateEnv
-import { Common, InterpreterQuickPickList, CreateEnv } from '../../../../common/utils/localize';
-// --- End Positron ---
+// eslint-disable-next-line import/no-duplicates
+import { Common, InterpreterQuickPickList } from '../../../../common/utils/localize';
 import { noop } from '../../../../common/utils/misc';
 import {
     IMultiStepInput,
@@ -53,10 +48,14 @@ import {
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
+// eslint-disable-next-line import/order
+import * as fs from 'fs-extra';
+// eslint-disable-next-line import/no-duplicates
+import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
+import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
-import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 // --- End Positron ---
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
