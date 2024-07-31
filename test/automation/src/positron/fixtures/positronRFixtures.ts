@@ -25,9 +25,16 @@ export class PositronRFixtures {
 		if (desiredR === undefined) {
 			fail('Please be sure to set env var POSITRON_R_VER_SEL to the UI text corresponding to the R version for the test');
 		}
-		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR);
 
-		await this.app.workbench.positronConsole.waitForReady('>', 2000);
+
+		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
+		try {
+			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR);
+			await this.app.workbench.positronConsole.waitForReady('>', 2000);
+		} catch (e) {
+			this.app.code.driver.takeScreenshot('startRInterpreter');
+			throw e;
+		}
 
 		await this.app.workbench.positronConsole.logConsoleContents();
 
