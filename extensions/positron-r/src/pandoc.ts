@@ -13,10 +13,7 @@ import * as path from 'path';
  * @returns The path to the pandoc executable, if it exists.
  */
 export function getPandocPath(): string | undefined {
-	const pandocPath = path.join(vscode.env.appRoot,
-		process.platform === 'darwin' ?
-			path.join('quarto', 'bin', 'tools') :
-			path.join('..', '..', 'quarto', 'bin', 'tools'));
+	const pandocPath = path.join(vscode.env.appRoot, 'quarto', 'bin', 'tools');
 	const arch = process.arch === 'arm64' ? 'aarch64' : 'x86_64';
 
 	// Check for architecure-specific pandoc
@@ -26,5 +23,8 @@ export function getPandocPath(): string | undefined {
 
 	if (existsSync(pandocPath)) {
 		return pandocPath;
+	} else {
+		// If pandoc is not found, log a warning; Positron should always ship with pandoc.
+		console.warn(`No pandoc executable found in Positron; expected one in ${pandocPath}`);
 	}
 }
