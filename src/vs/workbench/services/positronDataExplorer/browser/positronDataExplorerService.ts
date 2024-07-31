@@ -340,6 +340,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				this._keybindingService,
 				this._layoutService,
 				this._notificationService,
+				this._editorService,
 				languageName,
 				dataExplorerClientInstance
 			)
