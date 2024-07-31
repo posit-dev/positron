@@ -67,11 +67,8 @@ runExample("01_hello")`;
 
 				expect(headerText).toBe('Hello Shiny!');
 
-				await app.workbench.positronTerminal.clickTerminalTab();
-
-				await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
-
-				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
+				await app.workbench.positronConsole.activeConsole.click();
+				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
 
 				await app.code.waitAndClick('.codicon-positron-refresh');
 
