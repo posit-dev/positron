@@ -23,7 +23,7 @@ from .ui_comm import (
     UiFrontendEvent,
     WorkingDirectoryParams,
 )
-from .utils import JsonData, JsonRecord, alias_home
+from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
 
 logger = logging.getLogger(__name__)
 
@@ -178,6 +178,18 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
     def open(self, url, new=0, autoraise=True):
         if not self._comm:
             return False
+
+        # If url is pointing to an HTML file, route to the ShowHtmlFile comm
+        if is_local_html_file(url):
+            self._comm.send_event(
+                name=UiFrontendEvent.ShowHtmlFile,
+                payload={
+                    "path": url,
+                    # TODO: Figure out if the file being displayed is a plot or not.
+                    "is_plot": False,
+                },
+            )
+            return True
 
         for addr in _localhosts:
             if addr in url:

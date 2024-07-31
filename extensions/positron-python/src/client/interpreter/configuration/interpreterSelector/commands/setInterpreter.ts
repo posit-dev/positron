@@ -20,6 +20,7 @@ import { Commands, Octicons, ThemeIcons } from '../../../../common/constants';
 import { isParentPath } from '../../../../common/platform/fs-paths';
 import { IPlatformService } from '../../../../common/platform/types';
 import { IConfigurationService, IPathUtils, Resource } from '../../../../common/types';
+// eslint-disable-next-line import/no-duplicates
 import { Common, InterpreterQuickPickList } from '../../../../common/utils/localize';
 import { noop } from '../../../../common/utils/misc';
 import {
@@ -47,7 +48,12 @@ import {
 } from '../../types';
 import { BaseInterpreterSelectorCommand } from './base';
 // --- Start Positron ---
+// eslint-disable-next-line import/order
+import * as fs from 'fs-extra';
+// eslint-disable-next-line import/no-duplicates
+import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
+import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
 import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
 // --- End Positron ---
@@ -547,6 +553,9 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_CHOICE, undefined, { choice: 'enter' });
             // --- Start Positron ---
             state.path = untildify(selection);
+            if (!fs.existsSync(state.path)) {
+                showErrorMessage(`${CreateEnv.pathDoesntExist} ${state.path}`);
+            }
             // --- End Positron ---
             this.sendInterpreterEntryTelemetry(selection, state.workspace);
         } else if (selection && selection.label === InterpreterQuickPickList.browsePath.label) {
