@@ -313,43 +313,34 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 }
 
 async function findCurrentRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
-	// rig puts {R Headquarters}/bin on the PATH, so that is probably how we got here.
-	// (The CRAN installer does NOT put R on the PATH.)
-	// In the rig scenario, `whichR` is anticipated to be a batch file that launches the
-	// current version of R ('default' in rig-speak):
-	// Example filepath: C:\Program Files\R\bin\R.bat
-	// Typical contents of this file:
-	// ::4.3.2
-	// @"C:\Program Files\R\R-4.3.2\bin\R" %*
-	// How it looks when r-devel is current:
-	// ::devel
-	// @"C:\Program Files\R\R-devel\bin\R" %*
-	// Note that this is not our preferred x64 binary, so we try to convert it.
-	if (path.extname(whichR).toLowerCase() === '.bat') {
-		const batLines = readLines(whichR);
-		const re = new RegExp(`^@"(.+R-(devel|[0-9]+[.][0-9]+[.][0-9]+).+)" %[*]$`);
-		const match = batLines.find((x: string) => re.test(x))?.match(re);
-		if (match) {
-			const whichRMatched = match[1];
-			const whichRHome = getRHomePath(whichRMatched);
-			if (!whichRHome) {
-				LOGGER.info(`Failed to get R home path from ${whichRMatched}`);
-				return undefined;
-			}
-			// we prefer the x64 binary
-			const whichRResolved = firstExisting(whichRHome, binFragments());
-			if (whichRResolved) {
-				LOGGER.info(`Resolved R binary at ${whichRResolved}`);
-				return whichRResolved;
-			} else {
-				LOGGER.info(`Can\'t find R binary within ${whichRHome}`);
-				return undefined;
-			}
-		}
+	// The CRAN Windows installer does NOT put R on the PATH.
+	// If we are here, it is because the user has arranged it so.
+	const ext = path.extname(whichR).toLowerCase();
+	if (ext !== '.exe') {
+		return undefined;
 	}
-	return undefined;
-	// TODO: handle the case where whichR isn't picking up the rig case; do people do this,
-	// meaning put R on the PATH themselves, on Windows?
+
+	// Overall idea: a discovered binpath --> homepath --> our preferred binpath
+	// This might just be a no-op.
+	// But if the input binpath is this:
+	// "C:\Program Files\R\R-4.3.2\bin\R.exe"
+	// we want to convert it to this, if it exists:
+	// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe"
+	// It typically does exist for x86_64 R installations.
+	// It will not exist for arm64 R installations.
+	const whichRHome = getRHomePath(whichR);
+	if (!whichRHome) {
+		LOGGER.info(`Failed to get R home path from ${whichR}.`);
+		return undefined;
+	}
+	const binpathNormalized = firstExisting(whichRHome, binFragments());
+	if (binpathNormalized) {
+		LOGGER.info(`Resolved R binary at ${binpathNormalized}.`);
+		return binpathNormalized;
+	} else {
+		LOGGER.info(`Can't find R binary within ${whichRHome}.`);
+		return undefined;
+	}
 }
 
 async function findCurrentRBinaryFromPATHNotWindows(whichR: string): Promise<string | undefined> {
