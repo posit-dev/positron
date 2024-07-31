@@ -5,7 +5,7 @@
 
 import { RendererContext } from 'vscode-notebook-renderer';
 import { Disposable } from 'vscode-notebook-renderer/events';
-import { FromWebviewMessage, ToWebviewMessage } from '../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { FromWebviewMessage, ToWebviewMessage } from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 
 /**
  * Typed messaging interface between the preload script and the main thread Positron IPyWidgets service.

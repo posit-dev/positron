@@ -6,7 +6,7 @@
 import * as base from '@jupyter-widgets/base';
 import { JSONObject, JSONValue, UUID } from '@lumino/coreutils';
 import { Disposable } from 'vscode-notebook-renderer/events';
-import type * as WebviewMessage from '../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import type * as WebviewMessage from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { KernelMessage } from '@jupyterlab/services';
 import { Messaging } from './messaging';
 

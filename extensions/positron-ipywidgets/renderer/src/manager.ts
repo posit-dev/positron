@@ -7,7 +7,7 @@ import * as base from '@jupyter-widgets/base';
 import { ManagerBase } from '@jupyter-widgets/base-manager';
 import { JSONObject } from '@lumino/coreutils';
 import * as LuminoWidget from '@lumino/widgets';
-import type * as WebviewMessage from '../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import type * as WebviewMessage from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
