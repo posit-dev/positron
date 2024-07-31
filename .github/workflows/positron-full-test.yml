@@ -73,6 +73,9 @@ jobs:
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
+      - name: Install Shiny Extension
+        run: positron --install-extension posit.shiny
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh

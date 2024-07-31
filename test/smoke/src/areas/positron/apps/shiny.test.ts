@@ -5,21 +5,14 @@
 
 
 import { join } from 'path';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation/out';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
-import * as path from 'path';
 
 export function setup(logger: Logger) {
 	describe('Shiny Application', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
-
-		before(async function () {
-			await this.app.workbench.extensions.installExtension('posit.shiny', true);
-
-			await this.app.workbench.extensions.closeExtension('Shiny');
-		});
 
 		describe('Shiny Application - Python', () => {
 			before(async function () {
@@ -28,13 +21,6 @@ export function setup(logger: Logger) {
 
 			it('Python - Verify Basic Shiny App [...]', async function () {
 				const app = this.app as Application;
-
-				await app.workbench.positronConsole.typeToConsole(`pip install -r ${path.join('workspaces', 'shiny-py-example', 'requirements.txt')}`);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForReady('>>>', 2000);
-				await app.workbench.positronConsole.barRestartButton.click();
-				await app.workbench.positronConsole.waitForReady('>>>');
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 
@@ -61,13 +47,6 @@ export function setup(logger: Logger) {
 
 			it('R - Verify Basic Shiny App [...]', async function () {
 				const app = this.app as Application;
-
-				await app.workbench.positronConsole.typeToConsole('install.packages("shiny")');
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.waitForReady('>', 2000);
-				await app.workbench.positronConsole.barRestartButton.click();
-				await app.workbench.positronConsole.waitForReady('>');
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
 				const code = `library(shiny)
 runExample("01_hello")`;
