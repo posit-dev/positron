@@ -14,6 +14,12 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
+		before(async function () {
+			await this.app.workbench.extensions.installExtension('posit.shiny', true);
+
+			await this.app.workbench.extensions.closeExtension('Shiny');
+		});
+
 		describe('Shiny Application - Python', () => {
 			before(async function () {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
