@@ -79,6 +79,11 @@ export interface BackendState {
 	table_unfiltered_shape: TableShape;
 
 	/**
+	 * The set of currently applied column filters
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
 	 * The set of currently applied row filters
 	 */
 	row_filters: Array<RowFilter>;
@@ -1096,6 +1101,7 @@ export enum DataExplorerBackendRequest {
 	SearchSchema = 'search_schema',
 	GetDataValues = 'get_data_values',
 	ExportDataSelection = 'export_data_selection',
+	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
@@ -1177,6 +1183,18 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
+	 * Set column filters to select subset of table columns
+	 *
+	 * Set or clear column filters on table, replacing any previous filters
+	 *
+	 * @param filters Zero or more filters to apply
+	 *
+	 */
+	setColumnFilters(filters: Array<ColumnFilter>): Promise<void> {
+		return super.performRpc('set_column_filters', ['filters'], [filters]);
+	}
+
+	/**
 	 * Set row filters based on column values
 	 *
 	 * Set or clear row filters on table, replacing any previous filters
@@ -1221,7 +1239,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Get the state
 	 *
-	 * Request the current backend state (shape, filters, sort keys,
+	 * Request the current backend state (table metadata, explorer state, and
 	 * features)
 	 *
 	 *

@@ -251,6 +251,10 @@ class BackendState(BaseModel):
         description="Number of rows and columns in table without any filters applied",
     )
 
+    column_filters: List[ColumnFilter] = Field(
+        description="The set of currently applied column filters",
+    )
+
     row_filters: List[RowFilter] = Field(
         description="The set of currently applied row filters",
     )
@@ -1067,6 +1071,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
+    # Set column filters to select subset of table columns
+    SetColumnFilters = "set_column_filters"
+
     # Set row filters based on column values
     SetRowFilters = "set_row_filters"
 
@@ -1222,6 +1229,35 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class SetColumnFiltersParams(BaseModel):
+    """
+    Set or clear column filters on table, replacing any previous filters
+    """
+
+    filters: List[ColumnFilter] = Field(
+        description="Zero or more filters to apply",
+    )
+
+
+class SetColumnFiltersRequest(BaseModel):
+    """
+    Set or clear column filters on table, replacing any previous filters
+    """
+
+    params: SetColumnFiltersParams = Field(
+        description="Parameters to the SetColumnFilters method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.SetColumnFilters] = Field(
+        description="The JSON-RPC method name (set_column_filters)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetRowFiltersParams(BaseModel):
     """
     Set or clear row filters on table, replacing any previous filters
@@ -1317,7 +1353,7 @@ class GetColumnProfilesRequest(BaseModel):
 
 class GetStateRequest(BaseModel):
     """
-    Request the current backend state (shape, filters, sort keys,
+    Request the current backend state (table metadata, explorer state, and
     features)
     """
 
@@ -1338,6 +1374,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         SearchSchemaRequest,
         GetDataValuesRequest,
         ExportDataSelectionRequest,
+        SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
@@ -1463,6 +1500,10 @@ GetDataValuesRequest.update_forward_refs()
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+SetColumnFiltersParams.update_forward_refs()
+
+SetColumnFiltersRequest.update_forward_refs()
 
 SetRowFiltersParams.update_forward_refs()
 

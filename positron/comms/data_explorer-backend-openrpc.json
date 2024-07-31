@@ -175,6 +175,25 @@
 			}
 		},
 		{
+			"name": "set_column_filters",
+			"summary": "Set column filters to select subset of table columns",
+			"description": "Set or clear column filters on table, replacing any previous filters",
+			"params": [
+				{
+					"name": "filters",
+					"description": "Zero or more filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "set_row_filters",
 			"summary": "Set row filters based on column values",
 			"description": "Set or clear row filters on table, replacing any previous filters",
@@ -269,7 +288,7 @@
 		{
 			"name": "get_state",
 			"summary": "Get the state",
-			"description": "Request the current backend state (shape, filters, sort keys, features)",
+			"description": "Request the current backend state (table metadata, explorer state, and features)",
 			"params": [],
 			"result": {
 				"schema": {
@@ -280,6 +299,7 @@
 						"display_name",
 						"table_shape",
 						"table_unfiltered_shape",
+						"column_filters",
 						"row_filters",
 						"sort_keys",
 						"supported_features"
@@ -296,6 +316,13 @@
 						"table_unfiltered_shape": {
 							"description": "Number of rows and columns in table without any filters applied",
 							"$ref": "#/components/schemas/table_shape"
+						},
+						"column_filters": {
+							"type": "array",
+							"description": "The set of currently applied column filters",
+							"items": {
+								"$ref": "#/components/schemas/column_filter"
+							}
 						},
 						"row_filters": {
 							"type": "array",
