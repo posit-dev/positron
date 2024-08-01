@@ -93,8 +93,11 @@ export function setup(logger: Logger) {
 							await pw.pythonConfigurationStep.selectInterpreterByPath(
 								interpreterInfo!.path
 							)
-					).toPass({ timeout: 50000 });
-					await pw.pythonConfigurationStep.interpreterFeedback.isNotVisible();
+					).toPass({
+						intervals: [1_000, 2_000, 10_000],
+						timeout: 50_000
+					});
+					await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 					await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
@@ -110,10 +113,12 @@ export function setup(logger: Logger) {
 					const pw = app.workbench.positronNewProjectWizard;
 					const pythonFixtures = new PositronPythonFixtures(app);
 					// Start the Python interpreter and uninstall ipykernel
-					const firstInfo = await pythonFixtures.startAndGetPythonInterpreter(true);
+					await pythonFixtures.startAndGetPythonInterpreter(true);
 					// Ensure the console is ready with the selected interpreter
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
-					expect(firstInfo?.path).toBeDefined();
+					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
+					expect(interpreterInfo?.path).toBeDefined();
+					console.log(interpreterInfo?.path);
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
@@ -127,8 +132,18 @@ export function setup(logger: Logger) {
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					// Choose the existing environment which does not have ipykernel
 					await pw.pythonConfigurationStep.existingEnvRadioButton.click();
-
-					await pw.pythonConfigurationStep.interpreterFeedback.waitForText(
+					// Select the interpreter that was started above. It's possible that this needs
+					// to be attempted a few times to ensure the interpreters are properly loaded.
+					await expect(
+						async () =>
+							await pw.pythonConfigurationStep.selectInterpreterByPath(
+								interpreterInfo!.path
+							)
+					).toPass({
+						intervals: [1_000, 2_000, 10_000],
+						timeout: 50_000
+					});
+					await expect(pw.pythonConfigurationStep.interpreterFeedback).toHaveText(
 						'ipykernel will be installed for Python language support.'
 					);
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);

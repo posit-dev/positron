@@ -8,6 +8,10 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement, PositronTextElement } from './positronBaseElement';
 
+// Selector for the pre-selected dropdown item in the project wizard
+const PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM =
+	'button.drop-down-list-box div.title';
+
 // Selector for the currently open dropdown popup items in the project wizard
 const PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS =
 	'div.positron-modal-popup-children button.positron-button.item';
@@ -143,7 +147,7 @@ class ProjectWizardPythonConfigurationStep {
 	existingEnvRadioButton: PositronBaseElement;
 	envProviderDropdown: Locator;
 	selectedInterpreterPath: PositronTextElement;
-	interpreterFeedback: PositronTextElement;
+	interpreterFeedback: Locator;
 	interpreterDropdown: Locator;
 
 	constructor(private code: Code) {
@@ -162,9 +166,8 @@ class ProjectWizardPythonConfigurationStep {
 			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box .dropdown-entry-subtitle',
 			this.code
 		);
-		this.interpreterFeedback = new PositronTextElement(
-			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text',
-			this.code
+		this.interpreterFeedback = this.code.driver.getLocator(
+			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-feedback .wizard-formatted-text'
 		);
 		this.interpreterDropdown = this.code.driver.getLocator(
 			'div[id="wizard-sub-step-python-interpreter"] .wizard-sub-step-input button.drop-down-list-box'
@@ -194,6 +197,25 @@ class ProjectWizardPythonConfigurationStep {
 	async selectEnvProvider(provider: string) {
 		await this.waitForDataLoading();
 
+		try {
+			const preselected =
+				(await this.code.driver
+					.getLocator(
+						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-title`
+					)
+					.getByText(provider)
+					.count()) === 1;
+			if (preselected) {
+				return;
+			}
+		} catch (error) {
+			// The env provider isn't pre-selected in the dropdown, so let's try to find it by clicking
+			// the dropdown and then clicking the env provider
+			this.code.logger.log(
+				`Environment provider '${provider}' is not pre-selected in the Project Wizard environment provider dropdown.`
+			);
+		}
+
 		// Open the dropdown
 		await this.envProviderDropdown.click();
 
@@ -202,12 +224,13 @@ class ProjectWizardPythonConfigurationStep {
 			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
 			await this.code.driver
 				.getLocator(
-					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title:text-is("${provider}")`
+					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-title`
 				)
+				.getByText(provider)
 				.click();
-			return Promise.resolve();
+			return;
 		} catch (error) {
-			return Promise.reject(
+			throw new Error(
 				`Could not find env provider in project wizard dropdown: ${error}`
 			);
 		}
@@ -222,7 +245,26 @@ class ProjectWizardPythonConfigurationStep {
 	async selectInterpreterByPath(interpreterPath: string) {
 		await this.waitForDataLoading();
 
-		// Open the dropdown
+		try {
+			const preselected =
+				(await this.code.driver
+					.getLocator(
+						`${PROJECT_WIZARD_PRESELECTED_DROPDOWN_ITEM} div.dropdown-entry-subtitle`
+					)
+					.getByText(interpreterPath)
+					.count()) === 1;
+			if (preselected) {
+				return;
+			}
+		} catch (error) {
+			// The interpreter isn't pre-selected in the dropdown, so let's try to find it by clicking
+			// the dropdown and then clicking the interpreter
+			this.code.logger.log(
+				`Interpreter '${interpreterPath}' is not pre-selected in the Project Wizard interpreter dropdown.`
+			);
+		}
+
+		// Open the dropdowns
 		await this.interpreterDropdown.click();
 
 		// Try to find the interpreterPath in the dropdown and click the entry if found
@@ -234,10 +276,9 @@ class ProjectWizardPythonConfigurationStep {
 				)
 				.getByText(interpreterPath)
 				.click();
-			return Promise.resolve();
+			return;
 		} catch (error) {
-			// Couldn't find the path of the interpreter in the dropdown
-			return Promise.reject(
+			throw new Error(
 				`Could not find interpreter path in project wizard dropdown: ${error}`
 			);
 		}
