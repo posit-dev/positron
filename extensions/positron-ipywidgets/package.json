@@ -25,7 +25,7 @@
         "mimeTypes": [
           "application/vnd.jupyter.widget-view+json"
         ],
-        "entrypoint": "./renderer/dist/index.js",
+        "entrypoint": "./renderer/media/index.js",
         "requiresMessaging": "always"
       }
     ]
