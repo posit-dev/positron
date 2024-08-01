@@ -117,6 +117,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** Map of the time that a plot was last selected, keyed by the plot client's ID. */
 	private _lastSelectedTimeByPlotId = new Map<string, number>();
 
+	private _editorPlots: Map<string, IPositronPlotClient> = new Map();
+
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
 	 * code executed. We keep around the last 10 executions so that when a plot
@@ -144,7 +146,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IDialogService private readonly _dialogService: IDialogService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
-		@INotificationService private readonly _notificationService: INotificationService
+		@INotificationService private readonly _notificationService: INotificationService,
 		@IEditorService private readonly _editorService: IEditorService
 	) {
 		super();
@@ -1006,30 +1008,41 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	public async openEditor(): Promise<void> {
 		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
-		let plotUri: string | undefined;
+
+		if (plotClient instanceof WebviewPlotClient) {
+			throw new Error('Cannot open plot in editor: webview plot not supported');
+		}
+
+		let plotId: string | undefined;
 		if (plotClient instanceof StaticPlotClient) {
 			const staticPlot = plotClient as StaticPlotClient;
-			plotUri = staticPlot.uri;
+			plotId = staticPlot.id;
+			this._editorPlots.set(staticPlot.id, staticPlot);
 		}
 		if (plotClient instanceof PlotClientInstance) {
 			const dynamicPlot = plotClient as PlotClientInstance;
-			plotUri = dynamicPlot.lastRender?.uri;
+			plotId = dynamicPlot.id;
+			this._editorPlots.set(dynamicPlot.id, dynamicPlot.clone());
 		}
 
-		if (!plotUri) {
+		if (!plotId) {
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
 
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPlotsEditor,
-				path: plotUri,
+				path: plotId,
 			}),
 		});
 
 		if (!editorPane) {
 			throw new Error('Failed to open editor');
 		}
+	}
+
+	public getEditorInstance(id: string) {
+		return this._editorPlots.get(id);
 	}
 
 	/**
