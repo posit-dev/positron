@@ -14,7 +14,6 @@ What is Positron?
 https://github.com/posit-dev/positron/assets/29187501/d1c4c9f0-7bd5-4132-bc24-c3d981ad0056
 
 
-
 ## Get started using Positron
 
 Check out [our wiki](https://github.com/posit-dev/positron/wiki) for information on what you should do before installing Positron, troubleshooting Positron, and more. Our [FAQ](https://github.com/posit-dev/positron/wiki/Frequently-Asked-Questions) also covers some common or expected questions. 
