@@ -22,11 +22,11 @@ additional information to help us prioritize the issue.
 
 ## System details:
 
-Positron and OS details:
+#### Positron and OS details:
 
 <!-- Copy from the `Positron > About` menu -->
 
-Interpreter details:
+#### Interpreter details:
 
 <!-- e.g. R 4.4.1 or Python 3.11.6 -->
 
