@@ -61,6 +61,12 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
+	override dispose(): void {
+		super.dispose();
+		// Clean up disposables linked to any connected sessions
+		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
+	}
+
 	hasInstance(id: string): boolean {
 		return this._notebookInstancesBySessionId.has(id) ||
 			this._consoleInstancesByMessageId.has(id);
@@ -71,17 +77,17 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
-	static SessionToDisposablesMap = new Map<ILanguageRuntimeSession, DisposableStore>();
+	private _sessionToDisposablesMap = new Map<ILanguageRuntimeSession, DisposableStore>();
 
 	private attachSession(session: ILanguageRuntimeSession) {
 		// Check if we're already attached here
-		const existingSessionDisposables = PositronIPyWidgetsService.SessionToDisposablesMap.get(session);
+		const existingSessionDisposables = this._sessionToDisposablesMap.get(session);
 		if (existingSessionDisposables && !existingSessionDisposables.isDisposed) {
 			this._logService.warn(`Already attached to session, disposing existing listeners before reattaching: ${session.metadata.sessionId}`);
 			existingSessionDisposables.dispose();
 		}
 		const disposables = new DisposableStore();
-		PositronIPyWidgetsService.SessionToDisposablesMap.set(session, disposables);
+		this._sessionToDisposablesMap.set(session, disposables);
 
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
@@ -93,7 +99,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			default:
 				this._logService.error(`Unexpected session mode: ${session.metadata.sessionMode}`);
 				disposables.dispose();
-				PositronIPyWidgetsService.SessionToDisposablesMap.delete(session);
+				this._sessionToDisposablesMap.delete(session);
 		}
 	}
 
