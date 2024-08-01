@@ -124,6 +124,22 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		assert(!positronIpywidgetsService.hasInstance(plotClient.id));
 	});
 
+	test('console session: respond to result message type', async () => {
+		const { session } = await createConsoleSession();
+
+		// Simulate the runtime sending a result message.
+		const message = session.receiveResultMessage({
+			kind: RuntimeOutputKind.IPyWidget,
+			data: {
+				'application/vnd.jupyter.widget-view+json': {},
+			},
+		});
+
+		await timeout(0);
+
+		assert(positronIpywidgetsService.hasInstance(message.id));
+	});
+
 	async function createNotebookSession() {
 		const notebookUri = URI.file('notebook.ipynb');
 
