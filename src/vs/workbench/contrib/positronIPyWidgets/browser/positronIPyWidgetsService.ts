@@ -88,6 +88,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}
 		const disposables = new DisposableStore();
 		this._sessionToDisposablesMap.set(session, disposables);
+		// Cleanup from map when disposed.
+		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session)));
 
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
@@ -99,7 +101,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			default:
 				this._logService.error(`Unexpected session mode: ${session.metadata.sessionMode}`);
 				disposables.dispose();
-				this._sessionToDisposablesMap.delete(session);
 		}
 	}
 
