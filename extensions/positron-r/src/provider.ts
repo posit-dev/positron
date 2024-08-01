@@ -302,7 +302,7 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 
 	const whichR = await which('R', { nothrow: true }) as string;
 	if (whichR) {
-		LOGGER.info(`Found R on PATH: ${whichR}.`);
+		LOGGER.info(`Possibly found R on PATH: ${whichR}.`);
 		if (os.platform() === 'win32') {
 			return await findCurrentRBinaryFromPATHWindows(whichR);
 		} else {
