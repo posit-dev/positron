@@ -317,6 +317,7 @@ async function findCurrentRBinaryFromPATHWindows(whichR: string): Promise<string
 	// If we are here, it is because the user has arranged it so.
 	const ext = path.extname(whichR).toLowerCase();
 	if (ext !== '.exe') {
+		LOGGER.info(`Unsupported extension: ${ext}.`);
 		return undefined;
 	}
 
