@@ -206,7 +206,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param metadata The plot's metadata
 	 */
 	constructor(
-		client: IRuntimeClientInstance<any, any>,
+		private readonly client: IRuntimeClientInstance<any, any>,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
@@ -519,5 +519,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		this.scheduleRender(req, 0);
 		return req.promise;
+	}
+
+	public clone(): IPositronPlotClient {
+		return new PlotClientInstance(this.client, this.metadata);
 	}
 }

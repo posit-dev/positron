@@ -145,7 +145,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	});
+	}, [props, plotsContext]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {

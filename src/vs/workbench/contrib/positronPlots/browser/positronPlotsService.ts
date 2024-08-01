@@ -42,6 +42,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { URI } from 'vs/base/common/uri';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -97,6 +98,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
+
+	private _editorPlots: Map<string, IPositronPlotClient> = new Map();
 
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
@@ -906,30 +909,41 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	public async openEditor(): Promise<void> {
 		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
-		let plotUri: string | undefined;
+
+		if (plotClient instanceof WebviewPlotClient) {
+			throw new Error('Cannot open plot in editor: webview plot not supported');
+		}
+
+		let plotId: string | undefined;
 		if (plotClient instanceof StaticPlotClient) {
 			const staticPlot = plotClient as StaticPlotClient;
-			plotUri = staticPlot.uri;
+			plotId = staticPlot.id;
+			this._editorPlots.set(staticPlot.id, staticPlot);
 		}
 		if (plotClient instanceof PlotClientInstance) {
 			const dynamicPlot = plotClient as PlotClientInstance;
-			plotUri = dynamicPlot.lastRender?.uri;
+			plotId = dynamicPlot.id;
+			this._editorPlots.set(dynamicPlot.id, dynamicPlot.clone());
 		}
 
-		if (!plotUri) {
+		if (!plotId) {
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
 
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPlotsEditor,
-				path: plotUri,
+				path: plotId,
 			}),
 		});
 
 		if (!editorPane) {
 			throw new Error('Failed to open editor');
 		}
+	}
+
+	public getEditorInstance(id: string) {
+		return this._editorPlots.get(id);
 	}
 
 	/**
