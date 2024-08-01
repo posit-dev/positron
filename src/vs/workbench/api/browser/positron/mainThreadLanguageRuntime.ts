@@ -990,8 +990,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			this._pendingRpcs.delete(message.parent_id);
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			// TODO: Handle buffers
-			this._dataEmitter.fire({ data: message.data as Output, buffers: [] });
+			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
 		}
 	}
 
