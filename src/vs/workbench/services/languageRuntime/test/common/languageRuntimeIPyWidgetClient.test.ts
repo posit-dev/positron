@@ -5,6 +5,7 @@
 
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
+import { VSBuffer } from 'vs/base/common/buffer';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ILogService, NullLogger } from 'vs/platform/log/common/log';
 import { RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -76,7 +77,10 @@ suite('Positron - IPyWidgetClientInstance', () => {
 
 	test('from webview: rpc comm_msg', async () => {
 		// Setup a static RPC handler.
-		const reply = { some_key: 'some_value' };
+		const reply = {
+			buffers: [VSBuffer.wrap(new Uint8Array([1, 2, 3]))],
+			data: { some_key: 'some_value' },
+		};
 		client.rpcHandler = async () => reply;
 
 		// Simulate a message from the webview for a known RPC method.
@@ -95,8 +99,9 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
-			data: reply,
+			data: reply.data,
 			parent_id: msgId,
+			buffers: reply.buffers.map(buffer => buffer.buffer),
 		}]);
 	});
 
@@ -118,7 +123,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 
 	test('to webview: ignore message with unknown method', async () => {
 		// Simulate a message from the client with an unknown method.
-		client.receiveData({ method: 'unknown-method' });
+		client.receiveData({ data: { method: 'unknown-method' } });
 		await timeout(0);
 
 		// Check that no messages were sent to the webview.
@@ -126,16 +131,37 @@ suite('Positron - IPyWidgetClientInstance', () => {
 	});
 
 	test('to webview: update', async () => {
-		// Simulate a message from the client with a known method.
-		const data = { method: 'update', some_key: 'some_value' };
-		client.receiveData(data);
+		// Simulate an 'update' message from the client.
+		const event = { data: { method: 'update', some_key: 'some_value' } };
+		client.receiveData(event);
 		await timeout(0);
 
 		// Check that the message was forwarded to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
 			type: 'comm_msg',
 			comm_id: client.getClientId(),
-			data,
+			data: event.data,
+			buffers: undefined,
+			parent_id: undefined,
+		}]);
+	});
+
+	test('to webview: custom with buffers', async () => {
+		// Simulate a 'custom' message from the client with buffers.
+		const event = {
+			data: { method: 'update', some_key: 'some_value' },
+			buffers: [VSBuffer.wrap(new Uint8Array([1, 2, 3]))],
+		};
+		client.receiveData(event);
+		await timeout(0);
+
+		// Check that the message was forwarded to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'comm_msg',
+			comm_id: client.getClientId(),
+			data: event.data,
+			buffers: event.buffers.map(buffer => buffer.buffer),
+			parent_id: undefined,
 		}]);
 	});
 
