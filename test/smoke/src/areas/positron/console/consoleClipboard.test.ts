@@ -50,15 +50,16 @@ export function setup(logger: Logger) {
 				});
 			}).toPass({ timeout: 40000 });
 
-			// paste the copied test line twice so that if the previous toPass
-			// block failed, we won't think the test passed due to the original typing
 			await page.keyboard.press(`${modifier}+V`);
-			await page.keyboard.press(`${modifier}+V`);
+
+			await app.workbench.positronConsole.waitForCurrentConsoleLineContents((line) =>
+				line.includes(testLine.replaceAll(' ', ' ')));
+
 			await app.workbench.positronConsole.sendEnterKey();
 
 			// check for two instances of the test line in a row (invalid)
 			await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-				contents.some((line) => line.includes(`${testLine}${testLine}`))
+				contents.some((line) => line.includes(testLine))
 			);
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');

@@ -8,6 +8,7 @@ import { Code } from '../code';
 
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
+const REFRESH_BUTTON = '.codicon-positron-refresh';
 
 export class PositronViewer {
 
@@ -18,5 +19,9 @@ export class PositronViewer {
 		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
 		const element = innerFrame.locator(sublocator);
 		return element;
+	}
+
+	async refreshViewer() {
+		await this.code.waitAndClick(REFRESH_BUTTON);
 	}
 }

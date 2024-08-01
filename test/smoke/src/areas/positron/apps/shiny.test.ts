@@ -42,7 +42,8 @@ export function setup(logger: Logger) {
 
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
 
-				await app.code.waitAndClick('.codicon-positron-refresh');
+				// refresh the viewer so the shutdown Python app goes away before we kick off the R app
+				await app.workbench.positronViewer.refreshViewer();
 			});
 		});
 
@@ -70,7 +71,9 @@ runExample("01_hello")`;
 				await app.workbench.positronConsole.activeConsole.click();
 				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
 
-				await app.code.waitAndClick('.codicon-positron-refresh');
+				// not strictly needed yet, but in case another case is added later afterwards
+				// make sure that the shut down R app is not present
+				await app.workbench.positronViewer.refreshViewer();
 
 			});
 		});
