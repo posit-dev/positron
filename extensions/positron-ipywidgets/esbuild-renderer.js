@@ -7,7 +7,7 @@
 const path = require('path');
 
 const srcDir = path.join(__dirname, 'renderer/src');
-const outDir = path.join(__dirname, 'renderer/dist');
+const outDir = path.join(__dirname, 'renderer/media');
 
 require('../esbuild-webview-common').run({
 	entryPoints: [
