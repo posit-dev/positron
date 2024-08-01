@@ -37,6 +37,10 @@ import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { getActiveDocument } from 'vs/base/browser/dom';
 
+// PWB Start
+import { IBrowserWorkbenchEnvironmentService } from 'vs/workbench/services/environment/browser/environmentService';
+// PWB End
+
 export namespace OpenLocalFileCommand {
 	export const ID = 'workbench.action.files.openLocalFile';
 	export const LABEL = nls.localize('openLocalFile', "Open Local File...");
@@ -143,7 +147,7 @@ export class SimpleFileDialog implements ISimpleFileDialog {
 		@IFileDialogService private readonly fileDialogService: IFileDialogService,
 		@IModelService private readonly modelService: IModelService,
 		@ILanguageService private readonly languageService: ILanguageService,
-		@IWorkbenchEnvironmentService protected readonly environmentService: IWorkbenchEnvironmentService,
+		@IBrowserWorkbenchEnvironmentService protected readonly environmentService: IBrowserWorkbenchEnvironmentService,
 		@IRemoteAgentService private readonly remoteAgentService: IRemoteAgentService,
 		@IPathService protected readonly pathService: IPathService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
@@ -286,23 +290,27 @@ export class SimpleFileDialog implements ISimpleFileDialog {
 			this.filePickBox.sortByLabel = false;
 			this.filePickBox.ignoreFocusOut = true;
 			this.filePickBox.ok = true;
-			if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
-				this.filePickBox.customButton = true;
-				this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
-				let action;
-				if (isSave) {
-					action = SaveLocalFileCommand;
-				} else {
-					action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
-				}
-				const keybinding = this.keybindingService.lookupKeybinding(action.ID);
-				if (keybinding) {
-					const label = keybinding.getLabel();
-					if (label) {
-						this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
+			// PWB Start
+			if ((isSave && this.environmentService.isEnabledFileDownloads) || (!isSave && this.environmentService.isEnabledFileUploads)) {
+				if ((this.scheme !== Schemas.file) && this.options && this.options.availableFileSystems && (this.options.availableFileSystems.length > 1) && (this.options.availableFileSystems.indexOf(Schemas.file) > -1)) {
+					this.filePickBox.customButton = true;
+					this.filePickBox.customLabel = nls.localize('remoteFileDialog.local', 'Show Local');
+					let action;
+					if (isSave) {
+						action = SaveLocalFileCommand;
+					} else {
+						action = this.allowFileSelection ? (this.allowFolderSelection ? OpenLocalFileFolderCommand : OpenLocalFileCommand) : OpenLocalFolderCommand;
+					}
+					const keybinding = this.keybindingService.lookupKeybinding(action.ID);
+					if (keybinding) {
+						const label = keybinding.getLabel();
+						if (label) {
+							this.filePickBox.customHover = format('{0} ({1})', action.LABEL, label);
+						}
 					}
 				}
 			}
+			// PWB End
 
 			let isResolving: number = 0;
 			let isAcceptHandled = false;

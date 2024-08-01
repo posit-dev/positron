@@ -300,6 +300,12 @@ export interface IWorkbenchConstructionOptions {
 
 	//#endregion
 
+	// PWB Start
+	readonly userDataPath?: string;
+	readonly isEnabledFileDownloads?: boolean;
+	readonly isEnabledFileUploads?: boolean;
+	// PWB End
+
 	//#region Profile options
 
 	/**

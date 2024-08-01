@@ -30,6 +30,11 @@ import { isString } from 'vs/base/common/types';
 import { CharCode } from 'vs/base/common/charCode';
 import { IExtensionManifest } from 'vs/platform/extensions/common/extensions';
 
+// PWB Start
+const proxyServer = <typeof import('http-proxy')>require.__$__nodeRequire('http-proxy');
+import { kProxyRegex } from 'vs/server/node/pwbConstants';
+// PWB End
+
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
 	'.js': 'text/javascript',
@@ -101,6 +106,10 @@ export class WebClientServer {
 	private readonly _callbackRoute: string;
 	private readonly _webExtensionRoute: string;
 
+	// PWB Start
+	private readonly _proxyServer;
+	// PWB End
+
 	constructor(
 		private readonly _connectionToken: ServerConnectionToken,
 		private readonly _basePath: string,
@@ -114,7 +123,23 @@ export class WebClientServer {
 
 		this._staticRoute = `${serverRootPath}/static`;
 		this._callbackRoute = `${serverRootPath}/callback`;
-		this._webExtensionRoute = `${serverRootPath}/web-extension-resource`;
+		this._webExtensionRoute = `/web-extension-resource`;
+
+		// PWB Start
+		this._proxyServer = proxyServer.createProxyServer({});
+		this._proxyServer.on('proxyRes', (res: http.IncomingMessage, req: http.IncomingMessage) => {
+			const base = req.url?.split('/').slice(0, 3).join('/');
+			if (res.headers.location && res.headers.location.startsWith('/') && base) {
+				res.headers.location = base + res.headers.location;
+			}
+		});
+
+		this._proxyServer.on('error', (err: Error, req: http.IncomingMessage, res: http.ServerResponse) => {
+			const message = `Could not proxy ${req.method} request to ${req.url}: ${err.message}`;
+			console.error(message);
+			res.end(message);
+		});
+		// PWB End
 	}
 
 	/**
@@ -136,6 +161,13 @@ export class WebClientServer {
 				// callback support
 				return this._handleCallback(res);
 			}
+			// PWB Start
+			if (kProxyRegex.test(pathname)) {
+				const path: string = pathname.replace('/proxy/', 'http://0.0.0.0:');
+
+				return this._proxyServer.web(req, res, { ignorePath: true, target: path });
+			}
+			// PWB End
 			if (pathname.startsWith(this._webExtensionRoute) && pathname.charCodeAt(this._webExtensionRoute.length) === CharCode.Slash) {
 				// extension resource support
 				return this._handleWebExtensionResource(req, res, parsedUrl);
@@ -149,6 +181,15 @@ export class WebClientServer {
 			return serveError(req, res, 500, 'Internal Server Error.');
 		}
 	}
+
+	// PWB Start
+	async handleUpgrade(req: http.IncomingMessage, socket: any, upgradeHead: any, parsedUrl: string): Promise<void> {
+		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+		return this._proxyServer.ws(req, socket, upgradeHead, { ignorePath: true, target: path });
+	}
+
+	// PWB End
+
 	/**
 	 * Handle HTTP requests for /static/*
 	 */
@@ -270,20 +311,10 @@ export class WebClientServer {
 			return void res.end();
 		}
 
-		const getFirstHeader = (headerName: string) => {
-			const val = req.headers[headerName];
-			return Array.isArray(val) ? val[0] : val;
-		};
-
+		// PWB Start
 		const useTestResolver = (!this._environmentService.isBuilt && this._environmentService.args['use-test-resolver']);
-		const remoteAuthority = (
-			useTestResolver
-				? 'test+test'
-				: (getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host)
-		);
-		if (!remoteAuthority) {
-			return serveError(req, res, 400, `Bad request.`);
-		}
+		const remoteAuthority = 'remote';
+		// PWB End
 
 		function asJSON(value: unknown): string {
 			return JSON.stringify(value).replace(/"/g, '&quot;');
@@ -317,15 +348,9 @@ export class WebClientServer {
 			// --- Start Positron ---
 			// Adds support for serving at non-root paths.
 			rootEndpoint: base,
+			proxyEndpointTemplate: base + `/p/{{port}}/${process.env.RS_PORT_TOKEN}`,
+			extensionsGallery: this._productService.extensionsGallery,
 			// --- End Positron ---
-			extensionsGallery: this._webExtensionResourceUrlTemplate && this._productService.extensionsGallery ? {
-				...this._productService.extensionsGallery,
-				resourceUrlTemplate: this._webExtensionResourceUrlTemplate.with({
-					scheme: 'http',
-					authority: remoteAuthority,
-					path: `${this._webExtensionRoute}/${this._webExtensionResourceUrlTemplate.authority}${this._webExtensionResourceUrlTemplate.path}`
-				}).toString(true)
-			} : undefined
 		} satisfies Partial<IProductConfiguration>;
 
 		if (!this._environmentService.isBuilt) {
@@ -339,6 +364,11 @@ export class WebClientServer {
 			remoteAuthority,
 			serverBasePath: this._basePath,
 			_wrapWebWorkerExtHostInIframe,
+			// PWB Start
+			userDataPath: this._environmentService.userDataPath,
+			isEnabledFileDownloads: !this._environmentService.args['disable-file-downloads'],
+			isEnabledFileUploads: !this._environmentService.args['disable-file-uploads'],
+			// PWB End
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
 			settingsSyncOptions: !this._environmentService.isBuilt && this._environmentService.args['enable-sync'] ? { enabled: true } : undefined,
 			enableWorkspaceTrust: !this._environmentService.args['disable-workspace-trust'],

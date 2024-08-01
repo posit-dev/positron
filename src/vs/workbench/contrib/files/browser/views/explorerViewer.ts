@@ -66,6 +66,10 @@ import { IFilesConfigurationService } from 'vs/workbench/services/filesConfigura
 import { mainWindow } from 'vs/base/browser/window';
 import { IExplorerFileContribution, explorerFileContribRegistry } from 'vs/workbench/contrib/files/browser/explorerFileContrib';
 
+// Start PWB
+import { IBrowserWorkbenchEnvironmentService } from 'vs/workbench/services/environment/browser/environmentService';
+// End PWB
+
 export class ExplorerDelegate implements IListVirtualDelegate<ExplorerItem> {
 
 	static readonly ITEM_HEIGHT = 22;
@@ -1001,7 +1005,10 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 		@IConfigurationService private configurationService: IConfigurationService,
 		@IInstantiationService private instantiationService: IInstantiationService,
 		@IWorkspaceEditingService private workspaceEditingService: IWorkspaceEditingService,
-		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService
+		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
+		// PWB Start
+		@IBrowserWorkbenchEnvironmentService private readonly environmentService: IBrowserWorkbenchEnvironmentService
+		// PWB End
 	) {
 		const updateDropEnablement = (e: IConfigurationChangeEvent | undefined) => {
 			if (!e || e.affectsConfiguration('explorer.enableDragAndDrop')) {
@@ -1226,16 +1233,20 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 
 			// External file DND (Import/Upload file)
 			if (data instanceof NativeDragAndDropData) {
-				// Use local file import when supported
-				if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
-					const fileImport = this.instantiationService.createInstance(ExternalFileImport);
-					await fileImport.import(resolvedTarget, originalEvent, mainWindow);
+				// PWB Start
+				if (this.environmentService.isEnabledFileUploads) {
+					// Use local file import when supported
+					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
+						const fileImport = this.instantiationService.createInstance(ExternalFileImport);
+						await fileImport.import(resolvedTarget, originalEvent, mainWindow);
+					}
+					// Otherwise fallback to browser based file upload
+					else {
+						const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
+						await browserUpload.upload(target, originalEvent);
+					}
 				}
-				// Otherwise fallback to browser based file upload
-				else {
-					const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
-					await browserUpload.upload(target, originalEvent);
-				}
+				// PWB End
 			}
 
 			// In-Explorer DND (Move/Copy file)

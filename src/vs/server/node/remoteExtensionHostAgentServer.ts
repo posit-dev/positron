@@ -48,6 +48,10 @@ import { validateLicenseKey } from 'vs/server/node/remoteLicenseKey';
 import { MandatoryServerConnectionToken } from 'vs/server/node/serverConnectionToken';
 // --- End Positron ---
 
+// Start PWB
+import { kProxyRegex } from 'vs/server/node/pwbConstants';
+// End PWB
+
 const SHUTDOWN_TIMEOUT = 5 * 60 * 1000;
 
 declare module vsda {
@@ -104,11 +108,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	}
 
 	public async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
-		// Only serve GET requests
-		if (req.method !== 'GET') {
-			return serveError(req, res, 405, `Unsupported method ${req.method}`);
-		}
-
 		if (!req.url) {
 			return serveError(req, res, 400, `Bad request.`);
 		}
@@ -119,6 +118,17 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		if (!pathname) {
 			return serveError(req, res, 400, `Bad request.`);
 		}
+		// --- Start PWB: Server proxy support ---
+		// Only serve GET requests unless targeting the proxy server
+		if (req.method !== 'GET') {
+			if (this._webClientServer && kProxyRegex.test(pathname)) {
+				this._webClientServer.handle(req, res, parsedUrl);
+				return;
+			}
+			return serveError(req, res, 405, `Unsupported method ${req.method}`);
+		}
+		// --- End PWB ---
+
 
 		// for now accept all paths, with or without server root path
 		if (pathname.startsWith(this._serverRootPath) && pathname.charCodeAt(this._serverRootPath.length) === CharCode.Slash) {
@@ -186,10 +196,14 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 		return void res.end('Not found');
 	}
 
-	public handleUpgrade(req: http.IncomingMessage, socket: net.Socket) {
+	// PWB Start
+	public handleUpgrade(req: http.IncomingMessage, socket: net.Socket, upgradeHead: any) {
+		// PWB End
 		let reconnectionToken = generateUuid();
 		let isReconnection = false;
 		let skipWebSocketFrames = false;
+
+		let pathname = null;
 
 		if (req.url) {
 			const query = url.parse(req.url, true).query;
@@ -202,12 +216,24 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			if (query.skipWebSocketFrames === 'true') {
 				skipWebSocketFrames = true;
 			}
+
+			pathname = url.parse(req.url, true).pathname;
 		}
 
 		if (req.headers['upgrade'] === undefined || req.headers['upgrade'].toLowerCase() !== 'websocket') {
 			socket.end('HTTP/1.1 400 Bad Request');
 			return;
 		}
+
+		// --- Start PWB: Server proxy support ---
+		if (pathname) {
+			if (this._webClientServer && kProxyRegex.test(pathname)) {
+				this._webClientServer.handleUpgrade(req, socket, upgradeHead, pathname);
+				return;
+			}
+		}
+		// --- End PWB ---
+
 
 		// https://tools.ietf.org/html/rfc6455#section-4
 		const requestNonce = req.headers['sec-websocket-key'];
@@ -661,7 +687,7 @@ export interface IServerAPI {
 	/**
 	 * Do not remove!!. Called from server-main.js
 	 */
-	handleUpgrade(req: http.IncomingMessage, socket: net.Socket): void;
+	handleUpgrade(req: http.IncomingMessage, socket: net.Socket, upgreadHead: any): void;
 	/**
 	 * Do not remove!!. Called from server-main.js
 	 */
@@ -807,11 +833,12 @@ export async function createServer(address: string | net.AddressInfo | null, arg
 
 	if (hasWebClient && address && typeof address !== 'string') {
 		// ships the web ui!
-		// --- Start Positron ---
-		// In Positron, the connection token is always required.
-		// const queryPart = (connectionToken.type !== ServerConnectionTokenType.None ? `?${connectionTokenQueryName}=${connectionToken.value}` : '');
-		const queryPart = `?${connectionTokenQueryName}=${connectionToken.value}`;
-		// --- End Positron ---
+		// -- Start PWB: SSL support
+		const queryPart = (connectionToken.type !== ServerConnectionTokenType.None ? `?${connectionTokenQueryName}=${encodeURIComponent(connectionToken.value)}` : '');
+		const useSSL = (args['cert'] && args['cert-key']) ? true : false;
+		console.log(`Web UI available at http${useSSL ? 's' : ''}://localhost${useSSL ? (address.port === 443 ? '' : `:${address.port}`) : (address.port === 80 ? '' : `:${address.port}`)}/${queryPart}`);
+		// -- End PWB: SSL support
+
 		console.log(`Web UI available at http://localhost${address.port === 80 ? '' : `:${address.port}`}${serverBasePath ?? ''}${queryPart}`);
 	}
 

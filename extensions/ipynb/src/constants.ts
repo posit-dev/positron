@@ -9,3 +9,7 @@ export const defaultNotebookFormat = { major: 4, minor: 2 };
 export const ATTACHMENT_CLEANUP_COMMANDID = 'ipynb.cleanInvalidImageAttachment';
 
 export const JUPYTER_NOTEBOOK_MARKDOWN_SELECTOR: vscode.DocumentSelector = { notebookType: 'jupyter-notebook', language: 'markdown' };
+
+// PWB Start
+export const kPortToken = process.env.RS_PORT_TOKEN !== undefined ? process.env.RS_PORT_TOKEN : '';
+// PWB End

@@ -125,7 +125,10 @@ export class ExtensionHostConnection extends Disposable {
 		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
-		this._canSendSocket = (!isWindows || !this._environmentService.args['socket-path']);
+		// --- Start PWB ---
+		this._canSendSocket = ((!isWindows || !this._environmentService.args['socket-path']) &&
+			!(this._environmentService.args['cert'] && this._environmentService.args['cert-key']));
+		// --- End PWB ---
 		this._disposed = false;
 		this._remoteAddress = remoteAddress;
 		this._extensionHostProcess = null;
@@ -190,7 +193,16 @@ export class ExtensionHostConnection extends Disposable {
 		} else {
 			socket = connectionData.socket.socket.socket;
 		}
-		extensionHostProcess.send(msg, socket);
+		// --- Start PWB ---
+		try {
+			extensionHostProcess.send(msg, socket);
+		} catch (error) {
+			console.error('Error occurred while attempting to send socket to extension host');
+			if (error) {
+				console.error(error);
+			}
+		}
+		// --- End PWB ---
 	}
 
 	public shortenReconnectionGraceTimeIfNecessary(): void {

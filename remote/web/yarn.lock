@@ -92,6 +92,11 @@
   resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.6.0-beta.21.tgz#87a4e45752e5708cffc5c583d7f15e107313eb4e"
   integrity sha512-1tLJaGudNSg1hEC+ZwUU7PiUvzURzKB5v1IRaJdmZK81ZCxvEF6Qfo281pTZsZFnv2iOWqFEC0C5uRmBXLm0lQ==
 
+ansi-output@^0.0.9:
+  version "0.0.9"
+  resolved "https://registry.yarnpkg.com/ansi-output/-/ansi-output-0.0.9.tgz#a09c2ea6ca690e77730c6358b36081e224f066e5"
+  integrity sha512-6kLL1/P4hukih+MU2U0faECoH4F2gGDQy00gjCAaW9ojj6voOdlHtFtmZxYC0HFAtPxzUFt/etZAZLV2GaXWoA==
+
 he@^1.2.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/he/-/he-1.2.0.tgz#84ae65fa7eafb165fddb61566ae14baf05664f0f"

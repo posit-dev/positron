@@ -30,6 +30,13 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'server-data-dir': { type: 'string', cat: 'o', description: nls.localize('serverDataDir', "Specifies the directory that server data is kept in.") },
 	'telemetry-level': { type: 'string', cat: 'o', args: 'level', description: nls.localize('telemetry-level', "Sets the initial telemetry level. Valid levels are: 'off', 'crash', 'error' and 'all'. If not specified, the server will send telemetry until a client connects, it will then use the clients telemetry setting. Setting this to 'off' is equivalent to --disable-telemetry") },
 
+	// Start PWB
+	'cert-key': { type: 'string', cat: 'o', args: 'path', description: nls.localize('cert-key', "The path to a private key.") },
+	'cert': { type: 'string', cat: 'o', args: 'path', description: nls.localize('cert', "The path to a certificate.") },
+	'disable-file-downloads': { type: 'boolean', cat: 'o', description: nls.localize('disable-file-downloads', "Disable file downloads.") },
+	'disable-file-uploads': { type: 'boolean', cat: 'o', description: nls.localize('disable-file-uploads', "Disable file uploads.") },
+	// End PWB
+
 	/* ----- vs code options ---	-- */
 
 	'user-data-dir': OPTIONS['user-data-dir'],
@@ -100,6 +107,13 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 };
 
 export interface ServerParsedArgs {
+
+	// PWB Start
+	'cert-key'?: string;
+	'cert'?: string;
+	'disable-file-downloads'?: boolean;
+	'disable-file-uploads'?: boolean;
+	// PWB End
 
 	/* ----- server setup ----- */
 

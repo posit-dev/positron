@@ -14,6 +14,7 @@
 		"@xterm/addon-unicode11": "0.9.0-beta.21",
 		"@xterm/addon-webgl": "0.19.0-beta.21",
 		"@xterm/xterm": "5.6.0-beta.21",
+		"ansi-output": "^0.0.9",
 		"he": "^1.2.0",
 		"jschardet": "3.1.2",
 		"react": "^18.2.0",
@@ -23,12 +24,10 @@
 		"vscode-oniguruma": "1.7.0",
 		"vscode-textmate": "9.0.0"
 	},
-
-
-  "customEntryPoints": {
+	"customEntryPoints": {
 		"react": "umd/react.production.min.js",
 		"react-dom": "umd/react-dom.production.min.js",
 		"react-window": "dist/index-prod.umd.js",
 		"he": "he.js"
-  }
+	}
 }

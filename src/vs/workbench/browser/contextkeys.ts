@@ -34,6 +34,12 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';
 // --- End Positron ---
 
+// Start PWB
+import { IBrowserWorkbenchEnvironmentService } from 'vs/workbench/services/environment/browser/environmentService';
+// eslint-disable-next-line no-duplicate-imports
+import { IsEnabledFileDownloads, IsEnabledFileUploads } from 'vs/workbench/common/contextkeys';
+// End PWB
+
 export class WorkbenchContextKeysHandler extends Disposable {
 	private inputFocusedContext: IContextKey<boolean>;
 
@@ -84,7 +90,9 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IWorkspaceContextService private readonly contextService: IWorkspaceContextService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
-		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
+		// PWB Start
+		@IBrowserWorkbenchEnvironmentService private readonly environmentService: IBrowserWorkbenchEnvironmentService,
+		// PWB End
 		@IProductService private readonly productService: IProductService,
 		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
 		@IEditorService private readonly editorService: IEditorService,
@@ -218,6 +226,11 @@ export class WorkbenchContextKeysHandler extends Disposable {
 		// Auxiliary Bar
 		this.auxiliaryBarVisibleContext = AuxiliaryBarVisibleContext.bindTo(this.contextKeyService);
 		this.auxiliaryBarVisibleContext.set(this.layoutService.isVisible(Parts.AUXILIARYBAR_PART));
+
+		// Start PWB
+		IsEnabledFileDownloads.bindTo(this.contextKeyService).set(this.environmentService.isEnableFileDownloads ?? true);
+		IsEnabledFileUploads.bindTo(this.contextKeyService).set(this.environmentService.isEnableFileUploads ?? true);
+		// End PWB
 
 		this.registerListeners();
 	}

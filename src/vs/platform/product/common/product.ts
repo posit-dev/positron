@@ -47,6 +47,15 @@ else if (globalThis._VSCODE_PRODUCT_JSON && globalThis._VSCODE_PACKAGE_JSON) {
 			version: pkg.version
 		});
 	}
+
+	// --- Start PWB: Custom extensions gallery
+	if (env['EXTENSIONS_GALLERY']) {
+		Object.assign(product, {
+			extensionsGallery: JSON.parse(env['EXTENSIONS_GALLERY'])
+		});
+	}
+	// --- End PWB: Custom extensions gallery
+
 }
 
 // Web environment or unknown

@@ -25,7 +25,9 @@ async function start() {
 	// Do a quick parse to determine if a server or the cli needs to be started
 	const parsedArgs = minimist(process.argv.slice(2), {
 		boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
-		string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility'],
+		// Start PWB:cert - adding cert and cert-key options to string arg list
+		string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'cert-key', 'cert'],
+		// End PWB:cert
 		alias: { help: 'h', version: 'v' }
 	});
 	['host', 'port', 'accept-server-license-terms'].forEach(e => {
@@ -65,7 +67,9 @@ async function start() {
 		return _remoteExtensionHostAgentServerPromise;
 	};
 
+	const fs = require('fs');
 	const http = require('http');
+	const https = require('https');
 	const os = require('os');
 
 	if (Array.isArray(product.serverLicense) && product.serverLicense.length) {
@@ -92,23 +96,35 @@ async function start() {
 
 	/** @type {string | import('net').AddressInfo | null} */
 	let address = null;
-	const server = http.createServer(async (req, res) => {
+
+	// PWB Modify Start
+	const useSSL = (parsedArgs['cert-key'] && parsedArgs['cert']) ? true : false;
+	const reqHandler = async (req, res) => {
 		if (firstRequest) {
 			firstRequest = false;
 			perf.mark('code/server/firstRequest');
 		}
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
 		return remoteExtensionHostAgentServer.handleRequest(req, res);
-	});
-	server.on('upgrade', async (req, socket) => {
+	};
+
+	const server = (useSSL ? https : http).createServer(useSSL ? {
+		key: fs.readFileSync(parsedArgs['cert-key']),
+		cert: fs.readFileSync(parsedArgs['cert'])
+	} : {},
+		reqHandler);
+
+	server.on('upgrade', async (req, socket, upgradeHead) => {
 		if (firstWebSocket) {
 			firstWebSocket = false;
 			perf.mark('code/server/firstWebSocket');
 		}
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
 		// @ts-ignore
-		return remoteExtensionHostAgentServer.handleUpgrade(req, socket);
+		return remoteExtensionHostAgentServer.handleUpgrade(req, socket, upgradeHead);
 	});
+
+	// PWB Modify End
 	server.on('error', async (err) => {
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
 		return remoteExtensionHostAgentServer.handleServerError(err);

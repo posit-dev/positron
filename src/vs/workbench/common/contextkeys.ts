@@ -42,6 +42,11 @@ export const EmbedderIdentifierContext = new RawContextKey<string | undefined>('
 
 //#endregion
 
+// PWB Start
+export const IsEnabledFileDownloads = new RawContextKey<boolean>('isEnabledFileDownloads', true, true);
+export const IsEnabledFileUploads = new RawContextKey<boolean>('isEnabledFileUploads', true, true);
+// PWB End
+
 
 //#region < --- Editor --- >
 

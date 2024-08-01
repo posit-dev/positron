@@ -19,6 +19,7 @@ import { isUndefined } from 'vs/base/common/types';
 import { refineServiceDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ITextEditorOptions } from 'vs/platform/editor/common/editor';
 import { EXTENSION_IDENTIFIER_WITH_LOG_REGEX } from 'vs/platform/environment/common/environmentService';
+import { join } from 'path';
 
 export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvironmentService, IBrowserWorkbenchEnvironmentService>(IEnvironmentService);
 
@@ -27,6 +28,11 @@ export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvir
  * where the web API is available (browsers, Electron).
  */
 export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironmentService {
+
+	// PWB Start
+	readonly isEnabledFileDownloads?: boolean;
+	readonly isEnabledFileUploads?: boolean;
+	// PWB End
 
 	/**
 	 * Options used to configure the workbench.
@@ -101,8 +107,32 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	get logFile(): URI { return joinPath(this.windowLogsPath, 'window.log'); }
 
-	@memoize
-	get userRoamingDataHome(): URI { return URI.file('/User').with({ scheme: Schemas.vscodeUserData }); }
+	// Start PWB
+	get userRoamingDataHome(): URI { return joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User'); }
+
+	get userDataPath(): string {
+		if (!this.options.userDataPath) {
+			throw new Error('userDataPath was not provided to the browser');
+		}
+		return this.options.userDataPath;
+	}
+
+	get isEnabledFileDownloads(): boolean {
+		if (typeof this.options.isEnabledFileDownloads === 'undefined') {
+			throw new Error('isEnabledFileDownloads was not provided to the browser');
+		}
+
+		return this.options.isEnabledFileDownloads;
+	}
+
+	get isEnabledFileUploads(): boolean {
+		if (typeof this.options.isEnabledFileUploads === 'undefined') {
+			throw new Error('isEnabledFileDownloads was not provided to the browser');
+		}
+
+		return this.options.isEnabledFileUploads;
+	}
+	// End PWB
 
 	@memoize
 	get argvResource(): URI { return joinPath(this.userRoamingDataHome, 'argv.json'); }

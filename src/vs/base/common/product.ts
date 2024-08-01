@@ -97,6 +97,7 @@ export interface IProductConfiguration {
 	// Adds support for serving at non-root paths.
 
 	readonly rootEndpoint?: string;
+	readonly proxyEndpointTemplate?: string;
 	// --- End Positron ---
 
 	readonly settingsSearchBuildId?: number;
