@@ -58,6 +58,11 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		binaries.add(b);
 	}
 
+	const pathBinary = await findRBinaryFromPATH();
+	if (pathBinary) {
+		binaries.add(pathBinary);
+	}
+
 	// make sure we include the "current" version of R, for some definition of "current"
 	// we've probably already discovered it, but we still want to single it out, so that we mark
 	// that particular R installation as the current one
@@ -293,26 +298,30 @@ function binFragments(): string[] {
 }
 
 export async function findCurrentRBinary(): Promise<string | undefined> {
-	// if (os.platform() === 'win32') {
-	// 	const registryBinary = findCurrentRBinaryFromRegistry();
-	// 	if (registryBinary) {
-	// 		return registryBinary;
-	// 	}
-	// }
+	if (os.platform() === 'win32') {
+		const registryBinary = await findCurrentRBinaryFromRegistry();
+		if (registryBinary) {
+			return registryBinary;
+		}
+	}
+	return await findRBinaryFromPATH();
+}
 
+async function findRBinaryFromPATH(): Promise<string | undefined> {
 	const whichR = await which('R', { nothrow: true }) as string;
 	if (whichR) {
 		LOGGER.info(`Possibly found R on PATH: ${whichR}.`);
 		if (os.platform() === 'win32') {
-			return await findCurrentRBinaryFromPATHWindows(whichR);
+			return await findRBinaryFromPATHWindows(whichR);
 		} else {
-			return await findCurrentRBinaryFromPATHNotWindows(whichR);
+			return await findRBinaryFromPATHNotWindows(whichR);
 		}
+	} else {
+		return undefined;
 	}
-	return undefined;
 }
 
-async function findCurrentRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
+async function findRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
 	// The CRAN Windows installer does NOT put R on the PATH.
 	// If we are here, it is because the user has arranged it so.
 	const ext = path.extname(whichR).toLowerCase();
@@ -346,7 +355,7 @@ async function findCurrentRBinaryFromPATHWindows(whichR: string): Promise<string
 	}
 }
 
-async function findCurrentRBinaryFromPATHNotWindows(whichR: string): Promise<string | undefined> {
+async function findRBinaryFromPATHNotWindows(whichR: string): Promise<string | undefined> {
 	const whichRCanonical = fs.realpathSync(whichR);
 	LOGGER.info(`Resolved R binary at ${whichRCanonical}`);
 	return whichRCanonical;
