@@ -172,6 +172,61 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
+	 * Refreshes the column profile cache.
+	 */
+	async refreshColumnProfiles(): Promise<void> {
+		// Get the sorted column indicies so we can build the column profile requests in order.
+		const columnIndices = [...this._columnProfileCache.keys()].sort((a, b) => a - b);
+
+		// Build the column profile requests.
+		const columnProfileRequests: ColumnProfileRequest[] = [];
+		for (const columnIndex of columnIndices) {
+			// Get the column profile.
+			const columnProfile = this._columnProfileCache.get(columnIndex);
+			if (columnProfile) {
+				// Build the profiles. Always ask for the null count.
+				const columnProfileSpecs: ColumnProfileSpec[] = [
+					{ profile_type: ColumnProfileType.NullCount }
+				];
+
+				// Add summary stats.
+				if (columnProfile.summary_stats) {
+					columnProfileSpecs.push({ profile_type: ColumnProfileType.SummaryStats });
+				}
+
+				// Add histogram.
+				if (columnProfile.histogram) {
+					columnProfileSpecs.push({ profile_type: ColumnProfileType.Histogram });
+				}
+
+				// Add frequency table.
+				if (columnProfile.frequency_table) {
+					columnProfileSpecs.push({ profile_type: ColumnProfileType.FrequencyTable });
+				}
+
+				// Add the column profile request.
+				columnProfileRequests.push({
+					column_index: columnIndex,
+					profiles: columnProfileSpecs
+				});
+			}
+		}
+
+		// Get the column profiles.
+		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
+			columnProfileRequests
+		);
+
+		// Refresh the column profile cache with the column profiles.
+		for (let i = 0; i < columnIndices.length && i < columnProfileRequests.length; i++) {
+			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
 	 * Gets the column schema for the specified column index.
 	 * @param columnIndex The column index.
 	 * @returns The column schema for the specified column index.
@@ -274,7 +329,7 @@ export class TableSummaryCache extends Disposable {
 					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
 				}
 
-				// Return the
+				// Return the column profile request.
 				return { column_index, profiles };
 			})
 		);

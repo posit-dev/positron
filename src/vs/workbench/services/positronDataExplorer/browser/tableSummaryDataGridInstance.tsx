@@ -71,21 +71,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the data explorer client instance onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the cache with invalidation.
-			this._tableSummaryCache.update({
+			await this._tableSummaryCache.update({
 				invaidateCache: true,
 				firstColumnIndex: this.firstColumnIndex,
-				screenColumns: this.screenColumns
+				screenColumns: this.screenRows
 			});
 		}));
 
 		// Add the data explorer client instance onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Update the cache with invalidation.
-			this._tableSummaryCache.update({
-				invaidateCache: true,
-				firstColumnIndex: this.firstColumnIndex,
-				screenColumns: this.screenColumns
-			});
+			// Refresh the column profiles because they rely on the data.
+			await this._tableSummaryCache.refreshColumnProfiles();
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
