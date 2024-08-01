@@ -214,16 +214,14 @@ export class Comm implements base.IClassicComm, Disposable {
 	 * @param message The message.
 	 */
 	private handle_msg(message: WebviewMessage.ICommMessageToWebview): void {
-		if (message.buffers && message.buffers.length > 0) {
-			console.log(`Comm received message with buffers:`, message.buffers);
-		}
-
 		if (this._on_msg) {
 			this._on_msg({
 				content: {
 					comm_id: this.comm_id,
 					data: message.data as JSONObject,
 				},
+				// Some widget libraries (e.g. ipydatagrid) may try to create an Int32Array which
+				// could fail if the original buffer is not correctly aligned, so create a new buffer.
 				buffers: message.buffers?.map(buffer => new Uint8Array(buffer)),
 				// Stub the rest of the interface - these are not currently used by widget libraries.
 				channel: 'iopub',

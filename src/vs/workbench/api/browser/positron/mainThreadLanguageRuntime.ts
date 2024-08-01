@@ -20,7 +20,7 @@ import { IPositronVariablesService } from 'vs/workbench/services/positronVariabl
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
-import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -37,7 +37,6 @@ import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { VSBuffer } from 'vs/base/common/buffer';
 import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 /**
@@ -888,7 +887,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	extends Disposable
 	implements IRuntimeClientInstance<Input, Output> {
 
-	private readonly _dataEmitter = new Emitter<{ data: Output; buffers?: Array<VSBuffer> }>();
+	private readonly _dataEmitter = new Emitter<IRuntimeClientOutput<Output>>();
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
@@ -925,12 +924,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpc<T>(request: Input, timeout: number): Promise<{ data: T; buffers: Array<VSBuffer> }> {
+	performRpc<T>(request: Input, timeout: number): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
 		// Add the promise to the list of pending RPCs.
-		const promise = new DeferredPromise<{ data: T; buffers: Array<VSBuffer> }>();
+		const promise = new DeferredPromise<IRuntimeClientOutput<T>>();
 		this._pendingRpcs.set(messageId, promise);
 
 		// Send the message to the server side.
@@ -1003,7 +1002,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.clientState.set(state, undefined);
 	}
 
-	onDidReceiveData: Event<{ data: Output; buffers?: Array<VSBuffer> }>;
+	onDidReceiveData: Event<IRuntimeClientOutput<Output>>;
 
 	getClientId(): string {
 		return this._id;

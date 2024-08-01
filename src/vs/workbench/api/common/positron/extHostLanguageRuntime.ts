@@ -288,7 +288,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			const runtimeMessage: ILanguageRuntimeMessage = {
 				event_clock: tick,
 				...message,
-				// TODO: Only wrap these when crossing the serialization boundary?
+				// Wrap buffers in VSBuffer so that they can be sent to the main thread
 				buffers: message.buffers?.map(buffer => VSBuffer.wrap(buffer)),
 			};
 

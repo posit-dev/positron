@@ -12,7 +12,7 @@ import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
 import { PromiseHandles, delay, uuidv4 } from './utils';
 
-export interface RuntimeClientMessage {
+interface IRuntimeClientOutput {
 	data: { [key: string]: any };
 	buffers?: Array<Uint8Array>;
 }
@@ -33,9 +33,9 @@ export class RuntimeClientAdapter {
 	 * and the value is a promise that will be resolved when the RPC response is
 	 * received.
 	 */
-	private _pendingRpcs = new Map<string, PromiseHandles<RuntimeClientMessage>>();
+	private _pendingRpcs = new Map<string, PromiseHandles<IRuntimeClientOutput>>();
 
-	private readonly _messageEmitter = new vscode.EventEmitter<RuntimeClientMessage>();
+	private readonly _messageEmitter = new vscode.EventEmitter<IRuntimeClientOutput>();
 	readonly onDidReceiveCommMsg = this._messageEmitter.event;
 
 	constructor(
@@ -268,7 +268,6 @@ export class RuntimeClientAdapter {
 		} else {
 
 			// Not an RPC response, so emit the message
-			// TODO: Emit buffers too
 			this._messageEmitter.fire({ data: message.data, buffers: msg.buffers });
 		}
 	}

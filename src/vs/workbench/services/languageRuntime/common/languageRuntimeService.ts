@@ -58,10 +58,11 @@ export interface ILanguageRuntimeMessage {
 	/** The message's date and time, in ISO 8601 format */
 	when: string;
 
-	buffers?: VSBuffer[];
-
 	/** Additional metadata, if any */
 	metadata?: Map<any, any>;
+
+	/** Additional binary data, if any */
+	buffers?: VSBuffer[];
 }
 
 /**
