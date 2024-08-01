@@ -11,3 +11,12 @@
  */
 export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
 	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
+
+/**
+ * Asychronously delays execution.
+ * @param ms The number of milliseconds to delay.
+ * @returns A Promise<void> that resolves when the delay is complete.
+ */
+export const asyncDelay = (ms: number) => {
+	return new Promise(resolve => setTimeout(resolve, ms));
+};

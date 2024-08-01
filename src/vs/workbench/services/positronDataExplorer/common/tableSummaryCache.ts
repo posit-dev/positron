@@ -5,7 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
+import { arrayFromIndexRange, asyncDelay } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
@@ -317,6 +317,9 @@ export class TableSummaryCache extends Disposable {
 
 		// Fire the onDidUpdate event. Will this cause a repaint?
 		this._onDidUpdateEmitter.fire();
+
+		// Delay a bit.
+		await asyncDelay(2000);
 
 		// Load the column profiles.
 		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
