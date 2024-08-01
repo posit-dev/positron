@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, ProjectWizardNavigateAction } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 /*
@@ -25,8 +25,7 @@ export function setup(logger: Logger) {
 					// This is the default behaviour for a new Python Project in the Project Wizard
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
-					await pw.startNewProject();
-					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);
@@ -42,8 +41,7 @@ export function setup(logger: Logger) {
 					const projSuffix = '_condaInstalled';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
-					await pw.startNewProject();
-					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -80,8 +78,7 @@ export function setup(logger: Logger) {
 					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					// Create a new Python project and use the selected python interpreter
-					await pw.startNewProject();
-					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -118,15 +115,13 @@ export function setup(logger: Logger) {
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
 					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
-					console.log(interpreterInfo?.path);
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
 					await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 						contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
 					);
 					// Create a new Python project and use the selected python interpreter
-					await pw.startNewProject();
-					await pw.projectTypeStep.pythonProjectButton.click();
+					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -164,8 +159,7 @@ export function setup(logger: Logger) {
 				const projSuffix = '_gitInit';
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
-				await pw.startNewProject();
-				await pw.projectTypeStep.pythonProjectButton.click();
+				await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 
@@ -209,8 +203,7 @@ export function setup(logger: Logger) {
 			it('R Project Defaults [C627913] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
-				await pw.startNewProject();
-				await pw.projectTypeStep.rProjectButton.click();
+				await pw.startNewProject(ProjectType.R_PROJECT);
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
@@ -226,8 +219,7 @@ export function setup(logger: Logger) {
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					// Create a new R project - select Renv and install
-					await pw.startNewProject();
-					await pw.projectTypeStep.rProjectButton.click();
+					await pw.startNewProject(ProjectType.R_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -271,8 +263,7 @@ export function setup(logger: Logger) {
 					const projSuffix = '_renvAlreadyInstalled';
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
-					await pw.startNewProject();
-					await pw.projectTypeStep.rProjectButton.click();
+					await pw.startNewProject(ProjectType.R_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -306,8 +297,7 @@ export function setup(logger: Logger) {
 						contents.some((line) => line.includes(`Removing package`))
 					);
 					// Create a new R project - select Renv but opt out of installing
-					await pw.startNewProject();
-					await pw.projectTypeStep.rProjectButton.click();
+					await pw.startNewProject(ProjectType.R_PROJECT);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
 					await pw.projectNameLocationStep.appendToProjectName(projSuffix);
 					await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -342,8 +332,7 @@ export function setup(logger: Logger) {
 			it('Jupyter Project Defaults [C629352] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
-				await pw.startNewProject();
-				await pw.projectTypeStep.jupyterNotebookButton.click();
+				await pw.startNewProject(ProjectType.JUPYTER_NOTEBOOK);
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
