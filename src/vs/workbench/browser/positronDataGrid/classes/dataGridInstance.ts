@@ -946,7 +946,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the screen columns.
 	 */
 	get screenColumns() {
-		return Math.trunc(this._width / this._minimumColumnWidth) + 1;
+		return Math.ceil(this._width / this._minimumColumnWidth);
 	}
 
 	/**
@@ -982,7 +982,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the screen rows.
 	 */
 	get screenRows() {
-		return Math.trunc(this._height / this._minimumRowHeight) + 1;
+		return Math.ceil(this._height / this._minimumRowHeight);
 	}
 
 	/**

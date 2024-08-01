@@ -5,8 +5,8 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnProfileType, ColumnSchema, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -24,9 +24,9 @@ const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
 	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
 
 /**
- * CacheUpdateDescriptor interface.
+ * UpdateDescriptor interface.
  */
-interface CacheUpdateDescriptor {
+interface UpdateDescriptor {
 	firstColumnIndex: number;
 	visibleColumns: number;
 	firstRowIndex?: number;
@@ -82,9 +82,9 @@ function decodeSpecialValue(value: number) {
 }
 
 /**
- * DataExplorerCache class.
+ * TableDataCache class.
  */
-export class DataExplorerCache extends Disposable {
+export class TableDataCache extends Disposable {
 	//#region Private Properties
 
 	/**
@@ -95,7 +95,7 @@ export class DataExplorerCache extends Disposable {
 	/**
 	 * Gets or sets the cache update descriptor.
 	 */
-	private _cacheUpdateDescriptor?: CacheUpdateDescriptor;
+	private _cacheUpdateDescriptor?: UpdateDescriptor;
 
 	/**
 	 * Gets or sets the columns.
@@ -108,7 +108,7 @@ export class DataExplorerCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Gets the data explorer client instance that this data explorer cache is caching data for.
+	 * Gets the data explorer client instance that this table data cache is caching data for.
 	 */
 	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
 
@@ -116,16 +116,6 @@ export class DataExplorerCache extends Disposable {
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
-
-	/**
-	 * Gets the column schema cache.
-	 */
-	private readonly _columnNullCountCache = new Map<number, number>();
-
-	/**
-	 * Gets the column summary stats cache.
-	 */
-	private readonly _columnSummaryStatsCache = new Map<number, ColumnSummaryStats>();
 
 	/**
 	 * Gets the row label cache.
@@ -207,8 +197,6 @@ export class DataExplorerCache extends Disposable {
 	invalidateDataCache() {
 		this._rowLabelCache.clear();
 		this._dataCellCache.clear();
-		this._columnNullCountCache.clear();
-		this._columnSummaryStatsCache.clear();
 
 		// On an update event, table shape may have changed
 		this._dataExplorerClientInstance.updateBackendState();
@@ -219,7 +207,7 @@ export class DataExplorerCache extends Disposable {
 	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
 	 */
-	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+	async updateCache(cacheUpdateDescriptor: UpdateDescriptor): Promise<void> {
 		// Update the cache.
 		await this.doUpdateCache(cacheUpdateDescriptor);
 
@@ -234,51 +222,6 @@ export class DataExplorerCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the null count for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The number of nulls in the specified column index.
-	 */
-	getColumnNullCount(columnIndex: number) {
-		return this._columnNullCountCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the cached summary stats for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns ColumnSummaryStats in the specified column index.
-	 */
-	getColumnSummaryStats(columnIndex: number) {
-		return this._columnSummaryStatsCache.get(columnIndex);
-	}
-
-	async cacheColumnSummaryStats(columnIndices: Array<number>) {
-		// Filter out summary stats that are already cached
-		columnIndices = columnIndices.filter(columnIndex =>
-			!this._columnSummaryStatsCache.has(columnIndex)
-		);
-
-		// Request the profiles
-		const results = await this._dataExplorerClientInstance.getColumnProfiles(
-			columnIndices.map(column_index => {
-				return {
-					column_index,
-					profiles: [
-						{ profile_type: ColumnProfileType.SummaryStats }
-					]
-				};
-			})
-		);
-
-		// Update the column schema cache, overwriting any entries we already have cached.
-		for (let i = 0; i < results.length; i++) {
-			const stats = results[i].summary_stats;
-			if (stats !== undefined) {
-				this._columnSummaryStatsCache.set(columnIndices[i], stats);
-			}
-		}
 	}
 
 	/**
@@ -373,7 +316,7 @@ export class DataExplorerCache extends Disposable {
 	 * Updates the cache.
 	 * @param cacheUpdateDescriptor The cache update descriptor.
 	 */
-	private async doUpdateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+	private async doUpdateCache(cacheUpdateDescriptor: UpdateDescriptor): Promise<void> {
 		// If a cache update is already in progress, set the cache update descriptor and return.
 		// This allows cache updates that are happening in rapid succession to overwrite one
 		// another so that only the last one gets processed. (For example, this happens when a user
@@ -430,34 +373,6 @@ export class DataExplorerCache extends Disposable {
 			// Update the column schema cache, overwriting any entries we already have cached.
 			for (let i = 0; i < tableSchema.columns.length; i++) {
 				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchema.columns[i]);
-			}
-
-			// Update the cache updated flag.
-			cacheUpdated = true;
-		}
-
-		// Build an array of the column schema indices that need to be cached.
-		const columnNullCountIndices = columnIndices.filter(columnIndex =>
-			!this._columnNullCountCache.has(columnIndex)
-		);
-
-		// If there are null counts that need to be cached, cache them.
-		if (columnNullCountIndices.length) {
-			// Request the profiles
-			const results = await this._dataExplorerClientInstance.getColumnProfiles(
-				columnNullCountIndices.map(column_index => {
-					return {
-						column_index,
-						profiles: [
-							{ profile_type: ColumnProfileType.NullCount }
-						]
-					};
-				})
-			);
-
-			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < results.length; i++) {
-				this._columnNullCountCache.set(columnNullCountIndices[i], results[i].null_count!);
 			}
 
 			// Update the cache updated flag.
