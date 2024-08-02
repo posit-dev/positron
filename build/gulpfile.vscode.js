@@ -309,6 +309,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			// unfortunate that gulp doesn't preserve the executable bit when
 			// copying files.)
 			.pipe(util.setExecutableBit([
+				'**/dart',
 				'**/deno',
 				'**/esbuild',
 				'**/pandoc',
