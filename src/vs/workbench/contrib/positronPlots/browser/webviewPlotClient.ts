@@ -40,7 +40,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 		public readonly webview: IOverlayWebview) {
 		super();
 
-		this._onDidRenderThumbnail = new Emitter<string>();
+		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
 	}
 

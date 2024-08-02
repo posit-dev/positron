@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -21,17 +22,31 @@ export function setup(logger: Logger) {
 				this.app.workbench.positronConsole.sendKeyboardKey('Escape');
 			});
 
+			const lineOne = 'a = 1';
+			const lineTwo = 'b = 2';
+			const lineThree = 'c = 3';
 			it('Python - Verify Console History [C685945]', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronConsole.typeToConsole('a = 1');
-				await app.workbench.positronConsole.sendEnterKey();
+				await expect(async () => {
+					await app.workbench.positronConsole.typeToConsole(lineOne);
+					await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.typeToConsole('b = 2');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineOne)));
 
-				await app.workbench.positronConsole.typeToConsole('c = 3');
-				await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.typeToConsole(lineTwo);
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineTwo)));
+
+					await app.workbench.positronConsole.typeToConsole(lineThree);
+					await app.workbench.positronConsole.sendEnterKey();
+
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineThree)));
+				}).toPass({ timeout: 40000 });
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
@@ -48,9 +63,9 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.sendKeyboardKey('Control+R');
 
 				await app.workbench.positronConsole.waitForHistoryContents((contents) =>
-					contents.some((line) => line.includes('a = 1')) &&
-					contents.some((line) => line.includes('b = 2')) &&
-					contents.some((line) => line.includes('c = 3')));
+					contents.some((line) => line.includes(lineOne)) &&
+					contents.some((line) => line.includes(lineTwo)) &&
+					contents.some((line) => line.includes(lineThree)));
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
@@ -69,16 +84,32 @@ export function setup(logger: Logger) {
 			it('R - Verify Console History [C685946]]', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronConsole.typeToConsole('a <- 1');
-				await app.workbench.positronConsole.sendEnterKey();
+				const lineOne = 'a <- 1';
+				const lineTwo = 'b <- 2';
+				const lineThree = 'c <- 3';
+				await expect(async () => {
+					// send test line one and the enter key, then expect it in the previous console
+					// lines
+					await app.workbench.positronConsole.typeToConsole(lineOne);
+					await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineOne)));
 
-				await app.workbench.positronConsole.typeToConsole('b <- 2');
-				await app.workbench.positronConsole.sendEnterKey();
+					// send test line two and the enter key, then expect it in the previous console
+					// lines
+					await app.workbench.positronConsole.typeToConsole(lineTwo);
+					await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineTwo)));
 
-				await app.workbench.positronConsole.typeToConsole('c <- 3');
-				await app.workbench.positronConsole.sendEnterKey();
+					// send test line three and the enter key, then expect it in the previous console
+					// lines
+					await app.workbench.positronConsole.typeToConsole(lineThree);
+					await app.workbench.positronConsole.sendEnterKey();
+					await app.workbench.positronConsole.waitForConsoleContents(
+						(lines) => lines.some((line) => line.includes(lineThree)));
 
-				await app.code.wait(500);
+				}).toPass({ timeout: 40000 });
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
@@ -95,9 +126,9 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.sendKeyboardKey('Control+R');
 
 				await app.workbench.positronConsole.waitForHistoryContents((contents) =>
-					contents.some((line) => line.includes('a <- 1')) &&
-					contents.some((line) => line.includes('b <- 2')) &&
-					contents.some((line) => line.includes('c <- 3')));
+					contents.some((line) => line.includes(lineOne)) &&
+					contents.some((line) => line.includes(lineTwo)) &&
+					contents.some((line) => line.includes(lineThree)));
 
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 

@@ -541,8 +541,23 @@ class ColumnProfileRequest(BaseModel):
         description="The ordinal column index to profile",
     )
 
+    profiles: List[ColumnProfileSpec] = Field(
+        description="Column profiles needed",
+    )
+
+
+class ColumnProfileSpec(BaseModel):
+    """
+    Parameters for a single column profile for a request for profiles
+    """
+
     profile_type: ColumnProfileType = Field(
-        description="The type of analytical column profile",
+        description="Type of column profile",
+    )
+
+    params: Optional[ColumnProfileParams] = Field(
+        default=None,
+        description="Extra parameters for different profile types",
     )
 
 
@@ -738,17 +753,46 @@ class SummaryStatsDatetime(BaseModel):
     )
 
 
+class ColumnHistogramParams(BaseModel):
+    """
+    Parameters for a column histogram profile request
+    """
+
+    num_bins: StrictInt = Field(
+        description="Number of bins in the computed histogram",
+    )
+
+    quantiles: Optional[List[Union[StrictInt, StrictFloat]]] = Field(
+        default=None,
+        description="Sample quantiles (numbers between 0 and 1) to compute along with the histogram",
+    )
+
+
 class ColumnHistogram(BaseModel):
     """
     Result from a histogram profile request
     """
 
-    bin_sizes: List[StrictInt] = Field(
+    bin_edges: List[StrictStr] = Field(
+        description="String-formatted versions of the bin edges, there are N + 1 where N is the number of bins",
+    )
+
+    bin_counts: List[StrictInt] = Field(
         description="Absolute count of values in each histogram bin",
     )
 
-    bin_width: Union[StrictInt, StrictFloat] = Field(
-        description="Absolute floating-point width of a histogram bin",
+    quantiles: List[ColumnQuantileValue] = Field(
+        description="Sample quantiles that were also requested",
+    )
+
+
+class ColumnFrequencyTableParams(BaseModel):
+    """
+    Parameters for a frequency_table profile request
+    """
+
+    limit: StrictInt = Field(
+        description="Number of most frequently-occurring values to return. The K in TopK",
     )
 
 
@@ -757,26 +801,17 @@ class ColumnFrequencyTable(BaseModel):
     Result from a frequency_table profile request
     """
 
-    counts: List[ColumnFrequencyTableItem] = Field(
-        description="Counts of distinct values in column",
+    values: List[StrictStr] = Field(
+        description="The formatted top values",
     )
 
-    other_count: StrictInt = Field(
-        description="Number of other values not accounted for in counts. May be 0",
+    counts: List[StrictInt] = Field(
+        description="Counts of top values",
     )
 
-
-class ColumnFrequencyTableItem(BaseModel):
-    """
-    Entry in a column's frequency table
-    """
-
-    value: StrictStr = Field(
-        description="Stringified value",
-    )
-
-    count: StrictInt = Field(
-        description="Number of occurrences of value",
+    other_count: Optional[StrictInt] = Field(
+        default=None,
+        description="Number of other values not accounted for in counts, excluding nulls/NA values. May be omitted",
     )
 
 
@@ -786,7 +821,7 @@ class ColumnQuantileValue(BaseModel):
     """
 
     q: Union[StrictInt, StrictFloat] = Field(
-        description="Quantile number (percentile). E.g. 1 for 1%, 50 for median",
+        description="Quantile number; a number between 0 and 1",
     )
 
     value: StrictStr = Field(
@@ -999,6 +1034,11 @@ RowFilterParams = Union[
 ColumnFilterParams = Union[
     FilterTextSearch,
     FilterMatchDataTypes,
+]
+# Extra parameters for different profile types
+ColumnProfileParams = Union[
+    ColumnHistogramParams,
+    ColumnFrequencyTableParams,
 ]
 # A union of selection types
 Selection = Union[
@@ -1356,6 +1396,8 @@ ColumnFilterTypeSupportStatus.update_forward_refs()
 
 ColumnProfileRequest.update_forward_refs()
 
+ColumnProfileSpec.update_forward_refs()
+
 ColumnProfileTypeSupportStatus.update_forward_refs()
 
 ColumnProfileResult.update_forward_refs()
@@ -1372,11 +1414,13 @@ SummaryStatsDate.update_forward_refs()
 
 SummaryStatsDatetime.update_forward_refs()
 
+ColumnHistogramParams.update_forward_refs()
+
 ColumnHistogram.update_forward_refs()
 
-ColumnFrequencyTable.update_forward_refs()
+ColumnFrequencyTableParams.update_forward_refs()
 
-ColumnFrequencyTableItem.update_forward_refs()
+ColumnFrequencyTable.update_forward_refs()
 
 ColumnQuantileValue.update_forward_refs()
 

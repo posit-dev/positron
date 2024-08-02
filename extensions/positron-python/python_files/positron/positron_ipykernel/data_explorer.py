@@ -33,8 +33,11 @@ from .data_explorer_comm import (
     ColumnFilterType,
     ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
+    ColumnFrequencyTableParams,
     ColumnHistogram,
+    ColumnHistogramParams,
     ColumnProfileResult,
+    ColumnProfileSpec,
     ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
@@ -468,23 +471,41 @@ class DataExplorerTableView(abc.ABC):
         results = []
 
         for req in request.params.profiles:
-            if req.profile_type == ColumnProfileType.NullCount:
-                count = self._prof_null_count(req.column_index)
-                result = ColumnProfileResult(null_count=int(count))
-            elif req.profile_type == ColumnProfileType.SummaryStats:
-                stats = self._prof_summary_stats(req.column_index, request.params.format_options)
-                result = ColumnProfileResult(summary_stats=stats)
-            elif req.profile_type == ColumnProfileType.FrequencyTable:
-                freq_table = self._prof_freq_table(req.column_index)
-                result = ColumnProfileResult(frequency_table=freq_table)
-            elif req.profile_type == ColumnProfileType.Histogram:
-                histogram = self._prof_histogram(req.column_index)
-                result = ColumnProfileResult(histogram=histogram)
-            else:
-                raise NotImplementedError(req.profile_type)
+            result = self._compute_profiles(
+                req.column_index,
+                req.profiles,
+                request.params.format_options,
+            )
             results.append(result.dict())
 
         return results
+
+    def _compute_profiles(
+        self,
+        column_index: int,
+        profiles: List[ColumnProfileSpec],
+        format_options: FormatOptions,
+    ):
+        results = {}
+        for spec in profiles:
+            profile_type = spec.profile_type
+            if profile_type == ColumnProfileType.NullCount:
+                results["null_count"] = self._prof_null_count(column_index)
+            elif profile_type == ColumnProfileType.SummaryStats:
+                results["summary_stats"] = self._prof_summary_stats(column_index, format_options)
+            elif profile_type == ColumnProfileType.FrequencyTable:
+                assert isinstance(spec.params, ColumnFrequencyTableParams)
+                results["frequency_table"] = self._prof_freq_table(
+                    column_index, spec.params, format_options
+                )
+            elif profile_type == ColumnProfileType.Histogram:
+                assert isinstance(spec.params, ColumnHistogramParams)
+                results["histogram"] = self._prof_histogram(
+                    column_index, spec.params, format_options
+                )
+            else:
+                raise NotImplementedError(profile_type)
+        return ColumnProfileResult(**results)
 
     def get_state(self, _: GetStateRequest):
         self._recompute_if_needed()
@@ -665,10 +686,20 @@ class DataExplorerTableView(abc.ABC):
     def _get_column(self, column_index: int):
         raise NotImplementedError
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
         raise NotImplementedError
 
     FEATURES = SupportedFeatures(
@@ -1521,8 +1552,8 @@ class PandasView(DataExplorerTableView):
             column = column.take(self.filtered_indices)
         return column
 
-    def _prof_null_count(self, column_index: int):
-        return self._get_column(column_index).isnull().sum()
+    def _prof_null_count(self, column_index: int) -> int:
+        return int(self._get_column(column_index).isnull().sum())
 
     _SUMMARIZERS = {
         ColumnDisplayType.Boolean: _pandas_summarize_boolean,
@@ -1532,11 +1563,58 @@ class PandasView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _pandas_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int):
-        raise NotImplementedError
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
+        col = self._get_column(column_index)
+        counts = col.value_counts()
 
-    def _prof_histogram(self, column_index: int):
-        raise NotImplementedError
+        top_counts = counts.iloc[: params.limit]
+        other_group = counts.iloc[params.limit :]
+
+        formatted_groups = self._format_values(top_counts.index, format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts],
+            other_count=int(other_group.sum()),
+        )
+
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
+        col = self._get_column(column_index)
+
+        # TODO: why does this type error?
+        data = col[col.notna()].to_numpy()  # type: ignore
+
+        dtype = data.dtype
+        is_datetime64 = np_.issubdtype(dtype, np_.datetime64)
+
+        if is_datetime64:
+            data = data.view(np_.int64)
+
+        bin_counts, bin_edges = np_.histogram(data, bins=params.num_bins)
+
+        if is_datetime64:
+            # A bit hacky for now, but will replace this with
+            # something better soon
+            bin_edges = np_.floor(bin_edges).astype(np_.int64).view(dtype)
+            bin_edges = pd_.Series(bin_edges)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     SUPPORTED_FILTERS = {
         RowFilterType.Between,
@@ -1593,6 +1671,14 @@ class PandasView(DataExplorerTableView):
                 # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.Histogram,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.FrequencyTable,
                     support_status=SupportStatus.Experimental,
                 ),
             ],
@@ -2189,11 +2275,77 @@ class PolarsView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _polars_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
-        raise NotImplementedError
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
+        col = self._get_column(column_index).alias("values")
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
-        raise NotImplementedError
+        col = col.filter(col.is_not_null())
+        counts = col.value_counts().sort(by=["count", "values"], descending=[True, False])
+
+        top_counts = counts[: params.limit]
+        other_count = int(counts[params.limit :, 1].sum())
+
+        formatted_groups = self._format_values(top_counts[:, 0], format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts[:, 1]],
+            other_count=other_count,
+        )
+
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
+        col = self._get_column(column_index)
+
+        # remove nulls
+        data = col.filter(col.is_not_null())
+        dtype = data.dtype
+
+        if isinstance(dtype, (pl_.Datetime, pl_.Time)):
+            data = data.cast(pl_.Int64)
+            cast_bin_edges = True
+        elif isinstance(dtype, pl_.Date):
+            data = data.cast(pl_.Int32)
+            cast_bin_edges = True
+        else:
+            cast_bin_edges = False
+
+        min_value = data.min()
+        max_value = data.max()
+        data_span = max_value - min_value  # type: ignore
+        num_bins = params.num_bins
+        bin_size = data_span / num_bins
+
+        indices = ((data - min_value) / data_span) * num_bins
+        indices = indices.cast(pl_.Int64).alias("indices")
+
+        # The last bin right edge is inclusive, so we adjust down
+        indices[indices == num_bins] = num_bins - 1
+
+        freq_table = indices.value_counts()
+        index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
+        bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
+
+        bin_edges = min_value + pl_.arange(params.num_bins + 1, eager=True) * bin_size
+
+        if cast_bin_edges:
+            bin_edges = bin_edges.cast(dtype)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(

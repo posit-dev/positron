@@ -79,7 +79,10 @@ export const ACCESSIBLE_NOTEBOOK_DISPLAY_ORDER: readonly string[] = [
  * extension, for instance. See #136247.
  */
 export const RENDERER_EQUIVALENT_EXTENSIONS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-	['ms-toolsai.jupyter', new Set(['jupyter-notebook', 'interactive'])],
+	// --- Start Positron ---
+	// Use vscode.positron-ipywidgets renderer instead of ms-toolsai.jupyter.
+	['vscode.positron-ipywidgets', new Set(['jupyter-notebook', 'interactive'])],
+	// --- End Positron ---
 	['ms-toolsai.jupyter-renderers', new Set(['jupyter-notebook', 'interactive'])],
 ]);
 

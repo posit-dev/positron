@@ -25,10 +25,15 @@ export class PositronPythonFixtures {
 		if (desiredPython === undefined) {
 			fail('Please be sure to set env var POSITRON_PY_VER_SEL to the UI text corresponding to the Python version for the test');
 		}
-		await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython);
 
-		await this.app.workbench.positronConsole.waitForReady('>>>');
-
+		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
+		try {
+			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython);
+			await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
+		} catch (e) {
+			this.app.code.driver.takeScreenshot('startPythonInterpreter');
+			throw e;
+		}
 		await this.app.workbench.positronConsole.logConsoleContents();
 	}
 
@@ -46,7 +51,7 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronPopups.installIPyKernel();
 		}
 
-		await this.app.workbench.positronConsole.waitForReady('>>>');
+		await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
 
 		await this.app.workbench.positronConsole.logConsoleContents();
 

@@ -13,6 +13,7 @@ import { QuickInput } from '../quickinput';
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';
 const SELECT_KERNEL_TEXT = 'Select Kernel';
+const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const EDIT_CELL_COMMAND = 'notebook.cell.edit';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
@@ -32,9 +33,19 @@ export class PositronNotebooks {
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
-		await this.code.waitForElement(KERNEL_LABEL, (e) => e!.textContent.includes(desiredKernel) || e!.textContent.includes(SELECT_KERNEL_TEXT));
 
-		const interpreterManagerText = (await this.code.waitForElement(KERNEL_LABEL)).textContent;
+		// get the kernel label text
+		let interpreterManagerText = (await this.code.waitForElement(KERNEL_LABEL)).textContent;
+
+		// if we are still detecting kernels, wait extra time for the correct kernel or for the
+		// "Select Kernel" option to appear
+		if (interpreterManagerText === DETECTING_KERNELS_TEXT) {
+			interpreterManagerText = (await this.code.waitForElement(KERNEL_LABEL, (e) =>
+				e!.textContent.includes(desiredKernel) ||
+				e!.textContent.includes(SELECT_KERNEL_TEXT), 600)).textContent;
+		}
+
+		// if select kernel appears, select the proper kernel
 		if (interpreterManagerText === SELECT_KERNEL_TEXT) {
 			await this.code.waitAndClick(KERNEL_ACTION);
 			await this.quickinput.waitForQuickInputOpened();

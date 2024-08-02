@@ -598,6 +598,14 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Experimental,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="histogram",
+            support_status=SupportStatus.Experimental,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="frequency_table",
+            support_status=SupportStatus.Experimental,
+        ),
     ]
     for tp in profile_types:
         assert tp in column_profiles["supported_types"]
@@ -2166,16 +2174,30 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 assert filt_result["data"] == filt_expected
 
 
-def _profile_request(column_index, profile_type):
-    return {"column_index": column_index, "profile_type": profile_type}
+def _profile_request(column_index, profiles):
+    return {"column_index": column_index, "profiles": profiles}
 
 
 def _get_null_count(column_index):
-    return _profile_request(column_index, "null_count")
+    return _profile_request(column_index, [{"profile_type": "null_count"}])
+
+
+def _get_histogram(column_index, bins):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "histogram", "params": {"num_bins": bins}}],
+    )
+
+
+def _get_frequency_table(column_index, limit):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "frequency_table", "params": {"limit": limit}}],
+    )
 
 
 def _get_summary_stats(column_index):
-    return _profile_request(column_index, "summary_stats")
+    return _profile_request(column_index, [{"profile_type": "summary_stats"}])
 
 
 def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
@@ -2513,6 +2535,132 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": pd.date_range("2000-01-01", periods=11),
+            "c": [1.5, np.nan, 3.5, 5.0, 10, np.nan, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+        }
+    )
+    dfp = pl.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": list(df["b"]),
+            "c": [1.5, None, 3.5, 5.0, 10, None, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+        }
+    )
+
+    dxf.register_table("df", df)
+    dxf.register_table("dfp", dfp)
+
+    cases = [
+        (
+            _get_histogram(0, 4),
+            {
+                "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
+                "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(1, 4),
+            {
+                "bin_edges": [
+                    "2000-01-01 00:00:00",
+                    "2000-01-03 12:00:00",
+                    "2000-01-06 00:00:00",
+                    "2000-01-08 12:00:00",
+                    "2000-01-11 00:00:00",
+                ],
+                "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(2, 6),
+            {
+                "bin_edges": [
+                    "-10.00",
+                    "-6.67",
+                    "-3.33",
+                    "0.00",
+                    "3.33",
+                    "6.67",
+                    "10.00",
+                ],
+                "bin_counts": [1, 1, 1, 3, 2, 1],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(3, 4),
+            {
+                "bin_edges": [
+                    "0.00",
+                    "2.50",
+                    "5.00",
+                    "7.50",
+                    "10.00",
+                ],
+                "bin_counts": [5, 0, 0, 6],
+                "quantiles": [],
+            },
+        ),
+    ]
+
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["histogram"] == ex_result
+
+
+def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
+    data = {
+        "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
+        "b": [
+            "foo",
+            "foo",
+            "foo",
+            "foo",
+            "b0",
+            "b0",
+            "b1",
+            "b2",
+            "b3",
+            None,
+        ],
+    }
+    dxf.register_table("df", pd.DataFrame(data))
+    dxf.register_table("dfp", pl.DataFrame(data))
+
+    cases = [
+        (
+            _get_frequency_table(0, 3),
+            {
+                "values": ["0", "1", "2"],
+                "counts": [3, 2, 2],
+                "other_count": 3,
+            },
+        ),
+        (
+            _get_frequency_table(1, 3),
+            {
+                "values": ["foo", "b0", "b1"],
+                "counts": [4, 2, 1],
+                "other_count": 2,
+            },
+        ),
+    ]
+
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["frequency_table"] == ex_result
 
 
 # ----------------------------------------------------------------------
