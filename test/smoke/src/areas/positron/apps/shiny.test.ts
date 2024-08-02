@@ -25,7 +25,7 @@ export function setup(logger: Logger) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Python - Verify Basic Shiny App [...]', async function () {
+			it('Python - Verify Basic Shiny App [C699099]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
@@ -52,7 +52,7 @@ export function setup(logger: Logger) {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('R - Verify Basic Shiny App [...]', async function () {
+			it('R - Verify Basic Shiny App [C699100]', async function () {
 				const app = this.app as Application;
 
 				const code = `library(shiny)
