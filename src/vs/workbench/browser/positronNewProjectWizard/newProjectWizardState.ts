@@ -221,6 +221,7 @@ export class NewProjectWizardStateManager
 	 */
 	set selectedRuntime(value: ILanguageRuntimeMetadata | undefined) {
 		this._selectedRuntime = value;
+		this._updateInterpreterRelatedState();
 	}
 
 	/**
