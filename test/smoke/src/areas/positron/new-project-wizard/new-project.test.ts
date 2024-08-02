@@ -11,7 +11,7 @@ import { installAllHandlers } from '../../../utils';
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe.only('New Project Wizard', () => {
+	describe('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
