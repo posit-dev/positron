@@ -7,6 +7,7 @@ import * as extHostProtocol from './extHost.positron.protocol';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { ExtHostDocuments } from '../extHostDocuments';
 import { ExtHostWorkspace } from '../extHostWorkspace';
+import { ExtHostCommands } from '..//extHostCommands';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
@@ -43,6 +44,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		private readonly dialogs: ExtHostModalDialogs,
 		private readonly runtime: ExtHostLanguageRuntime,
 		private readonly workspace: ExtHostWorkspace,
+		private readonly commands: ExtHostCommands,
 		private readonly contextKeys: ExtHostContextKeyService
 	) {
 	}
@@ -99,6 +101,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.createDocument(params.contents as string,
 						params.language_id as string);
+					break;
+				}
+				case UiFrontendRequest.ExecuteCommandAwait: {
+					if (!params || !Object.keys(params).includes('command')) {
+						return newInvalidParamsError(method);
+					}
+					result = await this.executeCommand(params.command as string);
 					break;
 				}
 				case UiFrontendRequest.ShowQuestion: {
@@ -269,6 +278,11 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 		// TODO: Return a document ID
 		return null;
+	}
+
+	async executeCommand(commandId: string): Promise<boolean> {
+		await this.commands.executeCommand(commandId);
+		return true;
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {

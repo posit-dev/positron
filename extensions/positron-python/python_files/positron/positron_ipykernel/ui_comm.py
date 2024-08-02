@@ -355,6 +355,16 @@ class ExecuteCommandParams(BaseModel):
     )
 
 
+class ExecuteCommandAwaitParams(BaseModel):
+    """
+    Execute a Positron command and wait for it to return
+    """
+
+    command: StrictStr = Field(
+        description="The command to execute",
+    )
+
+
 class EvaluateWhenClauseParams(BaseModel):
     """
     Get a logical for a `when` clause (a set of context keys)
@@ -490,6 +500,8 @@ WorkingDirectoryParams.update_forward_refs()
 DebugSleepParams.update_forward_refs()
 
 ExecuteCommandParams.update_forward_refs()
+
+ExecuteCommandAwaitParams.update_forward_refs()
 
 EvaluateWhenClauseParams.update_forward_refs()
 

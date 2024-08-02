@@ -388,6 +388,20 @@ export interface DebugSleepRequest {
 }
 
 /**
+ * Request: Execute a Positron command and wait for it to return
+ *
+ * Use this to execute a Positron command from the backend (like from a
+ * runtime) and wait for it to return
+ */
+export interface ExecuteCommandAwaitRequest {
+	/**
+	 * The command to execute
+	 */
+	command: string;
+
+}
+
+/**
  * Request: Get a logical for a `when` clause (a set of context keys)
  *
  * Use this to evaluate a `when` clause of context keys in the frontend
@@ -483,6 +497,7 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
+	ExecuteCommandAwait = 'execute_command_await',
 	EvaluateWhenClause = 'evaluate_when_clause',
 	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',

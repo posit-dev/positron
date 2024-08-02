@@ -217,6 +217,26 @@
 			]
 		},
 		{
+			"name": "execute_command_await",
+			"summary": "Execute a Positron command and wait for it to return",
+			"description": "Use this to execute a Positron command from the backend (like from a runtime) and wait for it to return",
+			"params": [
+				{
+					"name": "command",
+					"description": "The command to execute",
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "boolean",
+					"description": "Evaluates to true when the command has been executed"
+				}
+			}
+		},
+		{
 			"name": "evaluate_when_clause",
 			"summary": "Get a logical for a `when` clause (a set of context keys)",
 			"description": "Use this to evaluate a `when` clause of context keys in the frontend",

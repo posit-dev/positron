@@ -21,6 +21,7 @@ import { ExtHostContextKeyService } from 'vs/workbench/api/common/positron/extHo
 import { ExtHostDocuments } from 'vs/workbench/api/common/extHostDocuments';
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
+import { IExtHostCommands } from 'vs/workbench/api/common/extHostCommands';
 import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
 import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
 import { ExtHostOutputService } from 'vs/workbench/api/common/extHostOutput';
@@ -44,6 +45,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
+	const extHostCommands = accessor.get(IExtHostCommands);
 	const extHostLogService = accessor.get(ILogService);
 
 	// Retrieve the raw `ExtHostWebViews` object from the rpcProtocol; this
@@ -67,7 +69,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
-		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs, extHostLanguageRuntime, extHostWorkspace, extHostContextKeyService));
+		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
+			extHostLanguageRuntime, extHostWorkspace, extHostCommands, extHostContextKeyService));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
