@@ -50,7 +50,14 @@ async function main(buildDir?: string) {
 			// Exclusions from Python language pack (positron-python)
 			'pydevd',             // Cython pre-built binaries for Python debugging
 			// Exclusions from R language pack (positron-r)
-			'ark'                 // Compiled R kernel and LSP
+			'ark',                // Compiled R kernel and LSP
+			// Exclusions from Quarto
+			'dart',
+			'deno',
+			'esbuild',
+			'pandoc',
+			'sass',
+			'typst',
 			// --- End Positron ---
 		],
 		outAppPath,
