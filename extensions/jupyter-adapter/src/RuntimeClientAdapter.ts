@@ -208,7 +208,7 @@ export class RuntimeClientAdapter {
 	/**
 	 * Perform an RPC call over the comm channel.
 	 */
-	performRpc(request: any): Promise<any> {
+	performRpc(request: any): Promise<IRuntimeClientOutput> {
 		// Create a random ID for this request
 		const id = uuidv4();
 

@@ -28,7 +28,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	private readonly _onDidChangeClientState = new Emitter<positron.RuntimeClientState>();
 
 	// Emitter for data sent from the back-end to the front end.
-	private readonly _onDidSendData = new Emitter<object>();
+	private readonly _onDidSendData = new Emitter<positron.RuntimeClientOutput<object>>();
 
 	// The current client state.
 	private _state: positron.RuntimeClientState;
@@ -77,7 +77,9 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 			rpc.complete(message.data);
 		} else {
 			// It isn't; treat it like a regular event.
-			this._onDidSendData.fire(message.data);
+			this._onDidSendData.fire(
+				{ data: message.data, buffers: message.buffers?.map(vsBuffer => vsBuffer.buffer) }
+			);
 		}
 	}
 
@@ -127,7 +129,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	 * Note that RPC replies don't fire this event; they are returned as
 	 * promises from `performRpc`.
 	 */
-	onDidSendEvent: Event<object>;
+	onDidSendEvent: Event<positron.RuntimeClientOutput<object>>;
 
 	getClientState(): positron.RuntimeClientState {
 		return this._state;
