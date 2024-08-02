@@ -40,6 +40,9 @@ export function deserializeJupyterMessage(message: any[], key: string, channel: 
 	const parent = message[2]!.toString();
 	const metadata = message[3]!.toString();
 	const content = message[4]!.toString();
+	// Remaining buffers, if there are any, may be used to transfer raw binary data e.g.
+	// in some ipywidgets comm messages
+	const buffers = message.slice(5);
 
 	// Double-check signature
 	const hmac = createHmac('sha256', key);
@@ -58,7 +61,7 @@ export function deserializeJupyterMessage(message: any[], key: string, channel: 
 		parent_header: JSON.parse(parent), // eslint-disable-line
 		metadata: JSON.parse(metadata),
 		content: JSON.parse(content),
-		buffers: message.slice(5),
+		buffers,
 	};
 
 	return msg;

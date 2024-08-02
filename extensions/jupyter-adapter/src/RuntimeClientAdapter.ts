@@ -13,7 +13,7 @@ import { JupyterCommClose } from './JupyterCommClose';
 import { PromiseHandles, delay, uuidv4 } from './utils';
 
 interface IRuntimeClientOutput {
-	data: { [key: string]: any };
+	data: Record<string, any>;
 	buffers?: Array<Uint8Array>;
 }
 
