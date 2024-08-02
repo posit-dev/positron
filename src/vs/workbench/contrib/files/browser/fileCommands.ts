@@ -448,7 +448,7 @@ function saveDirtyEditorsOfGroups(accessor: ServicesAccessor, groups: readonly I
 
 // --- Start Positron ---
 // Same as preexisting `saveDirtyEditorsOfGroups()`, but filters out `Untitled` editors and waits
-async function saveDirtyTitledEditorsOfGroups(accessor: ServicesAccessor, groups: readonly IEditorGroup[], options?: ISaveEditorsOptions): Promise<void> {
+function saveDirtyTitledEditorsOfGroups(accessor: ServicesAccessor, groups: readonly IEditorGroup[], options?: ISaveEditorsOptions): Promise<void> {
 	const dirtyEditors: IEditorIdentifier[] = [];
 	for (const group of groups) {
 		for (const editor of group.getEditors(EditorsOrder.MOST_RECENTLY_ACTIVE)) {
@@ -461,7 +461,7 @@ async function saveDirtyTitledEditorsOfGroups(accessor: ServicesAccessor, groups
 		}
 	}
 
-	return await doSaveEditors(accessor, dirtyEditors, options);
+	return doSaveEditors(accessor, dirtyEditors, options);
 }
 // --- End Positron ---
 
