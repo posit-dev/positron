@@ -149,7 +149,7 @@ jobs:
 
       - name: slack-smoke-test-report
         if: always()
-        uses: ivanklee86/xunit-slack-reporter@v1.4.0
+        uses: testlabauto/xunit-slack-reporter@v2.0.0
         env:
           SLACK_CHANNEL: C06DNFJSHPD
           SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
