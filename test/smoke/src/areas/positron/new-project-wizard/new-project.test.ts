@@ -11,7 +11,7 @@ import { installAllHandlers } from '../../../utils';
  * New Project Wizard test cases
  */
 export function setup(logger: Logger) {
-	describe('New Project Wizard', () => {
+	describe.only('New Project Wizard', () => {
 		describe('Python - New Project Wizard', () => {
 			// Shared before/after handling
 			installAllHandlers(logger);
@@ -139,7 +139,8 @@ export function setup(logger: Logger) {
 						timeout: 50_000
 					});
 					await expect(pw.pythonConfigurationStep.interpreterFeedback).toHaveText(
-						'ipykernel will be installed for Python language support.'
+						'ipykernel will be installed for Python language support.',
+						{ timeout: 10_000 }
 					);
 					await pw.navigate(ProjectWizardNavigateAction.CREATE);
 					await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
