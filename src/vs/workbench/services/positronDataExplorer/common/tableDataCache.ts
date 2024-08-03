@@ -5,7 +5,8 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
+import { ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -15,26 +16,28 @@ const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 100;
 
 /**
- * Creates an array from an index range.
- * @param startIndex The start index.
- * @param endIndex The end index.
- * @returns An array with the specified index range.
+ * InvalidateCacheFlags enum.
  */
-const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
-	Array.from({ length: endIndex - startIndex + 1 }, (_, i) => startIndex + i);
+export enum InvalidateCacheFlags {
+	None = 0,
+	Schema = 1 << 0,
+	Data = 1 << 1,
+	All = ~(~0 << 2)
+}
 
 /**
  * UpdateDescriptor interface.
  */
 interface UpdateDescriptor {
+	invalidateCache: InvalidateCacheFlags;
 	firstColumnIndex: number;
-	visibleColumns: number;
-	firstRowIndex?: number;
-	visibleRows?: number;
+	screenColumns: number;
+	firstRowIndex: number;
+	screenRows: number;
 }
 
 /**
- * DataCellKind enum
+ * DataCellKind enum.
  */
 export enum DataCellKind {
 	NON_NULL = '',
@@ -49,7 +52,7 @@ export enum DataCellKind {
 }
 
 /**
- * DataCell interface
+ * DataCell interface.
  */
 export interface DataCell {
 	formatted: string;
@@ -90,12 +93,12 @@ export class TableDataCache extends Disposable {
 	/**
 	 * Gets or sets a value which indicates whether the cache is being updated.
 	 */
-	private _updatingCache = false;
+	private _updating = false;
 
 	/**
-	 * Gets or sets the cache update descriptor.
+	 * Gets or sets the pending update descriptor.
 	 */
-	private _cacheUpdateDescriptor?: UpdateDescriptor;
+	private _pendingUpdateDescriptor?: UpdateDescriptor;
 
 	/**
 	 * Gets or sets the columns.
@@ -108,11 +111,6 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Gets the data explorer client instance that this table data cache is caching data for.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
-
-	/**
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
@@ -123,14 +121,14 @@ export class TableDataCache extends Disposable {
 	private readonly _rowLabelCache = new Map<number, string>();
 
 	/**
-	 * Gets the data cell cache.
+	 * Gets the data column cache.
 	 */
-	private readonly _dataCellCache = new Map<string, DataCell>();
+	private readonly _dataColumnCache = new Map<number, Map<number, DataCell>>();
 
 	/**
-	 * The onDidUpdateCache event emitter.
+	 * The onDidUpdate event emitter.
 	 */
-	protected readonly _onDidUpdateCacheEmitter = this._register(new Emitter<void>);
+	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
 
 	//#endregion Private Properties
 
@@ -138,26 +136,11 @@ export class TableDataCache extends Disposable {
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(private readonly _dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
-
-		// Set the data explorer client instance.
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
-
-		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Clear the column schema cache, row label cache, and data cell cache.
-			this._columnSchemaCache.clear();
-			this.invalidateDataCache();
-		}));
-
-		// Add the onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			this.invalidateDataCache();
-		}));
 	}
 
 	//#endregion Constructor & Dispose
@@ -183,36 +166,201 @@ export class TableDataCache extends Disposable {
 	//#region Public Events
 
 	/**
-	 * onDidUpdateCache event.
+	 * onDidUpdate event.
 	 */
-	readonly onDidUpdateCache = this._onDidUpdateCacheEmitter.event;
+	readonly onDidUpdate = this._onDidUpdateEmitter.event;
 
 	//#endregion Public Events
 
 	//#region Public Methods
 
 	/**
-	 * Invalidates the data cache.
+	 * Updates the cache.
+	 * @param updateDescriptor The update descriptor.
 	 */
-	invalidateDataCache() {
-		this._rowLabelCache.clear();
-		this._dataCellCache.clear();
+	async update(updateDescriptor: UpdateDescriptor): Promise<void> {
+		// If a cache update is already in progress, set the pending update descriptor and return.
+		// This allows cache updates that are happening in rapid succession to overwrite one another
+		// so that only the last one gets processed. (For example, this happens when a user drags a
+		// scrollbar rapidly.)
+		if (this._updating) {
+			this._pendingUpdateDescriptor = updateDescriptor;
+			return;
+		}
 
-		// On an update event, table shape may have changed
-		this._dataExplorerClientInstance.updateBackendState();
-	}
+		// Set the updating flag.
+		this._updating = true;
 
-	/**
-	 * Updates the cache for the specified columns and rows. If data caching isn't needed, omit the
-	 * firstRowIndex and visibleRows parameters from the cache update descriptor.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
-	 */
-	async updateCache(cacheUpdateDescriptor: UpdateDescriptor): Promise<void> {
-		// Update the cache.
-		await this.doUpdateCache(cacheUpdateDescriptor);
+		// Destructure the update descriptor.
+		const {
+			invalidateCache,
+			firstColumnIndex,
+			screenColumns,
+			firstRowIndex,
+			screenRows
+		} = updateDescriptor;
 
-		// Fire the onDidUpdateCache event.
-		this._onDidUpdateCacheEmitter.fire();
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+		this._rows = tableState.table_shape.num_rows;
+
+		// Set the start column index and the end column index of the columns to cache.
+		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
+		const startColumnIndex = Math.max(
+			0,
+			firstColumnIndex - overscanColumns
+		);
+		const endColumnIndex = Math.min(
+			this._columns - 1,
+			firstColumnIndex + screenColumns + overscanColumns,
+		);
+
+		// Set the column indices of the column schema we need to load.
+		let columnIndices: number[];
+		if ((invalidateCache & InvalidateCacheFlags.Schema) === InvalidateCacheFlags.Schema) {
+			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+		} else {
+			columnIndices = [];
+			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+				if (!this._columnSchemaCache.has(columnIndex)) {
+					columnIndices.push(columnIndex);
+				}
+			}
+		}
+
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Clear the column schema cache, if we're supposed to.
+		if ((invalidateCache & InvalidateCacheFlags.Schema) === InvalidateCacheFlags.Schema) {
+			this._columnSchemaCache.clear();
+		}
+
+		// Cache the column schema that was returned.
+		for (let column = 0; column < tableSchema.columns.length; column++) {
+			this._columnSchemaCache.set(columnIndices[column], tableSchema.columns[column]);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
+		// Set the start row index and the end row index of the rows to cache.
+		const overscanRows = screenRows * OVERSCAN_FACTOR;
+		const startRowIndex = Math.max(
+			0,
+			firstRowIndex - overscanRows
+		);
+		const endRowIndex = Math.min(
+			this._rows - 1,
+			firstRowIndex + screenRows + overscanRows
+		);
+
+		// Set the column indices and row indices of the data values to load.
+		let rowIndices: number[];
+		if ((invalidateCache & InvalidateCacheFlags.Data) === InvalidateCacheFlags.Data) {
+			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
+		} else {
+			const columnIndicesToCache = new Set<number>();
+			const rowIndicesToCache = new Set<number>();
+			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+				const dataColumn = this._dataColumnCache.get(columnIndex);
+				if (!dataColumn) {
+					columnIndicesToCache.add(columnIndex);
+				} else {
+					for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
+						if (!dataColumn.has(rowIndex)) {
+							columnIndicesToCache.add(columnIndex);
+							rowIndicesToCache.add(rowIndex);
+							break;
+						}
+					}
+				}
+			}
+
+			// Set the column indices and row indices.
+			columnIndices = Array.from(columnIndicesToCache).sort((a, b) => a - b);
+			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
+		}
+
+		const start = new Date();
+
+		// Get the data values.
+		const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
+			rowIndices[0],											// SOON TO BE AN ARRAY
+			rowIndices[rowIndices.length - 1] - rowIndices[0] + 1,	// SOON TO BE AN ARRAY
+			columnIndices
+		);
+
+		const end = new Date();
+
+		console.log(`Getting data took ${end.getTime() - start.getTime()}ms`);
+
+		// Clear the cache, if we're supposed to.
+		if ((invalidateCache & InvalidateCacheFlags.Data) === InvalidateCacheFlags.Data) {
+			this._rowLabelCache.clear();
+			this._dataColumnCache.clear();
+		}
+
+		// // Update the row labels cache.
+		// if (tableData.row_labels) {
+		// 	for (let row = 0; row < tableData.row_labels[0].length; row++) {
+		// 		this._rowLabelCache.set(rowIndices[row], tableData.row_labels[0][row]);
+		// 	}
+		// }
+
+		// Update the data column cache.
+		for (let column = 0; column < tableData.columns.length; column++) {
+			// Get the column index.
+			const columnIndex = columnIndices[column];
+
+			// Get or create the data column.
+			let dataColumn = this._dataColumnCache.get(columnIndex);
+			if (!dataColumn) {
+				dataColumn = new Map<number, DataCell>();
+				this._dataColumnCache.set(columnIndex, dataColumn);
+			}
+
+			// Update the cell values.
+			for (let row = 0; row < tableData.columns[column].length; row++) {
+				// Get the cell value.
+				const value = tableData.columns[column][row];
+
+				// Convert the cell value into a data cell.
+				let dataCell: DataCell;
+				if (typeof value === 'number') {
+					dataCell = decodeSpecialValue(value);
+				} else {
+					dataCell = {
+						formatted: value,
+						kind: DataCellKind.NON_NULL
+					};
+				}
+
+				// Cache the cell value.
+				dataColumn.set(rowIndices[row], dataCell);
+			}
+		}
+
+		// If the cache was updated, fire the onDidUpdateCache event.
+		this._onDidUpdateEmitter.fire();
+
+		// Clear the updating flag.
+		this._updating = false;
+
+		// If there isn't a pending update descriptor, trim the cache. Otherwise, update the cache
+		// again.
+		if (!this._pendingUpdateDescriptor) {
+			this.trimCache(startColumnIndex, endColumnIndex);
+		} else {
+			// Get the pending update descriptor and clear it.
+			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
+			this._pendingUpdateDescriptor = undefined;
+
+			// Update the cache for the pending update descriptor.
+			await this.update(pendingUpdateDescriptor);
+		}
 	}
 
 	/**
@@ -240,7 +388,7 @@ export class TableDataCache extends Disposable {
 	 * @returns The data cell for the specified column index and row index.
 	 */
 	getDataCell(columnIndex: number, rowIndex: number) {
-		return this._dataCellCache.get(`${columnIndex},${rowIndex}`);
+		return this._dataColumnCache.get(columnIndex)?.get(rowIndex);
 	}
 
 	/**
@@ -313,161 +461,17 @@ export class TableDataCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Updates the cache.
-	 * @param cacheUpdateDescriptor The cache update descriptor.
+	 * Trims the cache, removing columns outside of the start column index / end column index.
+	 * @param startColumnIndex The start column index.
+	 * @param endColumnIndex The end column index.
 	 */
-	private async doUpdateCache(cacheUpdateDescriptor: UpdateDescriptor): Promise<void> {
-		// If a cache update is already in progress, set the cache update descriptor and return.
-		// This allows cache updates that are happening in rapid succession to overwrite one
-		// another so that only the last one gets processed. (For example, this happens when a user
-		// drags a scrollbar rapidly.)
-		if (this._updatingCache) {
-			this._cacheUpdateDescriptor = cacheUpdateDescriptor;
-			return;
-		}
-
-		// Set the updating cache flag.
-		this._updatingCache = true;
-
-		// Destructure the cache update descriptor.
-		const {
-			firstColumnIndex,
-			visibleColumns,
-			firstRowIndex,
-			visibleRows
-		} = cacheUpdateDescriptor;
-
-		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
-
-		// Set the start column index and the end column index of the columns to cache.
-		const startColumnIndex = Math.max(
-			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
-			0
-		);
-		const endColumnIndex = Math.min(
-			startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2),
-			this._columns - 1
-		);
-
-		// Build an array of the column indices to cache.
-		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-
-		// Build an array of the column schema indices that need to be cached.
-		const columnSchemaIndices = columnIndices.filter(columnIndex =>
-			!this._columnSchemaCache.has(columnIndex)
-		);
-
-		// Initialize the cache updated flag.
-		let cacheUpdated = false;
-
-		// If there are column schema indices that need to be cached, cache them.
-		if (columnSchemaIndices.length) {
-			// Get the schema.
-			const tableSchema = await this._dataExplorerClientInstance.getSchema(
-				columnSchemaIndices
-			);
-
-			// Update the column schema cache, overwriting any entries we already have cached.
-			for (let i = 0; i < tableSchema.columns.length; i++) {
-				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchema.columns[i]);
+	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+		// Trim the column schema cache.
+		for (const columnIndex of this._columnSchemaCache.keys()) {
+			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+				this._columnSchemaCache.delete(columnIndex);
+				console.log(`    delete columnSchemaCache ${columnIndex}`);
 			}
-
-			// Update the cache updated flag.
-			cacheUpdated = true;
-		}
-
-		// If data is also being cached, update the data cache.
-		if (firstRowIndex !== undefined && visibleRows !== undefined) {
-			// Set the start row index and the end row index of the rows to cache.
-			const startRowIndex = Math.max(
-				firstRowIndex - (visibleRows * OVERSCAN_FACTOR),
-				0
-			);
-			const endRowIndex = Math.min(
-				startRowIndex + visibleRows + (visibleRows * OVERSCAN_FACTOR * 2),
-				this._rows - 1
-			);
-
-			// Build an array of the row indices that need to be cached.
-			const rowIndices: number[] = [];
-			for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
-				for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-					if (!this._dataCellCache.has(`${columnIndex},${rowIndex}`)) {
-						rowIndices.push(rowIndex);
-						break;
-					}
-				}
-			}
-
-			// If there are row indices that need to be cached, cache them.
-			if (rowIndices.length) {
-				// Calculate the rows count.
-				const rows = rowIndices[rowIndices.length - 1] - rowIndices[0] + 1;
-
-				// Get the data values.
-				const tableData = await this._dataExplorerClientInstance.getDataValues(
-					rowIndices[0],
-					rows,
-					columnIndices
-				);
-
-				// Update the data cell cache, overwriting any entries we already have cached.
-				for (let row = 0; row < rows; row++) {
-					const rowIndex = rowIndices[row];
-
-					// Cache the data cells.
-					for (let column = 0; column < columnIndices.length; column++) {
-						const value = tableData.columns[column][row];
-						const columnIndex = columnIndices[column];
-						if (typeof value === 'number') {
-							this._dataCellCache.set(`${columnIndex},${rowIndex}`,
-								decodeSpecialValue(value)
-							);
-						} else {
-							this._dataCellCache.set(`${columnIndex},${rowIndex}`, {
-								formatted: value,
-								kind: DataCellKind.NON_NULL
-							});
-						}
-					}
-				}
-
-				// Get the row labels, if any
-				if (tableState.has_row_labels) {
-					const rowLabels = await this._dataExplorerClientInstance.getRowLabels(
-						{ first_index: rowIndices[0], last_index: rowIndices[0] + rows - 1 }
-					);
-					for (let row = 0; row < rows; row++) {
-						const rowIndex = rowIndices[row];
-						const rowLabel = rowLabels.row_labels[0][row];
-						this._rowLabelCache.set(rowIndex, rowLabel);
-					}
-				}
-
-				// Update the cache updated flag.
-				cacheUpdated = true;
-			}
-		}
-
-		// If the cache was updated, fire the onDidUpdateCache event.
-		if (cacheUpdated) {
-			this._onDidUpdateCacheEmitter.fire();
-		}
-
-		// Clear the updating cache flag.
-		this._updatingCache = false;
-
-		// If there is a cache update descriptor, update the cache for it.
-		if (this._cacheUpdateDescriptor) {
-			// Get the pending cache update descriptor and clear it.
-			const pendingCacheUpdateDescriptor = this._cacheUpdateDescriptor;
-			this._cacheUpdateDescriptor = undefined;
-
-			// Update the cache for the pending cache update descriptor.
-			await this.updateCache(pendingCacheUpdateDescriptor);
 		}
 	}
 

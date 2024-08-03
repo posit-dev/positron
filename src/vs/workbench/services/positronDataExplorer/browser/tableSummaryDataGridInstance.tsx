@@ -72,7 +72,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the cache with invalidation.
 			await this._tableSummaryCache.update({
-				invaidateCache: true,
+				invalidateCache: true,
 				firstColumnIndex: this.firstColumnIndex,
 				screenColumns: this.screenRows
 			});
@@ -119,7 +119,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData() {
 		await this._tableSummaryCache.update({
-			invaidateCache: false,
+			invalidateCache: false,
 			firstColumnIndex: this.firstRowIndex,
 			screenColumns: this.screenRows
 		});

@@ -5,7 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { arrayFromIndexRange, asyncDelay } from 'vs/workbench/services/positronDataExplorer/common/utils';
+import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
@@ -18,7 +18,7 @@ const OVERSCAN_FACTOR = 3;
  * UpdateDescriptor interface.
  */
 interface UpdateDescriptor {
-	invaidateCache: boolean;
+	invalidateCache: boolean;
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -164,11 +164,110 @@ export class TableSummaryCache extends Disposable {
 	 * @param updateDescriptor The update descriptor.
 	 */
 	async update(updateDescriptor: UpdateDescriptor): Promise<void> {
-		// Update the cache.
-		await this.doUpdate(updateDescriptor);
+		// If a cache update is already in progress, set the pending update descriptor and return.
+		// This allows cache updates that are happening in rapid succession to overwrite one another
+		// so that only the last one gets processed. (For example, this happens when a user drags a
+		// scrollbar rapidly.)
+		if (this._updating) {
+			this._pendingUpdateDescriptor = updateDescriptor;
+			return;
+		}
+
+		// Set the updating flag.
+		this._updating = true;
+
+		// Destructure the update descriptor.
+		const {
+			invalidateCache: invalidateCache,
+			firstColumnIndex,
+			screenColumns
+		} = updateDescriptor;
+
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+		this._rows = tableState.table_shape.num_rows;
+
+		// Set the start column index and the end column index of the columns to cache.
+		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
+		const startColumnIndex = Math.max(
+			0,
+			firstColumnIndex - overscanColumns
+		);
+		const endColumnIndex = Math.min(
+			this._columns - 1,
+			firstColumnIndex + screenColumns + overscanColumns
+		);
+
+		// Set the column indices of the column schema we need to load.
+		let columnIndices: number[];
+		if (invalidateCache) {
+			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+		} else {
+			columnIndices = [];
+			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+				if (!this._columnSchemaCache.has(columnIndex)) {
+					columnIndices.push(columnIndex);
+				}
+			}
+		}
+
+		// Load the column schema.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Clear the column schema cache, if we're supposed to.
+		if (invalidateCache) {
+			this._columnSchemaCache.clear();
+			this._columnProfileCache.clear();
+		}
+
+		// Cache the column schema that was returned.
+		for (let i = 0; i < tableSchema.columns.length; i++) {
+			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+		}
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
+
+		// Load the column profiles.
+		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
+			columnIndices.map((column_index): ColumnProfileRequest => {
+				// Build the array of column profiles to load.
+				const profiles: ColumnProfileSpec[] = [
+					{ profile_type: ColumnProfileType.NullCount }
+				];
+				if (this._expandedColumns.has(column_index)) {
+					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
+				}
+
+				// Return the column profile request.
+				return { column_index, profiles };
+			})
+		);
+
+		// Cache the column profiles that were returned.
+		for (let i = 0; i < columnProfiles.length; i++) {
+			this._columnProfileCache.set(columnIndices[i], columnProfiles[i]);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+
+		// Clear the updating flag.
+		this._updating = false;
+
+		// If there isn't a pending update descriptor, trim the cache. Otherwise, update the cache
+		// again.
+		if (!this._pendingUpdateDescriptor) {
+			this.trimCache(startColumnIndex, endColumnIndex);
+		} else {
+			// Get the pending update descriptor and clear it.
+			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
+			this._pendingUpdateDescriptor = undefined;
+
+			// Update the cache for the pending update descriptor.
+			await this.update(pendingUpdateDescriptor);
+		}
 	}
 
 	/**
@@ -249,113 +348,23 @@ export class TableSummaryCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Updates the cache.
-	 * @param updateDescriptor The update descriptor.
+	 * Trims the cache, removing columns outside of the start column index / end column index.
+	 * @param startColumnIndex The start column index.
+	 * @param endColumnIndex The end column index.
 	 */
-	private async doUpdate(updateDescriptor: UpdateDescriptor): Promise<void> {
-		// If a cache update is already in progress, set the pending update descriptor and return.
-		// This allows cache updates that are happening in rapid succession to overwrite one another
-		// so that only the last one gets processed. (For example, this happens when a user drags a
-		// scrollbar rapidly.)
-		if (this._updating) {
-			this._pendingUpdateDescriptor = updateDescriptor;
-			return;
-		}
-
-		// Set the updating flag.
-		this._updating = true;
-
-		// Destructure the update descriptor.
-		const {
-			invaidateCache,
-			firstColumnIndex,
-			screenColumns
-		} = updateDescriptor;
-
-		// Get the size of the data.
-		const tableState = await this._dataExplorerClientInstance.getBackendState();
-		this._columns = tableState.table_shape.num_columns;
-		this._rows = tableState.table_shape.num_rows;
-
-		// Set the start column index and the end column index of the columns to cache.
-		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
-		const startColumnIndex = Math.max(
-			0,
-			firstColumnIndex - overscanColumns
-		);
-		const endColumnIndex = Math.min(
-			this._columns - 1,
-			firstColumnIndex + screenColumns + overscanColumns
-		);
-
-		// Set the column indices to cache.
-		let columnIndices: number[];
-		if (invaidateCache) {
-			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-		} else {
-			columnIndices = [];
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-				if (!this._columnSchemaCache.has(columnIndex)) {
-					columnIndices.push(columnIndex);
-				}
+	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+		// Trim the column schema cache.
+		for (const columnIndex of this._columnSchemaCache.keys()) {
+			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+				this._columnSchemaCache.delete(columnIndex);
 			}
 		}
 
-		// Load the table schema for the column indices to cache.
-		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
-
-		// Clear the cache, if we're supposed to.
-		if (invaidateCache) {
-			this._columnSchemaCache.clear();
-			this._columnProfileCache.clear();
-		}
-
-		// Cache the table schema that was returned.
-		for (let i = 0; i < tableSchema.columns.length; i++) {
-			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
-		}
-
-		// Fire the onDidUpdate event. Will this cause a repaint?
-		this._onDidUpdateEmitter.fire();
-
-		// Delay a bit.
-		await asyncDelay(2000);
-
-		// Load the column profiles.
-		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
-			columnIndices.map((column_index): ColumnProfileRequest => {
-				// Build the array of column profiles to load.
-				const profiles: ColumnProfileSpec[] = [
-					{ profile_type: ColumnProfileType.NullCount }
-				];
-				if (this._expandedColumns.has(column_index)) {
-					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
-				}
-
-				// Return the column profile request.
-				return { column_index, profiles };
-			})
-		);
-
-		// Cache the column profiles that were returned.
-		for (let i = 0; i < columnProfiles.length; i++) {
-			this._columnProfileCache.set(columnIndices[i], columnProfiles[i]);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
-
-		// Clear the updating flag.
-		this._updating = false;
-
-		// If there is a pending update descriptor, update the cache for it.
-		if (this._pendingUpdateDescriptor) {
-			// Get the pending update descriptor and clear it.
-			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
-			this._pendingUpdateDescriptor = undefined;
-
-			// Update the cache for the pending update descriptor.
-			await this.update(pendingUpdateDescriptor);
+		// Trim the column profile cache.
+		for (const columnIndex of this._columnProfileCache.keys()) {
+			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+				this._columnProfileCache.delete(columnIndex);
+			}
 		}
 	}
 

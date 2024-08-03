@@ -14,11 +14,11 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
+import { InvalidateCacheFlags, TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
@@ -87,25 +87,31 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		// Add the table data cache onDidUpdate event handler.
-		this._register(this._tableDataCache.onDidUpdateCache(() =>
-			this._onDidUpdateEmitter.fire()
-		));
-
-		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async e => {
-			this._tableDataCache.invalidateDataCache();
-			this.softReset();
-			await this.fetchData();
+		// Add the data explorer client onDidSchemaUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.All,
+				firstColumnIndex: this.firstColumnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: this.firstRowIndex,
+				screenRows: this.screenRows
+			});
 		}));
 
-		// Add the onDidDataUpdate event handler.
+		// Add the the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			this._tableDataCache.invalidateDataCache();
-			await this.fetchData();
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: this.firstColumnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: this.firstRowIndex,
+				screenRows: this.screenRows
+			});
 		}));
 
-		// Add the onDidUpdateBackendState event handler.
+		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
 			async (state: BackendState) => {
 				// Clear column sort keys.
@@ -117,6 +123,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				});
 				this._onDidUpdateEmitter.fire();
 			}
+		));
+
+		// Add the table data cache onDidUpdate event handler.
+		this._register(this._tableDataCache.onDidUpdate(() =>
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire()
 		));
 	}
 
@@ -155,9 +167,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			}
 		)));
 
-		// Clear the data cache and fetch new data.
-		this._tableDataCache.invalidateDataCache();
-		await this.fetchData();
+		// Update the cache.
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			firstColumnIndex: this.firstColumnIndex,
+			screenColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			screenRows: this.screenRows
+		});
 	}
 
 	/**
@@ -166,11 +183,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData() {
 		// Update the cache.
-		await this._tableDataCache.updateCache({
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.None,
 			firstColumnIndex: this.firstColumnIndex,
-			visibleColumns: this.screenColumns,
+			screenColumns: this.screenColumns,
 			firstRowIndex: this.firstRowIndex,
-			visibleRows: this.screenRows
+			screenRows: this.screenRows
 		});
 	}
 
@@ -580,11 +598,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Reload the data grid.
-		this._tableDataCache.invalidateDataCache();
-		this.resetSelection();
-		this.setFirstRow(0, true);
-		this.setCursorRow(0);
+		// Update the cache.
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			firstColumnIndex: this.firstColumnIndex,
+			screenColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			screenRows: this.screenRows
+		});
 	}
 
 	/**
