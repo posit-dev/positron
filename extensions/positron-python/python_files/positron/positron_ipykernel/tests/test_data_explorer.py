@@ -391,12 +391,20 @@ class DataExplorerFixture:
     def get_state(self, table_name):
         return self.do_json_rpc(table_name, "get_state")
 
-    def get_data_values(self, table_name, format_options=DEFAULT_FORMAT, **params):
+    def get_data_values(self, table_name, format_options=DEFAULT_FORMAT, columns=None):
         return self.do_json_rpc(
             table_name,
             "get_data_values",
             format_options=format_options,
-            **params,
+            columns=columns,
+        )
+
+    def get_row_labels(self, table_name, selection, format_options=DEFAULT_FORMAT):
+        return self.do_json_rpc(
+            table_name,
+            "get_row_labels",
+            format_options=format_options,
+            selection=selection,
         )
 
     def export_data_selection(self, table_name, selection, format="csv"):
@@ -475,20 +483,12 @@ class DataExplorerFixture:
 
         assert state["table_shape"] == ex_state["table_shape"]
 
+        select_all = _select_all(table_shape[0], table_shape[1])
+
         # Query the data and check it yields the same result as the
         # manually constructed data frame without the filter
-        response = self.get_data_values(
-            table_id,
-            row_start_index=0,
-            num_rows=table_shape[0],
-            column_indices=list(range(table_shape[1])),
-        )
-        ex_response = self.get_data_values(
-            expected_id,
-            row_start_index=0,
-            num_rows=table_shape[0],
-            column_indices=list(range(table_shape[1])),
-        )
+        response = self.get_data_values(table_id, columns=select_all)
+        ex_response = self.get_data_values(expected_id, columns=select_all)
 
         assert len(response["columns"]) == len(ex_response["columns"])
         for left, right in zip(response["columns"], ex_response["columns"]):
@@ -498,6 +498,19 @@ class DataExplorerFixture:
             different_indices = (~mask).nonzero()[0]
             if len(different_indices) > 0:
                 raise AssertionError(f"Indices differ at {str(different_indices)}")
+
+
+def _select_all(num_rows, num_columns):
+    return [
+        {
+            "column_index": i,
+            "spec": {
+                "first_index": 0,
+                "last_index": num_rows - 1,
+            },
+        }
+        for i in range(num_columns)
+    ]
 
 
 @pytest.fixture
@@ -525,6 +538,8 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
     ex_shape = {"num_rows": 5, "num_columns": 8}
     assert result["table_shape"] == ex_shape
     assert result["table_unfiltered_shape"] == ex_shape
+
+    assert result["has_row_labels"]
 
     schema = dxf.get_schema("simple")
 
@@ -873,9 +888,10 @@ def test_search_schema(dxf: DataExplorerFixture):
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
     result = dxf.get_data_values(
         "simple",
-        row_start_index=0,
-        num_rows=20,
-        column_indices=list(range(8)),
+        columns=[
+            {"column_index": i, "spec": {"first_index": 0, "last_index": 20}}
+            for i in list(range(8))
+        ],
     )
 
     expected_columns = [
@@ -897,21 +913,31 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
 
     assert result["columns"] == expected_columns
 
-    assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
-
     # Edge cases: request beyond end of table
-    response = dxf.get_data_values("simple", row_start_index=5, num_rows=10, column_indices=[0])
+    response = dxf.get_data_values(
+        "simple",
+        columns=[{"column_index": 0, "spec": {"first_index": 5, "last_index": 14}}],
+    )
     assert response["columns"] == [[]]
 
     # Issue #2149 -- return empty result when requesting non-existent
     # column indices
     response = dxf.get_data_values(
         "simple",
-        row_start_index=0,
-        num_rows=5,
-        column_indices=[2, 3, 4, 5, 6, 7],
+        columns=[
+            {"column_index": i, "spec": {"first_index": 0, "last_index": 4}}
+            for i in [2, 3, 4, 5, 6, 7]
+        ],
     )
     assert response["columns"] == expected_columns[2:]
+
+
+def test_pandas_get_row_labels(dxf: DataExplorerFixture):
+    result = dxf.get_row_labels("simple", {"first_index": 0, "last_index": 20})
+    assert result["row_labels"] == [["0", "1", "2", "3", "4"]]
+
+    result = dxf.get_row_labels("simple", {"indices": [0, 2, 4]})
+    assert result["row_labels"] == [["0", "2", "4"]]
 
 
 def _check_format_cases(dxf, table_name, cases):
@@ -922,9 +948,7 @@ def _check_format_cases(dxf, table_name, cases):
     for options, expected in cases:
         result = dxf.get_data_values(
             table_name,
-            row_start_index=0,
-            num_rows=num_rows,
-            column_indices=list(range(num_columns)),
+            columns=_select_all(num_rows, num_columns),
             format_options=options,
         )
 
@@ -1048,12 +1072,7 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
 
     dxf.assign_and_open_viewer("df", df)
 
-    result = dxf.get_data_values(
-        "df",
-        row_start_index=0,
-        num_rows=5,
-        column_indices=list(range(3)),
-    )
+    result = dxf.get_data_values("df", columns=_select_all(5, 3))
 
     expected_columns = [
         [
@@ -1104,12 +1123,7 @@ def test_pandas_leading_whitespace(dxf: DataExplorerFixture):
     )
 
     dxf.register_table("ws", df)
-    result = dxf.get_data_values(
-        "ws",
-        row_start_index=0,
-        num_rows=5,
-        column_indices=list(range(6)),
-    )
+    result = dxf.get_data_values("ws", columns=_select_all(5, 2))
 
     expected_columns = [
         ["   foo", "  bar", " baz", "qux", "potato"],
@@ -2801,6 +2815,7 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     assert state["table_unfiltered_shape"] == ex_shape
     assert state["sort_keys"] == []
     assert state["row_filters"] == []
+    assert not state["has_row_labels"]
 
     features = state["supported_features"]
     assert features["search_schema"]["support_status"] == SupportStatus.Unsupported
@@ -2826,12 +2841,7 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     name = guid()
     dxf.register_table(name, df)
 
-    result = dxf.get_data_values(
-        name,
-        row_start_index=0,
-        num_rows=10,
-        column_indices=list(range(df.shape[1])),
-    )
+    result = dxf.get_data_values(name, columns=_select_all(10, df.shape[1]))
 
     expected_columns = [
         [_VALUE_NULL] * 4,  # Null
@@ -2875,19 +2885,24 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     ]
 
     assert result["columns"] == expected_columns
-    assert result["row_labels"] is None
 
     result = dxf.get_data_values(
         name,
-        row_start_index=2,
-        num_rows=10,
-        column_indices=list(range(15, df.shape[1])),
+        columns=[
+            {
+                "column_index": i,
+                "spec": {
+                    "first_index": 2,
+                    "last_index": 11,
+                },
+            }
+            for i in range(15, df.shape[1])
+        ],
     )
     assert result["columns"] == [x[2:] for x in expected_columns[15:]]
 
-    result = dxf.get_data_values(name, row_start_index=10, num_rows=10, column_indices=[])
+    result = dxf.get_data_values(name, columns=[])
     assert result["columns"] == []
-    assert result["row_labels"] is None
 
 
 def test_polars_filter_between(dxf: DataExplorerFixture):

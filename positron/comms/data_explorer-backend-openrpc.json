@@ -66,7 +66,7 @@
 					"name": "search_schema_result",
 					"type": "object",
 					"required": [
-						"schema",
+						"matches",
 						"total_num_matches"
 					],
 					"properties": {
@@ -84,33 +84,17 @@
 		},
 		{
 			"name": "get_data_values",
-			"summary": "Get a rectangle of data values",
-			"description": "Request a rectangular subset of data with values formatted as strings",
+			"summary": "Request formatted values from table columns",
+			"description": "Request data from table columns with values formatted as strings",
 			"params": [
 				{
-					"name": "row_start_index",
-					"description": "First row to fetch (inclusive)",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "num_rows",
-					"description": "Number of rows to fetch from start index. May extend beyond end of table",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "column_indices",
-					"description": "Indices to select, which can be a sequential, sparse, or random selection",
+					"name": "columns",
+					"description": "Array of column selections",
 					"required": true,
 					"schema": {
 						"type": "array",
 						"items": {
-							"type": "integer"
+							"$ref": "#/components/schemas/column_selection"
 						}
 					}
 				},
@@ -125,8 +109,37 @@
 			],
 			"result": {
 				"schema": {
-					"description": "Table values formatted as strings",
+					"description": "Requested values formatted as strings",
 					"$ref": "#/components/schemas/table_data"
+				}
+			}
+		},
+		{
+			"name": "get_row_labels",
+			"summary": "Request formatted row labels from table",
+			"description": "Request formatted row labels from table",
+			"params": [
+				{
+					"name": "selection",
+					"description": "Selection of row labels",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/array_selection"
+					}
+				},
+				{
+					"name": "format_options",
+					"description": "Formatting options for returning labels as strings",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/format_options"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"description": "Requested formatted row labels",
+					"$ref": "#/components/schemas/table_row_labels"
 				}
 			}
 		},
@@ -140,7 +153,7 @@
 					"description": "The data selection",
 					"required": true,
 					"schema": {
-						"$ref": "#/components/schemas/data_selection"
+						"$ref": "#/components/schemas/table_selection"
 					}
 				},
 				{
@@ -299,6 +312,7 @@
 						"display_name",
 						"table_shape",
 						"table_unfiltered_shape",
+						"has_row_labels",
 						"column_filters",
 						"row_filters",
 						"sort_keys",
@@ -316,6 +330,10 @@
 						"table_unfiltered_shape": {
 							"description": "Number of rows and columns in table without any filters applied",
 							"$ref": "#/components/schemas/table_shape"
+						},
+						"has_row_labels": {
+							"type": "boolean",
+							"description": "Indicates whether table has row labels or whether rows should be labeled by ordinal position"
 						},
 						"column_filters": {
 							"type": "array",
@@ -450,13 +468,22 @@
 								"$ref": "#/components/schemas/column_value"
 							}
 						}
-					},
+					}
+				}
+			},
+			"table_row_labels": {
+				"type": "object",
+				"description": "Formatted table row labels formatted as strings",
+				"required": [
+					"row_labels"
+				],
+				"properties": {
 					"row_labels": {
 						"type": "array",
 						"description": "Zero or more arrays of row labels",
 						"items": {
 							"type": "array",
-							"description": "Column values formatted as strings",
+							"description": "Row labels formatted as strings",
 							"items": {
 								"type": "string"
 							}
@@ -1332,7 +1359,7 @@
 					}
 				}
 			},
-			"data_selection": {
+			"table_selection": {
 				"type": "object",
 				"description": "A selection on the data grid, for copying to the clipboard or other actions",
 				"required": [
@@ -1454,6 +1481,37 @@
 						}
 					}
 				}
+			},
+			"column_selection": {
+				"type": "object",
+				"description": "A union of different selection types for column values",
+				"required": [
+					"column_index",
+					"spec"
+				],
+				"properties": {
+					"column_index": {
+						"type": "integer",
+						"description": "Column index (relative to unfiltered schema) to select data from"
+					},
+					"spec": {
+						"description": "Union of selection specifications for array_selection",
+						"$ref": "#/components/schemas/array_selection"
+					}
+				}
+			},
+			"array_selection": {
+				"description": "Union of selection specifications for array_selection",
+				"oneOf": [
+					{
+						"name": "select_range",
+						"$ref": "#/components/schemas/data_selection_range"
+					},
+					{
+						"name": "select_indices",
+						"$ref": "#/components/schemas/data_selection_indices"
+					}
+				]
 			},
 			"export_format": {
 				"type": "string",

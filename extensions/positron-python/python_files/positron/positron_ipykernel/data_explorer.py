@@ -18,7 +18,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Sequence,
     Set,
     Tuple,
 )
@@ -27,6 +26,7 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
+    ArraySelection,
     BackendState,
     ColumnDisplayType,
     ColumnFilter,
@@ -41,6 +41,7 @@ from .data_explorer_comm import (
     ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
+    ColumnSelection,
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
@@ -48,7 +49,6 @@ from .data_explorer_comm import (
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
     DataSelectionIndices,
-    DataSelectionKind,
     DataSelectionRange,
     DataSelectionSingleCell,
     ExportDataSelectionFeatures,
@@ -66,6 +66,7 @@ from .data_explorer_comm import (
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
+    GetRowLabelsRequest,
     GetSchemaRequest,
     GetStateRequest,
     RowFilter,
@@ -88,6 +89,7 @@ from .data_explorer_comm import (
     SupportedFeatures,
     SupportStatus,
     TableSchema,
+    TableSelectionKind,
     TableShape,
     TextSearchType,
 )
@@ -206,6 +208,10 @@ class DataExplorerTableView(abc.ABC):
             self.state.schema_cache = [
                 self._get_single_column_schema(i) for i in range(self.table.shape[1])
             ]
+
+    @property
+    def _has_row_labels(self):
+        return False
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -332,48 +338,58 @@ class DataExplorerTableView(abc.ABC):
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
         return self._get_data_values(
-            request.params.row_start_index,
-            request.params.num_rows,
-            request.params.column_indices,
+            request.params.columns,
             request.params.format_options,
         )
+
+    def get_row_labels(self, request: GetRowLabelsRequest):
+        self._recompute_if_needed()
+        return self._get_row_labels(
+            request.params.selection,
+            request.params.format_options,
+        )
+
+    def _get_row_labels(self, selection: ArraySelection, format_options: FormatOptions):
+        # By default, the table has no row labels, so this will only
+        # be implemented for pandas
+        return {"row_labels": []}
 
     def export_data_selection(self, request: ExportDataSelectionRequest):
         self._recompute_if_needed()
         kind = request.params.selection.kind
         sel = request.params.selection.selection
         fmt = request.params.format
-        if kind == DataSelectionKind.SingleCell:
+        if kind == TableSelectionKind.SingleCell:
             assert isinstance(sel, DataSelectionSingleCell)
             row_index = sel.row_index
             if self.row_view_indices is not None:
                 row_index = self.row_view_indices[row_index]
             return self._export_cell(row_index, sel.column_index, fmt)
-        elif kind == DataSelectionKind.CellRange:
+        elif kind == TableSelectionKind.CellRange:
             assert isinstance(sel, DataSelectionCellRange)
             return self._export_tabular(
                 slice(sel.first_row_index, sel.last_row_index + 1),
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
-        elif kind == DataSelectionKind.RowRange:
+        elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
                 slice(sel.first_index, sel.last_index + 1),
                 slice(None),
                 fmt,
             )
-        elif kind == DataSelectionKind.ColumnRange:
+        elif kind == TableSelectionKind.ColumnRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
                 slice(None),
                 slice(sel.first_index, sel.last_index + 1),
                 fmt,
             )
-        elif kind == DataSelectionKind.RowIndices:
+        elif kind == TableSelectionKind.RowIndices:
             assert isinstance(sel, DataSelectionIndices)
             return self._export_tabular(sel.indices, slice(None), fmt)
-        elif kind == DataSelectionKind.ColumnIndices:
+        elif kind == TableSelectionKind.ColumnIndices:
             assert isinstance(sel, DataSelectionIndices)
             return self._export_tabular(slice(None), sel.indices, fmt)
         else:
@@ -527,6 +543,7 @@ class DataExplorerTableView(abc.ABC):
                 num_columns=filtered_num_columns,
             ),
             table_unfiltered_shape=TableShape(num_rows=num_rows, num_columns=num_columns),
+            has_row_labels=self._has_row_labels,
             column_filters=self.state.column_filters,
             row_filters=self.state.row_filters,
             sort_keys=self.state.sort_keys,
@@ -636,9 +653,7 @@ class DataExplorerTableView(abc.ABC):
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         raise NotImplementedError
@@ -1020,6 +1035,11 @@ class PandasView(DataExplorerTableView):
 
         super().__init__(table, state)
 
+    @property
+    def _has_row_labels(self):
+        # pandas always has row labels
+        return True
+
     @classmethod
     def _should_cache_schema(cls, table):
         num_rows, num_columns = table.shape
@@ -1290,37 +1310,44 @@ class PandasView(DataExplorerTableView):
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
+        for selection in selections:
+            col = self.table.iloc[:, selection.column_index]
+            spec = selection.spec
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.take(view_slice)
+                else:
+                    # No filtering or sorting, just slice directly
+                    values = col.iloc[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.take(self.row_view_indices.take(spec.indices))
+                else:
+                    # No filtering or sorting, just slice directly
+                    values = col.take(spec.indices)
 
-        column_indices = sorted(column_indices)
-        columns = []
-        for i in column_indices:
-            # The UI has requested data beyond the end of the table,
-            # so we stop here
-            if i >= len(self.table.columns):
-                break
-            columns.append(self.table.iloc[:, i])
+            formatted_columns.append(self._format_values(values, format_options))
 
-        formatted_columns = []
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns}
 
-        if self.row_view_indices is not None:
-            # If the table is either filtered or sorted, use a slice
-            # the row_view_indices to select the virtual range of values
-            # for the grid
-            view_slice = self.row_view_indices[row_start : row_start + num_rows]
-            columns = [col.take(view_slice) for col in columns]
-            indices = self.table.index.take(view_slice)
+    def _get_row_labels(self, selection: ArraySelection, _: FormatOptions):
+        if isinstance(selection, DataSelectionRange):
+            if self.row_view_indices is not None:
+                view_slice = self.row_view_indices[selection.first_index : selection.last_index + 1]
+                indices = self.table.index.take(view_slice)
+            else:
+                indices = self.table.index[selection.first_index : selection.last_index + 1]
         else:
-            # No filtering or sorting, just slice directly
-            indices = self.table.index[row_start : row_start + num_rows]
-            columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
-
-        formatted_columns = [self._format_values(col, format_options) for col in columns]
+            if self.row_view_indices is not None:
+                indices = self.table.index.take(self.row_view_indices.take(selection.indices))
+            else:
+                indices = self.table.index.take(selection.indices)
 
         # Currently, we format MultiIndex in its flat tuple
         # representation. In the future we will return multiple lists
@@ -1328,8 +1355,7 @@ class PandasView(DataExplorerTableView):
         if isinstance(self.table.index, pd_.MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [[str(x) for x in indices]]
-        # Bypass pydantic model for speed
-        return {"columns": formatted_columns, "row_labels": row_labels}
+        return {"row_labels": row_labels}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -1989,37 +2015,29 @@ class PolarsView(DataExplorerTableView):
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
-        column_indices = sorted(column_indices)
-        columns = []
-        for i in column_indices:
-            # The UI has requested data beyond the end of the table,
-            # so we stop here
-            if i >= self.table.shape[1]:
-                break
-            columns.append(self.table[:, i])
-
-        formatted_columns = []
-
-        if self.row_view_indices is not None:
-            # If the table is either filtered or sorted, use a slice
-            # the row_view_indices to select the virtual range of values
-            # for the grid
-            view_slice = self.row_view_indices[row_start : row_start + num_rows]
-            columns = [col.gather(view_slice) for col in columns]
-        else:
-            # No filtering or sorting, just slice
-            columns = [col[row_start : row_start + num_rows] for col in columns]
-
-        formatted_columns = [self._format_values(col, format_options) for col in columns]
+        for selection in selections:
+            col = self.table[:, selection.column_index]
+            spec = selection.spec
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.gather(view_slice)
+                else:
+                    # No filtering or sorting, just slice
+                    values = col[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.gather(self.row_view_indices.gather(spec.indices))
+                else:
+                    values = col.gather(spec.indices)
+            formatted_columns.append(self._format_values(values, format_options))
 
         # Bypass pydantic model for speed
-        return {"columns": formatted_columns, "row_labels": None}
+        return {"columns": formatted_columns}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:

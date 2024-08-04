@@ -146,9 +146,9 @@ class ColumnProfileType(str, enum.Enum):
 
 
 @enum.unique
-class DataSelectionKind(str, enum.Enum):
+class TableSelectionKind(str, enum.Enum):
     """
-    Possible values for Kind in DataSelection
+    Possible values for Kind in TableSelection
     """
 
     SingleCell = "single_cell"
@@ -195,8 +195,7 @@ class SearchSchemaResult(BaseModel):
     Result in Methods
     """
 
-    matches: Optional[TableSchema] = Field(
-        default=None,
+    matches: TableSchema = Field(
         description="A schema containing matching columns up to the max_results limit",
     )
 
@@ -249,6 +248,10 @@ class BackendState(BaseModel):
 
     table_unfiltered_shape: TableShape = Field(
         description="Number of rows and columns in table without any filters applied",
+    )
+
+    has_row_labels: StrictBool = Field(
+        description="Indicates whether table has row labels or whether rows should be labeled by ordinal position",
     )
 
     column_filters: List[ColumnFilter] = Field(
@@ -329,8 +332,13 @@ class TableData(BaseModel):
         description="The columns of data",
     )
 
-    row_labels: Optional[List[List[StrictStr]]] = Field(
-        default=None,
+
+class TableRowLabels(BaseModel):
+    """
+    Formatted table row labels formatted as strings
+    """
+
+    row_labels: List[List[StrictStr]] = Field(
         description="Zero or more arrays of row labels",
     )
 
@@ -947,13 +955,13 @@ class SetSortColumnsFeatures(BaseModel):
     )
 
 
-class DataSelection(BaseModel):
+class TableSelection(BaseModel):
     """
     A selection on the data grid, for copying to the clipboard or other
     actions
     """
 
-    kind: DataSelectionKind = Field(
+    kind: TableSelectionKind = Field(
         description="Type of selection, all indices relative to filtered row/column indices",
     )
 
@@ -1022,6 +1030,20 @@ class DataSelectionIndices(BaseModel):
     )
 
 
+class ColumnSelection(BaseModel):
+    """
+    A union of different selection types for column values
+    """
+
+    column_index: StrictInt = Field(
+        description="Column index (relative to unfiltered schema) to select data from",
+    )
+
+    spec: ArraySelection = Field(
+        description="Union of selection specifications for array_selection",
+    )
+
+
 # ColumnValue
 ColumnValue = Union[
     StrictInt,
@@ -1051,6 +1073,11 @@ Selection = Union[
     DataSelectionRange,
     DataSelectionIndices,
 ]
+# Union of selection specifications for array_selection
+ArraySelection = Union[
+    DataSelectionRange,
+    DataSelectionIndices,
+]
 
 
 @enum.unique
@@ -1065,8 +1092,11 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Search full, unfiltered table schema with column filters
     SearchSchema = "search_schema"
 
-    # Get a rectangle of data values
+    # Request formatted values from table columns
     GetDataValues = "get_data_values"
+
+    # Request formatted row labels from table
+    GetRowLabels = "get_row_labels"
 
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
@@ -1157,19 +1187,11 @@ class SearchSchemaRequest(BaseModel):
 
 class GetDataValuesParams(BaseModel):
     """
-    Request a rectangular subset of data with values formatted as strings
+    Request data from table columns with values formatted as strings
     """
 
-    row_start_index: StrictInt = Field(
-        description="First row to fetch (inclusive)",
-    )
-
-    num_rows: StrictInt = Field(
-        description="Number of rows to fetch from start index. May extend beyond end of table",
-    )
-
-    column_indices: List[StrictInt] = Field(
-        description="Indices to select, which can be a sequential, sparse, or random selection",
+    columns: List[ColumnSelection] = Field(
+        description="Array of column selections",
     )
 
     format_options: FormatOptions = Field(
@@ -1179,7 +1201,7 @@ class GetDataValuesParams(BaseModel):
 
 class GetDataValuesRequest(BaseModel):
     """
-    Request a rectangular subset of data with values formatted as strings
+    Request data from table columns with values formatted as strings
     """
 
     params: GetDataValuesParams = Field(
@@ -1196,13 +1218,46 @@ class GetDataValuesRequest(BaseModel):
     )
 
 
+class GetRowLabelsParams(BaseModel):
+    """
+    Request formatted row labels from table
+    """
+
+    selection: ArraySelection = Field(
+        description="Selection of row labels",
+    )
+
+    format_options: FormatOptions = Field(
+        description="Formatting options for returning labels as strings",
+    )
+
+
+class GetRowLabelsRequest(BaseModel):
+    """
+    Request formatted row labels from table
+    """
+
+    params: GetRowLabelsParams = Field(
+        description="Parameters to the GetRowLabels method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.GetRowLabels] = Field(
+        description="The JSON-RPC method name (get_row_labels)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class ExportDataSelectionParams(BaseModel):
     """
     Export data selection as a string in different formats like CSV, TSV,
     HTML
     """
 
-    selection: DataSelection = Field(
+    selection: TableSelection = Field(
         description="The data selection",
     )
 
@@ -1375,6 +1430,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetSchemaRequest,
         SearchSchemaRequest,
         GetDataValuesRequest,
+        GetRowLabelsRequest,
         ExportDataSelectionRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
@@ -1408,6 +1464,8 @@ BackendState.update_forward_refs()
 ColumnSchema.update_forward_refs()
 
 TableData.update_forward_refs()
+
+TableRowLabels.update_forward_refs()
 
 FormatOptions.update_forward_refs()
 
@@ -1477,7 +1535,7 @@ ExportDataSelectionFeatures.update_forward_refs()
 
 SetSortColumnsFeatures.update_forward_refs()
 
-DataSelection.update_forward_refs()
+TableSelection.update_forward_refs()
 
 DataSelectionSingleCell.update_forward_refs()
 
@@ -1486,6 +1544,8 @@ DataSelectionCellRange.update_forward_refs()
 DataSelectionRange.update_forward_refs()
 
 DataSelectionIndices.update_forward_refs()
+
+ColumnSelection.update_forward_refs()
 
 GetSchemaParams.update_forward_refs()
 
@@ -1498,6 +1558,10 @@ SearchSchemaRequest.update_forward_refs()
 GetDataValuesParams.update_forward_refs()
 
 GetDataValuesRequest.update_forward_refs()
+
+GetRowLabelsParams.update_forward_refs()
+
+GetRowLabelsRequest.update_forward_refs()
 
 ExportDataSelectionParams.update_forward_refs()
 
