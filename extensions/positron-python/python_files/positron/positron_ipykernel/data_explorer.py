@@ -76,6 +76,7 @@ from .data_explorer_comm import (
     SearchSchemaFeatures,
     SearchSchemaRequest,
     SearchSchemaResult,
+    SetColumnFiltersFeatures,
     SetColumnFiltersRequest,
     SetRowFiltersFeatures,
     SetRowFiltersRequest,
@@ -402,8 +403,10 @@ class DataExplorerTableView(abc.ABC):
         raise NotImplementedError
 
     def set_column_filters(self, request: SetColumnFiltersRequest):
-        # filters = request.params.filters
-        pass
+        return self._set_column_filters(request.params.filters)
+
+    def _set_column_filters(self, filters: List[ColumnFilter]):
+        raise NotImplementedError
 
     def set_row_filters(self, request: SetRowFiltersRequest):
         return self._set_row_filters(request.params.filters)
@@ -743,6 +746,9 @@ class DataExplorerTableView(abc.ABC):
         search_schema=SearchSchemaFeatures(
             support_status=SupportStatus.Unsupported,
             supported_types=[],
+        ),
+        set_column_filters=SetColumnFiltersFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
         ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Unsupported,
@@ -1673,6 +1679,9 @@ class PandasView(DataExplorerTableView):
                 ),
             ],
         ),
+        set_column_filters=SetColumnFiltersFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Supported,
             # Temporarily disabled for https://github.com/posit-dev/positron/issues/3489 on
@@ -2378,6 +2387,9 @@ class PolarsView(DataExplorerTableView):
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
+        set_column_filters=SetColumnFiltersFeatures(
             support_status=SupportStatus.Unsupported, supported_types=[]
         ),
         set_row_filters=SetRowFiltersFeatures(

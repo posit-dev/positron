@@ -868,6 +868,10 @@ class SupportedFeatures(BaseModel):
         description="Support for 'search_schema' RPC and its features",
     )
 
+    set_column_filters: SetColumnFiltersFeatures = Field(
+        description="Support ofr 'set_column_filters' RPC and its features",
+    )
+
     set_row_filters: SetRowFiltersFeatures = Field(
         description="Support for 'set_row_filters' RPC and its features",
     )
@@ -888,6 +892,20 @@ class SupportedFeatures(BaseModel):
 class SearchSchemaFeatures(BaseModel):
     """
     Feature flags for 'search_schema' RPC
+    """
+
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
+    )
+
+    supported_types: List[ColumnFilterTypeSupportStatus] = Field(
+        description="A list of supported types",
+    )
+
+
+class SetColumnFiltersFeatures(BaseModel):
+    """
+    Feature flags for 'set_column_filters' RPC
     """
 
     support_status: SupportStatus = Field(
@@ -1292,7 +1310,7 @@ class SetColumnFiltersParams(BaseModel):
     """
 
     filters: List[ColumnFilter] = Field(
-        description="Zero or more filters to apply",
+        description="Column filters to apply (or pass empty array to clear column filters)",
     )
 
 
@@ -1317,7 +1335,7 @@ class SetColumnFiltersRequest(BaseModel):
 
 class SetRowFiltersParams(BaseModel):
     """
-    Set or clear row filters on table, replacing any previous filters
+    Row filters to apply (or pass empty array to clear row filters)
     """
 
     filters: List[RowFilter] = Field(
@@ -1327,7 +1345,7 @@ class SetRowFiltersParams(BaseModel):
 
 class SetRowFiltersRequest(BaseModel):
     """
-    Set or clear row filters on table, replacing any previous filters
+    Row filters to apply (or pass empty array to clear row filters)
     """
 
     params: SetRowFiltersParams = Field(
@@ -1526,6 +1544,8 @@ ColumnSortKey.update_forward_refs()
 SupportedFeatures.update_forward_refs()
 
 SearchSchemaFeatures.update_forward_refs()
+
+SetColumnFiltersFeatures.update_forward_refs()
 
 SetRowFiltersFeatures.update_forward_refs()
 

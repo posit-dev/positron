@@ -778,6 +778,11 @@ export interface SupportedFeatures {
 	search_schema: SearchSchemaFeatures;
 
 	/**
+	 * Support ofr 'set_column_filters' RPC and its features
+	 */
+	set_column_filters: SetColumnFiltersFeatures;
+
+	/**
 	 * Support for 'set_row_filters' RPC and its features
 	 */
 	set_row_filters: SetRowFiltersFeatures;
@@ -803,6 +808,22 @@ export interface SupportedFeatures {
  * Feature flags for 'search_schema' RPC
  */
 export interface SearchSchemaFeatures {
+	/**
+	 * The support status for this RPC method
+	 */
+	support_status: SupportStatus;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnFilterTypeSupportStatus>;
+
+}
+
+/**
+ * Feature flags for 'set_column_filters' RPC
+ */
+export interface SetColumnFiltersFeatures {
 	/**
 	 * The support status for this RPC method
 	 */
@@ -1232,7 +1253,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * Set or clear column filters on table, replacing any previous filters
 	 *
-	 * @param filters Zero or more filters to apply
+	 * @param filters Column filters to apply (or pass empty array to clear
+	 * column filters)
 	 *
 	 */
 	setColumnFilters(filters: Array<ColumnFilter>): Promise<void> {
@@ -1242,7 +1264,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Set row filters based on column values
 	 *
-	 * Set or clear row filters on table, replacing any previous filters
+	 * Row filters to apply (or pass empty array to clear row filters)
 	 *
 	 * @param filters Zero or more filters to apply
 	 *

@@ -577,6 +577,10 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 
     assert search_schema["support_status"] == SupportStatus.Supported
 
+    column_filters = features["set_column_filters"]
+    assert column_filters["support_status"] == SupportStatus.Unsupported
+    assert column_filters["supported_types"] == []
+
     assert row_filters["support_status"] == SupportStatus.Supported
     assert row_filters["supports_conditions"] == SupportStatus.Unsupported
 
@@ -886,6 +890,7 @@ def test_search_schema(dxf: DataExplorerFixture):
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
+    # Select column range
     result = dxf.get_data_values(
         "simple",
         columns=[
@@ -913,23 +918,22 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
 
     assert result["columns"] == expected_columns
 
+    # Select column indices
+    indices = [0, 2, 4]
+    result = dxf.get_data_values(
+        "simple",
+        columns=[{"column_index": i, "spec": {"indices": indices}} for i in list(range(8))],
+    )
+    assert result["columns"] == [
+        [x for i, x in enumerate(col) if i in indices] for col in expected_columns
+    ]
+
     # Edge cases: request beyond end of table
     response = dxf.get_data_values(
         "simple",
         columns=[{"column_index": 0, "spec": {"first_index": 5, "last_index": 14}}],
     )
     assert response["columns"] == [[]]
-
-    # Issue #2149 -- return empty result when requesting non-existent
-    # column indices
-    response = dxf.get_data_values(
-        "simple",
-        columns=[
-            {"column_index": i, "spec": {"first_index": 0, "last_index": 4}}
-            for i in [2, 3, 4, 5, 6, 7]
-        ],
-    )
-    assert response["columns"] == expected_columns[2:]
 
 
 def test_pandas_get_row_labels(dxf: DataExplorerFixture):
@@ -2820,6 +2824,11 @@ def test_polars_get_state(dxf: DataExplorerFixture):
     features = state["supported_features"]
     assert features["search_schema"]["support_status"] == SupportStatus.Unsupported
     assert features["set_row_filters"]["support_status"] == SupportStatus.Supported
+
+    column_filters = features["set_column_filters"]
+    assert column_filters["support_status"] == SupportStatus.Unsupported
+    assert column_filters["supported_types"] == []
+
     assert features["set_sort_columns"]["support_status"] == SupportStatus.Supported
     assert features["get_column_profiles"]["support_status"] == SupportStatus.Supported
     export_data = features["export_data_selection"]
@@ -2886,6 +2895,17 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
 
     assert result["columns"] == expected_columns
 
+    # Select column indices
+    indices = [0, 1, 3]
+    result = dxf.get_data_values(
+        name,
+        columns=[{"column_index": i, "spec": {"indices": indices}} for i in range(df.shape[1])],
+    )
+    assert result["columns"] == [
+        [x for i, x in enumerate(col) if i in indices] for col in expected_columns
+    ]
+
+    # Select subset range
     result = dxf.get_data_values(
         name,
         columns=[
@@ -2901,6 +2921,7 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     )
     assert result["columns"] == [x[2:] for x in expected_columns[15:]]
 
+    # Empty selection
     result = dxf.get_data_values(name, columns=[])
     assert result["columns"] == []
 

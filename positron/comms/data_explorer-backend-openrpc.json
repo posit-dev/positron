@@ -194,7 +194,7 @@
 			"params": [
 				{
 					"name": "filters",
-					"description": "Zero or more filters to apply",
+					"description": "Column filters to apply (or pass empty array to clear column filters)",
 					"required": true,
 					"schema": {
 						"type": "array",
@@ -209,7 +209,7 @@
 		{
 			"name": "set_row_filters",
 			"summary": "Set row filters based on column values",
-			"description": "Set or clear row filters on table, replacing any previous filters",
+			"description": "Row filters to apply (or pass empty array to clear row filters)",
 			"params": [
 				{
 					"name": "filters",
@@ -1229,6 +1229,7 @@
 				"description": "For each field, returns flags indicating supported features",
 				"required": [
 					"search_schema",
+					"set_column_filters",
 					"set_row_filters",
 					"get_column_profiles",
 					"set_sort_columns",
@@ -1238,6 +1239,10 @@
 					"search_schema": {
 						"description": "Support for 'search_schema' RPC and its features",
 						"$ref": "#/components/schemas/search_schema_features"
+					},
+					"set_column_filters": {
+						"description": "Support ofr 'set_column_filters' RPC and its features",
+						"$ref": "#/components/schemas/set_column_filters_features"
 					},
 					"set_row_filters": {
 						"description": "Support for 'set_row_filters' RPC and its features",
@@ -1260,6 +1265,27 @@
 			"search_schema_features": {
 				"type": "object",
 				"description": "Feature flags for 'search_schema' RPC",
+				"required": [
+					"support_status",
+					"supported_types"
+				],
+				"properties": {
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/column_filter_type_support_status"
+						}
+					}
+				}
+			},
+			"set_column_filters_features": {
+				"type": "object",
+				"description": "Feature flags for 'set_column_filters' RPC",
 				"required": [
 					"support_status",
 					"supported_types"
