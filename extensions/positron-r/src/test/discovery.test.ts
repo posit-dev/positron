@@ -60,7 +60,7 @@ suite('Discovery', () => {
 
 		console.log(result);
 
-		//assert (result === 'C:\\Program Files\\R\\R-4.3.2\\\bin\\x64\\R.exe');
+		//assert (result === 'C:\\Program Files\\R\\R-4.3.2\\bin\\x64\\R.exe');
 
 	});
 });
