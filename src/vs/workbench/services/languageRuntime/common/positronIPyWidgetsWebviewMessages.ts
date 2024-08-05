@@ -53,6 +53,7 @@ export interface ICommMessageToWebview {
 	type: 'comm_msg';
 	comm_id: string;
 	data: unknown;
+	buffers?: Array<Uint8Array>;
 	/** If this is an RPC response, the ID of the RPC request message. */
 	parent_id?: string;
 }

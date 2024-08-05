@@ -686,6 +686,7 @@ export class LanguageRuntimeSessionAdapter
 			comm_id: msg.comm_id,
 			data: msg.data,
 			metadata: message.metadata,
+			buffers: message.buffers,
 		} as positron.LanguageRuntimeCommMessage);
 	}
 
@@ -960,7 +961,8 @@ export class LanguageRuntimeSessionAdapter
 
 		// Handle events from the DAP
 		const comm = this._comms.get(clientId)!;
-		this._disposables.push(comm.onDidReceiveCommMsg(msg => {
+		this._disposables.push(comm.onDidReceiveCommMsg(e => {
+			const msg = e.data;
 			switch (msg.msg_type) {
 				// The runtime is in control of when to start a debug session.
 				// When this happens, we attach automatically to the runtime

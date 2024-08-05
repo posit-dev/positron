@@ -16,6 +16,8 @@ import { URI } from 'vs/base/common/uri';
 import { DeferredPromise, retry } from 'vs/base/common/async';
 import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { VSBuffer } from 'vs/base/common/buffer';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.
@@ -285,7 +287,9 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// Amend the message with the event clock for ordering
 			const runtimeMessage: ILanguageRuntimeMessage = {
 				event_clock: tick,
-				...message
+				...message,
+				// Wrap buffers in VSBuffer so that they can be sent to the main thread
+				buffers: message.buffers?.map(buffer => VSBuffer.wrap(buffer)),
 			};
 
 			// Dispatch the message to the appropriate handler
@@ -305,7 +309,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 				// Pass everything else to the main thread
 				default:
-					this._proxy.$emitLanguageRuntimeMessage(handle, false, runtimeMessage);
+					this._proxy.$emitLanguageRuntimeMessage(handle, false, new SerializableObjectWithBuffers(runtimeMessage));
 					break;
 			}
 		});
@@ -813,7 +817,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 
 		// Notify the main thread that a client has been opened.
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
 	}
 
 	/**
@@ -840,7 +844,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Notify the main thread that a comm data message has been received,
 		// and whether it was handled in the extension host
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
 	}
 
 	/**
@@ -862,6 +866,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			handled = true;
 		}
 
-		this._proxy.$emitLanguageRuntimeMessage(handle, handled, message);
+		this._proxy.$emitLanguageRuntimeMessage(handle, handled, new SerializableObjectWithBuffers(message));
 	}
 }

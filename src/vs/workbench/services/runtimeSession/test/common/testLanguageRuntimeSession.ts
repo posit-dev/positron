@@ -141,6 +141,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 					parent_id: '',
 					type: LanguageRuntimeMessageType.CommOpen,
 					when: new Date().toISOString(),
+					buffers: [],
 				}
 			}
 		);
@@ -214,6 +215,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			event_clock: message.event_clock ?? 0,
 			when: message.when ?? new Date().toISOString(),
 			metadata: message.metadata ?? new Map(),
+			buffers: [],
 		};
 	}
 

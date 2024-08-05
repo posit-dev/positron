@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { VSBuffer } from 'vs/base/common/buffer';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { URI, UriComponents } from 'vs/base/common/uri';
@@ -59,6 +60,9 @@ export interface ILanguageRuntimeMessage {
 
 	/** Additional metadata, if any */
 	metadata?: Map<any, any>;
+
+	/** Additional binary data, if any */
+	buffers?: VSBuffer[];
 }
 
 /**
