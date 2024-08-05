@@ -503,6 +503,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					id: clientId,
 					session_id: session.sessionId,
 					parent_id: event.message.parent_id,
+					preferred_size: (event.message.data as any).preferred_size,
 					code,
 				};
 

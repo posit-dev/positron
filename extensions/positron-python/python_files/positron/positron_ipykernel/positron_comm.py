@@ -88,7 +88,9 @@ class PositronComm:
         self.comm = comm
 
     @classmethod
-    def create(cls, target_name: str, comm_id: str) -> PositronComm:
+    def create(
+        cls, target_name: str, comm_id: str, data: Optional[JsonRecord] = None
+    ) -> PositronComm:
         """
         Create a Positron comm.
 
@@ -98,13 +100,15 @@ class PositronComm:
             The name of the target for the comm, as defined in the frontend.
         comm_id
             The unique identifier for the comm.
+        data
+            The optional data to send with the comm_open message.
 
         Returns:
         --------
         PositronComm
             The new PositronComm instance.
         """
-        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id)
+        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id, data=data)
         return cls(base_comm)
 
     @property

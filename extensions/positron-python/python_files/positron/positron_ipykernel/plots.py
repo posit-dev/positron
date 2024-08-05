@@ -8,7 +8,7 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Protocol
+from typing import List, Optional, Protocol, Tuple, cast
 
 from .plot_comm import PlotBackendMessageContent, PlotFrontendEvent, PlotResult, RenderRequest
 from .positron_comm import CommMessage, PositronComm
@@ -151,17 +151,35 @@ class PlotsService:
 
         self._plots: List[Plot] = []
 
-    def create_plot(self, render: Renderer) -> Plot:
+    def create_plot(self, render: Renderer, preferred_size: Optional[Tuple[int, int]]) -> Plot:
         """
         Create a plot.
 
-        See Also:
-        ---------
+        Parameters
+        ----------
+        render
+            A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
+        preferred_size
+            The preferred size of the plot in pixels.
+
+        See Also
+        --------
         Plot
         """
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
-        plot_comm = PositronComm.create(self._target_name, comm_id)
+
+        # Construct the comm_open message.
+        data = (
+            None
+            if preferred_size is None
+            else cast(
+                JsonRecord,
+                ({"preferred_size": {"width": preferred_size[0], "height": preferred_size[1]}}),
+            )
+        )
+
+        plot_comm = PositronComm.create(self._target_name, comm_id, data)
         plot = Plot(plot_comm, render)
         self._plots.append(plot)
         return plot

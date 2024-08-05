@@ -9,6 +9,7 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /**
  * The possible states for the plot client instance
@@ -63,6 +64,9 @@ export interface IPositronPlotMetadata {
 
 	/** The ID of the runtime session that created the plot */
 	session_id: string;
+
+	/** The preferred size of the plot if any, as supplied by the language runtime */
+	preferred_size?: IPlotSize;
 }
 
 /**

@@ -6,6 +6,7 @@
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as DOM from 'vs/base/browser/dom';
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
@@ -44,6 +45,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	useEffect(() => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
+		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
 		// If the plot is already rendered, use the old image until the new one is ready.
@@ -55,7 +57,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
 			height: props.height,
 			width: props.width
-		});
+		}, props.plotClient.metadata);
 		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
 			setUri(result.uri);
 		}).catch((e) => {
@@ -80,7 +82,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			const plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
-			});
+			}, props.plotClient.metadata);
 
 			try {
 				// Wait for the plot to render.
