@@ -304,7 +304,7 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 			return registryBinary;
 		}
 	}
-	return await findRBinaryFromPATH();
+	return findRBinaryFromPATH();
 }
 
 async function findRBinaryFromPATH(): Promise<string | undefined> {
