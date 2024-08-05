@@ -12,8 +12,3 @@ jobs:
         with:
           process-only: 'issues'
           issue-inactive-days: '14'
-          issue-comment: >
-            This issue has been automatically locked. If you believe you have
-            found a related problem, please read our guide on feedback
-            (https://github.com/posit-dev/positron/wiki/Feedback-and-Issues)
-            and open a new issue, linking to this issue.
