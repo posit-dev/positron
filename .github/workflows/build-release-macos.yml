@@ -28,7 +28,7 @@ jobs:
   build-archs:
     name: Build macOS
     runs-on: [self-hosted-production, macos, arm64]
-    timeout-minutes: 60
+    timeout-minutes: 90
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
