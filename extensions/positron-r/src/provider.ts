@@ -341,7 +341,6 @@ export async function findRBinaryFromPATHWindows(whichR: string): Promise<string
 	// It typically does exist for x86_64 R installations.
 	// It will not exist for arm64 R installations.
 	const whichRHome = getRHomePath(whichR);
-
 	if (!whichRHome) {
 		LOGGER.info(`Failed to get R home path from ${whichR}.`);
 		return undefined;
