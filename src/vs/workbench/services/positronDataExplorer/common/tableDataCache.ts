@@ -12,6 +12,7 @@ import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntim
 /**
  * Constants.
  */
+const TRIM_CACHE_TIMEOUT = 3000;
 const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 100;
 
@@ -20,7 +21,7 @@ const CHUNK_SIZE = 100;
  */
 export enum InvalidateCacheFlags {
 	None = 0,
-	Schema = 1 << 0,
+	ColumnSchema = 1 << 0,
 	Data = 1 << 1,
 	All = ~(~0 << 2)
 }
@@ -101,6 +102,11 @@ export class TableDataCache extends Disposable {
 	private _pendingUpdateDescriptor?: UpdateDescriptor;
 
 	/**
+	 * Gets or sets the trim cache timeout.
+	 */
+	private _trimCacheTimeout?: NodeJS.Timeout;
+
+	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns = 0;
@@ -141,6 +147,17 @@ export class TableDataCache extends Disposable {
 	constructor(private readonly _dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
+	}
+
+	/**
+	 * Dispose method.
+	 */
+	public override dispose(): void {
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -188,6 +205,9 @@ export class TableDataCache extends Disposable {
 			return;
 		}
 
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
 		// Set the updating flag.
 		this._updating = true;
 
@@ -199,6 +219,12 @@ export class TableDataCache extends Disposable {
 			firstRowIndex,
 			screenRows
 		} = updateDescriptor;
+
+		// Get the invalidate cache flags.
+		const invalidateColumnSchemaCache = (invalidateCache & InvalidateCacheFlags.ColumnSchema)
+			=== InvalidateCacheFlags.ColumnSchema;
+		const invalidateDataCache = (invalidateCache & InvalidateCacheFlags.Data)
+			=== InvalidateCacheFlags.Data;
 
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
@@ -218,7 +244,7 @@ export class TableDataCache extends Disposable {
 
 		// Set the column indices of the column schema we need to load.
 		let columnIndices: number[];
-		if ((invalidateCache & InvalidateCacheFlags.Schema) === InvalidateCacheFlags.Schema) {
+		if (invalidateColumnSchemaCache) {
 			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 		} else {
 			columnIndices = [];
@@ -233,7 +259,7 @@ export class TableDataCache extends Disposable {
 		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
 		// Clear the column schema cache, if we're supposed to.
-		if ((invalidateCache & InvalidateCacheFlags.Schema) === InvalidateCacheFlags.Schema) {
+		if (invalidateColumnSchemaCache) {
 			this._columnSchemaCache.clear();
 		}
 
@@ -258,7 +284,7 @@ export class TableDataCache extends Disposable {
 
 		// Set the column indices and row indices of the data values to load.
 		let rowIndices: number[];
-		if ((invalidateCache & InvalidateCacheFlags.Data) === InvalidateCacheFlags.Data) {
+		if (invalidateDataCache) {
 			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
 		} else {
@@ -284,8 +310,6 @@ export class TableDataCache extends Disposable {
 			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
 		}
 
-		const start = new Date();
-
 		// Get the data values.
 		const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
 			rowIndices[0],											// SOON TO BE AN ARRAY
@@ -293,12 +317,8 @@ export class TableDataCache extends Disposable {
 			columnIndices
 		);
 
-		const end = new Date();
-
-		console.log(`Getting data took ${end.getTime() - start.getTime()}ms`);
-
-		// Clear the cache, if we're supposed to.
-		if ((invalidateCache & InvalidateCacheFlags.Data) === InvalidateCacheFlags.Data) {
+		// Clear the data cache, if we're supposed to.
+		if (invalidateDataCache) {
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
 		}
@@ -349,17 +369,39 @@ export class TableDataCache extends Disposable {
 		// Clear the updating flag.
 		this._updating = false;
 
-		// If there isn't a pending update descriptor, trim the cache. Otherwise, update the cache
-		// again.
-		if (!this._pendingUpdateDescriptor) {
-			this.trimCache(startColumnIndex, endColumnIndex);
-		} else {
+		// If there's a pending update descriptor, update the cache again; otherwise, trim the
+		// caches that were not invalidated.
+		if (this._pendingUpdateDescriptor) {
 			// Get the pending update descriptor and clear it.
 			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
 			this._pendingUpdateDescriptor = undefined;
 
 			// Update the cache for the pending update descriptor.
-			await this.update(pendingUpdateDescriptor);
+			return this.update(pendingUpdateDescriptor);
+		}
+
+		// If the cache was invalidated, there's no need to trim the cache.
+		if (invalidateCache !== InvalidateCacheFlags.All) {
+			// Set the trim cache timeout.
+			this._trimCacheTimeout = setTimeout(() => {
+				// Release the trim cache timeout.
+				this._trimCacheTimeout = undefined;
+
+				// Trim the column schema cache, if it wasn't invalidated.
+				if (!invalidateColumnSchemaCache) {
+					this.trimColumnSchemaCache(startColumnIndex, endColumnIndex);
+				}
+
+				// Trim the data cache, if it wasn't invalidated.
+				if (!invalidateDataCache) {
+					this.trimDataCache(
+						startColumnIndex,
+						endColumnIndex,
+						startRowIndex,
+						endRowIndex
+					);
+				}
+			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
 
@@ -461,16 +503,63 @@ export class TableDataCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Trims the cache, removing columns outside of the start column index / end column index.
+	 * Clears the trim cache timeout.
+	 */
+	private clearTrimCacheTimeout() {
+		// If there is a trim cache timeout scheduled, clear it.
+		if (this._trimCacheTimeout) {
+			clearTimeout(this._trimCacheTimeout);
+			this._trimCacheTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Trims the column schema cache.
 	 * @param startColumnIndex The start column index.
 	 * @param endColumnIndex The end column index.
 	 */
-	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+	private trimColumnSchemaCache(startColumnIndex: number, endColumnIndex: number) {
 		// Trim the column schema cache.
 		for (const columnIndex of this._columnSchemaCache.keys()) {
 			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
 				this._columnSchemaCache.delete(columnIndex);
-				console.log(`    delete columnSchemaCache ${columnIndex}`);
+			}
+		}
+	}
+
+	/**
+	 * Trims the data cache.
+	 * @param startColumnIndex The start column index.
+	 * @param endColumnIndex The end column index.
+	 * @param startRowIndex The start row index.
+	 * @param endRowIndex The end row index.
+	 */
+	private trimDataCache(
+		startColumnIndex: number,
+		endColumnIndex: number,
+		startRowIndex: number,
+		endRowIndex: number
+	) {
+		// Trim the row label cache.
+		for (const rowIndex of this._rowLabelCache.keys()) {
+			if (rowIndex < startRowIndex || rowIndex > endRowIndex) {
+				this._rowLabelCache.delete(rowIndex);
+			}
+		}
+
+		// Trim the data column cache.
+		for (const columnIndex of this._dataColumnCache.keys()) {
+			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+				this._dataColumnCache.delete(columnIndex);
+			} else {
+				const dataColumn = this._dataColumnCache.get(columnIndex);
+				if (dataColumn) {
+					for (const rowIndex of dataColumn.keys()) {
+						if (rowIndex < startRowIndex || rowIndex > endRowIndex) {
+							dataColumn.delete(rowIndex);
+						}
+					}
+				}
 			}
 		}
 	}

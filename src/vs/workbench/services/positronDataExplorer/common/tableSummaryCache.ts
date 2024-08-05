@@ -12,6 +12,7 @@ import { ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnPro
 /**
  * Constants.
  */
+const TRIM_CACHE_TIMEOUT = 3000;
 const OVERSCAN_FACTOR = 3;
 
 /**
@@ -38,6 +39,11 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the pending update descriptor.
 	 */
 	private _pendingUpdateDescriptor?: UpdateDescriptor;
+
+	/**
+	 * Gets or sets the trim cache timeout.
+	 */
+	private _trimCacheTimeout?: NodeJS.Timeout;
 
 	/**
 	 * Gets or sets the columns.
@@ -80,6 +86,17 @@ export class TableSummaryCache extends Disposable {
 	constructor(private readonly _dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
+	}
+
+	/**
+	 * Dispose method.
+	 */
+	public override dispose(): void {
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
+		// Call the base class's dispose method.
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
@@ -164,6 +181,9 @@ export class TableSummaryCache extends Disposable {
 	 * @param updateDescriptor The update descriptor.
 	 */
 	async update(updateDescriptor: UpdateDescriptor): Promise<void> {
+		// Clear the trim cache timeout.
+		this.clearTrimCacheTimeout();
+
 		// If a cache update is already in progress, set the pending update descriptor and return.
 		// This allows cache updates that are happening in rapid succession to overwrite one another
 		// so that only the last one gets processed. (For example, this happens when a user drags a
@@ -178,7 +198,7 @@ export class TableSummaryCache extends Disposable {
 
 		// Destructure the update descriptor.
 		const {
-			invalidateCache: invalidateCache,
+			invalidateCache,
 			firstColumnIndex,
 			screenColumns
 		} = updateDescriptor;
@@ -215,7 +235,7 @@ export class TableSummaryCache extends Disposable {
 		// Load the column schema.
 		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-		// Clear the column schema cache, if we're supposed to.
+		// Invalidate the cache, if we're supposed to.
 		if (invalidateCache) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
@@ -256,17 +276,26 @@ export class TableSummaryCache extends Disposable {
 		// Clear the updating flag.
 		this._updating = false;
 
-		// If there isn't a pending update descriptor, trim the cache. Otherwise, update the cache
-		// again.
-		if (!this._pendingUpdateDescriptor) {
-			this.trimCache(startColumnIndex, endColumnIndex);
-		} else {
+		// If there's a pending update descriptor, update the cache again.
+		if (this._pendingUpdateDescriptor) {
 			// Get the pending update descriptor and clear it.
 			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
 			this._pendingUpdateDescriptor = undefined;
 
 			// Update the cache for the pending update descriptor.
-			await this.update(pendingUpdateDescriptor);
+			return this.update(pendingUpdateDescriptor);
+		}
+
+		// If the cache was not invalidated, set the trim cache timeout.
+		if (!invalidateCache) {
+			// Set the trim cache timeout.
+			this._trimCacheTimeout = setTimeout(() => {
+				// Release the trim cache timeout.
+				this._trimCacheTimeout = undefined;
+
+				// Trim the cache.
+				this.trimCache(startColumnIndex, endColumnIndex);
+			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
 
@@ -348,7 +377,18 @@ export class TableSummaryCache extends Disposable {
 	//#region Private Methods
 
 	/**
-	 * Trims the cache, removing columns outside of the start column index / end column index.
+	 * Clears the trim cache timeout.
+	 */
+	private clearTrimCacheTimeout() {
+		// If there is a trim cache timeout scheduled, clear it.
+		if (this._trimCacheTimeout) {
+			clearTimeout(this._trimCacheTimeout);
+			this._trimCacheTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Trims the cache.
 	 * @param startColumnIndex The start column index.
 	 * @param endColumnIndex The end column index.
 	 */
