@@ -207,7 +207,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('R - Open Data Explorer for the second time brings focus back', async function () {
+			it('R - Open Data Explorer for the second time brings focus back [C701143]', async function () {
 				// Regression test for https://github.com/posit-dev/positron/issues/4197
 				const app = this.app as Application;
 
