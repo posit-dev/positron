@@ -70,7 +70,11 @@ export class IPyWidgetClientInstance extends Disposable {
 		// Forward messages from the runtime client to the webview.
 		this._register(_client.onDidReceiveData(event => {
 			const data = event.data;
-			this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
+			if (event.buffers && event.buffers.length > 0) {
+				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)} with ${event.buffers.length} buffers`);
+			} else {
+				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
+			}
 
 			switch (data.method) {
 				case 'custom':
@@ -115,7 +119,7 @@ export class IPyWidgetClientInstance extends Disposable {
 			this._rpcMethods.includes(data.method)) {
 			// It's a known RPC request, perform the RPC with the client.
 			this._logService.trace('SEND comm_msg:', data);
-			const reply = await this._client.performRpc(data, 5000);
+			const reply = await this._client.performRpcWithBuffers(data, 5000);
 
 			// Forward the output to the webview.
 			this._logService.trace('RECV comm_msg:', reply);

@@ -146,7 +146,7 @@ export class LanguageRuntimeSessionAdapter
 		let response = {} as any;
 		try {
 			// Send the request and wait for a response
-			response = (await uiComm.performRpc(request)).data;
+			response = await uiComm.performRpc(request);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully

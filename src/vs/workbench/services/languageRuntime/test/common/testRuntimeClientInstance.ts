@@ -24,11 +24,15 @@ export class TestRuntimeClientInstance extends Disposable implements IRuntimeCli
 		super();
 	}
 
-	performRpc(request: any, timeout: number): Promise<IRuntimeClientOutput<any>> {
+	performRpcWithBuffers(request: any, timeout: number): Promise<IRuntimeClientOutput<any>> {
 		if (!this.rpcHandler) {
 			throw new Error('Configure an RPC handler by setting `rpcHandler`.');
 		}
 		return this.rpcHandler(request, timeout);
+	}
+
+	async performRpc(request: any, timeout: number): Promise<any> {
+		return (await this.performRpcWithBuffers(request, timeout)).data;
 	}
 
 	getClientId(): string {

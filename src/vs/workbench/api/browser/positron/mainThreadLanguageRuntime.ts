@@ -924,7 +924,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpc<T>(request: Input, timeout: number): Promise<IRuntimeClientOutput<T>> {
+	performRpcWithBuffers<T>(request: Input, timeout: number): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
@@ -953,6 +953,16 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Return a promise that will be resolved when the server responds.
 		return promise.p;
+	}
+
+	/**
+	 * Performs an RPC call to the server side of the comm.
+	 *
+	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
+	 * only the data portion of the RPC response.
+	 */
+	async performRpc<T>(request: Input, timeout: number): Promise<T> {
+		return (await this.performRpcWithBuffers<T>(request, timeout)).data;
 	}
 
 	/**

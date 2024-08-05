@@ -208,7 +208,7 @@ export class RuntimeClientAdapter {
 	/**
 	 * Perform an RPC call over the comm channel.
 	 */
-	performRpc(request: any): Promise<IRuntimeClientOutput> {
+	performRpcWithBuffers(request: any): Promise<IRuntimeClientOutput> {
 		// Create a random ID for this request
 		const id = uuidv4();
 
@@ -219,6 +219,16 @@ export class RuntimeClientAdapter {
 		// Send the request and return the promise
 		this._kernel.sendCommMessage(this._id, id, request);
 		return out.promise;
+	}
+
+	/**
+	 * Perform an RPC call over the comm channel.
+	 *
+	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
+	 * only the data portion of the RPC response.
+	 */
+	async performRpc(request: any): Promise<any> {
+		return (await this.performRpcWithBuffers(request)).data;
 	}
 
 	/**

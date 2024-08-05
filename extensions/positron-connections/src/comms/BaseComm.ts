@@ -151,7 +151,7 @@ export class PositronBaseComm {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			response = (await this.clientInstance.performRpc<any>(request)).data;
+			response = await this.clientInstance.performRpc<any>(request);
 		} catch (err: any) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully
