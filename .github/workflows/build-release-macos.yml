@@ -69,11 +69,12 @@ jobs:
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install libsodium"
           arch -${{matrix.arch_terminal}} /bin/bash -c "${{matrix.homebrew_folder}}/bin/brew install xz"
 
-      # Put arch homebrew on the $PATH ahead of arm64. 
-      # We also force Python 3.10 (arm64) on both archs since 3.12 is not
+      # When running under x86, put x86 homebrew on the $PATH ahead of arm64
+      # homebrew. We also force Python 3.10 (arm64) on x86 since 3.12 is not
       # compatible with the version of node-gyp currently used by Positron.
-      - name: Update PATH
+      - name: Update PATH for x86_64
         id: update_path_for_zeromq
+        if: matrix.arch == 'x64'
         run: |
           echo "/opt/homebrew/opt/python@3.10/libexec/bin:${{matrix.homebrew_folder}}/bin" >> $GITHUB_PATH
 
