@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.07.0",
+	"positronVersion": "2024.08.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
