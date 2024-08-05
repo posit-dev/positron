@@ -861,6 +861,14 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 
 	// --- Start Positron ---
 	private remoteStatusIndicatorEnabled(): boolean {
+		// Always show the remote status indicator if the remote authority or
+		// virtual workspace location is set
+		if (this.remoteAuthority || this.virtualWorkspaceLocation) {
+			return true;
+		}
+
+		// Otherwise, show the remote status indicator if the experimental SSH
+		// remote feature is enabled
 		return this.configurationService.getValue<boolean>(POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY);
 	}
 	// --- End Positron ---
