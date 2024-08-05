@@ -40,6 +40,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
+	const [plotSize, setPlotSize] = useState({ height: props.height, width: props.width });
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const plotsContext = usePositronPlotsContext();
 
@@ -54,11 +55,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 
 		// Request a plot render at the current size, using the current sizing policy.
-		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+		const newPlotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
 			height: props.height,
 			width: props.width
 		}, props.plotClient.metadata);
-		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
+		setPlotSize(newPlotSize);
+
+		props.plotClient.render(newPlotSize.height, newPlotSize.width, ratio).then((result) => {
 			setUri(result.uri);
 		}).catch((e) => {
 			// It's normal for a plot render to be canceled if the user invalidates the render
@@ -67,7 +70,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			if (e.name === 'Canceled' || e.message === 'Canceled') {
 				return;
 			}
-			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", plotSize.width, plotSize.height, e.message, e.code);
+			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", newPlotSize.width, newPlotSize.height, e.message, e.code);
 			plotsContext.notificationService.warn(message);
 			setError(message);
 		});
@@ -79,15 +82,16 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy(async (policy) => {
-			const plotSize = policy.getPlotSize({
+			const newPlotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
 			}, props.plotClient.metadata);
+			setPlotSize(newPlotSize);
 
 			try {
 				// Wait for the plot to render.
 				const result =
-					await props.plotClient.render(plotSize.height, plotSize.width, ratio);
+					await props.plotClient.render(newPlotSize.height, newPlotSize.width, ratio);
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);
@@ -173,7 +177,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			height: props.height + 'px'
 		};
 
-		text = text.length ? text : `Rendering plot (${props.width} x ${props.height})`;
+		text = text.length ? text : `Rendering plot (${plotSize.width} x ${plotSize.height})`;
 
 		// display error here
 		return <div className='image-placeholder' style={style}>
