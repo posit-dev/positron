@@ -7,9 +7,8 @@ import * as DOM from 'vs/base/browser/dom';
 import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
@@ -17,7 +16,6 @@ import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/
  */
 export class WebviewPlotClient extends Disposable implements IPositronPlotClient {
 
-	public readonly metadata: IPositronPlotMetadata;
 
 	private _thumbnail: VSBuffer | undefined;
 
@@ -30,34 +28,19 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	private _element: HTMLElement | undefined;
 
 	/**
-	 * Creates a new WebviewPlotClient, which wraps a notebook output webview in
+	 * Creates a new WebPlotClient, which wraps a notebook output webview in
 	 * an object that can be displayed in the Plots pane.
 	 *
 	 * @param webview The webview to wrap.
 	 * @param message The output message from which the webview was created.
 	 * @param code The code that generated the webview (if known)
 	 */
-	constructor(public readonly webview: INotebookOutputWebview,
-		message: ILanguageRuntimeMessageOutput,
-		code?: string) {
+	constructor(
+		public readonly metadata: IPositronPlotMetadata,
+		public readonly webview: IOverlayWebview) {
 		super();
 
-		// Create the metadata for the plot.
-		this.metadata = {
-			id: message.id,
-			parent_id: message.parent_id,
-			created: Date.parse(message.when),
-			session_id: webview.sessionId,
-			code: code ? code : '',
-		};
-
-		// Wait for the webview to finish rendering. When it does, nudge the
-		// timer that renders the thumbnail.
-		this._register(this.webview.onDidRender(e => {
-			this.nudgeRenderThumbnail();
-		}));
-
-		this._onDidRenderThumbnail = new Emitter<string>();
+		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
 	}
 
@@ -83,8 +66,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param claimant The object taking ownership.
 	 */
 	public claim(claimant: any) {
-		this.webview.webview.claim(claimant, DOM.getWindow(this._element), undefined);
-		this.webview.render?.();
+		this.webview.claim(claimant, DOM.getWindow(this._element), undefined);
 		this._claimed = true;
 	}
 
@@ -95,7 +77,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 */
 	public layoutWebviewOverElement(ele: HTMLElement) {
 		this._element = ele;
-		this.webview.webview.layoutWebviewOverElement(ele);
+		this.webview.layoutWebviewOverElement(ele);
 	}
 
 	/**
@@ -104,7 +86,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param claimant The object releasing ownership.
 	 */
 	public release(claimant: any) {
-		this.webview.webview.release(claimant);
+		this.webview.release(claimant);
 		this._claimed = false;
 
 		// We can't render a thumbnail while the webview isn't showing, so cancel the
@@ -117,7 +99,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * Electron APIs in desktop mode) as PNG.
 	 */
 	private renderThumbnail() {
-		this.webview.webview.captureContentsAsPng().then(data => {
+		this.webview.captureContentsAsPng().then(data => {
 			if (data) {
 				this._thumbnail = data;
 				this._onDidRenderThumbnail.fire(this.asDataUri(data));
@@ -128,7 +110,7 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	/**
 	 * Nudge the render timer; debounces requests to render the plot thumbnail.
 	 */
-	private nudgeRenderThumbnail() {
+	protected nudgeRenderThumbnail() {
 		// Cancel any pending render
 		this.cancelPendingRender();
 

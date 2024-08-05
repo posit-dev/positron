@@ -9,24 +9,19 @@
 			"name": "get_schema",
 			"summary": "Request schema",
 			"description": "Request full schema for a table-like object",
-			"params": [
-				{
-					"name": "start_index",
-					"description": "First column schema to fetch (inclusive)",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "num_columns",
-					"description": "Number of column schemas to fetch from start index. May extend beyond end of table",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				}
-			],
+            "params": [
+                {
+                    "name": "column_indices",
+                    "description": "The column indices to fetch",
+                    "required": true,
+                    "schema": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            ],
 			"result": {
 				"schema": {
 					"$ref": "#/components/schemas/table_schema"
@@ -784,18 +779,51 @@
 				"description": "A single column profile request",
 				"required": [
 					"column_index",
-					"profile_type"
+					"profiles"
 				],
 				"properties": {
 					"column_index": {
 						"type": "integer",
 						"description": "The ordinal column index to profile"
 					},
-					"profile_type": {
-						"description": "The type of analytical column profile",
-						"$ref": "#/components/schemas/column_profile_type"
+					"profiles": {
+						"type": "array",
+						"description": "Column profiles needed",
+						"items": {
+							"$ref": "#/components/schemas/column_profile_spec"
+						}
 					}
 				}
+			},
+			"column_profile_spec": {
+				"type": "object",
+				"description": "Parameters for a single column profile for a request for profiles",
+				"required": [
+					"profile_type"
+				],
+				"properties": {
+					"profile_type": {
+						"description": "Type of column profile",
+						"$ref": "#/components/schemas/column_profile_type"
+					},
+					"params": {
+						"description": "Extra parameters for different profile types",
+						"$ref": "#/components/schemas/column_profile_params"
+					}
+				}
+			},
+			"column_profile_params": {
+				"description": "Extra parameters for different profile types",
+				"oneOf": [
+					{
+						"name": "histogram",
+						"$ref": "#/components/schemas/column_histogram_params"
+					},
+					{
+						"name": "frequency_table",
+						"$ref": "#/components/schemas/column_frequency_table_params"
+					}
+				]
 			},
 			"column_profile_type": {
 				"type": "string",
@@ -1008,24 +1036,68 @@
 					}
 				}
 			},
+			"column_histogram_params": {
+				"type": "object",
+				"description": "Parameters for a column histogram profile request",
+				"required": [
+					"num_bins"
+				],
+				"properties": {
+					"num_bins": {
+						"type": "integer",
+						"description": "Number of bins in the computed histogram"
+					},
+					"quantiles": {
+						"type": "array",
+						"description": "Sample quantiles (numbers between 0 and 1) to compute along with the histogram",
+						"items": {
+							"type": "number"
+						}
+					}
+				}
+			},
 			"column_histogram": {
 				"type": "object",
 				"description": "Result from a histogram profile request",
 				"required": [
-					"bin_sizes",
-					"bin_width"
+					"bin_edges",
+					"bin_counts",
+					"quantiles"
 				],
 				"properties": {
-					"bin_sizes": {
+					"bin_edges": {
+						"type": "array",
+						"description": "String-formatted versions of the bin edges, there are N + 1 where N is the number of bins",
+						"items": {
+							"type": "string"
+						}
+					},
+					"bin_counts": {
 						"type": "array",
 						"description": "Absolute count of values in each histogram bin",
 						"items": {
 							"type": "integer"
 						}
 					},
-					"bin_width": {
-						"type": "number",
-						"description": "Absolute floating-point width of a histogram bin"
+					"quantiles": {
+						"type": "array",
+						"description": "Sample quantiles that were also requested",
+						"items": {
+							"$ref": "#/components/schemas/column_quantile_value"
+						}
+					}
+				}
+			},
+			"column_frequency_table_params": {
+				"type": "object",
+				"description": "Parameters for a frequency_table profile request",
+				"required": [
+					"limit"
+				],
+				"properties": {
+					"limit": {
+						"type": "integer",
+						"description": "Number of most frequently-occurring values to return. The K in TopK"
 					}
 				}
 			},
@@ -1033,38 +1105,27 @@
 				"type": "object",
 				"description": "Result from a frequency_table profile request",
 				"required": [
-					"counts",
-					"other_count"
+					"values",
+					"counts"
 				],
 				"properties": {
+					"values": {
+						"type": "array",
+						"description": "The formatted top values",
+						"items": {
+							"type": "string"
+						}
+					},
 					"counts": {
 						"type": "array",
-						"description": "Counts of distinct values in column",
+						"description": "Counts of top values",
 						"items": {
-							"$ref": "#/components/schemas/column_frequency_table_item"
+							"type": "integer"
 						}
 					},
 					"other_count": {
 						"type": "integer",
-						"description": "Number of other values not accounted for in counts. May be 0"
-					}
-				}
-			},
-			"column_frequency_table_item": {
-				"type": "object",
-				"description": "Entry in a column's frequency table",
-				"required": [
-					"value",
-					"count"
-				],
-				"properties": {
-					"value": {
-						"type": "string",
-						"description": "Stringified value"
-					},
-					"count": {
-						"type": "integer",
-						"description": "Number of occurrences of value"
+						"description": "Number of other values not accounted for in counts, excluding nulls/NA values. May be omitted"
 					}
 				}
 			},
@@ -1079,7 +1140,7 @@
 				"properties": {
 					"q": {
 						"type": "number",
-						"description": "Quantile number (percentile). E.g. 1 for 1%, 50 for median"
+						"description": "Quantile number; a number between 0 and 1"
 					},
 					"value": {
 						"type": "string",

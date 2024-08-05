@@ -6,10 +6,14 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ILogService } from 'vs/platform/log/common/log';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 
 
 /**
@@ -54,6 +58,12 @@ export interface IUiClientMessageOutputEvent
 	extends IUiClientMessageOutput, IRuntimeClientEvent {
 }
 
+
+export interface IShowHtmlUriEvent {
+	uri: URI;
+	event: ShowHtmlFileEvent;
+}
+
 /**
  * A UI client instance. This client instance represents the global Positron window, and
  * its lifetime is tied to the lifetime of the Positron window.
@@ -75,9 +85,13 @@ export class UiClientInstance extends Disposable {
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
 	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
+	onDidShowHtmlFile: Event<IShowHtmlUriEvent>;
 
 	/** Emitter wrapper for Show URL events */
-	private _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
+	private readonly _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
+
+	/** Emitter wrapper for Show HTML File events */
+	private readonly _onDidShowHtmlFileEmitter = this._register(new Emitter<IShowHtmlUriEvent>());
 
 	/**
 	 * Creates a new frontend client instance.
@@ -87,7 +101,10 @@ export class UiClientInstance extends Disposable {
 	 */
 	constructor(
 		private readonly _client: IRuntimeClientInstance<any, any>,
-		private readonly openerService: IOpenerService,
+		private readonly _commandService: ICommandService,
+		private readonly _logService: ILogService,
+		private readonly _openerService: IOpenerService,
+		private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 		this._register(this._client);
@@ -103,19 +120,66 @@ export class UiClientInstance extends Disposable {
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidExecuteCommand = this._comm.onDidExecuteCommand;
 		this.onDidShowUrl = this._onDidShowUrlEmitter.event;
+		this.onDidShowHtmlFile = this._onDidShowHtmlFileEmitter.event;
 
 		// Wrap the ShowUrl event to resolve incoming external URIs from the
 		// backend before broadcasting them to the frontend.
 		this._register(this._comm.onDidShowUrl(async e => {
 			try {
-				const uri = URI.parse(e.url);
-				const resolvedUri = await this.openerService.resolveExternalUri(uri);
+				let uri = URI.parse(e.url);
+				try {
+					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					uri = resolvedUri.resolved;
+				} catch {
+					// Noop; use the original URI
+				}
 				const resolvedEvent: ShowUrlEvent = {
-					url: resolvedUri.resolved.toString(),
+					url: uri.toString(),
 				};
 				this._onDidShowUrlEmitter.fire(resolvedEvent);
 			} catch {
 				this._onDidShowUrlEmitter.fire(e);
+			}
+		}));
+
+		// Wrap the ShowHtmlFile event to start a proxy server for the HTML file.
+		this._register(this._comm.onDidShowHtmlFile(async e => {
+			try {
+				const url = await this._commandService.executeCommand<string>(
+					'positronProxy.startHtmlProxyServer',
+					e.path
+				);
+
+				if (!url) {
+					throw new Error('Failed to start HTML file proxy server');
+				}
+
+				let uri = URI.parse(url);
+				try {
+					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					uri = resolvedUri.resolved;
+				} catch {
+					// Noop; use the original URI
+				}
+
+				if (e.is_plot) {
+					// Check the configuration to see if we should open the plot
+					// in the Viewer tab. If so, clear the `is_plot` flag so that
+					// we open the file in the Viewer.
+					const openInViewer = this._configurationService.getValue<boolean>(POSITRON_PREVIEW_PLOTS_IN_VIEWER);
+					if (openInViewer) {
+						e.is_plot = false;
+					}
+				}
+
+				const resolvedEvent: IShowHtmlUriEvent = {
+					uri,
+					event: e,
+				};
+
+				this._onDidShowHtmlFileEmitter.fire(resolvedEvent);
+			} catch (error) {
+				this._logService.error(`Failed to show HTML file ${e.path}: ${error}`);
 			}
 		}));
 	}

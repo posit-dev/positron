@@ -20,7 +20,18 @@ export class ExtHostNotebookRenderers implements ExtHostNotebookRenderersShape {
 	}
 
 	public $postRendererMessage(editorId: string, rendererId: string, message: unknown): void {
-		const editor = this._extHostNotebook.getEditorById(editorId);
+		// --- Start Positron ---
+		// Don't emit messages for non-existent editors e.g. when rendering to
+		// a notebook output webview in Positron's plots pane.
+		// Renderer messaging still works in the main thread, but messages sent from
+		// the renderer won't currently reach extensions.
+		let editor: ExtHostNotebookEditor;
+		try {
+			editor = this._extHostNotebook.getEditorById(editorId);
+		} catch (ex) {
+			return;
+		}
+		// --- End Positron ---
 		this._rendererMessageEmitters.get(rendererId)?.fire({ editor: editor.apiEditor, message });
 	}
 

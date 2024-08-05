@@ -33,3 +33,7 @@ bar to fill the center of the toolbar.
 	padding-bottom: 2px;
 	flex-grow: 1;
 }
+
+.preview-action-bar .preview-title {
+	flex-grow: 1;
+}

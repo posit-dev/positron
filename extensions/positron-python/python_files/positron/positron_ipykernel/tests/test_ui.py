@@ -66,6 +66,10 @@ def show_url_event(url: str) -> Dict[str, Any]:
     return json_rpc_notification("show_url", {"url": url})
 
 
+def show_html_file_event(path: str, is_plot: bool) -> Dict[str, Any]:
+    return json_rpc_notification("show_html_file", {"path": path, "is_plot": is_plot})
+
+
 def test_comm_open(ui_service: UiService) -> None:
     # Double-check that comm is not yet open
     assert ui_service._comm is None
@@ -149,7 +153,24 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
 
 @pytest.mark.parametrize(
     ("url", "expected"),
-    [("https://google.com", []), ("localhost:8000", [show_url_event("localhost:8000")])],
+    [
+        ("https://google.com", []),
+        ("localhost:8000", [show_url_event("localhost:8000")]),
+        # Unix path
+        (
+            "file://hello/my/friend.html",
+            [show_html_file_event("file://hello/my/friend.html", False)],
+        ),
+        # Windows path
+        (
+            "file:///C:/Users/username/Documents/index.htm",
+            [show_html_file_event("file:///C:/Users/username/Documents/index.htm", False)],
+        ),
+        # Not a local html file
+        ("http://example.com/page.html", []),
+        # Not an html file
+        ("file:///C:/Users/username/Documents/file.txt", []),
+    ],
 )
 def test_viewer_webbrowser_does_not_open(
     url, expected, shell: PositronShell, ui_comm: DummyComm, ui_service: UiService

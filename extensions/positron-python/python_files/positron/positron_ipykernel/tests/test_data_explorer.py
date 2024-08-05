@@ -30,7 +30,9 @@ from ..data_explorer import (
     _VALUE_NONE,
     _VALUE_NULL,
     COMPARE_OPS,
+    SCHEMA_CACHE_THRESHOLD,
     DataExplorerService,
+    DataExplorerState,
     PandasView,
     _get_float_formatter,
 )
@@ -235,23 +237,34 @@ def test_explorer_delete_variable(
     _check_delete_variable("y")
 
 
-def _check_update_variable(de_service, name, update_type="schema"):
+def _check_last_message(comm, expected_msg):
+    dummy_comm = cast(DummyComm, comm.comm)
+    last_message = dummy_comm.messages[-1]
+    dummy_comm.messages.clear()
+    assert last_message == expected_msg
+
+
+def _get_last_message(comm):
+    dummy_comm = cast(DummyComm, comm.comm)
+    return dummy_comm.messages[-1]
+
+
+def _get_comms_for_name(de_service, name):
     paths = de_service.get_paths_for_variable(name)
     assert len(paths) > 0
 
-    comms = [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
+    return [de_service.comms[comm_id] for p in paths for comm_id in de_service.path_to_comm_ids[p]]
 
+
+def _check_update_variable(de_service, name, update_type="schema"):
+    comms = _get_comms_for_name(de_service, name)
     if update_type == "schema":
         expected_msg = json_rpc_notification("schema_update", {})
     else:
         expected_msg = json_rpc_notification("data_update", {})
 
-    # Check that comms were all closed
     for comm in comms:
-        dummy_comm = cast(DummyComm, comm.comm)
-        last_message = dummy_comm.messages[-1]
-        assert last_message == expected_msg
-        dummy_comm.messages.clear()
+        _check_last_message(comm, expected_msg)
 
 
 def test_register_table(de_service: DataExplorerService):
@@ -356,19 +369,14 @@ class DataExplorerFixture:
         data = response["data"]
         return data["result"]
 
-    def get_schema(self, table_name, start_index=None, num_columns=None):
-        if start_index is None:
-            start_index = 0
-
-        if num_columns is None:
-            shape = self.get_state(table_name)["table_shape"]
-            num_columns = shape["num_columns"]
+    def get_schema(self, table_name, column_indices=None):
+        if column_indices is None:
+            column_indices = list(range(self.get_state(table_name)["table_shape"]["num_columns"]))
 
         return self.do_json_rpc(
             table_name,
             "get_schema",
-            start_index=start_index,
-            num_columns=num_columns,
+            column_indices=column_indices,
         )["columns"]
 
     def search_schema(self, table_name, filters, start_index, max_results):
@@ -498,7 +506,9 @@ def dxf(
     de_service: DataExplorerService,
     variables_comm: DummyComm,
 ):
-    return DataExplorerFixture(shell, de_service, variables_comm)
+    fixture = DataExplorerFixture(shell, de_service, variables_comm)
+    yield fixture
+    de_service.shutdown()
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
@@ -588,6 +598,14 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
             profile_type="summary_stats",
             support_status=SupportStatus.Experimental,
         ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="histogram",
+            support_status=SupportStatus.Experimental,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="frequency_table",
+            support_status=SupportStatus.Experimental,
+        ),
     ]
     for tp in profile_types:
         assert tp in column_profiles["supported_types"]
@@ -656,14 +674,15 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     df = pd.DataFrame({f"f{i}": data for i, (data, _, _) in enumerate(cases)})
     dxf.register_table("full_schema", df)
-    result = dxf.get_schema("full_schema", 0, 100)
+    result = dxf.get_schema("full_schema", list(range(0, 100)))
+
     assert result == _wrap_json(ColumnSchema, full_schema)
 
     # Test partial schema gets, boundschecking
-    result = dxf.get_schema("full_schema", 2, 100)
+    result = dxf.get_schema("full_schema", list(range(2, 100)))
     assert result == _wrap_json(ColumnSchema, full_schema[2:])
 
-    result = dxf.get_schema("simple", len(cases), 100)
+    result = dxf.get_schema("simple", list(range(len(cases), 100)))
     assert result == []
 
     # Make a really big schema
@@ -679,10 +698,10 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     dxf.register_table(bigger_name, bigger_df)
 
-    result = dxf.get_schema(bigger_name, 0, 100)
+    result = dxf.get_schema(bigger_name, list(range(0, 100)))
     assert result == _wrap_json(ColumnSchema, bigger_schema[:100])
 
-    result = dxf.get_schema(bigger_name, 10, 10)
+    result = dxf.get_schema(bigger_name, list(range(10, 20)))
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
 
 
@@ -740,8 +759,8 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
             df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
         )
 
-        schema_slice = dxf.get_schema("wide_df", start_index, chunk_size)
-        expected = dxf.get_schema(f"wide_df_{chunk_index}", 0, chunk_size)
+        schema_slice = dxf.get_schema("wide_df", list(range(start_index, start_index + chunk_size)))
+        expected = dxf.get_schema(f"wide_df_{chunk_index}", list(range(0, chunk_size)))
 
         for left, right in zip(schema_slice, expected):
             right["column_index"] = right["column_index"] + start_index
@@ -807,7 +826,7 @@ def test_search_schema(dxf: DataExplorerFixture):
     ddd_filter = _text_search_filter("ddd")
 
     for name in ["df", "dfp"]:
-        full_schema = dxf.get_schema(name, 0, len(column_names))
+        full_schema = dxf.get_schema(name, list(range(0, len(column_names))))
 
         # (search_term, start_index, max_results, ex_total, ex_matches)
         cases = [
@@ -1498,6 +1517,16 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
+def _replicate_df_columns(df, new_width):
+    # Create a "wide" version of the data frame by replicating its
+    # columns and appending an index suffix to make the column names
+    # unique
+    ncols = df.shape[1]
+    return pd.DataFrame(
+        {f"{df.columns[i % ncols]}_{i}": df.iloc[:, i % ncols] for i in range(new_width)}
+    )
+
+
 def test_variable_updates(
     shell: PositronShell,
     de_service: DataExplorerService,
@@ -1510,6 +1539,10 @@ def test_variable_updates(
     big_x = pd.DataFrame({"a": big_array})
     big_xpl = pl.DataFrame({"a": big_array})
 
+    # Needs to be big enough to go over the snapshotting threshold
+    arr_for_wide = np.arange(20000)
+    wide_xpl = pl.DataFrame({f"f{i}": arr_for_wide for i in range(1000)})
+
     _assign_variables(
         shell,
         variables_comm,
@@ -1517,15 +1550,16 @@ def test_variable_updates(
         x_pl=x_pl,
         big_x=big_x,
         big_xpl=big_xpl,
+        wide_xpl=wide_xpl,
         y={"key1": SIMPLE_PANDAS_DF, "key2": SIMPLE_PANDAS_DF},
     )
 
     # Check updates
-
     path_x = _open_viewer(variables_comm, ["x"])
     path_xpl = _open_viewer(variables_comm, ["x_pl"])
     _open_viewer(variables_comm, ["big_x"])
     _open_viewer(variables_comm, ["big_xpl"])
+    _open_viewer(variables_comm, ["wide_xpl"])
     _open_viewer(variables_comm, ["y", "key1"])
     _open_viewer(variables_comm, ["y", "key2"])
     _open_viewer(variables_comm, ["y", "key2"])
@@ -1554,18 +1588,24 @@ def test_variable_updates(
         assert new_state["table_shape"]["num_columns"] == 1
         assert new_state["sort_keys"] == [ColumnSortKey(**k) for k in x_sort_keys]
 
-    # Execute code that triggers an update event for big_x because it's large
+    # Execute code that triggers a schema update events for large data
+    # frames
     shell.run_cell("None")
     _check_update_variable(de_service, "big_x", update_type="schema")
-    _check_update_variable(de_service, "big_xpl", update_type="schema")
 
-    # Update nested values in y and check for schema updates
+    # Always updates because the schema is wide
+    _check_update_variable(de_service, "wide_xpl", update_type="schema")
+
+    # Does not update because the schema was cached and is unchanged
+    _check_update_variable(de_service, "big_xpl", update_type="data")
+
+    # Update nested values in y and check for data or schema updates
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:1]],
     'key2': y['key2'].copy()}
     """
     )
-    _check_update_variable(de_service, "y", update_type="schema")
+    _check_update_variable(de_service, "y", update_type="data")
 
     shell.run_cell(
         """y = {'key1': y['key1'].iloc[:-1, :-1],
@@ -1936,26 +1976,34 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
     # GitHub #3044, PandasView gets into an inconsistent state when a
     # dataset with sort keys set is updated (or the view is refreshed
     # because the dataset is large)
-    df = pd.DataFrame(
-        {
-            "a": [1, 2, 3, 4, 5],
-            "b": [True, False, True, None, True],
-            "c": ["foo", "bar", None, "bar", "None"],
-        }
-    )
+    arrays = [
+        [1, 2, 3, 4, 5],
+        [True, False, True, None, True],
+        ["foo", "bar", None, "bar", "None"],
+    ]
+    df = pd.DataFrame({"f0": arrays[0], "f1": arrays[1], "f2": arrays[2]})
 
-    comm_id = dxf.assign_and_open_viewer("df", df)
-    view = dxf.de_service.table_views[comm_id]
-    dxf.set_sort_columns("df", [{"column_index": 0, "ascending": False}])
+    wide_df = _replicate_df_columns(df, 10000)
 
-    view = PandasView("df", df, view.filters, view.sort_keys)
+    for name, table in [("df", df), ("wide_df", wide_df)]:
+        comm_id = dxf.assign_and_open_viewer(name, table)
+        view = dxf.de_service.table_views[comm_id]
+        dxf.set_sort_columns(name, [{"column_index": 0, "ascending": False}])
 
-    schema_updated, new_filt, new_sort_keys = view.get_updated_state(df)
+        state = view.state
 
-    # Object dtype makes schema_updated always true
-    assert schema_updated
-    assert new_filt == view.filters
-    assert new_sort_keys == view.sort_keys
+        new_view = PandasView(table, DataExplorerState(name, state.filters, state.sort_keys))
+
+        schema_updated, new_state = new_view.get_updated_state(table)
+
+        if len(table.columns) > SCHEMA_CACHE_THRESHOLD:
+            # For tables with many columns, schema_updated is always true
+            assert schema_updated
+        else:
+            assert not schema_updated
+
+        assert new_state.filters == state.filters
+        assert new_state.sort_keys == state.sort_keys
 
 
 def _select_single_cell(row_index: int, col_index: int):
@@ -2126,16 +2174,30 @@ def test_export_data_selection(dxf: DataExplorerFixture):
                 assert filt_result["data"] == filt_expected
 
 
-def _profile_request(column_index, profile_type):
-    return {"column_index": column_index, "profile_type": profile_type}
+def _profile_request(column_index, profiles):
+    return {"column_index": column_index, "profiles": profiles}
 
 
 def _get_null_count(column_index):
-    return _profile_request(column_index, "null_count")
+    return _profile_request(column_index, [{"profile_type": "null_count"}])
+
+
+def _get_histogram(column_index, bins):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "histogram", "params": {"num_bins": bins}}],
+    )
+
+
+def _get_frequency_table(column_index, limit):
+    return _profile_request(
+        column_index,
+        [{"profile_type": "frequency_table", "params": {"limit": limit}}],
+    )
 
 
 def _get_summary_stats(column_index):
-    return _profile_request(column_index, "summary_stats")
+    return _profile_request(column_index, [{"profile_type": "summary_stats"}])
 
 
 def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
@@ -2475,6 +2537,132 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
 
 
+def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
+    df = pd.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": pd.date_range("2000-01-01", periods=11),
+            "c": [1.5, np.nan, 3.5, 5.0, 10, np.nan, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+        }
+    )
+    dfp = pl.DataFrame(
+        {
+            "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "b": list(df["b"]),
+            "c": [1.5, None, 3.5, 5.0, 10, None, 0.1, -4.3, 0, -2, -10],
+            "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+        }
+    )
+
+    dxf.register_table("df", df)
+    dxf.register_table("dfp", dfp)
+
+    cases = [
+        (
+            _get_histogram(0, 4),
+            {
+                "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
+                "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(1, 4),
+            {
+                "bin_edges": [
+                    "2000-01-01 00:00:00",
+                    "2000-01-03 12:00:00",
+                    "2000-01-06 00:00:00",
+                    "2000-01-08 12:00:00",
+                    "2000-01-11 00:00:00",
+                ],
+                "bin_counts": [3, 2, 3, 3],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(2, 6),
+            {
+                "bin_edges": [
+                    "-10.00",
+                    "-6.67",
+                    "-3.33",
+                    "0.00",
+                    "3.33",
+                    "6.67",
+                    "10.00",
+                ],
+                "bin_counts": [1, 1, 1, 3, 2, 1],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(3, 4),
+            {
+                "bin_edges": [
+                    "0.00",
+                    "2.50",
+                    "5.00",
+                    "7.50",
+                    "10.00",
+                ],
+                "bin_counts": [5, 0, 0, 6],
+                "quantiles": [],
+            },
+        ),
+    ]
+
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["histogram"] == ex_result
+
+
+def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
+    data = {
+        "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
+        "b": [
+            "foo",
+            "foo",
+            "foo",
+            "foo",
+            "b0",
+            "b0",
+            "b1",
+            "b2",
+            "b3",
+            None,
+        ],
+    }
+    dxf.register_table("df", pd.DataFrame(data))
+    dxf.register_table("dfp", pl.DataFrame(data))
+
+    cases = [
+        (
+            _get_frequency_table(0, 3),
+            {
+                "values": ["0", "1", "2"],
+                "counts": [3, 2, 2],
+                "other_count": 3,
+            },
+        ),
+        (
+            _get_frequency_table(1, 3),
+            {
+                "values": ["foo", "b0", "b1"],
+                "counts": [4, 2, 1],
+                "other_count": 2,
+            },
+        ),
+    ]
+
+    for name in ["df", "dfp"]:
+        for profile, ex_result in cases:
+            result = dxf.get_column_profiles(name, [profile])
+            assert result[0]["frequency_table"] == ex_result
+
+
 # ----------------------------------------------------------------------
 # polars backend functionality tests
 
@@ -2583,14 +2771,18 @@ def test_polars_get_schema(dxf: DataExplorerFixture):
     df, full_schema = example_polars_df()
     table_name = guid()
     dxf.register_table(table_name, df)
-    result = dxf.get_schema(table_name, 0, len(df.columns))
+    result = dxf.get_schema(table_name, list(range(0, len(df.columns))))
 
     assert result == _wrap_json(ColumnSchema, full_schema)
 
     # Test partial gets, boundschecking
-    assert dxf.get_schema(table_name, 0, 0) == []
-    assert dxf.get_schema(table_name, 5, 5) == _wrap_json(ColumnSchema, full_schema[5:10])
-    assert dxf.get_schema(table_name, 5, 100) == _wrap_json(ColumnSchema, full_schema[5:])
+    assert dxf.get_schema(table_name, []) == []
+    assert dxf.get_schema(table_name, list(range(5, 10))) == _wrap_json(
+        ColumnSchema, full_schema[5:10]
+    )
+    assert dxf.get_schema(table_name, list(range(5, 100))) == _wrap_json(
+        ColumnSchema, full_schema[5:]
+    )
 
 
 def test_polars_get_state(dxf: DataExplorerFixture):

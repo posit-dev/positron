@@ -33,8 +33,11 @@ from .data_explorer_comm import (
     ColumnFilterType,
     ColumnFilterTypeSupportStatus,
     ColumnFrequencyTable,
+    ColumnFrequencyTableParams,
     ColumnHistogram,
+    ColumnHistogramParams,
     ColumnProfileResult,
+    ColumnProfileSpec,
     ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
@@ -101,12 +104,47 @@ logger = logging.getLogger(__name__)
 
 
 PathKey = Tuple[str, ...]
-StateUpdate = Tuple[bool, List[RowFilter], List[ColumnSortKey]]
 SummarizerType = Callable[[Any, FormatOptions], ColumnSummaryStats]
 
 
 def _summarize_not_implemented(col, options: FormatOptions):
     raise NotImplementedError
+
+
+# For tables with fewer than this number of columns, when
+# instantiating the table view, we compute and cache the list of
+# column schemas, which should take well under 10ms.
+SCHEMA_CACHE_THRESHOLD = 100
+
+
+class DataExplorerState:
+    name: str
+    filters: List[RowFilter]
+    sort_keys: List[ColumnSortKey]
+
+    # Maintain a mapping of column index to inferred dtype for any
+    # object columns, to avoid recomputing. If the underlying
+    # object is changed, this needs to be reset
+    inferred_dtypes: Dict[int, str]
+    schema_cache: Optional[List[ColumnSchema]] = None
+
+    def __init__(
+        self,
+        name: str,
+        filters=None,
+        sort_keys=None,
+        inferred_dtypes=None,
+        schema_cache=None,
+    ):
+        self.name = name
+        self.filters = filters or []
+        self.sort_keys = sort_keys or []
+        self.inferred_dtypes = inferred_dtypes or {}
+        self.schema_cache = schema_cache
+
+
+# Return type for get_updated_state below
+StateUpdate = Tuple[bool, DataExplorerState]
 
 
 class DataExplorerTableView(abc.ABC):
@@ -117,22 +155,14 @@ class DataExplorerTableView(abc.ABC):
     pyarrow.Table, and any others
     """
 
-    def __init__(
-        self,
-        display_name: str,
-        table,
-        filters: Optional[List[RowFilter]],
-        sort_keys: Optional[List[ColumnSortKey]],
-    ):
-        self.display_name = display_name
-
+    def __init__(self, table, state: DataExplorerState):
         # Note: we must not ever modify the user's data
         self.table = table
+        self.state = state
 
-        self.filters = filters if filters is not None else []
-        self._set_sort_keys(sort_keys)
+        self._set_sort_keys(state.sort_keys)
 
-        self._need_recompute = len(self.filters) > 0 or len(self.sort_keys) > 0
+        self._need_recompute = len(state.filters) > 0 or len(state.sort_keys) > 0
 
         # Array of selected ("true") indices using filters. If
         # there are also sort keys, we first filter the unsorted data,
@@ -155,13 +185,31 @@ class DataExplorerTableView(abc.ABC):
             None
         )
 
+        self._update_schema_cache()
+
+    def _update_schema_cache(self):
+        # If the number of columns is below the fixed threshold, we
+        # compute and store the ColumnSchema objects up front so that
+        # we can more easily determine if there has been an in-place
+        # schema update. If the schema is large, then we don't cache
+        # and where relevant we assume that the schema could have
+        # changed.
+        if self._should_cache_schema(self.table) and self.state.schema_cache is None:
+            self.state.schema_cache = [
+                self._get_single_column_schema(i) for i in range(self.table.shape[1])
+            ]
+
+    @classmethod
+    def _should_cache_schema(cls, table):
+        return False
+
     def _set_sort_keys(self, sort_keys):
-        self.sort_keys = sort_keys if sort_keys is not None else []
+        self.state.sort_keys = sort_keys
 
         # We store the column schemas for each sort key to help with
         # eviction later during updates
         self._sort_key_schemas = [
-            self._get_single_column_schema(key.column_index) for key in self.sort_keys
+            self._get_single_column_schema(key.column_index) for key in self.state.sort_keys
         ]
 
     def _recompute_if_needed(self) -> bool:
@@ -173,26 +221,30 @@ class DataExplorerTableView(abc.ABC):
             return False
 
     def _update_view_indices(self):
-        if len(self.sort_keys) == 0:
+        if len(self.state.sort_keys) == 0:
             self.view_indices = self.filtered_indices
         else:
             # If we have just applied a new filter, we now resort to
             # reflect the filtered_indices that have just been updated
             self._sort_data()
 
+    # Gets the schema from a list of column indices.
     def get_schema(self, request: GetSchemaRequest):
+        # Loop over the sorted column indices to get the column schemas the user requested.
         column_schemas = []
+        for column_index in sorted(request.params.column_indices):
+            # Validate that the column index isn't negative.
+            if column_index < 0:
+                raise IndexError
 
-        start = request.params.start_index
-        num_columns = request.params.num_columns
+            # Break when the column index is too large.
+            if column_index >= len(self.table.columns):
+                break
 
-        for column_index in range(
-            start,
-            min(start + num_columns, self.table.shape[1]),
-        ):
-            col_schema = self._get_single_column_schema(column_index)
-            column_schemas.append(col_schema)
+            # Add the column schema.
+            column_schemas.append(self._get_single_column_schema(column_index))
 
+        # Return the column schemas.
         return TableSchema(columns=column_schemas).dict()
 
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
@@ -344,14 +396,14 @@ class DataExplorerTableView(abc.ABC):
         return self._set_row_filters(request.params.filters).dict()
 
     def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        self.filters = filters
+        self.state.filters = filters
         for filt in filters:
             # If is_valid isn't set, set it based on what is currently
             # supported
             if filt.is_valid is None:
                 filt.is_valid = self._is_supported_filter(filt)
 
-        if len(self.filters) == 0:
+        if len(self.state.filters) == 0:
             # Simply reset if empty filter set passed
             self.filtered_indices = None
             self._update_view_indices()
@@ -419,23 +471,41 @@ class DataExplorerTableView(abc.ABC):
         results = []
 
         for req in request.params.profiles:
-            if req.profile_type == ColumnProfileType.NullCount:
-                count = self._prof_null_count(req.column_index)
-                result = ColumnProfileResult(null_count=int(count))
-            elif req.profile_type == ColumnProfileType.SummaryStats:
-                stats = self._prof_summary_stats(req.column_index, request.params.format_options)
-                result = ColumnProfileResult(summary_stats=stats)
-            elif req.profile_type == ColumnProfileType.FrequencyTable:
-                freq_table = self._prof_freq_table(req.column_index)
-                result = ColumnProfileResult(frequency_table=freq_table)
-            elif req.profile_type == ColumnProfileType.Histogram:
-                histogram = self._prof_histogram(req.column_index)
-                result = ColumnProfileResult(histogram=histogram)
-            else:
-                raise NotImplementedError(req.profile_type)
+            result = self._compute_profiles(
+                req.column_index,
+                req.profiles,
+                request.params.format_options,
+            )
             results.append(result.dict())
 
         return results
+
+    def _compute_profiles(
+        self,
+        column_index: int,
+        profiles: List[ColumnProfileSpec],
+        format_options: FormatOptions,
+    ):
+        results = {}
+        for spec in profiles:
+            profile_type = spec.profile_type
+            if profile_type == ColumnProfileType.NullCount:
+                results["null_count"] = self._prof_null_count(column_index)
+            elif profile_type == ColumnProfileType.SummaryStats:
+                results["summary_stats"] = self._prof_summary_stats(column_index, format_options)
+            elif profile_type == ColumnProfileType.FrequencyTable:
+                assert isinstance(spec.params, ColumnFrequencyTableParams)
+                results["frequency_table"] = self._prof_freq_table(
+                    column_index, spec.params, format_options
+                )
+            elif profile_type == ColumnProfileType.Histogram:
+                assert isinstance(spec.params, ColumnHistogramParams)
+                results["histogram"] = self._prof_histogram(
+                    column_index, spec.params, format_options
+                )
+            else:
+                raise NotImplementedError(profile_type)
+        return ColumnProfileResult(**results)
 
     def get_state(self, _: GetStateRequest):
         self._recompute_if_needed()
@@ -444,7 +514,7 @@ class DataExplorerTableView(abc.ABC):
     def _recompute(self):
         # Re-setting the column filters will trigger filtering AND
         # sorting
-        self._set_row_filters(self.filters)
+        self._set_row_filters(self.state.filters)
 
     def get_updated_state(self, new_table) -> StateUpdate:
         raise NotImplementedError
@@ -459,7 +529,7 @@ class DataExplorerTableView(abc.ABC):
     ):
         # Shared by implementations of get_updated_state
         new_filters = []
-        for filt in self.filters:
+        for filt in self.state.filters:
             column_index = filt.column_schema.column_index
             column_name = filt.column_schema.column_name
 
@@ -518,7 +588,7 @@ class DataExplorerTableView(abc.ABC):
     ):
         # Shared by implementations of get_updated_state
         new_sort_keys = []
-        for i, key in enumerate(self.sort_keys):
+        for i, key in enumerate(self.state.sort_keys):
             column_index = key.column_index
             prior_name = self._sort_key_schemas[i].column_name
 
@@ -529,9 +599,7 @@ class DataExplorerTableView(abc.ABC):
                 # A schema change is only valid if the column name is
                 # the same, otherwise it's a deletion
                 change = schema_changes[column_index]
-                if prior_name == change.column_name:
-                    key.column_schema = change.copy()
-                else:
+                if prior_name != change.column_name:
                     # Column deleted
                     continue
             elif column_index in shifted_columns:
@@ -618,13 +686,42 @@ class DataExplorerTableView(abc.ABC):
     def _get_column(self, column_index: int):
         raise NotImplementedError
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
         raise NotImplementedError
 
-    FEATURES = None
+    FEATURES = SupportedFeatures(
+        search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Unsupported,
+            supported_types=[],
+        ),
+        set_row_filters=SetRowFiltersFeatures(
+            support_status=SupportStatus.Unsupported,
+            supports_conditions=SupportStatus.Unsupported,
+            supported_types=[],
+        ),
+        get_column_profiles=GetColumnProfilesFeatures(
+            support_status=SupportStatus.Unsupported,
+            supported_types=[],
+        ),
+        set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
+        export_data_selection=ExportDataSelectionFeatures(
+            support_status=SupportStatus.Unsupported,
+            supported_formats=[],
+        ),
+    )
 
     def _get_state(self) -> BackendState:
         table_unfiltered_shape = TableShape(
@@ -641,11 +738,11 @@ class DataExplorerTableView(abc.ABC):
             table_shape = table_unfiltered_shape
 
         return BackendState(
-            display_name=self.display_name,
+            display_name=self.state.name,
             table_shape=table_shape,
             table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.filters,
-            sort_keys=self.sort_keys,
+            row_filters=self.state.filters,
+            sort_keys=self.state.sort_keys,
             supported_features=self.FEATURES,
         )
 
@@ -711,8 +808,8 @@ def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, 
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, display_name, table):
-        super().__init__(display_name, table, [], [])
+    def __init__(self, table, state):
+        super().__init__(table, state)
 
 
 # Special value codes for the protocol
@@ -910,24 +1007,25 @@ def _safe_stringify(x, max_length: int):
     return formatted
 
 
+# If there are more than 10M data cells (num_rows x num_columns) then
+# we do not do proactive schema caching, even if the number of columns
+# is small
+PANDAS_CACHE_CELLS_THRESHOLD = 10_000_000
+
+
 class PandasView(DataExplorerTableView):
     TYPE_NAME_MAPPING = {"boolean": "bool"}
 
-    def __init__(
-        self,
-        display_name: str,
-        table,
-        filters: Optional[List[RowFilter]],
-        sort_keys: Optional[List[ColumnSortKey]],
-    ):
+    def __init__(self, table: "pd.DataFrame", state: DataExplorerState):
         table = self._maybe_wrap(table)
 
-        super().__init__(display_name, table, filters, sort_keys)
+        super().__init__(table, state)
 
-        # Maintain a mapping of column index to inferred dtype for any
-        # object columns, to avoid recomputing. If the underlying
-        # object is changed, this needs to be reset
-        self._inferred_dtypes = {}
+    @classmethod
+    def _should_cache_schema(cls, table):
+        num_rows, num_columns = table.shape
+        num_cells = num_rows * num_columns
+        return num_columns < SCHEMA_CACHE_THRESHOLD and num_cells < PANDAS_CACHE_CELLS_THRESHOLD
 
     def _maybe_wrap(self, value):
         if isinstance(value, pd_.Series):
@@ -939,22 +1037,13 @@ class PandasView(DataExplorerTableView):
             return value
 
     def get_updated_state(self, new_table) -> StateUpdate:
-        from pandas.api.types import infer_dtype
-
         filtered_columns = {
-            filt.column_schema.column_index: filt.column_schema for filt in self.filters
+            filt.column_schema.column_index: filt.column_schema for filt in self.state.filters
         }
 
-        # self.table may have been modified in place, so we cannot
-        # assume that new_table is different than self.table
-        if new_table is self.table:
-            # For in-place updates, we have to assume the worst case
-            # scenario of a schema change
-            schema_updated = True
-        else:
-            # The table object has changed -- now we look for
-            # suspected schema changes
-            schema_updated = False
+        new_state = DataExplorerState(self.state.name)
+
+        schema_updated = False
 
         # We go through the columns in the new table and see whether
         # there is a type change or whether a column name moved.
@@ -973,77 +1062,110 @@ class PandasView(DataExplorerTableView):
                     deleted_columns.add(old_index)
                     schema_updated = True
 
-        def _get_column_schema(column, column_name, column_index):
-            # We only use infer_dtype for columns that are involved in
-            # a filter
-            type_name, type_display = self._get_type(column.dtype, lambda: infer_dtype(column))
-
-            return ColumnSchema(
-                column_name=column_name,
-                column_index=column_index,
-                type_name=type_name,
-                type_display=type_display,
-            )
-
         # When computing the new display type of a column requires
-        # calling infer_dtype, we are careful to only do it for
+        # calling infer_dtype, we are careful below to only do it for
         # columns that are involved in a filter
-        for new_index, column_name in enumerate(new_table.columns):
-            # New table has more columns than the old table
-            out_of_bounds = new_index >= len(old_columns)
 
-            if out_of_bounds or old_columns[new_index] != column_name:
-                if column_name not in old_columns:
-                    # New column
-                    schema_updated = True
-                    continue
-                # Column was shifted
-                old_index = old_columns.get_loc(column_name)
-                shifted_columns[old_index] = new_index
+        if new_table is self.table:
+            if (
+                # Schema was cached before
+                self.state.schema_cache is not None
+                # Number of columns has not changed
+                and len(self.state.schema_cache) == len(self.table.columns)
+                # Table is not too big to analyze
+                and self._should_cache_schema(new_table)
+            ):
+                # Schema was previously cached, so we can use that for
+                # change detection
+                for i, column_name in enumerate(self.table.columns):
+                    column = self.table.iloc[:, i]
+
+                    new_schema = self._construct_schema(column, column_name, i, new_state)
+                    old_schema = self.state.schema_cache[i]
+
+                    if (
+                        new_schema.column_name != old_schema.column_name
+                        or new_schema.type_display != old_schema.type_display
+                        or new_schema.type_name != old_schema.type_name
+                    ):
+                        schema_updated = True
+                        schema_changes[i] = new_schema
             else:
-                old_index = new_index
-
-            new_column = new_table.iloc[:, new_index]
-
-            # For object dtype columns, we refuse to make any
-            # assumptions about whether the data type has changed
-            # and will let re-filtering fail later if there is a
-            # problem
-            if new_column.dtype == object:
-                # The inferred type could be different
+                # Schema is large enough to not be cached, so we have
+                # to assume the worst case of an in-place schema
+                # update
                 schema_updated = True
-            elif new_table is not self.table:
-                # While we must proceed under the conservative
-                # possibility that the table was modified in place, if
-                # the tables are indeed different we can check for
-                # schema changes more confidently
-                old_dtype = self.table.iloc[:, old_index].dtype
-                if new_column.dtype == old_dtype:
-                    # Type is the same and not object dtype
+
+                for i, column_name in enumerate(self.table.columns):
+                    column = self.table.iloc[:, i]
+
+                    if i in filtered_columns and column.dtype != object:
+                        old_schema = filtered_columns[i]
+                        if filtered_columns[i].type_name == str(
+                            column.dtype
+                        ) and old_schema.column_name == str(column_name):
+                            # For filtered, non-object dtype columns,
+                            # if the type is the same there is no need
+                            # for further analysis
+                            continue
+
+                    schema_changes[i] = self._construct_schema(column, column_name, i, new_state)
+        else:
+            # When computing the new display type of a column requires
+            # calling infer_dtype, we are careful to only do it for
+            # columns that are involved in a filter
+            for new_index, column_name in enumerate(new_table.columns):
+                # New table has more columns than the old table
+                out_of_bounds = new_index >= len(old_columns)
+
+                if out_of_bounds or old_columns[new_index] != column_name:
+                    if column_name not in old_columns:
+                        # New column
+                        schema_updated = True
+                        continue
+                    # Column was shifted
+                    old_index = old_columns.get_loc(column_name)
+                    shifted_columns[old_index] = new_index
+                else:
+                    old_index = new_index
+
+                new_column = new_table.iloc[:, new_index]
+
+                # For object dtype columns, we refuse to make any
+                # assumptions about whether the data type has changed
+                # and will let re-filtering fail later if there is a
+                # problem
+                if new_column.dtype == object:
+                    # The inferred type could be different
+                    schema_updated = True
+                else:
+                    old_dtype = self.table.iloc[:, old_index].dtype
+                    if new_column.dtype == old_dtype:
+                        # Type is the same and not object dtype
+                        continue
+
+                # The type maybe changed
+                schema_updated = True
+
+                if old_index not in filtered_columns:
+                    # This column index did not have a row filter
+                    # attached to it, so doing further analysis is
+                    # unnecessary
                     continue
-            elif old_index in filtered_columns:
-                # If it was an in place modification, as a last ditch
-                # effort we check if we remember the data type because
-                # of a prior filter
-                if filtered_columns[old_index].type_name == str(new_column.dtype):
-                    # Type is the same and not object dtype
-                    continue
 
-            # The type maybe changed
-            schema_updated = True
-
-            if old_index not in filtered_columns:
-                # This column index did not have a row filter
-                # attached to it, so doing further analysis is
-                # unnecessary
-                continue
-
-            schema_changes[old_index] = _get_column_schema(new_column, str(column_name), new_index)
+                schema_changes[old_index] = self._construct_schema(
+                    new_column, column_name, new_index, new_state
+                )
 
         def schema_getter(column_name, column_index):
-            return _get_column_schema(new_table.iloc[:, column_index], column_name, column_index)
+            return self._construct_schema(
+                new_table.iloc[:, column_index],
+                column_name,
+                column_index,
+                new_state,
+            )
 
-        new_filters = self._get_adjusted_filters(
+        new_state.filters = self._get_adjusted_filters(
             new_table.columns,
             schema_changes,
             shifted_columns,
@@ -1051,29 +1173,44 @@ class PandasView(DataExplorerTableView):
             schema_getter,
         )
 
-        new_sort_keys = self._get_adjusted_sort_keys(
+        new_state.sort_keys = self._get_adjusted_sort_keys(
             new_table.columns, schema_changes, shifted_columns, deleted_columns
         )
 
-        return schema_updated, new_filters, new_sort_keys
-
-    def _get_inferred_dtype(self, column_index: int):
-        from pandas.api.types import infer_dtype
-
-        if column_index not in self._inferred_dtypes:
-            self._inferred_dtypes[column_index] = infer_dtype(self.table.iloc[:, column_index])
-        return self._inferred_dtypes[column_index]
+        return schema_updated, new_state
 
     @classmethod
-    def _get_type(cls, dtype, get_inferred_dtype):
+    def _construct_schema(
+        cls, column, column_name, column_index: int, state: DataExplorerState
+    ) -> ColumnSchema:
+        type_name, type_display = cls._get_type(column, column_index, state)
+
+        return ColumnSchema(
+            column_name=str(column_name),
+            column_index=column_index,
+            type_name=type_name,
+            type_display=type_display,
+        )
+
+    @classmethod
+    def _get_inferred_dtype(cls, column, column_index: int, state: DataExplorerState):
+        from pandas.api.types import infer_dtype
+
+        if column_index not in state.inferred_dtypes:
+            state.inferred_dtypes[column_index] = infer_dtype(column)
+        return state.inferred_dtypes[column_index]
+
+    @classmethod
+    def _get_type(cls, column, column_index, state: DataExplorerState):
         # A helper function for returning the backend type_name and
         # the display type when returning schema results or analyzing
         # schema changes
+        dtype = column.dtype
 
         # TODO: pandas MultiIndex columns
         # TODO: time zone for datetimetz datetime64[ns] types
         if dtype == object:  # noqa: E721
-            type_name = get_inferred_dtype()
+            type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
         else:
             # TODO: more sophisticated type mapping
@@ -1135,20 +1272,15 @@ class PandasView(DataExplorerTableView):
         return ColumnDisplayType(type_display)
 
     def _get_single_column_schema(self, column_index: int):
-        column_raw_name = self.table.columns[column_index]
-        column_name = str(column_raw_name)
-
-        type_name, type_display = self._get_type(
-            self.table.iloc[:, column_index].dtype,
-            lambda: self._get_inferred_dtype(column_index),
-        )
-
-        return ColumnSchema(
-            column_name=column_name,
-            column_index=column_index,
-            type_name=type_name,
-            type_display=type_display,
-        )
+        if self.state.schema_cache:
+            return self.state.schema_cache[column_index]
+        else:
+            return self._construct_schema(
+                self.table.iloc[:, column_index],
+                self.table.columns[column_index],
+                column_index,
+                self.state,
+            )
 
     def _get_column_name(self, index: int):
         return str(self.table.columns[index])
@@ -1261,7 +1393,7 @@ class PandasView(DataExplorerTableView):
         col = self.table.iloc[:, column_index]
 
         dtype = col.dtype
-        inferred_type = self._get_inferred_dtype(column_index)
+        inferred_type = self._get_inferred_dtype(col, column_index, self.state)
 
         mask = None
         if filt.filter_type in (
@@ -1375,8 +1507,8 @@ class PandasView(DataExplorerTableView):
     def _sort_data(self) -> None:
         from pandas.core.sorting import lexsort_indexer, nargsort
 
-        if len(self.sort_keys) == 1:
-            key = self.sort_keys[0]
+        if len(self.state.sort_keys) == 1:
+            key = self.state.sort_keys[0]
             column = self.table.iloc[:, key.column_index]
             if self.filtered_indices is not None:
                 # pandas's univariate null-friendly argsort (computes
@@ -1394,11 +1526,11 @@ class PandasView(DataExplorerTableView):
             else:
                 # Data is not filtered
                 self.view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
-        elif len(self.sort_keys) > 1:
+        elif len(self.state.sort_keys) > 1:
             # Multiple sorting keys
             cols_to_sort = []
             directions = []
-            for key in self.sort_keys:
+            for key in self.state.sort_keys:
                 col = self._get_column(key.column_index)
                 cols_to_sort.append(col)
                 directions.append(key.ascending)
@@ -1420,8 +1552,8 @@ class PandasView(DataExplorerTableView):
             column = column.take(self.filtered_indices)
         return column
 
-    def _prof_null_count(self, column_index: int):
-        return self._get_column(column_index).isnull().sum()
+    def _prof_null_count(self, column_index: int) -> int:
+        return int(self._get_column(column_index).isnull().sum())
 
     _SUMMARIZERS = {
         ColumnDisplayType.Boolean: _pandas_summarize_boolean,
@@ -1431,11 +1563,58 @@ class PandasView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _pandas_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int):
-        raise NotImplementedError
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
+        col = self._get_column(column_index)
+        counts = col.value_counts()
 
-    def _prof_histogram(self, column_index: int):
-        raise NotImplementedError
+        top_counts = counts.iloc[: params.limit]
+        other_group = counts.iloc[params.limit :]
+
+        formatted_groups = self._format_values(top_counts.index, format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts],
+            other_count=int(other_group.sum()),
+        )
+
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
+        col = self._get_column(column_index)
+
+        # TODO: why does this type error?
+        data = col[col.notna()].to_numpy()  # type: ignore
+
+        dtype = data.dtype
+        is_datetime64 = np_.issubdtype(dtype, np_.datetime64)
+
+        if is_datetime64:
+            data = data.view(np_.int64)
+
+        bin_counts, bin_edges = np_.histogram(data, bins=params.num_bins)
+
+        if is_datetime64:
+            # A bit hacky for now, but will replace this with
+            # something better soon
+            bin_edges = np_.floor(bin_edges).astype(np_.int64).view(dtype)
+            bin_edges = pd_.Series(bin_edges)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     SUPPORTED_FILTERS = {
         RowFilterType.Between,
@@ -1492,6 +1671,14 @@ class PandasView(DataExplorerTableView):
                 # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.Histogram,
+                    support_status=SupportStatus.Experimental,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.FrequencyTable,
                     support_status=SupportStatus.Experimental,
                 ),
             ],
@@ -1631,19 +1818,15 @@ def _polars_summarize_datetime(col: "pl.Series", _):
 
 
 class PolarsView(DataExplorerTableView):
-    def __init__(
-        self,
-        display_name: str,
-        table: "pl.DataFrame",
-        filters: Optional[List[RowFilter]],
-        sort_keys: Optional[List[ColumnSortKey]],
-    ):
-        super().__init__(display_name, table, filters, sort_keys)
+    def __init__(self, table: "pl.DataFrame", state: DataExplorerState):
+        super().__init__(table, state)
+
+    @classmethod
+    def _should_cache_schema(cls, table):
+        return table.shape[1] < SCHEMA_CACHE_THRESHOLD
 
     def get_updated_state(self, new_table) -> StateUpdate:
-        filtered_columns = {
-            filt.column_schema.column_index: filt.column_schema for filt in self.filters
-        }
+        new_state = DataExplorerState(self.state.name, self.state.filters, self.state.sort_keys)
 
         # As of June 2024, polars seems to be really slow for
         # inspecting the metadata of data frames with a large amount
@@ -1655,24 +1838,15 @@ class PolarsView(DataExplorerTableView):
         #
         # Note also the syntax "column_name in df" is fairly slow
 
-        INSPECT_THRESHOLD = 1_000
-        if new_table.shape[1] > INSPECT_THRESHOLD:
+        if new_table.shape[1] > SCHEMA_CACHE_THRESHOLD:
             # We always say the schema was updated. We'll let filter
             # and sort keys get invalidated by downstream checking
             # rather than proactive invalidation
-            return True, self.filters, self.sort_keys
+            return True, new_state
 
-        # self.table may have been modified in place, so we cannot
-        # assume that new_table is different than self.table
-        if new_table is self.table:
-            # For in-place updates, we have to assume the worst case
-            # scenario of a schema change since we do not have access
-            # to the previous schema
-            schema_updated = True
-        else:
-            # The table object has changed -- now we look for
-            # suspected schema changes
-            schema_updated = False
+        assert self.state.schema_cache is not None
+
+        schema_updated = False
 
         # We go through the columns in the new table and see whether
         # there is a type change or whether a column name moved.
@@ -1680,17 +1854,11 @@ class PolarsView(DataExplorerTableView):
         deleted_columns: Set[int] = set()
         schema_changes: Dict[int, ColumnSchema] = {}
 
-        # When computing the new display type of a column requires
-        # calling infer_dtype, we are careful to only do it for
-        # columns that are involved in a filter
         new_columns = new_table.columns
         new_columns_set = {c: i for i, c in enumerate(new_columns)}
-        if new_table is self.table:
-            old_columns = new_columns
-            old_columns_set = new_columns_set
-        else:
-            old_columns = self.table.columns
-            old_columns_set = {c: i for i, c in enumerate(self.table.columns)}
+
+        old_columns = [c.column_name for c in self.state.schema_cache]
+        old_columns_set = {c: i for i, c in enumerate(old_columns)}
 
         for old_index, column in enumerate(old_columns):
             if column not in new_columns_set:
@@ -1713,42 +1881,24 @@ class PolarsView(DataExplorerTableView):
                 old_index = new_index
 
             new_column = new_table[:, new_index]
+            old_schema = self.state.schema_cache[old_index]
 
-            if new_table is not self.table:
-                # While we must proceed under the conservative
-                # possibility that the table was modified in place, if
-                # the tables are indeed different we can check for
-                # schema changes more confidently
-                old_dtype = self.table[:, old_index].dtype
-                if new_column.dtype == old_dtype:
-                    # Type is the same
-                    continue
-            elif old_index in filtered_columns:
-                # If it was an in place modification, as a last ditch
-                # effort we check if we remember the data type because
-                # of a prior filter
-                if filtered_columns[old_index].type_name == str(new_column.dtype):
-                    # Type is the same and not object dtype
-                    continue
-
-            # The type maybe changed (it could have been an in place
-            # update)
-            schema_updated = True
-
-            if old_index not in filtered_columns:
-                # This column index did not have a row filter
-                # attached to it, so doing further analysis is
-                # unnecessary
+            if str(new_column.dtype) == old_schema.type_name:
+                # dtype is unchanged
                 continue
 
-            schema_changes[old_index] = self._construct_schema(
-                new_column, new_index, name=column_name
-            )
+            # The type changed
+            schema_updated = True
+            schema_changes[old_index] = self._construct_schema(new_column, column_name, new_index)
 
         def schema_getter(column_name, column_index):
-            return self._construct_schema(new_table[:, column_index], column_name, column_index)
+            return self._construct_schema(
+                new_table[:, column_index],
+                column_name,
+                column_index,
+            )
 
-        new_filters = self._get_adjusted_filters(
+        new_state.filters = self._get_adjusted_filters(
             new_columns,
             schema_changes,
             shifted_columns,
@@ -1756,24 +1906,33 @@ class PolarsView(DataExplorerTableView):
             schema_getter,
         )
 
-        new_sort_keys = self._get_adjusted_sort_keys(
+        new_state.sort_keys = self._get_adjusted_sort_keys(
             new_columns, schema_changes, shifted_columns, deleted_columns
         )
 
-        return schema_updated, new_filters, new_sort_keys
+        return schema_updated, new_state
 
     def _get_single_column_schema(self, column_index: int):
-        column = self.table[:, column_index]
-        return self._construct_schema(column, column_index, name=column.name)
+        if self.state.schema_cache:
+            return self.state.schema_cache[column_index]
+        else:
+            column = self.table[:, column_index]
+            return self._construct_schema(column, column.name, column_index)
 
     def _get_column_name(self, column_index: int) -> str:
         return self.table[:, column_index].name
 
-    def _construct_schema(self, column: "pl.Series", column_index: int, name=None):
-        type_display = self._get_type_display(column.dtype)
+    @classmethod
+    def _construct_schema(
+        cls,
+        column: "pl.Series",
+        column_name: str,
+        column_index: int,
+    ):
+        type_display = cls._get_type_display(column.dtype)
 
         return ColumnSchema(
-            column_name=name,
+            column_name=column_name,
             column_index=column_index,
             type_name=str(column.dtype),
             type_display=type_display,
@@ -2058,10 +2217,10 @@ class PolarsView(DataExplorerTableView):
             return dummy[0]
 
     def _sort_data(self) -> None:
-        if len(self.sort_keys) > 0:
+        if len(self.state.sort_keys) > 0:
             cols_to_sort = []
             directions = []
-            for key in self.sort_keys:
+            for key in self.state.sort_keys:
                 col = self._get_column(key.column_index)
                 cols_to_sort.append(col)
                 directions.append(not key.ascending)
@@ -2116,11 +2275,77 @@ class PolarsView(DataExplorerTableView):
         ColumnDisplayType.Datetime: _polars_summarize_datetime,
     }
 
-    def _prof_freq_table(self, column_index: int) -> ColumnFrequencyTable:
-        raise NotImplementedError
+    def _prof_freq_table(
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
+    ) -> ColumnFrequencyTable:
+        col = self._get_column(column_index).alias("values")
 
-    def _prof_histogram(self, column_index: int) -> ColumnHistogram:
-        raise NotImplementedError
+        col = col.filter(col.is_not_null())
+        counts = col.value_counts().sort(by=["count", "values"], descending=[True, False])
+
+        top_counts = counts[: params.limit]
+        other_count = int(counts[params.limit :, 1].sum())
+
+        formatted_groups = self._format_values(top_counts[:, 0], format_options)
+
+        return ColumnFrequencyTable(
+            values=formatted_groups,
+            counts=[int(x) for x in top_counts[:, 1]],
+            other_count=other_count,
+        )
+
+    def _prof_histogram(
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
+    ) -> ColumnHistogram:
+        col = self._get_column(column_index)
+
+        # remove nulls
+        data = col.filter(col.is_not_null())
+        dtype = data.dtype
+
+        if isinstance(dtype, (pl_.Datetime, pl_.Time)):
+            data = data.cast(pl_.Int64)
+            cast_bin_edges = True
+        elif isinstance(dtype, pl_.Date):
+            data = data.cast(pl_.Int32)
+            cast_bin_edges = True
+        else:
+            cast_bin_edges = False
+
+        min_value = data.min()
+        max_value = data.max()
+        data_span = max_value - min_value  # type: ignore
+        num_bins = params.num_bins
+        bin_size = data_span / num_bins
+
+        indices = ((data - min_value) / data_span) * num_bins
+        indices = indices.cast(pl_.Int64).alias("indices")
+
+        # The last bin right edge is inclusive, so we adjust down
+        indices[indices == num_bins] = num_bins - 1
+
+        freq_table = indices.value_counts()
+        index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
+        bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
+
+        bin_edges = min_value + pl_.arange(params.num_bins + 1, eager=True) * bin_size
+
+        if cast_bin_edges:
+            bin_edges = bin_edges.cast(dtype)
+
+        formatted_edges = self._format_values(bin_edges, format_options)
+
+        return ColumnHistogram(
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
+        )
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
@@ -2178,15 +2403,15 @@ def _is_polars(table):
     return pl_ is not None and isinstance(table, (pl_.DataFrame, pl_.Series))
 
 
-def _get_table_view(table, filters=None, sort_keys=None, name=None):
-    name = name or guid()
+def _get_table_view(table, state):
+    state.name = state.name or guid()
 
     if _is_pandas(table):
-        return PandasView(name, table, filters, sort_keys)
+        return PandasView(table, state)
     elif _is_polars(table):
-        return PolarsView(name, table, filters, sort_keys)
+        return PolarsView(table, state)
     else:
-        return UnsupportedView(name, table)
+        return UnsupportedView(table, state)
 
 
 def _value_type_is_supported(value):
@@ -2219,6 +2444,8 @@ class DataExplorerService:
     def shutdown(self) -> None:
         for comm_id in list(self.comms.keys()):
             self._close_explorer(comm_id)
+        self.path_to_comm_ids.clear()
+        self.comm_id_to_path.clear()
 
     def is_supported(self, value) -> bool:
         return value is not None and _value_type_is_supported(value)
@@ -2265,7 +2492,7 @@ class DataExplorerService:
         else:
             full_title = title
 
-        self.table_views[comm_id] = _get_table_view(table, name=full_title)
+        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(full_title))
 
         base_comm = comm.create_comm(
             target_name=self.comm_target,
@@ -2411,17 +2638,11 @@ class DataExplorerService:
             # over. At some point we can return here and selectively
             # preserve state if we can confidently do so.
             schema_updated = True
-            new_filters = []
-            new_sort_keys = []
+            new_state = DataExplorerState(full_title)
         else:
-            (schema_updated, new_filters, new_sort_keys) = table_view.get_updated_state(new_table)
+            schema_updated, new_state = table_view.get_updated_state(new_table)
 
-        self.table_views[comm_id] = _get_table_view(
-            new_table,
-            filters=new_filters,
-            sort_keys=new_sort_keys,
-            name=full_title,
-        )
+        self.table_views[comm_id] = _get_table_view(new_table, new_state)
 
         if schema_updated:
             comm.send_event(DataExplorerFrontendEvent.SchemaUpdate.value, {})

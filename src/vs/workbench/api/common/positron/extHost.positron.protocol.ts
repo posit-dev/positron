@@ -5,7 +5,7 @@
 
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
@@ -41,7 +41,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getForegroundSession(): Promise<string | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
 	$restartSession(handle: number): Promise<void>;
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void;
+	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
 }
@@ -78,6 +78,14 @@ export interface MainThreadModalDialogsShape extends IDisposable {
 
 // The interface to the main thread exposed by the extension host
 export interface ExtHostModalDialogsShape { }
+
+// Interface that the main process exposes to the extension host
+export interface MainThreadContextKeyServiceShape {
+	$evaluateWhenClause(whenClause: string): Promise<boolean>;
+}
+
+// Interface to the main thread exposed by the extension host
+export interface ExtHostContextKeyServiceShape { }
 
 export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
@@ -150,6 +158,11 @@ export interface MainThreadPreviewPanelShape extends IDisposable {
 		handle: PreviewHandle,
 		uri: URI
 	): void;
+	$previewHtml(
+		extension: WebviewExtensionDescription,
+		handle: PreviewHandle,
+		path: string
+	): void;
 	$disposePreview(handle: PreviewHandle): void;
 	$reveal(handle: PreviewHandle, preserveFocus: boolean): void;
 	$setTitle(handle: PreviewHandle, value: string): void;
@@ -163,6 +176,7 @@ export const ExtHostPositronContext = {
 	ExtHostPreviewPanel: createProxyIdentifier<ExtHostPreviewPanelShape>('ExtHostPreviewPanel'),
 	ExtHostModalDialogs: createProxyIdentifier<ExtHostModalDialogsShape>('ExtHostModalDialogs'),
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
+	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
 };
 
@@ -171,5 +185,6 @@ export const MainPositronContext = {
 	MainThreadPreviewPanel: createProxyIdentifier<MainThreadPreviewPanelShape>('MainThreadPreviewPanel'),
 	MainThreadModalDialogs: createProxyIdentifier<MainThreadModalDialogsShape>('MainThreadModalDialogs'),
 	MainThreadConsoleService: createProxyIdentifier<MainThreadConsoleServiceShape>('MainThreadConsoleService'),
+	MainThreadContextKeyService: createProxyIdentifier<MainThreadContextKeyServiceShape>('MainThreadContextKeyService'),
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 };

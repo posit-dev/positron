@@ -11,6 +11,7 @@ import { AddressInfo, Server } from 'net';
 import { ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
+import { HtmlProxyServer } from './htmlProxy';
 
 /**
  * Constants.
@@ -56,7 +57,7 @@ type ContentRewriter = (
  * @param addressInfo The value.
  * @returns true if the value is aAddressInfo AddressInfo; otherwise, false.
  */
-const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
+export const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
 	(addressInfo as AddressInfo).address !== undefined &&
 	(addressInfo as AddressInfo).family !== undefined &&
 	(addressInfo as AddressInfo).port !== undefined;
@@ -69,13 +70,11 @@ export class ProxyServer implements Disposable {
 	 * Constructor.
 	 * @param serverOrigin The server origin.
 	 * @param targetOrigin The target origin.
-	 * @param type The type. (Right now, only help is supported.)
 	 * @param server The server.
 	 */
 	constructor(
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
-		private readonly type: 'help',
 		private readonly server: Server,
 	) {
 	}
@@ -124,6 +123,12 @@ export class PositronProxy implements Disposable {
 	 */
 	private _proxyServers = new Map<string, ProxyServer>();
 
+	/**
+	 * The HTML proxy server. There's only ever one of these; it serves all raw
+	 * HTML content.
+	 */
+	private _htmlProxyServer?: HtmlProxyServer;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -162,6 +167,9 @@ export class PositronProxy implements Disposable {
 		this._proxyServers.forEach(proxyServer => {
 			proxyServer.dispose();
 		});
+		if (this._htmlProxyServer) {
+			this._htmlProxyServer.dispose();
+		}
 	}
 
 	//#endregion Constructor & Dispose
@@ -242,6 +250,18 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
+	 * Starts a proxy server to server local HTML content.
+	 * @param targetPath The target path
+	 * @returns The server URL.
+	 */
+	async startHtmlProxyServer(targetPath: string) {
+		if (!this._htmlProxyServer) {
+			this._htmlProxyServer = new HtmlProxyServer();
+		}
+		return this._htmlProxyServer.createHtmlProxy(targetPath);
+	}
+
+	/**
 	 * Sets the help proxy server styles.
 	 * @param styles The help proxy server styles.
 	 */
@@ -291,7 +311,6 @@ export class PositronProxy implements Disposable {
 				this._proxyServers.set(targetOrigin, new ProxyServer(
 					serverOrigin,
 					targetOrigin,
-					'help',
 					server
 				));
 

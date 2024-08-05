@@ -29,6 +29,9 @@ export type FromWebviewMessage = {
 	'did-blur': void;
 	'did-load': void;
 	'did-find': { didFind: boolean };
+	// --- Start Positron ---
+	'did-load-window': { title: string };
+	// --- End Positron ---
 	'do-update-state': string;
 	'do-reload': void;
 	'load-resource': { id: number; path: string; query: string; scheme: string; authority: string; ifNoneMatch?: string };

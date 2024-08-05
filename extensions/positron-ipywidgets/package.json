@@ -1,0 +1,40 @@
+{
+  "name": "positron-ipywidgets",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Data Science",
+    "Notebooks",
+    "Visualization"
+  ],
+  "keywords": [
+    "jupyter",
+    "ipywidgets",
+    "python"
+  ],
+  "contributes": {
+    "notebookRenderer": [
+      {
+        "id": "positron-ipywidgets",
+        "displayName": "Positron IPyWidgets",
+        "mimeTypes": [
+          "application/vnd.jupyter.widget-view+json"
+        ],
+        "entrypoint": "./renderer/media/index.js",
+        "requiresMessaging": "always"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn build-renderer",
+    "build-renderer": "node ./esbuild-renderer",
+    "postinstall": "yarn install --cwd renderer"
+  },
+  "dependencies": {},
+  "devDependencies": {}
+}

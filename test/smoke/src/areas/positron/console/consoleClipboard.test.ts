@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import * as os from 'os';
@@ -17,35 +18,51 @@ export function setup(logger: Logger) {
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		async function testBody(app: Application) {
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
-				const activeConsole = app.workbench.positronConsole.activeConsole;
-				await activeConsole.click();
+			const activeConsole = app.workbench.positronConsole.activeConsole;
+			await activeConsole.click();
+			const page = activeConsole!.page();
 
-				await app.workbench.positronConsole.typeToConsole('a = 1');
+			const testLine = 'a = 1';
 
-				const page = activeConsole!.page();
-				await page.keyboard.press(`${modifier}+A`);
-				await page.keyboard.press(`${modifier}+C`);
-
+			await expect(async () => {
+				// Ensure nothing is in the current line and clear the console
 				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('a = 1')));
-
 				await app.workbench.positronConsole.barClearButton.click();
 
+				// Send test line to console
+				await app.workbench.positronConsole.typeToConsole(testLine);
+
+				// copy the test line and send enter key
+				await page.keyboard.press(`${modifier}+A`);
+				await page.keyboard.press(`${modifier}+C`);
+				await app.workbench.positronConsole.sendEnterKey();
+
+				// ensure the console previous lines contain the test line
+				await app.workbench.positronConsole.waitForConsoleContents(
+					(lines) => lines.some((line) => line.includes(testLine)));
+
+				// clear the console and ensure the clear succeeded
+				await app.workbench.positronConsole.barClearButton.click();
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => {
 					return !contents.some(Boolean);
 				});
+			}).toPass({ timeout: 40000 });
 
-				await page.keyboard.press(`${modifier}+V`);
-				await app.workbench.positronConsole.sendEnterKey();
+			await page.keyboard.press(`${modifier}+V`);
 
-				await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-					contents.some((line) => line.includes('a = 1'))
-				);
+			await app.workbench.positronConsole.waitForCurrentConsoleLineContents((line) =>
+				line.includes(testLine.replaceAll(' ', ' ')));
 
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.positronConsole.sendEnterKey();
+
+			// check for two instances of the test line in a row (invalid)
+			await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+				contents.some((line) => line.includes(testLine))
+			);
+
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		}
 
 		describe('Console Clipboard - Python', () => {

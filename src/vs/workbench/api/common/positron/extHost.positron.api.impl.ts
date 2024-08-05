@@ -17,6 +17,7 @@ import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.pos
 import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
 import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
 import { ExtHostModalDialogs } from 'vs/workbench/api/common/positron/extHostModalDialogs';
+import { ExtHostContextKeyService } from 'vs/workbench/api/common/positron/extHostContextKeyService';
 import { ExtHostDocuments } from 'vs/workbench/api/common/extHostDocuments';
 import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
 import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
@@ -63,8 +64,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
+	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
-	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods, new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs, extHostLanguageRuntime, extHostWorkspace));
+	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
+		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs, extHostLanguageRuntime, extHostWorkspace, extHostContextKeyService));
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -133,6 +136,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			previewUrl(url: vscode.Uri) {
 				return extHostPreviewPanels.previewUrl(extension, url);
+			},
+			previewHtml(path: string) {
+				return extHostPreviewPanels.previewHtml(extension, path);
 			},
 			createRawLogOutputChannel(name: string): vscode.OutputChannel {
 				return extHostOutputService.createRawLogOutputChannel(name, extension);

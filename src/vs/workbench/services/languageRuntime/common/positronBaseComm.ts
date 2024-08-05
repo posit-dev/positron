@@ -112,7 +112,8 @@ export class PositronBaseComm extends Disposable {
 		private readonly options?: PositronCommOptions<any>) {
 		super();
 		this._register(clientInstance);
-		this._register(clientInstance.onDidReceiveData((data) => {
+		this._register(clientInstance.onDidReceiveData((event) => {
+			const data = event.data;
 			const emitter = this._emitters.get(data.method);
 			if (emitter) {
 				const payload = data.params;

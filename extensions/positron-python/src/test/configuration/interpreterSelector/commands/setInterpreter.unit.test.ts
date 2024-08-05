@@ -48,6 +48,7 @@ import { IInterpreterService, PythonEnvironmentsChangedEvent } from '../../../..
 import { createDeferred, sleep } from '../../../../client/common/utils/async';
 import { SystemVariables } from '../../../../client/common/variables/systemVariables';
 // --- Start Positron ---
+import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 // --- End Positron ---
 
@@ -1105,6 +1106,22 @@ suite('Set Interpreter Command', () => {
 
             appShell.verifyAll();
         });
+
+        // --- Start Positron ---
+        test('should show error message if path does not exist', async () => {
+            const state: InterpreterStateArgs = { path: undefined, workspace: undefined };
+            const multiStepInput = TypeMoq.Mock.ofType<IMultiStepInput<InterpreterStateArgs>>();
+            const showErrorMessageStub = sinon.stub(windowApis, 'showErrorMessage');
+
+            multiStepInput
+                .setup((i) => i.showQuickPick(TypeMoq.It.isAny()))
+                .returns(() => Promise.resolve('enteredPath'));
+
+            await setInterpreterCommand._enterOrBrowseInterpreterPath(multiStepInput.object, state).ignoreErrors();
+
+            sinon.assert.calledOnce(showErrorMessageStub);
+        });
+        // --- End Positron ---
 
         suite('SELECT_INTERPRETER_ENTERED_EXISTS telemetry', async () => {
             let sendTelemetryStub: sinon.SinonStub;

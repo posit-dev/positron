@@ -40,7 +40,7 @@ const rcedit = promisify(require('rcedit'));
 // --- Start Positron ---
 const child_process = require('child_process');
 const fancyLog = require('fancy-log');
-const { getPandocStream } = require('./lib/pandoc');
+const { getQuartoStream } = require('./lib/quarto');
 // --- End Positron ---
 
 // Build
@@ -293,16 +293,30 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 		const positronApi = gulp.src('src/positron-dts/positron.d.ts')
 			.pipe(rename('out/positron-dts/positron.d.ts'));
 
-		// Bundled Pandoc binary. Place this in a `pandoc` subfolder of `bin`
-		// since `bin` can be placed in the $PATH, and we don't want to pollute
-		// the $PATH with the Pandoc binary.
-		const pandocExt = process.platform === 'win32' ? '.exe' : '';
-		const binFolder = process.platform === 'darwin' ?
-			path.join('bin', 'pandoc') :
-			path.join('..', '..', 'bin', 'pandoc');
-		const pandoc = getPandocStream()
-			.pipe(rename(path.join(binFolder, `pandoc${pandocExt}`)))
-			.pipe(util.setExecutableBit());
+		// Bundled Quarto binaries
+		const quarto = getQuartoStream()
+			// Move the Quarto binaries into a `quarto` subdirectory
+			.pipe(rename(f => { f.dirname = path.join('quarto', f.dirname); }))
+
+			// Skip generated files that start with '._'
+			.pipe(es.mapSync(f => {
+				if (!f.basename.startsWith('._')) {
+					return f;
+				}
+			}))
+
+			// Restore the executable bit on the Quarto binaries. (It's very
+			// unfortunate that gulp doesn't preserve the executable bit when
+			// copying files.)
+			.pipe(util.setExecutableBit([
+				'**/dart',
+				'**/deno',
+				'**/esbuild',
+				'**/pandoc',
+				'**/quarto',
+				'**/sass',
+				'**/typst'
+			]));
 
 		// --- End Positron ---
 
@@ -337,7 +351,7 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			api,
 			// --- Start Positron ---
 			positronApi,
-			pandoc,
+			quarto,
 			// --- End Positron ---
 			telemetry,
 			sources,

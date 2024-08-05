@@ -11,7 +11,7 @@ import { ILogService, NullLogger } from 'vs/platform/log/common/log';
 import { LanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
-suite('LanguageRuntimeService', () => {
+suite('Positron - LanguageRuntimeService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
 

@@ -696,6 +696,46 @@ def test_view_error(variables_comm: DummyComm) -> None:
     ]
 
 
+def test_view_error_when_pandas_not_loaded(
+    shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock
+) -> None:
+    # regression test for https://github.com/posit-dev/positron/issues/3653
+    shell.user_ns["x"] = pd.DataFrame({"a": [0]})
+
+    # Cases where the object has a viewer action, but no service reports it as
+    # supported.
+    def not_supported(value):
+        return False
+
+    mock_dataexplorer_service.is_supported = not_supported
+
+    path = _encode_path(["x"])
+    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+    variables_comm.handle_msg(msg, raise_errors=False)
+
+    assert variables_comm.messages == [
+        json_rpc_error(
+            JsonRpcErrorCode.INTERNAL_ERROR,
+            f"Error opening viewer for variable at '{path}'. Object not supported. Try restarting the session.",
+        )
+    ]
+
+    # Case where the object has a viewer, but somehting wrong happens when checking
+    # if the object is supported.
+    def fail_is_supported(value):
+        raise TypeError("Not supported")
+
+    mock_dataexplorer_service.is_supported = fail_is_supported
+    variables_comm.handle_msg(msg, raise_errors=False)
+
+    assert [variables_comm.messages[-1]] == [
+        json_rpc_error(
+            JsonRpcErrorCode.INTERNAL_ERROR,
+            f"Error opening viewer for variable at '{path}'. Try restarting the session.",
+        )
+    ]
+
+
 def test_unknown_method(variables_comm: DummyComm) -> None:
     msg = json_rpc_request("unknown_method", comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg, raise_errors=False)

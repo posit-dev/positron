@@ -265,7 +265,9 @@ export class DataExplorerCache extends Disposable {
 			columnIndices.map(column_index => {
 				return {
 					column_index,
-					profile_type: ColumnProfileType.SummaryStats
+					profiles: [
+						{ profile_type: ColumnProfileType.SummaryStats }
+					]
 				};
 			})
 		);
@@ -422,8 +424,7 @@ export class DataExplorerCache extends Disposable {
 		if (columnSchemaIndices.length) {
 			// Get the schema.
 			const tableSchema = await this._dataExplorerClientInstance.getSchema(
-				columnSchemaIndices[0],
-				columnSchemaIndices[columnSchemaIndices.length - 1] - columnSchemaIndices[0] + 1
+				columnSchemaIndices
 			);
 
 			// Update the column schema cache, overwriting any entries we already have cached.
@@ -447,7 +448,9 @@ export class DataExplorerCache extends Disposable {
 				columnNullCountIndices.map(column_index => {
 					return {
 						column_index,
-						profile_type: ColumnProfileType.NullCount
+						profiles: [
+							{ profile_type: ColumnProfileType.NullCount }
+						]
 					};
 				})
 			);
