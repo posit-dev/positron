@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+
 /**
  * Represents the size of a plot in pixels.
  */
@@ -26,6 +28,7 @@ export interface IPositronPlotSizingPolicy {
 	 * viewport in pixels.
 	 *
 	 * @param viewportSize The size of the viewport in pixels
+	 * @param metadata The metadata associated with the plot
 	 */
-	getPlotSize(viewportSize: IPlotSize): IPlotSize;
+	getPlotSize(viewportSize: IPlotSize, metadata: IPositronPlotMetadata): IPlotSize;
 }

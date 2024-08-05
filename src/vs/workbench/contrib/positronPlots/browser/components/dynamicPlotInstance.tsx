@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import * as DOM from 'vs/base/browser/dom';
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
@@ -39,7 +40,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const plotsContext = usePositronPlotsContext();
 
 	useEffect(() => {
-		const ratio = window.devicePixelRatio;
+		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
 		// If the plot is already rendered, use the old image until the new one is ready.
@@ -51,7 +52,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
 			height: props.height,
 			width: props.width
-		});
+		}, props.plotClient.metadata);
 		props.plotClient.render(plotSize.height, plotSize.width, ratio).then((result) => {
 			setUri(result.uri);
 		}).catch((e) => {
@@ -76,7 +77,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			const plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
-			});
+			}, props.plotClient.metadata);
 
 			try {
 				// Wait for the plot to render.
@@ -118,7 +119,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					// to be done.
 					const started = Date.now();
 					progressBar.total(props.plotClient.renderEstimateMs);
-					progressTimer = window.setInterval(() => {
+					progressTimer = DOM.getActiveWindow().setInterval(() => {
 						// Every 100ms, update the progress bar.
 						progressBar?.setWorked(Date.now() - started);
 					}, 100);
@@ -132,7 +133,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				// When the render completes, clean up the progress bar and
 				// timers if they exist.
 				if (progressTimer) {
-					window.clearTimeout(progressTimer);
+					DOM.getActiveWindow().clearTimeout(progressTimer);
 					progressTimer = undefined;
 				}
 				if (progressBar) {
@@ -145,7 +146,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	});
+	}, [props.plotClient, props.width, props.height, plotsContext]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {
