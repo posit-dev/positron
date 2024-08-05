@@ -321,7 +321,7 @@ async function findRBinaryFromPATH(): Promise<string | undefined> {
 	}
 }
 
-async function findRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
+export async function findRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
 	// The CRAN Windows installer does NOT put R on the PATH.
 	// If we are here, it is because the user has arranged it so.
 	const ext = path.extname(whichR).toLowerCase();
@@ -341,6 +341,7 @@ async function findRBinaryFromPATHWindows(whichR: string): Promise<string | unde
 	// It typically does exist for x86_64 R installations.
 	// It will not exist for arm64 R installations.
 	const whichRHome = getRHomePath(whichR);
+
 	if (!whichRHome) {
 		LOGGER.info(`Failed to get R home path from ${whichR}.`);
 		return undefined;
