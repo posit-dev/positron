@@ -117,9 +117,24 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
+	 * Gets or sets the column header width calculator.
+	 */
+	private _columnHeaderWidthCalculator?: (columnName: string, typeName: string) => number;
+
+	/**
+	 * Gets or sets the column value width calculator.
+	 */
+	private _columnValueWidthCalculator?: (length: number) => number;
+
+	/**
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
+
+	/**
+	 * Gets the column header width cache.
+	 */
+	private readonly _columnHeaderWidthCache = new Map<number, number>();
 
 	/**
 	 * Gets the row label cache.
@@ -130,6 +145,11 @@ export class TableDataCache extends Disposable {
 	 * Gets the data column cache.
 	 */
 	private readonly _dataColumnCache = new Map<number, Map<number, DataCell>>();
+
+	/**
+	 * Gets the column value width cache.
+	 */
+	private readonly _columnValueWidthCache = new Map<number, number>();
 
 	/**
 	 * The onDidUpdate event emitter.
@@ -190,6 +210,67 @@ export class TableDataCache extends Disposable {
 	//#endregion Public Events
 
 	//#region Public Methods
+
+	/**
+	 * Sets the column header width calculator.
+	 * @param calculator The column header width calculator.
+	 */
+	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
+		// Set the column header width calculator.
+		this._columnHeaderWidthCalculator = calculator;
+
+		// Refresh the column header width cache.
+		if (this._columnHeaderWidthCalculator) {
+			// Clear the existing column header width cache.
+			this._columnHeaderWidthCache.clear();
+
+			// Refresh the column header width cache.
+			for (const [columnIndex, columnSchema] of this._columnSchemaCache.entries()) {
+				// Calculate the column header width.
+				const columnHeaderWidth = this._columnHeaderWidthCalculator(
+					columnSchema.column_name,
+					columnSchema.type_name
+				);
+
+				// If the column header width is non-zero, cache its width.
+				if (columnHeaderWidth) {
+					this._columnHeaderWidthCache.set(columnIndex, columnHeaderWidth);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Sets the column value width calculator.
+	 * @param calculator The column value width calculator.
+	 */
+	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
+		// Set the column value width calculator.
+		this._columnValueWidthCalculator = calculator;
+
+		// Refresh the column value width cache.
+		if (this._columnValueWidthCalculator) {
+			// Clear the existing column value width cache.
+			this._columnValueWidthCache.clear();
+
+			// Refresh the column value width cache.
+			for (const [columnIndex, dataColumn] of this._dataColumnCache.entries()) {
+				// Find the longest data cell.
+				let longestDataCell = 0;
+				for (const dataCell of dataColumn.values()) {
+					if (dataCell.formatted.length > longestDataCell) {
+						longestDataCell = dataCell.formatted.length;
+					}
+				}
+
+				// If the longest data cell is non-zero, calculate and cache its width.
+				this._columnValueWidthCache.set(
+					columnIndex,
+					this._columnValueWidthCalculator(longestDataCell)
+				);
+			}
+		}
+	}
 
 	/**
 	 * Updates the cache.
@@ -261,11 +342,26 @@ export class TableDataCache extends Disposable {
 		// Clear the column schema cache, if we're supposed to.
 		if (invalidateColumnSchemaCache) {
 			this._columnSchemaCache.clear();
+			this._columnHeaderWidthCache.clear();
 		}
 
 		// Cache the column schema that was returned.
-		for (let column = 0; column < tableSchema.columns.length; column++) {
-			this._columnSchemaCache.set(columnIndices[column], tableSchema.columns[column]);
+		for (let i = 0; i < tableSchema.columns.length; i++) {
+			// Get the column schema and compute the column index.
+			const columnIndex = columnIndices[i];
+			const columnSchema = tableSchema.columns[i];
+
+			// Cache the column schema.
+			this._columnSchemaCache.set(columnIndex, columnSchema);
+
+			// YAYA
+			// Update the column header width cache.
+			if (this._columnHeaderWidthCalculator) {
+				this._columnHeaderWidthCache.set(columnIndex, this._columnHeaderWidthCalculator(
+					columnSchema.column_name,
+					columnSchema.type_name
+				));
+			}
 		}
 
 		// Fire the onDidUpdate event.
@@ -321,6 +417,7 @@ export class TableDataCache extends Disposable {
 		if (invalidateDataCache) {
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
+			this._columnValueWidthCache.clear();
 		}
 
 		// // Update the row labels cache.
@@ -360,6 +457,23 @@ export class TableDataCache extends Disposable {
 
 				// Cache the cell value.
 				dataColumn.set(rowIndices[row], dataCell);
+
+				// YAYA
+				// Update the column value width cache.
+				if (dataCell.formatted.length && this._columnValueWidthCalculator) {
+					// Get the cached column value width and the column value width.
+					const cachedColumnValueWidth = this._columnValueWidthCache.get(
+						columnIndex
+					);
+					const columnValueWidth = this._columnValueWidthCalculator(
+						dataCell.formatted.length
+					);
+
+					// Update the column value width cache as needed.
+					if (!cachedColumnValueWidth || columnValueWidth > cachedColumnValueWidth) {
+						this._columnValueWidthCache.set(columnIndex, columnValueWidth);
+					}
+				}
 			}
 		}
 
@@ -412,6 +526,24 @@ export class TableDataCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
+	}
+
+	/**
+	 * Gets the column header width for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column header width for the specified column index
+	 */
+	getColumnHeaderWidth(columnIndex: number) {
+		return this._columnHeaderWidthCache.get(columnIndex);
+	}
+
+	/**
+	 * Gets the column value width for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column value width for the specified column index
+	 */
+	getColumnValueWidth(columnIndex: number) {
+		return this._columnValueWidthCache.get(columnIndex);
 	}
 
 	/**

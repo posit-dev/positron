@@ -20,6 +20,11 @@ import { ColumnSelectionState } from 'vs/workbench/browser/positronDataGrid/clas
 import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
 
 /**
+ * Constants.
+ */
+export const SORTING_BUTTON_WIDTH = 20;
+
+/**
  * DataGridColumnHeaderProps interface.
  */
 interface DataGridColumnHeaderProps {
@@ -110,7 +115,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			{context.instance.cellBorder &&
+			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />
 					{selected &&
@@ -125,7 +130,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 					}
 				</>
 			}
-			<div className='content'>
+			<div
+				className='content'
+				style={{
+					paddingLeft: context.instance.horizontalCellPadding,
+					paddingRight: context.instance.horizontalCellPadding
+				}}
+			>
 				<div className='title-description'>
 					<div className='title'>{props.column?.name}</div>
 					{props.column?.description &&

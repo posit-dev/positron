@@ -92,7 +92,7 @@ type DisplayOptions = | {
 	automaticLayout: boolean;
 	rowsMargin?: number;
 	cellBorders?: boolean;
-	cursorInitiallyHidden?: boolean;
+	horizontalCellPadding?: number;
 };
 
 /**
@@ -581,6 +581,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _cellBorders: boolean;
 
 	/**
+	 * Gets the horizontal cell padding.
+	 */
+	private readonly _horizontalCellPadding: number;
+
+	/**
 	 * Gets or sets a value which indicates whether the cursor is initially hidden.
 	 */
 	private readonly _cursorInitiallyHidden: boolean;
@@ -664,19 +669,19 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private _rowSelectionIndexes?: SelectionIndexes;
 
-	/**
-	 * Gets the column widths.
-	 */
-	private readonly _columnWidths = new Map<number, number>();
-
-	/**
-	 * Gets the row heights.
-	 */
-	private readonly _rowHeights = new Map<number, number>();
-
 	//#endregion Private Properties
 
 	//#region Protected Properties
+
+	/**
+	 * Gets the user-defined column widths.
+	 */
+	protected readonly _userDefinedColumnWidths = new Map<number, number>();
+
+	/**
+	 * Gets the user-defined row heights.
+	 */
+	protected readonly _userDefinedRowHeights = new Map<number, number>();
 
 	/**
 	 * Gets the column sort keys.
@@ -729,6 +734,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._automaticLayout = options.automaticLayout;
 		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
+		this._horizontalCellPadding = options.horizontalCellPadding ?? 0;
 
 		this._cursorInitiallyHidden = options.cursorInitiallyHidden ?? false;
 		if (options.cursorInitiallyHidden) {
@@ -868,8 +874,15 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets a value which indicates whether to show cell borders.
 	 */
-	get cellBorder() {
+	get cellBorders() {
 		return this._cellBorders;
+	}
+
+	/**
+	 * Gets the horizontal cell padding.
+	 */
+	get horizontalCellPadding() {
+		return this._horizontalCellPadding;
 	}
 
 	/**
@@ -1146,7 +1159,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 */
 	getColumnWidth(columnIndex: number): number {
-		const columnWidth = this._columnWidths.get(columnIndex);
+		const columnWidth = this._userDefinedColumnWidths.get(columnIndex);
 		if (columnWidth !== undefined) {
 			return columnWidth;
 		} else {
@@ -1162,7 +1175,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async setColumnWidth(columnIndex: number, columnWidth: number): Promise<void> {
 		// Get the current column width.
-		const currentColumnWidth = this._columnWidths.get(columnIndex);
+		const currentColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
 		if (currentColumnWidth !== undefined) {
 			if (columnWidth === currentColumnWidth) {
 				return;
@@ -1170,7 +1183,7 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the column width.
-		this._columnWidths.set(columnIndex, columnWidth);
+		this._userDefinedColumnWidths.set(columnIndex, columnWidth);
 
 		// Fetch data.
 		await this.fetchData();
@@ -1184,7 +1197,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	getRowHeight(rowIndex: number) {
-		const rowHeight = this._rowHeights.get(rowIndex);
+		const rowHeight = this._userDefinedRowHeights.get(rowIndex);
 		if (rowHeight !== undefined) {
 			return rowHeight;
 		} else {
@@ -1200,7 +1213,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async setRowHeight(rowIndex: number, rowHeight: number): Promise<void> {
 		// Get the current row height.
-		const currentRowHeight = this._rowHeights.get(rowIndex);
+		const currentRowHeight = this._userDefinedRowHeights.get(rowIndex);
 		if (currentRowHeight !== undefined) {
 			if (rowHeight === currentRowHeight) {
 				return;
@@ -1208,7 +1221,7 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the row height.
-		this._rowHeights.set(rowIndex, rowHeight);
+		this._userDefinedRowHeights.set(rowIndex, rowHeight);
 
 		// Fetch data.
 		await this.fetchData();

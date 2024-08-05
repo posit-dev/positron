@@ -16,6 +16,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { SORTING_BUTTON_WIDTH } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeader';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
 import { InvalidateCacheFlags, TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
@@ -38,6 +39,11 @@ const addFilterTitle = localize('positron.addFilter', "Add Filter");
  */
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
+
+	/**
+	 * Gets or sets the sort index width calculator.
+	 */
+	private _sortIndexWidthCalculator?: (sortIndex: number) => number;
 
 	/**
 	 * The onAddFilter event emitter.
@@ -83,6 +89,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
+			horizontalCellPadding: 7,
 			internalCursor: true,
 			cursorOffset: 0.5,
 		});
@@ -153,6 +160,48 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
+
+	/**
+	 * Gets a column width.
+	 * @param columnIndex The column index.
+	 * @returns The column width.
+	 */
+	override getColumnWidth(columnIndex: number): number {
+		// If we have a user-defined column width, return it.
+		const userDefinedColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
+		if (userDefinedColumnWidth !== undefined) {
+			return Math.min(userDefinedColumnWidth, 400);
+		}
+
+		// Get the column header width and the column value width.
+		let columnHeaderWidth = this._tableDataCache.getColumnHeaderWidth(columnIndex);
+		if (columnHeaderWidth !== undefined) {
+			const columnSortKeyDescriptor = this._columnSortKeys.get(columnIndex);
+			if (!columnSortKeyDescriptor) {
+				columnHeaderWidth += 2;
+			} else {
+				columnHeaderWidth += SORTING_BUTTON_WIDTH;
+				if (this._sortIndexWidthCalculator) {
+					columnHeaderWidth += this._sortIndexWidthCalculator(
+						columnSortKeyDescriptor.sortIndex + 80
+					) + 6; // +6 for left and right 3px margin.
+				}
+			}
+		}
+		const columnValueWidth = this._tableDataCache.getColumnValueWidth(columnIndex);
+
+		// If we have a column header width and / or a column value width, return the column width.
+		if (columnHeaderWidth && columnValueWidth) {
+			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), 400);
+		} else if (columnHeaderWidth) {
+			return Math.min(columnHeaderWidth, 400);
+		} else if (columnValueWidth) {
+			return Math.min(columnValueWidth, 400);
+		}
+
+		// Return the default column width.
+		return this.defaultColumnWidth;
+	}
 
 	/**
 	 * Sorts the data.
@@ -508,6 +557,30 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onAddFilter = this._onAddFilterEmitter.event;
 
 	//#region Public Methods
+
+	/**
+	 * Sets the column header width calculator.
+	 * @param calculator The column header width calculator.
+	 */
+	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
+		this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
+	}
+
+	/**
+	 * Sets the sort index width calculator.
+	 * @param calculator The sort index width calculator.
+	 */
+	setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
+		this._sortIndexWidthCalculator = calculator;
+	}
+
+	/**
+	 * Sets the column value width calculator.
+	 * @param calculator The column value width calculator.
+	 */
+	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
+		this._tableDataCache.setColumnValueWidthCalculator(calculator);
+	}
 
 	/**
 	 * Copies the specified clipboard data.

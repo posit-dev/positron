@@ -3,6 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+:root {
+	--positron-data-grid-column-header-title-font-weight: 600;
+	--positron-data-grid-column-header-description-font-size: 90%;
+	--positron-data-grid-column-header-sort-index-font-size: 80%;
+	--positron-data-grid-column-header-sort-index-font-weight: 600;
+	--positron-data-grid-column-header-sort-index-font-variant-numeric: tabular-nums;
+}
+
 .data-grid {
 	width: 100%;
 	height: 100%;

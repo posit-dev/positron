@@ -96,7 +96,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			{context.instance.cellBorder &&
+			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />
 					{selected &&
