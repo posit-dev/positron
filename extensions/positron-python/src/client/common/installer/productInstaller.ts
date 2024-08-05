@@ -324,7 +324,7 @@ export class DataScienceInstaller extends BaseInstaller {
                     })
                     .catch(noop);
 
-                // Refresh the list of channels (pip may be avaialble now).
+                // Refresh the list of channels (pip may be available now).
                 channels = await this.serviceContainer
                     .get<IInstallationChannelManager>(IInstallationChannelManager)
                     .getInstallationChannels(interpreter);
