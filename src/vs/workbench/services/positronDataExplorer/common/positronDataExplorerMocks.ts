@@ -76,7 +76,6 @@ export function getExampleTableData(shape: [number, number], schema: TableSchema
 	}
 	return {
 		columns: generatedColumns,
-		row_labels: []
 	};
 }
 
