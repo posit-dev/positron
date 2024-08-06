@@ -257,6 +257,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
+	private _showPlotsPane() {
+		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+	}
+
 	openPlotInNewWindow(): void {
 
 		if (!this._selectedPlotId) {
@@ -508,7 +512,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible.
-				this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+				this._showPlotsPane();
 			}
 		}));
 
@@ -530,13 +534,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					this.registerStaticPlot(session.sessionId, message, code);
 
 					// Raise the Plots pane so the plot is visible.
-					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+					this._showPlotsPane();
 				} else if (message.kind === RuntimeOutputKind.PlotWidget) {
 					// Create a new webview plot client instance and register it with the service.
 					await this.registerNotebookOutputPlot(session, message, code);
 
 					// Raise the Plots pane so the plot is visible.
-					this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+					this._showPlotsPane();
 				}
 			};
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
@@ -576,7 +580,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
-			this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			this._showPlotsPane();
 
 			// Select the plot to bring it into view within the history; it's
 			// possible that it is not the most recently created plot
@@ -880,7 +884,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this.registerNewPlotClient(new HtmlPlotClient(webview));
 
 		// Raise the Plots pane so the plot is visible.
-		this._viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+		this._showPlotsPane();
 	}
 
 	/**
@@ -894,6 +898,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
+		this._showPlotsPane();
 	}
 
 	/**
