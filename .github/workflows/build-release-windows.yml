@@ -49,16 +49,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install OpenSSL
-        shell: powershell
-        run: |
-          echo "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" | Out-File -FilePath $env:GITHUB_ENV -Append
-          vcpkg install openssl:x64-windows-static-md
-
-      - name: Setup node-gyp
-        run: |
-          npm install -g node-gyp
-
       - name: Create access token
         uses: actions/create-github-app-token@v1
         id: app-token
@@ -70,7 +60,6 @@ jobs:
       - name: Install node dependencies with yarn
         env:
           npm_config_arch: ${{ matrix.arch }}
-          CI_CHECK_FAIL: ssh2
           POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc

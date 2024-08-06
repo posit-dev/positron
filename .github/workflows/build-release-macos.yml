@@ -127,17 +127,10 @@ jobs:
           which yarn
           yarn --version
 
-      # Add host keys for github.com (needed to install dependencies)
-      - name: Trust Github host key
-        run: |
-          mkdir -p ~/.ssh
-          ssh-keyscan -t rsa github.com >> ~/.ssh/known_hosts
-
       # Install node_modules binaries.
       - name: Install dependencies
         env:
           npm_config_arch: ${{ matrix.arch }}
-          CI_CHECK_FAIL: ssh2
           POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
         run: |
           export NVM_DIR="$HOME/.nvm"
