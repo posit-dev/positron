@@ -15,7 +15,14 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
+from ._vendor.pydantic import (
+    BaseModel,
+    Field,
+    StrictBool,
+    StrictFloat,
+    StrictInt,
+    StrictStr,
+)
 
 
 @enum.unique
@@ -143,6 +150,17 @@ class ColumnProfileType(str, enum.Enum):
     FrequencyTable = "frequency_table"
 
     Histogram = "histogram"
+
+
+@enum.unique
+class ColumnHistogramParamsMethod(str, enum.Enum):
+    """
+    Possible values for Method in ColumnHistogramParams
+    """
+
+    Sturges = "sturges"
+
+    Fixed = "fixed"
 
 
 @enum.unique
@@ -770,7 +788,12 @@ class ColumnHistogramParams(BaseModel):
     Parameters for a column histogram profile request
     """
 
-    num_bins: StrictInt = Field(
+    method: ColumnHistogramParamsMethod = Field(
+        description="Method for determining number of bins",
+    )
+
+    num_bins: Optional[StrictInt] = Field(
+        default=None,
         description="Number of bins in the computed histogram",
     )
 

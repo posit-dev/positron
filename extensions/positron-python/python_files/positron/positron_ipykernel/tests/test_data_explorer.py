@@ -2203,10 +2203,15 @@ def _get_null_count(column_index):
     return _profile_request(column_index, [{"profile_type": "null_count"}])
 
 
-def _get_histogram(column_index, bins):
+def _get_histogram(column_index, bins=None, method="fixed"):
     return _profile_request(
         column_index,
-        [{"profile_type": "histogram", "params": {"num_bins": bins}}],
+        [
+            {
+                "profile_type": "histogram",
+                "params": {"method": method, "num_bins": bins},
+            }
+        ],
     )
 
 
@@ -2581,7 +2586,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
 
     cases = [
         (
-            _get_histogram(0, 4),
+            _get_histogram(0, bins=4),
             {
                 "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
                 "bin_counts": [3, 2, 3, 3],
@@ -2589,7 +2594,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             },
         ),
         (
-            _get_histogram(1, 4),
+            _get_histogram(1, bins=4),
             {
                 "bin_edges": [
                     "2000-01-01 00:00:00",
@@ -2603,7 +2608,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             },
         ),
         (
-            _get_histogram(2, 6),
+            _get_histogram(2, bins=6),
             {
                 "bin_edges": [
                     "-10.00",
@@ -2619,7 +2624,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             },
         ),
         (
-            _get_histogram(3, 4),
+            _get_histogram(3, bins=4),
             {
                 "bin_edges": [
                     "0.00",
