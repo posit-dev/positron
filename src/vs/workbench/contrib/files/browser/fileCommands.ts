@@ -447,7 +447,7 @@ function saveDirtyEditorsOfGroups(accessor: ServicesAccessor, groups: readonly I
 }
 
 // --- Start Positron ---
-// Same as preexisting `saveDirtyEditorsOfGroups()`, but filters out `Untitled` editors and waits
+// Same as preexisting `saveDirtyEditorsOfGroups()`, but filters out `Untitled` editors
 function saveDirtyTitledEditorsOfGroups(accessor: ServicesAccessor, groups: readonly IEditorGroup[], options?: ISaveEditorsOptions): Promise<void> {
 	const dirtyEditors: IEditorIdentifier[] = [];
 	for (const group of groups) {
@@ -535,8 +535,8 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 // --- Start Positron ---
 CommandsRegistry.registerCommand({
 	id: SAVE_ALL_TITLED_COMMAND_ID,
-	handler: async accessor => {
-		return await saveDirtyTitledEditorsOfGroups(accessor, accessor.get(IEditorGroupsService).getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE), { reason: SaveReason.EXPLICIT });
+	handler: accessor => {
+		return saveDirtyTitledEditorsOfGroups(accessor, accessor.get(IEditorGroupsService).getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE), { reason: SaveReason.EXPLICIT });
 	}
 });
 // --- End Positron ---
