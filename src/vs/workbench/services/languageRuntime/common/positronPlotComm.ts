@@ -65,6 +65,22 @@ export interface PlotResult {
 }
 
 /**
+ * The size of a plot
+ */
+export interface PlotSize {
+	/**
+	 * The plot's height, in pixels
+	 */
+	height: number;
+
+	/**
+	 * The plot's width, in pixels
+	 */
+	width: number;
+
+}
+
+/**
  * Possible values for Format in Render
  */
 export enum RenderFormat {
@@ -130,18 +146,18 @@ export class PositronPlotComm extends PositronBaseComm {
 	/**
 	 * Render a plot
 	 *
-	 * Requests a plot to be rendered at a given height and width. The plot
+	 * Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
 	 * data is returned in a base64-encoded string.
 	 *
-	 * @param height The requested plot height, in pixels
-	 * @param width The requested plot width, in pixels
+	 * @param size The requested size of the plot. If not provided, the
+	 * intrinsic size of the plot will be used.
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
-		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format]);
+	render(size: PlotSize, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
+		return super.performRpc('render', ['size', 'pixel_ratio', 'format'], [size, pixelRatio, format]);
 	}
 
 

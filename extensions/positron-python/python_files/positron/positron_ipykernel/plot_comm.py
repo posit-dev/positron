@@ -91,6 +91,20 @@ class PlotResult(BaseModel):
     )
 
 
+class PlotSize(BaseModel):
+    """
+    The size of a plot
+    """
+
+    height: StrictInt = Field(
+        description="The plot's height, in pixels",
+    )
+
+    width: StrictInt = Field(
+        description="The plot's width, in pixels",
+    )
+
+
 @enum.unique
 class PlotBackendRequest(str, enum.Enum):
     """
@@ -122,30 +136,28 @@ class GetIntrinsicSizeRequest(BaseModel):
 
 class RenderParams(BaseModel):
     """
-    Requests a plot to be rendered at a given height and width. The plot
+    Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
     data is returned in a base64-encoded string.
     """
 
-    height: StrictInt = Field(
-        description="The requested plot height, in pixels",
-    )
-
-    width: StrictInt = Field(
-        description="The requested plot width, in pixels",
+    size: Optional[PlotSize] = Field(
+        default=None,
+        description="The requested size of the plot. If not provided, the intrinsic size of the plot will be used.",
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(
         description="The pixel ratio of the display device",
     )
 
-    format: RenderFormat = Field(
+    format: Optional[RenderFormat] = Field(
+        default=None,
         description="The requested plot format",
     )
 
 
 class RenderRequest(BaseModel):
     """
-    Requests a plot to be rendered at a given height and width. The plot
+    Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
     data is returned in a base64-encoded string.
     """
 
@@ -189,6 +201,8 @@ IntrinsicSizeResult.update_forward_refs()
 IntrinsicSize.update_forward_refs()
 
 PlotResult.update_forward_refs()
+
+PlotSize.update_forward_refs()
 
 GetIntrinsicSizeRequest.update_forward_refs()
 

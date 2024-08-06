@@ -115,7 +115,11 @@
 						"description": "The plot's width, in pixels",
 						"type": "integer"
 					}
-				}
+				},
+				"required": [
+					"height",
+					"width"
+				]
 			},
 			"plot_unit": {
 				"type": "string",
