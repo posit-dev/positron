@@ -146,9 +146,9 @@ class ColumnProfileType(str, enum.Enum):
 
 
 @enum.unique
-class DataSelectionKind(str, enum.Enum):
+class TableSelectionKind(str, enum.Enum):
     """
-    Possible values for Kind in DataSelection
+    Possible values for Kind in TableSelection
     """
 
     SingleCell = "single_cell"
@@ -195,8 +195,7 @@ class SearchSchemaResult(BaseModel):
     Result in Methods
     """
 
-    matches: Optional[TableSchema] = Field(
-        default=None,
+    matches: TableSchema = Field(
         description="A schema containing matching columns up to the max_results limit",
     )
 
@@ -244,19 +243,27 @@ class BackendState(BaseModel):
     )
 
     table_shape: TableShape = Field(
-        description="Number of rows and columns in table with filters applied",
+        description="Number of rows and columns in table with row/column filters applied",
     )
 
     table_unfiltered_shape: TableShape = Field(
         description="Number of rows and columns in table without any filters applied",
     )
 
+    has_row_labels: StrictBool = Field(
+        description="Indicates whether table has row labels or whether rows should be labeled by ordinal position",
+    )
+
+    column_filters: List[ColumnFilter] = Field(
+        description="The currently applied column filters",
+    )
+
     row_filters: List[RowFilter] = Field(
-        description="The set of currently applied row filters",
+        description="The currently applied row filters",
     )
 
     sort_keys: List[ColumnSortKey] = Field(
-        description="The set of currently applied sorts",
+        description="The currently applied column sort keys",
     )
 
     supported_features: SupportedFeatures = Field(
@@ -274,7 +281,7 @@ class ColumnSchema(BaseModel):
     )
 
     column_index: StrictInt = Field(
-        description="The position of the column within the schema",
+        description="The position of the column within the table without any column filters",
     )
 
     type_name: StrictStr = Field(
@@ -325,8 +332,13 @@ class TableData(BaseModel):
         description="The columns of data",
     )
 
-    row_labels: Optional[List[List[StrictStr]]] = Field(
-        default=None,
+
+class TableRowLabels(BaseModel):
+    """
+    Formatted table row labels formatted as strings
+    """
+
+    row_labels: List[List[StrictStr]] = Field(
         description="Zero or more arrays of row labels",
     )
 
@@ -538,7 +550,7 @@ class ColumnProfileRequest(BaseModel):
     """
 
     column_index: StrictInt = Field(
-        description="The ordinal column index to profile",
+        description="The column index (absolute, relative to unfiltered table) to profile",
     )
 
     profiles: List[ColumnProfileSpec] = Field(
@@ -839,7 +851,7 @@ class ColumnSortKey(BaseModel):
     """
 
     column_index: StrictInt = Field(
-        description="Column index to sort by",
+        description="Column index (absolute, relative to unfiltered table) to sort by",
     )
 
     ascending: StrictBool = Field(
@@ -854,6 +866,10 @@ class SupportedFeatures(BaseModel):
 
     search_schema: SearchSchemaFeatures = Field(
         description="Support for 'search_schema' RPC and its features",
+    )
+
+    set_column_filters: SetColumnFiltersFeatures = Field(
+        description="Support ofr 'set_column_filters' RPC and its features",
     )
 
     set_row_filters: SetRowFiltersFeatures = Field(
@@ -876,6 +892,20 @@ class SupportedFeatures(BaseModel):
 class SearchSchemaFeatures(BaseModel):
     """
     Feature flags for 'search_schema' RPC
+    """
+
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
+    )
+
+    supported_types: List[ColumnFilterTypeSupportStatus] = Field(
+        description="A list of supported types",
+    )
+
+
+class SetColumnFiltersFeatures(BaseModel):
+    """
+    Feature flags for 'set_column_filters' RPC
     """
 
     support_status: SupportStatus = Field(
@@ -943,14 +973,14 @@ class SetSortColumnsFeatures(BaseModel):
     )
 
 
-class DataSelection(BaseModel):
+class TableSelection(BaseModel):
     """
     A selection on the data grid, for copying to the clipboard or other
     actions
     """
 
-    kind: DataSelectionKind = Field(
-        description="Type of selection",
+    kind: TableSelectionKind = Field(
+        description="Type of selection, all indices relative to filtered row/column indices",
     )
 
     selection: Selection = Field(
@@ -1018,6 +1048,20 @@ class DataSelectionIndices(BaseModel):
     )
 
 
+class ColumnSelection(BaseModel):
+    """
+    A union of different selection types for column values
+    """
+
+    column_index: StrictInt = Field(
+        description="Column index (relative to unfiltered schema) to select data from",
+    )
+
+    spec: ArraySelection = Field(
+        description="Union of selection specifications for array_selection",
+    )
+
+
 # ColumnValue
 ColumnValue = Union[
     StrictInt,
@@ -1047,6 +1091,11 @@ Selection = Union[
     DataSelectionRange,
     DataSelectionIndices,
 ]
+# Union of selection specifications for array_selection
+ArraySelection = Union[
+    DataSelectionRange,
+    DataSelectionIndices,
+]
 
 
 @enum.unique
@@ -1058,14 +1107,20 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Request schema
     GetSchema = "get_schema"
 
-    # Search schema with column filters
+    # Search full, unfiltered table schema with column filters
     SearchSchema = "search_schema"
 
-    # Get a rectangle of data values
+    # Request formatted values from table columns
     GetDataValues = "get_data_values"
+
+    # Request formatted row labels from table
+    GetRowLabels = "get_row_labels"
 
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
+
+    # Set column filters to select subset of table columns
+    SetColumnFilters = "set_column_filters"
 
     # Set row filters based on column values
     SetRowFilters = "set_row_filters"
@@ -1082,17 +1137,17 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
 class GetSchemaParams(BaseModel):
     """
-    Request full schema for a table-like object
+    Request subset of column schemas for a table-like object
     """
 
     column_indices: List[StrictInt] = Field(
-        description="The column indices to fetch",
+        description="The column indices (relative to the filtered/selected columns) to fetch",
     )
 
 
 class GetSchemaRequest(BaseModel):
     """
-    Request full schema for a table-like object
+    Request subset of column schemas for a table-like object
     """
 
     params: GetSchemaParams = Field(
@@ -1111,7 +1166,8 @@ class GetSchemaRequest(BaseModel):
 
 class SearchSchemaParams(BaseModel):
     """
-    Search schema for column names matching a passed substring
+    Search full, unfiltered table schema for column names matching one or
+    more column filters
     """
 
     filters: List[ColumnFilter] = Field(
@@ -1129,7 +1185,8 @@ class SearchSchemaParams(BaseModel):
 
 class SearchSchemaRequest(BaseModel):
     """
-    Search schema for column names matching a passed substring
+    Search full, unfiltered table schema for column names matching one or
+    more column filters
     """
 
     params: SearchSchemaParams = Field(
@@ -1148,19 +1205,11 @@ class SearchSchemaRequest(BaseModel):
 
 class GetDataValuesParams(BaseModel):
     """
-    Request a rectangular subset of data with values formatted as strings
+    Request data from table columns with values formatted as strings
     """
 
-    row_start_index: StrictInt = Field(
-        description="First row to fetch (inclusive)",
-    )
-
-    num_rows: StrictInt = Field(
-        description="Number of rows to fetch from start index. May extend beyond end of table",
-    )
-
-    column_indices: List[StrictInt] = Field(
-        description="Indices to select, which can be a sequential, sparse, or random selection",
+    columns: List[ColumnSelection] = Field(
+        description="Array of column selections",
     )
 
     format_options: FormatOptions = Field(
@@ -1170,7 +1219,7 @@ class GetDataValuesParams(BaseModel):
 
 class GetDataValuesRequest(BaseModel):
     """
-    Request a rectangular subset of data with values formatted as strings
+    Request data from table columns with values formatted as strings
     """
 
     params: GetDataValuesParams = Field(
@@ -1187,13 +1236,46 @@ class GetDataValuesRequest(BaseModel):
     )
 
 
+class GetRowLabelsParams(BaseModel):
+    """
+    Request formatted row labels from table
+    """
+
+    selection: ArraySelection = Field(
+        description="Selection of row labels",
+    )
+
+    format_options: FormatOptions = Field(
+        description="Formatting options for returning labels as strings",
+    )
+
+
+class GetRowLabelsRequest(BaseModel):
+    """
+    Request formatted row labels from table
+    """
+
+    params: GetRowLabelsParams = Field(
+        description="Parameters to the GetRowLabels method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.GetRowLabels] = Field(
+        description="The JSON-RPC method name (get_row_labels)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class ExportDataSelectionParams(BaseModel):
     """
     Export data selection as a string in different formats like CSV, TSV,
     HTML
     """
 
-    selection: DataSelection = Field(
+    selection: TableSelection = Field(
         description="The data selection",
     )
 
@@ -1222,9 +1304,38 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class SetColumnFiltersParams(BaseModel):
+    """
+    Set or clear column filters on table, replacing any previous filters
+    """
+
+    filters: List[ColumnFilter] = Field(
+        description="Column filters to apply (or pass empty array to clear column filters)",
+    )
+
+
+class SetColumnFiltersRequest(BaseModel):
+    """
+    Set or clear column filters on table, replacing any previous filters
+    """
+
+    params: SetColumnFiltersParams = Field(
+        description="Parameters to the SetColumnFilters method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.SetColumnFilters] = Field(
+        description="The JSON-RPC method name (set_column_filters)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetRowFiltersParams(BaseModel):
     """
-    Set or clear row filters on table, replacing any previous filters
+    Row filters to apply (or pass empty array to clear row filters)
     """
 
     filters: List[RowFilter] = Field(
@@ -1234,7 +1345,7 @@ class SetRowFiltersParams(BaseModel):
 
 class SetRowFiltersRequest(BaseModel):
     """
-    Set or clear row filters on table, replacing any previous filters
+    Row filters to apply (or pass empty array to clear row filters)
     """
 
     params: SetRowFiltersParams = Field(
@@ -1317,7 +1428,7 @@ class GetColumnProfilesRequest(BaseModel):
 
 class GetStateRequest(BaseModel):
     """
-    Request the current backend state (shape, filters, sort keys,
+    Request the current backend state (table metadata, explorer state, and
     features)
     """
 
@@ -1337,7 +1448,9 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetSchemaRequest,
         SearchSchemaRequest,
         GetDataValuesRequest,
+        GetRowLabelsRequest,
         ExportDataSelectionRequest,
+        SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
         GetColumnProfilesRequest,
@@ -1369,6 +1482,8 @@ BackendState.update_forward_refs()
 ColumnSchema.update_forward_refs()
 
 TableData.update_forward_refs()
+
+TableRowLabels.update_forward_refs()
 
 FormatOptions.update_forward_refs()
 
@@ -1430,6 +1545,8 @@ SupportedFeatures.update_forward_refs()
 
 SearchSchemaFeatures.update_forward_refs()
 
+SetColumnFiltersFeatures.update_forward_refs()
+
 SetRowFiltersFeatures.update_forward_refs()
 
 GetColumnProfilesFeatures.update_forward_refs()
@@ -1438,7 +1555,7 @@ ExportDataSelectionFeatures.update_forward_refs()
 
 SetSortColumnsFeatures.update_forward_refs()
 
-DataSelection.update_forward_refs()
+TableSelection.update_forward_refs()
 
 DataSelectionSingleCell.update_forward_refs()
 
@@ -1447,6 +1564,8 @@ DataSelectionCellRange.update_forward_refs()
 DataSelectionRange.update_forward_refs()
 
 DataSelectionIndices.update_forward_refs()
+
+ColumnSelection.update_forward_refs()
 
 GetSchemaParams.update_forward_refs()
 
@@ -1460,9 +1579,17 @@ GetDataValuesParams.update_forward_refs()
 
 GetDataValuesRequest.update_forward_refs()
 
+GetRowLabelsParams.update_forward_refs()
+
+GetRowLabelsRequest.update_forward_refs()
+
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+SetColumnFiltersParams.update_forward_refs()
+
+SetColumnFiltersRequest.update_forward_refs()
 
 SetRowFiltersParams.update_forward_refs()
 

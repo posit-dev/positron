@@ -501,20 +501,12 @@ export class DataExplorerCache extends Disposable {
 
 				// Update the data cell cache, overwriting any entries we already have cached.
 				for (let row = 0; row < rows; row++) {
-					// Get the row index.
 					const rowIndex = rowIndices[row];
-
-					// If row labels were returned, cache the row label for the row.
-					if (tableData.row_labels) {
-						const rowLabel = tableData.row_labels[0][row];
-						this._rowLabelCache.set(rowIndex, rowLabel);
-					}
 
 					// Cache the data cells.
 					for (let column = 0; column < columnIndices.length; column++) {
 						const value = tableData.columns[column][row];
 						const columnIndex = columnIndices[column];
-						const rowIndex = rowIndices[row];
 						if (typeof value === 'number') {
 							this._dataCellCache.set(`${columnIndex},${rowIndex}`,
 								decodeSpecialValue(value)
@@ -525,6 +517,18 @@ export class DataExplorerCache extends Disposable {
 								kind: DataCellKind.NON_NULL
 							});
 						}
+					}
+				}
+
+				// Get the row labels, if any
+				if (tableState.has_row_labels) {
+					const rowLabels = await this._dataExplorerClientInstance.getRowLabels(
+						{ first_index: rowIndices[0], last_index: rowIndices[0] + rows - 1 }
+					);
+					for (let row = 0; row < rows; row++) {
+						const rowIndex = rowIndices[row];
+						const rowLabel = rowLabels.row_labels[0][row];
+						this._rowLabelCache.set(rowIndex, rowLabel);
 					}
 				}
 
