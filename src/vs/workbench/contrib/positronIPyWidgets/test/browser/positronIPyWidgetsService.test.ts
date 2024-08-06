@@ -124,7 +124,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		assert(!positronIpywidgetsService.hasInstance(plotClient.id));
 	});
 
-	test('console session: respond to result message type', async () => {
+	test('console session: respond to result message type and check for memory leaks', async () => {
 		const { session } = await createConsoleSession();
 
 		// Simulate the runtime sending a result message.
@@ -142,20 +142,12 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
-	test('notebook session: respond to result message type', async () => {
+	test('notebook session: check for memory leaks', async () => {
 		const { session } = await createNotebookSession();
-
-		// Simulate the runtime sending a result message.
-		const message = session.receiveResultMessage({
-			kind: RuntimeOutputKind.IPyWidget,
-			data: {
-				'application/vnd.jupyter.widget-view+json': {},
-			},
-		});
 
 		await timeout(0);
 
-		assert(positronIpywidgetsService.hasInstance(message.id));
+		assert(positronIpywidgetsService.hasInstance(session.sessionId));
 		// Note that we don't end the session here. This helps us check for memory leaks caused by
 		// improper disposal of listeners
 	});
