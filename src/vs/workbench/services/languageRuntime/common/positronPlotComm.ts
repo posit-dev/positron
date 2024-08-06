@@ -12,6 +12,43 @@ import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/lan
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * The intrinsic size of the plot if known
+ */
+export interface IntrinsicSizeResult {
+	/**
+	 * The intrinsic size of a plot
+	 */
+	size?: IntrinsicSize;
+
+}
+
+/**
+ * The intrinsic size of a plot
+ */
+export interface IntrinsicSize {
+	/**
+	 * The intrinsic width of the plot
+	 */
+	width: number;
+
+	/**
+	 * The intrinsic height of the plot
+	 */
+	height: number;
+
+	/**
+	 * The unit of measurement of the plot's dimensions
+	 */
+	unit: PlotUnit;
+
+	/**
+	 * The source of the intrinsic size e.g. 'Matplotlib'
+	 */
+	source: string;
+
+}
+
+/**
  * A rendered plot
  */
 export interface PlotResult {
@@ -38,6 +75,14 @@ export enum RenderFormat {
 }
 
 /**
+ * Possible values for PlotUnit
+ */
+export enum PlotUnit {
+	Pixels = 'pixels',
+	Inches = 'inches'
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
@@ -55,6 +100,7 @@ export enum PlotFrontendEvent {
 }
 
 export enum PlotBackendRequest {
+	GetIntrinsicSize = 'get_intrinsic_size',
 	Render = 'render'
 }
 
@@ -66,6 +112,19 @@ export class PositronPlotComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 		this.onDidShow = super.createEventEmitter('show', []);
+	}
+
+	/**
+	 * Get the intrinsic size of a plot if known
+	 *
+	 * The intrinsic size of a plot is the size that the plot would be
+	 * rendered at if no size constraints were applied by Positron.
+	 *
+	 *
+	 * @returns The intrinsic size of the plot if known
+	 */
+	getIntrinsicSize(): Promise<IntrinsicSizeResult> {
+		return super.performRpc('get_intrinsic_size', [], []);
 	}
 
 	/**
