@@ -6,7 +6,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ExecuteCommandEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
@@ -83,7 +83,6 @@ export class UiClientInstance extends Disposable {
 	onDidShowMessage: Event<ShowMessageEvent>;
 	onDidPromptState: Event<PromptStateEvent>;
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
-	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
 	onDidShowHtmlFile: Event<IShowHtmlUriEvent>;
 
@@ -118,7 +117,6 @@ export class UiClientInstance extends Disposable {
 		this.onDidShowMessage = this._comm.onDidShowMessage;
 		this.onDidPromptState = this._comm.onDidPromptState;
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
-		this.onDidExecuteCommand = this._comm.onDidExecuteCommand;
 		this.onDidShowUrl = this._onDidShowUrlEmitter.event;
 		this.onDidShowHtmlFile = this._onDidShowHtmlFileEmitter.event;
 

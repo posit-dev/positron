@@ -232,17 +232,6 @@ export interface WorkingDirectoryEvent {
 }
 
 /**
- * Event: Execute a Positron command
- */
-export interface ExecuteCommandEvent {
-	/**
-	 * The command to execute
-	 */
-	command: string;
-
-}
-
-/**
  * Event: Open a workspace
  */
 export interface OpenWorkspaceEvent {
@@ -388,12 +377,12 @@ export interface DebugSleepRequest {
 }
 
 /**
- * Request: Execute a Positron command and wait for it to return
+ * Request: Execute a Positron command
  *
  * Use this to execute a Positron command from the backend (like from a
- * runtime) and wait for it to return
+ * runtime)
  */
-export interface ExecuteCommandAwaitRequest {
+export interface ExecuteCommandRequest {
 	/**
 	 * The command to execute
 	 */
@@ -485,7 +474,6 @@ export enum UiFrontendEvent {
 	ShowMessage = 'show_message',
 	PromptState = 'prompt_state',
 	WorkingDirectory = 'working_directory',
-	ExecuteCommand = 'execute_command',
 	OpenWorkspace = 'open_workspace',
 	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url',
@@ -497,7 +485,7 @@ export enum UiFrontendRequest {
 	ShowQuestion = 'show_question',
 	ShowDialog = 'show_dialog',
 	DebugSleep = 'debug_sleep',
-	ExecuteCommandAwait = 'execute_command_await',
+	ExecuteCommand = 'execute_command',
 	EvaluateWhenClause = 'evaluate_when_clause',
 	ExecuteCode = 'execute_code',
 	WorkspaceFolder = 'workspace_folder',
@@ -521,7 +509,6 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
-		this.onDidExecuteCommand = super.createEventEmitter('execute_command', ['command']);
 		this.onDidOpenWorkspace = super.createEventEmitter('open_workspace', ['path', 'new_window']);
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
@@ -586,13 +573,6 @@ export class PositronUiComm extends PositronBaseComm {
 	 * interpreter
 	 */
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
-	/**
-	 * Execute a Positron command
-	 *
-	 * Use this to execute a Positron command from the backend (like from a
-	 * runtime)
-	 */
-	onDidExecuteCommand: Event<ExecuteCommandEvent>;
 	/**
 	 * Open a workspace
 	 *

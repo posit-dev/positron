@@ -29,7 +29,7 @@ import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, ExecuteCommandEvent, SetEditorSelectionsEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { Selection } from 'vs/editor/common/core/selection';
@@ -222,10 +222,6 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Show a message
 				const msg = ev.data as ShowMessageEvent;
 				this._notificationService.info(msg.message);
-			} else if (ev.name === UiFrontendEvent.ExecuteCommand) {
-				// Execute a command
-				const cmd = ev.data as ExecuteCommandEvent;
-				this._commandService.executeCommand(cmd.command);
 			}
 
 			// Propagate event

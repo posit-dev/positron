@@ -103,7 +103,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 						params.language_id as string);
 					break;
 				}
-				case UiFrontendRequest.ExecuteCommandAwait: {
+				case UiFrontendRequest.ExecuteCommand: {
 					if (!params || !Object.keys(params).includes('command')) {
 						return newInvalidParamsError(method);
 					}
@@ -280,9 +280,9 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return null;
 	}
 
-	async executeCommand(commandId: string): Promise<boolean> {
+	async executeCommand(commandId: string): Promise<null> {
 		await this.commands.executeCommand(commandId);
-		return true;
+		return null;
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
