@@ -23,8 +23,10 @@ interface PanZoomImageProps {
  * @returns The rendered component.
  */
 export const PanZoomImage = (props: PanZoomImageProps) => {
-	const [width, setWidth] = React.useState<number>(1);
-	const [height, setHeight] = React.useState<number>(1);
+	const [naturalWidth, setNaturalWidth] = React.useState<number>(1);
+	const [naturalHeight, setNaturalHeight] = React.useState<number>(1);
+	const [scrollableWidth, setScrollableWidth] = React.useState<number>(1);
+	const [scrollableHeight, setScrollableHeight] = React.useState<number>(1);
 	const imageRef = React.useRef<HTMLImageElement>(null);
 
 	// updates the image size and position based on the zoom level
@@ -32,8 +34,6 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		if (!imageRef.current) {
 			return;
 		}
-		const naturalWidth = imageRef.current.naturalWidth;
-		const naturalHeight = imageRef.current.naturalHeight;
 		// scale by the zoom level
 		// if the zoom level is Fill, then the image should fill the container using css
 		const adjustedWidth = props.zoom === ZoomLevel.Fill ? naturalWidth : naturalWidth * props.zoom;
@@ -43,13 +43,13 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 			imageRef.current.style.width = '100%';
 			imageRef.current.style.height = '100%';
 			imageRef.current.style.objectFit = 'contain';
-			setWidth(props.width);
-			setHeight(props.height);
+			setScrollableWidth(props.width);
+			setScrollableHeight(props.height);
 		} else {
 			imageRef.current.style.width = `${adjustedWidth}px`;
 			imageRef.current.style.height = `${adjustedHeight}px`;
-			setWidth(adjustedWidth);
-			setHeight(adjustedHeight);
+			setScrollableWidth(adjustedWidth);
+			setScrollableHeight(adjustedHeight);
 		}
 
 		imageRef.current.style.position = 'relative';
@@ -70,14 +70,19 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 			imageRef.current.style.left = '0';
 			imageRef.current.style.transform = 'none';
 		}
-	}, [imageRef.current?.naturalWidth, imageRef.current?.naturalHeight, props.width, props.height, props.zoom]);
+	}, [naturalWidth, naturalHeight, props.width, props.height, props.zoom, props.imageUri]);
 
 	return (
-		<Scrollable width={props.width} height={props.height} scrollableWidth={width} scrollableHeight={height} mousePan={true}>
+		<Scrollable width={props.width} height={props.height} scrollableWidth={scrollableWidth} scrollableHeight={scrollableHeight} mousePan={true}>
 			<img src={props.imageUri}
 				alt={props.description}
 				draggable={false}
 				ref={imageRef}
+				onLoad={(el) => {
+					// ensures the zoom level is applied correctly when switching images
+					setNaturalWidth(el.currentTarget.naturalWidth);
+					setNaturalHeight(el.currentTarget.naturalHeight);
+				}}
 			/>
 		</Scrollable>
 	);
