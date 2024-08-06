@@ -57,21 +57,17 @@ class FigureManagerPositron(FigureManagerBase):
 
         super().__init__(canvas, num)
 
-        # Determine the preferred size of the plot.
+        # Determine the intrinsic size of the plot.
         width_in, height_in = canvas.figure.get_size_inches()
         if [width_in, height_in] == matplotlib.rcParams["figure.figsize"]:
-            # Don't provide a preferred size if the default figure size was used.
-            preferred_size = None
+            # Don't provide an intrinsic size if the default figure size was used.
+            intrinsic_size = None
         else:
-            # Convert the figure size from inches to pixels.
-            preferred_size = (
-                int(width_in / canvas.device_pixel_ratio * canvas.figure.dpi),
-                int(height_in / canvas.device_pixel_ratio * canvas.figure.dpi),
-            )
+            intrinsic_size = (width_in, height_in)
 
         # Create the plot instance via the plots service.
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(self.canvas.render, preferred_size)
+        self._plot = self._plots_service.create_plot(self.canvas.render, intrinsic_size)
 
     @property
     def closed(self) -> bool:

@@ -8,9 +8,18 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Optional, Protocol, Tuple, cast
+from typing import List, Optional, Protocol, Tuple
 
-from .plot_comm import PlotBackendMessageContent, PlotFrontendEvent, PlotResult, RenderRequest
+from .plot_comm import (
+    GetIntrinsicSizeRequest,
+    IntrinsicSize,
+    IntrinsicSizeResult,
+    PlotBackendMessageContent,
+    PlotFrontendEvent,
+    PlotResult,
+    PlotUnit,
+    RenderRequest,
+)
 from .positron_comm import CommMessage, PositronComm
 from .session_mode import SessionMode
 from .utils import JsonRecord
@@ -36,15 +45,19 @@ class Plot:
         The communication channel to the frontend plot instance.
     render
         A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
+    intrinsic_size
+        The intrinsic size of the plot in inches, if known.
     """
 
     def __init__(
         self,
         comm: PositronComm,
         render: Renderer,
+        intrinsic_size: Optional[Tuple[int, int]] = None,
     ) -> None:
         self._comm = comm
         self._render = render
+        self._intrinsic_size = intrinsic_size
 
         self._closed = False
 
@@ -106,6 +119,8 @@ class Plot:
                 request.params.pixel_ratio,
                 request.params.format,
             )
+        if isinstance(request, GetIntrinsicSizeRequest):
+            self._handle_get_intrinsic_size()
         else:
             logger.warning(f"Unhandled request: {request}")
 
@@ -119,6 +134,19 @@ class Plot:
         rendered = self._render(width_px, height_px, pixel_ratio, format)
         data = base64.b64encode(rendered).decode()
         result = PlotResult(data=data, mime_type=MIME_TYPE[format]).dict()
+        self._comm.send_result(data=result)
+
+    def _handle_get_intrinsic_size(self) -> None:
+        if self._intrinsic_size is None:
+            size = None
+        else:
+            size = IntrinsicSize(
+                width=self._intrinsic_size[0],
+                height=self._intrinsic_size[1],
+                unit=PlotUnit.Inches,
+                source="Matplotlib",
+            )
+        result = IntrinsicSizeResult(size=size).dict()
         self._comm.send_result(data=result)
 
     def _handle_close(self, msg: JsonRecord) -> None:
@@ -151,7 +179,7 @@ class PlotsService:
 
         self._plots: List[Plot] = []
 
-    def create_plot(self, render: Renderer, preferred_size: Optional[Tuple[int, int]]) -> Plot:
+    def create_plot(self, render: Renderer, intrinsic_size: Optional[Tuple[int, int]]) -> Plot:
         """
         Create a plot.
 
@@ -159,8 +187,8 @@ class PlotsService:
         ----------
         render
             A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
-        preferred_size
-            The preferred size of the plot in pixels.
+        intrinsic_size
+            The intrinsic size of the plot in inches.
 
         See Also
         --------
@@ -168,19 +196,8 @@ class PlotsService:
         """
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
-
-        # Construct the comm_open message.
-        data = (
-            None
-            if preferred_size is None
-            else cast(
-                JsonRecord,
-                ({"preferred_size": {"width": preferred_size[0], "height": preferred_size[1]}}),
-            )
-        )
-
-        plot_comm = PositronComm.create(self._target_name, comm_id, data)
-        plot = Plot(plot_comm, render)
+        plot_comm = PositronComm.create(self._target_name, comm_id)
+        plot = Plot(plot_comm, render, intrinsic_size)
         self._plots.append(plot)
         return plot
 

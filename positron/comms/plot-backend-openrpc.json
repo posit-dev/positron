@@ -54,21 +54,15 @@
 		{
 			"name": "render",
 			"summary": "Render a plot",
-			"description": "Requests a plot to be rendered at a given height and width. The plot data is returned in a base64-encoded string.",
+			"description": "Requests a plot to be rendered. TODO: intrinsic size stuff. The plot data is returned in a base64-encoded string.",
 			"params": [
 				{
-					"name": "height",
-					"description": "The requested plot height, in pixels",
+					"name": "size",
+					"description": "The requested size of the plot. If not provided, the intrinsic size of the plot will be used.",
 					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "width",
-					"description": "The requested plot width, in pixels",
-					"schema": {
-						"type": "integer"
-					}
+						"$ref": "#/components/schemas/plot_size"
+					},
+					"required": false
 				},
 				{
 					"name": "pixel_ratio",
@@ -109,6 +103,20 @@
 	],
 	"components": {
 		"schemas": {
+			"plot_size": {
+				"type": "object",
+				"description": "The size of a plot",
+				"properties": {
+					"height": {
+						"description": "The plot's height, in pixels",
+						"type": "integer"
+					},
+					"width": {
+						"description": "The plot's width, in pixels",
+						"type": "integer"
+					}
+				}
+			},
 			"plot_unit": {
 				"type": "string",
 				"description": "The unit of measurement of a plot's dimensions",
