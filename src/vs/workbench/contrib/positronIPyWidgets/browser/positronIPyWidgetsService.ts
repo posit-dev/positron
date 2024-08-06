@@ -77,19 +77,19 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
-	private _sessionToDisposablesMap = new Map<ILanguageRuntimeSession, DisposableStore>();
+	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
 
 	private attachSession(session: ILanguageRuntimeSession) {
 		// Check if we're already attached here
-		const existingSessionDisposables = this._sessionToDisposablesMap.get(session);
+		const existingSessionDisposables = this._sessionToDisposablesMap.get(session.sessionId);
 		if (existingSessionDisposables && !existingSessionDisposables.isDisposed) {
 			this._logService.warn(`Already attached to session, disposing existing listeners before reattaching: ${session.metadata.sessionId}`);
 			existingSessionDisposables.dispose();
 		}
 		const disposables = new DisposableStore();
-		this._sessionToDisposablesMap.set(session, disposables);
+		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		// Cleanup from map when disposed.
-		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session)));
+		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session.sessionId)));
 
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
