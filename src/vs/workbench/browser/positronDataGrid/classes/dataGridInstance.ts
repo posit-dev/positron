@@ -47,9 +47,11 @@ type DefaultSizeOptions = | {
 type ColumnResizeOptions = | {
 	readonly columnResize: false;
 	readonly minimumColumnWidth?: never;
+	readonly maximumColumnWidth?: never;
 } | {
 	readonly columnResize: true;
 	readonly minimumColumnWidth: number;
+	readonly maximumColumnWidth: number;
 };
 
 /**
@@ -526,6 +528,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _minimumColumnWidth: number;
 
 	/**
+	 * Gets the maximum column width.
+	 */
+	private readonly _maximumColumnWidth: number;
+
+	/**
 	 * Gets the default column width.
 	 */
 	private readonly _defaultColumnWidth: number;
@@ -722,6 +729,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		this._columnResize = options.columnResize || false;
 		this._minimumColumnWidth = options.minimumColumnWidth ?? this._defaultColumnWidth;
+		this._maximumColumnWidth = options.maximumColumnWidth ?? this._defaultColumnWidth;
 
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
@@ -799,6 +807,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get minimumColumnWidth() {
 		return this._minimumColumnWidth;
+	}
+
+	/**
+	 * Gets the maximum column width.
+	 */
+	get maximumColumnWidth() {
+		return this._maximumColumnWidth;
 	}
 
 	/**

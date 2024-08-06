@@ -82,6 +82,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			defaultRowHeight: 24,
 			columnResize: true,
 			minimumColumnWidth: 20,
+			maximumColumnWidth: 400,
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
@@ -170,7 +171,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// If we have a user-defined column width, return it.
 		const userDefinedColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
 		if (userDefinedColumnWidth !== undefined) {
-			return Math.min(userDefinedColumnWidth, 400);
+			return Math.min(userDefinedColumnWidth, this.maximumColumnWidth);
 		}
 
 		// Get the column header width and the column value width.
@@ -192,11 +193,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// If we have a column header width and / or a column value width, return the column width.
 		if (columnHeaderWidth && columnValueWidth) {
-			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), 400);
+			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), this.maximumColumnWidth);
 		} else if (columnHeaderWidth) {
-			return Math.min(columnHeaderWidth, 400);
+			return Math.min(columnHeaderWidth, this.maximumColumnWidth);
 		} else if (columnValueWidth) {
-			return Math.min(columnValueWidth, 400);
+			return Math.min(columnValueWidth, this.maximumColumnWidth);
 		}
 
 		// Return the default column width.

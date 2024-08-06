@@ -35,7 +35,7 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 			<VerticalSplitter
 				onBeginResize={() => ({
 					minimumWidth: 20,
-					maximumWidth: 400,
+					maximumWidth: context.instance.maximumColumnWidth,
 					startingWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={async width =>
