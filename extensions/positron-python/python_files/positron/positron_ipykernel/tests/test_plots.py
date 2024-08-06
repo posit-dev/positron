@@ -82,8 +82,10 @@ def _do_render(
     msg = json_rpc_request(
         "render",
         {
-            "width": width,
-            "height": height,
+            "size": {
+                "width": width,
+                "height": height,
+            },
             "pixel_ratio": pixel_ratio,
             "format": format,
         },

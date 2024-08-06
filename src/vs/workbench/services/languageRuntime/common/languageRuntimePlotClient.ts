@@ -408,8 +408,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Perform the RPC request and resolve the promise when the response is received
 		const renderRequest = request.renderRequest;
-		this._comm.render(renderRequest.height,
-			renderRequest.width,
+		this._comm.render({
+			width: renderRequest.width,
+			height: renderRequest.height
+		},
 			renderRequest.pixel_ratio,
 			renderRequest.format).then((response) => {
 

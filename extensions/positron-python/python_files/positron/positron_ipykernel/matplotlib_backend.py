@@ -26,6 +26,8 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
+from .plot_comm import PlotSize
+
 logger = logging.getLogger(__name__)
 
 
@@ -161,7 +163,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
             logger.debug("Canvas: hash changed, requesting an update")
             self.manager.update()
 
-    def render(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes:
+    def render(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes:
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
@@ -170,9 +172,11 @@ class FigureCanvasPositron(FigureCanvasAgg):
         self.figure.set_layout_engine("tight")
 
         # Resize the figure to the requested size in pixels.
-        width_in = width_px * self.device_pixel_ratio / self.figure.dpi
-        height_in = height_px * self.device_pixel_ratio / self.figure.dpi
-        self.figure.set_size_inches(width_in, height_in, forward=False)
+        if size is not None:
+            # TODO: Will this recover the original size if the user switches sizing policies?
+            width_in = size.width * self.device_pixel_ratio / self.figure.dpi
+            height_in = size.height * self.device_pixel_ratio / self.figure.dpi
+            self.figure.set_size_inches(width_in, height_in, forward=False)
 
         # Render the canvas.
         with io.BytesIO() as figure_buffer:
