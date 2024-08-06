@@ -15,14 +15,7 @@ from __future__ import annotations
 import enum
 from typing import Any, List, Literal, Optional, Union
 
-from ._vendor.pydantic import (
-    BaseModel,
-    Field,
-    StrictBool,
-    StrictFloat,
-    StrictInt,
-    StrictStr,
-)
+from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
 
 @enum.unique
