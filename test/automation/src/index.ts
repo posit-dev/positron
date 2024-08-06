@@ -29,7 +29,7 @@ export * from './task';
 // --- Start Positron ---
 export * from './positron/positronConsole';
 export * from './positron/positronPopups';
-export * from './positron/positronStartInterpreter';
+export * from './positron/positronInterpreterDropdown';
 export * from './positron/positronVariables';
 export * from './positron/positronDataExplorer';
 export * from './positron/positronSideBar';

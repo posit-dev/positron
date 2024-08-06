@@ -26,7 +26,7 @@ const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .ac
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
-export class StartInterpreter {
+export class PositronInterpreterDropdown {
 
 	constructor(private code: Code) { }
 
