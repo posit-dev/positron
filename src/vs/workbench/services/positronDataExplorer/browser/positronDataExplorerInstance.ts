@@ -11,18 +11,18 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
+import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 
 /**
  * Constants.
@@ -317,7 +317,38 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Copies the table data to the clipboard.
 	 */
 	async copyTableDataToClipboard(): Promise<void> {
-		this._clipboardService.writeText(await this._tableDataCache.getTableData());
+		// Inform the user that the table data is being prepared.
+		const notificationHandle = this._notificationService.notify({
+			severity: Severity.Info,
+			message: localize(
+				'positron.dataExplorer.preparingTableDate',
+				'Preparing table data'
+			),
+			progress: {
+				infinite: true
+			}
+		});
+
+		// Get the table data in TSV format.
+		const tableDataTSV = await this._tableDataCache.getTableDataTSV();
+
+		// Inform the user that the table data is being copied to the clipboard..
+		notificationHandle.updateMessage(localize(
+			'positron.dataExplorer.copyingToClipboard',
+			'Copying table data to the clipboard'
+		));
+
+		// Write the table data to the clipboard.
+		this._clipboardService.writeText(tableDataTSV);
+
+		// Inform the user that the operation is done.
+		notificationHandle.updateMessage(localize(
+			'positron.dataExplorer.copiedToClipboard',
+			'Table data copied to the clipboard'
+		));
+
+		// Done.
+		notificationHandle.progress.done();
 	}
 
 	/**

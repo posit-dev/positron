@@ -6,15 +6,15 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
-import { ColumnSchema, TableData } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
  */
 const TRIM_CACHE_TIMEOUT = 3000;
 const OVERSCAN_FACTOR = 3;
-const CHUNK_SIZE = 100;
+const CHUNK_SIZE = 4096;
 
 /**
  * InvalidateCacheFlags enum.
@@ -86,8 +86,29 @@ function decodeSpecialValue(value: number) {
 }
 
 /**
- * TableDataCache class.
+ * Custom type guard for DataSelectionRange.
+ * @param arraySelection The array selection.
+ * @returns true if the value is a DataSelectionRange; otherwise, false.
  */
+const isDataSelectionRange = (
+	arraySelection: ArraySelection
+): arraySelection is DataSelectionRange =>
+	(arraySelection as DataSelectionRange).first_index !== undefined &&
+	(arraySelection as DataSelectionRange).last_index !== undefined;
+
+/**
+ * Custom type guard for DataSelectionIndices.
+ * @param arraySelection The array selection.
+ * @returns true if the value is a DataSelectionIndices; otherwise, false.
+ */
+const isDataSelectionIndices = (
+	arraySelection: ArraySelection
+): arraySelection is DataSelectionIndices =>
+	(arraySelection as DataSelectionIndices).indices !== undefined;
+
+/**
+* TableDataCache class.
+*/
 export class TableDataCache extends Disposable {
 	//#region Private Properties
 
@@ -219,7 +240,7 @@ export class TableDataCache extends Disposable {
 		// Set the column header width calculator.
 		this._columnHeaderWidthCalculator = calculator;
 
-		// Refresh the column header width cache.
+		// Refresh the column header width cache, if the column header width calculator is non-null.
 		if (this._columnHeaderWidthCalculator) {
 			// Clear the existing column header width cache.
 			this._columnHeaderWidthCache.clear();
@@ -248,7 +269,7 @@ export class TableDataCache extends Disposable {
 		// Set the column value width calculator.
 		this._columnValueWidthCalculator = calculator;
 
-		// Refresh the column value width cache.
+		// Refresh the column value width cache, if the column value width calculator is non-null.
 		if (this._columnValueWidthCalculator) {
 			// Clear the existing column value width cache.
 			this._columnValueWidthCache.clear();
@@ -301,7 +322,7 @@ export class TableDataCache extends Disposable {
 			screenRows
 		} = updateDescriptor;
 
-		// Get the invalidate cache flags.
+		// Set the invalidate cache flags.
 		const invalidateColumnSchemaCache = (invalidateCache & InvalidateCacheFlags.ColumnSchema)
 			=== InvalidateCacheFlags.ColumnSchema;
 		const invalidateDataCache = (invalidateCache & InvalidateCacheFlags.Data)
@@ -336,7 +357,7 @@ export class TableDataCache extends Disposable {
 			}
 		}
 
-		// Load the column schema.
+		// Load the column schemas we need to load.
 		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
 		// Clear the column schema cache, if we're supposed to.
@@ -345,7 +366,7 @@ export class TableDataCache extends Disposable {
 			this._columnHeaderWidthCache.clear();
 		}
 
-		// Cache the column schema that was returned.
+		// Cache the column schemas that were returned.
 		for (let i = 0; i < tableSchema.columns.length; i++) {
 			// Get the column schema and compute the column index.
 			const columnIndex = columnIndices[i];
@@ -354,7 +375,6 @@ export class TableDataCache extends Disposable {
 			// Cache the column schema.
 			this._columnSchemaCache.set(columnIndex, columnSchema);
 
-			// YAYA
 			// Update the column header width cache.
 			if (this._columnHeaderWidthCalculator) {
 				this._columnHeaderWidthCache.set(columnIndex, this._columnHeaderWidthCalculator(
@@ -378,40 +398,122 @@ export class TableDataCache extends Disposable {
 			firstRowIndex + screenRows + overscanRows
 		);
 
-		// Set the column indices and row indices of the data values to load.
-		let rowIndices: number[];
+		// Build an array of the column selections to load.
+		const columns: ColumnSelection[] = [];
 		if (invalidateDataCache) {
-			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
+			// The data cache is being invalidated. Load everything.
+			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+				columns.push({
+					column_index: columnIndex,
+					spec: {
+						first_index: startRowIndex,
+						last_index: endRowIndex
+					}
+				});
+			}
 		} else {
-			const columnIndicesToCache = new Set<number>();
-			const rowIndicesToCache = new Set<number>();
+			// The cache is not being invalidated. Load only the cells that we don't have cached.
 			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
 				const dataColumn = this._dataColumnCache.get(columnIndex);
 				if (!dataColumn) {
-					columnIndicesToCache.add(columnIndex);
+					// The data column isn't cached. Load it.
+					columns.push({
+						column_index: columnIndex,
+						spec: {
+							first_index: startRowIndex,
+							last_index: endRowIndex
+						}
+					});
 				} else {
+					// The data column is cached. Load any cells that are not cached.
+					let contiguous = true;
+					const indices: number[] = [];
 					for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
 						if (!dataColumn.has(rowIndex)) {
-							columnIndicesToCache.add(columnIndex);
-							rowIndicesToCache.add(rowIndex);
-							break;
+							// Add the index.
+							indices.push(rowIndex);
+
+							// Check whether the indices are contiguous.
+							if (contiguous &&
+								indices.length > 1 &&
+								indices[indices.length - 2] + 1 !== indices[indices.length - 1]
+							) {
+								contiguous = false;
+							}
+						}
+					}
+
+					// If there are cells that are not cached, add the column and its spec.
+					if (indices.length) {
+						if (!contiguous) {
+							columns.push({
+								column_index: columnIndex,
+								spec: {
+									indices: indices
+								}
+							});
+						} else {
+							columns.push({
+								column_index: columnIndex,
+								spec: {
+									first_index: indices[0],
+									last_index: indices[indices.length - 1]
+								}
+							});
 						}
 					}
 				}
 			}
-
-			// Set the column indices and row indices.
-			columnIndices = Array.from(columnIndicesToCache).sort((a, b) => a - b);
-			rowIndices = arrayFromIndexRange(startRowIndex, endRowIndex);
 		}
 
 		// Get the data values.
-		const tableData: TableData = await this._dataExplorerClientInstance.getDataValues(
-			rowIndices[0],											// SOON TO BE AN ARRAY
-			rowIndices[rowIndices.length - 1] - rowIndices[0] + 1,	// SOON TO BE AN ARRAY
-			columnIndices
-		);
+		const tableData = await this._dataExplorerClientInstance.getDataValues(columns);
+
+		// Get the row labels.
+		let rowLabels: ArraySelection | undefined;
+		if (!tableState.has_row_labels) {
+			rowLabels = undefined;
+		} else {
+			if (invalidateDataCache) {
+				rowLabels = { first_index: startRowIndex, last_index: endRowIndex };
+			} else {
+				let contiguous = true;
+				const indices: number[] = [];
+				for (let rowIndex = startRowIndex; rowIndex <= endRowIndex; rowIndex++) {
+					if (!this._rowLabelCache.has(rowIndex)) {
+						// Add the index.
+						indices.push(rowIndex);
+
+						// Check whether the indices are contiguous.
+						if (contiguous &&
+							indices.length > 1 &&
+							indices[indices.length - 2] + 1 !== indices[indices.length - 1]
+						) {
+							contiguous = false;
+						}
+					}
+				}
+
+				// If there are labels that are not cached,
+				if (!indices.length) {
+					rowLabels = undefined;
+				} else {
+					if (!contiguous) {
+						rowLabels = { indices };
+					} else {
+						rowLabels = {
+							first_index: indices[0],
+							last_index: indices[indices.length - 1]
+						};
+					}
+				}
+			}
+		}
+
+		// Get the table row labels.
+		const tableRowLabels = !rowLabels ?
+			undefined :
+			await this._dataExplorerClientInstance.getRowLabels(rowLabels);
 
 		// Clear the data cache, if we're supposed to.
 		if (invalidateDataCache) {
@@ -420,23 +522,16 @@ export class TableDataCache extends Disposable {
 			this._columnValueWidthCache.clear();
 		}
 
-		// // Update the row labels cache.
-		// if (tableData.row_labels) {
-		// 	for (let row = 0; row < tableData.row_labels[0].length; row++) {
-		// 		this._rowLabelCache.set(rowIndices[row], tableData.row_labels[0][row]);
-		// 	}
-		// }
-
 		// Update the data column cache.
 		for (let column = 0; column < tableData.columns.length; column++) {
-			// Get the column index.
-			const columnIndex = columnIndices[column];
+			// Get the column selection.
+			const columnSelection = columns[column];
 
 			// Get or create the data column.
-			let dataColumn = this._dataColumnCache.get(columnIndex);
+			let dataColumn = this._dataColumnCache.get(columnSelection.column_index);
 			if (!dataColumn) {
 				dataColumn = new Map<number, DataCell>();
-				this._dataColumnCache.set(columnIndex, dataColumn);
+				this._dataColumnCache.set(columnSelection.column_index, dataColumn);
 			}
 
 			// Update the cell values.
@@ -455,15 +550,24 @@ export class TableDataCache extends Disposable {
 					};
 				}
 
-				// Cache the cell value.
-				dataColumn.set(rowIndices[row], dataCell);
+				// Set the row index.
+				let rowIndex: number;
+				if (isDataSelectionRange(columnSelection.spec)) {
+					rowIndex = columnSelection.spec.first_index + row;
+				} else if (isDataSelectionIndices(columnSelection.spec)) {
+					rowIndex = columnSelection.spec.indices[row];
+				} else {
+					continue;
+				}
 
-				// YAYA
+				// Cache the cell.
+				dataColumn.set(rowIndex, dataCell);
+
 				// Update the column value width cache.
 				if (dataCell.formatted.length && this._columnValueWidthCalculator) {
 					// Get the cached column value width and the column value width.
 					const cachedColumnValueWidth = this._columnValueWidthCache.get(
-						columnIndex
+						columnSelection.column_index
 					);
 					const columnValueWidth = this._columnValueWidthCalculator(
 						dataCell.formatted.length
@@ -471,20 +575,37 @@ export class TableDataCache extends Disposable {
 
 					// Update the column value width cache as needed.
 					if (!cachedColumnValueWidth || columnValueWidth > cachedColumnValueWidth) {
-						this._columnValueWidthCache.set(columnIndex, columnValueWidth);
+						this._columnValueWidthCache.set(columnSelection.column_index, columnValueWidth);
 					}
 				}
 			}
 		}
 
-		// If the cache was updated, fire the onDidUpdateCache event.
+		// Update the row labels cache.
+		if (rowLabels && tableRowLabels) {
+			for (let row = 0; row < tableRowLabels.row_labels[0].length; row++) {
+				// Set the row index.
+				let rowIndex: number;
+				if (isDataSelectionRange(rowLabels)) {
+					rowIndex = rowLabels.first_index + row;
+				} else if (isDataSelectionIndices(rowLabels)) {
+					rowIndex = rowLabels.indices[row];
+				} else {
+					continue;
+				}
+
+				// Cache the row label.
+				this._rowLabelCache.set(rowIndex, tableRowLabels.row_labels[0][row]);
+			}
+		}
+
+		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
 		// Clear the updating flag.
 		this._updating = false;
 
-		// If there's a pending update descriptor, update the cache again; otherwise, trim the
-		// caches that were not invalidated.
+		// If there's a pending update descriptor, update the cache again.
 		if (this._pendingUpdateDescriptor) {
 			// Get the pending update descriptor and clear it.
 			const pendingUpdateDescriptor = this._pendingUpdateDescriptor;
@@ -494,7 +615,7 @@ export class TableDataCache extends Disposable {
 			return this.update(pendingUpdateDescriptor);
 		}
 
-		// If the cache was invalidated, there's no need to trim the cache.
+		// Schedule trimming the cache.
 		if (invalidateCache !== InvalidateCacheFlags.All) {
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {
@@ -566,41 +687,78 @@ export class TableDataCache extends Disposable {
 	}
 
 	/**
-	 * Gets the table data.
+	 * Gets the table data TSV.
 	 * @returns The table data as a TSV string.
 	 */
-	async getTableData(): Promise<string> {
+	async getTableDataTSV(): Promise<string> {
 		// The cell values.
 		const cellValues = new Map<string, string>();
 
 		// Loop over chunks of columns.
-		for (let columnIndex = 0; columnIndex < this._columns; columnIndex += CHUNK_SIZE) {
+		for (let startColumnIndex = 0;
+			startColumnIndex < this._columns;
+			startColumnIndex += CHUNK_SIZE
+		) {
+			// Calculate the end column index.
+			const endColumnIndex = Math.min(startColumnIndex + CHUNK_SIZE - 1, this._columns - 1);
+
 			// Loop over chunks of rows.
-			for (let rowIndex = 0; rowIndex < this._rows; rowIndex += CHUNK_SIZE) {
+			for (let startRowIndex = 0; startRowIndex < this._rows; startRowIndex += CHUNK_SIZE) {
+				// Calculate the end row index.
+				const endRowIndex = Math.min(startRowIndex + CHUNK_SIZE - 1, this._rows - 1);
+
+				// Build an array of the column selections to load.
+				const columns: ColumnSelection[] = [];
+				for (let columnIndex = startColumnIndex;
+					columnIndex <= endColumnIndex;
+					columnIndex++
+				) {
+					columns.push({
+						column_index: columnIndex,
+						spec: {
+							first_index: startRowIndex,
+							last_index: endRowIndex
+						}
+					});
+				}
+
 				// Get the table data.
-				const maxColumnIndex = Math.min(columnIndex + CHUNK_SIZE, this._columns);
-				const maxRowIndex = Math.min(rowIndex + CHUNK_SIZE, this._rows);
-				const tableData = await this._dataExplorerClientInstance.getDataValues(
-					rowIndex,
-					maxRowIndex,
-					arrayFromIndexRange(columnIndex, maxColumnIndex)
-				);
+				const tableData = await this._dataExplorerClientInstance.getDataValues(columns);
 
 				// Process the table data into cell values.
-				for (let ci = 0; ci < maxColumnIndex - columnIndex; ci++) {
-					for (let ri = 0; ri < maxRowIndex - rowIndex; ri++) {
-						// Get the cell value.
-						const cellValue = tableData.columns[ci][ri];
+				for (let column = 0; column < tableData.columns.length; column++) {
+					// Get the column selection.
+					const columnSelection = columns[column];
 
-						// Add the cell.
-						if (typeof cellValue === 'number') {
-							cellValues.set(
-								`${rowIndex + ri},${columnIndex + ci}`,
-								decodeSpecialValue(cellValue).formatted
-							);
+					// Update the cell values.
+					for (let row = 0; row < tableData.columns[column].length; row++) {
+						// Get the cell value.
+						const value = tableData.columns[column][row];
+
+						// Convert the cell value into a data cell.
+						let dataCell: DataCell;
+						if (typeof value === 'number') {
+							dataCell = decodeSpecialValue(value);
 						} else {
-							cellValues.set(`${rowIndex + ri},${columnIndex + ci}`, cellValue);
+							dataCell = {
+								formatted: value,
+								kind: DataCellKind.NON_NULL
+							};
 						}
+
+						// Set the row index.
+						let rowIndex: number;
+						if (isDataSelectionRange(columnSelection.spec)) {
+							rowIndex = columnSelection.spec.first_index + row;
+						} else {
+							continue;
+						}
+
+						// Add the cell value.
+						cellValues.set(
+							`${rowIndex},${columnSelection.column_index}`,
+							dataCell.formatted
+						);
 					}
 				}
 			}

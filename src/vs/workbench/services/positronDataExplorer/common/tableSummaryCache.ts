@@ -286,7 +286,7 @@ export class TableSummaryCache extends Disposable {
 			return this.update(pendingUpdateDescriptor);
 		}
 
-		// If the cache was not invalidated, set the trim cache timeout.
+		// Schedule trimming the cache.
 		if (!invalidateCache) {
 			// Set the trim cache timeout.
 			this._trimCacheTimeout = setTimeout(() => {

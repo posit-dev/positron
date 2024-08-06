@@ -81,7 +81,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			defaultColumnWidth: 200,
 			defaultRowHeight: 24,
 			columnResize: true,
-			minimumColumnWidth: 100,
+			minimumColumnWidth: 20,
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
