@@ -169,12 +169,11 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			after(async function () {
-
+			afterEach(async function () {
 				const app = this.app as Application;
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.positronVariables.openVariables();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 			});
 
@@ -205,6 +204,30 @@ df = pd.DataFrame(data)`;
 				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150.00', 'Duration': '30.00' });
 				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00' });
 				expect(tableData.length).toBe(3);
+
+			});
+
+			it('R - Open Data Explorer for the second time brings focus back [C701143]', async function () {
+				// Regression test for https://github.com/posit-dev/positron/issues/4197
+				const app = this.app as Application;
+
+				const script = `Data_Frame <- mtcars`;
+				await app.workbench.positronConsole.executeCode('R', script, '>');
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+				}).toPass();
+
+				// Now move focus out of the the data explorer pane
+				await app.workbench.editors.newUntitledFile();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+				await app.workbench.positronVariables.doubleClickVariableRow('Data_Frame');
+
+				await expect(async () => {
+					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
+				}).toPass();
 
 			});
 		});
