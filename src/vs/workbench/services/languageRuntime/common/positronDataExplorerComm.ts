@@ -663,9 +663,14 @@ export interface SummaryStatsDatetime {
  */
 export interface ColumnHistogramParams {
 	/**
+	 * Method for determining number of bins
+	 */
+	method: ColumnHistogramParamsMethod;
+
+	/**
 	 * Number of bins in the computed histogram
 	 */
-	num_bins: number;
+	num_bins?: number;
 
 	/**
 	 * Sample quantiles (numbers between 0 and 1) to compute along with the
@@ -1099,6 +1104,14 @@ export enum ColumnProfileType {
 	SummaryStats = 'summary_stats',
 	FrequencyTable = 'frequency_table',
 	Histogram = 'histogram'
+}
+
+/**
+ * Possible values for Method in ColumnHistogramParams
+ */
+export enum ColumnHistogramParamsMethod {
+	Sturges = 'sturges',
+	Fixed = 'fixed'
 }
 
 /**

@@ -146,6 +146,17 @@ class ColumnProfileType(str, enum.Enum):
 
 
 @enum.unique
+class ColumnHistogramParamsMethod(str, enum.Enum):
+    """
+    Possible values for Method in ColumnHistogramParams
+    """
+
+    Sturges = "sturges"
+
+    Fixed = "fixed"
+
+
+@enum.unique
 class TableSelectionKind(str, enum.Enum):
     """
     Possible values for Kind in TableSelection
@@ -770,7 +781,12 @@ class ColumnHistogramParams(BaseModel):
     Parameters for a column histogram profile request
     """
 
-    num_bins: StrictInt = Field(
+    method: ColumnHistogramParamsMethod = Field(
+        description="Method for determining number of bins",
+    )
+
+    num_bins: Optional[StrictInt] = Field(
+        default=None,
         description="Number of bins in the computed histogram",
     )
 

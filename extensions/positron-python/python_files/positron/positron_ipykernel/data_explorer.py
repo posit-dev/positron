@@ -36,6 +36,7 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
+    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
@@ -1635,7 +1636,12 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             data = data.view(np_.int64)
 
-        bin_counts, bin_edges = np_.histogram(data, bins=params.num_bins)
+        if params.method == ColumnHistogramParamsMethod.Fixed:
+            num_bins = params.num_bins
+            assert num_bins is not None
+            bin_counts, bin_edges = np_.histogram(data, bins=num_bins)
+        else:
+            raise NotImplementedError
 
         if is_datetime64:
             # A bit hacky for now, but will replace this with
@@ -2359,8 +2365,13 @@ class PolarsView(DataExplorerTableView):
         min_value = data.min()
         max_value = data.max()
         data_span = max_value - min_value  # type: ignore
-        num_bins = params.num_bins
-        bin_size = data_span / num_bins
+
+        if params.method == ColumnHistogramParamsMethod.Fixed:
+            num_bins = params.num_bins
+            assert num_bins is not None
+            bin_size = data_span / num_bins
+        else:
+            raise NotImplementedError
 
         indices = ((data - min_value) / data_span) * num_bins
         indices = indices.cast(pl_.Int64).alias("indices")
@@ -2372,7 +2383,7 @@ class PolarsView(DataExplorerTableView):
         index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
         bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
 
-        bin_edges = min_value + pl_.arange(params.num_bins + 1, eager=True) * bin_size
+        bin_edges = min_value + pl_.arange(num_bins + 1, eager=True) * bin_size
 
         if cast_bin_edges:
             bin_edges = bin_edges.cast(dtype)

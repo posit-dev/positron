@@ -1094,9 +1094,17 @@
 				"type": "object",
 				"description": "Parameters for a column histogram profile request",
 				"required": [
-					"num_bins"
+					"method"
 				],
 				"properties": {
+					"method": {
+						"description": "Method for determining number of bins",
+						"type": "string",
+						"enum": [
+							"sturges",
+							"fixed"
+						]
+					},
 					"num_bins": {
 						"type": "integer",
 						"description": "Number of bins in the computed histogram"
