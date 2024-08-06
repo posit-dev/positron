@@ -29,6 +29,7 @@ module.exports.all = [
 
 	// --- Start Positron ---
 	'!extensions/positron-python/**/*',
+	'!extensions/open-remote-ssh/**/*',
 	'!test/smoke/test-repo/**/*'
 	// --- End Positron ---
 ];

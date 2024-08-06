@@ -834,7 +834,8 @@ const kPositronDuplicativeExtensions = [
 	'reditorsupport.r',
 	'rdebugger.r-debugger',
 	'mikhail-arkhipov.r',
-	'vscode.r'
+	'vscode.r',
+	'jeanp413.open-remote-ssh',
 ];
 
 interface PositronExtensionCompatibilty {
