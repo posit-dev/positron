@@ -953,12 +953,22 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield `\n`;
 
 				for (const param of params) {
+					yield `    ${param.name}: `;
+					if (param.required === false) {
+						yield 'Optional[';
+					}
 					if (param.schema.enum) {
-						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+						yield snakeCaseToSentenceCase(method.name) + snakeCaseToSentenceCase(param.name);
 					} else {
-						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+						yield deriveType(contracts, PythonTypeMap, [param.name], param.schema);
+					}
+					if (param.required === false) {
+						yield ']';
 					}
 					yield ' = Field(\n';
+					if (param.required === false) {
+						yield `        default=None,\n`;
+					}
 					yield `        description="${param.description}",\n`;
 					yield `    )\n\n`;
 				}
