@@ -6,6 +6,52 @@
 	},
 	"methods": [
 		{
+			"name": "get_intrinsic_size",
+			"summary": "Get the intrinsic size of a plot if known",
+			"description": "The intrinsic size of a plot is the size that the plot would be rendered at if no size constraints were applied by Positron.",
+			"params": [],
+			"result": {
+				"schema": {
+					"name": "intrinsic_size_result",
+					"type": "object",
+					"description": "The intrinsic size of the plot if known",
+					"properties": {
+						"size": {
+							"name": "intrinsic_size",
+							"description": "The intrinsic size of a plot",
+							"type": "object",
+							"properties": {
+								"width": {
+									"type": "integer",
+									"description": "The intrinsic width of the plot"
+								},
+								"height": {
+									"type": "integer",
+									"description": "The intrinsic height of the plot"
+								},
+								"unit": {
+									"description": "The unit of measurement of the plot's dimensions",
+									"$ref": "#/components/schemas/plot_unit"
+								},
+								"source": {
+									"type": "string",
+									"description": "The source of the intrinsic size e.g. 'Matplotlib'"
+								}
+							},
+							"required": [
+								"label",
+								"width",
+								"height",
+								"unit",
+								"source"
+							]
+						}
+					},
+					"required": []
+				}
+			}
+		},
+		{
 			"name": "render",
 			"summary": "Render a plot",
 			"description": "Requests a plot to be rendered at a given height and width. The plot data is returned in a base64-encoded string.",
@@ -36,12 +82,7 @@
 					"description": "The requested plot format",
 					"schema": {
 						"type": "string",
-						"enum": [
-							"png",
-							"jpeg",
-							"svg",
-							"pdf"
-						]
+						"enum": ["png", "jpeg", "svg", "pdf"]
 					},
 					"required": false
 				}
@@ -61,12 +102,18 @@
 							"type": "string"
 						}
 					},
-					"required": [
-						"data",
-						"mime_type"
-					]
+					"required": ["data", "mime_type"]
 				}
 			}
 		}
-	]
+	],
+	"components": {
+		"schemas": {
+			"plot_unit": {
+				"type": "string",
+				"description": "The unit of measurement of a plot's dimensions",
+				"enum": ["pixels", "inches"]
+			}
+		}
+	}
 }
