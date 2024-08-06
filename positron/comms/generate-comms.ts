@@ -594,7 +594,14 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: serde_json::Value,\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, [param.name], param.schema)},\n`;
+						yield `\tpub ${param.name}: `
+						if (param.required === false) {
+							yield `Option<`;
+						}
+						yield deriveType(contracts, RustTypeMap, [param.name], param.schema);
+						if (param.required === false) {
+							yield `>,\n`;
+						}
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -1383,6 +1390,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
+				}
+				if (param.required === false) {
+					yield ' | undefined';
 				}
 				if (i < method.params.length - 1) {
 					yield ', ';
