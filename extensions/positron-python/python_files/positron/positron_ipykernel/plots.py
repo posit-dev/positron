@@ -17,6 +17,7 @@ from .plot_comm import (
     PlotBackendMessageContent,
     PlotFrontendEvent,
     PlotResult,
+    PlotSize,
     PlotUnit,
     RenderRequest,
 )
@@ -114,8 +115,7 @@ class Plot:
         request = msg.content.data
         if isinstance(request, RenderRequest):
             self._handle_render(
-                request.params.width,
-                request.params.height,
+                request.params.size,
                 request.params.pixel_ratio,
                 request.params.format,
             )
@@ -126,12 +126,11 @@ class Plot:
 
     def _handle_render(
         self,
-        width_px: int,
-        height_px: int,
+        size: Optional[PlotSize],
         pixel_ratio: float,
         format: str,
     ) -> None:
-        rendered = self._render(width_px, height_px, pixel_ratio, format)
+        rendered = self._render(size, pixel_ratio, format)
         data = base64.b64encode(rendered).decode()
         result = PlotResult(data=data, mime_type=MIME_TYPE[format]).dict()
         self._comm.send_result(data=result)
@@ -158,7 +157,7 @@ class Renderer(Protocol):
     A callable that renders a plot. See `plot_comm.RenderRequest` for parameter details.
     """
 
-    def __call__(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes: ...
+    def __call__(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes: ...
 
 
 class PlotsService:

@@ -149,8 +149,7 @@ class RenderParams(BaseModel):
         description="The pixel ratio of the display device",
     )
 
-    format: Optional[RenderFormat] = Field(
-        default=None,
+    format: RenderFormat = Field(
         description="The requested plot format",
     )
 
