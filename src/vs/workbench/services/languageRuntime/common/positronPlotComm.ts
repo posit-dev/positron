@@ -156,7 +156,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	 *
 	 * @returns A rendered plot
 	 */
-	render(size: PlotSize, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
+	render(size: PlotSize | undefined, pixelRatio: number, format: RenderFormat | undefined): Promise<PlotResult> {
 		return super.performRpc('render', ['size', 'pixel_ratio', 'format'], [size, pixelRatio, format]);
 	}
 

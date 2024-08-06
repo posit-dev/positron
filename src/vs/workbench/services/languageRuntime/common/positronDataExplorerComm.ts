@@ -1138,7 +1138,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns undefined
 	 */
-	searchSchema(filters: Array<ColumnFilter>, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
+	searchSchema(filters: Array<ColumnFilter>, startIndex: number | undefined, maxResults: number): Promise<SearchSchemaResult> {
 		return super.performRpc('search_schema', ['filters', 'start_index', 'max_results'], [filters, startIndex, maxResults]);
 	}
 
@@ -1214,7 +1214,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns undefined
 	 */
-	getColumnProfiles(profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<Array<ColumnProfileResult>> {
+	getColumnProfiles(profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions | undefined): Promise<Array<ColumnProfileResult>> {
 		return super.performRpc('get_column_profiles', ['profiles', 'format_options'], [profiles, formatOptions]);
 	}
 
