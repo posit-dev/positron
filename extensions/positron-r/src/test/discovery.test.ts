@@ -9,9 +9,19 @@ import * as Sinon from 'sinon';
 import { findRBinaryFromPATHWindows } from '../provider';
 import path = require('path');
 
-suite('Discovery', () => {
 
-	const r432 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\x64\\\\R.exe';
+function createReadFileSyncStub(returnValue: string | Buffer): Sinon.SinonStub {
+	return Sinon.stub(Fs, "readFileSync").callsFake((path: number | Fs.PathLike, options?: any): string | Buffer => {
+		if (typeof options === 'string' || options === null || options === undefined) {
+			return returnValue as string;
+		} else if (options && typeof options === 'object' && 'encoding' in options) {
+			return returnValue as string;
+		}
+		return Buffer.from(returnValue as string);
+	});
+}
+
+suite('Discovery', () => {
 
 	let pathSepStub: Sinon.SinonStub;
 	let readFileSyncStub: Sinon.SinonStub;
@@ -25,40 +35,75 @@ suite('Discovery', () => {
 			value: 'win32'
 		});
 
-		readFileSyncStub = Sinon.stub(Fs, "readFileSync").callsFake((path: number | Fs.PathLike, options?: any): string | Buffer => {
-			if (typeof options === 'string' || options === null || options === undefined) {
-				return r432;
-			} else if (options && typeof options === 'object' && 'encoding' in options) {
-				return r432;
-			}
-			return Buffer.from(r432);
-		});
-
 		existsSyncStub = Sinon.stub(Fs, 'existsSync').returns(true);
 
 		pathSepStub = Sinon.stub(path, 'sep').value('\\\\');
 
 		pathJoinStub = Sinon.stub(path, 'join').callsFake((...args: string[]) => {
-			// Define the mock behavior, e.g., join paths with a custom separator
 			return args.join('\\\\');
-		  });
+		});
 
 	});
 
 	suiteTeardown(function () {
 		Object.defineProperty(process, 'platform', this.originalPlatform);
-		readFileSyncStub.restore();
 		existsSyncStub.restore();
 		pathSepStub.restore();
 		pathJoinStub.restore();
 	});
 
+	suite('Discovery - C:\\Program Files\\R\\R-4.3.2\\bin\\x64\\R.exe', () => {
 
-	test('Find R on Windows path', async () => {
+		const r432 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\x64\\\\R.exe';
 
-		const result = await findRBinaryFromPATHWindows(r432);
+		suiteSetup(function () {
+			readFileSyncStub = createReadFileSyncStub(r432);
+		});
 
-		assert.strictEqual(result, r432);
+		suiteTeardown(function () {
+			readFileSyncStub.restore();
+		});
 
+		test('Find R on Windows path', async () => {
+			const result = await findRBinaryFromPATHWindows(r432);
+			assert.strictEqual(result, r432);
+		});
+	});
+
+	suite('Discovery - C:\\Program Files\\R\\bin\\R.BAT', () => {
+
+		const rbat = 'C:\\\\Program Files\\\\R\\\\bin\\\\R.BAT';
+
+		suiteSetup(function () {
+			readFileSyncStub = createReadFileSyncStub(rbat);
+		});
+
+		suiteTeardown(function () {
+			readFileSyncStub.restore();
+		});
+
+		test('Find R on Windows path', async () => {
+			const result = await findRBinaryFromPATHWindows(rbat);
+			assert.strictEqual(result, undefined);
+		});
+	});
+
+	suite('Discovery - C:\\Program Files\\R\\R-4.3.2\\bin\\R.exe with x64 version', () => {
+
+		const x64 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\x64\\\\R.exe';
+		const x32 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\R.exe';
+
+		suiteSetup(function () {
+			readFileSyncStub = createReadFileSyncStub(x32);
+		});
+
+		suiteTeardown(function () {
+			readFileSyncStub.restore();
+		});
+
+		test('Find R on Windows path', async () => {
+			const result = await findRBinaryFromPATHWindows(x32);
+			assert.strictEqual(result, x64);
+		});
 	});
 });
