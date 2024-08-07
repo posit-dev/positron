@@ -56,29 +56,29 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		// it('Start an interpreter - R', async function () {
-		// 	// Start an R interpreter using the interpreter dropdown
-		// 	await expect(
-		// 		async () =>
-		// 			await interpreterDropdown.selectInterpreter('R', desiredR)
-		// 	).toPass({ timeout: 15_000 });
+		it('Start an interpreter - R', async function () {
+			// Start an R interpreter using the interpreter dropdown
+			await expect(
+				async () =>
+					await interpreterDropdown.selectInterpreter('R', desiredR)
+			).toPass({ timeout: 15_000 });
 
-		// 	// Wait for the console to be ready
-		// 	await app.workbench.positronConsole.waitForReady('>>>', 10000);
+			// Wait for the console to be ready
+			await app.workbench.positronConsole.waitForReady('>', 10000);
 
-		// 	// The interpreter selected in the dropdown matches the desired interpreter
-		// 	const interpreterInfo = await interpreterDropdown.getSelectedInterpreterInfo();
-		// 	expect(interpreterInfo?.version).toBeDefined();
-		// 	expect(interpreterInfo!.version).toContain(desiredR);
-		// 	expect(interpreterInfo!.path).toBeDefined();
+			// The interpreter selected in the dropdown matches the desired interpreter
+			const interpreterInfo = await interpreterDropdown.getSelectedInterpreterInfo();
+			expect(interpreterInfo?.version).toBeDefined();
+			expect(interpreterInfo!.version).toContain(desiredR);
+			expect(interpreterInfo!.path).toBeDefined();
 
-		// 	// The interpreter dropdown should show the expected running indicators
-		// 	expect(
-		// 		await interpreterDropdown.primaryInterpreterShowsRunning(
-		// 			interpreterInfo!.path
-		// 		)
-		// 	).toBe(true);
-		// });
+			// The interpreter dropdown should show the expected running indicators
+			expect(
+				await interpreterDropdown.primaryInterpreterShowsRunning(
+					interpreterInfo!.path
+				)
+			).toBe(true);
+		});
 
 		// it('Restart the active interpreter', async function () {
 		// 	// Now, restart the active interpreter
