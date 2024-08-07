@@ -14,6 +14,7 @@
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
 	"serverDataFolderName": ".positron-server",
+	"serverDownloadUrlTemplate": "https://github.com/posit-dev/positron/releases/download/${version}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",
 	"win32NameVersion": "Positron",
@@ -207,7 +208,7 @@
 		},
 		{
 			"name": "quarto.quarto",
-			"version": "1.113.0",
+			"version": "1.114.0",
 			"repo": "https://github.com/quarto-dev/quarto/tree/main/apps/vscode",
 			"metadata": {
 				"id": "a1be81fc-0f3a-4f2e-92ee-3fdc7ab96c73",

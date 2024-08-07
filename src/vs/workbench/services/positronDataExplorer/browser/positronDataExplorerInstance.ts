@@ -20,6 +20,8 @@ import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronData
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 
 /**
  * Constants.
@@ -109,6 +111,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
 		private readonly _notificationService: INotificationService,
+		private readonly _editorService: IEditorService,
 		private readonly _languageName: string,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
@@ -141,6 +144,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		this._register(this._tableSchemaDataGridInstance.onDidSelectColumn(columnIndex => {
 			this._tableDataDataGridInstance.selectColumn(columnIndex);
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
+		}));
+
+		this._register(this.onDidRequestFocus(() => {
+			const uri = PositronDataExplorerUri.generate(this._dataExplorerClientInstance.identifier);
+			this._editorService.openEditor({ resource: uri });
 		}));
 	}
 

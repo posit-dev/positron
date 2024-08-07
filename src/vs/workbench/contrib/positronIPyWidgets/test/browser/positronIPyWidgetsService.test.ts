@@ -124,6 +124,34 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		assert(!positronIpywidgetsService.hasInstance(plotClient.id));
 	});
 
+	test('console session: respond to result message type and check for memory leaks', async () => {
+		const { session } = await createConsoleSession();
+
+		// Simulate the runtime sending a result message.
+		const message = session.receiveResultMessage({
+			kind: RuntimeOutputKind.IPyWidget,
+			data: {
+				'application/vnd.jupyter.widget-view+json': {},
+			},
+		});
+
+		await timeout(0);
+
+		assert(positronIpywidgetsService.hasInstance(message.id));
+		// Note that we don't end the session here. This helps us check for memory leaks caused by
+		// improper disposal of listeners
+	});
+
+	test('notebook session: check for memory leaks', async () => {
+		const { session } = await createNotebookSession();
+
+		await timeout(0);
+
+		assert(positronIpywidgetsService.hasInstance(session.sessionId));
+		// Note that we don't end the session here. This helps us check for memory leaks caused by
+		// improper disposal of listeners
+	});
+
 	async function createNotebookSession() {
 		const notebookUri = URI.file('notebook.ipynb');
 

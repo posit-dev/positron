@@ -1488,9 +1488,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				if (languageRuntimeMessageOutput.kind === RuntimeOutputKind.ViewerWidget) {
-					// If it's a viewer widget type it's already being shown in the viewer pane so
-					// we don't want to double display it in the console as well.
+				if (
+					languageRuntimeMessageOutput.kind === RuntimeOutputKind.ViewerWidget ||
+					languageRuntimeMessageOutput.kind === RuntimeOutputKind.IPyWidget
+				) {
+					// If this message will be handled by the viewer or plots pane, we can break
+					// early to avoid displaying potentially long output in the console.
 					return;
 				}
 

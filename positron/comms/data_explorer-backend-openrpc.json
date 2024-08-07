@@ -8,11 +8,11 @@
 		{
 			"name": "get_schema",
 			"summary": "Request schema",
-			"description": "Request full schema for a table-like object",
+			"description": "Request subset of column schemas for a table-like object",
             "params": [
                 {
                     "name": "column_indices",
-                    "description": "The column indices to fetch",
+                    "description": "The column indices (relative to the filtered/selected columns) to fetch",
                     "required": true,
                     "schema": {
                         "type": "array",
@@ -30,8 +30,8 @@
 		},
 		{
 			"name": "search_schema",
-			"summary": "Search schema with column filters",
-			"description": "Search schema for column names matching a passed substring",
+			"summary": "Search full, unfiltered table schema with column filters",
+			"description": "Search full, unfiltered table schema for column names matching one or more column filters",
 			"params": [
 				{
 					"name": "filters",
@@ -66,7 +66,7 @@
 					"name": "search_schema_result",
 					"type": "object",
 					"required": [
-						"schema",
+						"matches",
 						"total_num_matches"
 					],
 					"properties": {
@@ -84,33 +84,17 @@
 		},
 		{
 			"name": "get_data_values",
-			"summary": "Get a rectangle of data values",
-			"description": "Request a rectangular subset of data with values formatted as strings",
+			"summary": "Request formatted values from table columns",
+			"description": "Request data from table columns with values formatted as strings",
 			"params": [
 				{
-					"name": "row_start_index",
-					"description": "First row to fetch (inclusive)",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "num_rows",
-					"description": "Number of rows to fetch from start index. May extend beyond end of table",
-					"required": true,
-					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "column_indices",
-					"description": "Indices to select, which can be a sequential, sparse, or random selection",
+					"name": "columns",
+					"description": "Array of column selections",
 					"required": true,
 					"schema": {
 						"type": "array",
 						"items": {
-							"type": "integer"
+							"$ref": "#/components/schemas/column_selection"
 						}
 					}
 				},
@@ -125,8 +109,37 @@
 			],
 			"result": {
 				"schema": {
-					"description": "Table values formatted as strings",
+					"description": "Requested values formatted as strings",
 					"$ref": "#/components/schemas/table_data"
+				}
+			}
+		},
+		{
+			"name": "get_row_labels",
+			"summary": "Request formatted row labels from table",
+			"description": "Request formatted row labels from table",
+			"params": [
+				{
+					"name": "selection",
+					"description": "Selection of row labels",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/array_selection"
+					}
+				},
+				{
+					"name": "format_options",
+					"description": "Formatting options for returning labels as strings",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/format_options"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"description": "Requested formatted row labels",
+					"$ref": "#/components/schemas/table_row_labels"
 				}
 			}
 		},
@@ -140,7 +153,7 @@
 					"description": "The data selection",
 					"required": true,
 					"schema": {
-						"$ref": "#/components/schemas/data_selection"
+						"$ref": "#/components/schemas/table_selection"
 					}
 				},
 				{
@@ -175,9 +188,28 @@
 			}
 		},
 		{
+			"name": "set_column_filters",
+			"summary": "Set column filters to select subset of table columns",
+			"description": "Set or clear column filters on table, replacing any previous filters",
+			"params": [
+				{
+					"name": "filters",
+					"description": "Column filters to apply (or pass empty array to clear column filters)",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "set_row_filters",
 			"summary": "Set row filters based on column values",
-			"description": "Set or clear row filters on table, replacing any previous filters",
+			"description": "Row filters to apply (or pass empty array to clear row filters)",
 			"params": [
 				{
 					"name": "filters",
@@ -269,7 +301,7 @@
 		{
 			"name": "get_state",
 			"summary": "Get the state",
-			"description": "Request the current backend state (shape, filters, sort keys, features)",
+			"description": "Request the current backend state (table metadata, explorer state, and features)",
 			"params": [],
 			"result": {
 				"schema": {
@@ -280,6 +312,8 @@
 						"display_name",
 						"table_shape",
 						"table_unfiltered_shape",
+						"has_row_labels",
+						"column_filters",
 						"row_filters",
 						"sort_keys",
 						"supported_features"
@@ -290,23 +324,34 @@
 							"description": "Variable name or other string to display for tab name in UI"
 						},
 						"table_shape": {
-							"description": "Number of rows and columns in table with filters applied",
+							"description": "Number of rows and columns in table with row/column filters applied",
 							"$ref": "#/components/schemas/table_shape"
 						},
 						"table_unfiltered_shape": {
 							"description": "Number of rows and columns in table without any filters applied",
 							"$ref": "#/components/schemas/table_shape"
 						},
+						"has_row_labels": {
+							"type": "boolean",
+							"description": "Indicates whether table has row labels or whether rows should be labeled by ordinal position"
+						},
+						"column_filters": {
+							"type": "array",
+							"description": "The currently applied column filters",
+							"items": {
+								"$ref": "#/components/schemas/column_filter"
+							}
+						},
 						"row_filters": {
 							"type": "array",
-							"description": "The set of currently applied row filters",
+							"description": "The currently applied row filters",
 							"items": {
 								"$ref": "#/components/schemas/row_filter"
 							}
 						},
 						"sort_keys": {
 							"type": "array",
-							"description": "The set of currently applied sorts",
+							"description": "The currently applied column sort keys",
 							"items": {
 								"$ref": "#/components/schemas/column_sort_key"
 							}
@@ -355,7 +400,7 @@
 					},
 					"column_index": {
 						"type": "integer",
-						"description": "The position of the column within the schema"
+						"description": "The position of the column within the table without any column filters"
 					},
 					"type_name": {
 						"type": "string",
@@ -423,13 +468,22 @@
 								"$ref": "#/components/schemas/column_value"
 							}
 						}
-					},
+					}
+				}
+			},
+			"table_row_labels": {
+				"type": "object",
+				"description": "Formatted table row labels formatted as strings",
+				"required": [
+					"row_labels"
+				],
+				"properties": {
 					"row_labels": {
 						"type": "array",
 						"description": "Zero or more arrays of row labels",
 						"items": {
 							"type": "array",
-							"description": "Column values formatted as strings",
+							"description": "Row labels formatted as strings",
 							"items": {
 								"type": "string"
 							}
@@ -784,7 +838,7 @@
 				"properties": {
 					"column_index": {
 						"type": "integer",
-						"description": "The ordinal column index to profile"
+						"description": "The column index (absolute, relative to unfiltered table) to profile"
 					},
 					"profiles": {
 						"type": "array",
@@ -1040,9 +1094,17 @@
 				"type": "object",
 				"description": "Parameters for a column histogram profile request",
 				"required": [
-					"num_bins"
+					"method"
 				],
 				"properties": {
+					"method": {
+						"description": "Method for determining number of bins",
+						"type": "string",
+						"enum": [
+							"sturges",
+							"fixed"
+						]
+					},
 					"num_bins": {
 						"type": "integer",
 						"description": "Number of bins in the computed histogram"
@@ -1162,7 +1224,7 @@
 				"properties": {
 					"column_index": {
 						"type": "integer",
-						"description": "Column index to sort by"
+						"description": "Column index (absolute, relative to unfiltered table) to sort by"
 					},
 					"ascending": {
 						"type": "boolean",
@@ -1175,6 +1237,7 @@
 				"description": "For each field, returns flags indicating supported features",
 				"required": [
 					"search_schema",
+					"set_column_filters",
 					"set_row_filters",
 					"get_column_profiles",
 					"set_sort_columns",
@@ -1184,6 +1247,10 @@
 					"search_schema": {
 						"description": "Support for 'search_schema' RPC and its features",
 						"$ref": "#/components/schemas/search_schema_features"
+					},
+					"set_column_filters": {
+						"description": "Support ofr 'set_column_filters' RPC and its features",
+						"$ref": "#/components/schemas/set_column_filters_features"
 					},
 					"set_row_filters": {
 						"description": "Support for 'set_row_filters' RPC and its features",
@@ -1206,6 +1273,27 @@
 			"search_schema_features": {
 				"type": "object",
 				"description": "Feature flags for 'search_schema' RPC",
+				"required": [
+					"support_status",
+					"supported_types"
+				],
+				"properties": {
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
+					},
+					"supported_types": {
+						"type": "array",
+						"description": "A list of supported types",
+						"items": {
+							"$ref": "#/components/schemas/column_filter_type_support_status"
+						}
+					}
+				}
+			},
+			"set_column_filters_features": {
+				"type": "object",
+				"description": "Feature flags for 'set_column_filters' RPC",
 				"required": [
 					"support_status",
 					"supported_types"
@@ -1305,7 +1393,7 @@
 					}
 				}
 			},
-			"data_selection": {
+			"table_selection": {
 				"type": "object",
 				"description": "A selection on the data grid, for copying to the clipboard or other actions",
 				"required": [
@@ -1315,7 +1403,7 @@
 				"properties": {
 					"kind": {
 						"type": "string",
-						"description": "Type of selection",
+						"description": "Type of selection, all indices relative to filtered row/column indices",
 						"enum": [
 							"single_cell",
 							"cell_range",
@@ -1427,6 +1515,37 @@
 						}
 					}
 				}
+			},
+			"column_selection": {
+				"type": "object",
+				"description": "A union of different selection types for column values",
+				"required": [
+					"column_index",
+					"spec"
+				],
+				"properties": {
+					"column_index": {
+						"type": "integer",
+						"description": "Column index (relative to unfiltered schema) to select data from"
+					},
+					"spec": {
+						"description": "Union of selection specifications for array_selection",
+						"$ref": "#/components/schemas/array_selection"
+					}
+				}
+			},
+			"array_selection": {
+				"description": "Union of selection specifications for array_selection",
+				"oneOf": [
+					{
+						"name": "select_range",
+						"$ref": "#/components/schemas/data_selection_range"
+					},
+					{
+						"name": "select_indices",
+						"$ref": "#/components/schemas/data_selection_indices"
+					}
+				]
 			},
 			"export_format": {
 				"type": "string",

@@ -18,7 +18,7 @@ export interface SearchSchemaResult {
 	/**
 	 * A schema containing matching columns up to the max_results limit
 	 */
-	matches?: TableSchema;
+	matches: TableSchema;
 
 	/**
 	 * The total number of columns matching the filter
@@ -69,7 +69,7 @@ export interface BackendState {
 	display_name: string;
 
 	/**
-	 * Number of rows and columns in table with filters applied
+	 * Number of rows and columns in table with row/column filters applied
 	 */
 	table_shape: TableShape;
 
@@ -79,12 +79,23 @@ export interface BackendState {
 	table_unfiltered_shape: TableShape;
 
 	/**
-	 * The set of currently applied row filters
+	 * Indicates whether table has row labels or whether rows should be
+	 * labeled by ordinal position
+	 */
+	has_row_labels: boolean;
+
+	/**
+	 * The currently applied column filters
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * The currently applied row filters
 	 */
 	row_filters: Array<RowFilter>;
 
 	/**
-	 * The set of currently applied sorts
+	 * The currently applied column sort keys
 	 */
 	sort_keys: Array<ColumnSortKey>;
 
@@ -105,7 +116,7 @@ export interface ColumnSchema {
 	column_name: string;
 
 	/**
-	 * The position of the column within the schema
+	 * The position of the column within the table without any column filters
 	 */
 	column_index: number;
 
@@ -160,10 +171,16 @@ export interface TableData {
 	 */
 	columns: Array<Array<ColumnValue>>;
 
+}
+
+/**
+ * Formatted table row labels formatted as strings
+ */
+export interface TableRowLabels {
 	/**
 	 * Zero or more arrays of row labels
 	 */
-	row_labels?: Array<Array<string>>;
+	row_labels: Array<Array<string>>;
 
 }
 
@@ -405,7 +422,7 @@ export interface ColumnFilterTypeSupportStatus {
  */
 export interface ColumnProfileRequest {
 	/**
-	 * The ordinal column index to profile
+	 * The column index (absolute, relative to unfiltered table) to profile
 	 */
 	column_index: number;
 
@@ -646,9 +663,14 @@ export interface SummaryStatsDatetime {
  */
 export interface ColumnHistogramParams {
 	/**
+	 * Method for determining number of bins
+	 */
+	method: ColumnHistogramParamsMethod;
+
+	/**
 	 * Number of bins in the computed histogram
 	 */
-	num_bins: number;
+	num_bins?: number;
 
 	/**
 	 * Sample quantiles (numbers between 0 and 1) to compute along with the
@@ -740,7 +762,7 @@ export interface ColumnQuantileValue {
  */
 export interface ColumnSortKey {
 	/**
-	 * Column index to sort by
+	 * Column index (absolute, relative to unfiltered table) to sort by
 	 */
 	column_index: number;
 
@@ -759,6 +781,11 @@ export interface SupportedFeatures {
 	 * Support for 'search_schema' RPC and its features
 	 */
 	search_schema: SearchSchemaFeatures;
+
+	/**
+	 * Support ofr 'set_column_filters' RPC and its features
+	 */
+	set_column_filters: SetColumnFiltersFeatures;
 
 	/**
 	 * Support for 'set_row_filters' RPC and its features
@@ -786,6 +813,22 @@ export interface SupportedFeatures {
  * Feature flags for 'search_schema' RPC
  */
 export interface SearchSchemaFeatures {
+	/**
+	 * The support status for this RPC method
+	 */
+	support_status: SupportStatus;
+
+	/**
+	 * A list of supported types
+	 */
+	supported_types: Array<ColumnFilterTypeSupportStatus>;
+
+}
+
+/**
+ * Feature flags for 'set_column_filters' RPC
+ */
+export interface SetColumnFiltersFeatures {
 	/**
 	 * The support status for this RPC method
 	 */
@@ -866,11 +909,11 @@ export interface SetSortColumnsFeatures {
  * A selection on the data grid, for copying to the clipboard or other
  * actions
  */
-export interface DataSelection {
+export interface TableSelection {
 	/**
-	 * Type of selection
+	 * Type of selection, all indices relative to filtered row/column indices
 	 */
-	kind: DataSelectionKind;
+	kind: TableSelectionKind;
 
 	/**
 	 * A union of selection types
@@ -948,6 +991,22 @@ export interface DataSelectionIndices {
 
 }
 
+/**
+ * A union of different selection types for column values
+ */
+export interface ColumnSelection {
+	/**
+	 * Column index (relative to unfiltered schema) to select data from
+	 */
+	column_index: number;
+
+	/**
+	 * Union of selection specifications for array_selection
+	 */
+	spec: ArraySelection;
+
+}
+
 /// ColumnValue
 export type ColumnValue = number | string;
 
@@ -962,6 +1021,9 @@ export type ColumnProfileParams = ColumnHistogramParams | ColumnFrequencyTablePa
 
 /// A union of selection types
 export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
+
+/// Union of selection specifications for array_selection
+export type ArraySelection = DataSelectionRange | DataSelectionIndices;
 
 /**
  * Possible values for ColumnDisplayType
@@ -1045,9 +1107,17 @@ export enum ColumnProfileType {
 }
 
 /**
- * Possible values for Kind in DataSelection
+ * Possible values for Method in ColumnHistogramParams
  */
-export enum DataSelectionKind {
+export enum ColumnHistogramParamsMethod {
+	Sturges = 'sturges',
+	Fixed = 'fixed'
+}
+
+/**
+ * Possible values for Kind in TableSelection
+ */
+export enum TableSelectionKind {
 	SingleCell = 'single_cell',
 	CellRange = 'cell_range',
 	ColumnRange = 'column_range',
@@ -1095,7 +1165,9 @@ export enum DataExplorerBackendRequest {
 	GetSchema = 'get_schema',
 	SearchSchema = 'search_schema',
 	GetDataValues = 'get_data_values',
+	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
 	GetColumnProfiles = 'get_column_profiles',
@@ -1115,9 +1187,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Request schema
 	 *
-	 * Request full schema for a table-like object
+	 * Request subset of column schemas for a table-like object
 	 *
-	 * @param columnIndices The column indices to fetch
+	 * @param columnIndices The column indices (relative to the
+	 * filtered/selected columns) to fetch
 	 *
 	 * @returns undefined
 	 */
@@ -1126,9 +1199,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Search schema with column filters
+	 * Search full, unfiltered table schema with column filters
 	 *
-	 * Search schema for column names matching a passed substring
+	 * Search full, unfiltered table schema for column names matching one or
+	 * more column filters
 	 *
 	 * @param filters Column filters to apply when searching
 	 * @param startIndex Index (starting from zero) of first result to fetch
@@ -1143,22 +1217,33 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Get a rectangle of data values
+	 * Request formatted values from table columns
 	 *
-	 * Request a rectangular subset of data with values formatted as strings
+	 * Request data from table columns with values formatted as strings
 	 *
-	 * @param rowStartIndex First row to fetch (inclusive)
-	 * @param numRows Number of rows to fetch from start index. May extend
-	 * beyond end of table
-	 * @param columnIndices Indices to select, which can be a sequential,
-	 * sparse, or random selection
+	 * @param columns Array of column selections
 	 * @param formatOptions Formatting options for returning data values as
 	 * strings
 	 *
-	 * @returns Table values formatted as strings
+	 * @returns Requested values formatted as strings
 	 */
-	getDataValues(rowStartIndex: number, numRows: number, columnIndices: Array<number>, formatOptions: FormatOptions): Promise<TableData> {
-		return super.performRpc('get_data_values', ['row_start_index', 'num_rows', 'column_indices', 'format_options'], [rowStartIndex, numRows, columnIndices, formatOptions]);
+	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData> {
+		return super.performRpc('get_data_values', ['columns', 'format_options'], [columns, formatOptions]);
+	}
+
+	/**
+	 * Request formatted row labels from table
+	 *
+	 * Request formatted row labels from table
+	 *
+	 * @param selection Selection of row labels
+	 * @param formatOptions Formatting options for returning labels as
+	 * strings
+	 *
+	 * @returns Requested formatted row labels
+	 */
+	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels> {
+		return super.performRpc('get_row_labels', ['selection', 'format_options'], [selection, formatOptions]);
 	}
 
 	/**
@@ -1172,14 +1257,27 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns Exported result
 	 */
-	exportDataSelection(selection: DataSelection, format: ExportFormat): Promise<ExportedData> {
+	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
+	}
+
+	/**
+	 * Set column filters to select subset of table columns
+	 *
+	 * Set or clear column filters on table, replacing any previous filters
+	 *
+	 * @param filters Column filters to apply (or pass empty array to clear
+	 * column filters)
+	 *
+	 */
+	setColumnFilters(filters: Array<ColumnFilter>): Promise<void> {
+		return super.performRpc('set_column_filters', ['filters'], [filters]);
 	}
 
 	/**
 	 * Set row filters based on column values
 	 *
-	 * Set or clear row filters on table, replacing any previous filters
+	 * Row filters to apply (or pass empty array to clear row filters)
 	 *
 	 * @param filters Zero or more filters to apply
 	 *
@@ -1221,7 +1319,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Get the state
 	 *
-	 * Request the current backend state (shape, filters, sort keys,
+	 * Request the current backend state (table metadata, explorer state, and
 	 * features)
 	 *
 	 *

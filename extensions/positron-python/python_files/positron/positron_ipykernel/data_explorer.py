@@ -18,7 +18,6 @@ from typing import (
     Dict,
     List,
     Optional,
-    Sequence,
     Set,
     Tuple,
 )
@@ -27,6 +26,7 @@ import comm
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
+    ArraySelection,
     BackendState,
     ColumnDisplayType,
     ColumnFilter,
@@ -36,11 +36,13 @@ from .data_explorer_comm import (
     ColumnFrequencyTableParams,
     ColumnHistogram,
     ColumnHistogramParams,
+    ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
     ColumnProfileType,
     ColumnProfileTypeSupportStatus,
     ColumnSchema,
+    ColumnSelection,
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
@@ -48,7 +50,6 @@ from .data_explorer_comm import (
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
     DataSelectionIndices,
-    DataSelectionKind,
     DataSelectionRange,
     DataSelectionSingleCell,
     ExportDataSelectionFeatures,
@@ -66,6 +67,7 @@ from .data_explorer_comm import (
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
+    GetRowLabelsRequest,
     GetSchemaRequest,
     GetStateRequest,
     RowFilter,
@@ -75,6 +77,8 @@ from .data_explorer_comm import (
     SearchSchemaFeatures,
     SearchSchemaRequest,
     SearchSchemaResult,
+    SetColumnFiltersFeatures,
+    SetColumnFiltersRequest,
     SetRowFiltersFeatures,
     SetRowFiltersRequest,
     SetSortColumnsFeatures,
@@ -87,6 +91,7 @@ from .data_explorer_comm import (
     SupportedFeatures,
     SupportStatus,
     TableSchema,
+    TableSelectionKind,
     TableShape,
     TextSearchType,
 )
@@ -119,7 +124,8 @@ SCHEMA_CACHE_THRESHOLD = 100
 
 class DataExplorerState:
     name: str
-    filters: List[RowFilter]
+    column_filters: List[ColumnFilter]
+    row_filters: List[RowFilter]
     sort_keys: List[ColumnSortKey]
 
     # Maintain a mapping of column index to inferred dtype for any
@@ -131,13 +137,16 @@ class DataExplorerState:
     def __init__(
         self,
         name: str,
-        filters=None,
+        *,
+        column_filters=None,
+        row_filters=None,
         sort_keys=None,
         inferred_dtypes=None,
         schema_cache=None,
     ):
         self.name = name
-        self.filters = filters or []
+        self.column_filters = column_filters or []
+        self.row_filters = row_filters or []
         self.sort_keys = sort_keys or []
         self.inferred_dtypes = inferred_dtypes or {}
         self.schema_cache = schema_cache
@@ -160,9 +169,11 @@ class DataExplorerTableView(abc.ABC):
         self.table = table
         self.state = state
 
+        self.schema_memo = {}
+
         self._set_sort_keys(state.sort_keys)
 
-        self._need_recompute = len(state.filters) > 0 or len(state.sort_keys) > 0
+        self._need_recompute = len(state.row_filters) > 0 or len(state.sort_keys) > 0
 
         # Array of selected ("true") indices using filters. If
         # there are also sort keys, we first filter the unsorted data,
@@ -170,20 +181,21 @@ class DataExplorerTableView(abc.ABC):
         # case that a low-selectivity filters yields less data to sort
         self.filtered_indices = None
 
-        # Array of selected AND reordered indices
+        # Array of selected AND reordered row indices
         # (e.g. including any sorting). If there are no sort keys and
         # only filters, then this should be the same as
         # self.filtered_indices
-        self.view_indices = None
+        self.row_view_indices = None
+
+        # Array of selected column indices
+        self.column_view_indices = None
 
         # We store a tuple of (last_filters, matches) here so that we
         # can support scrolling through the schema search results
         # without having to recompute the search. If the search term
         # changes, we discard the last search result. We might add an
         # LRU cache here or something if it helps performance.
-        self._search_schema_last_result: Optional[Tuple[List[ColumnFilter], List[ColumnSchema]]] = (
-            None
-        )
+        self._search_schema_last_result: Optional[Tuple[List[ColumnFilter], List[int]]] = None
 
         self._update_schema_cache()
 
@@ -198,6 +210,10 @@ class DataExplorerTableView(abc.ABC):
             self.state.schema_cache = [
                 self._get_single_column_schema(i) for i in range(self.table.shape[1])
             ]
+
+    @property
+    def _has_row_labels(self):
+        return False
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -220,9 +236,9 @@ class DataExplorerTableView(abc.ABC):
         else:
             return False
 
-    def _update_view_indices(self):
+    def _update_row_view_indices(self):
         if len(self.state.sort_keys) == 0:
-            self.view_indices = self.filtered_indices
+            self.row_view_indices = self.filtered_indices
         else:
             # If we have just applied a new filter, we now resort to
             # reflect the filtered_indices that have just been updated
@@ -257,40 +273,25 @@ class DataExplorerTableView(abc.ABC):
         if self._search_schema_last_result is not None:
             last_filters, matches = self._search_schema_last_result
             if last_filters != filters:
-                matches = self._search_schema_get_matches(filters)
+                matches = self._column_filter_get_matches(filters)
                 self._search_schema_last_result = (filters, matches)
         else:
-            matches = self._search_schema_get_matches(filters)
+            matches = self._column_filter_get_matches(filters)
             self._search_schema_last_result = (filters, matches)
 
         matches_slice = matches[start_index : start_index + max_results]
         return SearchSchemaResult(
-            matches=TableSchema(columns=matches_slice),
+            matches=TableSchema(columns=[self._get_single_column_schema(i) for i in matches_slice]),
             total_num_matches=len(matches),
         ).dict()
 
-    def _search_schema_get_matches(self, filters: List[ColumnFilter]) -> List[ColumnSchema]:
+    def _column_filter_get_matches(self, filters: List[ColumnFilter]):
         matchers = self._get_column_filter_functions(filters)
 
-        parent = self
-
-        class SchemaMemo:
-            def __init__(self):
-                self.memo = {}
-
-            def get(self, i):
-                if i in self.memo:
-                    return self.memo[i]
-                else:
-                    schema = parent._get_single_column_schema(i)
-                    self.memo[i] = schema
-                    return schema
-
-        schema_memo = SchemaMemo()
         matches = [
-            self._get_single_column_schema(column_index)
+            column_index
             for column_index in range(self.table.shape[1])
-            if all(matcher(column_index, schema_memo) for matcher in matchers)
+            if all(matcher(column_index) for matcher in matchers)
         ]
 
         return matches
@@ -308,14 +309,14 @@ class DataExplorerTableView(abc.ABC):
                 def matches(x):
                     return term in x
 
-            def matcher(index, _):
+            def matcher(index):
                 return matches(self._get_column_name(index))
 
             return matcher
 
         def _match_display_types(params: FilterMatchDataTypes):
-            def matcher(index, schema_memo):
-                schema: ColumnSchema = schema_memo.get(index)
+            def matcher(index):
+                schema = self._get_single_column_schema(index)
                 return schema.type_display in params.display_types
 
             return matcher
@@ -339,48 +340,58 @@ class DataExplorerTableView(abc.ABC):
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
         return self._get_data_values(
-            request.params.row_start_index,
-            request.params.num_rows,
-            request.params.column_indices,
+            request.params.columns,
             request.params.format_options,
         )
+
+    def get_row_labels(self, request: GetRowLabelsRequest):
+        self._recompute_if_needed()
+        return self._get_row_labels(
+            request.params.selection,
+            request.params.format_options,
+        )
+
+    def _get_row_labels(self, selection: ArraySelection, format_options: FormatOptions):
+        # By default, the table has no row labels, so this will only
+        # be implemented for pandas
+        return {"row_labels": []}
 
     def export_data_selection(self, request: ExportDataSelectionRequest):
         self._recompute_if_needed()
         kind = request.params.selection.kind
         sel = request.params.selection.selection
         fmt = request.params.format
-        if kind == DataSelectionKind.SingleCell:
+        if kind == TableSelectionKind.SingleCell:
             assert isinstance(sel, DataSelectionSingleCell)
             row_index = sel.row_index
-            if self.view_indices is not None:
-                row_index = self.view_indices[row_index]
+            if self.row_view_indices is not None:
+                row_index = self.row_view_indices[row_index]
             return self._export_cell(row_index, sel.column_index, fmt)
-        elif kind == DataSelectionKind.CellRange:
+        elif kind == TableSelectionKind.CellRange:
             assert isinstance(sel, DataSelectionCellRange)
             return self._export_tabular(
                 slice(sel.first_row_index, sel.last_row_index + 1),
                 slice(sel.first_column_index, sel.last_column_index + 1),
                 fmt,
             )
-        elif kind == DataSelectionKind.RowRange:
+        elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
                 slice(sel.first_index, sel.last_index + 1),
                 slice(None),
                 fmt,
             )
-        elif kind == DataSelectionKind.ColumnRange:
+        elif kind == TableSelectionKind.ColumnRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
                 slice(None),
                 slice(sel.first_index, sel.last_index + 1),
                 fmt,
             )
-        elif kind == DataSelectionKind.RowIndices:
+        elif kind == TableSelectionKind.RowIndices:
             assert isinstance(sel, DataSelectionIndices)
             return self._export_tabular(sel.indices, slice(None), fmt)
-        elif kind == DataSelectionKind.ColumnIndices:
+        elif kind == TableSelectionKind.ColumnIndices:
             assert isinstance(sel, DataSelectionIndices)
             return self._export_tabular(slice(None), sel.indices, fmt)
         else:
@@ -392,22 +403,28 @@ class DataExplorerTableView(abc.ABC):
     def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
         raise NotImplementedError
 
-    def set_row_filters(self, request: SetRowFiltersRequest):
-        return self._set_row_filters(request.params.filters).dict()
+    def set_column_filters(self, request: SetColumnFiltersRequest):
+        return self._set_column_filters(request.params.filters)
 
-    def _set_row_filters(self, filters: List[RowFilter]) -> FilterResult:
-        self.state.filters = filters
+    def _set_column_filters(self, filters: List[ColumnFilter]):
+        raise NotImplementedError
+
+    def set_row_filters(self, request: SetRowFiltersRequest):
+        return self._set_row_filters(request.params.filters)
+
+    def _set_row_filters(self, filters: List[RowFilter]):
+        self.state.row_filters = filters
         for filt in filters:
             # If is_valid isn't set, set it based on what is currently
             # supported
             if filt.is_valid is None:
                 filt.is_valid = self._is_supported_filter(filt)
 
-        if len(self.state.filters) == 0:
+        if len(self.state.row_filters) == 0:
             # Simply reset if empty filter set passed
             self.filtered_indices = None
-            self._update_view_indices()
-            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
+            self._update_row_view_indices()
+            return FilterResult(selected_num_rows=len(self.table), had_errors=False).dict()
 
         # Evaluate all the filters and combine them using the
         # indicated conditions
@@ -446,8 +463,8 @@ class DataExplorerTableView(abc.ABC):
         )
 
         # Update the view indices, re-sorting if needed
-        self._update_view_indices()
-        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
+        self._update_row_view_indices()
+        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors).dict()
 
     def _mask_to_indices(self, mask):
         raise NotImplementedError
@@ -509,12 +526,38 @@ class DataExplorerTableView(abc.ABC):
 
     def get_state(self, _: GetStateRequest):
         self._recompute_if_needed()
-        return self._get_state().dict()
+
+        num_rows, num_columns = self.table.shape
+
+        # Account for filters
+        if self.row_view_indices is not None:
+            filtered_num_rows = len(self.row_view_indices)
+        else:
+            filtered_num_rows = self.table.shape[0]
+
+        if self.column_view_indices is not None:
+            filtered_num_columns = len(self.column_view_indices)
+        else:
+            filtered_num_columns = self.table.shape[1]
+
+        return BackendState(
+            display_name=self.state.name,
+            table_shape=TableShape(
+                num_rows=filtered_num_rows,
+                num_columns=filtered_num_columns,
+            ),
+            table_unfiltered_shape=TableShape(num_rows=num_rows, num_columns=num_columns),
+            has_row_labels=self._has_row_labels,
+            column_filters=self.state.column_filters,
+            row_filters=self.state.row_filters,
+            sort_keys=self.state.sort_keys,
+            supported_features=self.FEATURES,
+        ).dict()
 
     def _recompute(self):
         # Re-setting the column filters will trigger filtering AND
         # sorting
-        self._set_row_filters(self.state.filters)
+        self._set_row_filters(self.state.row_filters)
 
     def get_updated_state(self, new_table) -> StateUpdate:
         raise NotImplementedError
@@ -529,7 +572,7 @@ class DataExplorerTableView(abc.ABC):
     ):
         # Shared by implementations of get_updated_state
         new_filters = []
-        for filt in self.state.filters:
+        for filt in self.state.row_filters:
             column_index = filt.column_schema.column_index
             column_name = filt.column_schema.column_name
 
@@ -614,9 +657,7 @@ class DataExplorerTableView(abc.ABC):
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         raise NotImplementedError
@@ -707,6 +748,9 @@ class DataExplorerTableView(abc.ABC):
             support_status=SupportStatus.Unsupported,
             supported_types=[],
         ),
+        set_column_filters=SetColumnFiltersFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Unsupported,
             supports_conditions=SupportStatus.Unsupported,
@@ -722,29 +766,6 @@ class DataExplorerTableView(abc.ABC):
             supported_formats=[],
         ),
     )
-
-    def _get_state(self) -> BackendState:
-        table_unfiltered_shape = TableShape(
-            num_rows=self.table.shape[0], num_columns=self.table.shape[1]
-        )
-
-        if self.view_indices is not None:
-            # Account for filters
-            table_shape = TableShape(
-                num_rows=len(self.view_indices),
-                num_columns=self.table.shape[1],
-            )
-        else:
-            table_shape = table_unfiltered_shape
-
-        return BackendState(
-            display_name=self.state.name,
-            table_shape=table_shape,
-            table_unfiltered_shape=table_unfiltered_shape,
-            row_filters=self.state.filters,
-            sort_keys=self.state.sort_keys,
-            supported_features=self.FEATURES,
-        )
 
 
 def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
@@ -1021,6 +1042,11 @@ class PandasView(DataExplorerTableView):
 
         super().__init__(table, state)
 
+    @property
+    def _has_row_labels(self):
+        # pandas always has row labels
+        return True
+
     @classmethod
     def _should_cache_schema(cls, table):
         num_rows, num_columns = table.shape
@@ -1038,7 +1064,7 @@ class PandasView(DataExplorerTableView):
 
     def get_updated_state(self, new_table) -> StateUpdate:
         filtered_columns = {
-            filt.column_schema.column_index: filt.column_schema for filt in self.state.filters
+            filt.column_schema.column_index: filt.column_schema for filt in self.state.row_filters
         }
 
         new_state = DataExplorerState(self.state.name)
@@ -1165,7 +1191,7 @@ class PandasView(DataExplorerTableView):
                 new_state,
             )
 
-        new_state.filters = self._get_adjusted_filters(
+        new_state.row_filters = self._get_adjusted_filters(
             new_table.columns,
             schema_changes,
             shifted_columns,
@@ -1274,50 +1300,61 @@ class PandasView(DataExplorerTableView):
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
             return self.state.schema_cache[column_index]
+        elif column_index in self.schema_memo:
+            return self.schema_memo[column_index]
         else:
-            return self._construct_schema(
+            col_schema = self._construct_schema(
                 self.table.iloc[:, column_index],
                 self.table.columns[column_index],
                 column_index,
                 self.state,
             )
+            self.schema_memo[column_index] = col_schema
+            return col_schema
 
     def _get_column_name(self, index: int):
         return str(self.table.columns[index])
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
+        for selection in selections:
+            col = self.table.iloc[:, selection.column_index]
+            spec = selection.spec
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.take(view_slice)
+                else:
+                    # No filtering or sorting, just slice directly
+                    values = col.iloc[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.take(self.row_view_indices.take(spec.indices))
+                else:
+                    # No filtering or sorting, just slice directly
+                    values = col.take(spec.indices)
 
-        column_indices = sorted(column_indices)
-        columns = []
-        for i in column_indices:
-            # The UI has requested data beyond the end of the table,
-            # so we stop here
-            if i >= len(self.table.columns):
-                break
-            columns.append(self.table.iloc[:, i])
+            formatted_columns.append(self._format_values(values, format_options))
 
-        formatted_columns = []
+        # Bypass pydantic model for speed
+        return {"columns": formatted_columns}
 
-        if self.view_indices is not None:
-            # If the table is either filtered or sorted, use a slice
-            # the view_indices to select the virtual range of values
-            # for the grid
-            view_slice = self.view_indices[row_start : row_start + num_rows]
-            columns = [col.take(view_slice) for col in columns]
-            indices = self.table.index.take(view_slice)
+    def _get_row_labels(self, selection: ArraySelection, _: FormatOptions):
+        if isinstance(selection, DataSelectionRange):
+            if self.row_view_indices is not None:
+                view_slice = self.row_view_indices[selection.first_index : selection.last_index + 1]
+                indices = self.table.index.take(view_slice)
+            else:
+                indices = self.table.index[selection.first_index : selection.last_index + 1]
         else:
-            # No filtering or sorting, just slice directly
-            indices = self.table.index[row_start : row_start + num_rows]
-            columns = [col.iloc[row_start : row_start + num_rows] for col in columns]
-
-        formatted_columns = [self._format_values(col, format_options) for col in columns]
+            if self.row_view_indices is not None:
+                indices = self.table.index.take(self.row_view_indices.take(selection.indices))
+            else:
+                indices = self.table.index.take(selection.indices)
 
         # Currently, we format MultiIndex in its flat tuple
         # representation. In the future we will return multiple lists
@@ -1325,8 +1362,7 @@ class PandasView(DataExplorerTableView):
         if isinstance(self.table.index, pd_.MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [[str(x) for x in indices]]
-        # Bypass pydantic model for speed
-        return {"columns": formatted_columns, "row_labels": row_labels}
+        return {"row_labels": row_labels}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -1357,8 +1393,8 @@ class PandasView(DataExplorerTableView):
     def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
         from io import StringIO
 
-        if self.view_indices is not None:
-            row_selector = self.view_indices[row_selector]
+        if self.row_view_indices is not None:
+            row_selector = self.row_view_indices[row_selector]
 
         to_export = self.table.iloc[row_selector, column_selector]
         buf = StringIO()
@@ -1522,10 +1558,10 @@ class PandasView(DataExplorerTableView):
                 # Reorder the filtered_indices to provide the
                 # filtered, sorted virtual view for future data
                 # requests
-                self.view_indices = self.filtered_indices.take(sort_indexer)
+                self.row_view_indices = self.filtered_indices.take(sort_indexer)
             else:
                 # Data is not filtered
-                self.view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
+                self.row_view_indices = nargsort(column, kind="mergesort", ascending=key.ascending)
         elif len(self.state.sort_keys) > 1:
             # Multiple sorting keys
             cols_to_sort = []
@@ -1539,12 +1575,12 @@ class PandasView(DataExplorerTableView):
             sort_indexer = lexsort_indexer(cols_to_sort, directions)
             if self.filtered_indices is not None:
                 # Create the filtered, sorted virtual view indices
-                self.view_indices = self.filtered_indices.take(sort_indexer)
+                self.row_view_indices = self.filtered_indices.take(sort_indexer)
             else:
-                self.view_indices = sort_indexer
+                self.row_view_indices = sort_indexer
         else:
             # This will be None if the data is unfiltered
-            self.view_indices = self.filtered_indices
+            self.row_view_indices = self.filtered_indices
 
     def _get_column(self, column_index: int) -> "pd.Series":
         column = self.table.iloc[:, column_index]
@@ -1600,7 +1636,12 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             data = data.view(np_.int64)
 
-        bin_counts, bin_edges = np_.histogram(data, bins=params.num_bins)
+        if params.method == ColumnHistogramParamsMethod.Fixed:
+            num_bins = params.num_bins
+            assert num_bins is not None
+            bin_counts, bin_edges = np_.histogram(data, bins=num_bins)
+        else:
+            raise NotImplementedError
 
         if is_datetime64:
             # A bit hacky for now, but will replace this with
@@ -1643,6 +1684,9 @@ class PandasView(DataExplorerTableView):
                     support_status=SupportStatus.Supported,
                 ),
             ],
+        ),
+        set_column_filters=SetColumnFiltersFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
         ),
         set_row_filters=SetRowFiltersFeatures(
             support_status=SupportStatus.Supported,
@@ -1826,7 +1870,11 @@ class PolarsView(DataExplorerTableView):
         return table.shape[1] < SCHEMA_CACHE_THRESHOLD
 
     def get_updated_state(self, new_table) -> StateUpdate:
-        new_state = DataExplorerState(self.state.name, self.state.filters, self.state.sort_keys)
+        new_state = DataExplorerState(
+            self.state.name,
+            row_filters=self.state.row_filters,
+            sort_keys=self.state.sort_keys,
+        )
 
         # As of June 2024, polars seems to be really slow for
         # inspecting the metadata of data frames with a large amount
@@ -1898,7 +1946,7 @@ class PolarsView(DataExplorerTableView):
                 column_index,
             )
 
-        new_state.filters = self._get_adjusted_filters(
+        new_state.row_filters = self._get_adjusted_filters(
             new_columns,
             schema_changes,
             shifted_columns,
@@ -1915,9 +1963,13 @@ class PolarsView(DataExplorerTableView):
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
             return self.state.schema_cache[column_index]
+        elif column_index in self.schema_memo:
+            return self.schema_memo[column_index]
         else:
             column = self.table[:, column_index]
-            return self._construct_schema(column, column.name, column_index)
+            col_schema = self._construct_schema(column, column.name, column_index)
+            self.schema_memo[column_index] = col_schema
+            return col_schema
 
     def _get_column_name(self, column_index: int) -> str:
         return self.table[:, column_index].name
@@ -1978,37 +2030,29 @@ class PolarsView(DataExplorerTableView):
 
     def _get_data_values(
         self,
-        row_start: int,
-        num_rows: int,
-        column_indices: Sequence[int],
+        selections: List[ColumnSelection],
         format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
-        column_indices = sorted(column_indices)
-        columns = []
-        for i in column_indices:
-            # The UI has requested data beyond the end of the table,
-            # so we stop here
-            if i >= self.table.shape[1]:
-                break
-            columns.append(self.table[:, i])
-
-        formatted_columns = []
-
-        if self.view_indices is not None:
-            # If the table is either filtered or sorted, use a slice
-            # the view_indices to select the virtual range of values
-            # for the grid
-            view_slice = self.view_indices[row_start : row_start + num_rows]
-            columns = [col.gather(view_slice) for col in columns]
-        else:
-            # No filtering or sorting, just slice
-            columns = [col[row_start : row_start + num_rows] for col in columns]
-
-        formatted_columns = [self._format_values(col, format_options) for col in columns]
+        for selection in selections:
+            col = self.table[:, selection.column_index]
+            spec = selection.spec
+            if isinstance(spec, DataSelectionRange):
+                if self.row_view_indices is not None:
+                    view_slice = self.row_view_indices[spec.first_index : spec.last_index + 1]
+                    values = col.gather(view_slice)
+                else:
+                    # No filtering or sorting, just slice
+                    values = col[spec.first_index : spec.last_index + 1]
+            else:
+                if self.row_view_indices is not None:
+                    values = col.gather(self.row_view_indices.gather(spec.indices))
+                else:
+                    values = col.gather(spec.indices)
+            formatted_columns.append(self._format_values(values, format_options))
 
         # Bypass pydantic model for speed
-        return {"columns": formatted_columns, "row_labels": None}
+        return {"columns": formatted_columns}
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
@@ -2048,8 +2092,8 @@ class PolarsView(DataExplorerTableView):
         return _format_series(values)
 
     def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
-        if self.view_indices is not None:
-            row_selector = self.view_indices[row_selector]
+        if self.row_view_indices is not None:
+            row_selector = self.row_view_indices[row_selector]
 
         to_export = self.table[row_selector, column_selector]
 
@@ -2250,13 +2294,13 @@ class PolarsView(DataExplorerTableView):
             sort_indexer = to_sort[indexer_name]
             if self.filtered_indices is not None:
                 # Create the filtered, sorted virtual view indices
-                self.view_indices = self.filtered_indices.gather(sort_indexer)
+                self.row_view_indices = self.filtered_indices.gather(sort_indexer)
             else:
-                self.view_indices = sort_indexer
+                self.row_view_indices = sort_indexer
         else:
             # No sort keys. This will be None if the data is
             # unfiltered
-            self.view_indices = self.filtered_indices
+            self.row_view_indices = self.filtered_indices
 
     def _prof_null_count(self, column_index: int) -> int:
         return self._get_column(column_index).null_count()
@@ -2321,8 +2365,13 @@ class PolarsView(DataExplorerTableView):
         min_value = data.min()
         max_value = data.max()
         data_span = max_value - min_value  # type: ignore
-        num_bins = params.num_bins
-        bin_size = data_span / num_bins
+
+        if params.method == ColumnHistogramParamsMethod.Fixed:
+            num_bins = params.num_bins
+            assert num_bins is not None
+            bin_size = data_span / num_bins
+        else:
+            raise NotImplementedError
 
         indices = ((data - min_value) / data_span) * num_bins
         indices = indices.cast(pl_.Int64).alias("indices")
@@ -2334,7 +2383,7 @@ class PolarsView(DataExplorerTableView):
         index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
         bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
 
-        bin_edges = min_value + pl_.arange(params.num_bins + 1, eager=True) * bin_size
+        bin_edges = min_value + pl_.arange(num_bins + 1, eager=True) * bin_size
 
         if cast_bin_edges:
             bin_edges = bin_edges.cast(dtype)
@@ -2349,6 +2398,9 @@ class PolarsView(DataExplorerTableView):
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
+            support_status=SupportStatus.Unsupported, supported_types=[]
+        ),
+        set_column_filters=SetColumnFiltersFeatures(
             support_status=SupportStatus.Unsupported, supported_types=[]
         ),
         set_row_filters=SetRowFiltersFeatures(
