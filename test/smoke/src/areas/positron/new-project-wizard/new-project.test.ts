@@ -75,7 +75,8 @@ export function setup(logger: Logger) {
 					await pythonFixtures.startAndGetPythonInterpreter(true);
 					// Ensure the console is ready with the selected interpreter
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
-					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
+					const interpreterInfo =
+						await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					// Create a new Python project and use the selected python interpreter
 					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -113,7 +114,8 @@ export function setup(logger: Logger) {
 					await pythonFixtures.startAndGetPythonInterpreter(true);
 					// Ensure the console is ready with the selected interpreter
 					await app.workbench.positronConsole.waitForReady('>>>', 10000);
-					const interpreterInfo = await app.workbench.startInterpreter.getSelectedInterpreterInfo();
+					const interpreterInfo =
+						await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 					expect(interpreterInfo?.path).toBeDefined();
 					await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
 					await app.workbench.positronConsole.sendEnterKey();
