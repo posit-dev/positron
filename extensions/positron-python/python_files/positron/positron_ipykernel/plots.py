@@ -113,6 +113,9 @@ class Plot:
 
     def _handle_msg(self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord) -> None:
         request = msg.content.data
+        import sys
+
+        print(request, file=sys.stderr)
         if isinstance(request, RenderRequest):
             self._handle_render(
                 request.params.size,
@@ -120,6 +123,7 @@ class Plot:
                 request.params.format,
             )
         if isinstance(request, GetIntrinsicSizeRequest):
+            print("handle_get_intrinsic_size", file=sys.stderr)
             self._handle_get_intrinsic_size()
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -145,8 +149,13 @@ class Plot:
                 unit=PlotUnit.Inches,
                 source="Matplotlib",
             )
+        import sys
+
+        print("size", size, file=sys.stderr)
         result = IntrinsicSizeResult(size=size).dict()
+        print("result", result, file=sys.stderr)
         self._comm.send_result(data=result)
+        print("done!", file=sys.stderr)
 
     def _handle_close(self, msg: JsonRecord) -> None:
         self.close()
