@@ -91,10 +91,10 @@ suite('Discovery', () => {
 	suite('Discovery - C:\\Program Files\\R\\R-4.3.2\\bin\\R.exe with x64 version', () => {
 
 		const x64 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\x64\\\\R.exe';
-		const x32 = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\R.exe';
+		const smartshim = 'C:\\\\Program Files\\\\R\\\\R-4.3.2\\\\bin\\\\R.exe';
 
 		suiteSetup(function () {
-			readFileSyncStub = createReadFileSyncStub(x32);
+			readFileSyncStub = createReadFileSyncStub(smartshim);
 		});
 
 		suiteTeardown(function () {
@@ -102,7 +102,7 @@ suite('Discovery', () => {
 		});
 
 		test('Find R on Windows path', async () => {
-			const result = await findRBinaryFromPATHWindows(x32);
+			const result = await findRBinaryFromPATHWindows(smartshim);
 			assert.strictEqual(result, x64);
 		});
 	});
