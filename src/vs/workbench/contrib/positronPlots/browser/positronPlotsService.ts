@@ -95,6 +95,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** A custom sizing policy, if we have one. */
 	private _customSizingPolicy?: PlotSizingPolicyCustom;
 
+	/** The intrinsic sizing policy. */
+	private _intrinsicSizingPolicy: PlotSizingPolicyIntrinsic;
+
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
 
@@ -228,7 +231,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
 		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
 		this._sizingPolicies.push(new PlotSizingPolicyFill());
-		this._sizingPolicies.push(new PlotSizingPolicyIntrinsic());
+		this._intrinsicSizingPolicy = new PlotSizingPolicyIntrinsic();
+		this._sizingPolicies.push(this._intrinsicSizingPolicy);
 
 		// See if there's a custom size policy in storage, and retrieve it if so
 		const customSizingPolicy = this._storageService.get(
@@ -605,6 +609,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Focus the plot if the runtime requests it
 		plotClient.onDidShowPlot(() => {
 			selectPlot();
+		});
+
+		// Forward the intrinsic size of the plot to the sizing policy
+		plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
+			this._intrinsicSizingPolicy.setIntrinsicSize(intrinsicSize);
 		});
 
 		// Dispose the plot client when this service is disposed (we own this

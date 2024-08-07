@@ -23,7 +23,7 @@ export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 
 	private static minimumPlotSize = 400;
 
-	public getPlotSize(viewportSize: IPlotSize, intrinsicSize?: IPlotSize): IPlotSize | undefined {
+	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {
 		// Start with the assumption that the plot will fill the viewport.
 		const plotSize = viewportSize;
 

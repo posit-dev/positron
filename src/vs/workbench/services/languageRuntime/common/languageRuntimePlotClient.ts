@@ -203,8 +203,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	/**
 	 * Event that fires when the intrinsic size of the plot is set.
 	 */
-	onDidSetIntrinsicSize: Event<IntrinsicSize>;
-	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize>();
+	onDidSetIntrinsicSize: Event<IntrinsicSize | undefined>;
+	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
 
 	/**
 	 * Creates a new plot client instance.
@@ -276,9 +276,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	public async getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
 		const result = await this._comm.getIntrinsicSize();
-		if (result.size) {
-			this._didSetIntrinsicSizeEmitter.fire(result.size);
-		}
+		this._didSetIntrinsicSizeEmitter.fire(result.size);
 		return result.size;
 	}
 

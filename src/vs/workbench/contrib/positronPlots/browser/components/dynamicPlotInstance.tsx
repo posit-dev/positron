@@ -57,13 +57,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Request a plot render at the current size, using the current sizing policy.
 		let newPlotSize: IPlotSize | undefined;
-		let intrinsicSize: IPlotSize | undefined;
-		props.plotClient.getIntrinsicSize().then((newIntrinsicSize) => {
-			intrinsicSize = newIntrinsicSize;
+		props.plotClient.getIntrinsicSize().then((intrinsicSize) => {
 			newPlotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
 				height: props.height,
 				width: props.width
-			}, intrinsicSize);
+			});
 			// TODO: Handle null case
 			setPlotSize(newPlotSize ?? { width: 100, height: 100 });
 			return props.plotClient.render(newPlotSize, ratio);
@@ -91,7 +89,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			const newPlotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
-			}, intrinsicSize);
+			});
 			setPlotSize(newPlotSize ?? { width: 100, height: 100 });
 
 			try {
