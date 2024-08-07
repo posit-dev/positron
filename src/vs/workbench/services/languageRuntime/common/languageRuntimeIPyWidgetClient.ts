@@ -5,7 +5,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { FromWebviewMessage, ICommMessageFromWebview, ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { ILogService } from 'vs/platform/log/common/log';
 
@@ -68,16 +68,18 @@ export class IPyWidgetClientInstance extends Disposable {
 		}));
 
 		// Forward messages from the runtime client to the webview.
-		this._register(_client.onDidReceiveData(data => {
-			this._logService.trace('RECV comm_msg:', data);
+		this._register(_client.onDidReceiveData(event => {
+			const data = event.data;
+			if (event.buffers && event.buffers.length > 0) {
+				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)} with ${event.buffers.length} buffers`);
+			} else {
+				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
+			}
 
 			switch (data.method) {
+				case 'custom':
 				case 'update':
-					this._messaging.postMessage({
-						type: 'comm_msg',
-						comm_id: this._client.getClientId(),
-						data: data,
-					});
+					this.postCommMessage(event);
 					break;
 				default:
 					this._logService.warn(
@@ -117,20 +119,25 @@ export class IPyWidgetClientInstance extends Disposable {
 			this._rpcMethods.includes(data.method)) {
 			// It's a known RPC request, perform the RPC with the client.
 			this._logService.trace('SEND comm_msg:', data);
-			const reply = await this._client.performRpc(data, 5000);
+			const reply = await this._client.performRpcWithBuffers(data, 5000);
 
 			// Forward the output to the webview.
 			this._logService.trace('RECV comm_msg:', reply);
-			this._messaging.postMessage({
-				type: 'comm_msg',
-				comm_id: this._client.getClientId(),
-				data: reply,
-				parent_id: message.msg_id,
-			});
+			this.postCommMessage(reply, message.msg_id);
 		} else {
 			// It's not a known RPC request, send a fire-and-forget message to the client.
 			this._logService.trace('SEND comm_msg:', data);
 			this._client.sendMessage(message.data);
 		}
+	}
+
+	private postCommMessage(message: IRuntimeClientOutput<any>, parentId?: string) {
+		this._messaging.postMessage({
+			type: 'comm_msg',
+			comm_id: this._client.getClientId(),
+			data: message.data,
+			buffers: message.buffers?.map(vsBuffer => vsBuffer.buffer),
+			parent_id: parentId,
+		});
 	}
 }

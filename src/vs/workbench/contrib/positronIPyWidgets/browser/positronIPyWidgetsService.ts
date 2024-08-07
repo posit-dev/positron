@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
@@ -61,28 +61,51 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
+	override dispose(): void {
+		super.dispose();
+		// Clean up disposables linked to any connected sessions
+		this._sessionToDisposablesMap.forEach(disposables => disposables.dispose());
+	}
+
 	hasInstance(id: string): boolean {
 		return this._notebookInstancesBySessionId.has(id) ||
 			this._consoleInstancesByMessageId.has(id);
 	}
 
+	/**
+	 * Map to disposeable stores for each session. Used to preventing memory leaks caused by
+	 * repeatedly attaching to the same session which can happen in the case of the application
+	 * closing before the session ends
+	 */
+	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
+
 	private attachSession(session: ILanguageRuntimeSession) {
+		// Check if we're already attached here
+		const existingSessionDisposables = this._sessionToDisposablesMap.get(session.sessionId);
+		if (existingSessionDisposables && !existingSessionDisposables.isDisposed) {
+			this._logService.warn(`Already attached to session, disposing existing listeners before reattaching: ${session.metadata.sessionId}`);
+			existingSessionDisposables.dispose();
+		}
+		const disposables = new DisposableStore();
+		this._sessionToDisposablesMap.set(session.sessionId, disposables);
+		// Cleanup from map when disposed.
+		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session.sessionId)));
+
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
-				this.attachConsoleSession(session);
+				this.attachConsoleSession(session, disposables);
 				break;
 			case LanguageRuntimeSessionMode.Notebook:
-				this.attachNotebookSession(session);
+				this.attachNotebookSession(session, disposables);
 				break;
+			default:
+				this._logService.error(`Unexpected session mode: ${session.metadata.sessionMode}`);
+				disposables.dispose();
 		}
 	}
 
-	private attachConsoleSession(session: ILanguageRuntimeSession) {
-		// TODO: Currently, if the application closes before the session ends, this will not be
-		//       disposed.
-		const disposables = new DisposableStore();
-
-		disposables.add(session.onDidReceiveRuntimeMessageOutput(async (message) => {
+	private attachConsoleSession(session: ILanguageRuntimeSession, disposables: DisposableStore) {
+		const handleMessageOutput = async (message: ILanguageRuntimeMessageOutput) => {
 			// Only handle IPyWidget output messages.
 			if (message.kind !== RuntimeOutputKind.IPyWidget) {
 				return;
@@ -117,7 +140,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			// Fire the onDidCreatePlot event.
 			const client = disposables.add(new NotebookOutputPlotClient(webview, message));
 			this._onDidCreatePlot.fire(client);
-		}));
+		};
+
+		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessageOutput));
+		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessageOutput));
 
 		// Dispose when the session ends.
 		disposables.add(session.onDidEndSession((e) => {
@@ -125,7 +151,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}));
 	}
 
-	private attachNotebookSession(session: ILanguageRuntimeSession) {
+	private attachNotebookSession(session: ILanguageRuntimeSession, disposables: DisposableStore) {
 		// Find the session's notebook editor by its notebook URI.
 		const notebookEditor = this._notebookEditorService.listNotebookEditors().find(
 			(editor) => isEqual(session.metadata.notebookUri, editor.textModel?.uri));
@@ -136,10 +162,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		}
 
 		this._logService.debug(`Found an existing notebook editor for session '${session.sessionId}, starting ipywidgets instance`);
-
-		// TODO: Currently, if the application closes before the session ends, this will not be
-		// 	     disposed.
-		const disposables = new DisposableStore();
 
 		// We found a matching notebook editor, create an ipywidgets instance.
 		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(

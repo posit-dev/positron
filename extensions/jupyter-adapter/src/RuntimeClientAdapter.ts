@@ -12,6 +12,11 @@ import { JupyterCommMsg } from './JupyterCommMsg';
 import { JupyterCommClose } from './JupyterCommClose';
 import { PromiseHandles, delay, uuidv4 } from './utils';
 
+interface IRuntimeClientOutput {
+	data: Record<string, any>;
+	buffers?: Array<Uint8Array>;
+}
+
 /**
  * Adapts a Positron Language Runtime client widget to a Jupyter kernel.
  */
@@ -28,9 +33,9 @@ export class RuntimeClientAdapter {
 	 * and the value is a promise that will be resolved when the RPC response is
 	 * received.
 	 */
-	private _pendingRpcs = new Map<string, PromiseHandles<any>>();
+	private _pendingRpcs = new Map<string, PromiseHandles<IRuntimeClientOutput>>();
 
-	private readonly _messageEmitter = new vscode.EventEmitter<{ [key: string]: any }>();
+	private readonly _messageEmitter = new vscode.EventEmitter<IRuntimeClientOutput>();
 	readonly onDidReceiveCommMsg = this._messageEmitter.event;
 
 	constructor(
@@ -203,7 +208,7 @@ export class RuntimeClientAdapter {
 	/**
 	 * Perform an RPC call over the comm channel.
 	 */
-	performRpc(request: any): Promise<any> {
+	performRpcWithBuffers(request: any): Promise<IRuntimeClientOutput> {
 		// Create a random ID for this request
 		const id = uuidv4();
 
@@ -214,6 +219,16 @@ export class RuntimeClientAdapter {
 		// Send the request and return the promise
 		this._kernel.sendCommMessage(this._id, id, request);
 		return out.promise;
+	}
+
+	/**
+	 * Perform an RPC call over the comm channel.
+	 *
+	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
+	 * only the data portion of the RPC response.
+	 */
+	async performRpc(request: any): Promise<any> {
+		return (await this.performRpcWithBuffers(request)).data;
 	}
 
 	/**
@@ -255,7 +270,7 @@ export class RuntimeClientAdapter {
 					`RPC already settled (timed out?)`);
 			} else {
 				// Otherwise, resolve the promise with the message data.
-				promise.resolve(message.data);
+				promise.resolve({ data: message.data, buffers: msg.buffers });
 			}
 
 			// Remove the RPC from the pending list
@@ -263,7 +278,7 @@ export class RuntimeClientAdapter {
 		} else {
 
 			// Not an RPC response, so emit the message
-			this._messageEmitter.fire(message.data);
+			this._messageEmitter.fire({ data: message.data, buffers: msg.buffers });
 		}
 	}
 

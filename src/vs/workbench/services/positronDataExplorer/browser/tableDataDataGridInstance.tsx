@@ -25,7 +25,7 @@ import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronCompone
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
-import { BackendState, ColumnSchema, DataSelection, DataSelectionCellRange, DataSelectionIndices, DataSelectionKind, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
@@ -498,14 +498,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	async copyClipboardData(clipboardData: ClipboardData): Promise<string | undefined> {
 		// Construct the data selection based on the clipboard data.
-		let dataSelection: DataSelection;
+		let dataSelection: TableSelection;
 		if (clipboardData instanceof ClipboardCell) {
 			const selection: DataSelectionSingleCell = {
 				column_index: clipboardData.columnIndex,
 				row_index: clipboardData.rowIndex,
 			};
 			dataSelection = {
-				kind: DataSelectionKind.SingleCell,
+				kind: TableSelectionKind.SingleCell,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardCellRange) {
@@ -516,7 +516,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				last_row_index: clipboardData.lastRowIndex,
 			};
 			dataSelection = {
-				kind: DataSelectionKind.CellRange,
+				kind: TableSelectionKind.CellRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardColumnRange) {
@@ -525,7 +525,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				last_index: clipboardData.lastColumnIndex
 			};
 			dataSelection = {
-				kind: DataSelectionKind.ColumnRange,
+				kind: TableSelectionKind.ColumnRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
@@ -533,7 +533,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				indices: clipboardData.indexes
 			};
 			dataSelection = {
-				kind: DataSelectionKind.ColumnIndices,
+				kind: TableSelectionKind.ColumnIndices,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardRowRange) {
@@ -542,7 +542,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				last_index: clipboardData.lastRowIndex
 			};
 			dataSelection = {
-				kind: DataSelectionKind.RowRange,
+				kind: TableSelectionKind.RowRange,
 				selection
 			};
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
@@ -550,7 +550,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				indices: clipboardData.indexes
 			};
 			dataSelection = {
-				kind: DataSelectionKind.RowIndices,
+				kind: TableSelectionKind.RowIndices,
 				selection
 			};
 		} else {

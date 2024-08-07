@@ -5,7 +5,7 @@
 
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { createProxyIdentifier, IRPCProtocol } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
@@ -41,7 +41,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$getForegroundSession(): Promise<string | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
 	$restartSession(handle: number): Promise<void>;
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void;
+	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;
 }

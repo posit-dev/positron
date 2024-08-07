@@ -20,7 +20,7 @@ import { IPositronVariablesService } from 'vs/workbench/services/positronVariabl
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
-import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { DeferredPromise } from 'vs/base/common/async';
 import { generateUuid } from 'vs/base/common/uuid';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -37,6 +37,7 @@ import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -882,7 +883,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	extends Disposable
 	implements IRuntimeClientInstance<Input, Output> {
 
-	private readonly _dataEmitter = new Emitter<Output>();
+	private readonly _dataEmitter = new Emitter<IRuntimeClientOutput<Output>>();
 
 	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
 
@@ -919,12 +920,12 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpc<T>(request: Input, timeout: number): Promise<T> {
+	performRpcWithBuffers<T>(request: Input, timeout: number): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
 		// Add the promise to the list of pending RPCs.
-		const promise = new DeferredPromise<T>();
+		const promise = new DeferredPromise<IRuntimeClientOutput<T>>();
 		this._pendingRpcs.set(messageId, promise);
 
 		// Send the message to the server side.
@@ -948,6 +949,16 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 		// Return a promise that will be resolved when the server responds.
 		return promise.p;
+	}
+
+	/**
+	 * Performs an RPC call to the server side of the comm.
+	 *
+	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
+	 * only the data portion of the RPC response.
+	 */
+	async performRpc<T>(request: Input, timeout: number): Promise<T> {
+		return (await this.performRpcWithBuffers<T>(request, timeout)).data;
 	}
 
 	/**
@@ -980,11 +991,11 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		if (message.parent_id && this._pendingRpcs.has(message.parent_id)) {
 			// This is a response to an RPC call; resolve the deferred promise.
 			const promise = this._pendingRpcs.get(message.parent_id);
-			promise?.complete(message.data);
+			promise?.complete(message);
 			this._pendingRpcs.delete(message.parent_id);
 		} else {
 			// This is a regular message; emit it to the client as an event.
-			this._dataEmitter.fire(message.data as Output);
+			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
 		}
 	}
 
@@ -997,7 +1008,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.clientState.set(state, undefined);
 	}
 
-	onDidReceiveData: Event<Output>;
+	onDidReceiveData: Event<IRuntimeClientOutput<Output>>;
 
 	getClientId(): string {
 		return this._id;
@@ -1093,8 +1104,8 @@ export class MainThreadLanguageRuntime
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
-	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: ILanguageRuntimeMessage): void {
-		this.findSession(handle).handleRuntimeMessage(message, handled);
+	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void {
+		this.findSession(handle).handleRuntimeMessage(message.value, handled);
 	}
 
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void {
