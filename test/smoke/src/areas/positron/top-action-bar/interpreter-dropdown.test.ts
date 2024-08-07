@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronInterpreterDropdown } from '../../../../../automation';
+import { Application, Logger, PositronConsole, PositronInterpreterDropdown } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 /*
@@ -17,17 +17,19 @@ export function setup(logger: Logger) {
 
 		let app: Application;
 		let interpreterDropdown: PositronInterpreterDropdown;
+		let positronConsole: PositronConsole;
 		let desiredPython: string;
 		let desiredR: string;
 
 		before(async function () {
 			app = this.app as Application;
 			interpreterDropdown = app.workbench.positronInterpreterDropdown;
+			positronConsole = app.workbench.positronConsole;
 			desiredPython = process.env.POSITRON_PY_VER_SEL!;
 			desiredR = process.env.POSITRON_R_VER_SEL!;
 		});
 
-		it('Start an interpreter - Python', async function () {
+		it('Python interpreter starts and shows running', async function () {
 			// Start a Python interpreter using the interpreter dropdown
 			await expect(
 				async () =>
@@ -40,7 +42,7 @@ export function setup(logger: Logger) {
 			}
 
 			// Wait for the console to be ready
-			await app.workbench.positronConsole.waitForReady('>>>', 10000);
+			await positronConsole.waitForReady('>>>', 10000);
 
 			// The interpreter selected in the dropdown matches the desired interpreter
 			const interpreterInfo = await interpreterDropdown.getSelectedInterpreterInfo();
@@ -56,7 +58,32 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		it('Start an interpreter - R', async function () {
+		it('Active Python interpreter restarts and shows running', async function () {
+			// NOTE: This test is dependent on "Python interpreter starts and shows running" having run successfully
+
+			// Restart the active Python interpreter
+			await interpreterDropdown.restartPrimaryInterpreter('Python');
+
+			// The console should indicate that the interpreter is restarting
+			await positronConsole.waitForConsoleContents((contents) => {
+				return (
+					contents.some((line) => line.includes("preparing for restart")) &&
+					contents.some((line) => line.includes("restarted"))
+				);
+			});
+
+			// Wait for the console to be ready
+			await positronConsole.waitForReady('>>>', 10000);
+
+			// The interpreter dropdown should show the expected running indicators
+			expect(
+				await interpreterDropdown.primaryInterpreterShowsRunning(
+					'Python'
+				)
+			).toBe(true);
+		});
+
+		it('R interpreter starts and shows running', async function () {
 			// Start an R interpreter using the interpreter dropdown
 			await expect(
 				async () =>
@@ -64,7 +91,7 @@ export function setup(logger: Logger) {
 			).toPass({ timeout: 15_000 });
 
 			// Wait for the console to be ready
-			await app.workbench.positronConsole.waitForReady('>', 10000);
+			await positronConsole.waitForReady('>', 10000);
 
 			// The interpreter selected in the dropdown matches the desired interpreter
 			const interpreterInfo = await interpreterDropdown.getSelectedInterpreterInfo();
@@ -80,17 +107,12 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		// it('Restart the active interpreter', async function () {
-		// 	// Now, restart the active interpreter
-		// 	// The console should indicate that the interpreter is restarting
-		// 	// The console should indicate that the interpreter has restarted
-		// 	// The interpreter dropdown should show the expected running indicators
-		// });
+		// it('Active R interpreter stops and shows inactive', async function () {
+		// NOTE: This test is dependent on "R interpreter starts and shows running" having run successfully
 
-		// it('Stop the active interpreter', async function () {
-		// 	// Now, stop the active interpreter
-		// 	// The console should indicate that the interpreter is exiting
-		// 	// The interpreter dropdown should no longer show the running indicators
+		// Now, stop the active interpreter
+		// The console should indicate that the interpreter is exiting
+		// The interpreter dropdown should no longer show the running indicators
 		// });
 	});
 }
