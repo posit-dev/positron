@@ -59,12 +59,9 @@ class FigureManagerPositron(FigureManagerBase):
 
         super().__init__(canvas, num)
 
-        # Determine the intrinsic size of the plot.
-        intrinsic_size = tuple(canvas.figure.get_size_inches())
-
         # Create the plot instance via the plots service.
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(self.canvas.render, intrinsic_size)
+        self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size)
 
     @property
     def closed(self) -> bool:
@@ -119,6 +116,9 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # True after the canvas has been rendered at least once.
         self._first_render_completed = False
 
+        # Store the intrinsic size of the figure.
+        self.intrinsic_size = tuple(self.figure.get_size_inches())
+
     def draw(self, is_rendering=False) -> None:
         """
         Draw the canvas; send an update event if the canvas has changed.
@@ -167,8 +167,10 @@ class FigureCanvasPositron(FigureCanvasAgg):
         self.figure.set_layout_engine("tight")
 
         # Resize the figure to the requested size in pixels.
-        if size is not None:
-            # TODO: Will this recover the original size if the user switches sizing policies?
+        if size is None:
+            # If no size was provided, restore the figure to its intrinsic size.
+            self.figure.set_size_inches(*self.intrinsic_size, forward=False)
+        else:
             width_in = size.width * self.device_pixel_ratio / self.figure.dpi
             height_in = size.height * self.device_pixel_ratio / self.figure.dpi
             self.figure.set_size_inches(width_in, height_in, forward=False)
