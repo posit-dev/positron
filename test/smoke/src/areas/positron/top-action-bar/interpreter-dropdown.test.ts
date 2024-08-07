@@ -29,7 +29,7 @@ export function setup(logger: Logger) {
 			desiredR = process.env.POSITRON_R_VER_SEL!;
 		});
 
-		it('Python interpreter starts and shows running', async function () {
+		it('Python interpreter starts and shows running [C707212]', async function () {
 			// Start a Python interpreter using the interpreter dropdown
 			await expect(
 				async () =>
@@ -58,7 +58,7 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		it('Python interpreter restarts and shows running', async function () {
+		it('Python interpreter restarts and shows running [C707213]', async function () {
 			// NOTE: This test is dependent on "Python interpreter starts and shows running" having run successfully
 
 			// Restart the active Python interpreter
@@ -83,7 +83,7 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		it('R interpreter starts and shows running', async function () {
+		it('R interpreter starts and shows running [C707214]', async function () {
 			// Start an R interpreter using the interpreter dropdown
 			await expect(
 				async () =>
@@ -107,7 +107,7 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		it('R interpreter stops and shows inactive', async function () {
+		it('R interpreter stops and shows inactive [C707215]', async function () {
 			// NOTE: This test is dependent on "R interpreter starts and shows running" having run successfully
 
 			// Stop the active R interpreter
