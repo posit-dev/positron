@@ -16,7 +16,10 @@ const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
  */
 export class PositronInterpreterDropdown {
 	private interpreterGroups = this.code.driver.getLocator(
-		'.positron-modal-popup .interpreter-groups .interpreter-group'
+		'.positron-modal-popup .interpreter-groups'
+	);
+	private interpreterDropdown = this.code.driver.getLocator(
+		'.top-action-bar-interpreters-manager .left'
 	);
 
 	constructor(private code: Code) { }
@@ -56,22 +59,52 @@ export class PositronInterpreterDropdown {
 	 * @returns The primary interpreter element if found, otherwise undefined.
 	 */
 	private async getPrimaryInterpreter(description: string | InterpreterType) {
+		// Wait for the primary interpreters to load
+		await this.code.waitForElements('.primary-interpreter', false);
 		const allPrimaryInterpreters = await this.interpreterGroups
 			.locator('.primary-interpreter')
 			.all();
 		if (allPrimaryInterpreters.length === 0) {
+			this.code.logger.log('Failed to locate primary interpreters');
 			return undefined;
 		}
 
-		return allPrimaryInterpreters.find(async (interpreter) => {
-			const interpreterText = await this.getInterpreterName(interpreter);
-			if (!interpreterText) {
-				return false;
+		// Look for a primary interpreter that matches the provided description
+		for (const interpreter of allPrimaryInterpreters) {
+			// Try to match on interpreter name
+			const interpreterName = await this.getInterpreterName(interpreter);
+			if (!interpreterName) {
+				// Shouldn't happen, but if it does, proceed to the next interpreter
+				continue;
 			}
-			return description in InterpreterType
-				? interpreterText.startsWith(description)
-				: interpreterText.includes(description);
-		});
+			if (description in InterpreterType) {
+				// Examples:
+				// - starts with Python - 'Python 3.10.4 (Pyenv)'
+				// - starts with R - 'R 4.4.0'
+				if (interpreterName.startsWith(`${description} `)) {
+					return interpreter;
+				}
+			}
+			if (interpreterName.includes(description)) {
+				// Example: includes 3.10.4 - 'Python 3.10.4 (Pyenv)'
+				return interpreter;
+			}
+
+			// Try to match on interpreter path
+			const interpreterPath = await this.getInterpreterPath(interpreter);
+			if (!interpreterPath) {
+				// Shouldn't happen, but if it does, proceed to the next interpreter
+				continue;
+			}
+			if (interpreterPath.includes(description)) {
+				// Example: includes /opt/homebrew/bin/python3
+				return interpreter;
+			}
+		}
+
+		// No primary interpreters match the provided description
+		this.code.logger.log(`No primary interpreters match the provided description: ${description}`);
+		return undefined;
 	}
 
 	/**
@@ -98,10 +131,18 @@ export class PositronInterpreterDropdown {
 	 * @returns A promise that resolves once the interpreter dropdown is open.
 	 */
 	async openInterpreterDropdown() {
-		await this.code.driver
-			.getLocator('.top-action-bar-interpreters-manager .left')
-			.click({ timeout: 10_000 });
-		await this.code.waitForElement('.positron-modal-popup');
+		await this.interpreterDropdown.click({ timeout: 10_000 });
+		await this.interpreterGroups.waitFor({ state: 'attached', timeout: 10_000 });
+	}
+
+	/**
+	 * Close the interpreter dropdown in the top action bar. This assumes the dropdown is open and
+	 * already in focus.
+	 * @returns A promise that resolves once the interpreter dropdown is closed.
+	 */
+	async closeInterpreterDropdown() {
+		await this.code.driver.getKeyboard().press('Escape');
+		await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
 	}
 
 	/**
@@ -118,12 +159,14 @@ export class PositronInterpreterDropdown {
 			description
 		);
 		if (!primaryInterpreter) {
+			await this.closeInterpreterDropdown();
 			return false;
 		}
 
 		// Check for green dot running indicator
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
 		if (!(await runningIndicator.isVisible())) {
+			await this.closeInterpreterDropdown();
 			return false;
 		}
 
@@ -135,9 +178,11 @@ export class PositronInterpreterDropdown {
 			!(await restartButton.isVisible()) ||
 			!(await restartButton.isEnabled())
 		) {
+			await this.closeInterpreterDropdown();
 			return false;
 		}
 
+		await this.closeInterpreterDropdown();
 		return true;
 	}
 
@@ -220,6 +265,9 @@ export class PositronInterpreterDropdown {
 			}
 		}
 
+		// Close the interpreter dropdown
+		await this.closeInterpreterDropdown();
+
 		// None of the primary nor secondary interpreters match the desired interpreter
 		throw new Error(
 			`Could not find interpreter ${desiredInterpreterString} for ${desiredInterpreterType}`
@@ -279,6 +327,9 @@ export class PositronInterpreterDropdown {
 				`Could not determine interpreter type for ${selectedInterpreterLabel}`
 			);
 		}
+
+		// Close the interpreter dropdown
+		await this.closeInterpreterDropdown();
 
 		// Return the interpreter info
 		return {
