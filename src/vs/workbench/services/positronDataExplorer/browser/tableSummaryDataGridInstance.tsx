@@ -12,8 +12,8 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
-import { ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
+import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 
 /**
@@ -27,6 +27,11 @@ const PROFILE_LINE_HEIGHT = 20;
  */
 export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
+
+	/**
+	 * Gets or sets the last row filters.
+	 */
+	private _lastRowFilters: string = '[]';
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -83,6 +88,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Refresh the column profiles because they rely on the data.
 			await this._tableSummaryCache.refreshColumnProfiles();
 		}));
+
+		// Add the data explorer client instance onDidUpdateBackendState event handler.
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
+			async (state: BackendState) => {
+				// Stringify the row filters.
+				const rowFilters = JSON.stringify(state.row_filters);
+
+				// If the row filters have changed, refresh the column profiles.
+				if (this._lastRowFilters !== rowFilters) {
+					this._lastRowFilters = rowFilters;
+					await this._tableSummaryCache.refreshColumnProfiles();
+				}
+			})
+		);
 
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() => {

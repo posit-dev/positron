@@ -303,6 +303,11 @@ export class TableSummaryCache extends Disposable {
 	 * Refreshes the column profile cache.
 	 */
 	async refreshColumnProfiles(): Promise<void> {
+		// Get the size of the data.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
+		this._rows = tableState.table_shape.num_rows;
+
 		// Get the sorted column indicies so we can build the column profile requests in order.
 		const columnIndices = [...this._columnProfileCache.keys()].sort((a, b) => a - b);
 

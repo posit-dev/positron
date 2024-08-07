@@ -121,7 +121,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
-			async (state: BackendState) => {
+			(state: BackendState) => {
 				// Clear column sort keys.
 				this._columnSortKeys.clear();
 				state.sort_keys.forEach((key, sortIndex) => {
