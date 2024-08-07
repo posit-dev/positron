@@ -113,3 +113,13 @@ jobs:
         with:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
+
+      - name: slack-smoke-test-report
+        if: failure()
+        uses: testlabauto/xunit-slack-reporter@v2.0.1
+        env:
+          SLACK_CHANNEL: C04G3KL70TX
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
+
+
