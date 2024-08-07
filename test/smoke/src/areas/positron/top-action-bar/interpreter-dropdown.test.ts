@@ -58,7 +58,7 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		it('Active Python interpreter restarts and shows running', async function () {
+		it('Python interpreter restarts and shows running', async function () {
 			// NOTE: This test is dependent on "Python interpreter starts and shows running" having run successfully
 
 			// Restart the active Python interpreter
@@ -107,13 +107,24 @@ export function setup(logger: Logger) {
 			).toBe(true);
 		});
 
-		// it('Active R interpreter stops and shows inactive', async function () {
-		// NOTE: This test is dependent on "R interpreter starts and shows running" having run successfully
+		it('R interpreter stops and shows inactive', async function () {
+			// NOTE: This test is dependent on "R interpreter starts and shows running" having run successfully
 
-		// Now, stop the active interpreter
-		// The console should indicate that the interpreter is exiting
-		// The interpreter dropdown should no longer show the running indicators
-		// });
+			// Stop the active R interpreter
+			expect(async () => {
+				await interpreterDropdown.stopPrimaryInterpreter('R');
+			}).toPass({ timeout: 15_000 });
+
+			// The console should indicate that the interpreter is shutting down
+			await positronConsole.waitForConsoleContents((contents) =>
+				contents.some((line) => line.includes("shut down successfully"))
+			);
+
+			// The interpreter dropdown should no longer show the running indicators
+			expect(
+				await interpreterDropdown.primaryInterpreterShowsInactive('R')
+			).toBe(true);
+		});
 	});
 }
 
