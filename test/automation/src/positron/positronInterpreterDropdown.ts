@@ -4,178 +4,287 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { Locator } from '@playwright/test';
 import { Code } from '../code';
 import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 
-interface InterpreterGroupInfo {
-	interpreterDescription: string;
-	groupIndex: number;
-	interpreterPath?: string;
-}
-
-
-const INTERPRETER_SELECTOR = '.top-action-bar-interpreters-manager .left';
-const POSITRON_MODAL_POPUP = '.positron-modal-popup';
-
-const INTERPRETER_GROUPS = '.positron-modal-popup .interpreter-groups .interpreter-group';
-const PRIMARY_INTERPRETER_GROUP_DESCRIPTIONS = `${INTERPRETER_GROUPS} .primary-interpreter .line`;
-const SECONDARY_INTERPRETER_GROUP_NAMES = `${INTERPRETER_GROUPS} .secondary-interpreter .line:nth-of-type(1)`;
-const SECONDARY_INTERPRETER = `${INTERPRETER_GROUPS} .secondary-interpreter`;
-const INTERPRETER_ACTION_BUTTON = '.primary-interpreter .interpreter-actions .action-button span';
+const INTERPRETER_INFO_LINE = '.info .container .line';
+const INTERPRETER_ACTIONS_SELECTOR = `.interpreter-actions .action-button`;
 
 /*
  *  Reuseable Positron interpreter selection functionality for tests to leverage.
  */
 export class PositronInterpreterDropdown {
+	private interpreterGroups = this.code.driver.getLocator(
+		'.positron-modal-popup .interpreter-groups .interpreter-group'
+	);
 
 	constructor(private code: Code) { }
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string) {
-
-		await this.code.waitAndClick(INTERPRETER_SELECTOR);
-		await this.code.waitForElement(POSITRON_MODAL_POPUP);
-
-		const primaryInterpreter = await this.awaitDesiredPrimaryInterpreterGroupLoaded(desiredInterpreterType);
-		this.code.logger.log(`Found primary interpreter ${primaryInterpreter.interpreterDescription} at index ${primaryInterpreter.groupIndex}`);
-
-		const primaryIsMatch = primaryInterpreter.interpreterDescription.includes(desiredInterpreterString);
-		let chosenInterpreter;
-		if (!primaryIsMatch) {
-
-			const secondaryInterpreters = await this.getSecondaryInterpreters(primaryInterpreter.groupIndex);
-			this.code.logger.log('Secondary Interpreters:');
-			secondaryInterpreters.forEach(interpreter => this.code.logger.log(interpreter.interpreterDescription));
-
-			for (const secondaryInterpreter of secondaryInterpreters) {
-				if (secondaryInterpreter.interpreterDescription.includes(desiredInterpreterString)) {
-					chosenInterpreter = this.code.driver.getLocator(`${SECONDARY_INTERPRETER}:nth-of-type(${secondaryInterpreter.groupIndex})`);
-
-					await chosenInterpreter.scrollIntoViewIfNeeded();
-					await chosenInterpreter.isVisible();
-
-					await chosenInterpreter.click();
-					break;
-				}
-			}
-
-		} else {
-			this.code.logger.log('Primary interpreter matched');
-			chosenInterpreter = this.code.driver.getLocator(`${INTERPRETER_GROUPS}:nth-of-type(${primaryInterpreter.groupIndex})`);
-			await chosenInterpreter.waitFor({ state: 'visible' });
-			await chosenInterpreter.click();
-		}
-
-		// Extra retries to click the interpreter if previous attempts didn't properly click and dismiss the dialog
-		for (let i = 0; i < 10; i++) {
-			try {
-				const dialog = this.code.driver.getLocator(POSITRON_MODAL_POPUP);
-				await dialog.waitFor({ state: 'detached', timeout: 2000 });
-				break;
-			} catch (e) {
-				this.code.logger.log(`Error: ${e}, Retrying row click`);
-				try {
-					await chosenInterpreter!.click({ timeout: 1000 });
-				} catch (f) {
-					this.code.logger.log(`Inner Error: ${f}}`);
-				}
-			}
-		}
+	/**
+	 * Get the interpreter name from the interpreter element.
+	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
+	 * @param interpreterLocator The locator for the interpreter element.
+	 * @returns The interpreter name if found, otherwise undefined.
+	 */
+	private async getInterpreterName(interpreterLocator: Locator) {
+		// The first line element in the interpreter group contains the interpreter name.
+		return await interpreterLocator
+			.locator(INTERPRETER_INFO_LINE)
+			.first()
+			.textContent();
 	}
 
+	/**
+	 * Get the interpreter path from the interpreter element.
+	 * Examples: '/opt/homebrew/bin/python3', '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/bin/R'.
+	 * @param interpreterLocator The locator for the interpreter element.
+	 * @returns The interpreter path if found, otherwise undefined.
+	 */
+	private async getInterpreterPath(interpreterLocator: Locator) {
+		// The last line element in the interpreter group contains the interpreter path.
+		return await interpreterLocator
+			.locator(INTERPRETER_INFO_LINE)
+			.last()
+			.textContent();
+	}
+
+	/**
+	 * Get the primary interpreter element by a descriptive string or interpreter type.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param description The descriptive string of the interpreter to get.
+	 * @returns The primary interpreter element if found, otherwise undefined.
+	 */
+	private async getPrimaryInterpreter(description: string | InterpreterType) {
+		const allPrimaryInterpreters = await this.interpreterGroups
+			.locator('.primary-interpreter')
+			.all();
+		if (allPrimaryInterpreters.length === 0) {
+			return undefined;
+		}
+
+		return allPrimaryInterpreters.find(async (interpreter) => {
+			const interpreterText = await this.getInterpreterName(interpreter);
+			if (!interpreterText) {
+				return false;
+			}
+			return description in InterpreterType
+				? interpreterText.startsWith(description)
+				: interpreterText.includes(description);
+		});
+	}
+
+	/**
+	 * Get the secondary interpreters for the primary interpreter locator.
+	 * @param primaryInterpreter The locator for the primary interpreter element.
+	 * @returns The secondary interpreter elements if found, otherwise an empty array.
+	 */
+	private async getSecondaryInterpreters(primaryInterpreter: Locator) {
+		// Click the 'Show all versions' ... button for the primary interpreter group
+		const showAllVersionsButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Show all versions');
+		await showAllVersionsButton.click();
+
+		// Wait for the secondary interpreters to load
+		await this.code.waitForElements('.secondary-interpreter', false);
+		return await this.interpreterGroups
+			.locator('.secondary-interpreter')
+			.all();
+	}
+
+	/**
+	 * Open the interpreter dropdown in the top action bar.
+	 * @returns A promise that resolves once the interpreter dropdown is open.
+	 */
+	async openInterpreterDropdown() {
+		await this.code.driver
+			.getLocator('.top-action-bar-interpreters-manager .left')
+			.click({ timeout: 10_000 });
+		await this.code.waitForElement('.positron-modal-popup');
+	}
+
+	/**
+	 * Check if the primary interpreter shows as running with a green dot and shows a restart button.
+	 * @param description The descriptive string of the interpreter to check.
+	 * @returns True if the primary interpreter shows the expected running UI elements, otherwise false.
+	 */
+	async primaryInterpreterShowsRunning(
+		description: string | InterpreterType
+	) {
+		await this.openInterpreterDropdown();
+
+		const primaryInterpreter = await this.getPrimaryInterpreter(
+			description
+		);
+		if (!primaryInterpreter) {
+			return false;
+		}
+
+		// Check for green dot running indicator
+		const runningIndicator = primaryInterpreter.locator('.running-icon');
+		if (!(await runningIndicator.isVisible())) {
+			return false;
+		}
+
+		// Check for enabled restart button
+		const restartButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Restart the interpreter');
+		if (
+			!(await restartButton.isVisible()) ||
+			!(await restartButton.isEnabled())
+		) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Select an interpreter from the dropdown by the interpreter type and a descriptive string.
+	 * The interpreter type could be 'Python', 'R', etc.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * @param desiredInterpreterType The interpreter type to select.
+	 * @param desiredInterpreterString The descriptive string of the interpreter to select.
+	 * @returns A promise that resolves once the interpreter is selected.
+	 */
+	async selectInterpreter(
+		desiredInterpreterType: string,
+		desiredInterpreterString: string
+	) {
+		// Open the interpreter dropdown
+		await this.openInterpreterDropdown();
+
+		// Get the primary interpreter element corresponding to the desired interpreter type
+		const primaryInterpreter = await this.getPrimaryInterpreter(
+			desiredInterpreterType
+		);
+		if (!primaryInterpreter) {
+			// No primary interpreters match the language runtime time
+			throw new Error(
+				`Could not find primary interpreter with type ${desiredInterpreterType}`
+			);
+		}
+		const primaryInterpreterName = await this.getInterpreterName(
+			primaryInterpreter
+		);
+		if (!primaryInterpreterName) {
+			throw new Error(
+				`Could not retrieve interpreter name for ${desiredInterpreterType}`
+			);
+		}
+
+		// If the primary interpreter matches the desired interpreter string, select the interpreter
+		if (primaryInterpreterName.includes(desiredInterpreterString)) {
+			this.code.logger.log(
+				`Found primary interpreter: ${primaryInterpreterName}`
+			);
+			await primaryInterpreter.click();
+			return;
+		}
+
+		// If the primary interpreter does not match the desired interpreter string, look for a matching secondary interpreter
+		this.code.logger.log(
+			'Primary interpreter did not match. Looking for secondary interpreters...'
+		);
+		const secondaryInterpreters = await this.getSecondaryInterpreters(
+			primaryInterpreter
+		);
+		if (secondaryInterpreters.length === 0) {
+			throw new Error(
+				`Could not find secondary interpreters for ${desiredInterpreterType}`
+			);
+		}
+		// Look for the desired interpreter string in the secondary interpreters
+		for (const secondaryInterpreter of secondaryInterpreters) {
+			const secondaryInterpreterName = await this.getInterpreterName(
+				secondaryInterpreter
+			);
+			if (!secondaryInterpreterName) {
+				// This shouldn't happen, but if it does, warn and proceed to the next secondary interpreter
+				this.code.logger.log(
+					'WARNING: could not retrieve interpreter name for secondary interpreter'
+				);
+				continue;
+			}
+			// If the secondary interpreter matches the desired interpreter string, select the interpreter
+			if (secondaryInterpreterName.includes(desiredInterpreterString)) {
+				this.code.logger.log(
+					`Found secondary interpreter: ${secondaryInterpreterName}`
+				);
+				await secondaryInterpreter.scrollIntoViewIfNeeded();
+				await secondaryInterpreter.isVisible();
+				await secondaryInterpreter.click();
+				return;
+			}
+		}
+
+		// None of the primary nor secondary interpreters match the desired interpreter
+		throw new Error(
+			`Could not find interpreter ${desiredInterpreterString} for ${desiredInterpreterType}`
+		);
+	}
+
+	/**
+	 * Get the interpreter info for the currently selected interpreter in the dropdown.
+	 * @returns The interpreter info for the selected interpreter if found, otherwise undefined.
+	 */
 	async getSelectedInterpreterInfo(): Promise<InterpreterInfo | undefined> {
 		// Get the label for the selected interpreter, e.g. Python 3.10.4 (Pyenv)
 		const selectedInterpreterLabel = await this.code.driver
 			.getLocator('.top-action-bar-interpreters-manager')
 			.getAttribute('aria-label');
 		if (!selectedInterpreterLabel) {
-			return Promise.reject('There is no selected interpreter');
+			throw new Error('There is no selected interpreter');
 		}
 
 		// Open the interpreter manager
-		await this.code.waitAndClick(INTERPRETER_SELECTOR);
-		await this.code.waitForElement(POSITRON_MODAL_POPUP);
+		await this.openInterpreterDropdown();
 
 		// Wait for the desired primary interpreter group to load
-		const selectedInterpreter = await this.awaitDesiredPrimaryInterpreterGroupLoaded(selectedInterpreterLabel);
-		if (!selectedInterpreter.interpreterDescription || selectedInterpreter.groupIndex < 0) {
-			return Promise.reject(`Something went wrong while trying to load the info for ${selectedInterpreterLabel}`);
+		const selectedInterpreter = await this.getPrimaryInterpreter(
+			selectedInterpreterLabel
+		);
+		if (!selectedInterpreter) {
+			throw new Error(
+				`Something went wrong while trying to load the info for ${selectedInterpreterLabel}`
+			);
 		}
-		if (!selectedInterpreter.interpreterPath) {
-			return Promise.reject(`Could not retrieve interpreter path for ${selectedInterpreterLabel}`);
+
+		// Get the interpreter name
+		const interpreterName = await this.getInterpreterName(
+			selectedInterpreter
+		);
+		if (!interpreterName) {
+			throw new Error(
+				`Could not retrieve interpreter name for ${selectedInterpreterLabel}`
+			);
+		}
+
+		// Get the interpreter path
+		const interpreterPath = await this.getInterpreterPath(
+			selectedInterpreter
+		);
+		if (!interpreterPath) {
+			throw new Error(
+				`Could not retrieve interpreter path for ${selectedInterpreterLabel}`
+			);
 		}
 
 		// Determine the interpreter type for the selected interpreter
-		const interpreterType = getInterpreterType(selectedInterpreter.interpreterDescription);
+		const interpreterType = getInterpreterType(interpreterName);
 		if (!interpreterType) {
-			return Promise.reject(`Could not determine interpreter type for ${selectedInterpreterLabel}`);
+			throw new Error(
+				`Could not determine interpreter type for ${selectedInterpreterLabel}`
+			);
 		}
 
 		// Return the interpreter info
 		return {
 			type: interpreterType,
-			version: selectedInterpreter.interpreterDescription,
-			path: selectedInterpreter.interpreterPath
+			version: interpreterName,
+			path: interpreterPath,
 		} satisfies InterpreterInfo;
-	}
-
-	private async awaitDesiredPrimaryInterpreterGroupLoaded(
-		interpreterNamePrefix: string
-	): Promise<InterpreterGroupInfo> {
-		// Retry up to 30 times for the primary interpreter group info to load
-		for (let i = 0; i < 30; i++) {
-			// This element array is roughly represented as follows:
-			// [firstInterpreterDescription, firstInterpreterPath, secondInterpreterDescription, secondInterpreterPath]
-			// e.g. ['Python 3.10.4 (Pyenv)', '/usr/bin/python3', 'R 4.4.0', '/Library/Frameworks/R.framework/Versions/4.4-arm64/Resources/bin/R']
-			// The even indices are the interpreter descriptions and the odd indices are the interpreter paths
-			const interpreterElems = await this.code.getElements(
-				PRIMARY_INTERPRETER_GROUP_DESCRIPTIONS,
-				false
-			);
-			if (interpreterElems && interpreterElems.length) {
-				// Iterate the element array by 2, so we can get the name and path of each interpreter
-				for (let j = 0; j < interpreterElems.length; j + 2) {
-					const interpreterDesc = interpreterElems[j].textContent;
-					this.code.logger.log(
-						`Found interpreter: ${interpreterDesc}`
-					);
-					if (interpreterDesc.startsWith(interpreterNamePrefix)) {
-						const interpreterPath = interpreterElems[j + 1].textContent;
-						// Return as soon as we find the desired interpreter
-						return {
-							interpreterDescription: interpreterDesc, // e.g. Python 3.10.4 (Pyenv)
-							groupIndex: j,
-							interpreterPath: interpreterPath, // e.g. /usr/bin/python3
-						};
-					}
-				}
-			}
-
-			this.code.logger.log(
-				`Waiting for ${interpreterNamePrefix} to load, try ${i}`
-			);
-			await this.code.driver.wait(3000);
-		}
-
-		return { interpreterDescription: '', groupIndex: -1 };
-	}
-
-	private async getSecondaryInterpreters(primaryGroupIndex: number): Promise<InterpreterGroupInfo[]> {
-
-		const subSelector = `${INTERPRETER_GROUPS}:nth-of-type(${primaryGroupIndex}) ${INTERPRETER_ACTION_BUTTON}`;
-		await this.code.waitAndClick(subSelector);
-
-		const secondaryInterpreters = await this.code.getElements(SECONDARY_INTERPRETER_GROUP_NAMES, false);
-
-		const loadedInterpreters: string[] = [];
-		secondaryInterpreters?.forEach((interpreter) => { loadedInterpreters.push(interpreter.textContent); });
-
-		const groups: InterpreterGroupInfo[] = [];
-		let secondaryGroupIndex = 0;
-		for (const interpreter of loadedInterpreters) {
-			secondaryGroupIndex++;
-			groups.push({ interpreterDescription: interpreter, groupIndex: secondaryGroupIndex });
-		}
-		return groups;
-
 	}
 }
