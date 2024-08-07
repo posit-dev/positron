@@ -1654,12 +1654,7 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             data = data.view(np_.int64)
 
-        if params.method == ColumnHistogramParamsMethod.Fixed:
-            num_bins = params.num_bins
-            assert num_bins is not None
-            bin_counts, bin_edges = np_.histogram(data, bins=num_bins)
-        else:
-            raise NotImplementedError
+        bin_counts, bin_edges = _get_histogram_numpy(data, params)
 
         if is_datetime64:
             # A bit hacky for now, but will replace this with
@@ -1765,6 +1760,27 @@ COMPARE_OPS = {
     FilterComparisonOp.Eq: operator.eq,
     FilterComparisonOp.NotEq: operator.ne,
 }
+
+
+def _get_histogram_numpy(data, params: ColumnHistogramParams):
+    if params.method == ColumnHistogramParamsMethod.Fixed:
+        assert params.num_bins is not None
+        hist_params = {"bins": params.num_bins}
+    elif params.method == ColumnHistogramParamsMethod.Sturges:
+        hist_params = {"bins": "sturges"}
+    else:
+        raise NotImplementedError
+
+    try:
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+    except ValueError:
+        # If there are inf/-inf values in the dataset, ValueError is
+        # raised. We catch it and try again to avoid paying the
+        # filtering cost every time
+        data = data[np_.isfinite(data)]
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+
+    return bin_counts, bin_edges
 
 
 def _date_median(x):
@@ -2380,28 +2396,8 @@ class PolarsView(DataExplorerTableView):
         else:
             cast_bin_edges = False
 
-        min_value = data.min()
-        max_value = data.max()
-        data_span = max_value - min_value  # type: ignore
-
-        if params.method == ColumnHistogramParamsMethod.Fixed:
-            num_bins = params.num_bins
-            assert num_bins is not None
-            bin_size = data_span / num_bins
-        else:
-            raise NotImplementedError
-
-        indices = ((data - min_value) / data_span) * num_bins
-        indices = indices.cast(pl_.Int64).alias("indices")
-
-        # The last bin right edge is inclusive, so we adjust down
-        indices[indices == num_bins] = num_bins - 1
-
-        freq_table = indices.value_counts()
-        index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
-        bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
-
-        bin_edges = min_value + pl_.arange(num_bins + 1, eager=True) * bin_size
+        bin_counts, bin_edges = _get_histogram_numpy(data.to_numpy(), params)
+        bin_edges = pl_.Series(bin_edges)
 
         if cast_bin_edges:
             bin_edges = bin_edges.cast(dtype)

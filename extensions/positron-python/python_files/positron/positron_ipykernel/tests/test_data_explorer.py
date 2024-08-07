@@ -2589,6 +2589,8 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "b": pd.date_range("2000-01-01", periods=11),
             "c": [1.5, np.nan, 3.5, 5.0, 10, np.nan, 0.1, -4.3, 0, -2, -10],
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+            "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
+            "f": np.ones(11),
         }
     )
     dfp = pl.DataFrame(
@@ -2597,6 +2599,8 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "b": list(df["b"]),
             "c": [1.5, None, 3.5, 5.0, 10, None, 0.1, -4.3, 0, -2, -10],
             "d": [0, 0, 0, 0, 0, 10, 10, 10, 10, 10, 10],
+            "e": [np.inf, -np.inf, 0, 1, 2, 3, 4, 5, 6, 7, 8],
+            "f": np.ones(11),
         }
     )
 
@@ -2653,6 +2657,22 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
                     "10.00",
                 ],
                 "bin_counts": [5, 0, 0, 6],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(4, method="sturges"),
+            {
+                "bin_edges": ["0.00", "1.60", "3.20", "4.80", "6.40", "8.00"],
+                "bin_counts": [2, 2, 1, 2, 2],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(5, method="sturges"),
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
                 "quantiles": [],
             },
         ),
