@@ -23,7 +23,7 @@ export enum InvalidateCacheFlags {
 	None = 0,
 	ColumnSchema = 1 << 0,
 	Data = 1 << 1,
-	All = ~(~0 << 2)
+	All = ColumnSchema | Data
 }
 
 /**
