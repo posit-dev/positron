@@ -42,26 +42,27 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
-	const [plotSize, setPlotSize] = useState<IPlotSize | undefined>();
-	const [plotUnit, setPlotUnit] = useState<PlotUnit>();
+	const [policySize, setPolicySize] = useState<IPlotSize | undefined>();
+	const [intrinsicSize, setIntrinsicSize] = useState<IntrinsicSize | undefined>();
+	// const [plotUnit, setPlotUnit] = useState<PlotUnit>();
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const plotsContext = usePositronPlotsContext();
 
-	const getPlotDisplaySize = (width: number, height: number, unit?: PlotUnit) => {
-		let displayUnit = '';
-		switch (unit) {
-			case PlotUnit.Inches:
-				displayUnit = 'in';
-				break;
-			case PlotUnit.Pixels:
-				displayUnit = 'px';
-				break;
-		}
-		return `${width}${displayUnit}×${height}${displayUnit}`;
-	};
+	// const getPlotDisplaySize = (width: number, height: number, unit?: PlotUnit) => {
+	// 	let displayUnit = '';
+	// 	switch (unit) {
+	// 		case PlotUnit.Inches:
+	// 			displayUnit = 'in';
+	// 			break;
+	// 		case PlotUnit.Pixels:
+	// 			displayUnit = 'px';
+	// 			break;
+	// 	}
+	// 	return `${width}${displayUnit}×${height}${displayUnit}`;
+	// };
 
 	useEffect(() => {
-		console.log('useEffect');
+		console.log('useEffect:', props.plotClient.id);
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
@@ -70,39 +71,46 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			setUri(props.plotClient.lastRender.uri);
 		}
 
-		let newPlotSize: IPlotSize | undefined;
-		let intrinsicSize: IntrinsicSize | undefined;
+		// let newPlotSize: IPlotSize | undefined;
+		// let intrinsicSize: IntrinsicSize | undefined;
 
-		const getPlotDisplaySizeTwo = () => {
-			const width = newPlotSize?.width ?? intrinsicSize?.width;
-			const height = newPlotSize?.height ?? intrinsicSize?.height;
-			const unit = newPlotSize ? PlotUnit.Pixels : intrinsicSize?.unit;
-			if (!width || !height || !unit) {
-				return undefined;
-			}
-			return getPlotDisplaySize(width, height, unit);
-		};
+		disposables.add(props.plotClient.onDidSetIntrinsicSize((size) => {
+			// intrinsicSize = size;
+			setIntrinsicSize(size);
+		}));
 
-		setPlotSize(undefined);
-		setPlotUnit(undefined);
+		// const getPlotDisplaySizeTwo = () => {
+		// 	const width = newPlotSize?.width ?? intrinsicSize?.width;
+		// 	const height = newPlotSize?.height ?? intrinsicSize?.height;
+		// 	const unit = newPlotSize ? PlotUnit.Pixels : intrinsicSize?.unit;
+		// 	if (!width || !height || !unit) {
+		// 		return undefined;
+		// 	}
+		// 	return getPlotDisplaySize(width, height, unit);
+		// };
+
+		setPolicySize(undefined);
+		setIntrinsicSize(undefined);
+		// setPlotUnit(undefined);
 
 		const render = async (policy: IPositronPlotSizingPolicy) => {
-			intrinsicSize = await props.plotClient.getIntrinsicSize();
-
-			newPlotSize = policy.getPlotSize({
+			const plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
 			});
-			setPlotSize(newPlotSize ?? intrinsicSize);
-			setPlotUnit(newPlotSize ? PlotUnit.Pixels : intrinsicSize?.unit);
 
 			try {
+				console.log('Rendering... policy size:', plotSize);
+				setPolicySize(plotSize);
+				// setPlotUnit(newPlotSize && PlotUnit.Pixels);
+
 				// Wait for the plot to render.
 				const result =
-					await props.plotClient.render(newPlotSize, ratio);
+					await props.plotClient.render(plotSize, ratio);
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);
+				console.log('Rendering... Done!');
 
 			} catch (e) {
 				// It's normal for a plot render to be canceled if the user invalidates the render
@@ -111,7 +119,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				if (e.name === 'Canceled' || e.message === 'Canceled') {
 					return;
 				}
-				const message = localize('positronPlots.renderError', "Error rendering plot to {0}: {1} ({2})", getPlotDisplaySizeTwo(), e.message, e.code);
+				const message = localize('positronPlots.renderError', "Error rendering plot using '{0}' size: {1} ({2})", policy.name, e.message, e.code);
 				plotsContext.notificationService.warn(message);
 				setError(message);
 			}
@@ -203,8 +211,25 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		};
 
 		if (!text.length) {
-			if (plotSize && plotUnit) {
-				text = `Rendering plot (${getPlotDisplaySize(plotSize.width, plotSize.height, plotUnit)})`;
+			let displayUnit: string | undefined;
+			if (policySize) {
+				displayUnit = 'px';
+			} else if (intrinsicSize) {
+				switch (intrinsicSize.unit) {
+					case PlotUnit.Inches:
+						displayUnit = 'in';
+						break;
+					case PlotUnit.Pixels:
+						displayUnit = 'px';
+						break;
+				}
+			}
+
+			text = 'Rendering plot';
+
+			const size = policySize ?? intrinsicSize;
+			if (size && displayUnit) {
+				text += ` (${size.width}${displayUnit}×${size.height}${displayUnit})`;
 			}
 		}
 

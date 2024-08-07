@@ -217,7 +217,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
-		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 } });
+		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 }, get_intrinsic_size: { timeout: 30_000 } });
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
@@ -421,6 +421,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Record the time that the render started so we can estimate the render time
 		const startedTime = Date.now();
+
+		// If this is the first render, get the plot's intrinsic size.
+		if (!this._lastRender) {
+			this._comm.getIntrinsicSize().then((result) => {
+				this._didSetIntrinsicSizeEmitter.fire(result.size);
+			});
+		}
 
 		// Perform the RPC request and resolve the promise when the response is received
 		const renderRequest = request.renderRequest;
