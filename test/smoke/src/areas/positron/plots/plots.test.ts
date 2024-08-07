@@ -81,7 +81,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// capture master image in CI
-				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
@@ -124,7 +124,7 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
 				// capture master image in CI
-				// await app.code.driver.getLocator('.plot-instance.static-plot-instance img').screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
@@ -303,7 +303,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// capture master image in CI
-				// await app.code.driver.getLocator('.plot-instance .image-wrapper img').screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
