@@ -62,7 +62,10 @@ export async function updateSetting(
     configTarget: ConfigurationTarget,
 ) {
     const vscode = require('vscode') as typeof import('vscode');
+    // --- Start Positron ---
+    // @ts-ignore Compat with nightly typescript
     const settings = vscode.workspace.getConfiguration('python', { uri: resource, languageId: 'python' } || null);
+    // --- End Positron ---
     const currentValue = settings.inspect(setting);
     if (
         currentValue !== undefined &&
