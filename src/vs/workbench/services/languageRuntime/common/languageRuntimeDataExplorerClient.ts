@@ -140,14 +140,21 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Register the onDidSchemaUpdate event handler.
 		this._register(this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			// Refresh the cached backend state.
 			await this.updateBackendState();
+
+			// Fire the onDidSchemaUpdate event.
 			this._onDidSchemaUpdateEmitter.fire(e);
 		}));
 
 		// Register the onDidDataUpdate event handler.
-		this._register(this._positronDataExplorerComm.onDidDataUpdate(() =>
-			this._onDidDataUpdateEmitter.fire()
-		));
+		this._register(this._positronDataExplorerComm.onDidDataUpdate(async () => {
+			// Refresh the cached backend state.
+			await this.updateBackendState();
+
+			// Fire the onDidDataUpdate event.
+			this._onDidDataUpdateEmitter.fire();
+		}));
 	}
 
 	override dispose(): void {
