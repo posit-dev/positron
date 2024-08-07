@@ -136,13 +136,37 @@ export class PositronInterpreterDropdown {
 	}
 
 	/**
-	 * Close the interpreter dropdown in the top action bar. This assumes the dropdown is open and
-	 * already in focus.
+	 * Close the interpreter dropdown in the top action bar.
 	 * @returns A promise that resolves once the interpreter dropdown is closed.
 	 */
 	async closeInterpreterDropdown() {
-		await this.code.driver.getKeyboard().press('Escape');
-		await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
+		if (await this.interpreterGroups.isVisible()) {
+			await this.code.driver.getKeyboard().press('Escape');
+			await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
+		}
+	}
+
+	/**
+	 * Restart the primary interpreter corresponding to the interpreter type or a descriptive string.
+	 * The interpreter type could be 'Python', 'R', etc.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * Note: This assumes the interpreter is already running.
+	 */
+	async restartPrimaryInterpreter(description: string | InterpreterType) {
+		await this.openInterpreterDropdown();
+
+		const primaryInterpreter = await this.getPrimaryInterpreter(description);
+		if (!primaryInterpreter) {
+			await this.closeInterpreterDropdown();
+			throw new Error(`Could not find primary interpreter with type ${description}`);
+		}
+
+		const restartButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Restart the interpreter');
+		await restartButton.click();
+
+		await this.closeInterpreterDropdown();
 	}
 
 	/**
@@ -226,6 +250,7 @@ export class PositronInterpreterDropdown {
 				`Found primary interpreter: ${primaryInterpreterName}`
 			);
 			await primaryInterpreter.click();
+			await this.closeInterpreterDropdown();
 			return;
 		}
 
@@ -261,14 +286,13 @@ export class PositronInterpreterDropdown {
 				await secondaryInterpreter.scrollIntoViewIfNeeded();
 				await secondaryInterpreter.isVisible();
 				await secondaryInterpreter.click();
+				await this.closeInterpreterDropdown();
 				return;
 			}
 		}
 
-		// Close the interpreter dropdown
-		await this.closeInterpreterDropdown();
-
 		// None of the primary nor secondary interpreters match the desired interpreter
+		await this.closeInterpreterDropdown();
 		throw new Error(
 			`Could not find interpreter ${desiredInterpreterString} for ${desiredInterpreterType}`
 		);
