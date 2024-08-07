@@ -62,8 +62,8 @@ export const showSavePlotModalDialog = (
 		container: layoutService.activeContainer
 	});
 
-	const plotWidth = plotClient.lastRender?.width ?? 100;
-	const plotHeight = plotClient.lastRender?.height ?? 100;
+	const plotWidth = plotClient.lastRender?.size?.width ?? 100;
+	const plotHeight = plotClient.lastRender?.size?.height ?? 100;
 
 	renderer.render(
 		<SavePlotModalDialog

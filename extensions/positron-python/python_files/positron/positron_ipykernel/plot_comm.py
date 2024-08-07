@@ -60,11 +60,11 @@ class IntrinsicSize(BaseModel):
     The intrinsic size of a plot
     """
 
-    width: StrictInt = Field(
+    width: Union[StrictInt, StrictFloat] = Field(
         description="The intrinsic width of the plot",
     )
 
-    height: StrictInt = Field(
+    height: Union[StrictInt, StrictFloat] = Field(
         description="The intrinsic height of the plot",
     )
 

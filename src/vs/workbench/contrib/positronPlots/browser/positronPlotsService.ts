@@ -40,6 +40,7 @@ import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlP
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -220,6 +221,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
 		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
 		this._sizingPolicies.push(new PlotSizingPolicyFill());
+		this._sizingPolicies.push(new PlotSizingPolicyIntrinsic());
 
 		// See if there's a custom size policy in storage, and retrieve it if so
 		const customSizingPolicy = this._storageService.get(

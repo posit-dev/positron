@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import * as nls from 'vs/nls';
 
 /**
@@ -24,12 +23,7 @@ export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 
 	private static minimumPlotSize = 400;
 
-	public getPlotSize(viewportSize: IPlotSize, metadata: IPositronPlotMetadata): IPlotSize {
-		// If the language runtime specified a preferred size, use it.
-		if (metadata.preferred_size) {
-			return metadata.preferred_size;
-		}
-
+	public getPlotSize(viewportSize: IPlotSize, intrinsicSize?: IPlotSize): IPlotSize | undefined {
 		// Start with the assumption that the plot will fill the viewport.
 		const plotSize = viewportSize;
 
