@@ -60,12 +60,7 @@ class FigureManagerPositron(FigureManagerBase):
         super().__init__(canvas, num)
 
         # Determine the intrinsic size of the plot.
-        width_in, height_in = canvas.figure.get_size_inches()
-        if [width_in, height_in] == matplotlib.rcParams["figure.figsize"]:
-            # Don't provide an intrinsic size if the default figure size was used.
-            intrinsic_size = None
-        else:
-            intrinsic_size = (width_in, height_in)
+        intrinsic_size = tuple(canvas.figure.get_size_inches())
 
         # Create the plot instance via the plots service.
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
