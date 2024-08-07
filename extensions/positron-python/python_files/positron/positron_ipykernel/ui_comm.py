@@ -207,9 +207,6 @@ class UiFrontendEvent(str, enum.Enum):
     # Change the displayed working directory
     WorkingDirectory = "working_directory"
 
-    # Execute a Positron command
-    ExecuteCommand = "execute_command"
-
     # Open a workspace
     OpenWorkspace = "open_workspace"
 

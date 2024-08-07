@@ -1281,15 +1281,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						}
 					});
 				}));
-				this._register(uiClient.onDidExecuteCommand(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ExecuteCommand,
-							data: event
-						}
-					});
-				}));
 				this._register(uiClient.onDidShowUrl(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						session_id: session.sessionId,
