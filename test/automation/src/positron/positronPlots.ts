@@ -7,7 +7,7 @@
 import { Locator } from '@playwright/test';
 import { Code } from '../code';
 
-const CURRENT_PLOT = '.plot-instance .image-wrapper img';
+const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
 const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
 
