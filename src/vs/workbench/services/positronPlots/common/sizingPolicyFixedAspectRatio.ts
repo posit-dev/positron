@@ -22,7 +22,7 @@ export class SizingPolicyFixedAspectRatio {
 	 * @param viewportSize The size of the viewport in pixels.
 	 * @returns The size of the plot in pixels.
 	 */
-	public getPlotSize(viewportSize: IPlotSize): IPlotSize {
+	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {
 		let plotWidth = Math.max(viewportSize.width, SizingPolicyFixedAspectRatio.minimumPlotSize);
 		let plotHeight = Math.max(viewportSize.height, SizingPolicyFixedAspectRatio.minimumPlotSize);
 		if (plotWidth / plotHeight > this.aspectRatio) {

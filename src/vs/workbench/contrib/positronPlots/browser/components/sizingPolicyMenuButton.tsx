@@ -42,10 +42,26 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
+
+		// Update the active policy label when the selected policy's name changes.
+		let didChangeSizingPolicyDisposable = props.plotsService.selectedSizingPolicy.onDidUpdateName?.((name) => {
+			setActivePolicyLabel(name);
+		});
+
+		// Update the active policy label when the selected policy changes.
 		disposables.add(props.plotsService.onDidChangeSizingPolicy(policy => {
 			setActivePolicyLabel(policy.name);
+
+			// Update the active policy label when the selected policy's name changes.
+			didChangeSizingPolicyDisposable?.dispose();
+			didChangeSizingPolicyDisposable = policy.onDidUpdateName?.((name) => {
+				setActivePolicyLabel(name);
+			});
 		}));
-		return () => disposables.dispose();
+		return () => {
+			disposables.dispose();
+			didChangeSizingPolicyDisposable?.dispose();
+		};
 	}, [props.plotsService, props.plotsService.selectedSizingPolicy]);
 
 	// Builds the actions.

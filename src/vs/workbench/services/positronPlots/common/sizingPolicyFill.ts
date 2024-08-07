@@ -18,10 +18,9 @@ export class PlotSizingPolicyFill implements IPositronPlotSizingPolicy {
 	 * Computes the size of the plot in pixels, given the size of the viewport in pixels.
 	 *
 	 * @param viewportSize The size of the viewport in pixels.
-	 * @param intrinsicSize The intrinsic size of the plot, if known
 	 * @returns The size of the plot in pixels.
 	 */
-	public getPlotSize(viewportSize: IPlotSize, intrinsicSize?: IPlotSize): IPlotSize | undefined {
+	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {
 		return viewportSize;
 	}
 }
