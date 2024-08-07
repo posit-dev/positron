@@ -380,7 +380,7 @@ export interface DebugSleepRequest {
  * Request: Execute a Positron command
  *
  * Use this to execute a Positron command from the backend (like from a
- * runtime)
+ * runtime), and wait for the command to finish
  */
 export interface ExecuteCommandRequest {
 	/**

@@ -205,7 +205,7 @@
 		{
 			"name": "execute_command",
 			"summary": "Execute a Positron command",
-			"description": "Use this to execute a Positron command from the backend (like from a runtime)",
+			"description": "Use this to execute a Positron command from the backend (like from a runtime), and wait for the command to finish",
 			"params": [
 				{
 					"name": "command",
