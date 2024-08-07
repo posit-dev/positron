@@ -20,7 +20,7 @@ export class PlotSizingPolicyCustom implements IPositronPlotSizingPolicy {
 		this.name = nls.localize('plotSizingPolicy.Custom', "{0}×{1} (custom)", size.width, size.height);
 	}
 
-	public getPlotSize(viewportSize: IPlotSize): IPlotSize {
+	public getPlotSize(viewportSize: IPlotSize, intrinsicSize?: IPlotSize): IPlotSize | undefined {
 		return this.size;
 	}
 }

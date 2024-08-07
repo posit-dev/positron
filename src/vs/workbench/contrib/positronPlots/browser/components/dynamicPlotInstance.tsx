@@ -14,6 +14,7 @@ import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/compone
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -55,13 +56,18 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 
 		// Request a plot render at the current size, using the current sizing policy.
-		const newPlotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
-			height: props.height,
-			width: props.width
-		}, props.plotClient.metadata);
-		setPlotSize(newPlotSize);
-
-		props.plotClient.render(newPlotSize.height, newPlotSize.width, ratio).then((result) => {
+		let newPlotSize: IPlotSize | undefined;
+		let intrinsicSize: IPlotSize | undefined;
+		props.plotClient.getIntrinsicSize().then((newIntrinsicSize) => {
+			intrinsicSize = newIntrinsicSize;
+			newPlotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+				height: props.height,
+				width: props.width
+			}, intrinsicSize);
+			// TODO: Handle null case
+			setPlotSize(newPlotSize ?? { width: 100, height: 100 });
+			return props.plotClient.render(newPlotSize, ratio);
+		}).then((result) => {
 			setUri(result.uri);
 		}).catch((e) => {
 			// It's normal for a plot render to be canceled if the user invalidates the render
@@ -70,7 +76,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			if (e.name === 'Canceled' || e.message === 'Canceled') {
 				return;
 			}
-			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", newPlotSize.width, newPlotSize.height, e.message, e.code);
+			const message = localize('positronPlots.renderError', "Error rendering plot to {0} x {1}: {2} ({3})", newPlotSize?.width, newPlotSize?.height, e.message, e.code);
 			plotsContext.notificationService.warn(message);
 			setError(message);
 		});
@@ -85,13 +91,13 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			const newPlotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
-			}, props.plotClient.metadata);
-			setPlotSize(newPlotSize);
+			}, intrinsicSize);
+			setPlotSize(newPlotSize ?? { width: 100, height: 100 });
 
 			try {
 				// Wait for the plot to render.
 				const result =
-					await props.plotClient.render(newPlotSize.height, newPlotSize.width, ratio);
+					await props.plotClient.render(newPlotSize, ratio);
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);

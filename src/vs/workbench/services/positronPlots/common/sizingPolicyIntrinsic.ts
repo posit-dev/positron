@@ -7,21 +7,16 @@ import { IPositronPlotSizingPolicy, IPlotSize } from 'vs/workbench/services/posi
 import * as nls from 'vs/nls';
 
 /**
+ * TODO:
  * The simplest plot sizing policy. The plot is sized to fill the viewport exactly, no
  * matter what size it is.
  */
-export class PlotSizingPolicyFill implements IPositronPlotSizingPolicy {
-	public readonly id = 'fill';
-	public readonly name = nls.localize('plotSizingPolicy.fillViewport', "Fill");
+export class PlotSizingPolicyIntrinsic implements IPositronPlotSizingPolicy {
+	public readonly id = 'intrinsic';
+	// TODO: Make this a getter, make intrinsicSize of type IntrinsicSize and make getPlotSize set the name?
+	public name = nls.localize('plotSizingPolicy.intrinsic', "Intrinsic");
 
-	/**
-	 * Computes the size of the plot in pixels, given the size of the viewport in pixels.
-	 *
-	 * @param viewportSize The size of the viewport in pixels.
-	 * @param intrinsicSize The intrinsic size of the plot, if known
-	 * @returns The size of the plot in pixels.
-	 */
 	public getPlotSize(viewportSize: IPlotSize, intrinsicSize?: IPlotSize): IPlotSize | undefined {
-		return viewportSize;
+		return intrinsicSize;
 	}
 }
