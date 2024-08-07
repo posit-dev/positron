@@ -165,8 +165,33 @@ export class PositronInterpreterDropdown {
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
 			.getByTitle('Restart the interpreter');
 		await restartButton.click();
+	}
+
+	/**
+	 * Stop the primary interpreter corresponding to the interpreter type or a descriptive string.
+	 * The interpreter type could be 'Python', 'R', etc.
+	 * The string could be 'Python 3.10.4 (Pyenv)', 'R 4.4.0', '/opt/homebrew/bin/python3', etc.
+	 * Note: This expects the interpreter to already running.
+	 */
+	async stopPrimaryInterpreter(description: string | InterpreterType) {
+		await this.openInterpreterDropdown();
+
+		const primaryInterpreter = await this.getPrimaryInterpreter(description);
+		if (!primaryInterpreter) {
+			await this.closeInterpreterDropdown();
+			throw new Error(`Could not find primary interpreter with type ${description}`);
+		}
+
+		if (await this.primaryInterpreterShowsRunning(description)) {
+			const stopButton = primaryInterpreter
+				.locator(INTERPRETER_ACTIONS_SELECTOR)
+				.getByTitle('Stop the interpreter');
+			await stopButton.click();
+			return;
+		}
 
 		await this.closeInterpreterDropdown();
+		throw new Error(`Interpreter '${description}' is not running -- cannot stop an inactive interpreter`);
 	}
 
 	/**
@@ -183,18 +208,16 @@ export class PositronInterpreterDropdown {
 			description
 		);
 		if (!primaryInterpreter) {
-			await this.closeInterpreterDropdown();
-			return false;
+			throw new Error(`Could not find primary interpreter with type ${description}`);
 		}
 
-		// Check for green dot running indicator
+		// Fail if green dot running indicator missing
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
 		if (!(await runningIndicator.isVisible())) {
-			await this.closeInterpreterDropdown();
 			return false;
 		}
 
-		// Check for enabled restart button
+		// Fail if restart button not visible and enabled
 		const restartButton = primaryInterpreter
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
 			.getByTitle('Restart the interpreter');
@@ -202,11 +225,65 @@ export class PositronInterpreterDropdown {
 			!(await restartButton.isVisible()) ||
 			!(await restartButton.isEnabled())
 		) {
-			await this.closeInterpreterDropdown();
 			return false;
 		}
 
-		await this.closeInterpreterDropdown();
+		// Fail if stop button not visible and enabled
+		const stopButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Stop the interpreter');
+		if (
+			!(await stopButton.isVisible()) ||
+			!(await stopButton.isEnabled())
+		) {
+			return false;
+		}
+
+		// Success if all checks pass
+		return true;
+	}
+
+	async primaryInterpreterShowsInactive(
+		description: string | InterpreterType
+	) {
+		await this.openInterpreterDropdown();
+
+		const primaryInterpreter = await this.getPrimaryInterpreter(
+			description
+		);
+		if (!primaryInterpreter) {
+			await this.closeInterpreterDropdown();
+			throw new Error(`Could not find primary interpreter with type ${description}`);
+		}
+
+		// Fail if green dot running indicator not missing
+		const runningIndicator = primaryInterpreter.locator('.running-icon');
+		if (await runningIndicator.isVisible()) {
+			return false;
+		}
+
+		// Fail if restart button not disabled or missing
+		const restartButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Restart the interpreter');
+		if (
+			await restartButton.isVisible()
+		) {
+			return false;
+		}
+
+		// Fail if start button not visible or enabled
+		const startButton = primaryInterpreter
+			.locator(INTERPRETER_ACTIONS_SELECTOR)
+			.getByTitle('Start the interpreter');
+		if (
+			!(await startButton.isVisible()) ||
+			!(await startButton.isEnabled())
+		) {
+			return false;
+		}
+
+		// Success if all checks pass
 		return true;
 	}
 
@@ -250,7 +327,6 @@ export class PositronInterpreterDropdown {
 				`Found primary interpreter: ${primaryInterpreterName}`
 			);
 			await primaryInterpreter.click();
-			await this.closeInterpreterDropdown();
 			return;
 		}
 
@@ -286,7 +362,6 @@ export class PositronInterpreterDropdown {
 				await secondaryInterpreter.scrollIntoViewIfNeeded();
 				await secondaryInterpreter.isVisible();
 				await secondaryInterpreter.click();
-				await this.closeInterpreterDropdown();
 				return;
 			}
 		}
