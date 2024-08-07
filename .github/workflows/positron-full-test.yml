@@ -151,6 +151,6 @@ jobs:
         if: always()
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
-          SLACK_CHANNEL: C06DNFJSHPD
+          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
           SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
