@@ -362,10 +362,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 			// Select a new preview webview if the closed one was active
 			if (wasActive) {
-				if (this._items.size > 0) {
+				const items = this._items.values().next();
+				if (items.value) {
 					// If we have other items to show, select one
-					this.activePreviewWebviewId =
-						this._items.values().next().value.providedId;
+					this.activePreviewWebviewId = items.value.previewId;
 				} else {
 					// Nothing else to show; set the the active preview to undefined
 					this.activePreviewWebviewId = '';

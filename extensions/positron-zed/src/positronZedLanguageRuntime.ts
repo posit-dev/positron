@@ -1733,7 +1733,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 			// Create the connection client comm.
 			const target = this._connections.values().next().value;
-			this._connections.delete(target.id);
+			this._connections.delete(target!.id);
 
 			// Send the comm open message to the client.
 			this._onDidReceiveRuntimeMessage.fire({
@@ -1741,9 +1741,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				parent_id: parentId,
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.CommClosed,
-				comm_id: target.id,
+				comm_id: target!.id,
 				target_name: 'positron.connection',
-				data: { name: target.name }
+				data: { name: target!.name }
 			} as positron.LanguageRuntimeCommClosed);
 
 			// Emit text output so something shows up in the console.
@@ -1753,7 +1753,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				when: new Date().toISOString(),
 				type: positron.LanguageRuntimeMessageType.Output,
 				data: {
-					'text/plain': `Connection '${target.name}' closed`
+					'text/plain': `Connection '${target!.name}' closed`
 				} as Record<string, string>
 			} as positron.LanguageRuntimeOutput);
 		}

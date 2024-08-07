@@ -728,7 +728,8 @@ class ExtensionsScanner extends Disposable {
 				if (input.validate) {
 					extension = this.validate(extension, input);
 				}
-				if (manifest.enabledApiProposals && this.extensionsEnabledWithApiProposalVersion.includes(id.toLowerCase())) {
+				if (manifest.enabledApiProposals && (!this.environmentService.isBuilt || this.extensionsEnabledWithApiProposalVersion.includes(id.toLowerCase()))) {
+					manifest.originalEnabledApiProposals = manifest.enabledApiProposals;
 					manifest.enabledApiProposals = parseEnabledApiProposalNames([...manifest.enabledApiProposals]);
 				}
 				return extension;
@@ -744,27 +745,19 @@ class ExtensionsScanner extends Disposable {
 	validate(extension: IRelaxedScannedExtension, input: ExtensionScannerInput): IRelaxedScannedExtension {
 		let isValid = true;
 		const validateApiVersion = this.environmentService.isBuilt && this.extensionsEnabledWithApiProposalVersion.includes(extension.identifier.id.toLowerCase());
+		const validations = validateExtensionManifest(input.productVersion, input.productDate, input.location, extension.manifest, extension.isBuiltin, validateApiVersion);
+
 		// --- Start Positron ---
-		const validations: [Severity, string][] = [];
-
-		// Validate extension manifest for VS Code fields
-		validations.push(...validateExtensionManifest(
-			input.productVersion,
-			input.productDate,
-			input.location,
-			extension.manifest,
-			extension.isBuiltin,
-			validateApiVersion));
-
 		// Validate extension manifest for Positron fields (i.e. engine: positron)
+		// @ts-ignore
 		validations.push(...validatePositronExtensionManifest(
 			input.productPositronVersion,
 			input.productDate,
 			input.location,
 			extension.manifest,
 			extension.isBuiltin));
-
 		// --- End Positron ---
+
 		for (const [severity, message] of validations) {
 			if (severity === Severity.Error) {
 				isValid = false;
@@ -800,7 +793,7 @@ class ExtensionsScanner extends Disposable {
 			return null;
 		}
 		if (getNodeType(manifest) !== 'object') {
-			this.logService.error(this.formatMessage(extensionLocation, localize('jsonParseInvalidType', "Invalid manifest file {0}: Not an JSON object.", manifestLocation.path)));
+			this.logService.error(this.formatMessage(extensionLocation, localize('jsonParseInvalidType', "Invalid manifest file {0}: Not a JSON object.", manifestLocation.path)));
 			return null;
 		}
 		return manifest;
