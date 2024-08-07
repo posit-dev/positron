@@ -82,3 +82,7 @@ codegen-units = 1
 [features]
 default = []
 vscode-encrypt = []
+# --- Start Positron ---
+# Adding in config feature for https://github.com/posit-dev/positron/issues/4225
+vsda = []
+# --- End Positron ---

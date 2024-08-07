@@ -70,7 +70,6 @@ export const activate: ActivationFunction = async (context) => {
 
 				// Check if the widget's comm was loaded from the kernel.
 				if (!manager.has_model(widgetData.model_id)) {
-					await manager.loadFromKernel();
 					throw new Error(`Widget model with ID ${widgetData.model_id} not found`);
 				}
 			}

@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.07.0",
+	"positronVersion": "2024.08.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -14,6 +14,7 @@
 	"serverLicensePrompt": "",
 	"serverApplicationName": "positron-server",
 	"serverDataFolderName": ".positron-server",
+	"serverDownloadUrlTemplate": "https://github.com/posit-dev/positron/releases/download/${version}/positron-reh-${os}-${arch}-${version}.tar.gz",
 	"tunnelApplicationName": "positron-tunnel",
 	"win32DirName": "Positron",
 	"win32NameVersion": "Positron",

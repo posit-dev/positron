@@ -74,14 +74,14 @@ export class Comm implements base.IClassicComm, Disposable {
 	 * @param data The data to send.
 	 * @param callbacks Callbacks to handle the response.
 	 * @param _metadata Metadata to send with the message - not currently used.
-	 * @param _buffers Buffers to send with the message - not currently used.
+	 * @param buffers Buffers to send with the message - not currently used.
 	 * @returns The message ID.
 	 */
 	send(
 		data: JSONValue,
 		callbacks?: base.ICallbacks,
 		_metadata?: JSONObject,
-		_buffers?: ArrayBuffer[] | ArrayBufferView[]
+		buffers?: ArrayBuffer[] | ArrayBufferView[]
 	): string {
 
 		// Callbacks are used to handle responses from the runtime.
@@ -103,6 +103,10 @@ export class Comm implements base.IClassicComm, Disposable {
 
 		if (callbacks?.iopub?.output) {
 			throw new Error('Callback iopub.output not implemented');
+		}
+
+		if (buffers && buffers.length > 0) {
+			console.warn(`Comm tried to send message with buffers:`, data, buffers);
 		}
 
 		const msgId = UUID.uuid4();
@@ -216,6 +220,9 @@ export class Comm implements base.IClassicComm, Disposable {
 					comm_id: this.comm_id,
 					data: message.data as JSONObject,
 				},
+				// Some widget libraries (e.g. ipydatagrid) may try to create an Int32Array which
+				// could fail if the original buffer is not correctly aligned, so create a new buffer.
+				buffers: message.buffers?.map(buffer => new Uint8Array(buffer)),
 				// Stub the rest of the interface - these are not currently used by widget libraries.
 				channel: 'iopub',
 				header: {

@@ -26,5 +26,5 @@ export interface JupyterMessage {
 	content: JupyterMessageSpec;
 
 	/** Additional binary data */
-	buffers: Array<Buffer>;
+	buffers: Array<Uint8Array>;
 }

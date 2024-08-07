@@ -134,28 +134,28 @@ export class RInstallation {
 	}
 }
 
-export function getRHomePath(binPath: string): string | undefined {
+export function getRHomePath(binpath: string): string | undefined {
 	switch (process.platform) {
 		case 'darwin':
 		case 'linux':
-			return getRHomePathNotWindows(binPath);
+			return getRHomePathNotWindows(binpath);
 		case 'win32':
-			return getRHomePathWindows(binPath);
+			return getRHomePathWindows(binpath);
 		default:
 			throw new Error('Unsupported platform');
 	}
 }
 
-function getRHomePathNotWindows(binPath: string): string | undefined {
-	const binLines = readLines(binPath);
+function getRHomePathNotWindows(binpath: string): string | undefined {
+	const binLines = readLines(binpath);
 	const re = new RegExp('Shell wrapper for R executable');
 	if (!binLines.some(x => re.test(x))) {
-		LOGGER.info(`Binary is not a shell script wrapping the executable: ${binPath}`);
+		LOGGER.info(`Binary is not a shell script wrapping the executable: ${binpath}`);
 		return undefined;
 	}
 	const targetLine = binLines.find(line => line.match('R_HOME_DIR'));
 	if (!targetLine) {
-		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
 		return undefined;
 	}
 	// macOS: R_HOME_DIR=/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources
@@ -165,23 +165,23 @@ function getRHomePathNotWindows(binPath: string): string | undefined {
 	const R_HOME_DIR = removeSurroundingQuotes(extractValue(targetLine, 'R_HOME_DIR'));
 	const homepath = R_HOME_DIR;
 	if (homepath === '') {
-		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the binary: ${binpath}`);
 		return undefined;
 	}
 	return homepath;
 }
 
-function getRHomePathWindows(binPath: string): string | undefined {
+function getRHomePathWindows(binpath: string): string | undefined {
 	// find right-most 'bin' in the path and take everything to the left of it
-	// Examples of binPaths:
-	// "C:\Program Files\R\R-4.3.2\bin\R.exe"     <-- the path produced by our binFragment() helper
-	// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe" <-- but this also exists
-	const binIndex = binPath.lastIndexOf(path.sep + 'bin' + path.sep);
+	// Examples of binpaths:
+	// "C:\Program Files\R\R-4.3.2\bin\x64\R.exe" <-- we prefer this, if both are present
+	// "C:\Program Files\R\R-4.3.2\bin\R.exe"     <-- usually a shim for the path above
+	const binIndex = binpath.lastIndexOf(path.sep + 'bin' + path.sep);
 	if (binIndex === -1) {
-		LOGGER.info(`Can\'t determine R_HOME_DIR from the path to the R binary: ${binPath}`);
+		LOGGER.info(`Can\'t determine R_HOME_DIR from the path to the R binary: ${binpath}`);
 		return undefined;
 	} else {
-		const pathUpToBin = binPath.substring(0, binIndex);
+		const pathUpToBin = binpath.substring(0, binIndex);
 		return pathUpToBin;
 	}
 

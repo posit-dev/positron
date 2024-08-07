@@ -151,7 +151,7 @@ export class PositronBaseComm {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			response = await this.clientInstance.performRpc(request);
+			response = await this.clientInstance.performRpc<any>(request);
 		} catch (err: any) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully
@@ -213,7 +213,8 @@ export class PositronBaseComm {
 		name: string,
 		properties: string[]
 	): Event<T> {
-		const event = this.clientInstance.onDidSendEvent((event: any) => {
+		const event = this.clientInstance.onDidSendEvent((output) => {
+			const event = output.data as any;
 			if (event.method === name) {
 				const args = event.params;
 				const namedArgs: any = {};

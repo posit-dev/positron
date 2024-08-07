@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import fs = require('fs');
 import path = require('path');
 import express from 'express';
@@ -337,8 +338,11 @@ export class PositronProxy implements Disposable {
 					})
 				}));
 
-				// Return the server origin.
-				resolve(serverOrigin);
+				// Resolve the server origin as an external URI.
+				const originUri = vscode.Uri.parse(serverOrigin);
+				vscode.env.asExternalUri(originUri).then((externalUri) => {
+					resolve(externalUri.toString());
+				});
 			});
 		});
 	}

@@ -54,6 +54,10 @@ import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from 'v
 import { workbenchConfigurationNodeBase } from 'vs/workbench/common/configuration';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
+// --- Start Positron ---
+import { POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY } from 'vs/workbench/contrib/remote/browser/remoteConfiguration';
+// --- End Positron ---
+
 type ActionGroup = [string, Array<MenuItemAction | SubmenuItemAction>];
 
 interface RemoteExtensionMetadata {
@@ -309,6 +313,22 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 				this.remoteExtensionMetadata[index].installed = false;
 			}
 		}));
+
+		// --- Start Positron ---
+		// Listen for configuration changes
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY)) {
+				if (this.remoteStatusIndicatorEnabled()) {
+					// The remote status indicator is enabled; render it
+					this.updateRemoteStatusIndicator();
+				} else {
+					// The remote status indicator is disabled; remove it
+					this.remoteStatusEntry?.dispose();
+					this.remoteStatusEntry = undefined;
+				}
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private async initializeRemoteMetadata(): Promise<void> {
@@ -566,6 +586,11 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 		if (this.remoteStatusEntry) {
 			this.remoteStatusEntry.update(properties);
 		} else {
+			// --- Start Positron ---
+			if (!this.remoteStatusIndicatorEnabled()) {
+				return;
+			}
+			// --- End Positron ---
 			this.remoteStatusEntry = this.statusbarService.addEntry(properties, 'status.host', StatusbarAlignment.LEFT, Number.MAX_VALUE /* first entry */);
 		}
 	}
@@ -833,6 +858,20 @@ export class RemoteStatusIndicator extends Disposable implements IWorkbenchContr
 
 		quickPick.show();
 	}
+
+	// --- Start Positron ---
+	private remoteStatusIndicatorEnabled(): boolean {
+		// Always show the remote status indicator if the remote authority or
+		// virtual workspace location is set
+		if (this.remoteAuthority || this.virtualWorkspaceLocation) {
+			return true;
+		}
+
+		// Otherwise, show the remote status indicator if the experimental SSH
+		// remote feature is enabled
+		return this.configurationService.getValue<boolean>(POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY);
+	}
+	// --- End Positron ---
 }
 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)

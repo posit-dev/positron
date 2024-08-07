@@ -44,12 +44,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
 		for (const mimeType of Object.keys(output.data)) {
-			if (mimeType === 'text/plain') {
-				continue;
-			}
-
-			// Don't render HTML outputs here; we'll render them as raw HTML below
-			if (mimeType === 'text/html') {
+			// Don't use a renderer for non-widget MIME types
+			if (mimeType === 'text/plain' ||
+				mimeType === 'text/html' ||
+				mimeType === 'image/png') {
 				continue;
 			}
 

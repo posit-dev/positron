@@ -40,13 +40,23 @@ async function main(buildDir) {
             'electron.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
             'node.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
             'node.napi.glibc.node', // ZeroMQ Electron architecture-specific pre-built binary
+            // Exclusions from remote-ssh
+            'cpufeatures.node',
+            'sshcrypto.node',
             // Case-sensitivity issues
             'HTML.icns',
             'html.icns',
             // Exclusions from Python language pack (positron-python)
             'pydevd', // Cython pre-built binaries for Python debugging
             // Exclusions from R language pack (positron-r)
-            'ark' // Compiled R kernel and LSP
+            'ark', // Compiled R kernel and LSP
+            // Exclusions from Quarto
+            'dart',
+            'deno',
+            'esbuild',
+            'pandoc',
+            'sass',
+            'typst',
             // --- End Positron ---
         ],
         outAppPath,
