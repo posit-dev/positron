@@ -36,7 +36,7 @@ suite('Discovery', () => {
 
 		existsSyncStub = Sinon.stub(Fs, 'existsSync').returns(true);
 
-		pathSepStub = Sinon.stub(path, 'sep').value('\\');
+		pathSepStub = Sinon.stub(path, 'sep').value('\\\\');
 
 		pathJoinStub = Sinon.stub(path, 'join').callsFake((...args: string[]) => {
 			// Define the mock behavior, e.g., join paths with a custom separator
@@ -58,9 +58,7 @@ suite('Discovery', () => {
 
 		const result = await findRBinaryFromPATHWindows(r432);
 
-		console.log(result);
-
-		//assert (result === 'C:\\Program Files\\R\\R-4.3.2\\bin\\x64\\R.exe');
+		assert.strictEqual(result, r432);
 
 	});
 });
