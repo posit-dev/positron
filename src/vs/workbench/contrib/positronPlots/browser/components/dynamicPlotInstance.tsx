@@ -14,8 +14,6 @@ import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/compone
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IntrinsicSize, PlotUnit } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
-import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -42,27 +40,10 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
-	const [policySize, setPolicySize] = useState<IPlotSize | undefined>();
-	const [intrinsicSize, setIntrinsicSize] = useState<IntrinsicSize | undefined>();
-	// const [plotUnit, setPlotUnit] = useState<PlotUnit>();
 	const progressRef = React.useRef<HTMLDivElement>(null);
 	const plotsContext = usePositronPlotsContext();
 
-	// const getPlotDisplaySize = (width: number, height: number, unit?: PlotUnit) => {
-	// 	let displayUnit = '';
-	// 	switch (unit) {
-	// 		case PlotUnit.Inches:
-	// 			displayUnit = 'in';
-	// 			break;
-	// 		case PlotUnit.Pixels:
-	// 			displayUnit = 'px';
-	// 			break;
-	// 	}
-	// 	return `${width}${displayUnit}×${height}${displayUnit}`;
-	// };
-
 	useEffect(() => {
-		console.log('useEffect:', props.plotClient.id);
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
@@ -71,62 +52,25 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			setUri(props.plotClient.lastRender.uri);
 		}
 
-		// let newPlotSize: IPlotSize | undefined;
-		// let intrinsicSize: IntrinsicSize | undefined;
-
-		disposables.add(props.plotClient.onDidSetIntrinsicSize((size) => {
-			// intrinsicSize = size;
-			setIntrinsicSize(size);
-		}));
-
-		// const getPlotDisplaySizeTwo = () => {
-		// 	const width = newPlotSize?.width ?? intrinsicSize?.width;
-		// 	const height = newPlotSize?.height ?? intrinsicSize?.height;
-		// 	const unit = newPlotSize ? PlotUnit.Pixels : intrinsicSize?.unit;
-		// 	if (!width || !height || !unit) {
-		// 		return undefined;
-		// 	}
-		// 	return getPlotDisplaySize(width, height, unit);
-		// };
-
-		setPolicySize(undefined);
-		setIntrinsicSize(undefined);
-		// setPlotUnit(undefined);
-
-		const render = async (policy: IPositronPlotSizingPolicy) => {
-			const plotSize = policy.getPlotSize({
-				height: props.height,
-				width: props.width
-			});
-
-			try {
-				console.log('Rendering... policy size:', plotSize);
-				setPolicySize(plotSize);
-				// setPlotUnit(newPlotSize && PlotUnit.Pixels);
-
-				// Wait for the plot to render.
-				const result =
-					await props.plotClient.render(plotSize, ratio);
-
-				// Update the URI to the URI of the new plot.
-				setUri(result.uri);
-				console.log('Rendering... Done!');
-
-			} catch (e) {
-				// It's normal for a plot render to be canceled if the user invalidates the render
-				// by e.g. changing the plot size or the sizing policy while render
-				// is active. Don't show a warning in that case.
-				if (e.name === 'Canceled' || e.message === 'Canceled') {
-					return;
-				}
-				const message = localize('positronPlots.renderError', "Error rendering plot using '{0}' size: {1} ({2})", policy.name, e.message, e.code);
-				plotsContext.notificationService.warn(message);
-				setError(message);
-			}
-		};
-
 		// Request a plot render at the current size, using the current sizing policy.
-		render(plotsContext.positronPlotsService.selectedSizingPolicy);
+		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+			height: props.height,
+			width: props.width
+		});
+		props.plotClient.render(plotSize, ratio).then((result) => {
+			setUri(result.uri);
+		}).catch((e) => {
+			// It's normal for a plot render to be canceled if the user invalidates the render
+			// by e.g. changing the plot size or the sizing policy while render
+			// is active. Don't show a warning in that case.
+			if (e.name === 'Canceled' || e.message === 'Canceled') {
+				return;
+			}
+			const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})",
+				plotsContext.positronPlotsService.selectedSizingPolicy.name, e.message, e.code);
+			plotsContext.notificationService.warn(message);
+			setError(message);
+		});
 
 		// When the plot is rendered, update the URI.
 		disposables.add(props.plotClient.onDidCompleteRender((result) => {
@@ -135,7 +79,26 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy(async (policy) => {
-			await render(policy);
+			const plotSize = policy.getPlotSize({
+				height: props.height,
+				width: props.width
+			});
+
+			try {
+				// Wait for the plot to render.
+				const result =
+					await props.plotClient.render(plotSize, ratio);
+
+				// Update the URI to the URI of the new plot.
+				setUri(result.uri);
+
+			} catch (e) {
+				if (e.name === 'Canceled' || e.message === 'Canceled') {
+					return;
+				}
+				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.name, e.message, e.code);
+				plotsContext.notificationService.warn(message);
+			}
 		}));
 
 		let progressBar: ProgressBar | undefined;
@@ -210,28 +173,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			height: props.height + 'px'
 		};
 
-		if (!text.length) {
-			let displayUnit: string | undefined;
-			if (policySize) {
-				displayUnit = 'px';
-			} else if (intrinsicSize) {
-				switch (intrinsicSize.unit) {
-					case PlotUnit.Inches:
-						displayUnit = 'in';
-						break;
-					case PlotUnit.Pixels:
-						displayUnit = 'px';
-						break;
-				}
-			}
-
-			text = 'Rendering plot';
-
-			const size = policySize ?? intrinsicSize;
-			if (size && displayUnit) {
-				text += ` (${size.width}${displayUnit}×${size.height}${displayUnit})`;
-			}
-		}
+		text = text.length ? text : `Rendering plot (${props.width} x ${props.height})`;
 
 		// display error here
 		return <div className='image-placeholder' style={style}>

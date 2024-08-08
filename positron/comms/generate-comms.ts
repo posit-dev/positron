@@ -602,7 +602,7 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: serde_json::Value,\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: `
+						yield `\tpub ${param.name}: `;
 						if (isOptional(param)) {
 							yield `Option<`;
 						}
