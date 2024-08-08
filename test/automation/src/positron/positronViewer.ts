@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Locator } from '@playwright/test';
+import { FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../code';
 
 const OUTER_FRAME = '.webview';
@@ -19,6 +19,13 @@ export class PositronViewer {
 		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
 		const element = innerFrame.locator(sublocator);
 		return element;
+	}
+
+	getViewerFrame(frameLocator: string): FrameLocator {
+		const outerFrame = this.code.driver.getFrame(OUTER_FRAME);
+		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
+		const frame = innerFrame.frameLocator(frameLocator);
+		return frame;
 	}
 
 	async refreshViewer() {

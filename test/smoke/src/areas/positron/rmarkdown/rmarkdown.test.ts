@@ -40,6 +40,25 @@ export function setup(logger: Logger) {
 
 		});
 
+		it('Preview RMarkdown [C709147]', async function () {
+			const app = this.app as Application; //Get handle to application
 
+			// Preview
+			await app.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+shift+k' : 'ctrl+shift+k');
+
+			// inner most frame has no useful identifying features
+			// not factoring this locator because its not part of positron
+			const viewerFrame = app.workbench.positronViewer.getViewerFrame('//iframe');
+
+			// not factoring this locator because its not part of positron
+			const gettingStarted = viewerFrame.locator('h2[data-anchor-id="getting-started"]');
+
+			const gettingStartedText = await gettingStarted.innerText();
+
+			expect(gettingStartedText).toBe('Getting started');
+
+			await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
+
+		});
 	});
 }
