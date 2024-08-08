@@ -447,7 +447,7 @@ class ConnectionsService:
         contains = object_types[path[-1].kind].get("contains", "not_data")
         return isinstance(contains, str) and contains == "data"
 
-    def handle_get_icon_request(self, conn: Connection, request: GetIconRequest) -> str:
+    def handle_get_icon_request(self, conn: Connection, request: GetIconRequest) -> Optional[str]:
         path = request.params.path
 
         icon = None
@@ -457,8 +457,6 @@ class ConnectionsService:
             object_types: Dict[str, Any] = conn.list_object_types()
             icon = object_types[path[-1].kind].get("icon", "")
 
-        if icon is None:
-            return ""
         return icon
 
     def handle_list_objects_request(
