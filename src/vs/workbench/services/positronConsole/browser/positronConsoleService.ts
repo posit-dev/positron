@@ -1940,7 +1940,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._pendingInputState = 'Processing';
 
 		try {
-			return await this.processPendingInputImpl();
+			// Need to `await` inside the `try` so that the `finally` only runs once
+			// `processPendingInputImpl()` has completely finished. Can't just return the promise.
+			await this.processPendingInputImpl();
 		} finally {
 			this._pendingInputState = 'Idle';
 		}
