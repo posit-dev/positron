@@ -1405,7 +1405,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
 				}
-				if (method.result.schema.required === false) {
+				if (method.result.required === false) {
 					yield ' | undefined';
 				}
 			} else {

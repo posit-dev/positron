@@ -44,28 +44,17 @@ class PlotUnit(str, enum.Enum):
     Inches = "inches"
 
 
-class IntrinsicSizeResult(BaseModel):
-    """
-    The intrinsic size of the plot if known
-    """
-
-    size: Optional[IntrinsicSize] = Field(
-        default=None,
-        description="The intrinsic size of a plot",
-    )
-
-
 class IntrinsicSize(BaseModel):
     """
-    The intrinsic size of a plot
+    The intrinsic size of a plot, if known
     """
 
     width: Union[StrictInt, StrictFloat] = Field(
-        description="The intrinsic width of the plot",
+        description="The width of the plot",
     )
 
     height: Union[StrictInt, StrictFloat] = Field(
-        description="The intrinsic height of the plot",
+        description="The height of the plot",
     )
 
     unit: PlotUnit = Field(
@@ -194,8 +183,6 @@ class PlotFrontendEvent(str, enum.Enum):
     # Show a plot.
     Show = "show"
 
-
-IntrinsicSizeResult.update_forward_refs()
 
 IntrinsicSize.update_forward_refs()
 
