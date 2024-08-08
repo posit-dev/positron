@@ -6,7 +6,6 @@
 .data-grid-row-cell .content .text-container {
 	height: 100%;
 	display: flex;
-	margin: 0 7px;
 	align-items: center;
 }
 

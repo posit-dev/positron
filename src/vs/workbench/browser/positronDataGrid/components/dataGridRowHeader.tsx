@@ -96,7 +96,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			{context.instance.cellBorder &&
+			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />
 					{selected &&
@@ -116,8 +116,8 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			</div>
 			<VerticalSplitter
 				onBeginResize={() => ({
-					minimumWidth: 20,
-					maximumWidth: 400,
+					minimumWidth: context.instance.minimumColumnWidth,
+					maximumWidth: context.instance.maximumColumnWidth,
 					startingWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={async width =>

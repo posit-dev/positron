@@ -11,17 +11,18 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
+import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
+import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 
 /**
  * Constants.
@@ -35,9 +36,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region Private Properties
 
 	/**
-	 * Gets the DataExplorerCache.
+	 * Gets the table summary cache.
 	 */
-	private readonly _dataExplorerCache: DataExplorerCache;
+	private readonly _tableSummaryCache: TableSummaryCache;
+
+	/**
+	 * Gets the table data cache.
+	 */
+	private readonly _tableDataCache: TableDataCache;
 
 	/**
 	 * Gets or sets the layout.
@@ -119,20 +125,21 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		super();
 
 		// Initialize.
-		this._dataExplorerCache = new DataExplorerCache(this._dataExplorerClientInstance);
+		this._tableSummaryCache = new TableSummaryCache(this._dataExplorerClientInstance);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			this._configurationService,
 			this._hoverService,
 			this._dataExplorerClientInstance,
-			this._dataExplorerCache
+			this._tableSummaryCache
 		);
+		this._tableDataCache = new TableDataCache(this._dataExplorerClientInstance);
 		this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._commandService,
 			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
 			this._dataExplorerClientInstance,
-			this._dataExplorerCache
+			this._tableDataCache
 		);
 
 		// Add the onDidClose event handler.
@@ -265,14 +272,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			selectedClipboardCells = columns * rows;
 		} else if (clipboardData instanceof ClipboardColumnRange) {
 			const columns = clipboardData.lastColumnIndex - clipboardData.firstColumnIndex;
-			selectedClipboardCells = columns * this._dataExplorerCache.rows;
+			selectedClipboardCells = columns * this._tableDataCache.rows;
 		} else if (clipboardData instanceof ClipboardColumnIndexes) {
-			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.rows;
+			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.rows;
 		} else if (clipboardData instanceof ClipboardRowRange) {
 			const rows = clipboardData.lastRowIndex - clipboardData.firstRowIndex;
-			selectedClipboardCells = rows * this._dataExplorerCache.columns;
+			selectedClipboardCells = rows * this._tableDataCache.columns;
 		} else if (clipboardData instanceof ClipboardRowIndexes) {
-			selectedClipboardCells = clipboardData.indexes.length * this._dataExplorerCache.columns;
+			selectedClipboardCells = clipboardData.indexes.length * this._tableDataCache.columns;
 		} else {
 			// This indicates a bug.
 			selectedClipboardCells = 0;
@@ -310,7 +317,38 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Copies the table data to the clipboard.
 	 */
 	async copyTableDataToClipboard(): Promise<void> {
-		this._clipboardService.writeText(await this._dataExplorerCache.getTableData());
+		// Inform the user that the table data is being prepared.
+		const notificationHandle = this._notificationService.notify({
+			severity: Severity.Info,
+			message: localize(
+				'positron.dataExplorer.preparingTableDate',
+				'Preparing table data'
+			),
+			progress: {
+				infinite: true
+			}
+		});
+
+		// Get the table data in TSV format.
+		const tableDataTSV = await this._tableDataCache.getTableDataTSV();
+
+		// Inform the user that the table data is being copied to the clipboard..
+		notificationHandle.updateMessage(localize(
+			'positron.dataExplorer.copyingToClipboard',
+			'Copying table data to the clipboard'
+		));
+
+		// Write the table data to the clipboard.
+		this._clipboardService.writeText(tableDataTSV);
+
+		// Inform the user that the operation is done.
+		notificationHandle.updateMessage(localize(
+			'positron.dataExplorer.copiedToClipboard',
+			'Table data copied to the clipboard'
+		));
+
+		// Done.
+		notificationHandle.progress.done();
 	}
 
 	/**

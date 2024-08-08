@@ -6,7 +6,7 @@
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ArraySelection, BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSortKey, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ArraySelection, BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -140,12 +140,19 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Register the onDidSchemaUpdate event handler.
 		this._register(this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+			// Refresh the cached backend state.
 			await this.updateBackendState();
+
+			// Fire the onDidSchemaUpdate event.
 			this._onDidSchemaUpdateEmitter.fire(e);
 		}));
 
 		// Register the onDidDataUpdate event handler.
-		this._register(this._positronDataExplorerComm.onDidDataUpdate(() => {
+		this._register(this._positronDataExplorerComm.onDidDataUpdate(async () => {
+			// Refresh the cached backend state.
+			await this.updateBackendState();
+
+			// Fire the onDidDataUpdate event.
 			this._onDidDataUpdateEmitter.fire();
 		}));
 	}
@@ -203,41 +210,40 @@ export class DataExplorerClientInstance extends Disposable {
 
 		this._backendPromise = this.runBackendTask(
 			() => this._positronDataExplorerComm.getState(),
-			() => {
-				return {
-					display_name: 'disconnected',
-					table_shape: { num_rows: 0, num_columns: 0 },
-					table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
-					has_row_labels: false,
-					column_filters: [],
-					row_filters: [],
-					sort_keys: [],
-					supported_features: {
-						search_schema: {
-							support_status: SupportStatus.Unsupported,
-							supported_types: []
-						},
-						set_column_filters: {
-							support_status: SupportStatus.Unsupported,
-							supported_types: []
-						},
-						set_row_filters: {
-							support_status: SupportStatus.Unsupported,
-							supports_conditions: SupportStatus.Unsupported,
-							supported_types: []
-						},
-						get_column_profiles: {
-							support_status: SupportStatus.Unsupported,
-							supported_types: []
-						},
-						set_sort_columns: { support_status: SupportStatus.Unsupported, },
-						export_data_selection: {
-							support_status: SupportStatus.Unsupported,
-							supported_formats: []
-						}
+			() => ({
+				display_name: 'disconnected',
+				table_shape: { num_rows: 0, num_columns: 0 },
+				table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
+				has_row_labels: false,
+				column_filters: [],
+				row_filters: [],
+				sort_keys: [],
+				supported_features: {
+					search_schema: {
+						support_status: SupportStatus.Unsupported,
+						supported_types: []
+					},
+					set_column_filters: {
+						support_status: SupportStatus.Unsupported,
+						supported_types: []
+					},
+					set_row_filters: {
+						support_status: SupportStatus.Unsupported,
+						supports_conditions: SupportStatus.Unsupported,
+						supported_types: []
+					},
+					get_column_profiles: {
+						support_status: SupportStatus.Unsupported,
+						supported_types: []
+					},
+					set_sort_columns: { support_status: SupportStatus.Unsupported, },
+					export_data_selection: {
+						support_status: SupportStatus.Unsupported,
+						supported_formats: []
 					}
-				};
-			});
+				}
+			})
+		);
 
 		this.cachedBackendState = await this._backendPromise;
 		this._backendPromise = undefined;
@@ -257,9 +263,7 @@ export class DataExplorerClientInstance extends Disposable {
 	async getSchema(columnIndices: Array<number>): Promise<TableSchema> {
 		return this.runBackendTask(
 			() => this._positronDataExplorerComm.getSchema(columnIndices),
-			() => {
-				return { columns: [] };
-			}
+			() => ({ columns: [] })
 		);
 	}
 
@@ -300,30 +304,14 @@ export class DataExplorerClientInstance extends Disposable {
 	}
 
 	/**
-	 * Get a rectangle of data values.
-	 * @param rowStartIndex The first row to fetch (inclusive).
-	 * @param numRows The number of rows to fetch from start index. May extend beyond end of table.
-	 * @param columnIndices Indices to select, which can be a sequential, sparse, or random selection.
+	 * Request formatted values from table columns.
+	 * @param columns Array of column selections.
 	 * @returns A Promise<TableData> that resolves when the operation is complete.
 	 */
-	async getDataValues(
-		rowStartIndex: number,
-		numRows: number,
-		columnIndices: Array<number>
-	): Promise<TableData> {
+	async getDataValues(columns: Array<ColumnSelection>): Promise<TableData> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getDataValues(
-				columnIndices.map((i) => {
-					return {
-						column_index: i,
-						spec: { first_index: rowStartIndex, last_index: rowStartIndex + numRows - 1 }
-					};
-				}),
-				this._dataFormatOptions
-			),
-			() => {
-				return { columns: [[]] };
-			}
+			() => this._positronDataExplorerComm.getDataValues(columns, this._dataFormatOptions),
+			() => ({ columns: [[]] })
 		);
 	}
 
@@ -339,9 +327,7 @@ export class DataExplorerClientInstance extends Disposable {
 			() => this._positronDataExplorerComm.getRowLabels(selection,
 				this._dataFormatOptions
 			),
-			() => {
-				return { row_labels: [[]] };
-			}
+			() => ({ row_labels: [[]] })
 		);
 	}
 
@@ -373,12 +359,10 @@ export class DataExplorerClientInstance extends Disposable {
 	async exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return this.runBackendTask(
 			() => this._positronDataExplorerComm.exportDataSelection(selection, format),
-			() => {
-				return {
-					data: '',
-					format
-				};
-			}
+			() => ({
+				data: '',
+				format
+			})
 		);
 	}
 
@@ -390,9 +374,7 @@ export class DataExplorerClientInstance extends Disposable {
 	async setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
 		return this.runBackendTask(
 			() => this._positronDataExplorerComm.setRowFilters(filters),
-			() => {
-				return { selected_num_rows: 0 };
-			}
+			() => ({ selected_num_rows: 0 })
 		);
 	}
 

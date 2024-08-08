@@ -58,11 +58,6 @@ export class ColumnSchemaCache extends Disposable {
 	private _columns = 0;
 
 	/**
-	 * Gets the data explorer client instance that this data explorer cache is caching data for.
-	 */
-	private readonly _dataExplorerClientInstance: DataExplorerClientInstance;
-
-	/**
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
@@ -78,14 +73,11 @@ export class ColumnSchemaCache extends Disposable {
 
 	/**
 	 * Constructor.
-	 * @param dataExplorerClientInstance The DataExplorerClientInstance.
+	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
-	constructor(dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(private readonly _dataExplorerClientInstance: DataExplorerClientInstance) {
 		// Call the base class's constructor.
 		super();
-
-		// Set the data explorer client instance.
-		this._dataExplorerClientInstance = dataExplorerClientInstance;
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {

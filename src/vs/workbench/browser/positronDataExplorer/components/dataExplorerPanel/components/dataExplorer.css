@@ -15,6 +15,26 @@
 
 .data-explorer-panel
 .data-explorer
+.column-name-exemplar {
+	font-weight: var(--positron-data-grid-column-header-title-font-weight);
+}
+
+.data-explorer-panel
+.data-explorer
+.type-name-exemplar {
+	font-size: var(--positron-data-grid-column-header-description-font-size);
+}
+
+.data-explorer-panel
+.data-explorer
+.sort-index-exemplar {
+	font-size: var(--positron-data-grid-column-header-sort-index-font-size);
+	font-weight: var(--positron-data-grid-column-header-sort-index-font-weight);
+	font-variant-numeric: var(--positron-data-grid-column-header-sort-index-font-variant-numeric);
+}
+
+.data-explorer-panel
+.data-explorer
 .column-1 {
 	min-width: 0;
 	min-height: 0;
