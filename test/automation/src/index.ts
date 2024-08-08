@@ -36,6 +36,7 @@ export * from './positron/positronSideBar';
 export * from './positron/positronPlots';
 export * from './positron/fixtures/positronPythonFixtures';
 export * from './positron/fixtures/positronRFixtures';
+export * from './positron/fixtures/positronUserSettingsFixtures';
 export * from './positron/positronBaseElement';
 export * from './positron/positronNotebooks';
 export * from './positron/positronNewProjectWizard';
