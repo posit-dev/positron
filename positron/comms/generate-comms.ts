@@ -600,8 +600,9 @@ use serde::Serialize;
 						}
 						yield deriveType(contracts, RustTypeMap, [param.name], param.schema);
 						if (param.required === false) {
-							yield `>,\n`;
+							yield `>`;
 						}
+						yield `,\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
