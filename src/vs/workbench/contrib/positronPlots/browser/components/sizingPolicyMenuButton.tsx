@@ -10,6 +10,7 @@ import * as React from 'react';
 import * as nls from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
+import { Event } from 'vs/base/common/event';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -17,6 +18,7 @@ import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/comm
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
+import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 interface SizingPolicyMenuButtonProps {
 	readonly keybindingService: IKeybindingService;
@@ -43,24 +45,31 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
 
-		// Update the active policy label when the selected policy's name changes.
-		let didChangeSizingPolicyDisposable = props.plotsService.selectedSizingPolicy.onDidUpdateName?.((name) => {
-			setActivePolicyLabel(name);
-		});
+		const attachPolicy = (policy: IPositronPlotSizingPolicy) => {
+			// Update the active policy label when the selected policy's name changes.
+			// Debounce to avoid flickering while initializing a new plot.
+			const disposable = Event.debounce(
+				(policy.onDidUpdateName ?? Event.None) as Event<string>,
+				(last, event) => event,
+				250,
+			)((name) => {
+				setActivePolicyLabel(name);
+			});
+			return disposable;
+		};
+
+		let policyDisposables = attachPolicy(props.plotsService.selectedSizingPolicy);
 
 		// Update the active policy label when the selected policy changes.
 		disposables.add(props.plotsService.onDidChangeSizingPolicy(policy => {
 			setActivePolicyLabel(policy.name);
 
-			// Update the active policy label when the selected policy's name changes.
-			didChangeSizingPolicyDisposable?.dispose();
-			didChangeSizingPolicyDisposable = policy.onDidUpdateName?.((name) => {
-				setActivePolicyLabel(name);
-			});
+			policyDisposables.dispose();
+			policyDisposables = attachPolicy(policy);
 		}));
 		return () => {
 			disposables.dispose();
-			didChangeSizingPolicyDisposable?.dispose();
+			policyDisposables.dispose();
 		};
 	}, [props.plotsService, props.plotsService.selectedSizingPolicy]);
 
