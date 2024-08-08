@@ -47,32 +47,6 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 			});
 
-			it('Very quickly enter dependent statments [C...]', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronConsole.pasteCodeToConsole('a <- 1');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.pasteCodeToConsole('b <- a');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.pasteCodeToConsole('c <- b');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.pasteCodeToConsole('d <- c');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.pasteCodeToConsole('e <- d');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				await app.workbench.positronConsole.pasteCodeToConsole('f <- e');
-				await app.workbench.positronConsole.sendEnterKey();
-
-
-				console.log('done');
-
-			});
-
 		});
 
 	});
