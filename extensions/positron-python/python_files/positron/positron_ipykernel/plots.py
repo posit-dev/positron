@@ -46,14 +46,14 @@ class Plot:
     render
         A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
     intrinsic_size
-        The intrinsic size of the plot in inches, if known.
+        The intrinsic size of the plot in inches.
     """
 
     def __init__(
         self,
         comm: PositronComm,
         render: Renderer,
-        intrinsic_size: Optional[Tuple[int, int]] = None,
+        intrinsic_size: Tuple[int, int],
     ) -> None:
         self._comm = comm
         self._render = render
@@ -176,7 +176,7 @@ class PlotsService:
 
         self._plots: List[Plot] = []
 
-    def create_plot(self, render: Renderer, intrinsic_size: Optional[Tuple[int, int]]) -> Plot:
+    def create_plot(self, render: Renderer, intrinsic_size: Tuple[int, int]) -> Plot:
         """
         Create a plot.
 
