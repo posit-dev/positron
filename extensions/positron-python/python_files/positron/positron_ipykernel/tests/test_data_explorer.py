@@ -30,6 +30,7 @@ from ..data_explorer import (
     _VALUE_NONE,
     _VALUE_NULL,
     COMPARE_OPS,
+    PANDAS_INFER_DTYPE_SIZE_LIMIT,
     SCHEMA_CACHE_THRESHOLD,
     DataExplorerService,
     DataExplorerState,
@@ -666,6 +667,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "number",
         ),
         ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number"),
+        ([None] * 5, "empty", "unknown"),
     ]
 
     if hasattr(np, "complex256"):
@@ -722,6 +724,23 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
 
     result = dxf.get_schema(bigger_name, list(range(10, 20)))
     assert result == _wrap_json(ColumnSchema, bigger_schema[10:20])
+
+
+def test_pandas_get_schema_inference_limit(dxf: DataExplorerFixture):
+    arr = np.array([None] * PANDAS_INFER_DTYPE_SIZE_LIMIT + ["string"])
+    df = pd.DataFrame({"c0": arr})
+
+    assert dxf.get_schema_for(df) == _wrap_json(
+        ColumnSchema,
+        [
+            {
+                "column_name": "c0",
+                "column_index": 0,
+                "type_name": "empty",
+                "type_display": "unknown",
+            }
+        ],
+    )
 
 
 def test_pandas_series(dxf: DataExplorerFixture):
