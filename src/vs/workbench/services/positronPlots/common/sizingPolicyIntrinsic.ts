@@ -16,7 +16,8 @@ const _defaultName = nls.localize('plotSizingPolicy.intrinsic', "Intrinsic");
  */
 export class PlotSizingPolicyIntrinsic implements IPositronPlotSizingPolicy {
 	public readonly id = 'intrinsic';
-	public name = _defaultName;
+
+	private _intrinsicSize?: IntrinsicSize;
 
 	private readonly _didUpdateNameEmitter = new Emitter<string>();
 	onDidUpdateName = this._didUpdateNameEmitter.event;
@@ -26,29 +27,32 @@ export class PlotSizingPolicyIntrinsic implements IPositronPlotSizingPolicy {
 		return undefined;
 	}
 
+	public get name(): string {
+		if (!this._intrinsicSize) {
+			return _defaultName;
+		}
+
+		// Determine the user-facing unit of measurement.
+		let unit = '';
+		switch (this._intrinsicSize.unit) {
+			case PlotUnit.Inches:
+				unit = 'in';
+				break;
+			case PlotUnit.Pixels:
+				unit = 'px';
+				break;
+		}
+
+		return `${this._intrinsicSize.source} (${this._intrinsicSize.width}${unit}×${this._intrinsicSize.height}${unit})`;
+	}
+
 	/**
 	 * Set the intrinsic size of the current active plot.
 	 *
 	 * @param intrinsicSize The intrinsic size of the plot, if known.
 	 */
 	public setIntrinsicSize(intrinsicSize: IntrinsicSize | undefined): void {
-		if (intrinsicSize) {
-			// Determine the user-facing unit of measurement.
-			let unit: string;
-			switch (intrinsicSize.unit) {
-				case PlotUnit.Inches:
-					unit = 'in';
-					break;
-				case PlotUnit.Pixels:
-					unit = 'px';
-					break;
-			}
-
-			// Construct the new name.
-			this.name = `${intrinsicSize.source} (${intrinsicSize.width}${unit}×${intrinsicSize.height}${unit})`;
-		} else {
-			this.name = _defaultName;
-		}
+		this._intrinsicSize = intrinsicSize;
 		this._didUpdateNameEmitter.fire(this.name);
 	}
 }
