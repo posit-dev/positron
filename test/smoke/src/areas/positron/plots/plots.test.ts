@@ -81,7 +81,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(1000);
+				await app.code.wait(3000);
 
 				// capture master image in CI
 				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
@@ -127,7 +127,7 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(1000);
+				await app.code.wait(3000);
 
 				// capture master image in CI
 				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
@@ -309,7 +309,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(1000);
+				await app.code.wait(3000);
 
 				// capture master image in CI
 				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
