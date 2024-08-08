@@ -12,27 +12,16 @@ import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/lan
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
- * The intrinsic size of the plot if known
- */
-export interface IntrinsicSizeResult {
-	/**
-	 * The intrinsic size of a plot
-	 */
-	size?: IntrinsicSize;
-
-}
-
-/**
- * The intrinsic size of a plot
+ * The intrinsic size of a plot, if known
  */
 export interface IntrinsicSize {
 	/**
-	 * The intrinsic width of the plot
+	 * The width of the plot
 	 */
 	width: number;
 
 	/**
-	 * The intrinsic height of the plot
+	 * The height of the plot
 	 */
 	height: number;
 
@@ -137,9 +126,9 @@ export class PositronPlotComm extends PositronBaseComm {
 	 * rendered at if no size constraints were applied by Positron.
 	 *
 	 *
-	 * @returns The intrinsic size of the plot if known
+	 * @returns The intrinsic size of a plot, if known
 	 */
-	getIntrinsicSize(): Promise<IntrinsicSizeResult> {
+	getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
 		return super.performRpc('get_intrinsic_size', [], []);
 	}
 

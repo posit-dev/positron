@@ -128,7 +128,7 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 *
 	 * @returns The icon of the object.
 	 */
-	getIcon(path: Array<ObjectSchema>): Promise<string | undefined> {
+	getIcon(path: Array<ObjectSchema>): Promise<string> {
 		return super.performRpc('get_icon', ['path'], [path]);
 	}
 
