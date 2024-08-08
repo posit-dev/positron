@@ -133,7 +133,7 @@ export class DatabaseConnectionItem extends ActiveConnectionItem {
 		super(metadata.name, 'database', [], client);
 		if (!metadata.icon) {
 			this.icon().then((icon) => {
-				if (icon !== '') {
+				if (!!icon) {
 					const uri = vscode.Uri.parse(icon);
 					metadata.icon =
 						'data:image/png;base64,' +
@@ -329,7 +329,7 @@ export class ConnectionItemsProvider
 	): Promise<vscode.Uri | { light: vscode.Uri; dark: vscode.Uri }> {
 		try {
 			const icon = await item.icon();
-			if (icon !== '') {
+			if (!!icon) {
 				return vscode.Uri.file(icon);
 			}
 		} catch (err: any) {

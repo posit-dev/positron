@@ -8,6 +8,7 @@ from typing import Tuple
 
 import pytest
 import sqlalchemy
+
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.connections import ConnectionsService
 
@@ -84,8 +85,8 @@ class TestSQLiteConnectionsService:
     @pytest.mark.parametrize(
         "path,expected",
         [
-            ([], ""),
-            ([{"kind": "schema", "name": "main"}], ""),
+            ([], None),
+            ([{"kind": "schema", "name": "main"}], None),
         ],
     )
     def test_get_icon(self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected):
