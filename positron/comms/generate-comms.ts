@@ -105,6 +105,14 @@ const PythonTypeMap: Record<string, string> = {
 	'object': 'Dict',
 };
 
+function isOptional(contentDescriptor: any) {
+	// TODO: To be fully compliant with the OpenRPC spec, we should default content descriptors
+	//   (params and results) to required. We'd need to add `"required": true` to most of
+	//   the content descriptors in our specs.
+	//   For now, continue defaulting to required by comparing with `false`.
+	return contentDescriptor.required === false;
+}
+
 function resolveComm(s: string) {
 	return s
 		.replace(/\.json$/, '')
@@ -595,11 +603,11 @@ use serde::Serialize;
 					} else {
 						// Otherwise use the type directly
 						yield `\tpub ${param.name}: `
-						if (param.required === false) {
+						if (isOptional(param)) {
 							yield `Option<`;
 						}
 						yield deriveType(contracts, RustTypeMap, [param.name], param.schema);
-						if (param.required === false) {
+						if (isOptional(param)) {
 							yield `>`;
 						}
 						yield `,\n`;
@@ -675,7 +683,7 @@ use serde::Serialize;
 				// Open enum parameter
 				yield '(';
 
-				if (method.result.required === false) {
+				if (isOptional(method.result)) {
 					yield 'Option<';
 				}
 
@@ -686,7 +694,7 @@ use serde::Serialize;
 				}
 
 				// Close `Option<>`
-				if (method.result.required === false) {
+				if (isOptional(method.result)) {
 					yield '>';
 				}
 
@@ -962,7 +970,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 				for (const param of params) {
 					yield `    ${param.name}: `;
-					if (param.required === false) {
+					if (isOptional(param)) {
 						yield 'Optional[';
 					}
 					if (param.schema.enum) {
@@ -970,11 +978,11 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 					} else {
 						yield deriveType(contracts, PythonTypeMap, [param.name], param.schema);
 					}
-					if (param.required === false) {
+					if (isOptional(param)) {
 						yield ']';
 					}
 					yield ' = Field(\n';
-					if (param.required === false) {
+					if (isOptional(param)) {
 						yield `        default=None,\n`;
 					}
 					yield `        description="${param.description}",\n`;
@@ -1392,7 +1400,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
 				}
-				if (param.required === false) {
+				if (isOptional(param)) {
 					yield ' | undefined';
 				}
 				if (i < method.params.length - 1) {
@@ -1406,7 +1414,7 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
 				}
-				if (method.result.required === false) {
+				if (isOptional(method.result)) {
 					yield ' | undefined';
 				}
 			} else {
