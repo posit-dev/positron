@@ -158,7 +158,7 @@ export class PositronInterpreterDropdown {
 		const primaryInterpreter = await this.getPrimaryInterpreter(description);
 		if (!primaryInterpreter) {
 			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with type ${description}`);
+			throw new Error(`Could not find primary interpreter with description '${description}'`);
 		}
 
 		const restartButton = primaryInterpreter
@@ -179,7 +179,7 @@ export class PositronInterpreterDropdown {
 		const primaryInterpreter = await this.getPrimaryInterpreter(description);
 		if (!primaryInterpreter) {
 			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with type ${description}`);
+			throw new Error(`Could not find primary interpreter with description '${description}'`);
 		}
 
 		if (await this.primaryInterpreterShowsRunning(description)) {
@@ -208,7 +208,7 @@ export class PositronInterpreterDropdown {
 			description
 		);
 		if (!primaryInterpreter) {
-			throw new Error(`Could not find primary interpreter with type ${description}`);
+			throw new Error(`Could not find primary interpreter with description '${description}'`);
 		}
 
 		// Fail if green dot running indicator missing
@@ -243,6 +243,11 @@ export class PositronInterpreterDropdown {
 		return true;
 	}
 
+	/**
+	 * Check if the primary interpreter shows as inactive with a restart button and a start button.
+	 * @param description The descriptive string of the interpreter to check.
+	 * @returns True if the primary interpreter shows the expected inactive UI elements, otherwise false.
+	 */
 	async primaryInterpreterShowsInactive(
 		description: string | InterpreterType
 	) {
@@ -253,7 +258,7 @@ export class PositronInterpreterDropdown {
 		);
 		if (!primaryInterpreter) {
 			await this.closeInterpreterDropdown();
-			throw new Error(`Could not find primary interpreter with type ${description}`);
+			throw new Error(`Could not find primary interpreter with description '${description}'`);
 		}
 
 		// Fail if green dot running indicator not missing
@@ -307,7 +312,7 @@ export class PositronInterpreterDropdown {
 			desiredInterpreterType
 		);
 		if (!primaryInterpreter) {
-			// No primary interpreters match the language runtime time
+			// No primary interpreters match the language runtime
 			throw new Error(
 				`Could not find primary interpreter with type ${desiredInterpreterType}`
 			);
