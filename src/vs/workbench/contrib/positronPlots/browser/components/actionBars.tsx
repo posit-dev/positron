@@ -160,7 +160,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								onPressed={popoutPlotHandler} />
 						}
 						<ActionBarButton
-							iconId='positron-open'
+							iconId='go-to-file'
 							align='right'
 							tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
 							ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
