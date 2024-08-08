@@ -61,9 +61,6 @@ export interface IPositronPlotMetadata {
 
 	/** The ID of the runtime session that created the plot */
 	session_id: string;
-
-	/** The preferred size of the plot if any, as supplied by the language runtime */
-	preferred_size?: IPlotSize;
 }
 
 /**
