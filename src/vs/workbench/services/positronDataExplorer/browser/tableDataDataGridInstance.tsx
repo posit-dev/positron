@@ -14,11 +14,12 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { SORTING_BUTTON_WIDTH } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeader';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
+import { InvalidateCacheFlags, TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
@@ -40,6 +41,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
+	 * Gets or sets the sort index width calculator.
+	 */
+	private _sortIndexWidthCalculator?: (sortIndex: number) => number;
+
+	/**
 	 * The onAddFilter event emitter.
 	 */
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
@@ -54,8 +60,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param _configurationService The configuration service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
-	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param _dataExplorerCache The DataExplorerCache.
+	 * @param _dataExplorerClientInstance The data explorer client instance.
+	 * @param _tableDataCache The table data cache.
 	 */
 	constructor(
 		private readonly _commandService: ICommandService,
@@ -63,7 +69,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _layoutService: ILayoutService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
-		private readonly _dataExplorerCache: DataExplorerCache,
+		private readonly _tableDataCache: TableDataCache,
 	) {
 		// Call the base class's constructor.
 		super({
@@ -75,7 +81,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			defaultColumnWidth: 200,
 			defaultRowHeight: 24,
 			columnResize: true,
-			minimumColumnWidth: 100,
+			minimumColumnWidth: 20,
+			maximumColumnWidth: 400,
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
@@ -83,31 +90,38 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
+			horizontalCellPadding: 7,
 			internalCursor: true,
 			cursorOffset: 0.5,
 		});
 
-		// Add the onDidUpdateCache event handler.
-		this._register(this._dataExplorerCache.onDidUpdateCache(() =>
-			this._onDidUpdateEmitter.fire()
-		));
-
-		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async e => {
-			this._dataExplorerCache.invalidateDataCache();
-			this.softReset();
-			await this.fetchData();
+		// Add the data explorer client onDidSchemaUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.All,
+				firstColumnIndex: this.firstColumnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: this.firstRowIndex,
+				screenRows: this.screenRows
+			});
 		}));
 
-		// Add the onDidDataUpdate event handler.
+		// Add the the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			this._dataExplorerCache.invalidateDataCache();
-			await this.fetchData();
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: this.firstColumnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: this.firstRowIndex,
+				screenRows: this.screenRows
+			});
 		}));
 
-		// Add the onDidUpdateBackendState event handler.
+		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
-			async (state: BackendState) => {
+			(state: BackendState) => {
 				// Clear column sort keys.
 				this._columnSortKeys.clear();
 				state.sort_keys.forEach((key, sortIndex) => {
@@ -117,6 +131,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				});
 				this._onDidUpdateEmitter.fire();
 			}
+		));
+
+		// Add the table data cache onDidUpdate event handler.
+		this._register(this._tableDataCache.onDidUpdate(() =>
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire()
 		));
 	}
 
@@ -128,19 +148,61 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the number of columns.
 	 */
 	get columns() {
-		return this._dataExplorerCache.columns;
+		return this._tableDataCache.columns;
 	}
 
 	/**
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._dataExplorerCache.rows;
+		return this._tableDataCache.rows;
 	}
 
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
+
+	/**
+	 * Gets a column width.
+	 * @param columnIndex The column index.
+	 * @returns The column width.
+	 */
+	override getColumnWidth(columnIndex: number): number {
+		// If we have a user-defined column width, return it.
+		const userDefinedColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
+		if (userDefinedColumnWidth !== undefined) {
+			return Math.min(userDefinedColumnWidth, this.maximumColumnWidth);
+		}
+
+		// Get the column header width and the column value width.
+		let columnHeaderWidth = this._tableDataCache.getColumnHeaderWidth(columnIndex);
+		if (columnHeaderWidth !== undefined) {
+			const columnSortKeyDescriptor = this._columnSortKeys.get(columnIndex);
+			if (!columnSortKeyDescriptor) {
+				columnHeaderWidth += 2;
+			} else {
+				columnHeaderWidth += SORTING_BUTTON_WIDTH;
+				if (this._sortIndexWidthCalculator) {
+					columnHeaderWidth += this._sortIndexWidthCalculator(
+						columnSortKeyDescriptor.sortIndex + 80
+					) + 6; // +6 for left and right 3px margin.
+				}
+			}
+		}
+		const columnValueWidth = this._tableDataCache.getColumnValueWidth(columnIndex);
+
+		// If we have a column header width and / or a column value width, return the column width.
+		if (columnHeaderWidth && columnValueWidth) {
+			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), this.maximumColumnWidth);
+		} else if (columnHeaderWidth) {
+			return Math.min(columnHeaderWidth, this.maximumColumnWidth);
+		} else if (columnValueWidth) {
+			return Math.min(columnValueWidth, this.maximumColumnWidth);
+		}
+
+		// Return the default column width.
+		return this.defaultColumnWidth;
+	}
 
 	/**
 	 * Sorts the data.
@@ -155,9 +217,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			}
 		)));
 
-		// Clear the data cache and fetch new data.
-		this._dataExplorerCache.invalidateDataCache();
-		await this.fetchData();
+		// Update the cache.
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			firstColumnIndex: this.firstColumnIndex,
+			screenColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			screenRows: this.screenRows
+		});
 	}
 
 	/**
@@ -166,11 +233,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData() {
 		// Update the cache.
-		await this._dataExplorerCache.updateCache({
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.None,
 			firstColumnIndex: this.firstColumnIndex,
-			visibleColumns: this.screenColumns,
+			screenColumns: this.screenColumns,
 			firstRowIndex: this.firstRowIndex,
-			visibleRows: this.screenRows
+			screenRows: this.screenRows
 		});
 	}
 
@@ -181,7 +249,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override column(columnIndex: number) {
 		// Get the column schema.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+		const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
@@ -197,7 +265,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override rowHeader(rowIndex: number) {
 		return (
-			<TableDataRowHeader value={this._dataExplorerCache.getRowLabel(rowIndex)} />
+			<TableDataRowHeader value={this._tableDataCache.getRowLabel(rowIndex)} />
 		);
 	}
 
@@ -215,7 +283,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// Get the data cell.
-		const dataCell = this._dataExplorerCache.getDataCell(columnIndex, rowIndex);
+		const dataCell = this._tableDataCache.getDataCell(columnIndex, rowIndex);
 		if (!dataCell) {
 			return undefined;
 		}
@@ -305,7 +373,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {
-				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
 					this._onAddFilterEmitter.fire(columnSchema);
 				}
@@ -459,7 +527,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			label: addFilterTitle,
 			disabled: !filterSupported,
 			onSelected: () => {
-				const columnSchema = this._dataExplorerCache.getColumnSchema(columnIndex);
+				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
 				if (columnSchema) {
 					this._onAddFilterEmitter.fire(columnSchema);
 				}
@@ -490,6 +558,30 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	readonly onAddFilter = this._onAddFilterEmitter.event;
 
 	//#region Public Methods
+
+	/**
+	 * Sets the column header width calculator.
+	 * @param calculator The column header width calculator.
+	 */
+	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
+		this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
+	}
+
+	/**
+	 * Sets the sort index width calculator.
+	 * @param calculator The sort index width calculator.
+	 */
+	setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
+		this._sortIndexWidthCalculator = calculator;
+	}
+
+	/**
+	 * Sets the column value width calculator.
+	 * @param calculator The column value width calculator.
+	 */
+	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
+		this._tableDataCache.setColumnValueWidthCalculator(calculator);
+	}
 
 	/**
 	 * Copies the specified clipboard data.
@@ -580,11 +672,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Reload the data grid.
-		this._dataExplorerCache.invalidateDataCache();
-		this.resetSelection();
-		this.setFirstRow(0, true);
-		this.setCursorRow(0);
+		// Update the cache.
+		await this._tableDataCache.update({
+			invalidateCache: InvalidateCacheFlags.Data,
+			firstColumnIndex: this.firstColumnIndex,
+			screenColumns: this.screenColumns,
+			firstRowIndex: this.firstRowIndex,
+			screenRows: this.screenRows
+		});
 	}
 
 	/**

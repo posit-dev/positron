@@ -54,10 +54,12 @@ type ContentRewriter = (
 
 /**
  * Custom type guard for AddressInfo.
- * @param addressInfo The value.
- * @returns true if the value is aAddressInfo AddressInfo; otherwise, false.
+ * @param addressInfo The value to type guard.
+ * @returns true if the value is an AddressInfo; otherwise, false.
  */
-export const isAddressInfo = (addressInfo: string | AddressInfo | null): addressInfo is AddressInfo =>
+export const isAddressInfo = (
+	addressInfo: string | AddressInfo | null
+): addressInfo is AddressInfo =>
 	(addressInfo as AddressInfo).address !== undefined &&
 	(addressInfo as AddressInfo).family !== undefined &&
 	(addressInfo as AddressInfo).port !== undefined;

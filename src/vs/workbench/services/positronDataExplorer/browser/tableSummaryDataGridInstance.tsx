@@ -11,10 +11,10 @@ import { Emitter } from 'vs/base/common/event';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { DataExplorerCache } from 'vs/workbench/services/positronDataExplorer/common/dataExplorerCache';
+import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
+import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnDisplayType, ColumnSummaryStats } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -29,9 +29,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
-	 * Gets the expanded columns set.
+	 * Gets or sets the last row filters.
 	 */
-	private readonly _expandedColumns = new Set<number>();
+	private _lastRowFilters: string = '[]';
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -46,14 +46,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Constructor.
 	 * @param _configurationService The configuration service.
 	 * @param _hoverService The hover service.
-	 * @param _dataExplorerClientInstance The DataExplorerClientInstance.
-	 * @param _dataExplorerCache The DataExplorerCache.
+	 * @param _dataExplorerClientInstance The data explorer client instance.
+	 * @param _tableSummaryCache The table summary cache.
 	 */
 	constructor(
 		private readonly _configurationService: IConfigurationService,
 		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
-		private readonly _dataExplorerCache: DataExplorerCache
+		private readonly _tableSummaryCache: TableSummaryCache
 	) {
 		// Call the base class's constructor.
 		super({
@@ -73,20 +73,40 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			selection: false
 		});
 
-		// Add the onDidUpdateCache event handler.
-		this._register(this._dataExplorerCache.onDidUpdateCache(() => {
-			this._onDidUpdateEmitter.fire();
-			this._dataExplorerCache.cacheColumnSummaryStats([...this._expandedColumns]).then(
-				// Asynchronously update the summary stats for expanded columns then re-render
-				() => this._onDidUpdateEmitter.fire()
-			);
+		// Add the data explorer client instance onDidSchemaUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the cache with invalidation.
+			await this._tableSummaryCache.update({
+				invalidateCache: true,
+				firstColumnIndex: this.firstColumnIndex,
+				screenColumns: this.screenRows
+			});
 		}));
 
-		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			await this.setScreenPosition(0, 0);
-			this._expandedColumns.clear();
-			await this.fetchData();
+		// Add the data explorer client instance onDidDataUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Refresh the column profiles because they rely on the data.
+			await this._tableSummaryCache.refreshColumnProfiles();
+		}));
+
+		// Add the data explorer client instance onDidUpdateBackendState event handler.
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
+			async (state: BackendState) => {
+				// Stringify the row filters.
+				const rowFilters = JSON.stringify(state.row_filters);
+
+				// If the row filters have changed, refresh the column profiles.
+				if (this._lastRowFilters !== rowFilters) {
+					this._lastRowFilters = rowFilters;
+					await this._tableSummaryCache.refreshColumnProfiles();
+				}
+			})
+		);
+
+		// Add the table summary cache onDidUpdate event handler.
+		this._register(this._tableSummaryCache.onDidUpdate(() => {
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
 		}));
 	}
 
@@ -105,7 +125,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the number of rows.
 	 */
 	get rows() {
-		return this._dataExplorerCache.columns;
+		return this._tableSummaryCache.columns;
 	}
 
 	//#endregion DataGridInstance Properties
@@ -117,9 +137,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		await this._dataExplorerCache.updateCache({
+		await this._tableSummaryCache.update({
+			invalidateCache: false,
 			firstColumnIndex: this.firstRowIndex,
-			visibleColumns: this.screenRows
+			screenColumns: this.screenRows
 		});
 	}
 
@@ -142,7 +163,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Get the column schema. If it hasn't been loaded yet, return the summary height.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		const columnSchema = this._tableSummaryCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return SUMMARY_HEIGHT;
 		}
@@ -208,7 +229,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Get the column schema.
-		const columnSchema = this._dataExplorerCache.getColumnSchema(rowIndex);
+		const columnSchema = this._tableSummaryCache.getColumnSchema(rowIndex);
 		if (!columnSchema) {
 			return undefined;
 		}
@@ -223,29 +244,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				onDoubleClick={() => this._onDidSelectColumnEmitter.fire(rowIndex)}
 			/>
 		);
-	}
-
-	getColumnNullCount(columnIndex: number): number | undefined {
-		return this._dataExplorerCache.getColumnNullCount(columnIndex);
-	}
-
-	getColumnNullPercent(columnIndex: number): number | undefined {
-		const nullCount = this._dataExplorerCache.getColumnNullCount(columnIndex);
-		if (this._dataExplorerCache.rows === 0) {
-			// #2770: do not divide by zero
-			return 0;
-		} else {
-			return nullCount === undefined ? undefined : Math.floor(
-				nullCount * 100 / this._dataExplorerCache.rows);
-		}
-	}
-
-	getColumnSummaryStats(columnIndex: number): ColumnSummaryStats | undefined {
-		return this._dataExplorerCache.getColumnSummaryStats(columnIndex);
-	}
-
-	getSupportedFeatures() {
-		return this._dataExplorerClientInstance.getSupportedFeatures();
 	}
 
 	//#endregion DataGridInstance Methods
@@ -273,34 +271,69 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Public Methods
 
 	/**
-	 * Returns a value which indicates whether a column is expanded.
-	 * @param columnIndex The columm index.
-	 * @returns A value which indicates whether the column is expanded.
+	 * Gets the supported features.
+	 * @returns The supported features.
 	 */
-	isColumnExpanded(columnIndex: number) {
-		return this._expandedColumns.has(columnIndex);
+	getSupportedFeatures() {
+		return this._dataExplorerClientInstance.getSupportedFeatures();
 	}
 
 	/**
-	 * Toggles expand column.
+	 * Returns a value which indicates whether the specified column index is expanded.
+	 * @param columnIndex The columm index.
+	 * @returns A value which indicates whether the specified column index is expanded.
+	 */
+	isColumnExpanded(columnIndex: number) {
+		return this._tableSummaryCache.isColumnExpanded(columnIndex);
+	}
+
+	/**
+	 * Toggles the expanded state of the specified column index.
 	 * @param columnIndex The columm index.
 	 */
-	toggleExpandColumn(columnIndex: number) {
-		// Toggle expand column.
-		if (this._expandedColumns.has(columnIndex)) {
-			this._expandedColumns.delete(columnIndex);
-		} else {
-			this._expandedColumns.add(columnIndex);
-			this.scrollToRow(columnIndex);
+	async toggleExpandColumn(columnIndex: number) {
+		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
+	}
 
-			this._dataExplorerCache.cacheColumnSummaryStats([columnIndex]).then(() => {
-				// Re-render when the column summary stats return
-				this._onDidUpdateEmitter.fire();
-			});
+	/**
+	 * Gets the column null count for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column null count for the specified column index
+	 */
+	getColumnNullCount(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.null_count;
+	}
+
+	/**
+	 * Gets the column null percent for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column null percent for the specified column index
+	 */
+	getColumnNullPercent(columnIndex: number) {
+		// If the table has no rows, it's meaningless to calculate the column null percent. Return
+		// undefined in this case.
+		const rows = this._tableSummaryCache.rows;
+		if (!rows) {
+			return undefined;
 		}
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		// Get the null count. If it hasn't been loaded yet, return undefined.
+		const nullCount = this._tableSummaryCache.getColumnProfile(columnIndex)?.null_count;
+		if (nullCount === undefined) {
+			return undefined;
+		}
+
+		// Calculate and return the column null percent.
+		return Math.floor(nullCount * 100 / rows);
+	}
+
+	/**
+	 * Gets the column summary stats for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column summary stats for the specified column index
+	 */
+	getColumnSummaryStats(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.summary_stats;
 	}
 
 	//#endregion Private Methods

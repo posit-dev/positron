@@ -63,7 +63,7 @@
 	position: relative;
 	align-items: center;
 	grid-column: content / right-gutter;
-	grid-template-columns: [left-margin] 7px [title-description] minmax(0, 1fr) [sort-indicator] min-content [button] 20px [right-margin] 7px [end];
+	grid-template-columns: [title-description] minmax(0, 1fr) [sort-indicator] min-content [button] 20px [button-end];
 }
 
 .data-grid-column-header
@@ -77,23 +77,23 @@
 .content
 .title-description
 .title {
-	font-weight: 600;
 	overflow: hidden;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
+	font-weight: var(--positron-data-grid-column-header-title-font-weight);
 }
 
 .data-grid-column-header
 .content
 .title-description
 .description {
-	font-size: 90%;
 	opacity: 80%;
 	overflow: hidden;
 	white-space: nowrap;
 	line-height: normal;
 	text-overflow: ellipsis;
+	font-size: var(--positron-data-grid-column-header-description-font-size);
 }
 
 .data-grid-column-header
@@ -115,16 +115,18 @@
 .content
 .sort-indicator
 .sort-index {
-	font-size: 80%;
-	font-weight: 600;
-	margin: 0 3px 0 3px;
+	margin: 0 3px;
 	color: var(--vscode-positronDataGrid-sortIndexForeground);
+	font-size: var(--positron-data-grid-column-header-sort-index-font-size);
+	font-weight: var(--positron-data-grid-column-header-sort-index-font-weight);
+	font-variant-numeric: var(--positron-data-grid-column-header-sort-index-font-variant-numeric);
 }
 
 .data-grid-column-header
 .content
 .sort-button {
 	z-index: 1;
+	width: 20px;
 	height: 20px;
 	display: flex;
 	cursor: pointer;
@@ -132,7 +134,7 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
-	grid-column: button / right-margin;
+	grid-column: button / button-end;
 }
 
 .data-grid-column-header
