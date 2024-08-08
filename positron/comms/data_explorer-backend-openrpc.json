@@ -47,7 +47,7 @@
 				{
 					"name": "start_index",
 					"description": "Index (starting from zero) of first result to fetch (for paging)",
-					"required": false,
+					"required": true,
 					"schema": {
 						"type": "integer"
 					}
@@ -282,7 +282,7 @@
 				{
 					"name": "format_options",
 					"description": "Formatting options for returning data values as strings",
-					"required": false,
+					"required": true,
 					"schema": {
 						"$ref": "#/components/schemas/format_options"
 					}

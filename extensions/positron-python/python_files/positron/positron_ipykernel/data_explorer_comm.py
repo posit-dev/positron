@@ -1190,8 +1190,7 @@ class SearchSchemaParams(BaseModel):
         description="Column filters to apply when searching",
     )
 
-    start_index: Optional[StrictInt] = Field(
-        default=None,
+    start_index: StrictInt = Field(
         description="Index (starting from zero) of first result to fetch (for paging)",
     )
 
@@ -1419,8 +1418,7 @@ class GetColumnProfilesParams(BaseModel):
         description="Array of requested profiles",
     )
 
-    format_options: Optional[FormatOptions] = Field(
-        default=None,
+    format_options: FormatOptions = Field(
         description="Formatting options for returning data values as strings",
     )
 
