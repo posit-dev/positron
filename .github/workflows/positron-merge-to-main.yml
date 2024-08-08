@@ -115,7 +115,7 @@ jobs:
           path: .build/logs/smoke-tests-electron/
 
       - name: slack-smoke-test-report
-        if: failure()
+        if: ${{ failure() && inputs.smoketest_target == 'smoketest-merge-to-main' }}
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
