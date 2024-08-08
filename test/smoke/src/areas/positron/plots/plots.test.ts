@@ -103,6 +103,9 @@ plt.show()`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
@@ -146,6 +149,9 @@ IPython.display.display_png(h)`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
@@ -474,6 +480,9 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
