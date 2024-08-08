@@ -270,17 +270,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
-	 * Gets the intrinsic size of the plot, if known.
-	 *
-	 * @returns A promise that resolves to the intrinsic size of the plot, if known.
-	 */
-	public async getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
-		const result = await this._comm.getIntrinsicSize();
-		this._didSetIntrinsicSizeEmitter.fire(result.size);
-		return result.size;
-	}
-
-	/**
 	 * Requests that the plot be rendered at a specific size.
 	 *
 	 * @param height The plot height, in pixels
@@ -424,8 +413,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// If this is the first render, get the plot's intrinsic size.
 		if (!this._lastRender) {
-			this._comm.getIntrinsicSize().then((result) => {
-				this._didSetIntrinsicSizeEmitter.fire(result.size);
+			this._comm.getIntrinsicSize().then((intrinsicSize) => {
+				this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
 			});
 		}
 
