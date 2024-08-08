@@ -268,6 +268,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
 		}
+
+		// When a plot is selected, update the intrinsic sizing policy.
+		this._register(this.onDidSelectPlot((id) => {
+			const plotClient = this._plots.find(plot => plot.id === id) as PlotClientInstance | undefined;
+			if (plotClient) {
+				this._intrinsicSizingPolicy.setIntrinsicSize(plotClient.intrinsicSize);
+			}
+		}));
 	}
 
 	private _showPlotsPane() {
@@ -610,7 +618,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			selectPlot();
 		});
 
-		// Forward the intrinsic size of the plot to the sizing policy
+		// When the intrinsic size is set, update the intrinsic sizing policy.
 		plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
 			this._intrinsicSizingPolicy.setIntrinsicSize(intrinsicSize);
 		});

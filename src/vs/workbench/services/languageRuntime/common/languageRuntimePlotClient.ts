@@ -167,6 +167,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private _lastRenderTimeMs: number = 0;
 
 	/**
+	 * The intrinsic size of the plot, if known.
+	 */
+	private _intrinsicSize?: IntrinsicSize;
+
+	/**
 	 * Event that fires when the plot is closed on the runtime side, typically
 	 * because the runtime exited and doesn't preserve plot state.
 	 */
@@ -411,6 +416,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// If this is the first render, get the plot's intrinsic size.
 		if (!this._lastRender) {
 			this._comm.getIntrinsicSize().then((intrinsicSize) => {
+				this._intrinsicSize = intrinsicSize;
 				this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
 			});
 		}
@@ -482,6 +488,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	get renderEstimateMs(): number {
 		return this._lastRenderTimeMs;
+	}
+
+	/**
+	 * Returns the intrinsic size of the plot, if known.
+	 */
+	get intrinsicSize(): IntrinsicSize | undefined {
+		return this._intrinsicSize;
 	}
 
 	/**
