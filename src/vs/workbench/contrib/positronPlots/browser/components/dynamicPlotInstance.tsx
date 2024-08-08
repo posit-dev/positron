@@ -173,7 +173,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 			height: props.height + 'px'
 		};
 
-		text = text.length ? text : `Rendering plot (${props.width} x ${props.height})`;
+		text = text.length ? text : `Rendering plot`;
 
 		// display error here
 		return <div className='image-placeholder' style={style}>
