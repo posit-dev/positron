@@ -513,7 +513,7 @@ const esbuildMediaScripts = [
 	'ipynb/esbuild.js',
 	'simple-browser/esbuild-preview.js',
 	// --- Start Positron ---
-	'positron-ipywidgets/esbuild-renderer.js',
+	'positron-ipywidgets/renderer/esbuild.js',
 	// --- End Positron ---
 ];
 
