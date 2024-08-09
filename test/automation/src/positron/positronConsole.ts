@@ -21,6 +21,7 @@ const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-p
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
+const EMPTY_CONSOLE = '.positron-console .empty-console';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -33,6 +34,7 @@ export class PositronConsole {
 	consoleRestartButton: PositronBaseElement;
 
 	activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
+	emptyConsole = this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
@@ -134,6 +136,47 @@ export class PositronConsole {
 
 		// Wait for the interpreter to start.
 		await this.waitForConsoleContents((contents) => contents.some((line) => line.includes('started')));
+	}
+
+	/**
+	 * Check if the console is ready with Python or R, or if no interpreter is running.
+	 * @param retryCount The number of times to retry waiting for the console to be ready.
+	 * @throws An error if the console is not ready after the retry count.
+	 */
+	async waitForReadyOrNoInterpreter(retryCount: number = 200) {
+		for (let i = 0; i < retryCount; i++) {
+			// Check if the console is ready with Python.
+			try {
+				await this.waitForReady('>>>', 5);
+				// The console is ready with Python.
+				return;
+			} catch (error) {
+				// Python is not ready. Try the next interpreter.
+			}
+
+			// Check if the console is ready with R.
+			try {
+				await this.waitForReady('>', 5);
+				// The console is ready with R.
+				return;
+			} catch (error) {
+				// R is not ready. Try the next interpreter.
+			}
+
+			// Check if there is no interpreter running.
+			const noInterpreter = await this.code.waitForElement(
+				EMPTY_CONSOLE,
+				() => true,
+				5
+			);
+			if (noInterpreter) {
+				// The console is ready since there is no interpreter running.
+				return;
+			}
+		}
+
+		// If we reach here, the console is not ready.
+		throw new Error('Console is not ready after waiting for R or Python to start');
 	}
 
 	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
