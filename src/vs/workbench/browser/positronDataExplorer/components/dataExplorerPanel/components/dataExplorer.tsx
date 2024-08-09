@@ -237,8 +237,8 @@ export const DataExplorer = () => {
 	// Layout useEffect.
 	useEffect(() => {
 		switch (layout) {
-			// Columns left.
-			case PositronDataExplorerLayout.ColumnsLeft:
+			// Summary on left.
+			case PositronDataExplorerLayout.SummaryOnLeft:
 				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
 
 				column1Ref.current.style.gridColumn = 'column-1 / splitter';
@@ -251,8 +251,8 @@ export const DataExplorer = () => {
 				column2Ref.current.style.display = 'grid';
 				break;
 
-			// Columns right.
-			case PositronDataExplorerLayout.ColumnsRight:
+			// Summary on right.
+			case PositronDataExplorerLayout.SummaryOnRight:
 				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
 
 				column1Ref.current.style.gridColumn = 'column-2 / end';
@@ -265,8 +265,8 @@ export const DataExplorer = () => {
 				column2Ref.current.style.display = 'grid';
 				break;
 
-			// Columns hidden.
-			case PositronDataExplorerLayout.ColumnsHidden:
+			// Summary hidden.
+			case PositronDataExplorerLayout.SummaryHidden:
 				dataExplorerRef.current.style.gridTemplateColumns = `[column] 1fr [end]`;
 
 				column1Ref.current.style.gridColumn = '';
@@ -289,7 +289,7 @@ export const DataExplorer = () => {
 		minimumWidth: MIN_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * width / 3),
 		startingWidth: columnsWidth,
-		invert: layout === PositronDataExplorerLayout.ColumnsRight
+		invert: layout === PositronDataExplorerLayout.SummaryOnRight
 	});
 
 	/**

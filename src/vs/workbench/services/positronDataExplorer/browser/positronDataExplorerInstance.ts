@@ -48,7 +48,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Gets or sets the layout.
 	 */
-	private _layout = PositronDataExplorerLayout.ColumnsLeft;
+	private _layout = PositronDataExplorerLayout.SummaryOnLeft;
 
 	/**
 	 * Gets or sets the columns width percent.
