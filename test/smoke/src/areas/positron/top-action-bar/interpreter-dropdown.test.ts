@@ -9,6 +9,8 @@ import {
 	Logger,
 	PositronConsole,
 	PositronInterpreterDropdown,
+	PositronUserSettingsFixtures,
+	QuickAccess,
 } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -23,6 +25,8 @@ export function setup(logger: Logger) {
 		let app: Application;
 		let interpreterDropdown: PositronInterpreterDropdown;
 		let positronConsole: PositronConsole;
+		let quickaccess: QuickAccess;
+		let userSettings: PositronUserSettingsFixtures;
 		let desiredPython: string;
 		let desiredR: string;
 
@@ -30,12 +34,44 @@ export function setup(logger: Logger) {
 			app = this.app as Application;
 			interpreterDropdown = app.workbench.positronInterpreterDropdown;
 			positronConsole = app.workbench.positronConsole;
+			quickaccess = app.workbench.quickaccess;
+			userSettings = new PositronUserSettingsFixtures(app);
 			desiredPython = process.env.POSITRON_PY_VER_SEL!;
 			desiredR = process.env.POSITRON_R_VER_SEL!;
-		});
 
-		beforeEach(async function () {
+			/**
+			 * Ensure that no interpreters are running before starting the tests. This is necessary
+			 * because interactions with the interpreter dropdown to select an interpreter can get
+			 * bulldozed by automatic interpreter startup.
+			 */
+
+			// Wait for the console to be ready
 			await positronConsole.waitForReadyOrNoInterpreter();
+
+			try {
+				// If no interpreters are running, we're good to go
+				await positronConsole.waitForNoInterpretersRunning(50);
+				return;
+			} catch (error) {
+				// If an interpreter is running, we'll shut it down and disable automatic startup
+
+				// Shutdown running interpreter
+				await quickaccess.runCommand('workbench.action.languageRuntime.shutdown');
+				await positronConsole.waitForInterpreterShutdown();
+
+				// Disable automatic startup of interpreters in user settings. This setting will be
+				// cleared in the next app startup for a subsequent test, so we don't need to unset
+				// it.
+				await userSettings.setUserSetting([
+					'positron.interpreters.automaticStartup',
+					'false',
+				]);
+
+				// Reload the window
+				// keepOpen is set to true so we don't need to wait for the prompt input to close
+				// (it will never close since the app gets reloaded)
+				await quickaccess.runCommand('workbench.action.reloadWindow', { keepOpen: true });
+			}
 		});
 
 		it('Python interpreter starts and shows running [C707212]', async function () {
@@ -124,9 +160,7 @@ export function setup(logger: Logger) {
 			}).toPass({ timeout: 15_000 });
 
 			// The console should indicate that the interpreter is shutting down
-			await positronConsole.waitForConsoleContents((contents) =>
-				contents.some((line) => line.includes('shut down successfully'))
-			);
+			await positronConsole.waitForInterpreterShutdown();
 
 			// The interpreter dropdown should no longer show the running indicators
 			expect(
