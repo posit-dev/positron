@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import path = require('path');
+import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession } from './jupyter-adapter.d';
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
@@ -76,6 +78,7 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
 	const runtimes = await positron.runtime.getRegisteredRuntimes();
 	for (const runtime of runtimes) {
+		console.log(runtime.languageId);
 		if (runtime.languageId === 'python' && runtime.runtimeId !== 'reticulate') {
 			runtimeMetadata.extraRuntimeData = runtime.extraRuntimeData;
 			break;
@@ -93,14 +96,18 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any;
 	base64EncodedIconSvg: string | undefined;
 	constructor() {
-		this.base64EncodedIconSvg = '';
+		this.base64EncodedIconSvg = fs
+			.readFileSync(
+				path.join(CONTEXT.extensionPath, 'resources', 'branding', 'reticulate.svg'),
+				{ encoding: 'base64' }
+			);
 	}
-	runtimePath: string = '';
-	runtimeName: string = 'Reticulate Python';
+	runtimePath: string = 'Managed by the reticulate package';
+	runtimeName: string = 'Python (reticulate)';
 	languageId: string = 'python';
 	languageName: string = 'Python';
 	runtimeId: string = 'reticulate';
-	runtimeShortName: string = 'Reticulate Python';
+	runtimeShortName: string = 'Python (reticulate)';
 	runtimeVersion: string = '1.0';
 	runtimeSource: string = 'reticulate';
 	languageVersion = '1.0';
@@ -109,6 +116,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 }
 
 
+let CONTEXT: vscode.ExtensionContext
 
 /**
  * Activates the extension.
@@ -117,6 +125,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
  */
 export function activate(context: vscode.ExtensionContext) {
 	console.log('Activating Reticulate extension');
+	CONTEXT = context;
 
 	const manager = positron.runtime.registerLanguageRuntimeManager(
 		new ReticulateRuntimeManager(context)
