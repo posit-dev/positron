@@ -231,7 +231,9 @@ export class PlaywrightDriver {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
 
+	// --- Start Positron ---
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<playwright.JSHandle<IWindowDriver>[], T>) {
+		// --- End Positron ---
 		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
 

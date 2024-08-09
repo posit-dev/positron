@@ -8,7 +8,7 @@ import { localize, localize2 } from 'vs/nls';
 import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
 import { MenuId, MenuRegistry, registerAction2, Action2, IAction2Options } from 'vs/platform/actions/common/actions';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { ActivityBarPosition, IWorkbenchLayoutService, LayoutSettings, PanelAlignment, Parts, Position, positionToString } from 'vs/workbench/services/layout/browser/layoutService';
+import { ActivityBarPosition, isHorizontal, IWorkbenchLayoutService, LayoutSettings, PanelAlignment, Parts, Position, positionToString } from 'vs/workbench/services/layout/browser/layoutService';
 import { AuxiliaryBarVisibleContext, PanelAlignmentContext, PanelMaximizedContext, PanelPositionContext, PanelVisibleContext } from 'vs/workbench/common/contextkeys';
 import { ContextKeyExpr, ContextKeyExpression } from 'vs/platform/contextkey/common/contextkey';
 import { Codicon } from 'vs/base/common/codicons';
@@ -114,6 +114,7 @@ const PositionPanelActionId = {
 	LEFT: 'workbench.action.positionPanelLeft',
 	RIGHT: 'workbench.action.positionPanelRight',
 	BOTTOM: 'workbench.action.positionPanelBottom',
+	TOP: 'workbench.action.positionPanelTop'
 };
 
 const AlignPanelActionId = {
@@ -151,6 +152,7 @@ function createAlignmentPanelActionConfig(id: string, title: ICommandActionTitle
 
 
 const PositionPanelActionConfigs: PanelActionConfig<Position>[] = [
+	createPositionPanelActionConfig(PositionPanelActionId.TOP, localize2('positionPanelTop', "Move Panel To Top"), localize('positionPanelTopShort', "Top"), Position.TOP),
 	createPositionPanelActionConfig(PositionPanelActionId.LEFT, localize2('positionPanelLeft', "Move Panel Left"), localize('positionPanelLeftShort', "Left"), Position.LEFT),
 	createPositionPanelActionConfig(PositionPanelActionId.RIGHT, localize2('positionPanelRight', "Move Panel Right"), localize('positionPanelRightShort', "Right"), Position.RIGHT),
 	createPositionPanelActionConfig(PositionPanelActionId.BOTTOM, localize2('positionPanelBottom', "Move Panel To Bottom"), localize('positionPanelBottomShort', "Bottom"), Position.BOTTOM),
@@ -173,7 +175,7 @@ MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
 	order: 4
 });
 
-PositionPanelActionConfigs.forEach(positionPanelAction => {
+PositionPanelActionConfigs.forEach((positionPanelAction, index) => {
 	const { id, title, shortLabel, value, when } = positionPanelAction;
 
 	registerAction2(class extends Action2 {
@@ -197,7 +199,7 @@ PositionPanelActionConfigs.forEach(positionPanelAction => {
 			title: shortLabel,
 			toggled: when.negate()
 		},
-		order: 5
+		order: 5 + index
 	});
 });
 
@@ -295,17 +297,17 @@ registerAction2(class extends Action2 {
 			tooltip: localize('maximizePanel', "Maximize Panel Size"),
 			category: Categories.View,
 			f1: true,
-			icon: maximizeIcon,
+			icon: maximizeIcon, // This is being rotated in CSS depending on the panel position
 			// the workbench grid currently prevents us from supporting panel maximization with non-center panel alignment
-			precondition: ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), PanelPositionContext.notEqualsTo('bottom')),
+			precondition: ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), ContextKeyExpr.and(PanelPositionContext.notEqualsTo('bottom'), PanelPositionContext.notEqualsTo('top'))),
 			// --- Start Positron ---
-			toggled: { condition: PanelMaximizedContext, icon: restoreIcon, tooltip: localize('restoresPanel', "Restores Panel Size") },
+			toggled: { condition: PanelMaximizedContext, icon: restoreIcon, tooltip: localize('restoresPanel', "Restore Panel Size") },
 			menu: [{
 				id: MenuId.PanelTitle,
 				group: 'navigation',
 				order: 100,
 				// the workbench grid currently prevents us from supporting panel maximization with non-center panel alignment
-				when: PanelPositionContext.notEqualsTo('bottom') //ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), PanelPositionContext.notEqualsTo('bottom'))
+				when: PanelPositionContext.notEqualsTo('bottom') //when: ContextKeyExpr.or(PanelAlignmentContext.isEqualTo('center'), ContextKeyExpr.and(PanelPositionContext.notEqualsTo('bottom'), PanelPositionContext.notEqualsTo('top')))
 			}]
 			// --- End Positron ---
 		});
@@ -313,7 +315,7 @@ registerAction2(class extends Action2 {
 	run(accessor: ServicesAccessor) {
 		const layoutService = accessor.get(IWorkbenchLayoutService);
 		const notificationService = accessor.get(INotificationService);
-		if (layoutService.getPanelAlignment() !== 'center' && layoutService.getPanelPosition() === Position.BOTTOM) {
+		if (layoutService.getPanelAlignment() !== 'center' && isHorizontal(layoutService.getPanelPosition())) {
 			notificationService.warn(localize('panelMaxNotSupported', "Maximizing the panel is only supported when it is center aligned."));
 			return;
 		}
@@ -501,10 +503,6 @@ registerAction2(class extends Action2 {
 				group: 'navigation',
 				order: 2,
 				when: ContextKeyExpr.notEquals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.TOP)
-			}, {
-				id: MenuId.AuxiliaryBarHeader,
-				group: 'navigation',
-				when: ContextKeyExpr.equals(`config.${LayoutSettings.ACTIVITY_BAR_LOCATION}`, ActivityBarPosition.TOP)
 			}]
 		});
 	}

@@ -5,6 +5,7 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
+import * as minimatch from 'minimatch';
 import { makeUniversalApp } from 'vscode-universal-bundler';
 import { spawn } from '@malept/cross-spawn-promise';
 
@@ -21,50 +22,54 @@ async function main(buildDir?: string) {
 	const appName = product.nameLong + '.app';
 	const x64AppPath = path.join(buildDir, 'VSCode-darwin-x64', appName);
 	const arm64AppPath = path.join(buildDir, 'VSCode-darwin-arm64', appName);
-	const x64AsarPath = path.join(x64AppPath, 'Contents', 'Resources', 'app', 'node_modules.asar');
-	const arm64AsarPath = path.join(arm64AppPath, 'Contents', 'Resources', 'app', 'node_modules.asar');
+	const asarRelativePath = path.join('Contents', 'Resources', 'app', 'node_modules.asar');
 	const outAppPath = path.join(buildDir, `VSCode-darwin-${arch}`, appName);
 	const productJsonPath = path.resolve(outAppPath, 'Contents', 'Resources', 'app', 'product.json');
+
+	const filesToSkip = [
+		'**/CodeResources',
+		'**/Credits.rtf',
+		// --- Start Positron ---
+		// Exclusions from ZeroMQ node module
+		'electron.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
+		'node.napi.node',     // ZeroMQ Electron architecture-specific pre-built binary
+		'node.napi.glibc.node', // ZeroMQ Electron architecture-specific pre-built binary
+		// Exclusions from remote-ssh
+		'cpufeatures.node',
+		'sshcrypto.node',
+		// Case-sensitivity issues
+		'HTML.icns',
+		'html.icns',
+		// Exclusions from Python language pack (positron-python)
+		'pydevd',             // Cython pre-built binaries for Python debugging
+		// Exclusions from R language pack (positron-r)
+		'ark',                // Compiled R kernel and LSP
+		// Exclusions from Quarto
+		'dart',
+		'deno',
+		'esbuild',
+		'pandoc',
+		'sass',
+		'typst',
+		// --- End Positron ---
+	];
 
 	await makeUniversalApp({
 		x64AppPath,
 		arm64AppPath,
-		x64AsarPath,
-		arm64AsarPath,
-		filesToSkip: [
-			'product.json',
-			'Credits.rtf',
-			'CodeResources',
-			'fsevents.node',
-			'Info.plist', // TODO@deepak1556: regressed with 11.4.2 internal builds
-			'MainMenu.nib', // Generated sequence is not deterministic with Xcode 13
-			'.npmrc',
-			// --- Start Positron ---
-			// Exclusions from ZeroMQ node module
-			'electron.napi.node', // ZeroMQ Electron architecture-specific pre-built binary
-			'node.napi.node',     // ZeroMQ Electron architecture-specific pre-built binary
-			'node.napi.glibc.node', // ZeroMQ Electron architecture-specific pre-built binary
-			// Exclusions from remote-ssh
-			'cpufeatures.node',
-			'sshcrypto.node',
-			// Case-sensitivity issues
-			'HTML.icns',
-			'html.icns',
-			// Exclusions from Python language pack (positron-python)
-			'pydevd',             // Cython pre-built binaries for Python debugging
-			// Exclusions from R language pack (positron-r)
-			'ark',                // Compiled R kernel and LSP
-			// Exclusions from Quarto
-			'dart',
-			'deno',
-			'esbuild',
-			'pandoc',
-			'sass',
-			'typst',
-			// --- End Positron ---
-		],
+		asarPath: asarRelativePath,
 		outAppPath,
-		force: true
+		force: true,
+		mergeASARs: true,
+		x64ArchFiles: '*/kerberos.node',
+		filesToSkipComparison: (file: string) => {
+			for (const expected of filesToSkip) {
+				if (minimatch(file, expected)) {
+					return true;
+				}
+			}
+			return false;
+		}
 	});
 
 	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));

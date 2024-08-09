@@ -85,10 +85,13 @@ plt.show()`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
@@ -128,10 +131,13 @@ IPython.display.display_png(h)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
@@ -307,10 +313,13 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
@@ -321,7 +330,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('R - Verifies saving an R plot [C557006]' , async function () {
+			it('R - Verifies saving an R plot [C557006]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
