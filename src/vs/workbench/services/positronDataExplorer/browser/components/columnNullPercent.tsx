@@ -11,6 +11,11 @@ import * as React from 'react';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 /**
+ * Constants.
+ */
+const SVG_WIDTH = 50;
+
+/**
  * ColumnNullPercentProps interface.
  */
 interface ColumnNullPercentProps {
@@ -23,13 +28,17 @@ interface ColumnNullPercentProps {
  * @returns The rendered component.
  */
 export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
-	// Render.
-	let svgWidth = 50;
-	if (props.columnNullPercent !== undefined) {
-		svgWidth = props.columnNullPercent === 0.0 ?
-			50 :
-			Math.max(50 * ((100 - props.columnNullPercent) / 100), 3);
+	// Calculate the column null percent (and guard against values that are out of range).
+	let columnNullPercent;
+	if (!props.columnNullPercent || props.columnNullPercent < 0) {
+		columnNullPercent = 0;
+	} else if (props.columnNullPercent >= 100) {
+		columnNullPercent = 100;
+	} else {
+		columnNullPercent = Math.min(Math.max(props.columnNullPercent, 5), 95);
 	}
+
+	// Render.
 	return (
 		<div className='column-null-percent'>
 			{props.columnNullPercent !== undefined ?
@@ -46,6 +55,11 @@ export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 			}
 			<div className='graph-percent'>
 				<svg viewBox='0 0 52 14' shapeRendering='geometricPrecision'>
+					<defs>
+						<clipPath id='clip-indicator'>
+							<rect x='1' y='1' width='50' height='12' rx='6' ry='6' />
+						</clipPath>
+					</defs>
 					<g>
 						<rect className='background'
 							x='1'
@@ -59,10 +73,11 @@ export const ColumnNullPercent = (props: ColumnNullPercentProps) => {
 						<rect className='indicator'
 							x='1'
 							y='1'
-							width={svgWidth}
+							width={SVG_WIDTH * ((100 - columnNullPercent) / 100)}
 							height='12'
 							rx='6'
 							ry='6'
+							clipPath='url(#clip-indicator)'
 						/>
 					</g>
 				</svg>

@@ -1033,6 +1033,22 @@ def _safe_stringify(x, max_length: int):
 # is small
 PANDAS_CACHE_CELLS_THRESHOLD = 10_000_000
 
+# For long data frames, inferring an exact data type for dtype=object
+# columns can significantly slow down get_schema requests. We make a
+# trade-off between being exhaustive and returning an exactly correct
+# result even in the most esoteric cases (e.g. consider a column of 10
+# million null values except for a string in the last entry). In the
+# event that we can't make a judgment after the limit here, we risk
+# being wrong in these exceptional cases, but in the interest of much
+# better performance in the > 99% of cases where the type can be
+# inferred accurately by looking at this number of cells.
+#
+# This 1 million cell limit means that we are willing to spend in the
+# ballpark of 10ms for each object column to determine an accurate
+# data type. Depending on feedback we can further reduce this to
+# improve performance if needed.
+PANDAS_INFER_DTYPE_SIZE_LIMIT = 1_000_000
+
 
 class PandasView(DataExplorerTableView):
     TYPE_NAME_MAPPING = {"boolean": "bool"}
@@ -1222,6 +1238,9 @@ class PandasView(DataExplorerTableView):
     def _get_inferred_dtype(cls, column, column_index: int, state: DataExplorerState):
         from pandas.api.types import infer_dtype
 
+        if len(column) > PANDAS_INFER_DTYPE_SIZE_LIMIT:
+            column = column.iloc[:PANDAS_INFER_DTYPE_SIZE_LIMIT]
+
         if column_index not in state.inferred_dtypes:
             state.inferred_dtypes[column_index] = infer_dtype(column)
         return state.inferred_dtypes[column_index]
@@ -1233,8 +1252,6 @@ class PandasView(DataExplorerTableView):
         # schema changes
         dtype = column.dtype
 
-        # TODO: pandas MultiIndex columns
-        # TODO: time zone for datetimetz datetime64[ns] types
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
@@ -1277,6 +1294,7 @@ class PandasView(DataExplorerTableView):
         "time": "time",
         "bytes": "string",
         "string": "string",
+        "empty": "unknown",
     }
 
     TYPE_MAPPERS = [_pandas_datetimetz_mapper]
@@ -1636,12 +1654,7 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             data = data.view(np_.int64)
 
-        if params.method == ColumnHistogramParamsMethod.Fixed:
-            num_bins = params.num_bins
-            assert num_bins is not None
-            bin_counts, bin_edges = np_.histogram(data, bins=num_bins)
-        else:
-            raise NotImplementedError
+        bin_counts, bin_edges = _get_histogram_numpy(data, params)
 
         if is_datetime64:
             # A bit hacky for now, but will replace this with
@@ -1747,6 +1760,27 @@ COMPARE_OPS = {
     FilterComparisonOp.Eq: operator.eq,
     FilterComparisonOp.NotEq: operator.ne,
 }
+
+
+def _get_histogram_numpy(data, params: ColumnHistogramParams):
+    if params.method == ColumnHistogramParamsMethod.Fixed:
+        assert params.num_bins is not None
+        hist_params = {"bins": params.num_bins}
+    elif params.method == ColumnHistogramParamsMethod.Sturges:
+        hist_params = {"bins": "sturges"}
+    else:
+        raise NotImplementedError
+
+    try:
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+    except ValueError:
+        # If there are inf/-inf values in the dataset, ValueError is
+        # raised. We catch it and try again to avoid paying the
+        # filtering cost every time
+        data = data[np_.isfinite(data)]
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+
+    return bin_counts, bin_edges
 
 
 def _date_median(x):
@@ -2362,28 +2396,8 @@ class PolarsView(DataExplorerTableView):
         else:
             cast_bin_edges = False
 
-        min_value = data.min()
-        max_value = data.max()
-        data_span = max_value - min_value  # type: ignore
-
-        if params.method == ColumnHistogramParamsMethod.Fixed:
-            num_bins = params.num_bins
-            assert num_bins is not None
-            bin_size = data_span / num_bins
-        else:
-            raise NotImplementedError
-
-        indices = ((data - min_value) / data_span) * num_bins
-        indices = indices.cast(pl_.Int64).alias("indices")
-
-        # The last bin right edge is inclusive, so we adjust down
-        indices[indices == num_bins] = num_bins - 1
-
-        freq_table = indices.value_counts()
-        index_to_count = dict(zip(freq_table[:, 0], freq_table[:, 1]))
-        bin_counts = [index_to_count.get(i, 0) for i in range(num_bins)]
-
-        bin_edges = min_value + pl_.arange(num_bins + 1, eager=True) * bin_size
+        bin_counts, bin_edges = _get_histogram_numpy(data.to_numpy(), params)
+        bin_edges = pl_.Series(bin_edges)
 
         if cast_bin_edges:
             bin_edges = bin_edges.cast(dtype)
