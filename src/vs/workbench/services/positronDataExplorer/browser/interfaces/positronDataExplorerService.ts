@@ -13,9 +13,9 @@ export const IPositronDataExplorerService = createDecorator<IPositronDataExplore
  * PositronDataExplorerLayout enumeration.
  */
 export enum PositronDataExplorerLayout {
-	ColumnsLeft = 'ColumnsLeft',
-	ColumnsRight = 'ColumnsRight',
-	ColumnsHidden = 'ColumnsHidden',
+	SummaryOnLeft = 'SummaryOnLeft',
+	SummaryOnRight = 'SummaryOnRight',
+	SummaryHidden = 'SummaryHidden',
 }
 
 /**

@@ -8,24 +8,24 @@ import 'vs/css!./layoutMenuButton';
 
 // React.
 import * as React from 'react';
+import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * Localized strings.
  */
 const layoutButtonTitle = localize('positron.layoutButtonTitle', "Layout");
 const layoutButtonDescription = localize('positron.layoutButtonDescription', "Change layout");
-const columnsOnLeft = localize('positron.columnsOnLeft', "Columns on Left");
-const columnsOnRight = localize('positron.columnsOnRight', "Columns on Right");
-const columnsHidden = localize('positron.columnsHidden', "Columns Hidden");
+const summaryOnLeft = localize('positron.summaryOnLeft', "Summary on Left");
+const summaryOnRight = localize('positron.summaryOnRight', "Summary on Right");
+const summaryHidden = localize('positron.summaryHidden', "Summary Hidden");
 
 /**
  * LayoutMenuButton component.
@@ -60,45 +60,45 @@ export const LayoutMenuButton = () => {
 		// Build the actions.
 		const actions: IAction[] = [];
 
-		// Columns on left.
+		// Summary on left.
 		actions.push({
-			id: 'ColumnsLeft',
-			label: columnsOnLeft,
+			id: 'SummaryOnLeft',
+			label: summaryOnLeft,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: layout === PositronDataExplorerLayout.ColumnsLeft,
+			checked: layout === PositronDataExplorerLayout.SummaryOnLeft,
 			run: () => {
-				context.instance.layout = PositronDataExplorerLayout.ColumnsLeft;
+				context.instance.layout = PositronDataExplorerLayout.SummaryOnLeft;
 			}
 		});
 
-		// Columns on right.
+		// Summary on right.
 		actions.push({
-			id: 'ColumnsRight',
-			label: columnsOnRight,
+			id: 'SummaryOnRight',
+			label: summaryOnRight,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: layout === PositronDataExplorerLayout.ColumnsRight,
+			checked: layout === PositronDataExplorerLayout.SummaryOnRight,
 			run: () => {
-				context.instance.layout = PositronDataExplorerLayout.ColumnsRight;
+				context.instance.layout = PositronDataExplorerLayout.SummaryOnRight;
 			}
 		});
 
 		// Separator.
 		actions.push(new Separator());
 
-		// Columns on right.
+		// Summary hidden.
 		actions.push({
-			id: 'ColumnsHidden',
-			label: columnsHidden,
+			id: 'SummaryHidden',
+			label: summaryHidden,
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			checked: layout === PositronDataExplorerLayout.ColumnsHidden,
+			checked: layout === PositronDataExplorerLayout.SummaryHidden,
 			run: () => {
-				context.instance.layout = PositronDataExplorerLayout.ColumnsHidden;
+				context.instance.layout = PositronDataExplorerLayout.SummaryHidden;
 			}
 		});
 
@@ -112,17 +112,17 @@ export const LayoutMenuButton = () => {
 	 */
 	const selectIconId = (layout: PositronDataExplorerLayout) => {
 		switch (layout) {
-			// Columns left.
-			case PositronDataExplorerLayout.ColumnsLeft:
-				return 'positron-data-explorer-columns-left';
+			// Summary on left.
+			case PositronDataExplorerLayout.SummaryOnLeft:
+				return 'positron-data-explorer-summary-on-left';
 
-			// Columns right.
-			case PositronDataExplorerLayout.ColumnsRight:
-				return 'positron-data-explorer-columns-right';
+			// Summary on right.
+			case PositronDataExplorerLayout.SummaryOnRight:
+				return 'positron-data-explorer-summary-on-right';
 
-			// Columns hidden.
-			case PositronDataExplorerLayout.ColumnsHidden:
-				return 'positron-data-explorer-columns-hidden';
+			// Summary hidden.
+			case PositronDataExplorerLayout.SummaryHidden:
+				return 'positron-data-explorer-summary-hidden';
 
 			// Can't happen.
 			default:
