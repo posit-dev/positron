@@ -11,6 +11,8 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
+import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -49,11 +51,24 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 
 		// Request a plot render at the current size, using the current sizing policy.
-		const plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+		let plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
 			height: props.height,
 			width: props.width
 		});
-		props.plotClient.render(plotSize, ratio).then((result) => {
+		props.plotClient.getIntrinsicSize().then((intrinsicSize) => {
+			const policy = plotsContext.positronPlotsService.selectedSizingPolicy;
+			if (policy instanceof PlotSizingPolicyIntrinsic &&
+				!plotSize &&
+				!intrinsicSize
+			) {
+				plotsContext.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+				plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+					height: props.height,
+					width: props.width
+				});
+			}
+		}).then(() => props.plotClient.render(plotSize, ratio)
+		).then((result) => {
 			setUri(result.uri);
 		}).catch((e) => {
 			// It's normal for a plot render to be canceled if the user invalidates the render
@@ -63,7 +78,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				return;
 			}
 			const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})",
-				plotsContext.positronPlotsService.selectedSizingPolicy.name, e.message, e.code);
+				plotsContext.positronPlotsService.selectedSizingPolicy.getName(props.plotClient), e.message, e.code);
 			plotsContext.notificationService.warn(message);
 			setError(message);
 		});
@@ -75,12 +90,25 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(plotsContext.positronPlotsService.onDidChangeSizingPolicy(async (policy) => {
-			const plotSize = policy.getPlotSize({
+			let plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
 			});
 
 			try {
+				const intrinsicSize = await props.plotClient.getIntrinsicSize();
+				const policy = plotsContext.positronPlotsService.selectedSizingPolicy;
+				if (policy instanceof PlotSizingPolicyIntrinsic &&
+					!plotSize &&
+					!intrinsicSize
+				) {
+					plotsContext.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+					plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+						height: props.height,
+						width: props.width
+					});
+				}
+
 				// Wait for the plot to render.
 				const result =
 					await props.plotClient.render(plotSize, ratio);
@@ -92,7 +120,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				if (e.name === 'Canceled' || e.message === 'Canceled') {
 					return;
 				}
-				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.name, e.message, e.code);
+				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.getName(props.plotClient), e.message, e.code);
 				plotsContext.notificationService.warn(message);
 			}
 		}));

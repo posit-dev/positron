@@ -277,6 +277,22 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
+	 * Get the intrinsic size of the plot, if known.
+	 *
+	 * @returns A promise that resolves to the intrinsic size of the plot, if known.
+	 */
+	public async getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
+		if (this._receivedIntrinsicSize) {
+			return this._intrinsicSize;
+		}
+		const intrinsicSize = await this._comm.getIntrinsicSize();
+		this._intrinsicSize = intrinsicSize;
+		this._receivedIntrinsicSize = true;
+		this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
+		return this._intrinsicSize;
+	}
+
+	/**
 	 * Requests that the plot be rendered at a specific size.
 	 *
 	 * @param height The plot height, in pixels
@@ -417,15 +433,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Record the time that the render started so we can estimate the render time
 		const startedTime = Date.now();
-
-		// If this is the first render, get the plot's intrinsic size.
-		if (!this._lastRender) {
-			this._comm.getIntrinsicSize().then((intrinsicSize) => {
-				this._intrinsicSize = intrinsicSize;
-				this._receivedIntrinsicSize = true;
-				this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
-			});
-		}
 
 		// Perform the RPC request and resolve the promise when the response is received
 		const renderRequest = request.renderRequest;
