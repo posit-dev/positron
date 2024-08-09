@@ -268,23 +268,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
 		}
-
-		// When a plot is selected, update the intrinsic sizing policy.
-		// TODO: Maybe this should happen where didSelectPlot is fired so that it always happens before the plot is rendered?
-		// this._register(this.onDidSelectPlot((id) => {
-		// 	const plot = this._plots.find(plot => plot.id === id);
-		// 	if (plot instanceof PlotClientInstance &&
-		// 		this._selectedSizingPolicy === this._intrinsicSizingPolicy &&
-		// 		plot.hasIntrinsicSize === false) {
-
-		// 		// this._intrinsicSizingPolicy.setIntrinsicSize(plot.intrinsicSize);
-
-		// 		// If the plot's intrinsic size is not known, default to the auto policy.
-		// 		// if (!plot.hasIntrinsicSize) {
-		// 		this.selectSizingPolicy(PlotSizingPolicyAuto.ID);
-		// 		// }
-		// 	}
-		// }));
 	}
 
 	private _showPlotsPane() {
