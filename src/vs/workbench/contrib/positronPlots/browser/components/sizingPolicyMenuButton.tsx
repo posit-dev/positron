@@ -94,10 +94,8 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		props.plotsService.sizingPolicies.map(policy => {
 			if (policy.id !== PlotSizingPolicyCustom.ID) {
 				// Only enable the intrinsic policy if the plot's intrinsic size is known.
-				// TODO: Maybe policies should have getEnabled(plotClient)?
 				const enabled = policy instanceof PlotSizingPolicyIntrinsic ?
-					props.plotClient.receivedIntrinsicSize && !!props.plotClient.intrinsicSize :
-					true;
+					!!props.plotClient.intrinsicSize : true;
 
 				actions.push({
 					id: policy.id,
