@@ -52,6 +52,12 @@ export function setup(logger: Logger) {
 
 			});
 
+			afterEach(async function () {
+				await this.app.workbench.positronPlots.clearPlots();
+
+				await this.app.workbench.positronPlots.waitForNoPlots();
+			});
+
 			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
 				const app = this.app as Application;
 
@@ -81,7 +87,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
+				await app.code.wait(1000);
 
 				// capture master image in CI
 				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
@@ -96,10 +102,6 @@ plt.show()`;
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
 			it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
@@ -127,7 +129,7 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
+				await app.code.wait(1000);
 
 				// capture master image in CI
 				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
@@ -142,10 +144,6 @@ IPython.display.display_png(h)`;
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
 			it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
@@ -232,10 +230,6 @@ plt.show()`;
 				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
 				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
 			it('Python - Verifies saving a Python plot [C557005]', async function () {
@@ -281,10 +275,6 @@ plt.show()`;
 
 				// verify the plot is in the file explorer with the new file name and format
 				await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 		});
 
@@ -309,10 +299,10 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
+				await app.code.wait(1000);
 
 				// capture master image in CI
-				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
@@ -324,10 +314,6 @@ title(main="Autos", col.main="red", font.main=4)`;
 					}
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
 			it('R - Verifies saving an R plot [C557006]', async function () {
@@ -369,10 +355,6 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				// verify the plot is in the file explorer with the new file name and format
 				await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
 			});
 		});
 
