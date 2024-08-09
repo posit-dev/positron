@@ -33,6 +33,8 @@ export function setup(logger: Logger) {
 					await app.code.driver.getKeyboard().press('Control+Enter');
 				}
 
+				// give variables a little time to update as we were trying to
+				// run as quickly as possible above
 				await app.code.wait(1000);
 
 				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
