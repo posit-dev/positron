@@ -27,6 +27,7 @@ async function createReticulateSession(runtimeMetadata: positron.LanguageRuntime
 
 	//session.execute('reticulate::repl_python()');
 	const startKernel = async (session: JupyterSession, self: any) => {
+
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
 		const profileFile = session.state.profileFile;
@@ -35,34 +36,16 @@ async function createReticulateSession(runtimeMetadata: positron.LanguageRuntime
 		const kernelPath = `${__dirname}/../../positron-python/python_files/positron/positron_language_server.py`;
 
 		const code = `
-		positron_python_session <- function() {
-			sys <- reticulate::import("sys", convert = FALSE)
-			old_argv <- sys$argv
-			old_exit <- sys$exit
-
-			on.exit({
-				sys$argv <- old_argv
-				sys$exit <- old_exit
-			})
-
-			lsp_path <-  "${kernelPath}"
-			sys$argv <- list(
-				reticulate::py_exe(), lsp_path,
-				'-f', "${connnectionFile}",
-				'--logfile', "${logFile}",
-				'--loglevel', '${logLevel}',
-				'--session-mode', 'console'
-			)
-
-			sys$exit <- reticulate::py_run_string(glue::trim("
-				def exit(status=None):
-					return status
-				"), local = TRUE, convert = FALSE )$exit
-
-			reticulate::py_run_file(lsp_path, prepend_path = TRUE)
-		}
-		positron_python_session()
-		`;
+reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
+	"${kernelPath}",
+	reticulate::tuple(
+		'-f', "${connnectionFile}",
+		'--logfile', "${logFile}",
+		'--loglevel', '${logLevel}',
+		'--session-mode', 'console'
+	)
+)
+`;
 
 		// this is the piece of code that initializes IPython in the R session.
 		positron.runtime.executeCode(
@@ -84,7 +67,7 @@ async function createReticulateSession(runtimeMetadata: positron.LanguageRuntime
 
 	const kernelSpec: JupyterKernelSpec = {
 		'argv': [],
-		'display_name': "Reticulate Python Session", // eslint-disable-line
+		'display_name': "Reticulate1 Python Session", // eslint-disable-line
 		'language': 'Python',
 		'env': {},
 		'startKernel': startKernel,
@@ -102,20 +85,28 @@ async function* reticulateRuntimesDiscoverer() {
 	yield new ReticulateRuntimeMetadata();
 }
 
+export interface PythonRuntimeExtraData {
+	pythonPath: string;
+	pythonEnvironmentId: string;
+}
+
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
-	extraRuntimeData: any
+	extraRuntimeData: any = {
+		pythonEnvironmentId: 'reticulateID',
+		pythonPath: 'reticulate/path',
+	};
 	base64EncodedIconSvg: string | undefined;
 	constructor() {
 		this.base64EncodedIconSvg = '';
 	}
 	runtimePath: string = '';
-	runtimeName: string = 'Reticulate';
-	languageId: string = 'python';
-	languageName: string = 'Reticulate';
-	runtimeId: string = 'reticulate';
-	runtimeShortName: string = 'Reticulate';
+	runtimeName: string = 'Reticulate 2';
+	languageId: string = 'Reticulate';
+	languageName: string = 'Reticulate 2';
+	runtimeId: string = 'reticulate2';
+	runtimeShortName: string = 'Reticulate2';
 	runtimeVersion: string = '1.0';
-	runtimeSource: string = 'reticulate';
+	runtimeSource: string = 'reticulate2';
 	languageVersion = '1.0';
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Immediate;
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;
