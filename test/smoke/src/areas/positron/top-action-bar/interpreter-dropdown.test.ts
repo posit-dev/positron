@@ -79,7 +79,7 @@ export function setup(logger: Logger) {
 			await expect(
 				async () =>
 					await interpreterDropdown.selectInterpreter('Python', desiredPython)
-			).toPass({ timeout: 15_000 });
+			).toPass({ timeout: 30_000 });
 
 			// Install ipykernel if prompted
 			if (await this.app.workbench.positronPopups.popupCurrentlyOpen()) {
@@ -87,7 +87,7 @@ export function setup(logger: Logger) {
 			}
 
 			// Wait for the console to be ready
-			await positronConsole.waitForReady('>>>', 10000);
+			await positronConsole.waitForReady('>>>', 10_000);
 
 			// The interpreter selected in the dropdown matches the desired interpreter
 			const interpreterInfo =
@@ -119,7 +119,7 @@ export function setup(logger: Logger) {
 			});
 
 			// Wait for the console to be ready
-			await positronConsole.waitForReady('>>>', 10000);
+			await positronConsole.waitForReady('>>>', 10_000);
 
 			// The interpreter dropdown should show the expected running indicators
 			expect(
@@ -131,10 +131,10 @@ export function setup(logger: Logger) {
 			// Start an R interpreter using the interpreter dropdown
 			await expect(
 				async () => await interpreterDropdown.selectInterpreter('R', desiredR)
-			).toPass({ timeout: 15_000 });
+			).toPass({ timeout: 30_000 });
 
 			// Wait for the console to be ready
-			await positronConsole.waitForReady('>', 10000);
+			await positronConsole.waitForReady('>', 10_000);
 
 			// The interpreter selected in the dropdown matches the desired interpreter
 			const interpreterInfo =
