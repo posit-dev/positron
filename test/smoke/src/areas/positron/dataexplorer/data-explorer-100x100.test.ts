@@ -219,7 +219,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		/**
 		 * Data Explorer 100x100 - R.
 		 */
-		describe('Data Explorer 100x100 - R', function () {
+		describe.skip('Data Explorer 100x100 - R', function () {
 			/**
 			 * Before hook.
 			 */
@@ -240,7 +240,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 			/**
 			 * Data Explorer 100x100 - R - Smoke Test.
 			 */
-			it.skip('Data Explorer 100x100 - R - Smoke Test [C674521]', async function () {
+			it('Data Explorer 100x100 - R - Smoke Test [C674521]', async function () {
 				// Get the app.
 				const app = this.app as Application;
 
