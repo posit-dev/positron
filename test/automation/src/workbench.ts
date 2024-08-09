@@ -24,7 +24,7 @@ import { Localization } from './localization';
 import { Task } from './task';
 
 // --- Start Positron ---
-import { StartInterpreter } from './positron/positronStartInterpreter';
+import { PositronInterpreterDropdown } from './positron/positronInterpreterDropdown';
 import { PositronPopups } from './positron/positronPopups';
 import { PositronConsole } from './positron/positronConsole';
 import { PositronVariables } from './positron/positronVariables';
@@ -70,7 +70,7 @@ export class Workbench {
 	readonly task: Task;
 
 	// --- Start Positron ---
-	readonly startInterpreter: StartInterpreter;
+	readonly positronInterpreterDropdown: PositronInterpreterDropdown;
 	readonly positronPopups: PositronPopups;
 	readonly positronConsole: PositronConsole;
 	readonly positronVariables: PositronVariables;
@@ -112,7 +112,7 @@ export class Workbench {
 
 		// --- Start Positron ---
 		this.positronPopups = new PositronPopups(code);
-		this.startInterpreter = new StartInterpreter(code);
+		this.positronInterpreterDropdown = new PositronInterpreterDropdown(code);
 		this.positronConsole = new PositronConsole(code, this.quickaccess, this.quickinput);
 		this.positronVariables = new PositronVariables(code);
 		this.positronDataExplorer = new PositronDataExplorer(code);

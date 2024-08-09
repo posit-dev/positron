@@ -29,13 +29,14 @@ export * from './task';
 // --- Start Positron ---
 export * from './positron/positronConsole';
 export * from './positron/positronPopups';
-export * from './positron/positronStartInterpreter';
+export * from './positron/positronInterpreterDropdown';
 export * from './positron/positronVariables';
 export * from './positron/positronDataExplorer';
 export * from './positron/positronSideBar';
 export * from './positron/positronPlots';
 export * from './positron/fixtures/positronPythonFixtures';
 export * from './positron/fixtures/positronRFixtures';
+export * from './positron/fixtures/positronUserSettingsFixtures';
 export * from './positron/positronBaseElement';
 export * from './positron/positronNotebooks';
 export * from './positron/positronNewProjectWizard';

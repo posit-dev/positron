@@ -53,6 +53,7 @@ import { setup as setupBasicRMarkdownTest } from './areas/positron/rmarkdown/rma
 import { setup as setupWelcomeTest } from './areas/positron/welcome/welcome.test';
 import { setup as setupConsoleHistoryTest } from './areas/positron/console/consoleHistory.test';
 import { setup as setupShinyTest } from './areas/positron/apps/shiny.test';
+import { setup as setupInterpreterDropdownTest } from './areas/positron/top-action-bar/interpreter-dropdown.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -462,5 +463,6 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupWelcomeTest(logger);
 	setupConsoleHistoryTest(logger);
 	setupShinyTest(logger);
+	setupInterpreterDropdownTest(logger);
 	// --- End Positron ---
 });
