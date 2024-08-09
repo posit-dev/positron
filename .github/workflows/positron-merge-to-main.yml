@@ -107,6 +107,17 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: always()
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+
+
       - name: Upload run artifacts
         if: always()
         uses: actions/upload-artifact@v4
