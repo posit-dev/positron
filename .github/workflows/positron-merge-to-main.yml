@@ -90,7 +90,7 @@ jobs:
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          python -m pip install matplotlib ipykernel graphviz
+          python -m pip install matplotlib ipykernel graphviz trcli
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -106,6 +106,17 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
+
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: always()
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+
 
       - name: Upload run artifacts
         if: always()
