@@ -76,24 +76,39 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 	};
 
 	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
-	const runtimes = await positron.runtime.getRegisteredRuntimes();
-	for (const runtime of runtimes) {
-		console.log(runtime.languageId);
-		if (runtime.languageId === 'python' && runtime.runtimeId !== 'reticulate') {
-			runtimeMetadata.extraRuntimeData = runtime.extraRuntimeData;
-			break;
-		}
-	}
-	console.log('Python runtime metadata:', runtimeMetadata);
 	const pythonSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, kernelSpec);
 	return pythonSession;
 }
 
 async function* reticulateRuntimesDiscoverer() {
-	yield new ReticulateRuntimeMetadata();
+
+	const session = await positron.runtime.getForegroundSession();
+	if (session && session.runtimeMetadata.languageId === 'r') {
+		// If there's an R foreground session, we try to find the interpreter
+		// reticulate would use by sending a command to it.
+		console.log('[Reticulate] We will call R to check for a reticulate interpreter');
+		let path = '';
+		if (session.callMethod) {
+			console.log('calling the R rpc');
+			path = await session.callMethod('reticulate_interpreter_path') as string;
+		}
+
+		console.log('[Reticulate] Found interpreter path: ', path);
+
+		if (path !== '') {
+			const runtimeMetadata = new ReticulateRuntimeMetadata();
+			runtimeMetadata.runtimePath = path;
+			runtimeMetadata.extraRuntimeData.pythonPath = path;
+			yield runtimeMetadata;
+		}
+	}
+	console.log('[Reticulate] No foreground R session to check for interpreters');
 }
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
-	extraRuntimeData: any;
+	extraRuntimeData: any = {
+		pythonEnvironmentId: 'reticulate',
+		//pythonPath: 'reticulate'
+	};
 	base64EncodedIconSvg: string | undefined;
 	constructor() {
 		this.base64EncodedIconSvg = fs

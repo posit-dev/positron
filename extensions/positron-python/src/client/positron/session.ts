@@ -105,11 +105,20 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             throw new Error(`Runtime metadata missing Python environment ID: ${JSON.stringify(runtimeMetadata)}`);
         }
 
-        const interpreter = interpreterService.getInterpreters().find((i) => i.id === extraData.pythonEnvironmentId);
-        if (!interpreter) {
-            throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
+        if (extraData.pythonEnvironmentId !== 'reticulate') {
+            const interpreter = interpreterService.getInterpreters().find((i) => i.id === extraData.pythonEnvironmentId);
+            if (!interpreter) {
+                throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
+            }
+            this.interpreter = interpreter;
+        } else {
+            // In the reticulate case, look for interpreters by path, not id.
+            const interpreter = interpreterService.getInterpreters().find((i) => i.path === extraData.pythonPath);
+            if (!interpreter) {
+                throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
+            }
+            this.interpreter = interpreter
         }
-        this.interpreter = interpreter;
 
         this._queue = new PQueue({ concurrency: 1 });
 
@@ -212,6 +221,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
         // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
+        console.log('Interpreter', this.interpreter);
         const hasCompatibleKernel = await installer.isProductVersionCompatible(
             Product.ipykernel,
             IPYKERNEL_VERSION,
