@@ -5,6 +5,7 @@
 
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import * as nls from 'vs/nls';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * The default plot sizing policy. If the language runtime specifies a preferred
@@ -16,12 +17,18 @@ import * as nls from 'vs/nls';
  * - The plot's size will not be less than 400px
  */
 export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
-	public readonly id = 'auto';
-	public readonly name = nls.localize('plotSizingPolicy.automatic', "Auto");
+	public static ID = 'auto';
+
+	public readonly id = PlotSizingPolicyAuto.ID;
+	private readonly _name = nls.localize('plotSizingPolicy.automatic', "Auto");
 
 	private static goldenRatio = 1.61803398875;
 
 	private static minimumPlotSize = 400;
+
+	public getName(plot: PlotClientInstance): string {
+		return this._name;
+	}
 
 	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {
 		// Start with the assumption that the plot will fill the viewport.

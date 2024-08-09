@@ -5,6 +5,7 @@
 
 import { IPositronPlotSizingPolicy, IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import * as nls from 'vs/nls';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * The simplest plot sizing policy. The plot is sized to fill the viewport exactly, no
@@ -12,7 +13,11 @@ import * as nls from 'vs/nls';
  */
 export class PlotSizingPolicyFill implements IPositronPlotSizingPolicy {
 	public readonly id = 'fill';
-	public readonly name = nls.localize('plotSizingPolicy.fillViewport', "Fill");
+	private readonly _name = nls.localize('plotSizingPolicy.fillViewport', "Fill");
+
+	public getName(plot: PlotClientInstance): string {
+		return this._name;
+	}
 
 	/**
 	 * Computes the size of the plot in pixels, given the size of the viewport in pixels.
