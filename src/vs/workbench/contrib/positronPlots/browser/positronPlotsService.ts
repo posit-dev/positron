@@ -270,10 +270,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		// When a plot is selected, update the intrinsic sizing policy.
+		// TODO: Maybe this should happen where didSelectPlot is fired so that it always happens before the plot is rendered?
 		this._register(this.onDidSelectPlot((id) => {
-			const plotClient = this._plots.find(plot => plot.id === id) as PlotClientInstance | undefined;
-			if (plotClient) {
-				this._intrinsicSizingPolicy.setIntrinsicSize(plotClient.intrinsicSize);
+			const plot = this._plots.find(plot => plot.id === id);
+			if (plot instanceof PlotClientInstance &&
+				this._selectedSizingPolicy === this._intrinsicSizingPolicy &&
+				plot.hasIntrinsicSize === false) {
+
+				// this._intrinsicSizingPolicy.setIntrinsicSize(plot.intrinsicSize);
+
+				// If the plot's intrinsic size is not known, default to the auto policy.
+				// if (!plot.hasIntrinsicSize) {
+				this.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+				// }
 			}
 		}));
 	}
@@ -616,11 +625,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Focus the plot if the runtime requests it
 		plotClient.onDidShowPlot(() => {
 			selectPlot();
-		});
-
-		// When the intrinsic size is set, update the intrinsic sizing policy.
-		plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
-			this._intrinsicSizingPolicy.setIntrinsicSize(intrinsicSize);
 		});
 
 		// Dispose the plot client when this service is disposed (we own this

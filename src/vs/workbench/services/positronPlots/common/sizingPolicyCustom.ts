@@ -5,6 +5,7 @@
 
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import * as nls from 'vs/nls';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * The custom sizing policy. The plot is given a fixed size, specified by the
@@ -14,10 +15,14 @@ export class PlotSizingPolicyCustom implements IPositronPlotSizingPolicy {
 	public static ID = 'custom';
 
 	public readonly id = PlotSizingPolicyCustom.ID;
-	public readonly name: string;
+	private readonly _name: string;
 
 	constructor(public readonly size: IPlotSize) {
-		this.name = nls.localize('plotSizingPolicy.Custom', "{0}×{1} (custom)", size.width, size.height);
+		this._name = nls.localize('plotSizingPolicy.Custom', "{0}×{1} (custom)", size.width, size.height);
+	}
+
+	public getName(plot: PlotClientInstance): string {
+		return this._name;
 	}
 
 	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {

@@ -148,6 +148,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								layoutService={props.layoutService}
 								notificationService={positronPlotsContext.notificationService}
 								plotsService={positronPlotsContext.positronPlotsService}
+								plotClient={selectedPlot}
 							/>
 						}
 						{enablePopoutPlot &&
