@@ -74,8 +74,13 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 	};
 
 	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
-	const pythonRuntimeMetadata = await positron.runtime.getPreferredRuntime('python');
-	runtimeMetadata.extraRuntimeData = pythonRuntimeMetadata.extraRuntimeData;
+	const runtimes = await positron.runtime.getRegisteredRuntimes();
+	for (const runtime of runtimes) {
+		if (runtime.languageId === 'python' && runtime.runtimeId !== 'reticulate') {
+			runtimeMetadata.extraRuntimeData = runtime.extraRuntimeData;
+			break;
+		}
+	}
 	console.log('Python runtime metadata:', runtimeMetadata);
 	const pythonSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, kernelSpec);
 	return pythonSession;
@@ -84,29 +89,20 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 async function* reticulateRuntimesDiscoverer() {
 	yield new ReticulateRuntimeMetadata();
 }
-
-export interface PythonRuntimeExtraData {
-	pythonPath: string;
-	pythonEnvironmentId: string;
-}
-
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
-	extraRuntimeData: any = {
-		pythonEnvironmentId: 'reticulateID',
-		pythonPath: 'reticulate/path',
-	};
+	extraRuntimeData: any;
 	base64EncodedIconSvg: string | undefined;
 	constructor() {
 		this.base64EncodedIconSvg = '';
 	}
 	runtimePath: string = '';
-	runtimeName: string = 'Reticulate 2';
-	languageId: string = 'Reticulate';
-	languageName: string = 'Reticulate 2';
-	runtimeId: string = 'reticulate2';
-	runtimeShortName: string = 'Reticulate2';
+	runtimeName: string = 'Reticulate Python';
+	languageId: string = 'python';
+	languageName: string = 'Python';
+	runtimeId: string = 'reticulate';
+	runtimeShortName: string = 'Reticulate Python';
 	runtimeVersion: string = '1.0';
-	runtimeSource: string = 'reticulate2';
+	runtimeSource: string = 'reticulate';
 	languageVersion = '1.0';
 	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Immediate;
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;
