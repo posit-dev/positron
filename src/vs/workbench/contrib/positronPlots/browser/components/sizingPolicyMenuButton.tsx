@@ -10,7 +10,6 @@ import * as React from 'react';
 import * as nls from 'vs/nls';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
-import { Event } from 'vs/base/common/event';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -51,20 +50,23 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		const attachPolicy = (policy: IPositronPlotSizingPolicy) => {
 			const disposables = new DisposableStore();
 
+			// If the intrinsic policy is active and the plot's intrinsic size has not been received,
+			// debounce the active policy label update to avoid flickering.
+			let debounceTimeout: NodeJS.Timeout | undefined;
+			if (policy instanceof PlotSizingPolicyIntrinsic && !props.plotClient.receivedIntrinsicSize) {
+				debounceTimeout = setTimeout(() => {
+					setActivePolicyLabel(policy.getName(props.plotClient));
+				}, 250);
+			} else {
+				setActivePolicyLabel(policy.getName(props.plotClient));
+			}
+
 			if (policy instanceof PlotSizingPolicyIntrinsic) {
 				// Update the active policy label when the selected policy's name changes.
-				// Debounce to avoid flickering when initializing a new plot.
-				disposables.add(Event.debounce(
-					props.plotClient.onDidSetIntrinsicSize,
-					(last, event) => event,
-					250,
-				)((intrinsicSize) => {
+				disposables.add(props.plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
+					clearTimeout(debounceTimeout);
 					setActivePolicyLabel(policy.getName(props.plotClient));
 				}));
-				// disposables.add(props.plotsService.onDidSelectPlot((id) => {
-				// 	// TODO: Maybe getName should take plotClient and all sizing policies should implement it?
-				// 	setActivePolicyLabel(policy.getName(props.plotClient.intrinsicSize));
-				// }));
 			}
 
 			return disposables;
@@ -72,19 +74,8 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 		let policyDisposables = attachPolicy(props.plotsService.selectedSizingPolicy);
 
-		// disposables.add(props.plotsService.onDidSelectPlot((id) => {
-		// 	// If the intrinsic sizing policy is selected, and the
-		// 	if (props.plotsService.selectedSizingPolicy === PlotSizingPolicyIntrinsic.name) {
-		// 	// If the plot's intrinsic size is not known, default to the auto policy.
-		// 	if (!plot.hasIntrinsicSize) {
-		// 		this.selectSizingPolicy(PlotSizingPolicyAuto.ID);
-		// 	}
-		// }));
-
 		// Update the active policy label when the selected policy changes.
 		disposables.add(props.plotsService.onDidChangeSizingPolicy(policy => {
-			setActivePolicyLabel(policy.getName(props.plotClient));
-
 			policyDisposables.dispose();
 			policyDisposables = attachPolicy(policy);
 		}));
@@ -104,7 +95,9 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			if (policy.id !== PlotSizingPolicyCustom.ID) {
 				// Only enable the intrinsic policy if the plot's intrinsic size is known.
 				// TODO: Maybe policies should have getEnabled(plotClient)?
-				const enabled = policy instanceof PlotSizingPolicyIntrinsic ? props.plotClient.hasIntrinsicSize !== false : true;
+				const enabled = policy instanceof PlotSizingPolicyIntrinsic ?
+					props.plotClient.receivedIntrinsicSize && !!props.plotClient.intrinsicSize :
+					true;
 
 				actions.push({
 					id: policy.id,
