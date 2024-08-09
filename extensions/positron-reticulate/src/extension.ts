@@ -30,6 +30,8 @@ async function createReticulateSession(runtimeMetadata: positron.LanguageRuntime
 	//session.execute('reticulate::repl_python()');
 	const startKernel = async (session: JupyterSession, self: any) => {
 
+		self.log('Ready to start reticulate session');
+
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
 		const profileFile = session.state.profileFile;
@@ -57,13 +59,11 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 			false
 		);
 
-		while (true) {
-			try {
-				await self.connectToSession(session);
-				return;
-			} catch {
-
-			}
+		try {
+			await self.connectToSession(session);
+		} catch (err: any) {
+			self.log('Failed starting session');
+			throw err;
 		}
 	};
 
@@ -131,7 +131,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 }
 
 
-let CONTEXT: vscode.ExtensionContext
+let CONTEXT: vscode.ExtensionContext;
 
 /**
  * Activates the extension.
