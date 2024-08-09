@@ -72,7 +72,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enableSizingPolicy = hasPlots
 		&& selectedPlot instanceof PlotClientInstance;
 	const enableZoomPlot = hasPlots
-		&& selectedPlot instanceof StaticPlotClient;
+		&& (selectedPlot instanceof StaticPlotClient
+			|| selectedPlot instanceof PlotClientInstance);
 	const enableSavingPlots = hasPlots
 		&& (selectedPlot instanceof PlotClientInstance
 			|| selectedPlot instanceof StaticPlotClient);
