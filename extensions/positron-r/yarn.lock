@@ -2315,6 +2315,13 @@ which@2.0.2, which@^2.0.1:
   dependencies:
     isexe "^2.0.0"
 
+which@^3.0.0:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/which/-/which-3.0.1.tgz#89f1cd0c23f629a8105ffe69b8172791c87b4be1"
+  integrity sha512-XA1b62dzQzLfaEOSQFTCOd5KFf/1VSzZo7/7TUjnya6u0vGGKzU96UQBZTAThCb2j4/xjBAyii1OhRLJEivHvg==
+  dependencies:
+    isexe "^2.0.0"
+
 winreg@^1.2.5:
   version "1.2.5"
   resolved "https://registry.yarnpkg.com/winreg/-/winreg-1.2.5.tgz#b650383e89278952494b5d113ba049a5a4fa96d8"
