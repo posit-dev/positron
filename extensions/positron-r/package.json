@@ -598,8 +598,8 @@
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
     "web-tree-sitter": "^0.20.8",
-    "winreg": "^1.2.5",
-    "which": "^3.0.0"
+    "which": "^3.0.0",
+    "winreg": "^1.2.5"
   },
   "repository": {
     "type": "git",
