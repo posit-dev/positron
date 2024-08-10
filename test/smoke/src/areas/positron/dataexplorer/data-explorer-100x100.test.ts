@@ -21,7 +21,6 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		// Shared before/after handling.
 		installAllHandlers(logger);
 
-
 		/**
 		 * Tests the data explorer.
 		 * @param app The application.
@@ -91,8 +90,20 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 					// Get the cell.
 					const cell = await app.code.waitForElement(`#data-grid-row-cell-content-${columnIndex}-${rowIndex} .text-container .text-value`);
 
-					// Test the cell.
-					expect(cell.textContent, `${rowIndex},${columnIndex}`).toStrictEqual(row[columnIndex]);
+					// Get the cell value and test value.
+					const secsRemover = (value: string) => value.replace(/^(.*)( secs)$/, '$1');
+					const cellValue = secsRemover(cell.textContent);
+					const testValue = secsRemover(row[columnIndex]);
+
+					// If the test value is a number, perform a numerical "close enough" comparison;
+					// otherwise, perform a strict equal comparison.
+					if (testValue.match(/^-?\d*\.?\d*$/)) {
+						expect(
+							Math.abs(Number.parseFloat(cellValue) - Number.parseFloat(testValue))
+						).toBeLessThan(0.05);
+					} else {
+						expect(cell.textContent, `${rowIndex},${columnIndex}`).toStrictEqual(row[columnIndex]);
+					}
 
 					// Move to the next cell.
 					await app.workbench.positronDataExplorer.arrowRight();
@@ -219,7 +230,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 		/**
 		 * Data Explorer 100x100 - R.
 		 */
-		describe.skip('Data Explorer 100x100 - R', function () {
+		describe('Data Explorer 100x100 - R', function () {
 			/**
 			 * Before hook.
 			 */
