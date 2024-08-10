@@ -270,7 +270,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 						app.workspacePathOrFolder,
 						'data-files',
 						'100x100',
-						process.platform === 'linux' ? 'r-100x100-linux.tsv' : 'r-100x100.tsv'
+						'r-100x100.tsv'
 					)
 				);
 			});
