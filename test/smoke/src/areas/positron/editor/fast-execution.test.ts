@@ -17,6 +17,8 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
+		const FILENAME = 'fast-execution.r';
+
 		describe('R Fast Execution', () => {
 
 			beforeEach(async function () {
@@ -28,11 +30,10 @@ export function setup(logger: Logger) {
 			it('Verify fast execution is not out of order [C712539]', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', 'fast-execution.r'));
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 				for (let i = 1; i < 12; i++) {
-					await app.workbench.editor.waitForEditorFocus('fast-execution.r', i);
-					await app.code.driver.getKeyboard().press('Control+Enter');
+					await app.workbench.positronEditor.pressToLine(FILENAME, i, 'Control+Enter');
 				}
 
 				await app.workbench.positronVariables.waitForVariableRow('c');
