@@ -84,6 +84,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
+	const enableEditorPlot = hasPlots
+		&& (selectedPlot instanceof PlotClientInstance
+			|| selectedPlot instanceof StaticPlotClient);
 
 	useEffect(() => {
 		// Empty for now.
@@ -159,16 +162,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								ariaLabel={localize('positron-popout-plot', "Open plot in new window")}
 								onPressed={popoutPlotHandler} />
 						}
-						<ActionBarButton
-							iconId='go-to-file'
-							align='right'
-							tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
-							ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
-							onPressed={() => {
-								if (hasPlots) {
-									positronPlotsContext.positronPlotsService.openEditor();
-								}
-							}} />
+						{enableEditorPlot &&
+							<ActionBarButton
+								iconId='go-to-file'
+								align='right'
+								tooltip={localize('positron-open-plot-editor', "Open plot in editor")}
+								ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
+								onPressed={() => {
+									if (hasPlots) {
+										positronPlotsContext.positronPlotsService.openEditor();
+									}
+								}} />
+						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<HistoryPolicyMenuButton plotsService={positronPlotsContext.positronPlotsService} />
