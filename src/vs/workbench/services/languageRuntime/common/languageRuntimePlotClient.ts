@@ -295,6 +295,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	/**
 	 * Requests that the plot be rendered at a specific size.
 	 *
+	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
@@ -358,6 +359,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * store the rendered plot to _lastRender. This is useful for previewing
 	 * plots without updating the plot's state.
 	 *
+	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
