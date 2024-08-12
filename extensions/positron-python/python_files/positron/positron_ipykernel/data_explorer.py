@@ -97,7 +97,7 @@ from .data_explorer_comm import (
 )
 from .positron_comm import CommMessage, PositronComm
 from .third_party import np_, pd_, pl_
-from .utils import guid
+from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -164,10 +164,18 @@ class DataExplorerTableView(abc.ABC):
     pyarrow.Table, and any others
     """
 
-    def __init__(self, table, state: DataExplorerState):
+    def __init__(
+        self,
+        table,
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+    ):
         # Note: we must not ever modify the user's data
         self.table = table
+        self.comm = comm
         self.state = state
+        self.job_queue = job_queue
 
         self.schema_memo = {}
 
@@ -484,6 +492,12 @@ class DataExplorerTableView(abc.ABC):
         raise NotImplementedError
 
     def get_column_profiles(self, request: GetColumnProfilesRequest):
+        # Launch task to compute column profiles and return them
+        # asynchronously, and return an empty result right away
+        self.job_queue.submit(self._get_column_profiles_task, request)
+        return {}
+
+    def _get_column_profiles_task(self, request: GetColumnProfilesRequest):
         self._recompute_if_needed()
         results = []
 
@@ -495,7 +509,10 @@ class DataExplorerTableView(abc.ABC):
             )
             results.append(result.dict())
 
-        return results
+        self.comm.send_event(
+            DataExplorerFrontendEvent.ReturnColumnProfiles.value,
+            {"callback_id": request.params.callback_id, "profiles": results},
+        )
 
     def _compute_profiles(
         self,
@@ -839,8 +856,8 @@ def _box_datetime_stats(num_unique, min_date, mean_date, median_date, max_date, 
 
 
 class UnsupportedView(DataExplorerTableView):
-    def __init__(self, table, state):
-        super().__init__(table, state)
+    def __init__(self, table, comm, state, job_queue):
+        super().__init__(table, comm, state, job_queue)
 
 
 # Special value codes for the protocol
@@ -1054,10 +1071,16 @@ PANDAS_INFER_DTYPE_SIZE_LIMIT = 1_000_000
 class PandasView(DataExplorerTableView):
     TYPE_NAME_MAPPING = {"boolean": "bool"}
 
-    def __init__(self, table: "pd.DataFrame", state: DataExplorerState):
+    def __init__(
+        self,
+        table: "pd.DataFrame",
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+    ):
         table = self._maybe_wrap(table)
 
-        super().__init__(table, state)
+        super().__init__(table, comm, state, job_queue)
 
     @property
     def _has_row_labels(self):
@@ -1944,8 +1967,14 @@ def _polars_summarize_datetime(col: "pl.Series", _):
 
 
 class PolarsView(DataExplorerTableView):
-    def __init__(self, table: "pl.DataFrame", state: DataExplorerState):
-        super().__init__(table, state)
+    def __init__(
+        self,
+        table: "pl.DataFrame",
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
+    ):
+        super().__init__(table, comm, state, job_queue)
 
     @classmethod
     def _should_cache_schema(cls, table):
@@ -2512,15 +2541,20 @@ def _is_polars(table):
     return pl_ is not None and isinstance(table, (pl_.DataFrame, pl_.Series))
 
 
-def _get_table_view(table, state):
+def _get_table_view(
+    table,
+    comm: PositronComm,
+    state: DataExplorerState,
+    job_queue: BackgroundJobQueue,
+):
     state.name = state.name or guid()
 
     if _is_pandas(table):
-        return PandasView(table, state)
+        return PandasView(table, comm, state, job_queue)
     elif _is_polars(table):
-        return PolarsView(table, state)
+        return PolarsView(table, comm, state, job_queue)
     else:
-        return UnsupportedView(table, state)
+        return UnsupportedView(table, comm, state, job_queue)
 
 
 def _value_type_is_supported(value):
@@ -2532,8 +2566,9 @@ def _value_type_is_supported(value):
 
 
 class DataExplorerService:
-    def __init__(self, comm_target: str) -> None:
+    def __init__(self, comm_target: str, job_queue: BackgroundJobQueue) -> None:
         self.comm_target = comm_target
+        self.job_queue = job_queue
 
         # Maps comm_id for each dataset being viewed to PositronComm
         self.comms: Dict[str, PositronComm] = {}
@@ -2612,6 +2647,12 @@ class DataExplorerService:
             self._close_explorer(comm_id)
 
         base_comm.on_close(close_callback)
+        wrapped_comm = PositronComm(base_comm)
+        wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
+
+        self.table_views[comm_id] = _get_table_view(
+            table, wrapped_comm, DataExplorerState(full_title), self.job_queue
+        )
 
         if variable_path is not None:
             if not isinstance(variable_path, list):
@@ -2625,8 +2666,6 @@ class DataExplorerService:
             else:
                 self.path_to_comm_ids[key] = {comm_id}
 
-        wrapped_comm = PositronComm(base_comm)
-        wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
         self.comms[comm_id] = wrapped_comm
         return comm_id
 
@@ -2746,7 +2785,9 @@ class DataExplorerService:
         else:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
-        self.table_views[comm_id] = _get_table_view(new_table, new_state)
+        self.table_views[comm_id] = _get_table_view(
+            new_table, table_view.comm, new_state, self.job_queue
+        )
 
         if schema_updated:
             comm.send_event(DataExplorerFrontendEvent.SchemaUpdate.value, {})
