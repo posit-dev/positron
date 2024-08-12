@@ -30,7 +30,8 @@ export function setup(logger: Logger) {
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', 'fast-execution.r'));
 
-				for (let i = 0; i < 11; i++) {
+				for (let i = 1; i < 12; i++) {
+					await app.workbench.editor.waitForEditorFocus('fast-execution.r', i);
 					await app.code.driver.getKeyboard().press('Control+Enter');
 				}
 
