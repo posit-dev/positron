@@ -7,8 +7,8 @@
 	"methods": [
 		{
 			"name": "get_intrinsic_size",
-			"summary": "Get the intrinsic size of a plot if known",
-			"description": "The intrinsic size of a plot is the size that the plot would be rendered at if no size constraints were applied by Positron.",
+			"summary": "Get the intrinsic size of a plot, if known.",
+			"description": "The intrinsic size of a plot is the size at which a plot would be if no size constraints were applied by Positron.",
 			"params": [],
 			"result": {
 				"required": false,
@@ -46,11 +46,11 @@
 		{
 			"name": "render",
 			"summary": "Render a plot",
-			"description": "Requests a plot to be rendered. TODO: intrinsic size stuff. The plot data is returned in a base64-encoded string.",
+			"description": "Requests a plot to be rendered. The plot data is returned in a base64-encoded string.",
 			"params": [
 				{
 					"name": "size",
-					"description": "The requested size of the plot. If not provided, the intrinsic size of the plot will be used.",
+					"description": "The requested size of the plot. If not provided, the plot will be rendered at its intrinsic size.",
 					"schema": {
 						"$ref": "#/components/schemas/plot_size"
 					},

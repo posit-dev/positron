@@ -100,7 +100,7 @@ class PlotBackendRequest(str, enum.Enum):
     An enumeration of all the possible requests that can be sent to the backend plot comm.
     """
 
-    # Get the intrinsic size of a plot if known
+    # Get the intrinsic size of a plot, if known.
     GetIntrinsicSize = "get_intrinsic_size"
 
     # Render a plot
@@ -109,8 +109,8 @@ class PlotBackendRequest(str, enum.Enum):
 
 class GetIntrinsicSizeRequest(BaseModel):
     """
-    The intrinsic size of a plot is the size that the plot would be
-    rendered at if no size constraints were applied by Positron.
+    The intrinsic size of a plot is the size at which a plot would be if
+    no size constraints were applied by Positron.
     """
 
     method: Literal[PlotBackendRequest.GetIntrinsicSize] = Field(
@@ -125,13 +125,13 @@ class GetIntrinsicSizeRequest(BaseModel):
 
 class RenderParams(BaseModel):
     """
-    Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
-    data is returned in a base64-encoded string.
+    Requests a plot to be rendered. The plot data is returned in a
+    base64-encoded string.
     """
 
     size: Optional[PlotSize] = Field(
         default=None,
-        description="The requested size of the plot. If not provided, the intrinsic size of the plot will be used.",
+        description="The requested size of the plot. If not provided, the plot will be rendered at its intrinsic size.",
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(
@@ -145,8 +145,8 @@ class RenderParams(BaseModel):
 
 class RenderRequest(BaseModel):
     """
-    Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
-    data is returned in a base64-encoded string.
+    Requests a plot to be rendered. The plot data is returned in a
+    base64-encoded string.
     """
 
     params: RenderParams = Field(

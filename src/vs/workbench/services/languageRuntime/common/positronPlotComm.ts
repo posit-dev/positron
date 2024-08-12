@@ -120,10 +120,10 @@ export class PositronPlotComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Get the intrinsic size of a plot if known
+	 * Get the intrinsic size of a plot, if known.
 	 *
-	 * The intrinsic size of a plot is the size that the plot would be
-	 * rendered at if no size constraints were applied by Positron.
+	 * The intrinsic size of a plot is the size at which a plot would be if
+	 * no size constraints were applied by Positron.
 	 *
 	 *
 	 * @returns The intrinsic size of a plot, if known
@@ -135,11 +135,11 @@ export class PositronPlotComm extends PositronBaseComm {
 	/**
 	 * Render a plot
 	 *
-	 * Requests a plot to be rendered. TODO: intrinsic size stuff. The plot
-	 * data is returned in a base64-encoded string.
+	 * Requests a plot to be rendered. The plot data is returned in a
+	 * base64-encoded string.
 	 *
-	 * @param size The requested size of the plot. If not provided, the
-	 * intrinsic size of the plot will be used.
+	 * @param size The requested size of the plot. If not provided, the plot
+	 * will be rendered at its intrinsic size.
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
 	 *
