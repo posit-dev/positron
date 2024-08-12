@@ -7,6 +7,13 @@
 	width: 100%;
 }
 
+.positron-modal-dialog-box .labeled-text-input.disabled label,
+.positron-modal-dialog-box .labeled-text-input.disabled input {
+	cursor: default;
+	border-color: var(--vscode-disabledForeground);
+	color: var(--vscode-disabledForeground);
+}
+
 .positron-modal-dialog-box .labeled-text-input label {
 	display: flex;
 	flex-direction: column;

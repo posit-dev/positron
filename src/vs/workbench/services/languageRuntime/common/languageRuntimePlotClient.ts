@@ -363,14 +363,16 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
 	 */
-	public preview(height: number, width: number, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
+	public preview(size: IPlotSize | undefined, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
-		height = Math.floor(height);
-		width = Math.floor(width);
+		const sizeInt = size && {
+			height: Math.floor(size.height),
+			width: Math.floor(size.width)
+		};
 
 		// Create a new deferred promise to track the render request
 		const request: RenderRequest = {
-			size: { width, height },
+			size: sizeInt,
 			pixel_ratio,
 			format
 		};

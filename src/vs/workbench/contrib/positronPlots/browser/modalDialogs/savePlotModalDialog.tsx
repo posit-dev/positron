@@ -24,6 +24,7 @@ import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDow
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { IFileService } from 'vs/platform/files/common/files';
 import { RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -106,6 +107,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
 	const [format, setFormat] = React.useState(RenderFormat.Png);
+	const [useIntrinsicSize, setUseIntrinsicSize] = React.useState(false);
 	const [width, setWidth] = React.useState({ value: props.plotWidth, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotHeight, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
@@ -222,7 +224,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	};
 
 	const generatePreview = async (format: RenderFormat): Promise<IRenderedPlot> => {
-		return props.plotClient.preview(height.value, width.value, dpi.value / BASE_DPI, format);
+		const size = useIntrinsicSize ? undefined : { height: height.value, width: width.value };
+		return props.plotClient.preview(size, dpi.value / BASE_DPI, format);
 	};
 
 	const previewButton = () => {
@@ -232,6 +235,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			</PositronButton>
 		);
 	};
+
+	const intrinsicSize = props.plotClient.intrinsicSize;
+	const displayWidth = useIntrinsicSize ? intrinsicSize!.width * dpi.value : width.value;
+	const displayHeight = useIntrinsicSize ? intrinsicSize!.height * dpi.value : height.value;
 
 	return (
 		<PositronModalDialog
@@ -293,22 +300,24 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									'positron.savePlotModalDialog.width',
 									"Width"
 								))()}
-								value={width.value}
+								value={displayWidth}
 								type={'number'}
 								onChange={e => updateWidth(e.target.value)}
 								min={1}
 								error={!width.valid}
+								disabled={useIntrinsicSize}
 							/>
 							<LabeledTextInput
 								label={(() => localize(
 									'positron.savePlotModalDialog.height',
 									"Height"
 								))()}
-								value={height.value}
+								value={displayHeight}
 								type={'number'}
 								onChange={e => updateHeight(e.target.value)}
 								min={1}
 								error={!height.valid}
+								disabled={useIntrinsicSize}
 							/>
 							{enableDPI && <LabeledTextInput
 								label={(() => localize(
@@ -348,6 +357,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									))()}
 								</div>
 							</div>
+						</div>
+						<div className='use-intrinsic-size'>
+							<Checkbox
+								label={(() => localize(
+									'positron.savePlotModalDialog.useIntrinsicSize',
+									"Use intrinsic size"
+								))()}
+								onChanged={checked => setUseIntrinsicSize(checked)} />
 						</div>
 						<div className='preview-progress'>
 							{rendering && <ProgressBar />}
