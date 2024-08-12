@@ -27,6 +27,9 @@ export function setup(logger: Logger) {
 
 			it('Verify fast execution is not out of order [C712539]', async function () {
 				const app = this.app as Application;
+
+				await app.code.driver.setViewportSize({ width: 1400, height: 1000 });
+
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', 'fast-execution.r'));
 
 				for (let i = 0; i < 11; i++) {
