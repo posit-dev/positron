@@ -23,6 +23,17 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
 		return createReticulateSession(runtimeMetadata, sessionMetadata);
 	}
+
+	restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
+		return restoreReticulateSession(runtimeMetadata, sessionMetadata);
+	}
+}
+
+async function restoreReticulateSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata) {
+	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
+	// kernelSpec = undefined means that we are reconnecting to a running session
+	const pythonSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, undefined);
+	return pythonSession;
 }
 
 async function createReticulateSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata) {
