@@ -3,10 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { DeferredPromise } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { generateUuid } from 'vs/base/common/uuid';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ArraySelection, BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ArraySelection, BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -100,6 +102,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	_profileFormatOptions: FormatOptions;
 
+	/**
+	 * Promises for asynchronous tasks requested of the backend.
+	 */
+	private readonly _asyncTasks = new Map<string, DeferredPromise<any>>();
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -154,6 +161,15 @@ export class DataExplorerClientInstance extends Disposable {
 
 			// Fire the onDidDataUpdate event.
 			this._onDidDataUpdateEmitter.fire();
+		}));
+
+		// Register the onDidReturnColumnProfiles event handler.
+		this._register(this._positronDataExplorerComm.onDidReturnColumnProfiles(async (e: ReturnColumnProfilesEvent) => {
+			if (this._asyncTasks.has(e.callback_id)) {
+				const promise = this._asyncTasks.get(e.callback_id);
+				promise?.complete(e.profiles);
+				this._asyncTasks.delete(e.callback_id);
+			}
 		}));
 	}
 
@@ -340,7 +356,30 @@ export class DataExplorerClientInstance extends Disposable {
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getColumnProfiles(profiles, this._profileFormatOptions),
+			async () => {
+				const callbackId = generateUuid();
+				const promise = new DeferredPromise<Array<ColumnProfileResult>>();
+				this._asyncTasks.set(callbackId, promise);
+				await this._positronDataExplorerComm.getColumnProfiles(callbackId, profiles, this._profileFormatOptions);
+
+				const timeout = 10000;
+
+				// Don't leave unfulfilled promise indefinitely; reject after 10 seconds pass
+				// for now just in case
+				setTimeout(() => {
+					// If the promise has already been resolved, do nothing.
+					if (promise.isSettled) {
+						return;
+					}
+
+					// Otherwise, reject the promise and remove it from the list of pending RPCs.
+					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+					promise.error(new Error(`get_column_profiles timed out after ${timeoutSeconds} seconds`));
+					this._asyncTasks.delete(callbackId);
+				}, timeout);
+
+				return promise.p;
+			},
 			() => []
 		);
 	}

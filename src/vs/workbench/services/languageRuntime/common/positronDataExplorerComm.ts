@@ -1170,9 +1170,26 @@ export interface SchemaUpdateEvent {
 export interface DataUpdateEvent {
 }
 
+/**
+ * Event: Return async result of get_column_profiles request
+ */
+export interface ReturnColumnProfilesEvent {
+	/**
+	 * Async callback unique identifier
+	 */
+	callback_id: string;
+
+	/**
+	 * Array of individual column profile results
+	 */
+	profiles: Array<ColumnProfileResult>;
+
+}
+
 export enum DataExplorerFrontendEvent {
 	SchemaUpdate = 'schema_update',
-	DataUpdate = 'data_update'
+	DataUpdate = 'data_update',
+	ReturnColumnProfiles = 'return_column_profiles'
 }
 
 export enum DataExplorerBackendRequest {
@@ -1196,6 +1213,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
 		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
+		this.onDidReturnColumnProfiles = super.createEventEmitter('return_column_profiles', ['callback_id', 'profiles']);
 	}
 
 	/**
@@ -1316,18 +1334,19 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Request a batch of column profiles
+	 * Async request a batch of column profiles
 	 *
-	 * Requests a statistical summary or data profile for batch of columns
+	 * Async request for a statistical summary or data profile for batch of
+	 * columns
 	 *
+	 * @param callbackId Async callback unique identifier
 	 * @param profiles Array of requested profiles
 	 * @param formatOptions Formatting options for returning data values as
 	 * strings
 	 *
-	 * @returns undefined
 	 */
-	getColumnProfiles(profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<Array<ColumnProfileResult>> {
-		return super.performRpc('get_column_profiles', ['profiles', 'format_options'], [profiles, formatOptions]);
+	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void> {
+		return super.performRpc('get_column_profiles', ['callback_id', 'profiles', 'format_options'], [callbackId, profiles, formatOptions]);
 	}
 
 	/**
@@ -1357,5 +1376,11 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * and triggering a refresh/redraw.
 	 */
 	onDidDataUpdate: Event<DataUpdateEvent>;
+	/**
+	 * Return async result of get_column_profiles request
+	 *
+	 * Return async result of get_column_profiles request
+	 */
+	onDidReturnColumnProfiles: Event<ReturnColumnProfilesEvent>;
 }
 
