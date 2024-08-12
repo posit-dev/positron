@@ -42,6 +42,7 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
+import { ILogService } from 'vs/platform/log/common/log';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -126,7 +127,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IClipboardService private _clipboardService: IClipboardService,
 		@IDialogService private readonly _dialogService: IDialogService,
-		@IExtensionService private readonly _extensionService: IExtensionService) {
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILogService private readonly _logService: ILogService,
+	) {
 		super();
 
 		// Register for language runtime service startups
@@ -777,7 +780,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							this.showSavePlotDialog(uri);
 						} else if (plot instanceof PlotClientInstance) {
 							// if it's a dynamic plot, present options dialog
-							showSavePlotModalDialog(this._layoutService, this._keybindingService, this._dialogService, this._fileService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
+							showSavePlotModalDialog(
+								this._layoutService,
+								this._keybindingService,
+								this._dialogService,
+								this._fileService,
+								this._fileDialogService,
+								this._logService,
+								plot,
+								this.savePlotAs,
+								suggestedPath
+							);
 						} else {
 							// if it's a webview plot, do nothing
 							return;

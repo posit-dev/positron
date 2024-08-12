@@ -23,8 +23,10 @@ import { FileFilter } from 'electron';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import { IFileService } from 'vs/platform/files/common/files';
-import { RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { IntrinsicSize, PlotUnit, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
+import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { ILogService } from 'vs/platform/log/common/log';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -52,6 +54,7 @@ export const showSavePlotModalDialog = (
 	dialogService: IDialogService,
 	fileService: IFileService,
 	fileDialogService: IFileDialogService,
+	logService: ILogService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
@@ -63,9 +66,6 @@ export const showSavePlotModalDialog = (
 		container: layoutService.activeContainer
 	});
 
-	const plotWidth = plotClient.lastRender?.size?.width ?? 100;
-	const plotHeight = plotClient.lastRender?.size?.height ?? 100;
-
 	renderer.render(
 		<SavePlotModalDialog
 			layoutService={layoutService}
@@ -73,9 +73,10 @@ export const showSavePlotModalDialog = (
 			fileService={fileService}
 			fileDialogService={fileDialogService}
 			keybindingService={keybindingService}
+			logService={logService}
 			renderer={renderer}
-			plotWidth={plotWidth}
-			plotHeight={plotHeight}
+			plotSize={plotClient.lastRender?.size}
+			plotIntrinsicSize={plotClient.intrinsicSize}
 			suggestedPath={suggestedPath}
 			savePlotCallback={savePlotCallback}
 			plotClient={plotClient}
@@ -88,10 +89,11 @@ interface SavePlotModalDialogProps {
 	dialogService: IDialogService;
 	fileService: IFileService;
 	fileDialogService: IFileDialogService;
+	logService: ILogService;
 	keybindingService: IKeybindingService;
 	renderer: PositronModalReactRenderer;
-	plotWidth: number;
-	plotHeight: number;
+	plotSize: IPlotSize | undefined;
+	plotIntrinsicSize: IntrinsicSize | undefined;
 	plotClient: PlotClientInstance;
 	savePlotCallback: (options: SavePlotOptions) => void;
 	suggestedPath?: URI;
@@ -108,8 +110,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
 	const [format, setFormat] = React.useState(RenderFormat.Png);
 	const [useIntrinsicSize, setUseIntrinsicSize] = React.useState(false);
-	const [width, setWidth] = React.useState({ value: props.plotWidth, valid: true });
-	const [height, setHeight] = React.useState({ value: props.plotHeight, valid: true });
+	const [width, setWidth] = React.useState({ value: props.plotSize?.width, valid: true });
+	const [height, setHeight] = React.useState({ value: props.plotSize?.height, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
@@ -199,6 +201,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 				.then(async (plotResult) => {
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
+				.catch((error) => {
+					props.logService.error('Error saving plot:', error);
+				})
 				.finally(() => {
 					setRendering(false);
 					props.renderer.dispose();
@@ -218,13 +223,21 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		try {
 			const plotResult = await generatePreview(RenderFormat.Png);
 			setUri(plotResult.uri);
+		} catch (error) {
+			props.logService.error('Error rendering plot:', error);
 		} finally {
 			setRendering(false);
 		}
 	};
 
 	const generatePreview = async (format: RenderFormat): Promise<IRenderedPlot> => {
-		const size = useIntrinsicSize ? undefined : { height: height.value, width: width.value };
+		let size: IPlotSize | undefined;
+		if (!useIntrinsicSize) {
+			if (!width.value || !height.value) {
+				throw new Error('Width and height must be defined for plots that do not support intrinsic size.');
+			}
+			size = { height: height.value, width: width.value };
+		}
 		return props.plotClient.preview(size, dpi.value / BASE_DPI, format);
 	};
 
@@ -236,9 +249,25 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		);
 	};
 
-	const intrinsicSize = props.plotClient.intrinsicSize;
-	const displayWidth = useIntrinsicSize ? intrinsicSize!.width * dpi.value : width.value;
-	const displayHeight = useIntrinsicSize ? intrinsicSize!.height * dpi.value : height.value;
+	let displayWidth = 0;
+	let displayHeight = 0;
+	if (useIntrinsicSize && props.plotIntrinsicSize) {
+		displayWidth = props.plotIntrinsicSize.width;
+		displayHeight = props.plotIntrinsicSize.height;
+
+		// Convert intrinsic size to pixels if necessary
+		if (props.plotIntrinsicSize.unit === PlotUnit.Inches) {
+			displayWidth *= dpi.value;
+			displayHeight *= dpi.value;
+		} else if (props.plotIntrinsicSize.unit !== PlotUnit.Pixels) {
+			props.logService.error('Unknown unit');
+		}
+	} else if (width.value && height.value) {
+		displayWidth = width.value;
+		displayHeight = height.value;
+	} else {
+		props.logService.error('Invalid state: Either provide an intrinsic size or explicit plot size.');
+	}
 
 	return (
 		<PositronModalDialog
@@ -359,12 +388,12 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							</div>
 						</div>
 						<div className='use-intrinsic-size'>
-							<Checkbox
+							{props.plotIntrinsicSize && <Checkbox
 								label={(() => localize(
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
 								))()}
-								onChanged={checked => setUseIntrinsicSize(checked)} />
+								onChanged={checked => setUseIntrinsicSize(checked)} />}
 						</div>
 						<div className='preview-progress'>
 							{rendering && <ProgressBar />}
