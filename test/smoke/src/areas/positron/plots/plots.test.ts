@@ -83,7 +83,8 @@ plt.show()`;
 
 				logger.log('Sending code to console');
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-
+				await app.code.wait(1000);
+				await app.code.driver.takeScreenshot('dynamicPlots');
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
 				// give time for the React component to apply the zoom
