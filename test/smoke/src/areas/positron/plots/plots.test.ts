@@ -80,9 +80,6 @@ plt.show()`;
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
-				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
-
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
@@ -125,9 +122,6 @@ IPython.display.display_png(h)`;
 				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
 				await app.workbench.positronPlots.waitForCurrentStaticPlot();
-
-				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
@@ -307,9 +301,6 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				await app.workbench.positronPlots.waitForCurrentPlot();
-
-				// give time for the React component to apply the zoom
-				await app.code.wait(3000);
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
