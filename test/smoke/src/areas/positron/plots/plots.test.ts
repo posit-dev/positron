@@ -85,7 +85,7 @@ plt.show()`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -107,9 +107,9 @@ import IPython
 
 h = gv.Digraph(format="svg")
 names = [
-    "A",
-    "B",
-    "C",
+	"A",
+	"B",
+	"C",
 ]
 
 # Specify edges
@@ -128,7 +128,7 @@ IPython.display.display_png(h)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -150,9 +150,9 @@ import IPython
 
 h = gv.Digraph(format="svg")
 names = [
-    "A",
-    "B",
-    "C",
+	"A",
+	"B",
+	"C",
 ]
 
 # Specify edges
@@ -280,6 +280,32 @@ plt.show()`;
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
+
+			it('Python - Verifies various Python widgets [C..]', async function () {
+				const app = this.app as Application;
+
+				const script = `import bqplot.pyplot as bplt
+import numpy as np
+
+x = np.linspace(-10, 10, 100)
+y = np.sin(x)
+axes_opts = {"x": {"label": "X"}, "y": {"label": "Y"}}
+
+fig = bplt.figure(title="Line Chart")
+line = bplt.plot(
+	x=x, y=y, axes_options=axes_opts
+)
+
+bplt.show()`;
+
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+			});
+
+
 		});
 
 		describe('R Plots', () => {
@@ -307,7 +333,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'), ), buffer, options);
+				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -321,7 +347,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			it('R - Verifies saving an R plot [C557006]' , async function () {
+			it('R - Verifies saving an R plot [C557006]', async function () {
 				const app = this.app as Application;
 
 				const script = `cars <- c(1, 3, 6, 4, 9)
