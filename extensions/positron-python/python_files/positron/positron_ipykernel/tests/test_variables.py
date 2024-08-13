@@ -671,15 +671,18 @@ def test_view(
     variables_comm: DummyComm,
     mock_dataexplorer_service: Mock,
 ) -> None:
-    shell.user_ns["x"] = pd.DataFrame({"a": [0]})
+    name = "dfx"
+    shell.user_ns[name] = pd.DataFrame({"a": [0]})
+    path = _encode_path([name])
 
-    msg = json_rpc_request("view", {"path": _encode_path(["x"])}, comm_id="dummy_comm_id")
+    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
     assert len(variables_comm.messages) == 1
 
-    assert_register_table_called(mock_dataexplorer_service, shell.user_ns["x"], "x")
+    variable_path = [encode_access_key(name)]
+    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name, variable_path)
 
 
 def test_view_error(variables_comm: DummyComm) -> None:

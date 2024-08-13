@@ -6,7 +6,7 @@
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional, Set
+from typing import Any, List, Optional, Set
 from unittest.mock import Mock
 
 from positron_ipykernel._vendor.pydantic import BaseModel
@@ -31,13 +31,20 @@ def preserve_working_directory():
         os.chdir(cwd)
 
 
-def assert_register_table_called(mock_dataexplorer_service: Mock, obj: Any, title: str) -> None:
+def assert_register_table_called(mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: Optional[List[str]] = None) -> None:
     call_args_list = mock_dataexplorer_service.register_table.call_args_list
     assert len(call_args_list) == 1
 
     passed_table, passed_title = call_args_list[0].args
     assert passed_title == title
     assert passed_table is obj
+
+    if variable_path is not None:
+        call_args_kw = mock_dataexplorer_service.register_table.call_args.kwargs
+        passed_variable_path = call_args_kw.get("variable_path", None)
+        assert passed_variable_path is not None
+        assert len(passed_variable_path) == len(variable_path)
+        assert passed_variable_path[0] == variable_path[0]
 
 
 def comm_message(
