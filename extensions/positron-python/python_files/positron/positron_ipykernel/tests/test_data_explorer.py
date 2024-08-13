@@ -2416,6 +2416,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             ),  # datetime single tz
             "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
             "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+            "f9": [np.nan] * 100,
         }
     )
 
@@ -2547,6 +2548,11 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "df1",
             8,
             {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            9,
+            {},
         ),
         (
             "df_mixed_tz1",
@@ -3381,6 +3387,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 dtype=pl.Datetime("ms", time_zone="UTC"),
             ),  # datetime single tz
             "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+            "f8": pl.Series([None] * 100, dtype=pl.Float64),
         }
     )
 
@@ -3467,6 +3474,11 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
             "df1",
             7,
             {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            8,
+            {},
         ),
     ]
 
