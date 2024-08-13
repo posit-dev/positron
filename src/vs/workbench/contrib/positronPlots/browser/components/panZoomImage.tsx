@@ -23,10 +23,10 @@ interface PanZoomImageProps {
  * @returns The rendered component.
  */
 export const PanZoomImage = (props: PanZoomImageProps) => {
-	const [naturalWidth, setNaturalWidth] = React.useState<number>(1);
-	const [naturalHeight, setNaturalHeight] = React.useState<number>(1);
-	const [scrollableWidth, setScrollableWidth] = React.useState<number>(1);
-	const [scrollableHeight, setScrollableHeight] = React.useState<number>(1);
+	const [naturalWidth, setNaturalWidth] = React.useState<number>(props.width);
+	const [naturalHeight, setNaturalHeight] = React.useState<number>(props.height);
+	const [scrollableWidth, setScrollableWidth] = React.useState<number>(props.width);
+	const [scrollableHeight, setScrollableHeight] = React.useState<number>(props.height);
 	const imageRef = React.useRef<HTMLImageElement>(null);
 
 	// updates the image size and position based on the zoom level
