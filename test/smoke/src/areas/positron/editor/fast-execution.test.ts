@@ -12,16 +12,17 @@ import { expect } from '@playwright/test';
  * R console tests
  */
 export function setup(logger: Logger) {
-	describe('Editor Pane: R', () => {
+
+	// does not pass on Ubuntu CI runner as execution is too fast
+	// keeping for OSX and Windows execution
+	describe.skip('Editor Pane: R', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
 
 		const FILENAME = 'fast-execution.r';
 
-		// does not pass on Ubuntu CI runner as execution is too fast
-		// keeping for OSX and Windows execution
-		describe.skip('R Fast Execution', () => {
+		describe('R Fast Execution', () => {
 
 			beforeEach(async function () {
 
