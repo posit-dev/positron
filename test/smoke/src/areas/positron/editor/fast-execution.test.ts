@@ -19,7 +19,9 @@ export function setup(logger: Logger) {
 
 		const FILENAME = 'fast-execution.r';
 
-		describe('R Fast Execution', () => {
+		// does not pass on Ubuntu CI runner as execution is too fast
+		// keeping for OSX and Windows execution
+		describe.skip('R Fast Execution', () => {
 
 			beforeEach(async function () {
 
@@ -27,9 +29,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			// does not pass on Ubuntu CI runner as execution is too fast
-			// keeping for OSX and Windows execution
-			it.skip('Verify fast execution is not out of order [C712539]', async function () {
+			it('Verify fast execution is not out of order [C712539]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
