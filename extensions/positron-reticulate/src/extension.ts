@@ -11,6 +11,8 @@ import { JupyterKernelSpec, JupyterSession } from './jupyter-adapter.d';
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
 
+	_session: positron.LanguageRuntimeSession | undefined = undefined;
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 	) {
@@ -21,19 +23,27 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		return reticulateRuntimesDiscoverer();
 	}
 
-	createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
-		return createReticulateSession(runtimeMetadata, sessionMetadata);
+	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+		this._session = await createReticulateSession(runtimeMetadata, sessionMetadata);
+		this._session.onDidEndSession((e) => {
+			this._session = undefined;
+		});
+		return this._session;
 	}
 
-	restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
-		return restoreReticulateSession(runtimeMetadata, sessionMetadata);
+	async restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
+		this._session = await restoreReticulateSession(runtimeMetadata, sessionMetadata);
+		this._session.onDidEndSession((e) => {
+			this._session = undefined;
+		});
+		return this._session;
 	}
 }
 
 async function restoreReticulateSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata) {
 	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
 	// kernelSpec = undefined means that we are reconnecting to a running session
-	const pythonSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, undefined);
+	const pythonSession: positron.LanguageRuntimeSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, undefined);
 	return pythonSession;
 }
 
@@ -87,35 +97,49 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 		'startKernel': startKernel,
 	};
 
+	let session = await positron.runtime.getForegroundSession();
+	if (!session || session.runtimeMetadata.languageId !== 'r') {
+		const runtime = await positron.runtime.getPreferredRuntime('r');
+		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+		session = await positron.runtime.getForegroundSession();
+	}
+
+	if (!session) {
+		throw new Error(`No available R session to execute reticulate`);
+	}
+
+
+	// If there's an R foreground session, we try to find the interpreter
+	// reticulate would use by sending a command to it.
+	console.log('[Reticulate] We will call R to check for a reticulate interpreter');
+	let path = '';
+
+	if (session.callMethod) {
+		path = await session.callMethod('reticulate_interpreter_path') as string;
+	}
+
+	if (path === '') {
+		throw new Error(`No path found for python.`);
+	}
+
+	console.log('[Reticulate] Found interpreter path: ', path);
+
+	if (path !== '') {
+		runtimeMetadata.runtimePath = path;
+		runtimeMetadata.extraRuntimeData.pythonPath = path;
+	}
+
 	const api = vscode.extensions.getExtension('ms-python.python')?.exports;
-	const pythonSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, kernelSpec);
+	const pythonSession: positron.LanguageRuntimeSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, kernelSpec);
+
 	return pythonSession;
 }
 
 async function* reticulateRuntimesDiscoverer() {
-
-	const session = await positron.runtime.getForegroundSession();
-	if (session && session.runtimeMetadata.languageId === 'r') {
-		// If there's an R foreground session, we try to find the interpreter
-		// reticulate would use by sending a command to it.
-		console.log('[Reticulate] We will call R to check for a reticulate interpreter');
-		let path = '';
-		if (session.callMethod) {
-			console.log('calling the R rpc');
-			path = await session.callMethod('reticulate_interpreter_path') as string;
-		}
-
-		console.log('[Reticulate] Found interpreter path: ', path);
-
-		if (path !== '') {
-			const runtimeMetadata = new ReticulateRuntimeMetadata();
-			runtimeMetadata.runtimePath = path;
-			runtimeMetadata.extraRuntimeData.pythonPath = path;
-			yield runtimeMetadata;
-		}
-	}
-	console.log('[Reticulate] No foreground R session to check for interpreters');
+	const runtimeMetadata = new ReticulateRuntimeMetadata();
+	yield runtimeMetadata;
 }
+
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {
 		pythonEnvironmentId: 'reticulate',
@@ -144,16 +168,21 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 
 export class ReticulateProvider {
 	_client: positron.RuntimeClientInstance | undefined = undefined;
-	constructor(readonly manager: positron.LanguageRuntimeManager) { }
+	constructor(readonly manager: ReticulateRuntimeManager) { }
 
 	async registerClient(client: positron.RuntimeClientInstance) {
 		if (this._client) {
-			throw new Error('Client already registered');
+			this._client.dispose();
 		}
 		this._client = client;
 
 		await this.manager.discoverRuntimes();
-		positron.runtime.selectLanguageRuntime('reticulate');
+		await positron.runtime.selectLanguageRuntime('reticulate');
+
+		this.manager._session?.onDidEndSession(() => {
+			this._client?.dispose();
+			this._client = undefined;
+		});
 
 		this._client.onDidSendEvent((e) => {
 			const event = e.data as any;
