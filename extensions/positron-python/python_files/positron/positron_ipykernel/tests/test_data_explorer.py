@@ -285,7 +285,7 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     dfvp = pd.DataFrame({"v": [9, 8, 7]})
     comm_id = guid()
     title = "test_table"
-    path = ["{\"type\":\"str\",\"data\":\"dfvp\"}"]
+    path = ['{"type":"str","data":"dfvp"}']
     de_service.register_table(dfvp, title, variable_path=path, comm_id=comm_id)
 
     assert comm_id in de_service.comms
@@ -293,6 +293,7 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     assert table_view.table is dfvp
     # Also check the Data Explorer name is the same as the title, even though a path was provided
     assert table_view.state.name == title
+
 
 def test_shutdown(de_service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})

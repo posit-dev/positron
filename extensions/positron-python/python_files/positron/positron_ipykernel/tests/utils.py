@@ -31,7 +31,9 @@ def preserve_working_directory():
         os.chdir(cwd)
 
 
-def assert_register_table_called(mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: Optional[List[str]] = None) -> None:
+def assert_register_table_called(
+    mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: Optional[List[str]] = None
+) -> None:
     call_args_list = mock_dataexplorer_service.register_table.call_args_list
     assert len(call_args_list) == 1
 

@@ -682,7 +682,9 @@ def test_view(
     assert len(variables_comm.messages) == 1
 
     variable_path = [encode_access_key(name)]
-    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name, variable_path)
+    assert_register_table_called(
+        mock_dataexplorer_service, shell.user_ns[name], name, variable_path
+    )
 
 
 def test_view_error(variables_comm: DummyComm) -> None:

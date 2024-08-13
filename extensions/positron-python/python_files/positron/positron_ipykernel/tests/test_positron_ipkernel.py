@@ -66,9 +66,7 @@ def test_view_undefined(shell: PositronShell, mock_dataexplorer_service: Mock, c
     assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
 
 
-def test_view_title_unquoted(
-    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
-) -> None:
+def test_view_title_unquoted(shell: PositronShell, mock_dataexplorer_service: Mock, capsys) -> None:
     shell.run_cell("%view x A custom title")
     mock_dataexplorer_service.register_table.assert_not_called()
     assert (
