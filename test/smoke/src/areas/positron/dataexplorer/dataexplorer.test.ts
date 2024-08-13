@@ -30,11 +30,18 @@ export function setup(logger: Logger) {
 
 				const app = this.app as Application;
 
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.positronVariables.openVariables();
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 				await app.workbench.positronConsole.barRestartButton.click();
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
+
+			});
+
+			afterEach(async function () {
+
+				const app = this.app as Application;
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
 
 			});
 
@@ -66,6 +73,43 @@ df = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 				expect(tableData.length).toBe(4);
+
+			});
+
+			it('Python Pandas - Verifies data explorer functionality with empty fields [C...] #pr', async function () {
+				const app = this.app as Application;
+
+				const script = `import numpy as np
+import pandas as pd
+
+data = {
+		'A': [1, 2, np.nan, 4, 5],
+		'B': ['foo', np.nan, 'bar', 'baz', None],
+		'C': [np.nan, 2.5, 3.1, None, 4.8],
+		'D': [np.nan, pd.NaT, pd.Timestamp('2023-01-01'), pd.NaT, pd.Timestamp('2023-02-01')],
+		'E': [None, 'text', 'more text', np.nan, 'even more text']
+}
+df2 = pd.DataFrame(data)`;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df2');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+				}).toPass();
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]).toStrictEqual({ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' });
+				expect(tableData[1]).toStrictEqual({ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' });
+				expect(tableData[2]).toStrictEqual({ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' });
+				expect(tableData[3]).toStrictEqual({ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' });
+				expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
+				expect(tableData.length).toBe(5);
 
 			});
 
