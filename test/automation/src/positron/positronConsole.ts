@@ -244,6 +244,10 @@ export class PositronConsole {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
 	}
 
+	async waitForExecutionStarted() {
+		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'attached' });
+	}
+
 	async waitForExecutionComplete() {
 		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'detached' });
 	}
