@@ -48,5 +48,6 @@ export * from './positron/positronTopActionBar';
 export * from './positron/positronLayouts';
 export * from './positron/positronTerminal';
 export * from './positron/positronViewer';
+export * from './positron/positronEditor';
 // --- End Positron ---
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

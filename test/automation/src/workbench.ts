@@ -42,6 +42,7 @@ import { PositronOutput } from './positron/positronOutput';
 import { PositronWelcome } from './positron/positronWelcome';
 import { PositronTerminal } from './positron/positronTerminal';
 import { PositronViewer } from './positron/positronViewer';
+import { PositronEditor } from './positron/positronEditor';
 // --- End Positron ---
 
 export interface Commands {
@@ -88,6 +89,7 @@ export class Workbench {
 	readonly positronWelcome: PositronWelcome;
 	readonly positronTerminal: PositronTerminal;
 	readonly positronViewer: PositronViewer;
+	readonly positronEditor: PositronEditor;
 	// --- End Positron ---
 
 	constructor(code: Code) {
@@ -129,6 +131,7 @@ export class Workbench {
 		this.positronWelcome = new PositronWelcome(code);
 		this.positronTerminal = new PositronTerminal(code);
 		this.positronViewer = new PositronViewer(code);
+		this.positronEditor = new PositronEditor(code);
 		// --- End Positron ---
 	}
 }

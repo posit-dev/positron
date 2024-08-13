@@ -7,6 +7,7 @@
 import { Code } from '../code';
 import * as os from 'os';
 import { IElement } from '../driver';
+import { Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
@@ -47,14 +48,17 @@ export class PositronVariables {
 		return variables;
 	}
 
-	async doubleClickVariableRow(variableName: string) {
+	async waitForVariableRow(variableName: string): Promise<Locator> {
 
 		const desiredRow = this.code.driver.getLocator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
-
 		await desiredRow.waitFor({ state: 'attached' });
+		return desiredRow;
+	}
 
+	async doubleClickVariableRow(variableName: string) {
+
+		const desiredRow = await this.waitForVariableRow(variableName);
 		await desiredRow.dblclick();
-
 	}
 
 	async openVariables() {
