@@ -45,7 +45,7 @@ export class PositronPlots {
 	}
 
 	async waitForCurrentPlot() {
-		await this.code.waitForElement(CURRENT_PLOT, undefined, 3);
+		await this.code.waitForElement(CURRENT_PLOT);
 	}
 
 	async waitForCurrentStaticPlot() {

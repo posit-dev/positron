@@ -48,7 +48,8 @@ export function setup(logger: Logger) {
 
 			before(async function () {
 				// Set the viewport to a size that ensures all the plots view actions are visible
-				this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				await this.app.workbench.positronLayouts.enterLayout('stacked');
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
