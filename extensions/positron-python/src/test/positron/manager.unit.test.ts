@@ -125,6 +125,22 @@ suite('Python runtime manager', () => {
         assert.deepStrictEqual(validated, runtimeMetadata.object);
     });
 
+    test('validateMetadata: returns the full metadata when a metadata fragment is provided', async () => {
+        // Set the full runtime metadata in the manager.
+        pythonRuntimeManager.registeredPythonRuntimes.set(pythonPath, runtimeMetadata.object);
+
+        // Create a metadata fragment (only contains extra data python path).
+        const runtimeMetadataFragment = TypeMoq.Mock.ofType<positron.LanguageRuntimeMetadata>();
+        runtimeMetadataFragment.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath }));
+
+        // Override the pathExists stub to return true and validate the metadata.
+        sinon.stub(fs, 'pathExists').resolves(true);
+        const validated = await pythonRuntimeManager.validateMetadata(runtimeMetadataFragment.object);
+
+        // The validated metadata should be the full metadata.
+        assert.deepStrictEqual(validated, runtimeMetadata.object);
+    });
+
     test('validateMetadata: throws if extra data is missing', async () => {
         const invalidRuntimeMetadata = TypeMoq.Mock.ofType<positron.LanguageRuntimeMetadata>();
         assert.rejects(() => pythonRuntimeManager.validateMetadata(invalidRuntimeMetadata.object));
