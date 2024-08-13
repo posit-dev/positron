@@ -17,6 +17,7 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
+		console.log('Discovering reticulate runtimes');
 		return reticulateRuntimesDiscoverer();
 	}
 
@@ -141,6 +142,44 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;
 }
 
+export class ReticulateProvider {
+	_client: positron.RuntimeClientInstance | undefined = undefined;
+	constructor(readonly manager: positron.LanguageRuntimeManager) { }
+
+	async registerClient(client: positron.RuntimeClientInstance) {
+		if (this._client) {
+			throw new Error('Client already registered');
+		}
+		this._client = client;
+
+		await this.manager.discoverRuntimes();
+		positron.runtime.selectLanguageRuntime('reticulate');
+
+		this._client.onDidSendEvent((e) => {
+			const event = e.data as any;
+			if (event.method === 'focus') {
+				this.focusReticulateConsole();
+			}
+		});
+
+		this._client.onDidChangeClientState(
+			(state: positron.RuntimeClientState) => {
+				if (state === positron.RuntimeClientState.Closed) {
+					this._client = undefined;
+				}
+			}
+		);
+	}
+
+	focusReticulateConsole() {
+		// if this session is already active, this is a no-op that just
+		// brings focus.
+		//positron.runtime.selectLanguageRuntime('reticulate');
+		// Execute an empty code block to focus the console
+		positron.runtime.executeCode('python', '', true, true);
+	}
+}
+
 
 let CONTEXT: vscode.ExtensionContext;
 
@@ -153,9 +192,19 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('Activating Reticulate extension');
 	CONTEXT = context;
 
-	const manager = positron.runtime.registerLanguageRuntimeManager(
-		new ReticulateRuntimeManager(context)
-	);
+	const manager = new ReticulateRuntimeManager(context);
+	context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(manager));
+
+	const reticulateProvider = new ReticulateProvider(manager);
+
+	context.subscriptions.push(
+		positron.runtime.registerClientHandler({
+			clientType: 'positron.reticulate',
+			callback: (client, params: any) => {
+				reticulateProvider.registerClient(client);
+				return true;
+			}
+		}));
 
 	console.log('Reticulate extension activated');
 
