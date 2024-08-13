@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { ILanguageRuntimeMessageOutput, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { IPositronHoloViewsService, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -39,7 +39,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
-		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 	) {
 		super();
 
@@ -79,6 +79,12 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		const disposables = new DisposableStore();
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		this._messagesBySessionId.set(session.sessionId, []);
+
+		// Only attach to console sessions.
+		if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+			return;
+		}
+
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
 			if (msg.kind !== RuntimeOutputKind.HoloViews) {
 				return;
