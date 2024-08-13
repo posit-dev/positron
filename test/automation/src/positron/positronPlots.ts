@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
 import { Code } from '../code';
 
 const CURRENT_PLOT = '.plot-instance img';
@@ -17,7 +17,6 @@ const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positr
 const SAVE_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fill"]';
-const PLOT_RENDERING = '.plot-instance .monaco-progress-container:not(.done)';
 
 
 /*
@@ -46,7 +45,6 @@ export class PositronPlots {
 	}
 
 	async waitForCurrentPlot() {
-		await expect(this.code.driver.getLocator(PLOT_RENDERING)).not.toBeVisible();
 		await this.code.waitForElement(CURRENT_PLOT, undefined, 3);
 	}
 

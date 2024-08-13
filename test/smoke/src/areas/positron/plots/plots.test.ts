@@ -47,6 +47,8 @@ export function setup(logger: Logger) {
 		describe('Python Plots', () => {
 
 			before(async function () {
+				// Set the viewport to a size that ensures all the plots view actions are visible
+				this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
