@@ -76,7 +76,7 @@ df = pd.DataFrame(data)`;
 
 			});
 
-			it('Python Pandas - Verifies data explorer functionality with empty fields [C...] #pr', async function () {
+			it('Python Pandas - Verifies data explorer functionality with empty fields [C718262] #pr', async function () {
 				const app = this.app as Application;
 
 				const script = `import numpy as np
@@ -227,8 +227,9 @@ df2 = pd.DataFrame(data)`;
 				// snippet from https://www.w3schools.com/r/r_data_frames.asp
 				const script = `Data_Frame <- data.frame (
 	Training = c("Strength", "Stamina", "Other"),
-	Pulse = c(100, 150, 120),
-	Duration = c(60, 30, 45)
+	Pulse = c(100, NA, 120),
+	Duration = c(60, 30, 45),
+	Note = c(NA, NA, "Note")
 )`;
 
 				logger.log('Sending code to console');
@@ -244,9 +245,9 @@ df2 = pd.DataFrame(data)`;
 
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00' });
-				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': '150.00', 'Duration': '30.00' });
-				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00' });
+				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' });
+				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
+				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
 				expect(tableData.length).toBe(3);
 
 			});
