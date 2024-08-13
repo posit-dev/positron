@@ -164,6 +164,7 @@ export class ReticulateProvider {
 
 		this._client.onDidChangeClientState(
 			(state: positron.RuntimeClientState) => {
+				console.log('Reticulate state:', state);
 				if (state === positron.RuntimeClientState.Closed) {
 					this._client = undefined;
 				}
@@ -177,6 +178,11 @@ export class ReticulateProvider {
 		//positron.runtime.selectLanguageRuntime('reticulate');
 		// Execute an empty code block to focus the console
 		positron.runtime.executeCode('python', '', true, true);
+	}
+
+	dispose() {
+		this._client?.dispose();
+		this._client = undefined;
 	}
 }
 
@@ -205,6 +211,8 @@ export function activate(context: vscode.ExtensionContext) {
 				return true;
 			}
 		}));
+
+	context.subscriptions.push(reticulateProvider);
 
 	console.log('Reticulate extension activated');
 
