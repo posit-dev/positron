@@ -27,13 +27,16 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verify fast execution is not out of order [C712539]', async function () {
+			it('Verify fast execution is not out of order [C712539] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 				for (let i = 1; i < 12; i++) {
-					await app.workbench.positronEditor.pressToLine(FILENAME, i, 'Control+Enter');
+					await app.code.driver.getKeyboard().press('Control+Enter');
+					// this next line might break the original intent of the test
+					// but it won't run on Ubuntu without it
+					await app.workbench.positronConsole.waitForExecutionComplete();
 				}
 
 				await app.workbench.positronVariables.waitForVariableRow('c');

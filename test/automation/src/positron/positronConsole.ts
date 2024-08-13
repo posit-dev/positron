@@ -22,6 +22,7 @@ const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
+const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -241,5 +242,9 @@ export class PositronConsole {
 
 	getLastClickableLink() {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
+	}
+
+	async waitForExecutionComplete() {
+		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'detached' });
 	}
 }
