@@ -164,6 +164,6 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	}
 }
 
-// Register the Positron IPyWidgets service.
+// Register service.
 registerSingleton(IPositronHoloViewsService, PositronHoloViewsService, InstantiationType.Delayed);
 
