@@ -18,7 +18,7 @@ except ImportError:
     torch = None
 
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
-from positron_ipykernel.ui import UiService, PositronViewerBrowser
+from positron_ipykernel.ui import UiService
 from positron_ipykernel.utils import alias_home
 
 from .conftest import DummyComm
@@ -67,7 +67,9 @@ def show_url_event(url: str) -> Dict[str, Any]:
 
 
 def show_html_file_event(path: str, is_plot: bool) -> Dict[str, Any]:
-    return json_rpc_notification("show_html_file", {"path": path, "is_plot": is_plot})
+    return json_rpc_notification(
+        "show_html_file", {"path": path, "is_plot": is_plot, "height": 0, "title": ""}
+    )
 
 
 def test_comm_open(ui_service: UiService) -> None:
@@ -172,18 +174,43 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
         ("file:///C:/Users/username/Documents/file.txt", []),
     ],
 )
-def test_viewer_webbrowser_does_not_open(
-    url, expected, shell: PositronShell, ui_comm: DummyComm, ui_service: UiService
+def test_webbrowser_open_sends_events(
+    url, expected, shell: PositronShell, ui_comm: DummyComm
 ) -> None:
-    # Assert positron viewer does not open non-local urls
-
+    """
+    Test that opening different types of URLs via `webbrowser.open` sends the expected UI events.
+    """
     shell.run_cell(
         f"""
 import webbrowser
-x = webbrowser._tryorder
-webbrowser.get('positron_viewer').open({repr(url)})
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+webbrowser.open({repr(url)})
 """
     )
-    assert isinstance(ui_service.browser, PositronViewerBrowser)
-    assert shell.user_ns["x"][0] == "positron_viewer"
     assert ui_comm.messages == expected
+
+
+def test_bokeh_show_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
+    """
+    Test that showing a Bokeh plot sends the expected UI events.
+    """
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+from bokeh.plotting import figure, show
+
+p = figure()
+p.line([0, 1], [2, 3])
+
+show(p)
+"""
+    )
+    assert len(ui_comm.messages) == 1
+    params = ui_comm.messages[0]["data"]["params"]
+    assert params["title"] == ""
+    assert params["is_plot"]
+    assert params["height"] == 0

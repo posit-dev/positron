@@ -3,8 +3,10 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import inspect
 import logging
 import os
+import sys
 import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
@@ -18,6 +20,7 @@ from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
     OpenEditorParams,
+    ShowHtmlFileParams,
     ShowUrlParams,
     UiBackendMessageContent,
     UiFrontendEvent,
@@ -181,13 +184,31 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
 
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
+            is_plot = False
+
+            # Send bokeh plots to the plots pane.
+            # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
+            # This is not great but currently the only information we have.
+            bokeh_io_showing = sys.modules.get("bokeh.io.showing")
+            if bokeh_io_showing:
+                for frame_info in inspect.stack():
+                    if (
+                        inspect.getmodule(frame_info.frame, frame_info.filename) == bokeh_io_showing
+                        and frame_info.function == "show"
+                    ):
+                        is_plot = True
+                        break
+
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
-                payload={
-                    "path": url,
-                    # TODO: Figure out if the file being displayed is a plot or not.
-                    "is_plot": False,
-                },
+                payload=ShowHtmlFileParams(
+                    path=url,
+                    # Use the HTML file's title.
+                    title="",
+                    is_plot=is_plot,
+                    # No particular height is required.
+                    height=0,
+                ).dict(),
             )
             return True
 

@@ -1,3 +1,4 @@
+bokeh==3.5.1
 fastcore==1.5.29
 geopandas==0.13.2; python_version < '3.9'
 geopandas==1.0.1; python_version >= '3.9'
