@@ -83,9 +83,6 @@ plt.show()`;
 				// give time for the React component to apply the zoom
 				await app.code.wait(3000);
 
-				// capture master image in CI
-				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
-
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
@@ -94,6 +91,9 @@ plt.show()`;
 					if (data.getBuffer) {
 						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 					}
+					// capture a new master image in CI
+					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
+
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
@@ -129,9 +129,6 @@ IPython.display.display_png(h)`;
 				// give time for the React component to apply the zoom
 				await app.code.wait(3000);
 
-				// capture master image in CI
-				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
-
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
@@ -140,6 +137,9 @@ IPython.display.display_png(h)`;
 					if (data.getBuffer) {
 						fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
 					}
+					// capture a new master image in CI
+					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
+
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
@@ -311,9 +311,6 @@ title(main="Autos", col.main="red", font.main=4)`;
 				// give time for the React component to apply the zoom
 				await app.code.wait(3000);
 
-				// capture master image in CI
-				// await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
-
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
 				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'),), buffer, options);
@@ -322,6 +319,9 @@ title(main="Autos", col.main="red", font.main=4)`;
 					if (data.getBuffer) {
 						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
 					}
+					// capture a new master image in CI
+					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
+
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
