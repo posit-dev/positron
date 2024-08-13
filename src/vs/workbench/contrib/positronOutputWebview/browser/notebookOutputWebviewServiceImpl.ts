@@ -20,6 +20,16 @@ import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/language
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { dirname } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
+import { ILogService } from 'vs/platform/log/common/log';
+
+/**
+ * Processed bundle of information about a message and how to render it for a webview.
+ */
+type MessageRenderInfo = {
+	mimeType: string;
+	renderer: INotebookRendererInfo;
+	output: ILanguageRuntimeMessageWebOutput;
+};
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -32,9 +42,68 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
+		@ILogService private _logService: ILogService,
 	) {
 	}
 
+	/**
+	 * Gather the preferred renders and the mime type they are preferred for from a series of output
+	 * messages.
+	 * @param outputs An array of output messages to find renderers for.
+	 * @returns An array of renderers and the mime type they are preferred for along with the
+	 * associated output message.
+	 */
+	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[]): MessageRenderInfo[] {
+		const toReturn: MessageRenderInfo[] = [];
+
+		for (const output of outputs) {
+			const outputMimeTypes = Object.keys(output.data);
+			const matchingMimeType = outputMimeTypes.find(mimeType => {
+				const renderer = this._notebookService.getPreferredRenderer(mimeType);
+				if (renderer) {
+					toReturn.push({ mimeType, renderer, output });
+					return true;
+				}
+				return false;
+			});
+
+			if (!matchingMimeType) {
+				this._logService.warn(
+					'Failed to find renderer for output with mime types: ' +
+					outputMimeTypes.join(', ') +
+					'/nOutput will be ignored.'
+				);
+			}
+		}
+		return toReturn;
+	}
+
+	/**
+	 * Create a webview associated with multiple outputs.
+	 * @param runtime Runtime session associated with the outputs.
+	 * @param outputs Array of outputs to render.
+	 * @param viewType The type of view to render.
+	 * @returns Promise containing the webview messages will be renred into.
+	 */
+	async createMultiOutputWebview(
+		runtime: ILanguageRuntimeSession,
+		outputs: ILanguageRuntimeMessageWebOutput[],
+		viewType?: string
+	): Promise<INotebookOutputWebview | undefined> {
+		const renderInfo = this._findRenderersForOutputs(outputs);
+		// We use the last output message as the id as it's typically the "display" message.
+		const idForOutput = outputs.at(-1)?.id;
+		if (!idForOutput) {
+			throw new Error('No output ID found');
+		}
+
+		return this.createNotebookRenderOutput(
+			idForOutput,
+			runtime,
+			renderInfo,
+			viewType
+		);
+	}
 
 	async createNotebookOutputWebview(
 		runtime: ILanguageRuntimeSession,
@@ -53,8 +122,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
-				return this.createNotebookRenderOutput(output.id, runtime,
-					renderer, mimeType, output, viewType);
+				return this.createNotebookRenderOutput(
+					output.id,
+					runtime,
+					{ renderer, mimeType, output },
+					viewType
+				);
 			}
 		}
 
@@ -79,12 +152,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 * Gets renderer data for a given MIME type. This is used to inject only the
 	 * needed renderers into the webview.
 	 *
-	 * @param mimeType The MIME type to get renderers for
+	 * @param mimeTypes The MIME types to get renderers for
 	 * @returns An array of renderers that can render the given MIME type
 	 */
-	private getRendererData(mimeType: string): RendererMetadata[] {
+	private getRendererData(mimeTypes: string[]): RendererMetadata[] {
 		return this._notebookService.getRenderers()
-			.filter(renderer => renderer.mimeTypes.includes(mimeType))
+			.filter(renderer => mimeTypes.some(mimeType => renderer.mimeTypes.includes(mimeType)))
 			.map((renderer): RendererMetadata => {
 				const entrypoint = {
 					extends: renderer.entrypoint.extends,
@@ -126,10 +199,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	/**
-	 * Gets the resource roots for a given message and view type.
+	 * Gets the resource roots for a given messages and view type.
 	 */
 	private getResourceRoots(
-		message: ILanguageRuntimeMessageWebOutput,
+		messages: ILanguageRuntimeMessageWebOutput[],
 		viewType: string | undefined,
 	): URI[] {
 
@@ -152,9 +225,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Add auxiliary resource roots contained in the runtime message
 		// These are currently used by positron-r's htmlwidgets renderer
-		if (message.resource_roots) {
-			for (const root of message.resource_roots) {
-				resourceRoots.push(URI.revive(root));
+		for (const message of messages) {
+			if (message.resource_roots) {
+				for (const root of message.resource_roots) {
+					resourceRoots.push(URI.revive(root));
+				}
 			}
 		}
 		return resourceRoots;
@@ -162,11 +237,13 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	private async createNotebookRenderOutput(id: string,
 		runtime: ILanguageRuntimeSession,
-		renderer: INotebookRendererInfo,
-		mimeType: string,
-		message: ILanguageRuntimeMessageWebOutput,
+		messagesInfo: MessageRenderInfo | MessageRenderInfo[],
 		viewType?: string,
 	): Promise<INotebookOutputWebview> {
+		// Make message info into an array if it isn't already
+		if (!Array.isArray(messagesInfo)) {
+			messagesInfo = [messagesInfo];
+		}
 
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
@@ -185,7 +262,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			linkifyFilePaths: false,
 			minimalError: false,
 		},
-			this.getRendererData(mimeType),
+			this.getRendererData(messagesInfo.map(info => info.mimeType)),
 			await this.getStaticPreloadsData(viewType),
 			this._workspaceTrustManagementService.isWorkspaceTrusted(),
 			id);
@@ -197,10 +274,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				// Needed since we use the API ourselves, and it's also used by
 				// preload scripts
 				allowMultipleAPIAcquire: true,
-				localResourceRoots: this.getResourceRoots(message, viewType),
+				localResourceRoots: this.getResourceRoots(messagesInfo.map(info => info.output), viewType),
 			},
 			extension: {
-				id: renderer.extensionId,
+				// Just choose last renderer for now. This may be insufficient in the future.
+				id: messagesInfo.at(-1)!.renderer.extensionId,
 			},
 			options: {},
 			title: '',
@@ -228,23 +306,26 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 `);
 
 		const render = () => {
-			const data = message.data[mimeType];
-			// Send a message to the webview to render the output.
-			const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-				VSBuffer.fromString(JSON.stringify(data));
-			// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-			//   argument to postMessage.
-			const transfer: ArrayBuffer[] = [];
-			const webviewMessage: IPositronRenderMessage = {
-				type: 'positronRender',
-				outputId: id,
-				elementId: 'container',
-				rendererId: renderer.id,
-				mimeType,
-				metadata: message.metadata,
-				valueBytes: valueBytes.buffer,
-			};
-			webview.postMessage(webviewMessage, transfer);
+			// Loop through all the messages and render them in the webview
+			for (const { output: message, mimeType, renderer } of messagesInfo) {
+				const data = message.data[mimeType];
+				// Send a message to the webview to render the output.
+				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+					VSBuffer.fromString(JSON.stringify(data));
+				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+				//   argument to postMessage.
+				const transfer: ArrayBuffer[] = [];
+				const webviewMessage: IPositronRenderMessage = {
+					type: 'positronRender',
+					outputId: message.id,
+					elementId: 'container',
+					rendererId: renderer.id,
+					mimeType,
+					metadata: message.metadata,
+					valueBytes: valueBytes.buffer,
+				};
+				webview.postMessage(webviewMessage, transfer);
+			}
 		};
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);

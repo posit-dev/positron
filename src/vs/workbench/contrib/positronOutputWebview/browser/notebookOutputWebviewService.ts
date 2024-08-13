@@ -63,6 +63,24 @@ export interface IPositronNotebookOutputWebviewService {
 	): Promise<INotebookOutputWebview | undefined>;
 
 	/**
+	 * Create a new notebook output webview from a series of output messages.
+	 *
+	 * This is useful for situations where a plot may have dependencies that are provided by
+	 * separate messages.
+	 *
+	 * @param runtime The runtime that emitted the output
+	 * @param outputs The messages to be sent into webview. The final message that triggered the
+	 * plotting should be the final element of the array.
+	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
+	 *  select the required notebook preload scripts for the webview.
+	 */
+	createMultiOutputWebview(
+		runtime: ILanguageRuntimeSession,
+		outputs: ILanguageRuntimeMessageOutput[],
+		viewType?: string,
+	): Promise<INotebookOutputWebview | undefined>;
+
+	/**
 	 * Create a new raw HTML output webview.
 	 *
 	 * @param opts The options for the webview
