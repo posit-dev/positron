@@ -11,7 +11,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
@@ -28,6 +28,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
+import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -58,6 +59,7 @@ export interface ActionBarsProps {
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
 	const positronPlotsContext = usePositronPlotsContext();
+	const [enableEditorPlot, setEnableEditorPlots] = React.useState<boolean>(false);
 
 	// Do we have any plots?
 	const noPlots = positronPlotsContext.positronPlotInstances.length === 0;
@@ -84,13 +86,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
-	const enableEditorPlot = hasPlots
-		&& (selectedPlot instanceof PlotClientInstance
-			|| selectedPlot instanceof StaticPlotClient);
 
 	useEffect(() => {
-		// Empty for now.
+		const disposable = props.configurationService.onDidChangeConfiguration((event: IConfigurationChangeEvent) => {
+			if (event.affectedKeys.has(POSITRON_EDITOR_PLOTS)) {
+				setEnableEditorPlots(isEditorPlotsEnabled());
+			}
+		});
+		return () => disposable.dispose();
 	});
+
+	const isEditorPlotsEnabled = () => {
+		return hasPlots && positronPlotsEditorEnabled(props.configurationService)
+			&& (selectedPlot instanceof PlotClientInstance
+				|| selectedPlot instanceof StaticPlotClient);
+	}
 
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {

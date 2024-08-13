@@ -6,15 +6,20 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Schemas } from 'vs/base/common/network';
 import { localize } from 'vs/nls';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from 'vs/platform/configuration/common/configurationRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
+import { applicationConfigurationNodeBase } from 'vs/workbench/common/configuration';
 import { registerWorkbenchContribution2, WorkbenchPhase } from 'vs/workbench/common/contributions';
 import { EditorExtensions } from 'vs/workbench/common/editor';
 import { PositronPlotsEditor } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor';
 import { PositronPlotsEditorInput } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditorInput';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
+
+export const POSITRON_EDITOR_PLOTS = 'workbench.experimental.positronPlotsEditor';
 
 class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';
@@ -71,4 +76,22 @@ registerWorkbenchContribution2(
 	PositronPlotsEditorContribution.ID,
 	PositronPlotsEditorContribution,
 	WorkbenchPhase.AfterRestored
-)
+);
+
+const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
+configurationRegistry.registerConfiguration({
+	...applicationConfigurationNodeBase,
+	properties: {
+		[POSITRON_EDITOR_PLOTS]: {
+			scope: ConfigurationScope.APPLICATION,
+			type: 'boolean',
+			default: true,
+			tags: ['experimental'],
+			description: localize('workbench.positronPlotsEditor.description', 'When enabled, plots can be opened in an editor.')
+		}
+	}
+});
+
+export function positronPlotsEditorEnabled(configurationService: IConfigurationService) {
+	return Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
+}

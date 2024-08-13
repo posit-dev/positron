@@ -7,9 +7,11 @@ import * as nls from 'vs/nls';
 import { localize, localize2 } from 'vs/nls';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2 } from 'vs/platform/actions/common/actions';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { POSITRON_EDITOR_PLOTS } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution';
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export const POSITRON_PLOTS_ACTION_CATEGORY = nls.localize('positronPlotsCategory', "Plots");
@@ -214,6 +216,7 @@ export class PlotsEditorAction extends Action2 {
 			title: localize2('positronPlots.openEditor', 'Open Plot in Editor'),
 			category,
 			f1: true,
+			precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
 		});
 	}
 
