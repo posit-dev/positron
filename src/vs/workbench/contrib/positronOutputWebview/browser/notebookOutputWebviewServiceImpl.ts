@@ -83,7 +83,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 * @param runtime Runtime session associated with the outputs.
 	 * @param outputs Array of outputs to render.
 	 * @param viewType The type of view to render.
-	 * @returns Promise containing the webview messages will be renred into.
+	 * @returns Promise containing the webview that messages will be rendered into.
 	 */
 	async createMultiOutputWebview(
 		runtime: ILanguageRuntimeSession,
