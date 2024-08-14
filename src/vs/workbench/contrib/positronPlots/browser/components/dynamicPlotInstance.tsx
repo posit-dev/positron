@@ -116,6 +116,8 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				return;
 			}
 
+			const activeWindow = DOM.getActiveWindow();
+
 			// If we're rendering, show a progress bar.
 			if (state === PlotClientState.Rendering) {
 				// Create the progress bar.
@@ -128,7 +130,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					// to be done.
 					const started = Date.now();
 					progressBar.total(props.plotClient.renderEstimateMs);
-					progressTimer = DOM.getActiveWindow().setInterval(() => {
+					progressTimer = activeWindow.setInterval(() => {
 						// Every 100ms, update the progress bar.
 						progressBar?.setWorked(Date.now() - started);
 					}, 100);
@@ -142,7 +144,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				// When the render completes, clean up the progress bar and
 				// timers if they exist.
 				if (progressTimer) {
-					DOM.getActiveWindow().clearTimeout(progressTimer);
+					activeWindow.clearTimeout(progressTimer);
 					progressTimer = undefined;
 				}
 				if (progressBar) {
