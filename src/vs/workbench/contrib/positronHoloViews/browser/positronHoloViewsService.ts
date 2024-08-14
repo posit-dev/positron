@@ -25,7 +25,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageOutput[]>();
 
 	/**
-	 * Map to disposeable stores for each session. Used to preventing memory leaks caused by
+	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
 	 * repeatedly attaching to the same session which can happen in the case of the application
 	 * closing before the session ends
 	 */
