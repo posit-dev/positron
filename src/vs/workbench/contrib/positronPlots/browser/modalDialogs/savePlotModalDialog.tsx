@@ -109,7 +109,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
 	const [format, setFormat] = React.useState(RenderFormat.Png);
-	const [useIntrinsicSize, setUseIntrinsicSize] = React.useState(false);
+	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(false);
 	const [width, setWidth] = React.useState({ value: props.plotSize?.width, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotSize?.height, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
@@ -232,7 +232,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const generatePreview = async (format: RenderFormat): Promise<IRenderedPlot> => {
 		let size: IPlotSize | undefined;
-		if (!useIntrinsicSize) {
+		if (!enableIntrinsicSize) {
 			if (!width.value || !height.value) {
 				throw new Error('Width and height must be defined for plots that do not support intrinsic size.');
 			}
@@ -251,7 +251,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	let displayWidth = 0;
 	let displayHeight = 0;
-	if (useIntrinsicSize && props.plotIntrinsicSize) {
+	if (enableIntrinsicSize && props.plotIntrinsicSize) {
 		displayWidth = props.plotIntrinsicSize.width;
 		displayHeight = props.plotIntrinsicSize.height;
 
@@ -334,7 +334,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								onChange={e => updateWidth(e.target.value)}
 								min={1}
 								error={!width.valid}
-								disabled={useIntrinsicSize}
+								disabled={enableIntrinsicSize}
 							/>
 							<LabeledTextInput
 								label={(() => localize(
@@ -346,7 +346,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								onChange={e => updateHeight(e.target.value)}
 								min={1}
 								error={!height.valid}
-								disabled={useIntrinsicSize}
+								disabled={enableIntrinsicSize}
 							/>
 							{enableDPI && <LabeledTextInput
 								label={(() => localize(
@@ -393,7 +393,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
 								))()}
-								onChanged={checked => setUseIntrinsicSize(checked)} />}
+								onChanged={checked => setEnableIntrinsicSize(checked)} />}
 						</div>
 						<div className='preview-progress'>
 							{rendering && <ProgressBar />}
