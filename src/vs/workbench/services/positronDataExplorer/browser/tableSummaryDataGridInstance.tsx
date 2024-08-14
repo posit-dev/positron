@@ -12,9 +12,14 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
+import { PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDate';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
+import { PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
+import { PROFILE_STRING_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { PROFILE_BOOLEAN_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { PROFILE_DATE_TIME_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
 
 /**
  * Constants.
@@ -173,42 +178,41 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		 * @param profileLines
 		 * @returns
 		 */
-		const rowHeight = (profileLines: number) => {
-			if (profileLines === 0) {
-				return SUMMARY_HEIGHT;
-			} else {
-				return SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
-			}
-		};
+		const rowHeight = (profileLines: number) => profileLines === 0 ?
+			SUMMARY_HEIGHT :
+			SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
 			case ColumnDisplayType.Number:
-				return rowHeight(6);
+				return rowHeight(PROFILE_NUMBER_LINE_COUNT);
 
 			case ColumnDisplayType.Boolean:
-				return rowHeight(3);
+				return rowHeight(PROFILE_BOOLEAN_LINE_COUNT);
 
 			case ColumnDisplayType.String:
-				return rowHeight(3);
+				return rowHeight(PROFILE_STRING_LINE_COUNT);
 
 			case ColumnDisplayType.Date:
-				return rowHeight(7);
+				return rowHeight(PROFILE_DATE_LINE_COUNT);
 
 			case ColumnDisplayType.Datetime:
-				return rowHeight(7);
+				return rowHeight(PROFILE_DATE_TIME_LINE_COUNT);
 
 			case ColumnDisplayType.Time:
-				return rowHeight(7);
+				return rowHeight(0);
+
+			case ColumnDisplayType.Object:
+				return rowHeight(0);
 
 			case ColumnDisplayType.Array:
-				return rowHeight(2);
+				return rowHeight(0);
 
 			case ColumnDisplayType.Struct:
-				return rowHeight(2);
+				return rowHeight(0);
 
 			case ColumnDisplayType.Unknown:
-				return rowHeight(2);
+				return rowHeight(0);
 
 			// This shouldn't ever happen.
 			default:

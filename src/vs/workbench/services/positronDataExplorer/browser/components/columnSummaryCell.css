@@ -3,9 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-grid-row-cell
-.content
-.column-summary {
+.data-grid-row-cell .content .column-summary {
 	top: 0;
 	right: 0;
 	bottom: 0;
@@ -17,10 +15,7 @@
 	grid-template-rows: [basic-info] 34px [profile-info] 1fr [end];
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.cursor {
+.data-grid-row-cell .content .column-summary .cursor {
 	top: 2px;
 	right: 2px;
 	bottom: 2px;
@@ -31,17 +26,11 @@
 	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.cursor:not(.focused) {
+.data-grid-row-cell .content .column-summary .cursor:not(.focused) {
 	opacity: 50%;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info {
+.data-grid-row-cell .content .column-summary .basic-info {
 	display: grid;
 	align-items: center;
 	white-space: nowrap;
@@ -49,11 +38,7 @@
 	grid-template-columns: [left-gutter] 4px [expand-collapse] 25px [icon] 25px [title] 1fr [missing-values] min-content [right-gutter] 12px [end];
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.expand-collapse-button {
+.data-grid-row-cell .content .column-summary .basic-info .expand-collapse-button {
 	width: 25px;
 	height: 25px;
 	display: flex;
@@ -63,37 +48,21 @@
 	grid-column: expand-collapse / icon;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.expand-collapse-button.disabled {
+.data-grid-row-cell .content .column-summary .basic-info .expand-collapse-button.disabled {
 	opacity: 0%;
 	cursor: default;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.expand-collapse-button:focus {
+.data-grid-row-cell .content .column-summary .basic-info .expand-collapse-button:focus {
 	outline: none !important;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.expand-collapse-button:focus-visible {
+.data-grid-row-cell .content .column-summary .basic-info .expand-collapse-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.data-type-icon {
+.data-grid-row-cell .content .column-summary .basic-info .data-type-icon {
 	width: 25px;
 	height: 25px;
 	opacity: 80%;
@@ -103,11 +72,7 @@
 	grid-column: icon / title;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.basic-info
-.column-name {
+.data-grid-row-cell .content .column-summary .basic-info .column-name {
 	overflow: hidden;
 	font-weight: 600;
 	margin-right: 4px;
@@ -115,95 +80,44 @@
 	grid-column: title / missing-values;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info {
+.data-grid-row-cell .content .column-summary .profile-info {
 	display: grid;
 	grid-row: profile-info / end;
-	grid-template-columns: [left-gutter] 54px [tabular-info] 1fr [right-gutter] 12px [end];
+	grid-template-columns: [left-gutter] 54px [tabular-info] 1fr [spacer] 30px [right-gutter] 12px [end];
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info {
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info {
 	display: grid;
 	overflow: hidden;
-	grid-column: tabular-info / right-gutter;
-	grid-template-columns: [labels] min-content [values] min-content [end];
+	max-width: 400px;
+	grid-column: tabular-info / spacer;
+	grid-template-columns: [labels] min-content [middle] 1fr [values] auto [end];
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.labels
-{
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info .labels {
 	margin-right: 10px;
-	grid-column: labels / values;
+	grid-column: labels / middle;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.labels
-.label {
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info .labels .label {
 	height: 20px;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.values
-{
-	display: grid;
-	font-weight: 600;
-	text-align: left;
-	grid-column: values / end;
-	grid-template-columns: [whole-number-value] max-content [fractional-value] min-content [end];
-}
-
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.values
-.values-left
-{
-	font-weight: 600;
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info .values {
+	overflow: hidden;
 	text-align: right;
-	font-variant-numeric: tabular-nums;
-	grid-column: whole-number-value / fractional-value;
+	grid-column: values / end;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.values
-.values-right
-{
-	font-weight: 600;
-	text-align: left;
-	font-variant-numeric: tabular-nums;
-	grid-column: fractional-value / end;
-}
-
-.data-grid-row-cell
-.content
-.column-summary
-.profile-info
-.tabular-info
-.values
-.value {
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info .values .value-placeholder {
 	height: 20px;
+}
+
+.data-grid-row-cell .content .column-summary .profile-info .tabular-info .values .value {
+	height: 20px;
+	font-weight: 600;
+	overflow: hidden;
+	text-wrap: nowrap;
+	text-overflow: ellipsis;
+	font-variant-numeric: tabular-nums;
 }

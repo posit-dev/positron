@@ -8,12 +8,17 @@ import 'vs/css!./profileBoolean';
 
 // React.
 import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
+import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
+import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
+import { positronFalse, positronMissing, positronTrue } from 'vs/workbench/services/positronDataExplorer/common/constants';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+
+/**
+ * Constants.
+ */
+export const PROFILE_BOOLEAN_LINE_COUNT = 3;
 
 /**
  * ProfileBooleanProps interface.
@@ -25,50 +30,25 @@ interface ProfileBooleanProps {
 
 /**
  * ProfileBoolean component.
- * @param props A ProfileStringProps that contains the component properties.
+ * @param props A ProfileBooleanProps that contains the component properties.
  * @returns The rendered component.
  */
 export const ProfileBoolean = (props: ProfileBooleanProps) => {
-	let stats: any = props.instance.getColumnSummaryStats(props.columnIndex)?.boolean_stats!;
-	const nullCount = props.instance.getColumnNullCount(props.columnIndex);
-	if (!stats) {
-		stats = {};
-	}
-
-	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Use the editor font.
-		disposableStore.add(
-			editorFontApplier(
-				props.instance.configurationService,
-				ref.current
-			)
-		);
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [props.instance.configurationService]);
+	// Get the stats.
+	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.boolean_stats;
 
 	// Render.
 	return (
-		<div ref={ref} className='tabular-info'>
+		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>NA</div>
-				<div className='label'>True:</div>
-				<div className='label'>False:</div>
+				<div className='label'>{positronMissing}</div>
+				<div className='label'>{positronTrue}</div>
+				<div className='label'>{positronFalse}</div>
 			</div>
 			<div className='values'>
-				<div className='values-left'>
-					<div className='value'>{nullCount}</div>
-					<div className='value'>{stats.true_count}</div>
-					<div className='value'>{stats.false_count}</div>
-				</div>
+				<ColumnNullCountValue {...props} />
+				<StatsValue stats={stats} value={stats?.true_count} />
+				<StatsValue stats={stats} value={stats?.false_count} />
 			</div>
 		</div>
 	);

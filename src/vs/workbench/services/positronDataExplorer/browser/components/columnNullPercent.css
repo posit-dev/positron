@@ -3,10 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent {
+.data-grid-row-cell .content .column-summary .column-null-percent {
 	display: grid;
 	grid-gap: 5px;
 	align-items: center;
@@ -14,47 +11,30 @@
 	grid-template-columns: [percent] min-content [graph] 25px [end];
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent
-.text-percent {
+.data-grid-row-cell .content .column-summary .column-null-percent .text-percent {
 	font-size: 90%;
 	grid-column: percent / graph;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent
-.text-percent.zero {
+.data-grid-row-cell .content .column-summary .column-null-percent .text-percent.zero {
 	opacity: 50%;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent
-.graph-percent {
+.data-grid-row-cell .content .column-summary .column-null-percent .graph-percent {
 	display: flex;
 	grid-column: graph / end;
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent
-.graph-percent
-.background {
+.data-grid-row-cell .content .column-summary .column-null-percent .graph-percent .empty {
+	fill: transparent;
+	stroke: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundStroke);
+}
+
+.data-grid-row-cell .content .column-summary .column-null-percent .graph-percent .background {
 	fill: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundFill);
 	stroke: var(--vscode-positronDataExplorer-columnNullPercentGraphBackgroundStroke);
 }
 
-.data-grid-row-cell
-.content
-.column-summary
-.column-null-percent
-.graph-percent
-.indicator {
+.data-grid-row-cell .content .column-summary .column-null-percent .graph-percent .indicator {
 	fill: var(--vscode-positronDataExplorer-columnNullPercentGraphIndicatorFill);
 }
