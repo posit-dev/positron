@@ -259,14 +259,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		if (props.plotIntrinsicSize.unit === PlotUnit.Inches) {
 			displayWidth *= dpi.value;
 			displayHeight *= dpi.value;
-		} else if (props.plotIntrinsicSize.unit !== PlotUnit.Pixels) {
-			props.logService.error('Unknown unit');
 		}
 	} else if (width.value && height.value) {
 		displayWidth = width.value;
 		displayHeight = height.value;
-	} else {
-		props.logService.error('Invalid state: Either provide an intrinsic size or explicit plot size.');
 	}
 
 	return (
