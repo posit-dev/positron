@@ -78,7 +78,7 @@ export const Scrollable = (props: PropsWithChildren<ScrollableProps>) => {
 		return () => scrollableElement?.dispose();
 	}, [scrollableElement]);
 
-	React.useEffect(() => {
+	React.useLayoutEffect(() => {
 		// need to remove overflow hidden if the content height fits perfectly
 		// otherwise, it still scrolls a pixel despite all the content being visible
 		if (props.scrollableHeight === props.height) {
