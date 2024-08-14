@@ -2568,12 +2568,7 @@ class DataExplorerService:
         if comm_id is None:
             comm_id = guid()
 
-        if variable_path is not None:
-            full_title = ", ".join([str(decode_access_key(k)) for k in variable_path])
-        else:
-            full_title = title
-
-        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(full_title))
+        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(title))
 
         base_comm = comm.create_comm(
             target_name=self.comm_target,
@@ -2719,7 +2714,7 @@ class DataExplorerService:
             # over. At some point we can return here and selectively
             # preserve state if we can confidently do so.
             schema_updated = True
-            new_state = DataExplorerState(full_title)
+            new_state = DataExplorerState(table_view.state.name)
         else:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 
