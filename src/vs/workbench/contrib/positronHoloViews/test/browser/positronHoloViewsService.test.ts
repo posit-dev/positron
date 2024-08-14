@@ -43,6 +43,30 @@ class TestNotebookService implements Partial<INotebookService> {
 	}
 }
 
+const hvPreloadMessage1 = {
+	kind: RuntimeOutputKind.HoloViews,
+	data: {
+		'application/vnd.holoviews_load.v0+json': {},
+	},
+};
+
+const hvPreloadMessage2 = {
+	kind: RuntimeOutputKind.HoloViews,
+	data: {
+		'application/vnd.holoviews_load.v0+json': 'bar',
+		'text/html': '<div></div>',
+	},
+};
+
+const hvDisplayMessage = {
+	kind: RuntimeOutputKind.HoloViews,
+	data: {
+		"application/vnd.holoviews_exec.v0+json": '',
+		'text/html': '<div></div>',
+		'text/plain': 'hello',
+	},
+};
+
 suite('Positron - PositronHoloViewsService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -89,39 +113,38 @@ suite('Positron - PositronHoloViewsService', () => {
 		const consoleSession = await createConsoleSession();
 
 		// Simulate the runtime sending an HoloViews output message.
-		consoleSession.session.receiveOutputMessage({
-			kind: RuntimeOutputKind.HoloViews,
-			data: {
-				'application/vnd.holoviews_load.v0+json': {},
-			},
-		});
-
+		consoleSession.session.receiveOutputMessage(hvPreloadMessage1);
 		await timeout(0);
+
+		// No plot should have been emitted.
 		assert(!Boolean(consoleSession.plotClient));
 		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
 
-		consoleSession.session.receiveOutputMessage({
-			kind: RuntimeOutputKind.HoloViews,
-			data: {
-				'application/vnd.holoviews_load.v0+json': 'bar',
-				'text/html': '<div></div>',
-			},
-		});
+		// Send another preload message.
+		consoleSession.session.receiveOutputMessage(hvPreloadMessage2);
+		await timeout(0);
 		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 2);
 
+		// End the session.
+		consoleSession.session.endSession();
+		await timeout(0);
+	});
+
+	test('console session: Service emits plot client after display message is received', async () => {
+		const consoleSession = await createConsoleSession();
+
+		// Send one preload message.
+		consoleSession.session.receiveOutputMessage(hvPreloadMessage1);
+		await timeout(0);
+
 		// Send a display message
-		const displayMessage = consoleSession.session.receiveOutputMessage({
-			kind: RuntimeOutputKind.HoloViews,
-			data: {
-				"application/vnd.holoviews_exec.v0+json": '',
-				'text/html': '<div></div>',
-				'text/plain': 'hello',
-			},
-		});
+		const displayMessage = consoleSession.session.receiveOutputMessage(hvDisplayMessage);
 		await timeout(0);
 
 		// Display message shouldnt have been absorbed into preload messages
-		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 2);
+		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
+
+		// Plot client should have been emitted and it should be linked to the display message.
 		assert(Boolean(consoleSession.plotClient));
 		assert.strictEqual(consoleSession.plotClient!.id, displayMessage.id);
 
