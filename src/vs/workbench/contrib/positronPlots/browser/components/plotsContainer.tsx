@@ -92,6 +92,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				key={plotInstance.id}
 				width={plotWidth}
 				height={plotHeight}
+				zoom={props.zoom}
 				plotClient={plotInstance} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance

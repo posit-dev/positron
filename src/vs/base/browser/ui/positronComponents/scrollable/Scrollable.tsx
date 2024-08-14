@@ -78,6 +78,16 @@ export const Scrollable = (props: PropsWithChildren<ScrollableProps>) => {
 		return () => scrollableElement?.dispose();
 	}, [scrollableElement]);
 
+	React.useLayoutEffect(() => {
+		// need to remove overflow hidden if the content height fits perfectly
+		// otherwise, it still scrolls a pixel despite all the content being visible
+		if (props.scrollableHeight === props.height) {
+			scrollableRef.current?.style.removeProperty('overflow');
+		} else {
+			scrollableRef.current?.style.setProperty('overflow', 'hidden');
+		}
+	}, [props.height, props.scrollableHeight, scrollableElement]);
+
 	const updateCursor = (event: React.MouseEvent<HTMLElement>) => {
 		if (props.mousePan) {
 			if (event.type === 'mousedown' && event.buttons === 1) {

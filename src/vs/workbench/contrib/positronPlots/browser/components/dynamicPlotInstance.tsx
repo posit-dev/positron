@@ -4,10 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
+import * as DOM from 'vs/base/browser/dom';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
+import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/components/panZoomImage';
+import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
@@ -17,6 +20,7 @@ import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/langu
 interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
+	zoom: ZoomLevel;
 	plotClient: PlotClientInstance;
 }
 
@@ -39,7 +43,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 	const plotsContext = usePositronPlotsContext();
 
 	useEffect(() => {
-		const ratio = window.devicePixelRatio;
+		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
 		// If the plot is already rendered, use the old image until the new one is ready.
@@ -118,7 +122,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					// to be done.
 					const started = Date.now();
 					progressBar.total(props.plotClient.renderEstimateMs);
-					progressTimer = window.setInterval(() => {
+					progressTimer = DOM.getActiveWindow().setInterval(() => {
 						// Every 100ms, update the progress bar.
 						progressBar?.setWorked(Date.now() - started);
 					}, 100);
@@ -132,7 +136,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				// When the render completes, clean up the progress bar and
 				// timers if they exist.
 				if (progressTimer) {
-					window.clearTimeout(progressTimer);
+					DOM.getActiveWindow().clearTimeout(progressTimer);
 					progressTimer = undefined;
 				}
 				if (progressBar) {
@@ -145,16 +149,19 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	});
+	}, [props.plotClient, props.height, props.width, plotsContext.positronPlotsService, plotsContext.notificationService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {
-		return <div className='image-wrapper'>
-			<img src={uri}
-				alt={props.plotClient.metadata.code ?
-					props.plotClient.metadata.code :
-					'Plot ' + props.plotClient.id} />
-		</div>;
+		return <PanZoomImage
+			imageUri={uri}
+			description={props.plotClient.metadata.code ?
+				props.plotClient.metadata.code :
+				'Plot ' + props.plotClient.id}
+			zoom={props.zoom}
+			width={props.width}
+			height={props.height}
+		/>;
 	};
 
 	// Render method for the placeholder
