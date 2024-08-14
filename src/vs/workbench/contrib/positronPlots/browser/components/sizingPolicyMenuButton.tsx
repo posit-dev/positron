@@ -8,7 +8,7 @@ import * as React from 'react';
 
 // Other dependencies
 import * as nls from 'vs/nls';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -20,6 +20,7 @@ import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/b
 import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { disposableTimeout } from 'vs/base/common/async';
 
 interface SizingPolicyMenuButtonProps {
 	readonly keybindingService: IKeybindingService;
@@ -52,11 +53,11 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 			// If the intrinsic policy is active and the plot's intrinsic size has not been received,
 			// debounce the active policy label update to avoid flickering.
-			let debounceTimeout: NodeJS.Timeout | undefined;
+			let debounceTimeout: IDisposable | undefined;
 			if (policy instanceof PlotSizingPolicyIntrinsic && !props.plotClient.receivedIntrinsicSize) {
-				debounceTimeout = setTimeout(() => {
+				debounceTimeout = disposableTimeout(() => {
 					setActivePolicyLabel(policy.getName(props.plotClient));
-				}, 250);
+				}, 250, disposables);
 			} else {
 				setActivePolicyLabel(policy.getName(props.plotClient));
 			}
@@ -64,7 +65,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			if (policy instanceof PlotSizingPolicyIntrinsic) {
 				// Update the active policy label when the selected policy's name changes.
 				disposables.add(props.plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
-					clearTimeout(debounceTimeout);
+					debounceTimeout?.dispose();
 					setActivePolicyLabel(policy.getName(props.plotClient));
 				}));
 			}
