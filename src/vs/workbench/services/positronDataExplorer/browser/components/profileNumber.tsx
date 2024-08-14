@@ -41,20 +41,20 @@ export const ProfileNumber = (props: ProfileNumberProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
+				<div className='label'>{positronMissing}</div>
 				<div className='label'>{positronMin}</div>
 				<div className='label'>{positronMedian}</div>
 				<div className='label'>{positronMean}</div>
 				<div className='label'>{positronMax}</div>
 				<div className='label'>{positronSD}</div>
-				<div className='label'>{positronMissing}</div>
 			</div>
 			<div className='values'>
+				<ColumnNullCountValue {...props} />
 				<StatsValue stats={stats} value={stats?.min_value} />
 				<StatsValue stats={stats} value={stats?.median} />
 				<StatsValue stats={stats} value={stats?.mean} />
 				<StatsValue stats={stats} value={stats?.max_value} />
 				<StatsValue stats={stats} value={stats?.stdev} />
-				<ColumnNullCountValue {...props} />
 			</div>
 		</div>
 	);

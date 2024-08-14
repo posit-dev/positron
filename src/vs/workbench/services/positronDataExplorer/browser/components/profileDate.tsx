@@ -41,16 +41,16 @@ export const ProfileDate = (props: profileDateProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
+				<div className='label'>{positronMissing}</div>
 				<div className='label'>{positronMin}</div>
 				<div className='label'>{positronMedian}</div>
 				<div className='label'>{positronMax}</div>
-				<div className='label'>{positronMissing}</div>
 			</div>
 			<div className='values'>
+				<ColumnNullCountValue {...props} />
 				<StatsValue stats={stats} value={stats?.min_date} />
 				<StatsValue stats={stats} value={stats?.median_date} />
 				<StatsValue stats={stats} value={stats?.max_date} />
-				<ColumnNullCountValue {...props} />
 			</div>
 		</div>
 	);

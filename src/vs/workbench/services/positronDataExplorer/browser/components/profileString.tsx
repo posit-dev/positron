@@ -41,14 +41,14 @@ export const ProfileString = (props: ProfileStringProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
+				<div className='label'>{positronMissing}</div>
 				<div className='label'>{positronEmpty}</div>
 				<div className='label'>{positronUnique}</div>
-				<div className='label'>{positronMissing}</div>
 			</div>
 			<div className='values'>
+				<ColumnNullCountValue {...props} />
 				<StatsValue stats={stats} value={stats?.num_empty} />
 				<StatsValue stats={stats} value={stats?.num_unique} />
-				<ColumnNullCountValue {...props} />
 			</div>
 		</div>
 	);
