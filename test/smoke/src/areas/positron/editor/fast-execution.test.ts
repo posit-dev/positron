@@ -45,7 +45,6 @@ export function setup(logger: Logger) {
 						retries--;
 					}
 
-					console.log(currentTop);
 					previousTop = currentTop;
 
 					await app.code.driver.getKeyboard().press('Control+Enter');

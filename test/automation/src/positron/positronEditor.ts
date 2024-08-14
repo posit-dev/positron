@@ -7,6 +7,7 @@ import { Code } from '../code';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
+const CURRENT_LINE = '.view-overlays .current-line';
 
 
 export class PositronEditor {
@@ -23,7 +24,7 @@ export class PositronEditor {
 	}
 
 	async getCurrentLineTop(retries: number = 10): Promise<number> {
-		const currentLine = this.code.driver.getLocator('.view-overlays .current-line');
+		const currentLine = this.code.driver.getLocator(CURRENT_LINE);
 		const currentLineParent = currentLine.locator('..');
 
 		const top = await currentLineParent.evaluate((el) => {
