@@ -15,7 +15,7 @@ export function setup(logger: Logger) {
 
 	// does not pass on Ubuntu CI runner as execution is too fast
 	// keeping for OSX and Windows execution
-	describe.skip('Editor Pane: R', () => {
+	describe('Editor Pane: R', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -30,12 +30,24 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verify fast execution is not out of order [C712539]', async function () {
+			it('Verify fast execution is not out of order [C712539] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
+				let previousTop = -1;
 				for (let i = 1; i < 12; i++) {
+					let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+					let retries = 10; // Allow up to 10 retries if currentTop equals previousTop
+
+					while (currentTop === previousTop && retries > 0) {
+						currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+						retries--;
+					}
+
+					console.log(currentTop);
+					previousTop = currentTop;
+
 					await app.code.driver.getKeyboard().press('Control+Enter');
 				}
 

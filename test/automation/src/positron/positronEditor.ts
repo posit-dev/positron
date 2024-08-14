@@ -22,4 +22,21 @@ export class PositronEditor {
 		await lineLocator.press(press);
 	}
 
+	async getCurrentLineTop(retries: number = 10): Promise<number> {
+		const currentLine = this.code.driver.getLocator('.view-overlays .current-line');
+		const currentLineParent = currentLine.locator('..');
+
+		const top = await currentLineParent.evaluate((el) => {
+			return window.getComputedStyle(el).getPropertyValue('top');
+		});
+
+		const topValue = parseInt(top, 10);
+
+		if (isNaN(topValue) && retries > 0) {
+			return this.getCurrentLineTop(retries - 1);
+		}
+
+		return topValue;
+	}
+
 }
