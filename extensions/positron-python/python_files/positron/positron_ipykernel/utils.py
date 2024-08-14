@@ -25,7 +25,7 @@ from typing import (
     Union,
     cast,
 )
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 JsonRecord = Dict[str, JsonData]
@@ -398,8 +398,6 @@ def is_local_html_file(url: str) -> bool:
 
         # On Windows, the file path might be in netloc. This is the case for Bokeh HTML file URLs.
         path = parsed_url.path or parsed_url.netloc
-        if not path:
-            path = parsed_url.netloc
 
         # Check if the path contains the .html or .htm extensions
         ext = Path(path).suffix.lower()
