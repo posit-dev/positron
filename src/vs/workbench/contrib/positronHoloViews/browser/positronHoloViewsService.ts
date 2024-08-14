@@ -105,7 +105,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	private _addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageOutput) {
 		const sessionId = session.sessionId;
 
-		// Check if a message is a message that should be displayed rather than simple stored as
+		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
 		const isHoloViewDisplayMessage = MIME_TYPE_HOLOVIEWS_EXEC in msg.data &&
 			MIME_TYPE_HTML in msg.data &&
