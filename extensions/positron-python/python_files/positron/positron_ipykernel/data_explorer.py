@@ -930,42 +930,33 @@ def _pandas_datetimetz_mapper(type_name):
 def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
     float_format = _get_float_formatter(options)
 
+    min_val = max_val = median_val = mean_val = std_val = None
     if "complex" in str(col.dtype):
-        min_val = max_val = median_val = mean_val = None
         values = col.to_numpy()
         non_null_values = values[~np_.isnan(values)]
         if len(non_null_values) > 0:
             median_val = float_format(np_.median(non_null_values))
             mean_val = float_format(np_.mean(non_null_values))
-        return _box_number_stats(
-            min_val,
-            max_val,
-            mean_val,
-            median_val,
-            None,  # std_val
-        )
     else:
-        return _get_float_stats_generic(col, float_format)
+        non_null_values = col[col.notna()].to_numpy()  # type: ignore
 
+        if len(non_null_values) > 0:
+            min_val = non_null_values.min()
+            max_val = non_null_values.max()
 
-def _get_float_stats_generic(col, float_format):
-    # This works for both pandas and polars because their API for
-    # these functions is the same
-    median_val = mean_val = std_val = None
+            if not _isinf(min_val) and not _isinf(max_val):
+                # These stats are not defined when there is an
+                # inf/-inf in the data
+                mean_val = float_format(non_null_values.mean())
+                median_val = float_format(np_.median(non_null_values))
+                std_val = float_format(non_null_values.std(ddof=1))
 
-    min_val = col.min()
-    max_val = col.max()
-
-    if not _isinf(min_val) and not _isinf(max_val):
-        # These stats are not defined when there is an
-        # inf/-inf in the data
-        mean_val = float_format(col.mean())
-        median_val = float_format(col.median())
-        std_val = float_format(col.std())
+            min_val = float_format(min_val)
+            max_val = float_format(max_val)
 
     return _box_number_stats(
-        float_format(min_val),
-        float_format(max_val),
+        min_val,
+        max_val,
         mean_val,
         median_val,
         std_val,
@@ -1839,7 +1830,31 @@ def _parse_iso8601_like(x, tz=None):
 
 def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
     float_format = _get_float_formatter(options)
-    return _get_float_stats_generic(col, float_format)
+    min_val = max_val = median_val = mean_val = std_val = None
+
+    is_empty = col.null_count() == len(col)
+
+    if not is_empty:
+        min_val = col.min()
+        max_val = col.max()
+
+        if not _isinf(min_val) and not _isinf(max_val):  # type: ignore
+            # These stats are not defined when there is an
+            # inf/-inf in the data
+            mean_val = float_format(col.mean())
+            median_val = float_format(col.median())
+            std_val = float_format(col.std())
+
+        min_val = float_format(min_val)
+        max_val = float_format(max_val)
+
+    return _box_number_stats(
+        min_val,
+        max_val,
+        mean_val,
+        median_val,
+        std_val,
+    )
 
 
 def _polars_summarize_string(col: "pl.Series", _):
@@ -2553,12 +2568,7 @@ class DataExplorerService:
         if comm_id is None:
             comm_id = guid()
 
-        if variable_path is not None:
-            full_title = ", ".join([str(decode_access_key(k)) for k in variable_path])
-        else:
-            full_title = title
-
-        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(full_title))
+        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(title))
 
         base_comm = comm.create_comm(
             target_name=self.comm_target,
@@ -2704,7 +2714,7 @@ class DataExplorerService:
             # over. At some point we can return here and selectively
             # preserve state if we can confidently do so.
             schema_updated = True
-            new_state = DataExplorerState(full_title)
+            new_state = DataExplorerState(table_view.state.name)
         else:
             schema_updated, new_state = table_view.get_updated_state(new_table)
 

@@ -8,12 +8,17 @@ import 'vs/css!./profileString';
 
 // React.
 import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
+import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
+import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
+import { positronEmpty, positronMissing, positronUnique } from 'vs/workbench/services/positronDataExplorer/common/constants';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+
+/**
+ * Constants.
+ */
+export const PROFILE_STRING_LINE_COUNT = 3;
 
 /**
  * ProfileStringProps interface.
@@ -29,46 +34,21 @@ interface ProfileStringProps {
  * @returns The rendered component.
  */
 export const ProfileString = (props: ProfileStringProps) => {
-	let stats: any = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats!;
-	const nullCount = props.instance.getColumnNullCount(props.columnIndex);
-	if (!stats) {
-		stats = {};
-	}
-
-	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Use the editor font.
-		disposableStore.add(
-			editorFontApplier(
-				props.instance.configurationService,
-				ref.current
-			)
-		);
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [props.instance.configurationService]);
+	// Get the null count and string stats.
+	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats;
 
 	// Render.
 	return (
-		<div ref={ref} className='tabular-info'>
+		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>NA</div>
-				<div className='label'>Empty</div>
-				<div className='label'>Unique:</div>
+				<div className='label'>{positronMissing}</div>
+				<div className='label'>{positronEmpty}</div>
+				<div className='label'>{positronUnique}</div>
 			</div>
 			<div className='values'>
-				<div className='values-left'>
-					<div className='value'>{nullCount}</div>
-					<div className='value'>{stats.num_empty}</div>
-					<div className='value'>{stats.num_unique}</div>
-				</div>
+				<ColumnNullCountValue {...props} />
+				<StatsValue stats={stats} value={stats?.num_empty} />
+				<StatsValue stats={stats} value={stats?.num_unique} />
 			</div>
 		</div>
 	);

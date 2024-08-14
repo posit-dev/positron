@@ -270,13 +270,29 @@ def _check_update_variable(de_service, name, update_type="schema"):
 
 def test_register_table(de_service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
+    title = "test_table"
     comm_id = guid()
 
-    de_service.register_table(df, "test_table", comm_id=comm_id)
+    de_service.register_table(df, title, comm_id=comm_id)
 
     assert comm_id in de_service.comms
     table_view = de_service.table_views[comm_id]
     assert table_view.table is df
+    assert table_view.state.name == title
+
+
+def test_register_table_with_variable_path(de_service: DataExplorerService):
+    dfvp = pd.DataFrame({"v": [9, 8, 7]})
+    comm_id = guid()
+    title = "test_table"
+    path = ['{"type":"str","data":"dfvp"}']
+    de_service.register_table(dfvp, title, variable_path=path, comm_id=comm_id)
+
+    assert comm_id in de_service.comms
+    table_view = de_service.table_views[comm_id]
+    assert table_view.table is dfvp
+    # Also check the Data Explorer name is the same as the title, even though a path was provided
+    assert table_view.state.name == title
 
 
 def test_shutdown(de_service: DataExplorerService):
@@ -2416,6 +2432,7 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             ),  # datetime single tz
             "f7": [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, np.nan] * 20,  # complex,
             "f8": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+            "f9": [np.nan] * 100,
         }
     )
 
@@ -2547,6 +2564,11 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "df1",
             8,
             {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            9,
+            {},
         ),
         (
             "df_mixed_tz1",
@@ -3381,6 +3403,7 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 dtype=pl.Datetime("ms", time_zone="UTC"),
             ),  # datetime single tz
             "f7": [np.nan, np.inf, -np.inf, 0, np.nan] * 20,  # with infinity
+            "f8": pl.Series([None] * 100, dtype=pl.Float64),
         }
     )
 
@@ -3467,6 +3490,11 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
             "df1",
             7,
             {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            8,
+            {},
         ),
     ]
 
