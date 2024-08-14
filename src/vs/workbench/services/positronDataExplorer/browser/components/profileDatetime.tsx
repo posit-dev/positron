@@ -13,12 +13,12 @@ import * as React from 'react';
 import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
 import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { positronMax, positronMean, positronMedian, positronMin, positronMissing, positronTimezone } from 'vs/workbench/services/positronDataExplorer/common/constants';
+import { positronMax, positronMedian, positronMin, positronMissing, positronTimezone } from 'vs/workbench/services/positronDataExplorer/common/constants';
 
 /**
  * Constants.
  */
-export const PROFILE_DATE_TIME_LINE_COUNT = 6;
+export const PROFILE_DATE_TIME_LINE_COUNT = 5;
 
 /**
  * profileDateProps interface.
@@ -41,20 +41,18 @@ export const ProfileDatetime = (props: profileDatetimeProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>{positronMissing}</div>
-				<div className='label'>{positronMean}</div>
-				<div className='label'>{positronMedian}</div>
 				<div className='label'>{positronMin}</div>
+				<div className='label'>{positronMedian}</div>
 				<div className='label'>{positronMax}</div>
 				<div className='label'>{positronTimezone}</div>
+				<div className='label'>{positronMissing}</div>
 			</div>
 			<div className='values'>
-				<ColumnNullCountValue {...props} />
-				<StatsValue stats={stats} value={stats?.mean_date} />
-				<StatsValue stats={stats} value={stats?.median_date} />
 				<StatsValue stats={stats} value={stats?.min_date} />
+				<StatsValue stats={stats} value={stats?.median_date} />
 				<StatsValue stats={stats} value={stats?.max_date} />
 				<StatsValue stats={stats} value={stats?.timezone} />
+				<ColumnNullCountValue {...props} />
 			</div>
 		</div>
 	);

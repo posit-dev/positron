@@ -41,14 +41,14 @@ export const ProfileBoolean = (props: ProfileBooleanProps) => {
 	return (
 		<div className='tabular-info'>
 			<div className='labels'>
-				<div className='label'>{positronMissing}</div>
 				<div className='label'>{positronTrue}</div>
 				<div className='label'>{positronFalse}</div>
+				<div className='label'>{positronMissing}</div>
 			</div>
 			<div className='values'>
-				<ColumnNullCountValue {...props} />
 				<StatsValue stats={stats} value={stats?.true_count} />
 				<StatsValue stats={stats} value={stats?.false_count} />
+				<ColumnNullCountValue {...props} />
 			</div>
 		</div>
 	);
