@@ -8,12 +8,17 @@ import 'vs/css!./profileNumber';
 
 // React.
 import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
+import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
+import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { positronMax, positronMean, positronMedian, positronMin, positronMissing, positronSD } from 'vs/workbench/services/positronDataExplorer/common/constants';
+
+/**
+ * Constants.
+ */
+export const PROFILE_NUMBER_LINE_COUNT = 6;
 
 /**
  * ProfileNumberProps interface.
@@ -29,65 +34,27 @@ interface ProfileNumberProps {
  * @returns The rendered component.
  */
 export const ProfileNumber = (props: ProfileNumberProps) => {
-	let stats: any = props.instance.getColumnSummaryStats(props.columnIndex)?.number_stats!;
-	const nullCount = props.instance.getColumnNullCount(props.columnIndex);
-	if (!stats) {
-		stats = {};
-	}
-
-	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
-
-	// Main useEffect.
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Use the editor font.
-		disposableStore.add(
-			editorFontApplier(
-				props.instance.configurationService,
-				ref.current
-			)
-		);
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [props.instance.configurationService]);
-
-	const statsEntries = [
-		['NA', nullCount],
-	];
-	if (stats.mean) {
-		statsEntries.push(['Mean', stats.mean]);
-	}
-	if (stats.median) {
-		statsEntries.push(['Median', stats.median]);
-	}
-	if (stats.stdev) {
-		statsEntries.push(['SD', stats.stdev]);
-	}
-	if (stats.min_value) {
-		statsEntries.push(['Min', stats.min_value]);
-	}
-	if (stats.max_value) {
-		statsEntries.push(['Max', stats.max_value]);
-	}
+	// Get the null count and boolean stats.
+	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.number_stats;
 
 	// Render.
 	return (
-		<div ref={ref} className='tabular-info'>
+		<div className='tabular-info'>
 			<div className='labels'>
-				{statsEntries.map((entry, index) => (
-					<div key={index} className='label'>{entry[0]}</div>
-				))}
+				<div className='label'>{positronMissing}</div>
+				<div className='label'>{positronMean}</div>
+				<div className='label'>{positronMedian}</div>
+				<div className='label'>{positronSD}</div>
+				<div className='label'>{positronMin}</div>
+				<div className='label'>{positronMax}</div>
 			</div>
 			<div className='values'>
-				<div className='values-left'>
-					{statsEntries.map((entry, index) => (
-						<div key={index} className='value'>{entry[1]}</div>
-					))}
-				</div>
+				<ColumnNullCountValue {...props} />
+				<StatsValue stats={stats} value={stats?.mean} />
+				<StatsValue stats={stats} value={stats?.median} />
+				<StatsValue stats={stats} value={stats?.stdev} />
+				<StatsValue stats={stats} value={stats?.min_value} />
+				<StatsValue stats={stats} value={stats?.max_value} />
 			</div>
 		</div>
 	);
