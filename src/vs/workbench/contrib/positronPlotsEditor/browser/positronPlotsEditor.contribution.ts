@@ -19,7 +19,7 @@ import { PositronPlotsEditor } from 'vs/workbench/contrib/positronPlotsEditor/br
 import { PositronPlotsEditorInput } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditorInput';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
 
-export const POSITRON_EDITOR_PLOTS = 'workbench.experimental.positronPlotsEditor';
+export const POSITRON_EDITOR_PLOTS = 'application.experimental.positronPlotsEditor';
 
 class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';

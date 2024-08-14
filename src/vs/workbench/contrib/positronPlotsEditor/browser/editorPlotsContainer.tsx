@@ -26,7 +26,8 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				key={props.plotClient.id}
 				height={props.height}
 				width={props.width}
-				plotClient={plotClient} />;
+				plotClient={plotClient}
+				zoom={ZoomLevel.Fill} />;
 		}
 		if (plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance

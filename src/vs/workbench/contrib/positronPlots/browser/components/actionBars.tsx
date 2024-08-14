@@ -87,20 +87,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
 
+	const isEditorPlotsEnabled = React.useCallback(() => {
+		return hasPlots && positronPlotsEditorEnabled(props.configurationService)
+			&& (selectedPlot instanceof PlotClientInstance
+				|| selectedPlot instanceof StaticPlotClient);
+	}, [hasPlots, props.configurationService, selectedPlot]);
+
 	useEffect(() => {
 		const disposable = props.configurationService.onDidChangeConfiguration((event: IConfigurationChangeEvent) => {
 			if (event.affectedKeys.has(POSITRON_EDITOR_PLOTS)) {
 				setEnableEditorPlots(isEditorPlotsEnabled());
 			}
 		});
+		setEnableEditorPlots(isEditorPlotsEnabled());
 		return () => disposable.dispose();
-	});
-
-	const isEditorPlotsEnabled = () => {
-		return hasPlots && positronPlotsEditorEnabled(props.configurationService)
-			&& (selectedPlot instanceof PlotClientInstance
-				|| selectedPlot instanceof StaticPlotClient);
-	}
+	}, [isEditorPlotsEnabled, props.configurationService]);
 
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {
