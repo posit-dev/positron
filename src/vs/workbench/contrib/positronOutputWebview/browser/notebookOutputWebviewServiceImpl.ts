@@ -57,20 +57,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		const toReturn: MessageRenderInfo[] = [];
 
 		for (const output of outputs) {
-			const outputMimeTypes = Object.keys(output.data);
-			const matchingMimeType = outputMimeTypes.find(mimeType => {
-				const renderer = this._notebookService.getPreferredRenderer(mimeType);
-				if (renderer) {
-					toReturn.push({ mimeType, renderer, output });
-					return true;
-				}
-				return false;
-			});
-
-			if (!matchingMimeType) {
+			const info = this._findRendererForOutput(output);
+			if (!info) {
 				this._logService.warn(
 					'Failed to find renderer for output with mime types: ' +
-					outputMimeTypes.join(', ') +
+					Object.keys(output.data).join(', ') +
 					'/nOutput will be ignored.'
 				);
 			}
@@ -78,6 +69,22 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return toReturn;
 	}
 
+	/**
+	 * Gather preferred renderer and the mime type renderer is for from an output message.
+	 *
+	 * @param output An output messages to find renderers for.
+	 * @returns A renderer and the mime type it is preferred for along with the output message.
+	 */
+	private _findRendererForOutput(output: ILanguageRuntimeMessageWebOutput): MessageRenderInfo | undefined {
+		for (const mimeType in output.data) {
+			const renderer = this._notebookService.getPreferredRenderer(mimeType);
+			if (renderer) {
+				return { mimeType, renderer, output };
+			}
+		}
+
+		return undefined;
+	}
 
 	async createMultiMessageWebview({
 		runtime,
@@ -90,14 +97,23 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		displayMessage: ILanguageRuntimeMessageWebOutput;
 		viewType?: string;
 	}): Promise<INotebookOutputWebview | undefined> {
-		const allMessages = [...preReqMessages, displayMessage];
 
-		return this.createNotebookRenderOutput(
-			displayMessage.id,
+		const displayInfo = this._findRendererForOutput(displayMessage);
+		if (!displayInfo) {
+			this._logService.error(
+				'Failed to find renderer for output message with mime types: ' +
+				Object.keys(displayMessage.data).join(', ') +
+				'.'
+			);
+			return undefined;
+		}
+		return this.createNotebookRenderOutput({
+			id: displayMessage.id,
 			runtime,
-			this._findRenderersForOutputs(allMessages),
+			displayMessageInfo: displayInfo,
+			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
 			viewType
-		);
+		});
 	}
 
 	async createNotebookOutputWebview(
@@ -117,12 +133,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
-				return this.createNotebookRenderOutput(
-					output.id,
+				return this.createNotebookRenderOutput({
+					id: output.id,
 					runtime,
-					{ renderer, mimeType, output },
+					displayMessageInfo: { mimeType, renderer, output },
 					viewType
-				);
+				});
 			}
 		}
 
@@ -230,15 +246,22 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return resourceRoots;
 	}
 
-	private async createNotebookRenderOutput(id: string,
-		runtime: ILanguageRuntimeSession,
-		messagesInfo: MessageRenderInfo | MessageRenderInfo[],
-		viewType?: string,
-	): Promise<INotebookOutputWebview> {
+	private async createNotebookRenderOutput({
+		id,
+		runtime,
+		displayMessageInfo,
+		preReqMessagesInfo,
+		viewType
+	}: {
+		id: string;
+		runtime: ILanguageRuntimeSession;
+		displayMessageInfo: MessageRenderInfo;
+		preReqMessagesInfo?: MessageRenderInfo[];
+		viewType?: string;
+	}): Promise<INotebookOutputWebview> {
 		// Make message info into an array if it isn't already
-		if (!Array.isArray(messagesInfo)) {
-			messagesInfo = [messagesInfo];
-		}
+		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
+
 
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
@@ -273,7 +296,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			},
 			extension: {
 				// Just choose last renderer for now. This may be insufficient in the future.
-				id: messagesInfo.at(-1)!.renderer.extensionId,
+				id: displayMessageInfo.renderer.extensionId,
 			},
 			options: {},
 			title: '',
