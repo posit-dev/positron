@@ -10,6 +10,8 @@ import { Code } from '../code';
 const CURRENT_PLOT = '.plot-instance .image-wrapper img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
 const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-clear-all';
+const OUTER_WEBVIEW_FRAME = '.webview';
+const INNER_WEBVIEW_FRAME = '#active-frame';
 
 
 /*
@@ -41,6 +43,10 @@ export class PositronPlots {
 
 	async waitForCurrentStaticPlot() {
 		await this.code.waitForElement(CURRENT_STATIC_PLOT);
+	}
+
+	async waitForWebviewPlot(selector: string) {
+		await this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().locator(selector).waitFor({ state: 'visible' });
 	}
 
 	async clearPlots() {
