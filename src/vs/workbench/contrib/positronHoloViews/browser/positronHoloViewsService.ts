@@ -139,7 +139,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		displayMessage: ILanguageRuntimeMessageWebOutput,
 	) {
 		const storedMessages = this._messagesBySessionId.get(runtime.sessionId) ?? [];
-		const outputWebview = await this._notebookOutputWebviewService.createMultiOutputWebview({
+		const outputWebview = await this._notebookOutputWebviewService.createMultiMessageWebview({
 			runtime,
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,

@@ -79,7 +79,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 
-	async createMultiOutputWebview({
+	async createMultiMessageWebview({
 		runtime,
 		preReqMessages,
 		displayMessage,

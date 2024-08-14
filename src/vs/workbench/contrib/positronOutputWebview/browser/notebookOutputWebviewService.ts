@@ -75,7 +75,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 * @param opts.viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
 	 *  select the required notebook preload scripts for the webview.
 	 */
-	createMultiOutputWebview(opts:
+	createMultiMessageWebview(opts:
 		{
 			runtime: ILanguageRuntimeSession;
 			preReqMessages: ILanguageRuntimeMessageWebOutput[];
