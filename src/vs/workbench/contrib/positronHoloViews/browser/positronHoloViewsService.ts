@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { IPositronHoloViewsService, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -22,7 +22,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	initialize() { }
 
 	/** Map of holoviz messages keyed by session ID. */
-	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageOutput[]>();
+	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
 
 	/**
 	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
@@ -89,7 +89,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 				return;
 			}
 
-			this._addMessageForSession(session, msg);
+			this._addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput);
 		};
 
 		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessage));
@@ -101,7 +101,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	 * @param session The session that the message is associated with.
 	 * @param msg The message to process
 	 */
-	private _addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageOutput) {
+	private _addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput) {
 		const sessionId = session.sessionId;
 
 		// Check if a message is a message that should be displayed rather than simply stored as
@@ -131,28 +131,29 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.
 	 * Alerts the plots pane that a new plot is ready.
-	 * @param session Runtime session associated with the message.
+	 * @param runtime Runtime session associated with the message.
 	 * @param displayMessage The message to display.
 	 */
 	private async _createPlotClient(
-		session: ILanguageRuntimeSession,
-		displayMessage: ILanguageRuntimeMessageOutput,
+		runtime: ILanguageRuntimeSession,
+		displayMessage: ILanguageRuntimeMessageWebOutput,
 	) {
-		const storedMessages = this._messagesBySessionId.get(session.sessionId) ?? [];
-		const outputWebview = await this._notebookOutputWebviewService.createMultiOutputWebview(
-			session,
-			[...storedMessages, displayMessage],
-			'jupyter-notebook'
-		);
+		const storedMessages = this._messagesBySessionId.get(runtime.sessionId) ?? [];
+		const outputWebview = await this._notebookOutputWebviewService.createMultiOutputWebview({
+			runtime,
+			preReqMessages: storedMessages,
+			displayMessage: displayMessage,
+			viewType: 'jupyter-notebook'
+		});
 
 		if (!outputWebview) {
 			throw new Error(`PositronHoloViewsService: Could not create webview for HoloViews message: ${JSON.stringify(displayMessage)}`);
 		}
 
 		// Grab disposables for this session
-		const disposables = this._sessionToDisposablesMap.get(session.sessionId);
+		const disposables = this._sessionToDisposablesMap.get(runtime.sessionId);
 		if (!disposables) {
-			throw new Error(`PositronHoloViewsService: Could not find disposables for session ${session.sessionId}`);
+			throw new Error(`PositronHoloViewsService: Could not find disposables for session ${runtime.sessionId}`);
 		}
 
 		disposables.add(outputWebview);

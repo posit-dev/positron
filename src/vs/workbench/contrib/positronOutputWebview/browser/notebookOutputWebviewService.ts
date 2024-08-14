@@ -5,7 +5,7 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event } from 'vs/base/common/event';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -68,17 +68,20 @@ export interface IPositronNotebookOutputWebviewService {
 	 * This is useful for situations where a plot may have dependencies that are provided by
 	 * separate messages.
 	 *
-	 * @param runtime The runtime that emitted the output
-	 * @param outputs The messages to be sent to the webview. The final message that triggered the
-	 * plotting should be the final element of the array.
-	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
+	 * @param opts.runtime The runtime that emitted the output
+	 * @param opts.preReqMessages The messages linked to the final display output message that load the
+	 * required dependencies.
+	 * @param opts.displayMessage The message that triggered the plotting.
+	 * @param opts.viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
 	 *  select the required notebook preload scripts for the webview.
 	 */
-	createMultiOutputWebview(
-		runtime: ILanguageRuntimeSession,
-		outputs: ILanguageRuntimeMessageOutput[],
-		viewType?: string,
-	): Promise<INotebookOutputWebview | undefined>;
+	createMultiOutputWebview(opts:
+		{
+			runtime: ILanguageRuntimeSession;
+			preReqMessages: ILanguageRuntimeMessageWebOutput[];
+			displayMessage: ILanguageRuntimeMessageWebOutput;
+			viewType?: string;
+		}): Promise<INotebookOutputWebview | undefined>;
 
 	/**
 	 * Create a new raw HTML output webview.

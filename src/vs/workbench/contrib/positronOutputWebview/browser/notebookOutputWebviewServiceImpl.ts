@@ -78,29 +78,24 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return toReturn;
 	}
 
-	/**
-	 * Create a webview associated with multiple outputs.
-	 * @param runtime Runtime session associated with the outputs.
-	 * @param outputs Array of outputs to render.
-	 * @param viewType The type of view to render.
-	 * @returns Promise containing the webview that messages will be rendered into.
-	 */
-	async createMultiOutputWebview(
-		runtime: ILanguageRuntimeSession,
-		outputs: ILanguageRuntimeMessageWebOutput[],
-		viewType?: string
-	): Promise<INotebookOutputWebview | undefined> {
-		const renderInfo = this._findRenderersForOutputs(outputs);
-		// We use the last output message as the id as it's typically the "display" message.
-		const idForOutput = outputs.at(-1)?.id;
-		if (!idForOutput) {
-			throw new Error('No output ID found');
-		}
+
+	async createMultiOutputWebview({
+		runtime,
+		preReqMessages,
+		displayMessage,
+		viewType
+	}: {
+		runtime: ILanguageRuntimeSession;
+		preReqMessages: ILanguageRuntimeMessageWebOutput[];
+		displayMessage: ILanguageRuntimeMessageWebOutput;
+		viewType?: string;
+	}): Promise<INotebookOutputWebview | undefined> {
+		const allMessages = [...preReqMessages, displayMessage];
 
 		return this.createNotebookRenderOutput(
-			idForOutput,
+			displayMessage.id,
 			runtime,
-			renderInfo,
+			this._findRenderersForOutputs(allMessages),
 			viewType
 		);
 	}
