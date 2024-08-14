@@ -781,6 +781,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						} else if (plot instanceof PlotClientInstance) {
 							// if it's a dynamic plot, present options dialog
 							showSavePlotModalDialog(
+								this._selectedSizingPolicy,
 								this._layoutService,
 								this._keybindingService,
 								this._dialogService,

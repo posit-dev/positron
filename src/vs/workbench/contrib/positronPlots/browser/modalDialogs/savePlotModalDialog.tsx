@@ -25,8 +25,9 @@ import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dro
 import { IFileService } from 'vs/platform/files/common/files';
 import { IntrinsicSize, PlotUnit, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import { ILogService } from 'vs/platform/log/common/log';
+import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -39,6 +40,7 @@ const BASE_DPI = 100; // matplotlib default DPI
 
 /**
  * Show the save plot modal dialog for dynamic plots.
+ * @param selectedSizingPolicy the selected sizing policy for the plot
  * @param layoutService the layout service for the modal
  * @param keybindingService the keybinding service to intercept shortcuts
  * @param dialogService the dialog service to confirm the save
@@ -49,6 +51,7 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param suggestedPath the pre-filled save path
  */
 export const showSavePlotModalDialog = (
+	selectedSizingPolicy: IPositronPlotSizingPolicy,
 	layoutService: IWorkbenchLayoutService,
 	keybindingService: IKeybindingService,
 	dialogService: IDialogService,
@@ -75,6 +78,7 @@ export const showSavePlotModalDialog = (
 			keybindingService={keybindingService}
 			logService={logService}
 			renderer={renderer}
+			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
 			plotSize={plotClient.lastRender?.size}
 			plotIntrinsicSize={plotClient.intrinsicSize}
 			suggestedPath={suggestedPath}
@@ -92,6 +96,7 @@ interface SavePlotModalDialogProps {
 	logService: ILogService;
 	keybindingService: IKeybindingService;
 	renderer: PositronModalReactRenderer;
+	enableIntrinsicSize: boolean;
 	plotSize: IPlotSize | undefined;
 	plotIntrinsicSize: IntrinsicSize | undefined;
 	plotClient: PlotClientInstance;
@@ -109,9 +114,9 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
 	const [format, setFormat] = React.useState(RenderFormat.Png);
-	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(false);
-	const [width, setWidth] = React.useState({ value: props.plotSize?.width, valid: true });
-	const [height, setHeight] = React.useState({ value: props.plotSize?.height, valid: true });
+	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
+	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
+	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
@@ -249,8 +254,8 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		);
 	};
 
-	let displayWidth = 0;
-	let displayHeight = 0;
+	let displayWidth: number;
+	let displayHeight: number;
 	if (enableIntrinsicSize && props.plotIntrinsicSize) {
 		displayWidth = props.plotIntrinsicSize.width;
 		displayHeight = props.plotIntrinsicSize.height;
@@ -260,7 +265,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			displayWidth *= dpi.value;
 			displayHeight *= dpi.value;
 		}
-	} else if (width.value && height.value) {
+	} else {
 		displayWidth = width.value;
 		displayHeight = height.value;
 	}
@@ -389,6 +394,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
 								))()}
+								initialChecked={enableIntrinsicSize}
 								onChanged={checked => setEnableIntrinsicSize(checked)} /> : null}
 						</div>
 						<div className='preview-progress'>
