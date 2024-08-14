@@ -120,11 +120,11 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		// for setup don't seem to be replayed if they are called again. This causes an issue for
 		// this technique as if we reload positron the service starts up again and the messages are
 		// lost which will cause very confusing failures of plots not showing up.
-		if (!this._messagesBySessionId.has(sessionId)) {
+		const messagesForSession = this._messagesBySessionId.get(sessionId);
+
+		if (!messagesForSession) {
 			throw new Error(`PositronHoloViewsService: Session ${sessionId} not found in messagesBySessionId map.`);
 		}
-		// Force the type since we just checked it and ininitialzed an array if it didnt exist.
-		const messagesForSession = this._messagesBySessionId.get(sessionId)!;
 		messagesForSession.push(msg);
 	}
 
