@@ -71,8 +71,11 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	}
 
 	private _attachSession(session: ILanguageRuntimeSession) {
-		// Check if the session is already attached.
-		if (this._sessionToDisposablesMap.has(session.sessionId)) {
+		// Only attach to new console sessions.
+		if (
+			session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console ||
+			this._sessionToDisposablesMap.has(session.sessionId)
+		) {
 			return;
 		}
 
@@ -80,10 +83,6 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		this._messagesBySessionId.set(session.sessionId, []);
 
-		// Only attach to console sessions.
-		if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
-			return;
-		}
 
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
 			if (msg.kind !== RuntimeOutputKind.HoloViews) {
