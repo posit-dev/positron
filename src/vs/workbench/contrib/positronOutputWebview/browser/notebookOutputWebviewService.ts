@@ -69,7 +69,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 * separate messages.
 	 *
 	 * @param runtime The runtime that emitted the output
-	 * @param outputs The messages to be sent into webview. The final message that triggered the
+	 * @param outputs The messages to be sent to the webview. The final message that triggered the
 	 * plotting should be the final element of the array.
 	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
 	 *  select the required notebook preload scripts for the webview.
