@@ -384,12 +384,12 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							</div>
 						</div>
 						<div className='use-intrinsic-size'>
-							{props.plotIntrinsicSize && <Checkbox
+							{props.plotIntrinsicSize ? <Checkbox
 								label={(() => localize(
 									'positron.savePlotModalDialog.useIntrinsicSize',
 									"Use intrinsic size"
 								))()}
-								onChanged={checked => setEnableIntrinsicSize(checked)} />}
+								onChanged={checked => setEnableIntrinsicSize(checked)} /> : null}
 						</div>
 						<div className='preview-progress'>
 							{rendering && <ProgressBar />}
