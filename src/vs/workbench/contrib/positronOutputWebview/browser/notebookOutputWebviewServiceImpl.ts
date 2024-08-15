@@ -54,19 +54,19 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	 * associated output message.
 	 */
 	private _findRenderersForOutputs(outputs: ILanguageRuntimeMessageWebOutput[]): MessageRenderInfo[] {
-		const toReturn: MessageRenderInfo[] = [];
-
-		for (const output of outputs) {
-			const info = this._findRendererForOutput(output);
-			if (!info) {
-				this._logService.warn(
-					'Failed to find renderer for output with mime types: ' +
-					Object.keys(output.data).join(', ') +
-					'/nOutput will be ignored.'
-				);
-			}
-		}
-		return toReturn;
+		return outputs
+			.map(output => {
+				const info = this._findRendererForOutput(output);
+				if (!info) {
+					this._logService.warn(
+						'Failed to find renderer for output with mime types: ' +
+						Object.keys(output.data).join(', ') +
+						'/nOutput will be ignored.'
+					);
+				}
+				return info;
+			})
+			.filter((info): info is MessageRenderInfo => Boolean(info));
 	}
 
 	/**
