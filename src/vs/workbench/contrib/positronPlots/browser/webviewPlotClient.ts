@@ -40,6 +40,9 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 		public readonly webview: IOverlayWebview) {
 		super();
 
+		// Ensure that the webview is disposed when the plot client is disposed.
+		this._register(webview);
+
 		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
 	}

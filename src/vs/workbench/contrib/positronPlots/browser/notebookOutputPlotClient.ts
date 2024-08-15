@@ -34,6 +34,9 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			code: code ? code : '',
 		}, output.webview);
 
+		// Ensure that the output is disposed when the plot client is disposed.
+		this._register(output);
+
 		// Wait for the webview to finish rendering. When it does, nudge the
 		// timer that renders the thumbnail.
 		this._register(this.output.onDidRender(e => {

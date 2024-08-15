@@ -38,6 +38,8 @@ import { IPositronDataExplorerService } from 'vs/workbench/services/positronData
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
+import { isHoloViewsMessage } from 'vs/workbench/contrib/positronHoloViews/browser/utils';
+import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -713,6 +715,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private inferPositronOutputKind(message: ILanguageRuntimeMessageOutput): RuntimeOutputKind {
 		const mimeTypes = Object.keys(message.data);
 
+		// We have special treatment for HoloViews messages as they need to be bundled together so
+		// dependencies are loaded properly.
+		if (isHoloViewsMessage(message)) {
+			return RuntimeOutputKind.HoloViews;
+		}
+
 		// The most common type of output is plain text, so short-circuit for that before we
 		// do any more expensive processing.
 		if (mimeTypes.length === 1 && mimeTypes[0] === 'text/plain') {
@@ -1077,6 +1085,7 @@ export class MainThreadLanguageRuntime
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IPositronHoloViewsService private readonly _positronHoloViewsService: IPositronHoloViewsService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -1092,6 +1101,7 @@ export class MainThreadLanguageRuntime
 		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
 		this._positronIPyWidgetsService.initialize();
+		this._positronHoloViewsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 

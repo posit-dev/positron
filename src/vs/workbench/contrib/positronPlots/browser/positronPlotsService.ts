@@ -40,6 +40,7 @@ import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlP
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -113,6 +114,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IOpenerService private _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IPositronHoloViewsService private _positronHoloViewsService: IPositronHoloViewsService,
 		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
 		@IFileService private readonly _fileService: IFileService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -147,6 +149,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
 		// so they can be displayed in the plots pane.
 		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
+			this.registerNewPlotClient(plotClient);
+		}));
+		// Listen for plot clients from the holoviews service and register them with the plots
+		// service so they can be displayed in the plots pane.
+		this._register(this._positronHoloViewsService.onDidCreatePlot((plotClient) => {
 			this.registerNewPlotClient(plotClient);
 		}));
 

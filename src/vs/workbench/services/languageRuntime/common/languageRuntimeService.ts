@@ -114,6 +114,12 @@ export enum RuntimeOutputKind {
 	IPyWidget = 'ipywidget',
 
 	/**
+	 * Holoviews message.
+	 * These are typically batched by the holoviews service for rendering.
+	 */
+	HoloViews = 'holoviews',
+
+	/**
 	 * Some other kind of output. We've never heard of it.
 	 */
 	Unknown = 'unknown',
