@@ -160,23 +160,24 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
 	/**
-	 * Determines whether summary stats us supported.
+	 * Determines whether summary stats is supported.
 	 * @returns true, if summary stats is supported; otherwise, false.
 	 */
 	const isSummaryStatsSupported = () => {
-		// Check if the summary stats panel is supported.
 		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
-		const summaryStatsStatus = columnProfilesFeatures.supported_types.filter(status =>
+		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
 			status.profile_type === ColumnProfileType.SummaryStats
 		);
 
-		if (!summaryStatsStatus.length) {
+		if (!summaryStatsSupportStatus) {
 			return false;
 		}
 
-		return dataExplorerExperimentalFeatureEnabled(summaryStatsStatus[0].support_status, props.instance.configurationService);
+		return dataExplorerExperimentalFeatureEnabled(
+			summaryStatsSupportStatus.support_status,
+			props.instance.configurationService
+		);
 	};
-
 
 	// Set the summary supported flag.
 	let summaryStatsSupported;

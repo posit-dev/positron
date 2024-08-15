@@ -125,7 +125,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		super();
 
 		// Initialize.
-		this._tableSummaryCache = new TableSummaryCache(this._dataExplorerClientInstance);
+		this._tableSummaryCache = new TableSummaryCache(
+			this._configurationService,
+			this._dataExplorerClientInstance
+		);
 		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			this._configurationService,
 			this._hoverService,
