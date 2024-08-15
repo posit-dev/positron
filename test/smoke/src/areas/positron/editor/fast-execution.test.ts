@@ -38,7 +38,7 @@ export function setup(logger: Logger) {
 				// Note that this outer loop iterates 10 times.  This is because the length of the
 				// file fast-execution.r is 10 lines.  We want to be sure to send a Control+Enter
 				// for every line of the file
-				for (let i = 1; i < 11; i++) {
+				for (let i = 0; i < 10; i++) {
 					let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
 					let retries = 10;
 
