@@ -44,11 +44,25 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
+		async function simplePlotTest(app: Application, script: string, locator: string) {
+
+			await app.workbench.positronConsole.pasteCodeToConsole(script);
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronPlots.waitForWebviewPlot(locator);
+
+			await app.workbench.positronPlots.clearPlots();
+
+			await app.workbench.positronPlots.waitForNoPlots();
+
+		}
+
 		describe('Python Plots', () => {
 
 			before(async function () {
 				// Set the viewport to a size that ensures all the plots view actions are visible
-				await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				if (process.platform === 'linux') {
+					await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				}
 				await this.app.workbench.positronLayouts.enterLayout('stacked');
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -301,13 +315,7 @@ line = bplt.plot(
 
 bplt.show()`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.svg-figure');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, '.svg-figure');
 
 			});
 
@@ -320,13 +328,7 @@ data= pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]}, index=["One", "Two", "Three
 DataGrid(data)
 DataGrid(data, selection_mode="cell", editable=True)`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('canvas:nth-child(1)');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, 'canvas:nth-child(1)');
 
 			});
 
@@ -344,13 +346,7 @@ map.add_control(marker)
 
 display(map)`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.leaflet-container');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, '.leaflet-container');
 
 			});
 
@@ -377,13 +373,7 @@ node2.add_node(Node('node7'), 2)
 
 tree`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.jstree-container-ul');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, '.jstree-container-ul');
 
 			});
 		});
@@ -507,13 +497,7 @@ data("mpg", "diamonds", "economics_long", package = "ggplot2")
 
 hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('svg');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, 'svg');
 
 			});
 
@@ -525,13 +509,7 @@ m = leaflet() %>% addTiles()
 m = m %>% setView(-93.65, 42.0285, zoom = 17)
 m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, ISU')`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.leaflet');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, '.leaflet');
 
 			});
 
@@ -542,13 +520,7 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
 fig`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.plot-container');
-
-				await app.workbench.positronPlots.clearPlots();
-
-				await app.workbench.positronPlots.waitForNoPlots();
+				await simplePlotTest(app, script, '.plot-container');
 
 			});
 
