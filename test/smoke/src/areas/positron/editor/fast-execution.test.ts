@@ -13,8 +13,6 @@ import { expect } from '@playwright/test';
  */
 export function setup(logger: Logger) {
 
-	// does not pass on Ubuntu CI runner as execution is too fast
-	// keeping for OSX and Windows execution
 	describe('Editor Pane: R', () => {
 
 		// Shared before/after handling
