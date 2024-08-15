@@ -35,19 +35,17 @@ export class PositronEditor {
 		let retries = 10;
 		let topValue: number = NaN;
 
+		const currentLine = this.code.driver.getLocator(CURRENT_LINE);
+		// Note that '..' is used to get the parent of the current-line div
+		const currentLineParent = currentLine.locator('..');
+
 		// Note that this retry loop does not sleep.  This is because the
 		// test that uses this function needs to run as quickly as possible
 		// in order to verify that the editor is not executing code out of order.
 		while (retries > 0) {
-			const currentLine = this.code.driver.getLocator(CURRENT_LINE);
-			// Note that '..' is used to get the parent of the current-line div
-			const currentLineParent = currentLine.locator('..');
 
-			const top = await currentLineParent.evaluate((el) => {
-				return window.getComputedStyle(el).getPropertyValue('top');
-			});
-
-			topValue = parseInt(top, 10);
+			const boundingBox = await currentLineParent.boundingBox();
+			topValue = boundingBox?.y || NaN;
 
 			if (!isNaN(topValue)) {
 				break;

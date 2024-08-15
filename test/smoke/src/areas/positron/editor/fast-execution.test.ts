@@ -28,7 +28,8 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Verify fast execution is not out of order [C712539]', async function () {
+			// TODO: remove from #pr flow once validated
+			it('Verify fast execution is not out of order [C712539] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
