@@ -6,7 +6,6 @@
 import * as React from 'react';
 import * as DOM from 'vs/base/browser/dom';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import * as DOM from 'vs/base/browser/dom';
 import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize } from 'vs/nls';
