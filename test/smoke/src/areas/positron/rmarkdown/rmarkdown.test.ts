@@ -21,7 +21,8 @@ export function setup(logger: Logger) {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
 		});
 
-		it('Render RMarkdown [C680618]', async function () {
+		// TODO: temporarily adding to #pr flow to investigate following test
+		it('Render RMarkdown [C680618] #pr', async function () {
 			const app = this.app as Application; //Get handle to application
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 
@@ -41,8 +42,8 @@ export function setup(logger: Logger) {
 		});
 
 		// test depends on the previous test
-		// skipping this test for now.  need to determine what to do about the dialog that is appearing in CI
-		it.skip('Preview RMarkdown [C709147]', async function () {
+		// TODO: temporarily adding to #pr flow to investigate issue
+		it('Preview RMarkdown [C709147] #pr', async function () {
 			const app = this.app as Application; //Get handle to application
 
 			// Preview
