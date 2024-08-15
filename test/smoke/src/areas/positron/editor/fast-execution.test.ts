@@ -13,9 +13,7 @@ import { expect } from '@playwright/test';
  */
 export function setup(logger: Logger) {
 
-	// does not pass on Ubuntu CI runner as execution is too fast
-	// keeping for OSX and Windows execution
-	describe.skip('Editor Pane: R', () => {
+	describe('Editor Pane: R', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -35,7 +33,27 @@ export function setup(logger: Logger) {
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
-				for (let i = 1; i < 12; i++) {
+				let previousTop = -1;
+
+				// Note that this outer loop iterates 10 times.  This is because the length of the
+				// file fast-execution.r is 10 lines.  We want to be sure to send a Control+Enter
+				// for every line of the file
+				for (let i = 0; i < 10; i++) {
+					let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+					let retries = 10;
+
+					// Note that top is a measurement of the distance from the top of the editor
+					// to the top of the current line.  By monitoring the top value, we can determine
+					// if the editor is advancing to the next line.  Without this check, the test
+					// would send Control+Enter many times to the first line of the file and not
+					// perform the desired test.
+					while (currentTop === previousTop && retries > 0) {
+						currentTop = await app.workbench.positronEditor.getCurrentLineTop();
+						retries--;
+					}
+
+					previousTop = currentTop;
+
 					await app.code.driver.getKeyboard().press('Control+Enter');
 				}
 
