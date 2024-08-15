@@ -307,6 +307,8 @@ bplt.show()`;
 
 				await app.workbench.positronPlots.clearPlots();
 
+				await app.workbench.positronPlots.waitForNoPlots();
+
 			});
 
 			it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
@@ -323,6 +325,8 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 				await app.workbench.positronPlots.waitForWebviewPlot('canvas:nth-child(1)');
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 
 			});
 
@@ -345,6 +349,8 @@ display(map)`;
 				await app.workbench.positronPlots.waitForWebviewPlot('.leaflet-container');
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 
 			});
 
@@ -376,6 +382,8 @@ tree`;
 				await app.workbench.positronPlots.waitForWebviewPlot('.jstree-container-ul');
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 
 			});
 		});
@@ -505,6 +513,8 @@ hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
 				await app.workbench.positronPlots.clearPlots();
 
+				await app.workbench.positronPlots.waitForNoPlots();
+
 			});
 
 			it('R - Verifies leaflet plot [C720875]', async function () {
@@ -521,6 +531,8 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 
 				await app.workbench.positronPlots.clearPlots();
 
+				await app.workbench.positronPlots.waitForNoPlots();
+
 			});
 
 			it('R - Verifies plotly plot [C720876]', async function () {
@@ -535,6 +547,8 @@ fig`;
 				await app.workbench.positronPlots.waitForWebviewPlot('.plot-container');
 
 				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
 
 			});
 

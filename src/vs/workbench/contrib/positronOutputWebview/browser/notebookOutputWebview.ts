@@ -41,6 +41,9 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	) {
 		super();
 
+		// Ensure that the underlying webview is disposed when notebook output webview is disposed.
+		this._register(webview);
+
 		this.onDidRender = this._onDidRender.event;
 		this._register(this._onDidRender);
 		this._register(this._onDidReceiveMessage);
@@ -78,9 +81,4 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	}
 
 	onDidRender: Event<void>;
-
-	public override dispose(): void {
-		this.webview.dispose();
-		super.dispose();
-	}
 }
