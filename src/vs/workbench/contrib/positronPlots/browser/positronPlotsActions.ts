@@ -213,7 +213,7 @@ export class PlotsEditorAction extends Action2 {
 	constructor() {
 		super({
 			id: PlotsEditorAction.ID,
-			title: localize2('positronPlots.openEditor', 'Open Plot in Editor'),
+			title: localize2('positronPlots.openEditor', 'Open Plot in Editor tab'),
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),

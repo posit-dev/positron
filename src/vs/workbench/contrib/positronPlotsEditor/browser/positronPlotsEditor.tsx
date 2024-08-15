@@ -168,13 +168,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		return null;
 	};
 
-	renderPlot = (plotClient: IPositronPlotClient) => {
-		if (plotClient instanceof PlotClientInstance) {
-			const dynamicPlot = plotClient as PlotClientInstance;
-			dynamicPlot.render(this._height, this._width, 1);
-		}
-	};
-
 	override async setInput(
 		input: PositronPlotsEditorInput,
 		options: IPositronPlotsEditorOptions,
@@ -188,7 +181,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 		input.setName(plotClient.id);
 
-		// this.renderPlot(plotClient);
 		this.renderContainer(plotClient);
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;

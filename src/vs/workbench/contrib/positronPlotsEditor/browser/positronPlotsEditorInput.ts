@@ -17,7 +17,6 @@ export class PositronPlotsEditorInput extends EditorInput {
 
 	constructor(
 		readonly resource: URI,
-		// @IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService
 	) { super(); }
 
 	override dispose(): void {

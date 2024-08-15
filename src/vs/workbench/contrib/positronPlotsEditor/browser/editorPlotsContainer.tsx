@@ -7,7 +7,6 @@ import * as React from 'react';
 import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
 import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
-import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
@@ -19,8 +18,7 @@ interface EditorPlotsContainerProps {
 }
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
-	usePositronPlotsContext();
-	const render = (plotClient?: IPositronPlotClient) => {
+	const render = (plotClient: IPositronPlotClient) => {
 		if (plotClient instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={props.plotClient.id}

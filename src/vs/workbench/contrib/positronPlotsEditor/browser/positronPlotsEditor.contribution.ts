@@ -25,17 +25,17 @@ class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';
 
 	constructor(
-		@IEditorResolverService _editorResolverService: IEditorResolverService,
-		@IInstantiationService _instantiationService: IInstantiationService
+		@IEditorResolverService editorResolverService: IEditorResolverService,
+		@IInstantiationService instantiationService: IInstantiationService
 	) {
 		super();
 
 		// Register the editor
-		this._register(_editorResolverService.registerEditor(
+		this._register(editorResolverService.registerEditor(
 			`${Schemas.positronPlotsEditor}:**/**`,
 			{
 				id: PositronPlotsEditorInput.EditorID,
-				label: localize('positronPlotsEditor', 'Plots Editor'),
+				label: localize('positronPlotsEditor', 'Editor Plot tab'),
 				priority: RegisteredEditorPriority.builtin
 			},
 			{
@@ -45,7 +45,7 @@ class PositronPlotsEditorContribution extends Disposable {
 			{
 				createEditorInput: ({ resource, options }) => {
 					return {
-						editor: _instantiationService.createInstance(
+						editor: instantiationService.createInstance(
 							PositronPlotsEditorInput,
 							resource
 						),
@@ -65,7 +65,7 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	EditorPaneDescriptor.create(
 		PositronPlotsEditor,
 		PositronPlotsEditorInput.EditorID,
-		'Plots Editor',
+		'Editor Plot tab',
 	),
 	[
 		new SyncDescriptor(PositronPlotsEditorInput)
