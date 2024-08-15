@@ -21,7 +21,7 @@ import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/co
 import { dirname, joinPath } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
-import { msgIsDownloadMessage, handleWebviewClicks, PositronDownloadMessage } from './downloadUtils';
+import { msgIsDownloadMessage, PositronDownloadMessage, handleWebviewClicksInjection } from './downloadUtils';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -270,6 +270,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
 	}): Promise<INotebookOutputWebview> {
+		const webviewDisposables = new DisposableStore();
+
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
 
@@ -315,6 +317,13 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		webview.onDidDispose(() => { webviewDisposables.dispose(); });
+
+		webviewDisposables.add(webview.onMessage(async ({ message }) => {
+			if (msgIsDownloadMessage(message)) {
+				this._downloadData(message);
+			}
+		}));
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
@@ -331,6 +340,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 <div id='container'></div>
 <div id="_defaultColorPalatte"></div>
 <script type="module">${preloads}</script>
+<script> ${handleWebviewClicksInjection} </script>
 </body>
 `);
 
@@ -396,9 +406,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			? this._webviewService.createWebviewOverlay(webviewInitInfo)
 			: this._webviewService.createWebviewElement(webviewInitInfo);
 
-		webview.onDidDispose(() => {
-			webviewDisposables.dispose();
-		});
+		webview.onDidDispose(() => { webviewDisposables.dispose(); });
 
 		webviewDisposables.add(webview.onMessage(async ({ message }) => {
 			if (msgIsDownloadMessage(message)) {
@@ -425,7 +433,7 @@ window.onload = function() {
 		type: 'positronRenderComplete',
 	});
 
-	(${handleWebviewClicks.toString()})();
+	${handleWebviewClicksInjection};
 };
 </script>`);
 

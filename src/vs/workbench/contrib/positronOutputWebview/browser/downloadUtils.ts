@@ -20,7 +20,7 @@ declare const vscode: {
 
 // Function is meant to be dependency free so it can be serialized into the webview with the
 // Function.toString() method
-export function handleWebviewClicks() {
+function handleWebviewClicks() {
 
 	// eslint-disable-next-line no-restricted-syntax
 	document.addEventListener('click', (event) => {
@@ -67,3 +67,10 @@ export function handleWebviewClicks() {
 		});
 	};
 }
+
+/**
+ * A string containing function to be injected into a webview to handle clicks on anchor elements.
+ * Pairs with listeners in the webview listening for the messages from the webview of the type
+ * 'PositronDownloadMessage'.
+ */
+export const handleWebviewClicksInjection = `(${handleWebviewClicks.toString()})()`;
