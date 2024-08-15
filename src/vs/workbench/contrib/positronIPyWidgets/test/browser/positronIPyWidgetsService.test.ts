@@ -36,7 +36,7 @@ import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/
 import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
 import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
 
-class TestNotebookService implements Partial<INotebookService> {
+export class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {
 		return [];
 	}
