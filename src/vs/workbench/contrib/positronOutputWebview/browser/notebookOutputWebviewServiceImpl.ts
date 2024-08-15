@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from 'vs/base/browser/dom';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
@@ -291,6 +292,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
+			// TODO: This is what the Viewer pane does. The back layer webview creates a UUID
+			//       per viewType. Not sure what we should do.
+			// Use the active window's origin. All webviews with the same origin will reuse the same
+			// service worker.
+			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
 				// Needed since we use the API ourselves, and it's also used by
@@ -382,6 +388,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
+			// Use the active window's origin. All webviews with the same origin will reuse the same
+			// service worker.
+			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
 				localResourceRoots: [jupyterExtension.extensionLocation]
