@@ -23,21 +23,36 @@ export class PositronEditor {
 		await lineLocator.press(press);
 	}
 
-	async getCurrentLineTop(retries: number = 10): Promise<number> {
-		const currentLine = this.code.driver.getLocator(CURRENT_LINE);
-		const currentLineParent = currentLine.locator('..');
+	// This function returns the top value of the style attribute for the
+	// editor's current-line div parent (the current-line div is a child of the div that
+	// has the top attribute). It retries up to 10 times to get the value.
+	// Retries are necessary because the value is not always immediately
+	// available (presumably due to the change from one current line to another).
+	async getCurrentLineTop(): Promise<number> {
+		let retries = 10;
+		let topValue: number = NaN;
 
-		const top = await currentLineParent.evaluate((el) => {
-			return window.getComputedStyle(el).getPropertyValue('top');
-		});
+		// Note that this retry loop does not sleep.  This is because the
+		// test that uses this function needs to run as quickly as possible
+		// in order to verify that the editor is not executing code out of order.
+		while (retries > 0) {
+			const currentLine = this.code.driver.getLocator(CURRENT_LINE);
+			// Note that '..' is used to get the parent of the current-line div
+			const currentLineParent = currentLine.locator('..');
 
-		const topValue = parseInt(top, 10);
+			const top = await currentLineParent.evaluate((el) => {
+				return window.getComputedStyle(el).getPropertyValue('top');
+			});
 
-		if (isNaN(topValue) && retries > 0) {
-			return this.getCurrentLineTop(retries - 1);
+			topValue = parseInt(top, 10);
+
+			if (!isNaN(topValue)) {
+				break;
+			}
+
+			retries--;
 		}
 
 		return topValue;
 	}
-
 }

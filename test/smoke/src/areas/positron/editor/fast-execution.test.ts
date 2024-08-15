@@ -30,16 +30,26 @@ export function setup(logger: Logger) {
 
 			});
 
+			// TODO: remove this test from the PR flow as it is very new and not yet stable
 			it('Verify fast execution is not out of order [C712539] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 				let previousTop = -1;
+
+				// Note that this outer loop iterates 11 times.  This is because the length of the
+				// file fast-execution.r is 10 lines.  We want to be sure to send a Control+Enter
+				// for every line of the file (one extra iteration is included "just in case")
 				for (let i = 1; i < 12; i++) {
 					let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
-					let retries = 10; // Allow up to 10 retries if currentTop equals previousTop
+					let retries = 10;
 
+					// Note that top is a measurement of the distance from the top of the editor
+					// to the top of the current line.  By monitoring the top value, we can determine
+					// if the editor is advancing to the next line.  Without this check, the test
+					// would send Control+Enter many times to the first line of the file and not
+					// perform the desrired test.
 					while (currentTop === previousTop && retries > 0) {
 						currentTop = await app.workbench.positronEditor.getCurrentLineTop();
 						retries--;
