@@ -43,14 +43,4 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			this.nudgeRenderThumbnail();
 		}));
 	}
-
-	/**
-	 * Claims the underlying webview.
-	 *
-	 * @param claimant The object taking ownership.
-	 */
-	public override claim(claimant: any) {
-		super.claim(claimant);
-		this.output.render?.();
-	}
 }

@@ -302,7 +302,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				// Just choose last renderer for now. This may be insufficient in the future.
 				id: displayMessageInfo.renderer.extensionId,
 			},
-			options: {},
+			options: {
+				retainContextWhenHidden: true,
+			},
 			title: '',
 		};
 
@@ -328,28 +330,26 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				</body>
 					`);
 
-		const render = () => {
-			// Loop through all the messages and render them in the webview
-			for (const { output: message, mimeType, renderer } of messagesInfo) {
-				const data = message.data[mimeType];
-				// Send a message to the webview to render the output.
-				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-					VSBuffer.fromString(JSON.stringify(data));
-				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-				//   argument to postMessage.
-				const transfer: ArrayBuffer[] = [];
-				const webviewMessage: IPositronRenderMessage = {
-					type: 'positronRender',
-					outputId: message.id,
-					elementId: 'container',
-					rendererId: renderer.id,
-					mimeType,
-					metadata: message.metadata,
-					valueBytes: valueBytes.buffer,
-				};
-				webview.postMessage(webviewMessage, transfer);
-			}
-		};
+		// Loop through all the messages and render them in the webview
+		for (const { output: message, mimeType, renderer } of messagesInfo) {
+			const data = message.data[mimeType];
+			// Send a message to the webview to render the output.
+			const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+				VSBuffer.fromString(JSON.stringify(data));
+			// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+			//   argument to postMessage.
+			const transfer: ArrayBuffer[] = [];
+			const webviewMessage: IPositronRenderMessage = {
+				type: 'positronRender',
+				outputId: message.id,
+				elementId: 'container',
+				rendererId: renderer.id,
+				mimeType,
+				metadata: message.metadata,
+				valueBytes: valueBytes.buffer,
+			};
+			webview.postMessage(webviewMessage, transfer);
+		}
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
@@ -359,7 +359,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				id,
 				sessionId: runtime.sessionId,
 				webview,
-				render,
 				rendererMessaging: scopedRendererMessaging
 			},
 		);

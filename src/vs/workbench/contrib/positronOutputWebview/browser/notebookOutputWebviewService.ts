@@ -28,12 +28,6 @@ export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebview
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
-
-	/**
-	 * Optional method to render the output in the webview rather than doing so
-	 * directly in the HTML content
-	 */
-	render?(): void;
 }
 
 export enum WebviewType {
