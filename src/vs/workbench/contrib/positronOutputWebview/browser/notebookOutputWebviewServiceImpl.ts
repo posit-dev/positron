@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { VSBuffer } from 'vs/base/common/buffer';
+import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
@@ -18,9 +18,16 @@ import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { dirname } from 'vs/base/common/resources';
+import { dirname, joinPath } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { msgIsDownloadMessage, handleWebviewClicks, PositronDownloadMessage } from './downloadUtils';
+import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IFileService } from 'vs/platform/files/common/files';
+import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { getExtensionForMimeType } from 'vs/base/common/mime';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -43,6 +50,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@ILogService private _logService: ILogService,
+		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
+		@IFileDialogService private _fileDialogService: IFileDialogService,
+		@IFileService private _fileService: IFileService,
+		@IOpenerService private _openerService: IOpenerService,
 	) {
 	}
 
@@ -359,6 +370,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}): Promise<
 		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
 	> {
+		const webviewDisposables = new DisposableStore();
+
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
@@ -383,6 +396,16 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			? this._webviewService.createWebviewOverlay(webviewInitInfo)
 			: this._webviewService.createWebviewElement(webviewInitInfo);
 
+		webview.onDidDispose(() => {
+			webviewDisposables.dispose();
+		});
+
+		webviewDisposables.add(webview.onMessage(async ({ message }) => {
+			if (msgIsDownloadMessage(message)) {
+				this._downloadData(message);
+			}
+		}));
+
 		// Form the path to the jQuery library and inject it into the HTML
 		const jQueryPath = asWebviewUri(
 			jupyterExtension.extensionLocation.with({
@@ -401,6 +424,8 @@ window.onload = function() {
 		__vscode_notebook_message: true,
 		type: 'positronRenderComplete',
 	});
+
+	(${handleWebviewClicks.toString()})();
 };
 </script>`);
 
@@ -421,7 +446,43 @@ window.onload = function() {
 	static readonly CssAddons = `
 <style>
 	/* Hide actions button that does things like opening source code etc.. (See #2829) */
-	.vega-embed details[title="Click to view actions"] {display: none;}
 </style>`;
+
+
+	private async _downloadData(
+		payload: PositronDownloadMessage,
+	): Promise<void> {
+		if (typeof payload.data !== 'string') {
+			return;
+		}
+
+		const [splitStart, splitData] = payload.data.split(';base64,');
+		if (!splitData || !splitStart) {
+			return;
+		}
+
+		const defaultDir = this._workspaceContextService.getWorkspace().folders[0]?.uri ?? await this._fileDialogService.defaultFilePath();
+		let defaultName: string;
+		if (payload.downloadName) {
+			defaultName = payload.downloadName;
+		} else {
+			const mimeType = splitStart.replace(/^data:/, '');
+			const candidateExtension = mimeType && getExtensionForMimeType(mimeType);
+			defaultName = candidateExtension ? `download${candidateExtension}` : 'download';
+		}
+
+		const defaultUri = joinPath(defaultDir, defaultName);
+		const newFileUri = await this._fileDialogService.showSaveDialog({
+			defaultUri
+		});
+		if (!newFileUri) {
+			return;
+		}
+
+		const buff = decodeBase64(splitData);
+		await this._fileService.writeFile(newFileUri, buff);
+		await this._openerService.open(newFileUri);
+	}
+
 
 }
