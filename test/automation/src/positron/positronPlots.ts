@@ -17,6 +17,8 @@ const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positr
 const SAVE_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fill"]';
+const OUTER_WEBVIEW_FRAME = '.webview';
+const INNER_WEBVIEW_FRAME = '#active-frame';
 
 
 /*
@@ -50,6 +52,10 @@ export class PositronPlots {
 
 	async waitForCurrentStaticPlot() {
 		await this.code.waitForElement(CURRENT_STATIC_PLOT);
+	}
+
+	async waitForWebviewPlot(selector: string) {
+		await this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().locator(selector).waitFor({ state: 'visible' });
 	}
 
 	async clearPlots() {

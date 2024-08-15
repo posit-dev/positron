@@ -15,9 +15,13 @@ export function setup(logger: Logger) {
 		installAllHandlers(logger);
 
 		before(async function () {
-			await this.app.workbench.extensions.installExtension('posit.shiny', true);
-
-			await this.app.workbench.extensions.closeExtension('Shiny');
+			try {
+				await this.app.workbench.extensions.installExtension('posit.shiny', true);
+				await this.app.workbench.extensions.closeExtension('Shiny');
+			} catch (e) {
+				this.app.code.driver.takeScreenshot('shinySetup');
+				throw e;
+			}
 		});
 
 		describe('Shiny Application - Python', () => {

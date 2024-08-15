@@ -44,11 +44,25 @@ export function setup(logger: Logger) {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
+		async function simplePlotTest(app: Application, script: string, locator: string) {
+
+			await app.workbench.positronConsole.pasteCodeToConsole(script);
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronPlots.waitForWebviewPlot(locator);
+
+			await app.workbench.positronPlots.clearPlots();
+
+			await app.workbench.positronPlots.waitForNoPlots();
+
+		}
+
 		describe('Python Plots', () => {
 
 			before(async function () {
 				// Set the viewport to a size that ensures all the plots view actions are visible
-				await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				if (process.platform === 'linux') {
+					await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+				}
 				await this.app.workbench.positronLayouts.enterLayout('stacked');
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -110,9 +124,9 @@ import IPython
 
 h = gv.Digraph(format="svg")
 names = [
-    "A",
-    "B",
-    "C",
+	"A",
+	"B",
+	"C",
 ]
 
 # Specify edges
@@ -153,9 +167,9 @@ import IPython
 
 h = gv.Digraph(format="svg")
 names = [
-    "A",
-    "B",
-    "C",
+	"A",
+	"B",
+	"C",
 ]
 
 # Specify edges
@@ -283,6 +297,85 @@ plt.show()`;
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
+
+			it('Python - Verifies bqplot Python widget [C720869]', async function () {
+				const app = this.app as Application;
+
+				const script = `import bqplot.pyplot as bplt
+import numpy as np
+
+x = np.linspace(-10, 10, 100)
+y = np.sin(x)
+axes_opts = {"x": {"label": "X"}, "y": {"label": "Y"}}
+
+fig = bplt.figure(title="Line Chart")
+line = bplt.plot(
+	x=x, y=y, axes_options=axes_opts
+)
+
+bplt.show()`;
+
+				await simplePlotTest(app, script, '.svg-figure');
+
+			});
+
+			it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
+				const app = this.app as Application;
+
+				const script = `import pandas as pd
+from ipydatagrid import DataGrid
+data= pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]}, index=["One", "Two", "Three"])
+DataGrid(data)
+DataGrid(data, selection_mode="cell", editable=True)`;
+
+				await simplePlotTest(app, script, 'canvas:nth-child(1)');
+
+			});
+
+			it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
+				const app = this.app as Application;
+
+				const script = `from ipyleaflet import Map, Marker, display
+center = (52.204793, 360.121558)
+map = Map(center=center, zoom=12)
+
+# Add a draggable marker to the map
+# Dragging the marker updates the marker.location value in Python
+marker = Marker(location=center, draggable=True)
+map.add_control(marker)
+
+display(map)`;
+
+				await simplePlotTest(app, script, '.leaflet-container');
+
+			});
+
+			it('Python - Verifies ipytree Python widget [C720872]', async function () {
+				const app = this.app as Application;
+
+				const script = `from ipytree import Tree, Node
+tree = Tree(stripes=True)
+tree
+tree
+node1 = Node('node1')
+tree.add_node(node1)
+node2 = Node('node2')
+tree.add_node(node2)
+tree.nodes = [node2, node1]
+node3 = Node('node3', disabled=True)
+node4 = Node('node4')
+node5 = Node('node5', [Node('1'), Node('2')])
+node2.add_node(node3)
+node2.add_node(node4)
+node2.add_node(node5)
+tree.add_node(Node('node6'), 1)
+node2.add_node(Node('node7'), 2)
+
+tree`;
+
+				await simplePlotTest(app, script, '.jstree-container-ul');
+
+			});
 		});
 
 		describe('R Plots', () => {
@@ -368,6 +461,69 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
+
+
+			it('R - Verifies rplot plot [C720873]', async function () {
+				const app = this.app as Application;
+
+				const script = `library('corrr')
+
+x <- correlate(mtcars)
+rplot(x)
+
+# Common use is following rearrange and shave
+x <- rearrange(x, absolute = FALSE)
+x <- shave(x)
+rplot(x)
+rplot(x, print_cor = TRUE)
+rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
+
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronPlots.waitForCurrentPlot();
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+
+			});
+
+			it('R - Verifies highcharter plot [C720874]', async function () {
+				const app = this.app as Application;
+
+				const script = `library(highcharter)
+
+data("mpg", "diamonds", "economics_long", package = "ggplot2")
+
+hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
+
+				await simplePlotTest(app, script, 'svg');
+
+			});
+
+			it('R - Verifies leaflet plot [C720875]', async function () {
+				const app = this.app as Application;
+
+				const script = `library(leaflet)
+m = leaflet() %>% addTiles()
+m = m %>% setView(-93.65, 42.0285, zoom = 17)
+m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, ISU')`;
+
+				await simplePlotTest(app, script, '.leaflet');
+
+			});
+
+			it('R - Verifies plotly plot [C720876]', async function () {
+				const app = this.app as Application;
+
+				const script = `library(plotly)
+fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
+fig`;
+
+				await simplePlotTest(app, script, '.plot-container');
+
+			});
+
 		});
 
 	});

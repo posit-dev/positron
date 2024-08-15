@@ -29,6 +29,9 @@ export class HtmlPlotClient extends WebviewPlotClient {
 			code: '',
 		}, html.webview.webview);
 
+		// Ensure that the preview is disposed when the plot client is disposed.
+		this._register(html);
+
 		// Render the thumbnail when the webview loads.
 		this._register(this.html.webview.onDidLoad(e => {
 			this.nudgeRenderThumbnail();
