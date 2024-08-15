@@ -558,6 +558,7 @@
 		"--vscode-positronDataExplorer-columnNullPercentGraphBackgroundStroke",
 		"--vscode-positronDataExplorer-columnNullPercentGraphIndicatorFill",
 		"--vscode-positronDataExplorer-invalidFilterBackground",
+		"--vscode-positronDataExplorer-sparklineFill",
 		"--vscode-positronDataExplorer-statusIndicatorComputing",
 		"--vscode-positronDataExplorer-statusIndicatorDisconnected",
 		"--vscode-positronDataExplorer-selectionBackground",

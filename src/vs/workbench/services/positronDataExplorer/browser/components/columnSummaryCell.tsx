@@ -19,6 +19,7 @@ import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGri
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
+import { ColumnSparkline } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparkline';
 import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
@@ -262,7 +263,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div className='column-name'>
 					{props.columnSchema.column_name}
 				</div>
-
+				<ColumnSparkline {...props} />
 				<ColumnNullPercent {...props} />
 			</div>
 			{expanded &&

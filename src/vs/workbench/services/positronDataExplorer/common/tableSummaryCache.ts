@@ -7,7 +7,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -252,12 +252,27 @@ export class TableSummaryCache extends Disposable {
 		// Load the column profiles.
 		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
 			columnIndices.map((column_index): ColumnProfileRequest => {
-				// Build the array of column profiles to load.
+				// Build the array of column profiles to load. Always load the null count.
 				const profiles: ColumnProfileSpec[] = [
 					{ profile_type: ColumnProfileType.NullCount }
 				];
+
+				// If the column is expanded, load the summary stats.
 				if (this._expandedColumns.has(column_index)) {
 					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
+				}
+
+				// For number columns, load the histogram.
+				const columnSchema = this._columnSchemaCache.get(column_index);
+				if (columnSchema?.type_display === ColumnDisplayType.Number) {
+					profiles.push({
+						profile_type: ColumnProfileType.Histogram,
+						params: {
+							method: ColumnHistogramParamsMethod.Fixed,
+							num_bins: 80,
+							quantiles: [0.25, 0.50]
+						}
+					});
 				}
 
 				// Return the column profile request.
@@ -266,7 +281,14 @@ export class TableSummaryCache extends Disposable {
 		);
 
 		// Cache the column profiles that were returned.
+		console.log('Processing column profiles');
+
 		for (let i = 0; i < columnProfiles.length; i++) {
+			if (columnProfiles[i].histogram) {
+				const columnSchema = this._columnSchemaCache.get(columnIndices[i]);
+				console.log(`+++++++++++++++++ HISTOGRAM! for ${columnSchema?.column_name}`);
+				console.log(columnProfiles[i].histogram);
+			}
 			this._columnProfileCache.set(columnIndices[i], columnProfiles[i]);
 		}
 

@@ -8,11 +8,12 @@
 	grid-gap: 5px;
 	align-items: center;
 	grid-column: missing-values / right-gutter;
-	grid-template-columns: [percent] min-content [graph] 25px [end];
+	grid-template-columns: [percent] 35px [graph] 25px [end];
 }
 
 .data-grid-row-cell .content .column-summary .column-null-percent .text-percent {
 	font-size: 90%;
+	text-align: right;
 	grid-column: percent / graph;
 }
 
