@@ -23,11 +23,14 @@ export class PositronEditor {
 		await lineLocator.press(press);
 	}
 
-	// This function returns the top value of the style attribute for the
-	// editor's current-line div parent (the current-line div is a child of the div that
-	// has the top attribute). It retries up to 10 times to get the value.
-	// Retries are necessary because the value is not always immediately
-	// available (presumably due to the change from one current line to another).
+	/**
+	 * This function returns the top value of the style attribute for the editor's current-line div
+	 * parent (the current-line div is a child of the div that has the top attribute). It retries up
+	 * to 10 times to get the value. Retries are necessary because the value is not always
+	 * immediately available (presumably due to the change from one current line to another).
+	 * @returns Promise that resolves to top value of the style attribute for the editor's
+	 * current-line div parent.
+	 */
 	async getCurrentLineTop(): Promise<number> {
 		let retries = 10;
 		let topValue: number = NaN;
