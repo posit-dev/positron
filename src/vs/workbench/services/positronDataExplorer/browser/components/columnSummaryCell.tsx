@@ -24,7 +24,7 @@ import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/brow
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
+import { checkDataExplorerExperimentalFeaturesEnabled, dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
  * ColumnSummaryCellProps interface.
@@ -264,7 +264,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div className='column-name'>
 					{props.columnSchema.column_name}
 				</div>
-				<ColumnSparkline {...props} />
+				{checkDataExplorerExperimentalFeaturesEnabled(context.configurationService) &&
+					<ColumnSparkline {...props} />
+				}
 				<ColumnNullPercent {...props} />
 			</div>
 			{expanded &&
