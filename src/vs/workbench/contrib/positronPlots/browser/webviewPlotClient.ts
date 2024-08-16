@@ -6,7 +6,7 @@
 import * as DOM from 'vs/base/browser/dom';
 import { VSBuffer, encodeBase64 } from 'vs/base/common/buffer';
 import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, MutableDisposable } from 'vs/base/common/lifecycle';
 import { IOverlayWebview } from 'vs/workbench/contrib/webview/browser/webview';
 import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
@@ -14,8 +14,9 @@ import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/
 /**
  * A Positron plot instance that is backed by a webview.
  */
-export class WebviewPlotClient extends Disposable implements IPositronPlotClient {
+export abstract class WebviewPlotClient extends Disposable implements IPositronPlotClient {
 
+	protected readonly _webview = this._register(new MutableDisposable<IOverlayWebview>());
 
 	private _thumbnail: VSBuffer | undefined;
 
@@ -28,20 +29,13 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	private _element: HTMLElement | undefined;
 
 	/**
-	 * Creates a new WebPlotClient, which wraps a notebook output webview in
-	 * an object that can be displayed in the Plots pane.
+	 * Creates a new NotebookOutputPlotClient, which manages the lifecycle of a
+	 * webview, wrapped in an object that can be displayed in the Plots pane.
 	 *
-	 * @param webview The webview to wrap.
-	 * @param message The output message from which the webview was created.
-	 * @param code The code that generated the webview (if known)
+	 * @param metadata The metadata associated with the plot.
 	 */
-	constructor(
-		public readonly metadata: IPositronPlotMetadata,
-		public readonly webview: IOverlayWebview) {
+	constructor(public readonly metadata: IPositronPlotMetadata) {
 		super();
-
-		// Ensure that the webview is disposed when the plot client is disposed.
-		this._register(webview);
 
 		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
@@ -69,7 +63,10 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param claimant The object taking ownership.
 	 */
 	public claim(claimant: any) {
-		this.webview.claim(claimant, DOM.getWindow(this._element), undefined);
+		if (!this._webview.value) {
+			throw new Error('No webview to claim');
+		}
+		this._webview.value.claim(claimant, DOM.getWindow(this._element), undefined);
 		this._claimed = true;
 	}
 
@@ -79,8 +76,11 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param ele The element over which to position the webview.
 	 */
 	public layoutWebviewOverElement(ele: HTMLElement) {
+		if (!this._webview.value) {
+			throw new Error('No webview to layout');
+		}
 		this._element = ele;
-		this.webview.layoutWebviewOverElement(ele);
+		this._webview.value.layoutWebviewOverElement(ele);
 	}
 
 	/**
@@ -89,7 +89,10 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * @param claimant The object releasing ownership.
 	 */
 	public release(claimant: any) {
-		this.webview.release(claimant);
+		if (!this._webview.value) {
+			throw new Error('No webview to release');
+		}
+		this._webview.value.release(claimant);
 		this._claimed = false;
 
 		// We can't render a thumbnail while the webview isn't showing, so cancel the
@@ -102,7 +105,10 @@ export class WebviewPlotClient extends Disposable implements IPositronPlotClient
 	 * Electron APIs in desktop mode) as PNG.
 	 */
 	private renderThumbnail() {
-		this.webview.captureContentsAsPng().then(data => {
+		if (!this._webview.value) {
+			throw new Error('No webview to render thumbnail');
+		}
+		this._webview.value.captureContentsAsPng().then(data => {
 			if (data) {
 				this._thumbnail = data;
 				this._onDidRenderThumbnail.fire(this.asDataUri(data));
