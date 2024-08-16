@@ -355,7 +355,14 @@ export class TableSummaryCache extends Disposable {
 
 				// Add histogram.
 				if (columnProfile.histogram) {
-					columnProfileSpecs.push({ profile_type: ColumnProfileType.Histogram });
+					columnProfileSpecs.push({
+						profile_type: ColumnProfileType.Histogram,
+						params: {
+							method: ColumnHistogramParamsMethod.Fixed,
+							num_bins: 80,
+							quantiles: [0.25, 0.50]
+						}
+					});
 				}
 
 				// Add frequency table.
