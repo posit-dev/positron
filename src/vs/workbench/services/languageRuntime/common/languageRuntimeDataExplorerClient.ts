@@ -103,7 +103,7 @@ export class DataExplorerClientInstance extends Disposable {
 	_profileFormatOptions: FormatOptions;
 
 	/**
-	 * Promises for asynchronous tasks requested of the backend.
+	 * Promises for asynchronous tasks requested of the backend, keyed by callback ID.
 	 */
 	private readonly _asyncTasks = new Map<string, DeferredPromise<any>>();
 
