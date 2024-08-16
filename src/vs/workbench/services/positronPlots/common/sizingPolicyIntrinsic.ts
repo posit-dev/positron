@@ -15,7 +15,7 @@ import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common
 export class PlotSizingPolicyIntrinsic implements IPositronPlotSizingPolicy {
 	public readonly id = 'intrinsic';
 
-	private readonly _name = nls.localize('plotSizingPolicy.intrinsic', "Intrinsic");
+	private readonly _name = nls.localize('plotSizingPolicy.intrinsic.defaultName', "Intrinsic");
 
 	public getName(plot: PlotClientInstance) {
 		const intrinsicSize = plot.intrinsicSize;
@@ -28,14 +28,21 @@ export class PlotSizingPolicyIntrinsic implements IPositronPlotSizingPolicy {
 		let unit = '';
 		switch (intrinsicSize.unit) {
 			case PlotUnit.Inches:
-				unit = 'in';
+				unit = nls.localize('plotSizingPolicy.intrinsic.unit.inches', 'in');
 				break;
 			case PlotUnit.Pixels:
-				unit = 'px';
+				unit = nls.localize('plotSizingPolicy.intrinsic.unit.pixels', 'px');
 				break;
 		}
 
-		return `${intrinsicSize.source} (${intrinsicSize.width}${unit}×${intrinsicSize.height}${unit})`;
+		return nls.localize(
+			'plotSizingPolicy.intrinsic.name',
+			"{0} ({1}{3}×{2}{3})",
+			intrinsicSize.source,
+			intrinsicSize.width,
+			intrinsicSize.height,
+			unit
+		);
 	}
 
 	public getPlotSize(viewportSize: IPlotSize): IPlotSize | undefined {

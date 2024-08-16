@@ -28,6 +28,7 @@ import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalD
 import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import { ILogService } from 'vs/platform/log/common/log';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -46,6 +47,8 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param dialogService the dialog service to confirm the save
  * @param fileService the file service to check if paths exist
  * @param fileDialogService the file dialog service to prompt where to save the plot
+ * @param logService the log service
+ * @param notificationService the notification service to show user-facing notifications
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
@@ -58,6 +61,7 @@ export const showSavePlotModalDialog = (
 	fileService: IFileService,
 	fileDialogService: IFileDialogService,
 	logService: ILogService,
+	notificationService: INotificationService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
@@ -77,6 +81,7 @@ export const showSavePlotModalDialog = (
 			fileDialogService={fileDialogService}
 			keybindingService={keybindingService}
 			logService={logService}
+			notificationService={notificationService}
 			renderer={renderer}
 			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
 			plotSize={plotClient.lastRender?.size}
@@ -94,6 +99,7 @@ interface SavePlotModalDialogProps {
 	fileService: IFileService;
 	fileDialogService: IFileDialogService;
 	logService: ILogService;
+	notificationService: INotificationService;
 	keybindingService: IKeybindingService;
 	renderer: PositronModalReactRenderer;
 	enableIntrinsicSize: boolean;
@@ -207,7 +213,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
 				.catch((error) => {
-					props.logService.error('Error saving plot:', error);
+					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", error.toString()));
 				})
 				.finally(() => {
 					setRendering(false);

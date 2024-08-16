@@ -43,6 +43,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { ILogService } from 'vs/platform/log/common/log';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -129,6 +130,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IDialogService private readonly _dialogService: IDialogService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		super();
 
@@ -788,6 +790,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 								this._fileService,
 								this._fileDialogService,
 								this._logService,
+								this._notificationService,
 								plot,
 								this.savePlotAs,
 								suggestedPath

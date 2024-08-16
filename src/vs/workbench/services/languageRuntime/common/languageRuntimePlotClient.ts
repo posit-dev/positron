@@ -177,6 +177,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private _receivedIntrinsicSize = false;
 
 	/**
+	 * The response of the currently active intrinsic size request, if any.
+	 */
+	private _currentIntrinsicSize?: Promise<IntrinsicSize | undefined>;
+
+	/**
 	 * Event that fires when the plot is closed on the runtime side, typically
 	 * because the runtime exited and doesn't preserve plot state.
 	 */
@@ -281,15 +286,22 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 *
 	 * @returns A promise that resolves to the intrinsic size of the plot, if known.
 	 */
-	public async getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
-		if (this._receivedIntrinsicSize) {
-			return this._intrinsicSize;
+	public getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
+		// If there's already an in-flight request, return its response.
+		if (this._currentIntrinsicSize) {
+			return this._currentIntrinsicSize;
 		}
-		const intrinsicSize = await this._comm.getIntrinsicSize();
-		this._intrinsicSize = intrinsicSize;
-		this._receivedIntrinsicSize = true;
-		this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
-		return this._intrinsicSize;
+		this._currentIntrinsicSize = this._comm.getIntrinsicSize()
+			.then((intrinsicSize) => {
+				this._intrinsicSize = intrinsicSize;
+				this._receivedIntrinsicSize = true;
+				this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
+				return intrinsicSize;
+			})
+			.finally(() => {
+				this._currentIntrinsicSize = undefined;
+			});
+		return this._currentIntrinsicSize;
 	}
 
 	/**
