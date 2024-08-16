@@ -61,9 +61,15 @@ export const ColumnSparklineHistogram = (props: ColumnSparklineHistogramProps) =
 		<div className='sparkline-histogram' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
 			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='geometricPrecision'>
 				<g>
+					<rect className='sparkline-area'
+						x={0}
+						y={GRAPH_HEIGHT - 0.5}
+						width={GRAPH_WIDTH}
+						height={0.5}
+					/>
 					{props.columnHistogram.bin_counts.map((binCount, binIndex) => {
 						const height = linearConversion(binCount, binCountRange, GRAPH_RANGE);
-						return <rect className='bin'
+						return <rect className='sparkline-area'
 							key={binIndex}
 							x={binIndex}
 							y={GRAPH_HEIGHT - height}

@@ -7,6 +7,6 @@
 	display: flex;
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .sparkline-histogram .bin {
+.data-grid-row-cell .content .column-summary .basic-info .sparkline-histogram .sparkline-area {
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
 }
