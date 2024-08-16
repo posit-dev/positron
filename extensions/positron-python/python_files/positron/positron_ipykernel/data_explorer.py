@@ -1712,22 +1712,17 @@ class PandasView(DataExplorerTableView):
                     profile_type=ColumnProfileType.NullCount,
                     support_status=SupportStatus.Supported,
                 ),
-                # Temporarily disabled for
-                # https://github.com/posit-dev/positron/issues/3490 on
-                # 6/11/2024. This will be enabled again when the UI
-                # has been reworked to more fully support column
-                # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.Histogram,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.FrequencyTable,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
             ],
         ),
@@ -2449,14 +2444,9 @@ class PolarsView(DataExplorerTableView):
                     profile_type=ColumnProfileType.NullCount,
                     support_status=SupportStatus.Supported,
                 ),
-                # Temporarily disabled for
-                # https://github.com/posit-dev/positron/issues/3490 on
-                # 6/11/2024. This will be enabled again when the UI
-                # has been reworked to more fully support column
-                # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
             ],
         ),

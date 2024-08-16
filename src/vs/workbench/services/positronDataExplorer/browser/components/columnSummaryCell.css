@@ -35,7 +35,7 @@
 	align-items: center;
 	white-space: nowrap;
 	grid-row: basic-info / profile-info;
-	grid-template-columns: [left-gutter] 4px [expand-collapse] 25px [icon] 25px [title] 1fr [missing-values] min-content [right-gutter] 12px [end];
+	grid-template-columns: [left-gutter] 4px [expand-collapse] 25px [icon] 25px [title] 1fr [sparkline] min-content [missing-values] min-content [right-gutter] 12px [end];
 }
 
 .data-grid-row-cell .content .column-summary .basic-info .expand-collapse-button {
@@ -77,7 +77,7 @@
 	font-weight: 600;
 	margin-right: 4px;
 	text-overflow: ellipsis;
-	grid-column: title / missing-values;
+	grid-column: title / sparkline;
 }
 
 .data-grid-row-cell .content .column-summary .profile-info {

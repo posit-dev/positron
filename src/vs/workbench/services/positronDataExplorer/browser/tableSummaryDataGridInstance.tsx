@@ -340,5 +340,23 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.summary_stats;
 	}
 
+	/**
+	 * Gets the column histogram for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column histogram for the specified column index
+	 */
+	getColumnHistogram(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.histogram;
+	}
+
+	/**
+	 * Gets the column frequency table for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column frequency table for the specified column index
+	 */
+	getColumnFrequencyTable(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.frequency_table;
+	}
+
 	//#endregion Private Methods
 }

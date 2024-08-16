@@ -5,9 +5,11 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * Constants.
@@ -81,9 +83,13 @@ export class TableSummaryCache extends Disposable {
 
 	/**
 	 * Constructor.
+	 * @param _configurationService The configuration service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 */
-	constructor(private readonly _dataExplorerClientInstance: DataExplorerClientInstance) {
+	constructor(
+		private readonly _configurationService: IConfigurationService,
+		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
+	) {
 		// Call the base class's constructor.
 		super();
 	}
@@ -249,15 +255,35 @@ export class TableSummaryCache extends Disposable {
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
+		// Determne whether histograms are supported.
+		const histogramSupported = this.isHistogramSupported();
+
 		// Load the column profiles.
 		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
 			columnIndices.map((column_index): ColumnProfileRequest => {
-				// Build the array of column profiles to load.
+				// Get the column schema.
+				const columnSchema = this._columnSchemaCache.get(column_index);
+
+				// Build the array of column profiles to load. Always load the null count.
 				const profiles: ColumnProfileSpec[] = [
 					{ profile_type: ColumnProfileType.NullCount }
 				];
+
+				// If the column is expanded, load the summary stats.
 				if (this._expandedColumns.has(column_index)) {
 					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
+				}
+
+				// Determine whether the histogram should be returned.
+				if (histogramSupported && columnSchema?.type_display === ColumnDisplayType.Number) {
+					profiles.push({
+						profile_type: ColumnProfileType.Histogram,
+						params: {
+							method: ColumnHistogramParamsMethod.Fixed,
+							num_bins: 80,
+							quantiles: [0.25, 0.50]
+						}
+					});
 				}
 
 				// Return the column profile request.
@@ -329,7 +355,14 @@ export class TableSummaryCache extends Disposable {
 
 				// Add histogram.
 				if (columnProfile.histogram) {
-					columnProfileSpecs.push({ profile_type: ColumnProfileType.Histogram });
+					columnProfileSpecs.push({
+						profile_type: ColumnProfileType.Histogram,
+						params: {
+							method: ColumnHistogramParamsMethod.Fixed,
+							num_bins: 80,
+							quantiles: [0.25, 0.50]
+						}
+					});
 				}
 
 				// Add frequency table.
@@ -380,6 +413,27 @@ export class TableSummaryCache extends Disposable {
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	/**
+	 * Determines whether histograms are supported.
+	 * @returns true if histograms are supported; otherwise, false.
+	 */
+	private isHistogramSupported() {
+		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
+			.get_column_profiles;
+		const histogramSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.Histogram
+		);
+
+		if (!histogramSupportStatus) {
+			return false;
+		}
+
+		return dataExplorerExperimentalFeatureEnabled(
+			histogramSupportStatus.support_status,
+			this._configurationService
+		);
+	}
 
 	/**
 	 * Clears the trim cache timeout.
