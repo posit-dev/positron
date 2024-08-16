@@ -453,7 +453,11 @@ window.onload = function() {
 	 */
 	static readonly CssAddons = `
 <style>
-	/* Hide actions button that does things like opening source code etc.. (See #2829) */
+	/* Hide actions button that try and open external pages like opening source code as they don't currently work (See #2829)
+	/* We do support download link clicks, so keep those. */
+	.vega-actions a:not([download]) {
+		display: none;
+	}
 </style>`;
 
 
