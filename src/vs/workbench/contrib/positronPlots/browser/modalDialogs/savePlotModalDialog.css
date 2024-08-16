@@ -5,15 +5,20 @@
 
 .plot-preview-input {
 	height: 100%;
-	grid-template-rows: 1fr 1fr 2fr 4px 9fr;
+	grid-template-rows: 1fr 1fr 2fr 1fr 4px 9fr;
 	grid-template-areas:
 		"browse"
 		"file"
 		"plot-input"
+		"use-intrinsic-size"
 		"preview-progress"
 		"preview";
 	grid-gap: 10px;
 	display: grid;
+}
+
+.plot-preview-input .use-intrinsic-size {
+	grid-area: use-intrinsic-size;
 }
 
 .plot-preview-input .plot-input {

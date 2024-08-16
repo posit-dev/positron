@@ -6,13 +6,14 @@
 import base64
 import io
 from pathlib import Path
-from typing import Any, Dict, Iterable, cast
+from typing import Any, Dict, Iterable, Optional, Tuple, cast
 
 import matplotlib
 import matplotlib.pyplot as plt
 import pytest
 from PIL import Image
 
+from positron_ipykernel.plot_comm import PlotSize, PlotUnit
 from positron_ipykernel.plots import PlotsService
 from positron_ipykernel.positron_ipkernel import PositronIPyKernel, _CommTarget
 
@@ -68,8 +69,20 @@ def images_path() -> Path:
     return images_path
 
 
-def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> DummyComm:
-    shell.run_cell("plt.figure()")
+def _create_mpl_plot(
+    shell: PositronShell,
+    plots_service: PlotsService,
+    size: Optional[Tuple[float, float]] = None,
+    dpi: Optional[int] = None,
+) -> DummyComm:
+    args = []
+    if size:
+        args.append(f"figsize=({size[0]}, {size[1]})")
+    if dpi:
+        args.append(f"dpi={dpi}")
+    args_code = ", ".join(args)
+
+    shell.run_cell(f"plt.figure({args_code})")
     plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
     plot_comm.messages.clear()
@@ -77,13 +90,12 @@ def _create_mpl_plot(shell: PositronShell, plots_service: PlotsService) -> Dummy
 
 
 def _do_render(
-    plot_comm: DummyComm, width=400, height=300, pixel_ratio=2.0, format="png"
+    plot_comm: DummyComm, size: Optional[PlotSize] = None, pixel_ratio=2.0, format="png"
 ) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
         {
-            "width": width,
-            "height": height,
+            "size": size.dict() if size else None,
             "pixel_ratio": pixel_ratio,
             "format": format,
         },
@@ -105,6 +117,28 @@ def test_mpl_create(shell: PositronShell, plots_service: PlotsService) -> None:
     assert len(plots_service._plots) == 1
 
 
+def test_mpl_get_intrinsic_size(shell: PositronShell, plots_service: PlotsService) -> None:
+    # Create a plot with a given size.
+    intrinsic_size = (6.0, 4.0)
+    plot_comm = _create_mpl_plot(shell, plots_service, intrinsic_size)
+
+    # Send a get_intrinsic_size request to the plot comm.
+    msg = json_rpc_request("get_intrinsic_size", {}, comm_id="dummy_comm_id")
+    plot_comm.handle_msg(msg)
+
+    # Check that the response includes the expected intrinsic size.
+    assert plot_comm.messages == [
+        json_rpc_response(
+            {
+                "width": intrinsic_size[0],
+                "height": intrinsic_size[1],
+                "unit": PlotUnit.Inches.value,
+                "source": "Matplotlib",
+            }
+        )
+    ]
+
+
 def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:
     plot_comm = _create_mpl_plot(shell, plots_service)
 
@@ -120,22 +154,41 @@ def test_mpl_show(shell: PositronShell, plots_service: PlotsService) -> None:
 
 def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_path: Path) -> None:
     # First create the figure and get the plot comm.
-    plot_comm = _create_mpl_plot(shell, plots_service)
+    intrinsic_size = (6.0, 4.0)
+    dpi = 100
+    plot_comm = _create_mpl_plot(shell, plots_service, intrinsic_size, dpi)
 
     # Send a render request to the plot comm. The frontend would send this on comm creation.
-    width = 400
-    height = 300
+    size = PlotSize(width=400, height=300)
     pixel_ratio = 2.0
     format = "png"
-    response = _do_render(plot_comm, width, height, pixel_ratio, format)
+    response = _do_render(plot_comm, size, pixel_ratio, format)
 
     # Check that the response includes the expected base64-encoded resized image.
     image_bytes = response["data"]["result"].pop("data")
     image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
     assert image.format == format.upper()
-    assert image.size == (width * pixel_ratio, height * pixel_ratio)
+    assert image.size == (size.width * pixel_ratio, size.height * pixel_ratio)
     # Save it to disk for manual inspection.
     image.save(images_path / "test-mpl-render.png")
+
+    # Check the rest of the response.
+    assert response == json_rpc_response({"mime_type": f"image/{format}"})
+
+    # Now render the plot at its intrinsic size.
+    # Having rendered the plot at an explicit size should not affect the intrinsic size.
+    response = _do_render(plot_comm, pixel_ratio=pixel_ratio, format=format)
+
+    # Check that the response includes the expected base64-encoded resized image.
+    image_bytes = response["data"]["result"].pop("data")
+    image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
+    assert image.format == format.upper()
+    assert image.size == (
+        intrinsic_size[0] * dpi * pixel_ratio,
+        intrinsic_size[1] * dpi * pixel_ratio,
+    )
+    # Save it to disk for manual inspection.
+    image.save(images_path / "test-mpl-render-intrinsic.png")
 
     # Check the rest of the response.
     assert response == json_rpc_response({"mime_type": f"image/{format}"})

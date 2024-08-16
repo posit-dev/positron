@@ -8,7 +8,7 @@ import * as React from 'react';
 
 // Other dependencies
 import * as nls from 'vs/nls';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { IAction, Separator } from 'vs/base/common/actions';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -17,12 +17,17 @@ import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/comm
 import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { showSetPlotSizeModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/setPlotSizeModalDialog';
+import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { disposableTimeout } from 'vs/base/common/async';
 
 interface SizingPolicyMenuButtonProps {
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;
 	readonly plotsService: IPositronPlotsService;
+	readonly plotClient: PlotClientInstance;
 }
 
 const sizingPolicyTooltip = nls.localize('positronSizingPolicyTooltip', "Set how the plot's shape and size are determined");
@@ -38,15 +43,48 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 	// State.
 	const [activePolicyLabel, setActivePolicyLabel] =
-		React.useState(props.plotsService.selectedSizingPolicy.name);
+		React.useState(props.plotsService.selectedSizingPolicy.getName(props.plotClient));
 
 	React.useEffect(() => {
 		const disposables = new DisposableStore();
+
+		const attachPolicy = (policy: IPositronPlotSizingPolicy) => {
+			const disposables = new DisposableStore();
+
+			// If the intrinsic policy is active and the plot's intrinsic size has not been received,
+			// debounce the active policy label update to avoid flickering.
+			let debounceTimeout: IDisposable | undefined;
+			if (policy instanceof PlotSizingPolicyIntrinsic && !props.plotClient.receivedIntrinsicSize) {
+				debounceTimeout = disposableTimeout(() => {
+					setActivePolicyLabel(policy.getName(props.plotClient));
+				}, 250, disposables);
+			} else {
+				setActivePolicyLabel(policy.getName(props.plotClient));
+			}
+
+			if (policy instanceof PlotSizingPolicyIntrinsic) {
+				// Update the active policy label when the selected policy's name changes.
+				disposables.add(props.plotClient.onDidSetIntrinsicSize((intrinsicSize) => {
+					debounceTimeout?.dispose();
+					setActivePolicyLabel(policy.getName(props.plotClient));
+				}));
+			}
+
+			return disposables;
+		};
+
+		let policyDisposables = attachPolicy(props.plotsService.selectedSizingPolicy);
+
+		// Update the active policy label when the selected policy changes.
 		disposables.add(props.plotsService.onDidChangeSizingPolicy(policy => {
-			setActivePolicyLabel(policy.name);
+			policyDisposables.dispose();
+			policyDisposables = attachPolicy(policy);
 		}));
-		return () => disposables.dispose();
-	}, [props.plotsService, props.plotsService.selectedSizingPolicy]);
+		return () => {
+			disposables.dispose();
+			policyDisposables.dispose();
+		};
+	}, [props.plotsService, props.plotClient, props.plotsService.selectedSizingPolicy]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -56,12 +94,16 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		const actions: IAction[] = [];
 		props.plotsService.sizingPolicies.map(policy => {
 			if (policy.id !== PlotSizingPolicyCustom.ID) {
+				// Only enable the intrinsic policy if the plot's intrinsic size is known.
+				const enabled = policy instanceof PlotSizingPolicyIntrinsic ?
+					!!props.plotClient.intrinsicSize : true;
+
 				actions.push({
 					id: policy.id,
-					label: policy.name,
+					label: policy.getName(props.plotClient),
 					tooltip: '',
 					class: undefined,
-					enabled: true,
+					enabled,
 					checked: policy.id === selectedPolicy.id,
 					run: () => {
 						props.plotsService.selectSizingPolicy(policy.id);
@@ -77,7 +119,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 		if (customPolicy) {
 			actions.push({
 				id: customPolicy.id,
-				label: customPolicy.name,
+				label: customPolicy.getName(props.plotClient),
 				tooltip: '',
 				class: undefined,
 				enabled: true,

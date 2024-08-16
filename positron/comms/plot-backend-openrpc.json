@@ -6,23 +6,55 @@
 	},
 	"methods": [
 		{
+			"name": "get_intrinsic_size",
+			"summary": "Get the intrinsic size of a plot, if known.",
+			"description": "The intrinsic size of a plot is the size at which a plot would be if no size constraints were applied by Positron.",
+			"params": [],
+			"result": {
+				"required": false,
+				"schema": {
+					"name": "intrinsic_size",
+					"description": "The intrinsic size of a plot, if known",
+					"type": "object",
+					"properties": {
+						"width": {
+							"type": "number",
+							"description": "The width of the plot"
+						},
+						"height": {
+							"type": "number",
+							"description": "The height of the plot"
+						},
+						"unit": {
+							"description": "The unit of measurement of the plot's dimensions",
+							"$ref": "#/components/schemas/plot_unit"
+						},
+						"source": {
+							"type": "string",
+							"description": "The source of the intrinsic size e.g. 'Matplotlib'"
+						}
+					},
+					"required": [
+						"width",
+						"height",
+						"unit",
+						"source"
+					]
+				}
+			}
+		},
+		{
 			"name": "render",
 			"summary": "Render a plot",
-			"description": "Requests a plot to be rendered at a given height and width. The plot data is returned in a base64-encoded string.",
+			"description": "Requests a plot to be rendered. The plot data is returned in a base64-encoded string.",
 			"params": [
 				{
-					"name": "height",
-					"description": "The requested plot height, in pixels",
+					"name": "size",
+					"description": "The requested size of the plot. If not provided, the plot will be rendered at its intrinsic size.",
 					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "width",
-					"description": "The requested plot width, in pixels",
-					"schema": {
-						"type": "integer"
-					}
+						"$ref": "#/components/schemas/plot_size"
+					},
+					"required": false
 				},
 				{
 					"name": "pixel_ratio",
@@ -36,14 +68,8 @@
 					"description": "The requested plot format",
 					"schema": {
 						"type": "string",
-						"enum": [
-							"png",
-							"jpeg",
-							"svg",
-							"pdf"
-						]
-					},
-					"required": false
+						"enum": ["png", "jpeg", "svg", "pdf"]
+					}
 				}
 			],
 			"result": {
@@ -62,11 +88,39 @@
 						}
 					},
 					"required": [
+						"size",
 						"data",
 						"mime_type"
 					]
 				}
 			}
 		}
-	]
+	],
+	"components": {
+		"schemas": {
+			"plot_size": {
+				"type": "object",
+				"description": "The size of a plot",
+				"properties": {
+					"height": {
+						"description": "The plot's height, in pixels",
+						"type": "integer"
+					},
+					"width": {
+						"description": "The plot's width, in pixels",
+						"type": "integer"
+					}
+				},
+				"required": [
+					"height",
+					"width"
+				]
+			},
+			"plot_unit": {
+				"type": "string",
+				"description": "The unit of measurement of a plot's dimensions",
+				"enum": ["pixels", "inches"]
+			}
+		}
+	}
 }

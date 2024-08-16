@@ -105,6 +105,14 @@ const PythonTypeMap: Record<string, string> = {
 	'object': 'Dict',
 };
 
+function isOptional(contentDescriptor: any) {
+	// TODO: To be fully compliant with the OpenRPC spec, we should default content descriptors
+	//   (params and results) to required. We'd need to add `"required": true` to most of
+	//   the content descriptors in our specs.
+	//   For now, continue defaulting to required by comparing with `false`.
+	return contentDescriptor.required === false;
+}
+
 function resolveComm(s: string) {
 	return s
 		.replace(/\.json$/, '')
@@ -594,7 +602,15 @@ use serde::Serialize;
 						yield `\tpub ${param.name}: serde_json::Value,\n`;
 					} else {
 						// Otherwise use the type directly
-						yield `\tpub ${param.name}: ${deriveType(contracts, RustTypeMap, [param.name], param.schema)},\n`;
+						yield `\tpub ${param.name}: `;
+						if (isOptional(param)) {
+							yield `Option<`;
+						}
+						yield deriveType(contracts, RustTypeMap, [param.name], param.schema);
+						if (isOptional(param)) {
+							yield `>`;
+						}
+						yield `,\n`;
 					}
 					if (i < method.params.length - 1) {
 						yield '\n';
@@ -667,7 +683,7 @@ use serde::Serialize;
 				// Open enum parameter
 				yield '(';
 
-				if (method.result.required === false) {
+				if (isOptional(method.result)) {
 					yield 'Option<';
 				}
 
@@ -678,7 +694,7 @@ use serde::Serialize;
 				}
 
 				// Close `Option<>`
-				if (method.result.required === false) {
+				if (isOptional(method.result)) {
 					yield '>';
 				}
 
@@ -953,12 +969,22 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield `\n`;
 
 				for (const param of params) {
+					yield `    ${param.name}: `;
+					if (isOptional(param)) {
+						yield 'Optional[';
+					}
 					if (param.schema.enum) {
-						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+						yield snakeCaseToSentenceCase(method.name) + snakeCaseToSentenceCase(param.name);
 					} else {
-						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+						yield deriveType(contracts, PythonTypeMap, [param.name], param.schema);
+					}
+					if (isOptional(param)) {
+						yield ']';
 					}
 					yield ' = Field(\n';
+					if (isOptional(param)) {
+						yield `        default=None,\n`;
+					}
 					yield `        description="${param.description}",\n`;
 					yield `    )\n\n`;
 				}
@@ -1374,6 +1400,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, [method.name, param.name], schema);
 				}
+				if (isOptional(param)) {
+					yield ' | undefined';
+				}
 				if (i < method.params.length - 1) {
 					yield ', ';
 				}
@@ -1384,6 +1413,9 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 					yield snakeCaseToSentenceCase(method.result.schema.name);
 				} else {
 					yield deriveType(contracts, TypescriptTypeMap, method.name, method.result.schema);
+				}
+				if (isOptional(method.result)) {
+					yield ' | undefined';
 				}
 			} else {
 				yield 'void';

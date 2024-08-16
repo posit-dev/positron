@@ -26,6 +26,8 @@ from matplotlib.backend_bases import FigureManagerBase
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
 
+from .plot_comm import PlotSize
+
 logger = logging.getLogger(__name__)
 
 
@@ -57,8 +59,9 @@ class FigureManagerPositron(FigureManagerBase):
 
         super().__init__(canvas, num)
 
+        # Create the plot instance via the plots service.
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(self.canvas.render)
+        self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size)
 
     @property
     def closed(self) -> bool:
@@ -113,6 +116,9 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # True after the canvas has been rendered at least once.
         self._first_render_completed = False
 
+        # Store the intrinsic size of the figure.
+        self.intrinsic_size = tuple(self.figure.get_size_inches())
+
     def draw(self, is_rendering=False) -> None:
         """
         Draw the canvas; send an update event if the canvas has changed.
@@ -152,7 +158,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
             logger.debug("Canvas: hash changed, requesting an update")
             self.manager.update()
 
-    def render(self, width_px: int, height_px: int, pixel_ratio: float, format: str) -> bytes:
+    def render(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes:
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
@@ -161,9 +167,13 @@ class FigureCanvasPositron(FigureCanvasAgg):
         self.figure.set_layout_engine("tight")
 
         # Resize the figure to the requested size in pixels.
-        width_in = width_px * self.device_pixel_ratio / self.figure.dpi
-        height_in = height_px * self.device_pixel_ratio / self.figure.dpi
-        self.figure.set_size_inches(width_in, height_in, forward=False)
+        if size is None:
+            # If no size was provided, restore the figure to its intrinsic size.
+            self.figure.set_size_inches(*self.intrinsic_size, forward=False)
+        else:
+            width_in = size.width * self.device_pixel_ratio / self.figure.dpi
+            height_in = size.height * self.device_pixel_ratio / self.figure.dpi
+            self.figure.set_size_inches(width_in, height_in, forward=False)
 
         # Render the canvas.
         with io.BytesIO() as figure_buffer:

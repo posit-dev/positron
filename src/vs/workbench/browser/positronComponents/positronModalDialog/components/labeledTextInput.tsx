@@ -35,6 +35,7 @@ export interface LabeledTextInputProps {
 	 * Maximum allowed number of characters in the input field.
 	 */
 	maxLength?: number;
+	disabled?: boolean;
 }
 
 /**
@@ -48,7 +49,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 
 	// Render.
 	return (
-		<div className='labeled-text-input'>
+		<div className={positronClassNames('labeled-text-input', { 'disabled': props.disabled })}>
 			<label className='label'>
 				{props.label}
 				<input
@@ -61,6 +62,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 					max={props.max}
 					min={props.min}
 					maxLength={props.maxLength}
+					disabled={props.disabled}
 				/>
 				{errorMsg ? <span className='error error-msg'>{errorMsg}</span> : null}
 			</label>

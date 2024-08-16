@@ -8,7 +8,8 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { IntrinsicSize, PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /**
  * The possible states for the plot client instance
@@ -34,11 +35,8 @@ export enum PlotClientState {
  * A rendered plot.
  */
 export interface IRenderedPlot {
-	/** The height of the plot, in logical pixels */
-	height: number;
-
-	/** The width of the plot, in logical pixels */
-	width: number;
+	/** The size of the plot, in logical pixels, if known */
+	size?: IPlotSize;
 
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
@@ -69,11 +67,11 @@ export interface IPositronPlotMetadata {
  * A request to render a plot.
  */
 interface RenderRequest {
-	/** The height of the plot, in logical pixels */
-	height: number;
-
-	/** The width of the plot, in logical pixels */
-	width: number;
+	/**
+	 * The size of the plot, in logical pixels. If undefined, the plot will be rendered at its
+	 * intrinsic size, if known.
+	 */
+	size?: IPlotSize;
 
 	/** The pixel ratio of the device for which the plot was rendered */
 	pixel_ratio: number;
@@ -169,6 +167,21 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private _lastRenderTimeMs: number = 0;
 
 	/**
+	 * The intrinsic size of the plot, if known.
+	 */
+	private _intrinsicSize?: IntrinsicSize;
+
+	/**
+	 * Whether the plot has received its intrinsic size (even if it's unknown) from the runtime.
+	 */
+	private _receivedIntrinsicSize = false;
+
+	/**
+	 * The response of the currently active intrinsic size request, if any.
+	 */
+	private _currentIntrinsicSize?: Promise<IntrinsicSize | undefined>;
+
+	/**
 	 * Event that fires when the plot is closed on the runtime side, typically
 	 * because the runtime exited and doesn't preserve plot state.
 	 */
@@ -200,6 +213,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private readonly _didShowPlotEmitter = new Emitter<void>();
 
 	/**
+	 * Event that fires when the intrinsic size of the plot is set.
+	 */
+	onDidSetIntrinsicSize: Event<IntrinsicSize | undefined>;
+	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _client The client instance for this plot
@@ -210,7 +229,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
-		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 } });
+		this._comm = new PositronPlotComm(client, { render: { timeout: 30_000 }, get_intrinsic_size: { timeout: 30_000 } });
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
@@ -238,6 +257,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// Connect the show plot emitter event
 		this.onDidShowPlot = this._didShowPlotEmitter.event;
 
+		// Connect the intrinsic size emitter event
+		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
+
 		// Listen to our own state changes
 		this.onDidChangeState((state) => {
 			this._state = state;
@@ -260,25 +282,50 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
+	 * Get the intrinsic size of the plot, if known.
+	 *
+	 * @returns A promise that resolves to the intrinsic size of the plot, if known.
+	 */
+	public getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
+		// If there's already an in-flight request, return its response.
+		if (this._currentIntrinsicSize) {
+			return this._currentIntrinsicSize;
+		}
+		this._currentIntrinsicSize = this._comm.getIntrinsicSize()
+			.then((intrinsicSize) => {
+				this._intrinsicSize = intrinsicSize;
+				this._receivedIntrinsicSize = true;
+				this._didSetIntrinsicSizeEmitter.fire(intrinsicSize);
+				return intrinsicSize;
+			})
+			.finally(() => {
+				this._currentIntrinsicSize = undefined;
+			});
+		return this._currentIntrinsicSize;
+	}
+
+	/**
 	 * Requests that the plot be rendered at a specific size.
 	 *
+	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @param format The format of the plot ('png', 'svg')
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(height: number, width: number, pixel_ratio: number, format = RenderFormat.Png): Promise<IRenderedPlot> {
+	public render(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
-		height = Math.floor(height);
-		width = Math.floor(width);
+		const sizeInt = size && {
+			height: Math.floor(size.height),
+			width: Math.floor(size.width)
+		};
 
 		// Compare against the last render request. It is normal for the same
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
 		if (this._lastRender &&
-			this._lastRender.height === height &&
-			this._lastRender.width === width &&
+			this._lastRender.size === sizeInt &&
 			this._lastRender.pixel_ratio === pixel_ratio) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
@@ -287,8 +334,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Create a new deferred promise to track the render request
 		const request: RenderRequest = {
-			height,
-			width,
+			size: sizeInt,
 			pixel_ratio,
 			format
 		};
@@ -325,20 +371,22 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * store the rendered plot to _lastRender. This is useful for previewing
 	 * plots without updating the plot's state.
 	 *
+	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
 	 * @param height The plot height, in pixels
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
 	 */
-	public preview(height: number, width: number, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
+	public preview(size: IPlotSize | undefined, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
-		height = Math.floor(height);
-		width = Math.floor(width);
+		const sizeInt = size && {
+			height: Math.floor(size.height),
+			width: Math.floor(size.width)
+		};
 
 		// Create a new deferred promise to track the render request
 		const request: RenderRequest = {
-			height,
-			width,
+			size: sizeInt,
 			pixel_ratio,
 			format
 		};
@@ -404,8 +452,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Perform the RPC request and resolve the promise when the response is received
 		const renderRequest = request.renderRequest;
-		this._comm.render(renderRequest.height,
-			renderRequest.width,
+		this._comm.render(renderRequest.size,
 			renderRequest.pixel_ratio,
 			renderRequest.format).then((response) => {
 
@@ -426,9 +473,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 					if (!preview) {
 						this._lastRender = renderResult;
+						this._completeRenderEmitter.fire(renderResult);
 					}
 					this._stateEmitter.fire(PlotClientState.Rendered);
-					this._completeRenderEmitter.fire(renderResult);
 				}
 
 				// If there is a queued render request, promote it to the current
@@ -473,6 +520,20 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	}
 
 	/**
+	 * Returns the intrinsic size of the plot, if known.
+	 */
+	get intrinsicSize(): IntrinsicSize | undefined {
+		return this._intrinsicSize;
+	}
+
+	/**
+	 * Returns a boolean indicating whether this plot has a known intrinsic size.
+	 */
+	get receivedIntrinsicSize(): boolean {
+		return this._receivedIntrinsicSize;
+	}
+
+	/**
 	 * Queues a plot update request, if necessary. Returns a promise that
 	 * resolves with the rendered plot.
 	 */
@@ -485,18 +546,18 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// If we have never rendered this plot, we can't process any updates
 		// yet.
-		if (!this._currentRender && !this._lastRender) {
+		const render = this._currentRender?.renderRequest ?? this._lastRender;
+		if (!render) {
 			return Promise.reject(new Error('Cannot update plot before it has been rendered'));
 		}
 
 		// Use the dimensions of the last or current render request to determine
 		// the size and DPI of the plot to update.
-		const height = this._currentRender?.renderRequest.height ??
-			this._lastRender?.height;
-		const width = this._currentRender?.renderRequest.width ??
-			this._lastRender?.width;
-		const pixel_ratio = this._currentRender?.renderRequest.pixel_ratio ??
-			this._lastRender?.pixel_ratio;
+		const sizeInt = render.size && {
+			height: Math.floor(render.size.height),
+			width: Math.floor(render.size.width)
+		};
+		const pixel_ratio = render.pixel_ratio;
 
 		// If there is already a render request in flight, cancel it. This
 		// should be exceedingly rare since if the kernel is busy processing a
@@ -511,9 +572,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// it right away. `scheduleRender` takes care of cancelling the render
 		// timer for any previously deferred render requests.
 		const req = new DeferredRender({
-			height: Math.floor(height!),
-			width: Math.floor(width!),
-			pixel_ratio: pixel_ratio!,
+			size: sizeInt,
+			pixel_ratio: pixel_ratio,
 			format: this._currentRender?.renderRequest.format ?? RenderFormat.Png
 		});
 

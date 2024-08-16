@@ -41,6 +41,9 @@ import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previe
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
+import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
+import { ILogService } from 'vs/platform/log/common/log';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -94,6 +97,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** A custom sizing policy, if we have one. */
 	private _customSizingPolicy?: PlotSizingPolicyCustom;
 
+	/** The intrinsic sizing policy. */
+	private _intrinsicSizingPolicy: PlotSizingPolicyIntrinsic;
+
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
 
@@ -122,7 +128,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IClipboardService private _clipboardService: IClipboardService,
 		@IDialogService private readonly _dialogService: IDialogService,
-		@IExtensionService private readonly _extensionService: IExtensionService) {
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService
+	) {
 		super();
 
 		// Register for language runtime service startups
@@ -227,6 +236,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._sizingPolicies.push(new PlotSizingPolicyLandscape());
 		this._sizingPolicies.push(new PlotSizingPolicyPortrait());
 		this._sizingPolicies.push(new PlotSizingPolicyFill());
+		this._intrinsicSizingPolicy = new PlotSizingPolicyIntrinsic();
+		this._sizingPolicies.push(this._intrinsicSizingPolicy);
 
 		// See if there's a custom size policy in storage, and retrieve it if so
 		const customSizingPolicy = this._storageService.get(
@@ -771,7 +782,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							this.showSavePlotDialog(uri);
 						} else if (plot instanceof PlotClientInstance) {
 							// if it's a dynamic plot, present options dialog
-							showSavePlotModalDialog(this._layoutService, this._keybindingService, this._dialogService, this._fileService, this._fileDialogService, plot, this.savePlotAs, suggestedPath);
+							showSavePlotModalDialog(
+								this._selectedSizingPolicy,
+								this._layoutService,
+								this._keybindingService,
+								this._dialogService,
+								this._fileService,
+								this._fileDialogService,
+								this._logService,
+								this._notificationService,
+								plot,
+								this.savePlotAs,
+								suggestedPath
+							);
 						} else {
 							// if it's a webview plot, do nothing
 							return;

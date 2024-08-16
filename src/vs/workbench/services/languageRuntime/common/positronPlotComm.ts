@@ -12,6 +12,32 @@ import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/lan
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * The intrinsic size of a plot, if known
+ */
+export interface IntrinsicSize {
+	/**
+	 * The width of the plot
+	 */
+	width: number;
+
+	/**
+	 * The height of the plot
+	 */
+	height: number;
+
+	/**
+	 * The unit of measurement of the plot's dimensions
+	 */
+	unit: PlotUnit;
+
+	/**
+	 * The source of the intrinsic size e.g. 'Matplotlib'
+	 */
+	source: string;
+
+}
+
+/**
  * A rendered plot
  */
 export interface PlotResult {
@@ -28,6 +54,22 @@ export interface PlotResult {
 }
 
 /**
+ * The size of a plot
+ */
+export interface PlotSize {
+	/**
+	 * The plot's height, in pixels
+	 */
+	height: number;
+
+	/**
+	 * The plot's width, in pixels
+	 */
+	width: number;
+
+}
+
+/**
  * Possible values for Format in Render
  */
 export enum RenderFormat {
@@ -35,6 +77,14 @@ export enum RenderFormat {
 	Jpeg = 'jpeg',
 	Svg = 'svg',
 	Pdf = 'pdf'
+}
+
+/**
+ * Possible values for PlotUnit
+ */
+export enum PlotUnit {
+	Pixels = 'pixels',
+	Inches = 'inches'
 }
 
 /**
@@ -55,6 +105,7 @@ export enum PlotFrontendEvent {
 }
 
 export enum PlotBackendRequest {
+	GetIntrinsicSize = 'get_intrinsic_size',
 	Render = 'render'
 }
 
@@ -69,20 +120,33 @@ export class PositronPlotComm extends PositronBaseComm {
 	}
 
 	/**
+	 * Get the intrinsic size of a plot, if known.
+	 *
+	 * The intrinsic size of a plot is the size at which a plot would be if
+	 * no size constraints were applied by Positron.
+	 *
+	 *
+	 * @returns The intrinsic size of a plot, if known
+	 */
+	getIntrinsicSize(): Promise<IntrinsicSize | undefined> {
+		return super.performRpc('get_intrinsic_size', [], []);
+	}
+
+	/**
 	 * Render a plot
 	 *
-	 * Requests a plot to be rendered at a given height and width. The plot
-	 * data is returned in a base64-encoded string.
+	 * Requests a plot to be rendered. The plot data is returned in a
+	 * base64-encoded string.
 	 *
-	 * @param height The requested plot height, in pixels
-	 * @param width The requested plot width, in pixels
+	 * @param size The requested size of the plot. If not provided, the plot
+	 * will be rendered at its intrinsic size.
 	 * @param pixelRatio The pixel ratio of the display device
 	 * @param format The requested plot format
 	 *
 	 * @returns A rendered plot
 	 */
-	render(height: number, width: number, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
-		return super.performRpc('render', ['height', 'width', 'pixel_ratio', 'format'], [height, width, pixelRatio, format]);
+	render(size: PlotSize | undefined, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
+		return super.performRpc('render', ['size', 'pixel_ratio', 'format'], [size, pixelRatio, format]);
 	}
 
 

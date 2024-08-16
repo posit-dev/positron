@@ -6,6 +6,7 @@
 import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 import * as nls from 'vs/nls';
 import { SizingPolicyFixedAspectRatio } from 'vs/workbench/services/positronPlots/common/sizingPolicyFixedAspectRatio';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 
 /**
  * This class implements a plot sizing policy that sizes the plot to a fixed 1:1
@@ -20,5 +21,9 @@ export class PlotSizingPolicySquare
 	}
 
 	public readonly id = 'square';
-	public readonly name = nls.localize('plotSizingPolicy.square', "Square");
+	private readonly _name = nls.localize('plotSizingPolicy.square', "Square");
+
+	public getName(plot: PlotClientInstance) {
+		return this._name;
+	}
 }
