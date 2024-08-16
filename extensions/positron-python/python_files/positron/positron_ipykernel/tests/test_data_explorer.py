@@ -632,15 +632,15 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
         # more fully support column profiles.
         ColumnProfileTypeSupportStatus(
             profile_type="summary_stats",
-            support_status=SupportStatus.Experimental,
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
             profile_type="histogram",
-            support_status=SupportStatus.Experimental,
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
             profile_type="frequency_table",
-            support_status=SupportStatus.Experimental,
+            support_status=SupportStatus.Supported,
         ),
     ]
     for tp in profile_types:
@@ -2906,7 +2906,7 @@ def test_polars_get_state(dxf: DataExplorerFixture):
         ),
         ColumnProfileTypeSupportStatus(
             profile_type="summary_stats",
-            support_status=SupportStatus.Experimental,
+            support_status=SupportStatus.Supported,
         ),
     ]
 

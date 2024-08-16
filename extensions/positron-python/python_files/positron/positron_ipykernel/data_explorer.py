@@ -1719,15 +1719,15 @@ class PandasView(DataExplorerTableView):
                 # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.Histogram,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.FrequencyTable,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
             ],
         ),
@@ -2456,7 +2456,7 @@ class PolarsView(DataExplorerTableView):
                 # profiles.
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
-                    support_status=SupportStatus.Experimental,
+                    support_status=SupportStatus.Supported,
                 ),
             ],
         ),
