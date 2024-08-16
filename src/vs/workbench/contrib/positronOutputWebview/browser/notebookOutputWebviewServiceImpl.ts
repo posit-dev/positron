@@ -21,7 +21,7 @@ import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/co
 import { dirname, joinPath } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
-import { msgIsDownloadMessage, PositronDownloadMessage, handleWebviewClicksInjection } from './downloadUtils';
+import { msgIsDownloadMessage, PositronDownloadMessage, handleWebviewLinkClicksInjection } from './downloadUtils';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -340,7 +340,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 <div id='container'></div>
 <div id="_defaultColorPalatte"></div>
 <script type="module">${preloads}</script>
-<script> ${handleWebviewClicksInjection} </script>
+<script> ${handleWebviewLinkClicksInjection} </script>
 </body>
 `);
 
@@ -432,7 +432,7 @@ window.onload = function() {
 		type: 'positronRenderComplete',
 	});
 
-	${handleWebviewClicksInjection};
+	${handleWebviewLinkClicksInjection};
 };
 </script>`);
 

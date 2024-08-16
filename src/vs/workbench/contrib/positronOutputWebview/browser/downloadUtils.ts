@@ -73,4 +73,4 @@ function handleWebviewClicks() {
  * Pairs with listeners in the webview listening for the messages from the webview of the type
  * 'PositronDownloadMessage'.
  */
-export const handleWebviewClicksInjection = `(${handleWebviewClicks.toString()})()`;
+export const handleWebviewLinkClicksInjection = `(${handleWebviewClicks.toString()})()`;
