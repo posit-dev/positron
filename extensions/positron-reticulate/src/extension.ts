@@ -49,7 +49,8 @@ async function restoreReticulateSession(runtimeMetadata: positron.LanguageRuntim
 
 async function createReticulateSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata) {
 
-	//session.execute('reticulate::repl_python()');
+	const r_session = await getRSession();
+
 	const startKernel = async (session: JupyterSession, self: any) => {
 
 		self.log('Ready to start reticulate session');
@@ -73,12 +74,12 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 )
 `;
 
-		// this is the piece of code that initializes IPython in the R session.
-		positron.runtime.executeCode(
-			'r',
+		// Execute the piece of code that starts reticulate background session.
+		r_session.execute(
 			code,
-			true,
-			false
+			'start-reticulate',
+			positron.RuntimeCodeExecutionMode.Silent,
+			positron.RuntimeErrorBehavior.Stop
 		);
 
 		try {
@@ -97,25 +98,11 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 		'startKernel': startKernel,
 	};
 
-	let session = await positron.runtime.getForegroundSession();
-	if (!session || session.runtimeMetadata.languageId !== 'r') {
-		const runtime = await positron.runtime.getPreferredRuntime('r');
-		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
-		session = await positron.runtime.getForegroundSession();
-	}
-
-	if (!session) {
-		throw new Error(`No available R session to execute reticulate`);
-	}
-
-
-	// If there's an R foreground session, we try to find the interpreter
-	// reticulate would use by sending a command to it.
 	console.log('[Reticulate] We will call R to check for a reticulate interpreter');
 	let path = '';
 
-	if (session.callMethod) {
-		path = await session.callMethod('reticulate_interpreter_path') as string;
+	if (r_session.callMethod) {
+		path = await r_session.callMethod('reticulate_interpreter_path') as string;
 	}
 
 	if (path === '') {
@@ -133,6 +120,21 @@ reticulate::import("rpytools.run")$\`_launch_lsp_server_on_thread\`(
 	const pythonSession: positron.LanguageRuntimeSession = new api.positron(runtimeMetadata, sessionMetadata, api.serviceContainer, kernelSpec);
 
 	return pythonSession;
+}
+
+async function getRSession(): Promise<positron.LanguageRuntimeSession> {
+	let session = await positron.runtime.getForegroundSession();
+	if (!session || session.runtimeMetadata.languageId !== 'r') {
+		const runtime = await positron.runtime.getPreferredRuntime('r');
+		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+		session = await positron.runtime.getForegroundSession();
+	}
+
+	if (!session) {
+		throw new Error(`No available R session to execute reticulate`);
+	}
+
+	return session;
 }
 
 async function* reticulateRuntimesDiscoverer() {
