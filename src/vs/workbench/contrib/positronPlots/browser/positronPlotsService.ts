@@ -648,7 +648,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Create a new webview
 
 		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-			runtime, message);
+			message.id, runtime, message);
 		if (webview) {
 			this.registerNewPlotClient(new NotebookOutputPlotClient(webview, message, code));
 		}

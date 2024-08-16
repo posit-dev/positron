@@ -113,7 +113,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 			// Create a webview to display the widget.
 			const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-				session, message, 'jupyter-notebook');
+				message.id, session, message, 'jupyter-notebook');
 
 			if (!webview) {
 				throw new Error(`Could not create webview for IPyWidget message: ${JSON.stringify(message)}`);

@@ -395,7 +395,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview(session, e);
+					this._notebookOutputWebviewService.createNotebookOutputWebview(e.id, session, e);
 				if (webview) {
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(

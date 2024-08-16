@@ -121,6 +121,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createNotebookOutputWebview(
+		id: string,
 		runtime: ILanguageRuntimeSession,
 		output: ILanguageRuntimeMessageWebOutput,
 		viewType?: string,
@@ -138,7 +139,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput({
-					id: output.id,
+					id,
 					runtime,
 					displayMessageInfo: { mimeType, renderer, output },
 					viewType
@@ -151,7 +152,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		for (const mimeType of Object.keys(output.data)) {
 			if (mimeType === 'text/html') {
 				return this.createRawHtmlOutput({
-					id: output.id,
+					id,
 					runtimeOrSessionId: runtime,
 					html: output.data[mimeType],
 					webviewType: WebviewType.Overlay
