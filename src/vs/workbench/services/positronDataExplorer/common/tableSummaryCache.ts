@@ -255,8 +255,9 @@ export class TableSummaryCache extends Disposable {
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
-		// Determne whether histograms are supported.
+		// Determne whether histograms and frequency tables are supported.
 		const histogramSupported = this.isHistogramSupported();
+		const frequencyTableSupported = this.isFrequencyTableSupported();
 
 		// Load the column profiles.
 		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
@@ -274,16 +275,48 @@ export class TableSummaryCache extends Disposable {
 					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
 				}
 
-				// Determine whether the histogram should be returned.
-				if (histogramSupported && columnSchema?.type_display === ColumnDisplayType.Number) {
-					profiles.push({
-						profile_type: ColumnProfileType.Histogram,
-						params: {
-							method: ColumnHistogramParamsMethod.Fixed,
-							num_bins: 80,
-							quantiles: [0.25, 0.50]
+				// Determine whether to load the histogram or the frequency table for the column.
+				switch (columnSchema?.type_display) {
+					// Number.
+					case ColumnDisplayType.Number: {
+						if (histogramSupported) {
+							profiles.push({
+								profile_type: ColumnProfileType.Histogram,
+								params: {
+									method: ColumnHistogramParamsMethod.Fixed,
+									num_bins: 80,
+									quantiles: [0.25, 0.50]
+								}
+							});
 						}
-					});
+						break;
+					}
+
+					// Boolean.
+					case ColumnDisplayType.Boolean: {
+						if (frequencyTableSupported) {
+							profiles.push({
+								profile_type: ColumnProfileType.FrequencyTable,
+								params: {
+									limit: 2
+								}
+							});
+						}
+						break;
+					}
+
+					// String.
+					case ColumnDisplayType.String: {
+						if (frequencyTableSupported) {
+							profiles.push({
+								profile_type: ColumnProfileType.FrequencyTable,
+								params: {
+									limit: 7
+								}
+							});
+						}
+						break;
+					}
 				}
 
 				// Return the column profile request.
@@ -431,6 +464,27 @@ export class TableSummaryCache extends Disposable {
 
 		return dataExplorerExperimentalFeatureEnabled(
 			histogramSupportStatus.support_status,
+			this._configurationService
+		);
+	}
+
+	/**
+	 * Determines whether frequency tables are supported.
+	 * @returns true if frequency tables are supported; otherwise, false.
+	 */
+	private isFrequencyTableSupported() {
+		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
+			.get_column_profiles;
+		const frequencyTableSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.FrequencyTable
+		);
+
+		if (!frequencyTableSupportStatus) {
+			return false;
+		}
+
+		return dataExplorerExperimentalFeatureEnabled(
+			frequencyTableSupportStatus.support_status,
 			this._configurationService
 		);
 	}

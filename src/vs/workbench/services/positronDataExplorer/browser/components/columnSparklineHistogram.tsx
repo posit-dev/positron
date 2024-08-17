@@ -30,52 +30,55 @@ interface ColumnSparklineHistogramProps {
 
 /**
  * ColumnSparklineHistogram component.
- * @param props A ColumnSparklineHistogramProps that contains the component properties.
+ * @param columnHistogram The column histogram.
  * @returns The rendered component.
  */
-export const ColumnSparklineHistogram = (props: ColumnSparklineHistogramProps) => {
+export const ColumnSparklineHistogram = ({ columnHistogram }: ColumnSparklineHistogramProps) => {
 	// State hooks.
+	const [binWidth] = useState(GRAPH_WIDTH / columnHistogram.bin_counts.length);
 	const [binCountRange] = useState((): Range => {
 		// Find the minimum and maximum bin counts.
-		let min = 0;
-		let max = 0;
-		for (let bin = 0; bin < props.columnHistogram.bin_counts.length; bin++) {
-			const binCount = props.columnHistogram.bin_counts[bin];
-			if (binCount < min) {
-				min = binCount;
+		let minBinCount = 0;
+		let maxBinCount = 0;
+		for (let i = 0; i < columnHistogram.bin_counts.length; i++) {
+			const binCount = columnHistogram.bin_counts[i];
+			if (binCount < minBinCount) {
+				minBinCount = binCount;
 			}
-			if (binCount > max) {
-				max = binCount;
+			if (binCount > maxBinCount) {
+				maxBinCount = binCount;
 			}
 		}
 
-		// Return a range containg the minimum and maximum bin counts.
+		// Return the bin count range.
 		return {
-			min,
-			max
+			min: minBinCount,
+			max: maxBinCount
 		};
 	});
 
 	// Render.
 	return (
 		<div className='sparkline-histogram' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
-			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='geometricPrecision'>
+			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
-					<rect className='sparkline-area'
+					<rect className='bottom-edge'
 						x={0}
 						y={GRAPH_HEIGHT - 0.5}
 						width={GRAPH_WIDTH}
 						height={0.5}
 					/>
-					{props.columnHistogram.bin_counts.map((binCount, binIndex) => {
-						const height = linearConversion(binCount, binCountRange, GRAPH_RANGE);
-						return <rect className='sparkline-area'
-							key={binIndex}
-							x={binIndex}
-							y={GRAPH_HEIGHT - height}
-							width={1}
-							height={height}
-						/>;
+					{columnHistogram.bin_counts.map((binCount, binIndex) => {
+						const binHeight = linearConversion(binCount, binCountRange, GRAPH_RANGE);
+						return (
+							<rect className='bin-count'
+								key={`bin-${binIndex}`}
+								x={binIndex * binWidth}
+								y={GRAPH_HEIGHT - binHeight}
+								width={binWidth}
+								height={binHeight}
+							/>
+						);
 					})}
 				</g>
 			</svg>
