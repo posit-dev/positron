@@ -376,6 +376,77 @@ tree`;
 				await simplePlotTest(app, script, '.jstree-container-ul');
 
 			});
+
+
+			it('Python - Verifies boken Python widget [C730343]', async function () {
+				const app = this.app as Application;
+
+				const script = `from bokeh.plotting import figure, output_file, show
+
+# instantiating the figure object
+graph = figure(title = "Bokeh Line Graph")
+
+# the points to be plotted
+x = [1, 2, 3, 4, 5]
+y = [5, 4, 3, 2, 1]
+
+# plotting the line graph
+graph.line(x, y)
+
+# displaying the model
+show(graph)`;
+
+
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+
+				// selector not factored out as it is unique to bokeh
+				const bokehCanvas = '.bk-Canvas';
+				await app.workbench.positronPlots.waitForWebviewPlot(bokehCanvas);
+
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
+				// selector not factored out as it is unique to bokeh
+				await app.workbench.positronPlots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+
+				const canvasLocator = app.workbench.positronPlots.getWebviewPlotLocator(bokehCanvas);
+				const boundingBox = await canvasLocator.boundingBox();
+
+				// plot capture before zoom
+				const bufferBeforeZoom = await canvasLocator.screenshot();
+
+				if (boundingBox) {
+
+					// not setup to honor frames
+					await app.code.driver.clickAndDrag({
+						from: {
+							x: boundingBox.x + boundingBox.width / 3,
+							y: boundingBox.y + boundingBox.height / 3
+						},
+						to: {
+							x: boundingBox.x + 2 * (boundingBox.width / 3),
+							y: boundingBox.y + 2 * (boundingBox.height / 3)
+						}
+					});
+				} else {
+					fail('Bounding box not found');
+				}
+
+				// plot capture after zoom
+				const bufferAfterZoom = await canvasLocator.screenshot();
+
+				// two plot captures should be different
+				const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
+				expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
+
+				await app.workbench.positronPlots.clearPlots();
+
+				await app.workbench.positronPlots.waitForNoPlots();
+
+				await app.workbench.positronLayouts.enterLayout('stacked');
+
+			});
+
 		});
 
 		describe('R Plots', () => {
