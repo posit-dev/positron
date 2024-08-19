@@ -7,7 +7,7 @@ import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { FromWebviewMessage, IClickedDataUrlMessage, IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
+import { IClickedDataUrlMessage, IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
 import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -21,7 +21,7 @@ import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/co
 import { dirname, joinPath } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
-import { msgIsDownloadMessage, PositronDownloadMessage, handleWebviewLinkClicksInjection } from './downloadUtils';
+import { msgIsDownloadMessage, handleWebviewLinkClicksInjection } from './downloadUtils';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
@@ -318,13 +318,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
 		webview.onMessage(async ({ message }) => {
-			const data: FromWebviewMessage | { readonly __vscode_notebook_message: undefined } = message;
-			if (!data.__vscode_notebook_message) {
-				return;
-			}
-
-			if (data.type === 'clicked-data-url') {
-				this._downloadData(data);
+			if (msgIsDownloadMessage(message)) {
+				this._downloadData(message);
 			}
 		});
 
@@ -464,9 +459,7 @@ window.onload = function() {
 </style>`;
 
 
-	private async _downloadData(
-		payload: PositronDownloadMessage | IClickedDataUrlMessage
-	): Promise<void> {
+	private async _downloadData(payload: IClickedDataUrlMessage): Promise<void> {
 		if (typeof payload.data !== 'string') {
 			return;
 		}

@@ -3,19 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export type PositronDownloadMessage = {
-	type: 'positronDownload';
-	data: string | ArrayBuffer | null;
-	downloadName: string;
-};
+import type { IClickedDataUrlMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 
-export function msgIsDownloadMessage(msg: any): msg is PositronDownloadMessage {
-	return msg.type === 'positronDownload';
+
+export function msgIsDownloadMessage(msg: any): msg is IClickedDataUrlMessage {
+	if (!msg.__vscode_notebook_message) {
+		return false;
+	}
+	return msg.type === 'clicked-data-url';
 }
 
 // Let typescript know that the vscode object is available
 declare const vscode: {
-	postMessage(message: PositronDownloadMessage): void;
+	postMessage(message: IClickedDataUrlMessage): void;
 };
 
 // Function is meant to be dependency free so it can be serialized into the webview with the
@@ -64,7 +64,8 @@ function handleWebviewClicks() {
 
 	const handleDataUrl = async (data: string | ArrayBuffer | null, downloadName: string) => {
 		vscode.postMessage({
-			type: 'positronDownload',
+			__vscode_notebook_message: true,
+			type: 'clicked-data-url',
 			data,
 			downloadName
 		});
