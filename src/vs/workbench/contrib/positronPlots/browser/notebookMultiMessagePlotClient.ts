@@ -47,9 +47,9 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 		});
 	}
 
-	async createWebview() {
+	protected override async createWebview() {
 		if (this._output.value) {
-			throw new Error('Webview already created');
+			throw new Error('Webview already created. Dispose the existing webview first.');
 		}
 		const output = await this._notebookOutputWebviewService.createMultiMessageWebview({
 			runtime: this._session,
@@ -61,13 +61,18 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 			throw new Error('Failed to create notebook output webview');
 		}
 		this._output.value = output;
-		this._webview.value = output.webview;
 
 		// Wait for the webview to finish rendering. When it does, nudge the
 		// timer that renders the thumbnail.
 		this._outputEvents.add(output.onDidRender(e => {
 			this.nudgeRenderThumbnail();
 		}));
+
+		return output.webview;
+	}
+
+	protected override disposeWebview() {
+		this._output.clear();
+		this._outputEvents.clear();
 	}
 }
-

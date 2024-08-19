@@ -20,6 +20,8 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 
 	private _thumbnail: VSBuffer | undefined;
 
+	private _onDidActivate: Emitter<void>;
+
 	private _onDidRenderThumbnail: Emitter<string>;
 
 	private _claimed: boolean = false;
@@ -36,6 +38,9 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 */
 	constructor(public readonly metadata: IPositronPlotMetadata) {
 		super();
+
+		this._onDidActivate = this._register(new Emitter<void>());
+		this.onDidActivate = this._onDidActivate.event;
 
 		this._onDidRenderThumbnail = this._register(new Emitter<string>());
 		this.onDidRenderThumbnail = this._onDidRenderThumbnail.event;
@@ -55,6 +60,45 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 			return this.asDataUri(this._thumbnail);
 		}
 		return undefined;
+	}
+
+	/** Whether the plot's underlying webview is active. */
+	isActive(): boolean {
+		return !!this._webview.value;
+	}
+
+	/**
+	 * Creates the underlying webview.
+	 **/
+	protected abstract createWebview(): Promise<IOverlayWebview>;
+
+	/**
+	 * Disposes the underlying webview.
+	 **/
+	protected abstract disposeWebview(): void;
+
+	/**
+	 * Activates the plot, creating the underlying webview if needed.
+	 **/
+	public async activate() {
+		if (this.isActive()) {
+			// Already active, do nothing.
+			return;
+		}
+		this._webview.value = await this.createWebview();
+		this._onDidActivate.fire();
+	}
+
+	/**
+	 * Deactivates the plot, disposing the underlying webview if needed.
+	 **/
+	public deactivate() {
+		if (!this.isActive()) {
+			// Already inactive, do nothing.
+			return;
+		}
+		this.disposeWebview();
+		this._webview.clear();
 	}
 
 	/**
@@ -142,6 +186,11 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	private asDataUri(buffer: VSBuffer) {
 		return `data:image/png;base64,${encodeBase64(buffer)}`;
 	}
+
+	/**
+	 * Fires when the plot has been activated.
+	 */
+	public readonly onDidActivate: Event<void>;
 
 	/**
 	 * Fires when the plot thumbnail has been rendered. The event's data is the

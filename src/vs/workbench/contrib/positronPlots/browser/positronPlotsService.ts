@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
+import * as DOM from 'vs/base/browser/dom';
+import { Disposable, toDisposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -42,10 +43,19 @@ import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloVie
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService } from 'vs/platform/notification/common/notification';
-import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
+
+/** The maximum number of plots with an active webview. */
+const MaxActiveWebviewPlots = 5;
+
+/** Time in milliseconds after which webview plots are deactivated if they're not selected. */
+const WebviewPlotInactiveTimeout = 120_000;
+
+/** Interval in milliseconds at which inactive webview plots are checked. */
+const WebviewPlotInactiveInterval = 1_000;
 
 /** The key used to store the preferred history policy */
 const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
@@ -101,6 +111,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
+
+	/** Map of the time that a plot was last selected, keyed by the plot client's ID. */
+	private _lastSelectedTimeByPlotId = new Map<string, number>();
 
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
@@ -272,6 +285,41 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
 		}
+
+		// When a plot is selected, update its last selected time.
+		this._register(this._onDidSelectPlot.event(async (id) => {
+			this._lastSelectedTimeByPlotId.set(id, Date.now());
+		}));
+
+		// Start an interval that checks for inactive webview plots and deactivates them.
+		const activeWindow = DOM.getActiveWindow();
+		const webviewInactiveInterval = activeWindow.setInterval(() => {
+			// Update the last selected time for the current selected plot.
+			const now = Date.now();
+			if (this._selectedPlotId) {
+				this._lastSelectedTimeByPlotId.set(this._selectedPlotId, now);
+			}
+
+			// Get the active webview plots.
+			const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
+
+			// Deactivate webview plots that have not been selected for a while.
+			for (const plotClient of activeWebviewPlots) {
+				const selectedTime = this._lastSelectedTimeByPlotId.get(plotClient.id);
+				if (selectedTime && selectedTime + WebviewPlotInactiveTimeout < now) {
+					this._logService.debug(
+						`Deactivating plot '${plotClient.id}'; last selected ` +
+						`${WebviewPlotInactiveTimeout / 1000} seconds ago`,
+					);
+					plotClient.deactivate();
+				}
+			}
+		}, WebviewPlotInactiveInterval);
+
+		// Clear the webview plot inactivity interval when the service is disposed.
+		this._register(toDisposable(() => {
+			activeWindow.clearInterval(webviewInactiveInterval);
+		}));
 	}
 
 	private _showPlotsPane() {
@@ -900,7 +948,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Create the plot client.
 		const plotClient = new HtmlPlotClient(this._positronPreviewService, session!, event);
-		await plotClient.createWebview();
 
 		// Register the new plot client
 		await this.registerWebviewPlotClient(plotClient);
@@ -910,10 +957,35 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private async registerWebviewPlotClient(plotClient: IPositronPlotClient) {
-		if (plotClient instanceof NotebookOutputPlotClient ||
-			plotClient instanceof HtmlPlotClient ||
-			plotClient instanceof NotebookMultiMessagePlotClient) {
-			await plotClient.createWebview();
+		if (plotClient instanceof WebviewPlotClient) {
+			// Ensure that the number of active webview plots does not exceed the maximum.
+			plotClient.onDidActivate(() => {
+				// Get the active webview plots.
+				const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
+
+				// If we haven't exceeded the threshold, do nothing.
+				if (activeWebviewPlots.length <= MaxActiveWebviewPlots) {
+					return;
+				}
+
+				// Get plot IDs sorted by last selected time.
+				const sortedPlotIds = Array.from(this._lastSelectedTimeByPlotId.entries())
+					.sort((a, b) => a[1] - b[1])
+					.map(([plotId,]) => plotId);
+
+				// Find the oldest awake webview plot and hibernate it.
+				for (const plotId of sortedPlotIds) {
+					const plotClient = activeWebviewPlots.find(plot => plot.id === plotId);
+					if (plotClient) {
+						this._logService.debug(
+							`Deactivating plot '${plotId}'; ` +
+							`maximum number of active webview plots reached`
+						);
+						plotClient.deactivate();
+						break;
+					}
+				}
+			});
 		}
 
 		this.registerNewPlotClient(plotClient);
@@ -938,4 +1010,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	initialize() {
 	}
+}
+
+function isActiveWebviewPlot(plot: IPositronPlotClient): plot is WebviewPlotClient {
+	return plot instanceof WebviewPlotClient && plot.isActive();
 }

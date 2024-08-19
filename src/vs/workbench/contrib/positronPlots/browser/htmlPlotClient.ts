@@ -49,10 +49,9 @@ export class HtmlPlotClient extends WebviewPlotClient {
 		return this._event.uri;
 	}
 
-	async createWebview() {
+	protected override async createWebview() {
 		if (this._html.value) {
-			// Already awake, do nothing.
-			return;
+			throw new Error('Webview already created. Dispose the existing webview first.');
 		}
 		// Create the webview.
 		const extension = this._session.runtimeMetadata.extensionId;
@@ -62,11 +61,17 @@ export class HtmlPlotClient extends WebviewPlotClient {
 		const html = this._positronPreviewService.createHtmlWebview(this._session.sessionId,
 			webviewExtension, this._event);
 		this._html.value = html;
-		this._webview.value = html.webview.webview;
 
 		// Render the thumbnail when the webview loads.
 		this._htmlEvents.add(html.webview.onDidLoad(e => {
 			this.nudgeRenderThumbnail();
 		}));
+
+		return html.webview.webview;
+	}
+
+	protected override disposeWebview() {
+		this._html.clear();
+		this._htmlEvents.clear();
 	}
 }

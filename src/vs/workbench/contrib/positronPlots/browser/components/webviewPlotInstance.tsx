@@ -32,7 +32,9 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 		// Only claim if the plot is visible to avoid rendering the webview when
 		// the parent view pane is collapsed.
 		if (props.visible) {
-			client.claim(this);
+			client.activate().then(() => {
+				client.claim(this);
+			});
 		}
 		return () => {
 			client.release(this);
@@ -40,9 +42,12 @@ export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	}, [props.plotClient, props.visible]);
 
 	useEffect(() => {
-		if (webviewRef.current) {
-			props.plotClient.layoutWebviewOverElement(webviewRef.current);
-		}
+		const client = props.plotClient;
+		client.activate().then(() => {
+			if (webviewRef.current) {
+				client.layoutWebviewOverElement(webviewRef.current);
+			}
+		});
 	});
 
 	const style = {
