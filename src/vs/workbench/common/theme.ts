@@ -1878,6 +1878,14 @@ export const POSITRON_DATA_EXPLORER_SPARKLINE_FILL_COLOR = registerColor('positr
 	hcLight: '#56a2dd',
 }, localize('positronDataExplorer.sparklineFill', "Positron data explorer sparkline fill color."));
 
+// Positron data explorer sparkline stroke color.
+export const POSITRON_DATA_EXPLORER_SPARKLINE_STROKE_COLOR = registerColor('positronDataExplorer.sparklineStroke', {
+	dark: '#0066b6',
+	light: '#0066b6',
+	hcDark: '#0066b6',
+	hcLight: '#0066b6',
+}, localize('positronDataExplorer.sparklineStroke', "Positron data explorer sparkline stroke color."));
+
 // < --- Positron Variables --- >
 
 // Positron variables background color.

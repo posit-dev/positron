@@ -12,6 +12,7 @@ import * as React from 'react';
 // Other dependencies.
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { ColumnSparklineHistogram } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparklineHistogram';
+import { ColumnSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparklineFrequencyTable';
 
 /**
  * ColumnSparklineProps interface.
@@ -31,6 +32,12 @@ export const ColumnSparkline = (props: ColumnSparklineProps) => {
 	const columnHistogram = props.instance.getColumnHistogram(props.columnIndex);
 	if (columnHistogram) {
 		return <ColumnSparklineHistogram columnHistogram={columnHistogram} />;
+	}
+
+	// Get the column frequency table. If there is one, render it and return.
+	const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
+	if (columnFrequencyTable) {
+		return <ColumnSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />;
 	}
 
 	// Render nothing.
