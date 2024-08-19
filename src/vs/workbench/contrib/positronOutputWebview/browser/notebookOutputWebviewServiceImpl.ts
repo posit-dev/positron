@@ -338,6 +338,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			background-color: var(--vscode-editor-findMatchBackground);
 		}
 	</style>
+	${PositronNotebookOutputWebviewService.CssAddons}
 </head>
 <body>
 <div id='container'></div>
