@@ -7,7 +7,7 @@ import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
+import { FromWebviewMessage, IClickedDataUrlMessage, IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
 import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -137,7 +137,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		for (const mimeType of Object.keys(output.data)) {
 			// Don't use a renderer for non-widget MIME types
 			if (mimeType === 'text/plain' ||
-				mimeType === 'text/html' ||
+				// mimeType === 'text/html' ||
 				mimeType === 'image/png') {
 				continue;
 			}
@@ -317,6 +317,16 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
+		webview.onMessage(async ({ message }) => {
+			const data: FromWebviewMessage | { readonly __vscode_notebook_message: undefined } = message;
+			if (!data.__vscode_notebook_message) {
+				return;
+			}
+
+			if (data.type === 'clicked-data-url') {
+				this._downloadData(data);
+			}
+		});
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
@@ -454,7 +464,7 @@ window.onload = function() {
 
 
 	private async _downloadData(
-		payload: PositronDownloadMessage,
+		payload: PositronDownloadMessage | IClickedDataUrlMessage
 	): Promise<void> {
 		if (typeof payload.data !== 'string') {
 			return;
