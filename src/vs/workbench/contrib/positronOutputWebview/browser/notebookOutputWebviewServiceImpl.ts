@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
+import { VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IClickedDataUrlMessage, IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
+import { IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
 import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -18,17 +18,11 @@ import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { dirname, joinPath } from 'vs/base/common/resources';
+import { dirname } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
-import { msgIsDownloadMessage, handleWebviewLinkClicksInjection } from './downloadUtils';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IFileService } from 'vs/platform/files/common/files';
-import { getExtensionForMimeType } from 'vs/base/common/mime';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { localize } from 'vs/nls';
+import { handleWebviewLinkClicksInjection } from './downloadUtils';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -51,10 +45,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@ILogService private _logService: ILogService,
-		@INotificationService private _notificationService: INotificationService,
-		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
-		@IFileDialogService private _fileDialogService: IFileDialogService,
-		@IFileService private _fileService: IFileService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 	}
 
@@ -318,30 +309,24 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
-		webview.onMessage(async ({ message }) => {
-			if (msgIsDownloadMessage(message)) {
-				this._downloadData(message);
-			}
-		});
-
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
 		webview.setHtml(`
 <head>
 	<style nonce="${id}">
-		#_defaultColorPalatte {
+#_defaultColorPalatte {
 			color: var(--vscode-editor-findMatchHighlightBackground);
 			background-color: var(--vscode-editor-findMatchBackground);
-		}
-	</style>
+}
+</style>
 	${PositronNotebookOutputWebviewService.CssAddons}
 </head>
 <body>
 <div id='container'></div>
 <div id="_defaultColorPalatte"></div>
 <script type="module">${preloads}</script>
-</body>
-`);
+				</body>
+					`);
 
 		const render = () => {
 			// Loop through all the messages and render them in the webview
@@ -367,8 +352,17 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		};
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
-		return new NotebookOutputWebview(
-			id, runtime.sessionId, webview, render, scopedRendererMessaging);
+
+		return this._instantiationService.createInstance(
+			NotebookOutputWebview<IOverlayWebview>,
+			{
+				id,
+				sessionId: runtime.sessionId,
+				webview,
+				render,
+				rendererMessaging: scopedRendererMessaging
+			},
+		);
 	}
 
 	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
@@ -379,7 +373,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}): Promise<
 		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
 	> {
-		const webviewDisposables = new DisposableStore();
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
@@ -405,14 +398,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			? this._webviewService.createWebviewOverlay(webviewInitInfo)
 			: this._webviewService.createWebviewElement(webviewInitInfo);
 
-		webview.onDidDispose(() => { webviewDisposables.dispose(); });
-
-		webviewDisposables.add(webview.onMessage(async ({ message }) => {
-			if (msgIsDownloadMessage(message)) {
-				this._downloadData(message);
-			}
-		}));
-
 		// Form the path to the jQuery library and inject it into the HTML
 		const jQueryPath = asWebviewUri(
 			jupyterExtension.extensionLocation.with({
@@ -436,13 +421,14 @@ window.onload = function() {
 };
 </script>`);
 
-		return new NotebookOutputWebview(
-			id,
-			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
-			// The unfortunate cast is necessary because typescript isn't capable of figuring out that
-			// the type of the webview was determined by the type of the webviewType parameter.
-			webview as WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement
-		);
+		return this._instantiationService.createInstance(
+			NotebookOutputWebview,
+			{
+				id,
+				sessionId: typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
+				webview,
+			}
+		) as NotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>;
 	}
 
 	/**
@@ -458,53 +444,4 @@ window.onload = function() {
 		display: none;
 	}
 </style>`;
-
-
-	private async _downloadData(payload: IClickedDataUrlMessage): Promise<void> {
-		try {
-
-			if (typeof payload.data !== 'string') {
-				return;
-			}
-
-			const [splitStart, splitData] = payload.data.split(';base64,');
-			if (!splitData || !splitStart) {
-				return;
-			}
-
-			const defaultDir = this._workspaceContextService.getWorkspace().folders[0]?.uri ?? await this._fileDialogService.defaultFilePath();
-			let defaultName: string;
-			if (payload.downloadName) {
-				defaultName = payload.downloadName;
-			} else {
-				const mimeType = splitStart.replace(/^data:/, '');
-				const candidateExtension = mimeType && getExtensionForMimeType(mimeType);
-				defaultName = candidateExtension ? `download${candidateExtension}` : 'download';
-			}
-
-			const defaultUri = joinPath(defaultDir, defaultName);
-			const newFileUri = await this._fileDialogService.showSaveDialog({
-				defaultUri
-			});
-			if (!newFileUri) {
-				return;
-			}
-
-			let buff: VSBuffer;
-			try {
-				buff = decodeBase64(splitData);
-			} catch (e) {
-				throw new Error(localize("base64DecodeError", "Failed to decode base64 data: {0}", e.message));
-			}
-
-			await this._fileService.writeFile(newFileUri, buff);
-		} catch (error) {
-			this._logService.error('Failed to download file', error);
-			this._notificationService.error(
-				localize('failedToDownloadFile', 'Failed to download file: {}', error.message)
-			);
-		}
-	}
-
-
 }
