@@ -417,7 +417,6 @@ show(graph)`;
 
 				if (boundingBox) {
 
-					// not setup to honor frames
 					await app.code.driver.clickAndDrag({
 						from: {
 							x: boundingBox.x + boundingBox.width / 3,
