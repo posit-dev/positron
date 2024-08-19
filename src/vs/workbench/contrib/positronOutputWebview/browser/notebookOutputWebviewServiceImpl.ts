@@ -270,7 +270,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
 	}): Promise<INotebookOutputWebview> {
-		const webviewDisposables = new DisposableStore();
 
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
@@ -317,13 +316,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the webview itself
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		webview.onDidDispose(() => { webviewDisposables.dispose(); });
 
-		webviewDisposables.add(webview.onMessage(async ({ message }) => {
-			if (msgIsDownloadMessage(message)) {
-				this._downloadData(message);
-			}
-		}));
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
@@ -340,7 +333,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 <div id='container'></div>
 <div id="_defaultColorPalatte"></div>
 <script type="module">${preloads}</script>
-<script> ${handleWebviewLinkClicksInjection} </script>
 </body>
 `);
 
