@@ -25,7 +25,6 @@ import { msgIsDownloadMessage, handleWebviewLinkClicksInjection } from './downlo
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { IFileService } from 'vs/platform/files/common/files';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { getExtensionForMimeType } from 'vs/base/common/mime';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -56,7 +55,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
 		@IFileDialogService private _fileDialogService: IFileDialogService,
 		@IFileService private _fileService: IFileService,
-		@IOpenerService private _openerService: IOpenerService,
 	) {
 	}
 
@@ -500,7 +498,6 @@ window.onload = function() {
 			}
 
 			await this._fileService.writeFile(newFileUri, buff);
-			await this._openerService.open(newFileUri);
 		} catch (error) {
 			this._logService.error('Failed to download file', error);
 			this._notificationService.error(
