@@ -111,9 +111,28 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
 				expect(tableData.length).toBe(5);
 
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('20%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('40%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('40%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('60%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('40%');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' });
+
+				const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
+				expect(col5ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+
 			});
-
-
 		});
 
 		describe('Python Polars Data Explorer', () => {
@@ -158,6 +177,31 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[1]['ham']).toBe('2021-03-04');
 				expect(tableData[2]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(3);
+
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '6.00', 'Median': '7.00', 'Mean': '7.00', 'Max': '8.00', 'SD': '1.00' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '2020-01-02', 'Median': '2021-03-04', 'Max': '2022-05-06' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '2.00', 'Median': '2.50', 'Mean': '2.50', 'Max': '3.00', 'SD': '0.7071' });
+
+				const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
+				expect(col5ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' });
+
+				const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
+				expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
 
 			});
 
@@ -249,6 +293,23 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
 				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
 				expect(tableData.length).toBe(3);
+
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('66%');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
 
 			});
 
