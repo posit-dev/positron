@@ -76,7 +76,7 @@ function handleWebviewClicks() {
 	// dialog that positron shows will already provide the ability to change the file name so we're
 	// just providing a default value here.
 	window.prompt = (message, _default) => {
-		return _default ?? 'myFile';
+		return _default ?? 'Untitled';
 	};
 }
 
