@@ -20,6 +20,9 @@ declare const vscode: {
 
 // Function is meant to be dependency free so it can be serialized into the webview with the
 // Function.toString() method
+// The logic here is largely taken from the `webviewPreloads.ts` file that gets injected into
+// notebook webviews. The implementation here is a bit simpler because there's contexts that don't
+// apply to the positron webviews that are handled in the notebook webviews.
 function handleWebviewClicks() {
 
 	// eslint-disable-next-line no-restricted-syntax
