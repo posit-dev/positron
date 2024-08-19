@@ -492,7 +492,12 @@ window.onload = function() {
 				return;
 			}
 
-			const buff = decodeBase64(splitData);
+			let buff: VSBuffer;
+			try {
+				buff = decodeBase64(splitData);
+			} catch (e) {
+				throw new Error(localize("base64DecodeError", "Failed to decode base64 data: {0}", e.message));
+			}
 
 			await this._fileService.writeFile(newFileUri, buff);
 			await this._openerService.open(newFileUri);
