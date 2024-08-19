@@ -28,6 +28,8 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { getExtensionForMimeType } from 'vs/base/common/mime';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { INotificationService } from 'vs/platform/notification/common/notification';
+import { localize } from 'vs/nls';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -50,6 +52,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@ILogService private _logService: ILogService,
+		@INotificationService private _notificationService: INotificationService,
 		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
 		@IFileDialogService private _fileDialogService: IFileDialogService,
 		@IFileService private _fileService: IFileService,
@@ -460,36 +463,45 @@ window.onload = function() {
 
 
 	private async _downloadData(payload: IClickedDataUrlMessage): Promise<void> {
-		if (typeof payload.data !== 'string') {
-			return;
-		}
+		try {
 
-		const [splitStart, splitData] = payload.data.split(';base64,');
-		if (!splitData || !splitStart) {
-			return;
-		}
+			if (typeof payload.data !== 'string') {
+				return;
+			}
 
-		const defaultDir = this._workspaceContextService.getWorkspace().folders[0]?.uri ?? await this._fileDialogService.defaultFilePath();
-		let defaultName: string;
-		if (payload.downloadName) {
-			defaultName = payload.downloadName;
-		} else {
-			const mimeType = splitStart.replace(/^data:/, '');
-			const candidateExtension = mimeType && getExtensionForMimeType(mimeType);
-			defaultName = candidateExtension ? `download${candidateExtension}` : 'download';
-		}
+			const [splitStart, splitData] = payload.data.split(';base64,');
+			if (!splitData || !splitStart) {
+				return;
+			}
 
-		const defaultUri = joinPath(defaultDir, defaultName);
-		const newFileUri = await this._fileDialogService.showSaveDialog({
-			defaultUri
-		});
-		if (!newFileUri) {
-			return;
-		}
+			const defaultDir = this._workspaceContextService.getWorkspace().folders[0]?.uri ?? await this._fileDialogService.defaultFilePath();
+			let defaultName: string;
+			if (payload.downloadName) {
+				defaultName = payload.downloadName;
+			} else {
+				const mimeType = splitStart.replace(/^data:/, '');
+				const candidateExtension = mimeType && getExtensionForMimeType(mimeType);
+				defaultName = candidateExtension ? `download${candidateExtension}` : 'download';
+			}
 
-		const buff = decodeBase64(splitData);
-		await this._fileService.writeFile(newFileUri, buff);
-		await this._openerService.open(newFileUri);
+			const defaultUri = joinPath(defaultDir, defaultName);
+			const newFileUri = await this._fileDialogService.showSaveDialog({
+				defaultUri
+			});
+			if (!newFileUri) {
+				return;
+			}
+
+			const buff = decodeBase64(splitData);
+
+			await this._fileService.writeFile(newFileUri, buff);
+			await this._openerService.open(newFileUri);
+		} catch (error) {
+			this._logService.error('Failed to download file', error);
+			this._notificationService.error(
+				localize('failedToDownloadFile', 'Failed to download file: {}', error.message)
+			);
+		}
 	}
 
 
