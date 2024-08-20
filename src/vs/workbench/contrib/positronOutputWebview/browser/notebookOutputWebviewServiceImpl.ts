@@ -38,6 +38,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	// Required for dependency injection
 	readonly _serviceBrand: undefined;
 
+	private _notebookWebviewByParentId = new Map<string, NotebookOutputWebview<IOverlayWebview>>();
+
+
 	constructor(
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@INotebookService private readonly _notebookService: INotebookService,
@@ -261,12 +264,44 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		displayMessageInfo: MessageRenderInfo;
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
-	}): Promise<INotebookOutputWebview> {
+	}) {
 
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
 
+		let webview: IOverlayWebview;
 
+		const render = () => {
+			// Loop through all the messages and render them in the webview
+			for (const { output: message, mimeType, renderer } of messagesInfo) {
+				const data = message.data[mimeType];
+				// Send a message to the webview to render the output.
+				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+					VSBuffer.fromString(JSON.stringify(data));
+				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+				//   argument to postMessage.
+				const transfer: ArrayBuffer[] = [];
+				const webviewMessage: IPositronRenderMessage = {
+					type: 'positronRender',
+					outputId: message.id,
+					elementId: 'container',
+					rendererId: renderer.id,
+					mimeType,
+					metadata: message.metadata,
+					valueBytes: valueBytes.buffer,
+				};
+				webview.postMessage(webviewMessage, transfer);
+			}
+		};
+
+		const existingWebview = this._notebookWebviewByParentId.get(displayMessageInfo.output.parent_id);
+
+		if (existingWebview) {
+			// In the case we already have a webview for this parent id, we should skip creation and just send render message to existing webview.
+			webview = existingWebview.webview;
+			render();
+			return;
+		}
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
 		const preloads = preloadsScriptStr({
@@ -307,53 +342,29 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		};
 
 		// Create the webview itself
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
 		webview.setHtml(`
-<head>
-	<style nonce="${id}">
-#_defaultColorPalatte {
-			color: var(--vscode-editor-findMatchHighlightBackground);
-			background-color: var(--vscode-editor-findMatchBackground);
-}
-</style>
-	${PositronNotebookOutputWebviewService.CssAddons}
-</head>
-<body>
-<div id='container'></div>
-<div id="_defaultColorPalatte"></div>
-<script type="module">${preloads}</script>
-				</body>
-					`);
-
-		const render = () => {
-			// Loop through all the messages and render them in the webview
-			for (const { output: message, mimeType, renderer } of messagesInfo) {
-				const data = message.data[mimeType];
-				// Send a message to the webview to render the output.
-				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-					VSBuffer.fromString(JSON.stringify(data));
-				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-				//   argument to postMessage.
-				const transfer: ArrayBuffer[] = [];
-				const webviewMessage: IPositronRenderMessage = {
-					type: 'positronRender',
-					outputId: message.id,
-					elementId: 'container',
-					rendererId: renderer.id,
-					mimeType,
-					metadata: message.metadata,
-					valueBytes: valueBytes.buffer,
-				};
-				webview.postMessage(webviewMessage, transfer);
+			<head>
+				<style nonce="${id}">
+			#_defaultColorPalatte {
+						color: var(--vscode-editor-findMatchHighlightBackground);
+						background-color: var(--vscode-editor-findMatchBackground);
 			}
-		};
-
+			</style>
+				${PositronNotebookOutputWebviewService.CssAddons}
+			</head>
+			<body>
+			<div id='container'></div>
+			<div id="_defaultColorPalatte"></div>
+			<script type="module">${preloads}</script>
+							</body>
+								`);
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
-		return this._instantiationService.createInstance(
+		const outputWebview = this._instantiationService.createInstance(
 			NotebookOutputWebview<IOverlayWebview>,
 			{
 				id,
@@ -363,6 +374,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				rendererMessaging: scopedRendererMessaging
 			},
 		);
+
+		this._notebookWebviewByParentId.set(displayMessageInfo.output.parent_id, outputWebview);
+		return outputWebview;
 	}
 
 	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
