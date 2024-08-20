@@ -36,6 +36,9 @@ const REPO_ROOT = path.dirname(__dirname);
 const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
+// --- Start Positron ---
+const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
+// --- End Positron ---
 
 // Targets
 
@@ -317,8 +320,13 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const name = product.nameShort;
 
 		let packageJsonContents;
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: 'remote' })
+		// --- Start Positron ---
+		// TODO: generate the reh-web package.json by merging the remote and web package.json
+		// dependencies instead of manually updating the reh-web package.json
+		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }))
+			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
 				this.emit('data', file);
@@ -338,9 +346,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
-		const productionDependencies = getProductionDependencies(REMOTE_FOLDER);
+		// --- Start Positron ---
+		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		const deps = gulp.src(dependenciesSrc, { base: 'remote', dot: true })
+
+		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
+			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/yarn.lock', '!**/*.js.map']))
 			.pipe(util.cleanNodeModules(path.join(__dirname, '.moduleignore')))
