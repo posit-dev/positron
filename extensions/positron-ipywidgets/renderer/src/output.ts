@@ -141,11 +141,11 @@ export class OutputView extends outputBase.OutputView {
 
 	/**
 	 * Called when view is rendered.
-	 **/
+	 */
 	override render(): void {
 		super.render();
 		this._outputView = new OutputArea({
-			rendermime: this.model.widget_manager.rendermime,
+			rendermime: this.model.widget_manager.renderMime,
 			contentFactory: OutputArea.defaultContentFactory,
 			model: this.model.outputs,
 		});
