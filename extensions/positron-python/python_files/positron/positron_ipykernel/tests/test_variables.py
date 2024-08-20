@@ -666,15 +666,13 @@ def test_clipboard_format_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_view(
+def _do_view(
+    name: str,
     shell: PositronShell,
     variables_comm: DummyComm,
     mock_dataexplorer_service: Mock,
-) -> None:
-    name = "dfx"
-    shell.user_ns[name] = pd.DataFrame({"a": [0]})
+):
     path = _encode_path([name])
-
     msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
     variables_comm.handle_msg(msg)
 
@@ -685,6 +683,35 @@ def test_view(
     assert_register_table_called(
         mock_dataexplorer_service, shell.user_ns[name], name, variable_path
     )
+
+
+def test_view(
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
+) -> None:
+    name = "dfx"
+    shell.user_ns[name] = pd.DataFrame({"a": [0]})
+
+    _do_view(name, shell, variables_comm, mock_dataexplorer_service)
+
+
+def test_view_with_sqlalchemy_v1_3(
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
+    monkeypatch,
+) -> None:
+    # Simulate sqlalchemy<=1.3 where `sqlalchemy.Engine` does not exist.
+    import sqlalchemy
+
+    monkeypatch.delattr(sqlalchemy, "Engine")
+
+    # The view request should still work.
+    name = "dfx"
+    shell.user_ns[name] = pd.DataFrame({"a": [0]})
+
+    _do_view(name, shell, variables_comm, mock_dataexplorer_service)
 
 
 def test_view_error(variables_comm: DummyComm) -> None:

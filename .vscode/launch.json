@@ -282,14 +282,11 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"name": "Positron Server (Web)",
-			"runtimeExecutable": "${workspaceFolder}/scripts/code-server.sh",
-			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/scripts/code-server.bat",
-			},
 			"outFiles": [
 				"${workspaceFolder}/out/**/*.js"
 			],
+			"name": "Positron Server (Web)",
+			"preLaunchTask": "Run code server",
 			"presentation": {
 				"group": "0_vscode",
 				"order": 2

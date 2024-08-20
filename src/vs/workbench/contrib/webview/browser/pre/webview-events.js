@@ -365,3 +365,12 @@ window.addEventListener('load', () => {
 		title: document.title,
 	});
 });
+
+// Override the prompt function to return the default value or 'myFile' if one isnt provided.
+// This is needed because the prompt function is not supported in webviews and the prompt function
+// is commonly used by libraries like bokeh to provide names for files to save. The main file save
+// dialog that positron shows will already provide the ability to change the file name so we're
+// just providing a default value here.
+window.prompt = (message, _default) => {
+	return _default ?? 'Untitled';
+};
