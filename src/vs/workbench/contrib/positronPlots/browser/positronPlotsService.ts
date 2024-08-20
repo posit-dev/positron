@@ -292,34 +292,30 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 
 		// Start an interval that checks for inactive webview plots and deactivates them.
-		const activeWindow = DOM.getActiveWindow();
-		const webviewInactiveInterval = activeWindow.setInterval(() => {
-			// Update the last selected time for the current selected plot.
-			const now = Date.now();
-			if (this._selectedPlotId) {
-				this._lastSelectedTimeByPlotId.set(this._selectedPlotId, now);
-			}
-
-			// Get the active webview plots.
-			const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
-
-			// Deactivate webview plots that have not been selected for a while.
-			for (const plotClient of activeWebviewPlots) {
-				const selectedTime = this._lastSelectedTimeByPlotId.get(plotClient.id);
-				if (selectedTime && selectedTime + WebviewPlotInactiveTimeout < now) {
-					this._logService.debug(
-						`Deactivating plot '${plotClient.id}'; last selected ` +
-						`${WebviewPlotInactiveTimeout / 1000} seconds ago`,
-					);
-					plotClient.deactivate();
+		this._register(DOM.disposableWindowInterval(
+			DOM.getActiveWindow(),
+			() => {
+				// Update the last selected time for the current selected plot.
+				const now = Date.now();
+				if (this._selectedPlotId) {
+					this._lastSelectedTimeByPlotId.set(this._selectedPlotId, now);
 				}
-			}
-		}, WebviewPlotInactiveInterval);
 
-		// Clear the webview plot inactivity interval when the service is disposed.
-		this._register(toDisposable(() => {
-			activeWindow.clearInterval(webviewInactiveInterval);
-		}));
+				// Get the active webview plots.
+				const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
+
+				// Deactivate webview plots that have not been selected for a while.
+				for (const plotClient of activeWebviewPlots) {
+					const selectedTime = this._lastSelectedTimeByPlotId.get(plotClient.id);
+					if (selectedTime && selectedTime + WebviewPlotInactiveTimeout < now) {
+						this._logService.debug(
+							`Deactivating plot '${plotClient.id}'; last selected ` +
+							`${WebviewPlotInactiveTimeout / 1000} seconds ago`,
+						);
+						plotClient.deactivate();
+					}
+				}
+			}, WebviewPlotInactiveInterval));
 	}
 
 	private _showPlotsPane() {
