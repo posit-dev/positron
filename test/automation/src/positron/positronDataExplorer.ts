@@ -172,7 +172,13 @@ export class PositronDataExplorer {
 	}
 
 	async getColumnProfileInfo(rowNumber: number): Promise<{ [key: string]: string }> {
-		await this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber)).click();
+
+		const expandCollapseLocator = this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber));
+
+		await expandCollapseLocator.scrollIntoViewIfNeeded();
+		await expandCollapseLocator.click();
+
+		expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-down');
 
 		const profileData: { [key: string]: string } = {};
 
@@ -187,7 +193,10 @@ export class PositronDataExplorer {
 			}
 		}
 
-		await this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber)).click();
+		await expandCollapseLocator.scrollIntoViewIfNeeded();
+		await expandCollapseLocator.click();
+
+		expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-right');
 
 		return profileData;
 
