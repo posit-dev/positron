@@ -7,8 +7,8 @@
 	display: flex;
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .sparkline-histogram .bottom-edge {
-	fill: var(--vscode-positronDataExplorer-sparklineFill);
+.data-grid-row-cell .content .column-summary .basic-info .sparkline-histogram .x-axis {
+	fill: var(--vscode-positronDataExplorer-sparklineAxis);
 }
 
 .data-grid-row-cell .content .column-summary .basic-info .sparkline-histogram .bin-count {

@@ -7,10 +7,14 @@
 	display: flex;
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .bottom-edge {
-	fill: var(--vscode-positronDataExplorer-sparklineFill);
+.data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .x-axis {
+	fill: var(--vscode-positronDataExplorer-sparklineAxis);
 }
 
 .data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .count {
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
+}
+
+.data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .count.other {
+	opacity: 0.65;
 }

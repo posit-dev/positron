@@ -33,9 +33,22 @@ interface ColumnSparklineHistogramProps {
  * @param columnHistogram The column histogram.
  * @returns The rendered component.
  */
-export const ColumnSparklineHistogram = ({ columnHistogram }: ColumnSparklineHistogramProps) => {
+export const ColumnSparklineHistogram = ({
+	columnHistogram
+}: ColumnSparklineHistogramProps) => {
 	// State hooks.
-	const [binWidth] = useState(GRAPH_WIDTH / columnHistogram.bin_counts.length);
+	const [binWidth] = useState(() => {
+		// Get the number of bin counts that will be rendered.
+		const binCounts = columnHistogram.bin_counts.length;
+
+		// If the number of bin counts that will be rendered is 0, return 0.
+		if (!binCounts) {
+			return 0;
+		}
+
+		// Return the bin count width.
+		return GRAPH_WIDTH / binCounts;
+	});
 	const [binCountRange] = useState((): Range => {
 		// Find the minimum and maximum bin counts.
 		let minBinCount = 0;
@@ -62,7 +75,7 @@ export const ColumnSparklineHistogram = ({ columnHistogram }: ColumnSparklineHis
 		<div className='sparkline-histogram' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
 			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
-					<rect className='bottom-edge'
+					<rect className='x-axis'
 						x={0}
 						y={GRAPH_HEIGHT - 0.5}
 						width={GRAPH_WIDTH}
@@ -71,7 +84,8 @@ export const ColumnSparklineHistogram = ({ columnHistogram }: ColumnSparklineHis
 					{columnHistogram.bin_counts.map((binCount, binIndex) => {
 						const binHeight = linearConversion(binCount, binCountRange, GRAPH_RANGE);
 						return (
-							<rect className='bin-count'
+							<rect
+								className='bin-count'
 								key={`bin-${binIndex}`}
 								x={binIndex * binWidth}
 								y={GRAPH_HEIGHT - binHeight}
