@@ -129,7 +129,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		for (const mimeType of Object.keys(output.data)) {
 			// Don't use a renderer for non-widget MIME types
 			if (mimeType === 'text/plain' ||
-				// mimeType === 'text/html' ||
+				mimeType === 'text/html' ||
 				mimeType === 'image/png') {
 				continue;
 			}
