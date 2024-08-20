@@ -19,7 +19,7 @@ import { ColumnFrequencyTable } from 'vs/workbench/services/languageRuntime/comm
  */
 const GRAPH_WIDTH = 80;
 const GRAPH_HEIGHT = 20;
-const GRAPH_RANGE: Range = { min: 0, max: GRAPH_HEIGHT };
+const GRAPH_RANGE: Range = { min: 0, max: GRAPH_WIDTH };
 
 /**
  * ColumnSparklineFrequencyTableProps interface.
@@ -33,94 +33,69 @@ interface ColumnSparklineFrequencyTableProps {
  * @param columnFrequencyTable The column frequency table.
  * @returns The rendered component.
  */
-export const ColumnSparklineFrequencyTable = (
-	{ columnFrequencyTable }: ColumnSparklineFrequencyTableProps
-) => {
+export const ColumnSparklineFrequencyTable = ({
+	columnFrequencyTable
+}: ColumnSparklineFrequencyTableProps) => {
 	// State hooks.
-	const [countWidth] = useState(() => {
-		// Determine the number of counts that will be rendered.
-		let counts = columnFrequencyTable.counts.length;
-		if (columnFrequencyTable.other_count) {
-			counts++;
-		}
-
-		// If the number of counts that will be rendered is 0, return 0.
-		if (!counts) {
-			return 0;
-		}
-
-		// Return the count width.
-		return (GRAPH_WIDTH - (counts - 1)) / counts;
-	});
 	const [countRange] = useState((): Range => {
-		// Find the maximum count.
-		let maxCount = 0;
+		// Add the counts.
+		let max = 0;
 		for (let i = 0; i < columnFrequencyTable.counts.length; i++) {
-			const count = columnFrequencyTable.counts[i];
-			if (count > maxCount) {
-				maxCount = count;
-			}
+			max += columnFrequencyTable.counts[i];
 		}
 
-		// Account for the other count in the maximum count.
-		if (columnFrequencyTable.other_count && columnFrequencyTable.other_count > maxCount) {
-			maxCount = columnFrequencyTable.other_count;
+		// Add the other count.
+		if (columnFrequencyTable.other_count) {
+			max += columnFrequencyTable.other_count;
 		}
 
 		// Return the count range.
 		return {
 			min: 0,
-			max: maxCount
+			max
 		};
 	});
 
-	/**
-	 * OtherCount component
-	 * @returns The rendered component.
-	 */
-	const OtherCount = () => {
-		// Calculate the other count height.
-		const otherCountHeight = linearConversion(
-			columnFrequencyTable.other_count ?? 0,
-			countRange,
-			GRAPH_RANGE
-		);
-
-		// Render.
-		return (
-			<rect className='count'
-				x={GRAPH_WIDTH - countWidth}
-				y={GRAPH_HEIGHT - otherCountHeight}
-				width={countWidth}
-				height={otherCountHeight}
-			/>
-		);
-	};
-
 	// Render.
+	let x = 0;
 	return (
 		<div className='sparkline-frequency-table' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
 			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
-					<rect className='bottom-edge'
+					<rect className='x-axis'
 						x={0}
 						y={GRAPH_HEIGHT - 0.5}
 						width={GRAPH_WIDTH}
 						height={0.5}
 					/>
 					{columnFrequencyTable.counts.map((count, countIndex) => {
-						const countHeight = linearConversion(count, countRange, GRAPH_RANGE);
-						return (
-							<rect className='count'
-								key={`count-${countIndex}`}
-								x={(countIndex * countWidth) + countIndex}
-								y={GRAPH_HEIGHT - countHeight}
-								width={countWidth}
-								height={countHeight}
-							/>
+						const countWidth = Math.max(
+							1,
+							linearConversion(count, countRange, GRAPH_RANGE)
 						);
+						try {
+							return (
+								<rect
+									className='count'
+									key={`count-${countIndex}`}
+									x={x}
+									y={0}
+									width={countWidth}
+									height={GRAPH_HEIGHT}
+								/>
+							);
+						} finally {
+							x += countWidth + 1;
+						}
 					})}
-					{columnFrequencyTable.other_count && <OtherCount />}
+					{columnFrequencyTable.other_count &&
+						<rect className='count other'
+							x={x}
+							y={0}
+							width={GRAPH_WIDTH - x}
+							height={GRAPH_HEIGHT}
+						/>
+					}
 				</g>
 			</svg>
 		</div >

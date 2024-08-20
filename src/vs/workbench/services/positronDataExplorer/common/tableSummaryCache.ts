@@ -283,9 +283,7 @@ export class TableSummaryCache extends Disposable {
 							profiles.push({
 								profile_type: ColumnProfileType.Histogram,
 								params: {
-									method: ColumnHistogramParamsMethod.Fixed,
-									num_bins: 80,
-									quantiles: [0.25, 0.50]
+									method: ColumnHistogramParamsMethod.Sturges
 								}
 							});
 						}
@@ -391,9 +389,7 @@ export class TableSummaryCache extends Disposable {
 					columnProfileSpecs.push({
 						profile_type: ColumnProfileType.Histogram,
 						params: {
-							method: ColumnHistogramParamsMethod.Fixed,
-							num_bins: 80,
-							quantiles: [0.25, 0.50]
+							method: ColumnHistogramParamsMethod.Sturges
 						}
 					});
 				}

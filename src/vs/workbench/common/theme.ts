@@ -1870,6 +1870,14 @@ export const POSITRON_DATA_EXPLORER_MISSING_VALUES_GRAPH_INDICATOR_FILL_COLOR = 
 	hcLight: '#e5edf3',
 }, localize('positronDataExplorer.columnNullPercentGraphIndicatorFill', "Positron data explorer missing values graph indicator fill color."));
 
+// Positron data explorer sparkline axis color.
+export const POSITRON_DATA_EXPLORER_SPARKLINE_AXIS_COLOR = registerColor('positronDataExplorer.sparklineAxis', {
+	dark: '#b5b5b5',
+	light: '#b5b5b5',
+	hcDark: '#b5b5b5',
+	hcLight: '#b5b5b5',
+}, localize('positronDataExplorer.sparklineAxis', "Positron data explorer sparkline axis color."));
+
 // Positron data explorer sparkline fill color.
 export const POSITRON_DATA_EXPLORER_SPARKLINE_FILL_COLOR = registerColor('positronDataExplorer.sparklineFill', {
 	dark: '#56a2dd',
