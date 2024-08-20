@@ -21,6 +21,8 @@ import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/co
 import { dirname } from 'vs/base/common/resources';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { handleWebviewLinkClicksInjection } from './downloadUtils';
+import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -43,6 +45,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@ILogService private _logService: ILogService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 	}
 
@@ -259,6 +262,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
 	}): Promise<INotebookOutputWebview> {
+
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
 
@@ -310,18 +314,19 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		webview.setHtml(`
 <head>
 	<style nonce="${id}">
-		#_defaultColorPalatte {
+#_defaultColorPalatte {
 			color: var(--vscode-editor-findMatchHighlightBackground);
 			background-color: var(--vscode-editor-findMatchBackground);
-		}
-	</style>
+}
+</style>
+	${PositronNotebookOutputWebviewService.CssAddons}
 </head>
 <body>
 <div id='container'></div>
 <div id="_defaultColorPalatte"></div>
 <script type="module">${preloads}</script>
-</body>
-`);
+				</body>
+					`);
 
 		const render = () => {
 			// Loop through all the messages and render them in the webview
@@ -347,8 +352,17 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		};
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
-		return new NotebookOutputWebview(
-			id, runtime.sessionId, webview, render, scopedRendererMessaging);
+
+		return this._instantiationService.createInstance(
+			NotebookOutputWebview<IOverlayWebview>,
+			{
+				id,
+				sessionId: runtime.sessionId,
+				webview,
+				render,
+				rendererMessaging: scopedRendererMessaging
+			},
+		);
 	}
 
 	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
@@ -359,6 +373,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}): Promise<
 		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
 	> {
+
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
 		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
@@ -401,16 +416,19 @@ window.onload = function() {
 		__vscode_notebook_message: true,
 		type: 'positronRenderComplete',
 	});
+
+	${handleWebviewLinkClicksInjection};
 };
 </script>`);
 
-		return new NotebookOutputWebview(
-			id,
-			typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
-			// The unfortunate cast is necessary because typescript isn't capable of figuring out that
-			// the type of the webview was determined by the type of the webviewType parameter.
-			webview as WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement
-		);
+		return this._instantiationService.createInstance(
+			NotebookOutputWebview,
+			{
+				id,
+				sessionId: typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
+				webview,
+			}
+		) as NotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>;
 	}
 
 	/**
@@ -420,8 +438,10 @@ window.onload = function() {
 	 */
 	static readonly CssAddons = `
 <style>
-	/* Hide actions button that does things like opening source code etc.. (See #2829) */
-	.vega-embed details[title="Click to view actions"] {display: none;}
+	/* Hide actions button that try and open external pages like opening source code as they don't currently work (See #2829)
+	/* We do support download link clicks, so keep those. */
+	.vega-actions a:not([download]) {
+		display: none;
+	}
 </style>`;
-
 }
