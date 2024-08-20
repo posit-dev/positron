@@ -38,15 +38,6 @@ export function setup(logger: Logger) {
 
 			});
 
-			afterEach(async function () {
-
-				const app = this.app as Application;
-
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.positronVariables.openVariables();
-
-			});
-
 			it('Python Pandas - Verifies basic data explorer functionality [C557556] #pr', async function () {
 				const app = this.app as Application;
 
@@ -75,6 +66,9 @@ df = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 				expect(tableData.length).toBe(4);
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
 
 			});
 
@@ -113,6 +107,11 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
 				expect(tableData.length).toBe(5);
 
+			});
+			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
+
+				const app = this.app as Application;
+
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('20%');
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('40%');
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('40%');
@@ -138,6 +137,9 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronLayouts.enterLayout('stacked');
 				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
 
 			});
 		});
@@ -184,6 +186,11 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[1]['ham']).toBe('2021-03-04');
 				expect(tableData[2]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(3);
+
+			});
+			it('Python Polars - Verifies basic data explorer column info functionality [C734264] #pr', async function () {
+
+				const app = this.app as Application;
 
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
@@ -269,14 +276,6 @@ df2 = pd.DataFrame(data)`;
 
 			});
 
-			afterEach(async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-
-			});
-
 			it('R - Verifies basic data explorer functionality [C609620] #pr', async function () {
 				const app = this.app as Application;
 
@@ -306,6 +305,12 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
 				expect(tableData.length).toBe(3);
 
+
+			});
+			it('R - Verifies basic data explorer column info functionality [C734265] #pr', async function () {
+
+				const app = this.app as Application;
+
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
@@ -327,6 +332,9 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronLayouts.enterLayout('stacked');
 				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 			});
 
@@ -351,6 +359,9 @@ df2 = pd.DataFrame(data)`;
 				await expect(async () => {
 					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 				}).toPass();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 			});
 		});
