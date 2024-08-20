@@ -68,6 +68,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 
 	private async _handle_comm_open(message: WebviewMessage.ICommOpenToWebview): Promise<void> {
 		const comm = new Comm(message.comm_id, message.target_name, this._messaging);
+		this._registeredComms[message.comm_id] = comm;
 		await this.handle_comm_open(
 			comm,
 			{
@@ -177,6 +178,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 
 		const comm = new Comm(model_id, comm_target_name, this._messaging);
 
+		this._registeredComms[model_id] = comm;
 		// Notify the kernel about the comm.
 		if (data || metadata) {
 			this._messaging.postMessage({
@@ -190,11 +192,16 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		return comm;
 	}
 
+	private _registeredComms: Record<string, Comm> = {};
+
 	/**
 	 * Get the currently-registered comms from the runtime.
 	 */
 	protected override _get_comm_info(): Promise<{}> {
-		throw new Error('Method not implemented.');
+
+		return new Promise((resolve) => {
+			resolve(this._registeredComms);
+		});
 	}
 
 	/**
