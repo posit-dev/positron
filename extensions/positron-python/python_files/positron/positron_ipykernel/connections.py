@@ -286,9 +286,15 @@ class ConnectionsService:
         """
         Checks if an object is supported by the connections pane.
         """
-        return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
-            obj, "sqlalchemy", "Engine"
-        )
+        try:
+            # This block might fail if for some reason 'Connection' or 'Engine' are
+            # not available in their modules.
+            return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
+                obj, "sqlalchemy", "Engine"
+            )
+        except Exception as err:
+            logger.error(f"Error checking supported {err}")
+            return False
 
     def variable_has_active_connection(self, variable_name: str) -> bool:
         """
