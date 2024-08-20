@@ -111,6 +111,13 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				return;
 			}
 
+			// Gridspec layout message attempt to weave together multiple ipywidgets in a way
+			// that we currently don't support. See #4256 for example.
+			const isGridspecLayoutMessage = message.data['text/plain']?.includes('GridspecLayout') ?? false;
+			if (isGridspecLayoutMessage) {
+				return;
+			}
+
 			// Create a webview to display the widget.
 			const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
 				session, message, 'jupyter-notebook');
