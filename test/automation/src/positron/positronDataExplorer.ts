@@ -28,6 +28,7 @@ const OVERLAY_BUTTON = '.positron-modal-overlay .positron-button';
 const CLEAR_SORTING_BUTTON = '.codicon-positron-clear-sorting';
 const MISSING_PERCENT = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-null-percent .text-percent`;
 const EXPAND_COLLAPSE_PROFILE = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .expand-collapse-button`;
+const EXPAND_COLLASPE_ICON = '.expand-collapse-icon';
 const PROFILE_LABELS = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .profile-info .label`;
 const PROFILE_VALUES = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .profile-info .value`;
 
@@ -178,7 +179,7 @@ export class PositronDataExplorer {
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 
-		await expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-down');
+		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-down/);
 
 		const profileData: { [key: string]: string } = {};
 
@@ -196,7 +197,7 @@ export class PositronDataExplorer {
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 
-		await expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-right');
+		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-right/);
 
 		return profileData;
 
