@@ -26,6 +26,11 @@ const APPLY_FILTER = '.positron-modal-overlay .button-apply-row-filter';
 const STATUS_BAR = '.positron-data-explorer .status-bar';
 const OVERLAY_BUTTON = '.positron-modal-overlay .positron-button';
 const CLEAR_SORTING_BUTTON = '.codicon-positron-clear-sorting';
+const MISSING_PERCENT = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-null-percent .text-percent`;
+const EXPAND_COLLAPSE_PROFILE = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .expand-collapse-button`;
+const EXPAND_COLLASPE_ICON = '.expand-collapse-icon';
+const PROFILE_LABELS = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .profile-info .label`;
+const PROFILE_VALUES = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .profile-info .value`;
 
 export interface CellData {
 	[key: string]: string;
@@ -107,7 +112,7 @@ export class PositronDataExplorer {
 			await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
 			const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
 			expect(checkValue).toBe(columnName);
-		}).toPass({timeout: 10000});
+		}).toPass({ timeout: 10000 });
 
 
 		await this.code.waitAndClick(FUNCTION_SELECTOR);
@@ -160,5 +165,41 @@ export class PositronDataExplorer {
 
 	async arrowLeft(): Promise<void> {
 		await this.code.dispatchKeybinding('ArrowLeft');
+	}
+
+	async getColumnMissingPercent(rowNumber: number): Promise<string> {
+		const row = this.code.driver.getLocator(MISSING_PERCENT(rowNumber));
+		return await row.innerText();
+	}
+
+	async getColumnProfileInfo(rowNumber: number): Promise<{ [key: string]: string }> {
+
+		const expandCollapseLocator = this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber));
+
+		await expandCollapseLocator.scrollIntoViewIfNeeded();
+		await expandCollapseLocator.click();
+
+		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-down/);
+
+		const profileData: { [key: string]: string } = {};
+
+		const labels = await this.code.waitForElements(PROFILE_LABELS(rowNumber), false, (elements) => elements.length > 2);
+		const values = await this.code.waitForElements(PROFILE_VALUES(rowNumber), false, (elements) => elements.length > 2);
+
+		for (let i = 0; i < labels.length; i++) {
+			const label = labels[i].textContent;
+			const value = values[i].textContent;
+			if (label && value) {
+				profileData[label] = value; // Assign label as key and value as value
+			}
+		}
+
+		await expandCollapseLocator.scrollIntoViewIfNeeded();
+		await expandCollapseLocator.click();
+
+		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-right/);
+
+		return profileData;
+
 	}
 }

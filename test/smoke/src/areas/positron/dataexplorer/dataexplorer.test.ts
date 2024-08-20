@@ -31,17 +31,10 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barRestartButton.click();
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
-
-			});
-
-			afterEach(async function () {
-
-				const app = this.app as Application;
-
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.positronVariables.openVariables();
 
 			});
 
@@ -73,6 +66,9 @@ df = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
 				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
 				expect(tableData.length).toBe(4);
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
 
 			});
 
@@ -112,8 +108,40 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(5);
 
 			});
+			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
 
+				const app = this.app as Application;
 
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('20%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('40%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('40%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('60%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('40%');
+
+				await app.workbench.positronLayouts.enterLayout('notebook');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' });
+
+				const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
+				expect(col5ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+
+				await app.workbench.positronLayouts.enterLayout('stacked');
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.positronVariables.openVariables();
+
+			});
 		});
 
 		describe('Python Polars Data Explorer', () => {
@@ -158,6 +186,41 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[1]['ham']).toBe('2021-03-04');
 				expect(tableData[2]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(3);
+
+			});
+			it('Python Polars - Verifies basic data explorer column info functionality [C734264] #pr', async function () {
+
+				const app = this.app as Application;
+
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
+
+				await app.workbench.positronLayouts.enterLayout('notebook');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '6.00', 'Median': '7.00', 'Mean': '7.00', 'Max': '8.00', 'SD': '1.00' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '2020-01-02', 'Median': '2021-03-04', 'Max': '2022-05-06' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '2.00', 'Median': '2.50', 'Mean': '2.50', 'Max': '3.00', 'SD': '0.7071' });
+
+				const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
+				expect(col5ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' });
+
+				const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
+				expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
+
+				await app.workbench.positronLayouts.enterLayout('stacked');
+				await app.workbench.positronSideBar.closeSecondarySideBar();
 
 			});
 
@@ -213,14 +276,6 @@ df2 = pd.DataFrame(data)`;
 
 			});
 
-			afterEach(async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronDataExplorer.closeDataExplorer();
-				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-
-			});
-
 			it('R - Verifies basic data explorer functionality [C609620] #pr', async function () {
 				const app = this.app as Application;
 
@@ -250,6 +305,37 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
 				expect(tableData.length).toBe(3);
 
+
+			});
+			it('R - Verifies basic data explorer column info functionality [C734265] #pr', async function () {
+
+				const app = this.app as Application;
+
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
+				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('66%');
+
+				await app.workbench.positronLayouts.enterLayout('notebook');
+
+				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
+				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
+
+				const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
+				expect(col2ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
+
+				const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
+				expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
+
+				const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
+				expect(col4ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
+
+				await app.workbench.positronLayouts.enterLayout('stacked');
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
+
 			});
 
 			it('R - Open Data Explorer for the second time brings focus back [C701143]', async function () {
@@ -273,6 +359,9 @@ df2 = pd.DataFrame(data)`;
 				await expect(async () => {
 					await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 				}).toPass();
+
+				await app.workbench.positronDataExplorer.closeDataExplorer();
+				await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
 
 			});
 		});
