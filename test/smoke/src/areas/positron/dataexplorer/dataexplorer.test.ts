@@ -31,7 +31,9 @@ export function setup(logger: Logger) {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barRestartButton.click();
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
 			});

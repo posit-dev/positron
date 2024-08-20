@@ -183,8 +183,8 @@ export class PositronDataExplorer {
 
 		const profileData: { [key: string]: string } = {};
 
-		const labels = await this.code.waitForElements(PROFILE_LABELS(rowNumber), false);
-		const values = await this.code.waitForElements(PROFILE_VALUES(rowNumber), false);
+		const labels = await this.code.waitForElements(PROFILE_LABELS(rowNumber), false, (elements) => elements.length > 2);
+		const values = await this.code.waitForElements(PROFILE_VALUES(rowNumber), false, (elements) => elements.length > 2);
 
 		for (let i = 0; i < labels.length; i++) {
 			const label = labels[i].textContent;
