@@ -178,7 +178,7 @@ export class PositronDataExplorer {
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 
-		expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-down');
+		await expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-down');
 
 		const profileData: { [key: string]: string } = {};
 
@@ -196,7 +196,7 @@ export class PositronDataExplorer {
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 
-		expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-right');
+		await expect(expandCollapseLocator).toHaveAttribute('codicon-chevron-right');
 
 		return profileData;
 
