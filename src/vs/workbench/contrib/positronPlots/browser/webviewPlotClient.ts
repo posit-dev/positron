@@ -30,6 +30,8 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 
 	private _element: HTMLElement | undefined;
 
+	private _pendingActivation?: Promise<void>;
+
 	/**
 	 * Creates a new NotebookOutputPlotClient, which manages the lifecycle of a
 	 * webview, wrapped in an object that can be displayed in the Plots pane.
@@ -80,13 +82,25 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	/**
 	 * Activates the plot, creating the underlying webview if needed.
 	 **/
-	public async activate() {
+	public activate() {
+		// If we're already active, do nothing.
 		if (this.isActive()) {
-			// Already active, do nothing.
-			return;
+			return Promise.resolve();
 		}
-		this._webview.value = await this.createWebview();
-		this._onDidActivate.fire();
+
+		// If we're already activating, return the existing promise.
+		if (this._pendingActivation) {
+			return this._pendingActivation;
+		}
+
+		// Otherwise, create the webview and fire the activation event.
+		this._pendingActivation = this.createWebview().then((webview) => {
+			this._webview.value = webview;
+			this._onDidActivate.fire();
+		}).finally(() => {
+			this._pendingActivation = undefined;
+		});
+		return this._pendingActivation;
 	}
 
 	/**
