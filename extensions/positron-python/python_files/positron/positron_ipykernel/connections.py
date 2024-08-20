@@ -287,7 +287,7 @@ class ConnectionsService:
         Checks if an object is supported by the connections pane.
         """
         try:
-            # This block might fail if for some reason 'Connection' or 'Engine' are 
+            # This block might fail if for some reason 'Connection' or 'Engine' are
             # not available in their modules.
             return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
                 obj, "sqlalchemy", "Engine"
