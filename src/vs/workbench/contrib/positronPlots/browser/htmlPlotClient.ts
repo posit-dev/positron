@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { DisposableStore, MutableDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
@@ -33,6 +34,7 @@ export class HtmlPlotClient extends WebviewPlotClient {
 	 */
 	constructor(
 		private readonly _positronPreviewService: IPositronPreviewService,
+		private readonly _openerService: IOpenerService,
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _event: IShowHtmlUriEvent) {
 		// Create the metadata for the plot.
@@ -67,6 +69,12 @@ export class HtmlPlotClient extends WebviewPlotClient {
 			this.nudgeRenderThumbnail();
 		}));
 
+		// Handle link clicks from the webview
+		this._register(html.webview.webview.onDidClickLink((link) => {
+			this._openerService.open(link, {
+				fromUserGesture: true
+			});
+		}));
 		return html.webview.webview;
 	}
 

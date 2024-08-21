@@ -366,11 +366,21 @@ window.addEventListener('load', () => {
 	});
 });
 
-// Override the prompt function to return the default value or 'myFile' if one isnt provided.
+// Override the prompt function to return the default value or 'Untitled' if one isnt provided.
 // This is needed because the prompt function is not supported in webviews and the prompt function
 // is commonly used by libraries like bokeh to provide names for files to save. The main file save
 // dialog that positron shows will already provide the ability to change the file name so we're
 // just providing a default value here.
 window.prompt = (message, _default) => {
 	return _default ?? 'Untitled';
+};
+
+// Override the window.open function to send a message to the host to open the link instead.
+// Save the old window.open function so we can call it after sending the message in case there's
+// some other behavior that was depended upon that we're not aware of.
+const oldOpen = window.open;
+window.open = (url, target, features) => {
+	const uri = url instanceof URL ? url.href : url;
+	hostMessaging.postMessage('did-click-link', { uri });
+	return oldOpen(uri, target, features);
 };

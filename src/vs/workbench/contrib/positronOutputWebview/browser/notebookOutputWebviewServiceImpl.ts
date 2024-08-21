@@ -323,12 +323,17 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		webview.setHtml(`
 <head>
 	<style nonce="${id}">
-#_defaultColorPalatte {
+		#_defaultColorPalatte {
 			color: var(--vscode-editor-findMatchHighlightBackground);
 			background-color: var(--vscode-editor-findMatchBackground);
-}
-</style>
+		}
+	</style>
 	${PositronNotebookOutputWebviewService.CssAddons}
+	<script>
+		window.prompt = (message, _default) => {
+			return _default ?? 'Untitled';
+		};
+	</script>
 </head>
 <body>
 <div id='container'></div>
