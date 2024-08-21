@@ -93,9 +93,9 @@ jobs:
       - name: Install python dependencies
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install matplotlib ipykernel graphviz trcli
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install matplotlib ipykernel graphviz trcli
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
