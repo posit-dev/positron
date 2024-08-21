@@ -28,12 +28,6 @@ export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebview
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
-
-	/**
-	 * Optional method to render the output in the webview rather than doing so
-	 * directly in the HTML content
-	 */
-	render?(): void;
 }
 
 export enum WebviewType {
@@ -49,6 +43,8 @@ export interface IPositronNotebookOutputWebviewService {
 	/**
 	 * Create a new notebook output webview from an output message.
 	 *
+	 * @param id A unique ID for this webview; typically the ID of the message
+	 *  that created it.
 	 * @param runtime The runtime that emitted the output
 	 * @param output The message containing the contents to be rendered in the webview.
 	 * @param viewType The view type of the notebook e.g 'jupyter-notebook', if known. Used to
@@ -57,6 +53,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 *   output does not have a suitable renderer.
 	 */
 	createNotebookOutputWebview(
+		id: string,
 		runtime: ILanguageRuntimeSession,
 		output: ILanguageRuntimeMessageOutput,
 		viewType?: string,

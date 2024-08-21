@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from 'vs/base/browser/dom';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -33,20 +34,28 @@ import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService
 import { localize } from 'vs/nls';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IShowHtmlUriEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { WebviewExtensionDescription } from 'vs/workbench/contrib/webview/browser/webview';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
+
+/** The maximum number of plots with an active webview. */
+const MaxActiveWebviewPlots = 5;
+
+/** Time in milliseconds after which webview plots are deactivated if they're not selected. */
+const WebviewPlotInactiveTimeout = 120_000;
+
+/** Interval in milliseconds at which inactive webview plots are checked. */
+const WebviewPlotInactiveInterval = 1_000;
 
 /** The key used to store the preferred history policy */
 const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
@@ -103,6 +112,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The currently selected history policy. */
 	private _selectedHistoryPolicy: HistoryPolicy = HistoryPolicy.Automatic;
 
+	/** Map of the time that a plot was last selected, keyed by the plot client's ID. */
+	private _lastSelectedTimeByPlotId = new Map<string, number>();
+
 	/**
 	 * A map of recently executed code; the map is from the parent ID to the
 	 * code executed. We keep around the last 10 executions so that when a plot
@@ -140,12 +152,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 
 		// Register for UI comm events
-		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(event => {
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(async event => {
 			// If we have a new HTML file to show, turn it into a webview plot.
 			if (event.event.name === UiFrontendEvent.ShowHtmlFile) {
 				const data = event.event.data as IShowHtmlUriEvent;
 				if (data.event.is_plot) {
-					this.createWebviewPlot(event.session_id, data);
+					await this.createWebviewPlot(event.session_id, data);
 				}
 			}
 		}));
@@ -157,13 +169,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
 		// so they can be displayed in the plots pane.
-		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
-			this.registerNewPlotClient(plotClient);
+		this._register(this._positronIPyWidgetsService.onDidCreatePlot(async (plotClient) => {
+			await this.registerWebviewPlotClient(plotClient);
 		}));
 		// Listen for plot clients from the holoviews service and register them with the plots
 		// service so they can be displayed in the plots pane.
-		this._register(this._positronHoloViewsService.onDidCreatePlot((plotClient) => {
-			this.registerNewPlotClient(plotClient);
+		this._register(this._positronHoloViewsService.onDidCreatePlot(async (plotClient) => {
+			await this.registerWebviewPlotClient(plotClient);
 		}));
 
 		// When the storage service is about to save state, store the current history policy
@@ -273,6 +285,37 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
 		}
+
+		// When a plot is selected, update its last selected time.
+		this._register(this._onDidSelectPlot.event(async (id) => {
+			this._lastSelectedTimeByPlotId.set(id, Date.now());
+		}));
+
+		// Start an interval that checks for inactive webview plots and deactivates them.
+		this._register(DOM.disposableWindowInterval(
+			DOM.getActiveWindow(),
+			() => {
+				// Update the last selected time for the current selected plot.
+				const now = Date.now();
+				if (this._selectedPlotId) {
+					this._lastSelectedTimeByPlotId.set(this._selectedPlotId, now);
+				}
+
+				// Get the active webview plots.
+				const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
+
+				// Deactivate webview plots that have not been selected for a while.
+				for (const plotClient of activeWebviewPlots) {
+					const selectedTime = this._lastSelectedTimeByPlotId.get(plotClient.id);
+					if (selectedTime && selectedTime + WebviewPlotInactiveTimeout < now) {
+						this._logService.debug(
+							`Deactivating plot '${plotClient.id}'; last selected ` +
+							`${WebviewPlotInactiveTimeout / 1000} seconds ago`,
+						);
+						plotClient.deactivate();
+					}
+				}
+			}, WebviewPlotInactiveInterval));
 	}
 
 	private _showPlotsPane() {
@@ -291,7 +334,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		if (selectedPlot instanceof HtmlPlotClient) {
-			this._openerService.open(selectedPlot.html.uri,
+			this._openerService.open(selectedPlot.uri,
 				{ openExternal: true, fromUserGesture: true });
 		} else {
 			throw new Error(`Cannot open plot in new window: plot ${this._selectedPlotId} is not an HTML plot`);
@@ -645,13 +688,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		runtime: ILanguageRuntimeSession,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
-		// Create a new webview
-
-		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-			runtime, message);
-		if (webview) {
-			this.registerNewPlotClient(new NotebookOutputPlotClient(webview, message, code));
-		}
+		const plotClient = new NotebookOutputPlotClient(
+			this._notebookOutputWebviewService, runtime, message, code
+		);
+		await this.registerWebviewPlotClient(plotClient);
 	}
 
 	onDidEmitPlot: Event<IPositronPlotClient> = this._onDidEmitPlot.event;
@@ -898,23 +938,53 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plot.metadata.id === plotId);
 	}
 
-	private createWebviewPlot(sessionId: string, event: IShowHtmlUriEvent) {
-		// Look up the extension ID
+	private async createWebviewPlot(sessionId: string, event: IShowHtmlUriEvent) {
+		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
-		const extension = session!.runtimeMetadata.extensionId;
-		const webviewExtension: WebviewExtensionDescription = {
-			id: extension
-		};
 
-		// Create the webview.
-		const webview = this._positronPreviewService.createHtmlWebview(sessionId,
-			webviewExtension, event) as PreviewHtml;
+		// Create the plot client.
+		const plotClient = new HtmlPlotClient(this._positronPreviewService, session!, event);
 
 		// Register the new plot client
-		this.registerNewPlotClient(new HtmlPlotClient(webview));
+		await this.registerWebviewPlotClient(plotClient);
 
 		// Raise the Plots pane so the plot is visible.
 		this._showPlotsPane();
+	}
+
+	private async registerWebviewPlotClient(plotClient: IPositronPlotClient) {
+		if (plotClient instanceof WebviewPlotClient) {
+			// Ensure that the number of active webview plots does not exceed the maximum.
+			plotClient.onDidActivate(() => {
+				// Get the active webview plots.
+				const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
+
+				// If we haven't exceeded the threshold, do nothing.
+				if (activeWebviewPlots.length <= MaxActiveWebviewPlots) {
+					return;
+				}
+
+				// Get plot IDs sorted by last selected time.
+				const sortedPlotIds = Array.from(this._lastSelectedTimeByPlotId.entries())
+					.sort((a, b) => a[1] - b[1])
+					.map(([plotId,]) => plotId);
+
+				// Find the oldest awake webview plot and hibernate it.
+				for (const plotId of sortedPlotIds) {
+					const plotClient = activeWebviewPlots.find(plot => plot.id === plotId);
+					if (plotClient) {
+						this._logService.debug(
+							`Deactivating plot '${plotId}'; ` +
+							`maximum number of active webview plots reached`
+						);
+						plotClient.deactivate();
+						break;
+					}
+				}
+			});
+		}
+
+		this.registerNewPlotClient(plotClient);
 	}
 
 	/**
@@ -936,4 +1006,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	initialize() {
 	}
+}
+
+function isActiveWebviewPlot(plot: IPositronPlotClient): plot is WebviewPlotClient {
+	return plot instanceof WebviewPlotClient && plot.isActive();
 }

@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { Emitter, Event } from 'vs/base/common/event';
+import { Emitter } from 'vs/base/common/event';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { IPositronHoloViewsService, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
@@ -32,10 +32,10 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
 
 	/** The emitter for the onDidCreatePlot event */
-	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
+	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookMultiMessagePlotClient>());
 
 	/** Emitted when a new HoloViews webview is created. */
-	onDidCreatePlot: Event<NotebookOutputPlotClient> = this._onDidCreatePlot.event;
+	onDidCreatePlot = this._onDidCreatePlot.event;
 
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
@@ -138,28 +138,17 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		runtime: ILanguageRuntimeSession,
 		displayMessage: ILanguageRuntimeMessageWebOutput,
 	) {
-		const storedMessages = this._messagesBySessionId.get(runtime.sessionId) ?? [];
-		const outputWebview = await this._notebookOutputWebviewService.createMultiMessageWebview({
-			runtime,
-			preReqMessages: storedMessages,
-			displayMessage: displayMessage,
-			viewType: 'jupyter-notebook'
-		});
-
-		if (!outputWebview) {
-			throw new Error(`PositronHoloViewsService: Could not create webview for HoloViews message: ${JSON.stringify(displayMessage)}`);
-		}
-
 		// Grab disposables for this session
 		const disposables = this._sessionToDisposablesMap.get(runtime.sessionId);
 		if (!disposables) {
 			throw new Error(`PositronHoloViewsService: Could not find disposables for session ${runtime.sessionId}`);
 		}
 
-		disposables.add(outputWebview);
-
 		// Create a plot client and fire event letting plots pane know it's good to go.
-		const client = disposables.add(new NotebookOutputPlotClient(outputWebview, displayMessage));
+		const storedMessages = this._messagesBySessionId.get(runtime.sessionId) ?? [];
+		const client = disposables.add(new NotebookMultiMessagePlotClient(
+			this._notebookOutputWebviewService, runtime, storedMessages, displayMessage,
+		));
 		this._onDidCreatePlot.fire(client);
 	}
 }

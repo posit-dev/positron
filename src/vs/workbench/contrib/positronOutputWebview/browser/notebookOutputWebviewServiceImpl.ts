@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from 'vs/base/browser/dom';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
@@ -120,6 +121,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createNotebookOutputWebview(
+		id: string,
 		runtime: ILanguageRuntimeSession,
 		output: ILanguageRuntimeMessageWebOutput,
 		viewType?: string,
@@ -137,7 +139,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			if (renderer) {
 				return this.createNotebookRenderOutput({
-					id: output.id,
+					id,
 					runtime,
 					displayMessageInfo: { mimeType, renderer, output },
 					viewType
@@ -150,7 +152,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		for (const mimeType of Object.keys(output.data)) {
 			if (mimeType === 'text/html') {
 				return this.createRawHtmlOutput({
-					id: output.id,
+					id,
 					runtimeOrSessionId: runtime,
 					html: output.data[mimeType],
 					webviewType: WebviewType.Overlay
@@ -291,6 +293,11 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
+			// TODO: This is what the Viewer pane does. The back layer webview creates a UUID
+			//       per viewType. Not sure what we should do.
+			// Use the active window's origin. All webviews with the same origin will reuse the same
+			// service worker.
+			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
 				// Needed since we use the API ourselves, and it's also used by
@@ -302,7 +309,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				// Just choose last renderer for now. This may be insufficient in the future.
 				id: displayMessageInfo.renderer.extensionId,
 			},
-			options: {},
+			options: {
+				retainContextWhenHidden: true,
+			},
 			title: '',
 		};
 
@@ -328,28 +337,26 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				</body>
 					`);
 
-		const render = () => {
-			// Loop through all the messages and render them in the webview
-			for (const { output: message, mimeType, renderer } of messagesInfo) {
-				const data = message.data[mimeType];
-				// Send a message to the webview to render the output.
-				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-					VSBuffer.fromString(JSON.stringify(data));
-				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-				//   argument to postMessage.
-				const transfer: ArrayBuffer[] = [];
-				const webviewMessage: IPositronRenderMessage = {
-					type: 'positronRender',
-					outputId: message.id,
-					elementId: 'container',
-					rendererId: renderer.id,
-					mimeType,
-					metadata: message.metadata,
-					valueBytes: valueBytes.buffer,
-				};
-				webview.postMessage(webviewMessage, transfer);
-			}
-		};
+		// Loop through all the messages and render them in the webview
+		for (const { output: message, mimeType, renderer } of messagesInfo) {
+			const data = message.data[mimeType];
+			// Send a message to the webview to render the output.
+			const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+				VSBuffer.fromString(JSON.stringify(data));
+			// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+			//   argument to postMessage.
+			const transfer: ArrayBuffer[] = [];
+			const webviewMessage: IPositronRenderMessage = {
+				type: 'positronRender',
+				outputId: message.id,
+				elementId: 'container',
+				rendererId: renderer.id,
+				mimeType,
+				metadata: message.metadata,
+				valueBytes: valueBytes.buffer,
+			};
+			webview.postMessage(webviewMessage, transfer);
+		}
 
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
@@ -359,7 +366,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				id,
 				sessionId: runtime.sessionId,
 				webview,
-				render,
 				rendererMessaging: scopedRendererMessaging
 			},
 		);
@@ -383,6 +389,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 		// Create the metadata for the webview
 		const webviewInitInfo: WebviewInitInfo = {
+			// Use the active window's origin. All webviews with the same origin will reuse the same
+			// service worker.
+			origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
 				localResourceRoots: [jupyterExtension.extensionLocation]

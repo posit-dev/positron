@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as DOM from 'vs/base/browser/dom';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { Event, Emitter } from 'vs/base/common/event';
@@ -204,7 +205,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		uri: URI,
 		extension: WebviewExtensionDescription | undefined): PreviewOverlayWebview {
 		const webviewInitInfo: WebviewInitInfo = {
-			origin,
+			origin: DOM.getActiveWindow().origin,
 			providedViewType: viewType,
 			title: '',
 			options: {
@@ -394,7 +395,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview(session, e);
+					this._notebookOutputWebviewService.createNotebookOutputWebview(e.id, session, e);
 				if (webview) {
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(

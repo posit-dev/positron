@@ -24,7 +24,6 @@ interface NotebookOutputWebviewOptions<WType extends IOverlayWebview | IWebviewE
 	readonly id: string;
 	readonly sessionId: string;
 	readonly webview: WType;
-	readonly render?: () => void;
 	rendererMessaging?: IScopedRendererMessaging;
 }
 
@@ -40,7 +39,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	readonly id: string;
 	readonly sessionId: string;
 	readonly webview: WType;
-	readonly render?: () => void;
 
 	/**
 	 * Create a new notebook output webview.
@@ -49,8 +47,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 	 *   that created it.
 	 * @param sessionId The ID of the runtime that owns this webview.
 	 * @param webview The underlying webview.
-	 * @param render Optional method to render the output in the webview rather than doing so
-	 *   directly in the HTML content.
 	 * @param rendererMessaging Optional scoped messaging instance for communicating between a
 	 *   runtime and the renderer.
 	 */
@@ -59,7 +55,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 			id,
 			sessionId,
 			webview,
-			render,
 			rendererMessaging
 		}: NotebookOutputWebviewOptions<WType>,
 		@IFileDialogService private _fileDialogService: IFileDialogService,
@@ -76,7 +71,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 		this.id = id;
 		this.sessionId = sessionId;
 		this.webview = webview;
-		this.render = render;
 		this.onDidRender = this._onDidRender.event;
 		this._register(this._onDidRender);
 		this._register(this._onDidReceiveMessage);

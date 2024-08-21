@@ -111,19 +111,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				return;
 			}
 
-			// Create a webview to display the widget.
-			const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview(
-				session, message, 'jupyter-notebook');
-
-			if (!webview) {
-				throw new Error(`Could not create webview for IPyWidget message: ${JSON.stringify(message)}`);
-			}
-
-			disposables.add(webview);
+			// Create the plot client.
+			const client = disposables.add(new NotebookOutputPlotClient(
+				this._notebookOutputWebviewService, session, message
+			));
 
 			// Create the ipywidgets instance.
 			const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
-				webview.id, this._notebookRendererMessagingService
+				client.id, this._notebookRendererMessagingService
 			));
 			const ipywidgetsInstance = disposables.add(
 				new IPyWidgetsInstance(session, messaging, this._logService)
@@ -138,7 +133,6 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 			// TODO: We probably need to dispose in more cases...
 
 			// Fire the onDidCreatePlot event.
-			const client = disposables.add(new NotebookOutputPlotClient(webview, message));
 			this._onDidCreatePlot.fire(client);
 		};
 

@@ -26,23 +26,38 @@ interface WebviewPlotInstanceProps {
  */
 export const WebviewPlotInstance = (props: WebviewPlotInstanceProps) => {
 	const webviewRef = React.useRef<HTMLDivElement>(null);
+	const [clientIsClaimed, setClientIsClaimed] = React.useState(false);
 
 	useEffect(() => {
 		const client = props.plotClient;
 		// Only claim if the plot is visible to avoid rendering the webview when
 		// the parent view pane is collapsed.
 		if (props.visible) {
-			client.claim(this);
+			client.activate().then(() => {
+				client.claim(this);
+				setClientIsClaimed(true);
+			});
 		}
 		return () => {
 			client.release(this);
+			setClientIsClaimed(false);
 		};
 	}, [props.plotClient, props.visible]);
 
 	useEffect(() => {
-		if (webviewRef.current) {
-			props.plotClient.layoutWebviewOverElement(webviewRef.current);
+		// If the client is not claimed, do nothing.
+		// This is to avoid activating the client when it isn't claimed, which could happen
+		// if the previous effect is cleaned up before this one runs.
+		if (!clientIsClaimed) {
+			return;
 		}
+
+		const client = props.plotClient;
+		client.activate().then(() => {
+			if (webviewRef.current) {
+				client.layoutWebviewOverElement(webviewRef.current);
+			}
+		});
 	});
 
 	const style = {
