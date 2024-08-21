@@ -1,5 +1,5 @@
 {
-  "name": "vscode-reh-web",
+  "name": "positron-reh-web",
   "version": "0.0.0",
   "private": true,
   "dependencies": {
@@ -32,8 +32,8 @@
     "native-watchdog": "^1.4.1",
     "node-pty": "1.1.0-beta11",
     "react": "^18.2.0",
-		"react-dom": "^18.2.0",
-		"react-window": "^1.8.8",
+    "react-dom": "^18.2.0",
+    "react-window": "^1.8.8",
     "tas-client-umd": "0.2.0",
     "vscode-oniguruma": "1.7.0",
     "vscode-regexpp": "^3.1.0",
@@ -45,9 +45,9 @@
     "node-gyp-build": "4.8.1"
   },
   "customEntryPoints": {
-		"react": "umd/react.production.min.js",
-		"react-dom": "umd/react-dom.production.min.js",
-		"react-window": "dist/index-prod.umd.js",
-		"he": "he.js"
+    "react": "umd/react.production.min.js",
+    "react-dom": "umd/react-dom.production.min.js",
+    "react-window": "dist/index-prod.umd.js",
+    "he": "he.js"
   }
 }

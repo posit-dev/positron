@@ -321,8 +321,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		let packageJsonContents;
 		// --- Start Positron ---
-		// TODO: generate the reh-web package.json by merging the remote and web package.json
-		// dependencies instead of manually updating the reh-web package.json
+		// Note: The remote/reh-web/package.json is generated/updated by running remote/reh-web/merge-deps.sh
 		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }))

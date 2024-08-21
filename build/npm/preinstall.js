@@ -51,6 +51,15 @@ if (process.platform === 'win32') {
 	}
 }
 
+// --- Start Positron ---
+// Merge the dependencies for remote and remote/web into remote/reh-web
+const mergeDepsResult = mergeRehWebDependencies();
+if (mergeDepsResult.error || mergeDepsResult.status !== 0) {
+	console.error('Merging reh-web dependencies failed!');
+	err = true;
+}
+// --- End Positron ---
+
 if (err) {
 	console.error('');
 	process.exit(1);
@@ -161,4 +170,19 @@ function getHeaderInfo(rcFile) {
 	return disturl !== undefined && target !== undefined
 		? { disturl, target }
 		: undefined;
+}
+
+/**
+ * Merge the dependencies for remote and remote/web into remote/reh-web
+ * @returns The process result for the merge-deps.sh script
+ */
+function mergeRehWebDependencies() {
+	const rehWebPath = path.join(__dirname, '..', '..', 'remote', 'reh-web');
+	const mergeDeps = path.join(rehWebPath, 'merge-deps.sh');
+	return cp.spawnSync(mergeDeps, [], {
+		env: process.env,
+		cwd: rehWebPath,
+		stdio: 'inherit',
+		shell: true
+	});
 }
