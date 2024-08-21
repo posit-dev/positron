@@ -47,7 +47,6 @@ const dirs = [
 	// --- Start Positron ---
 	'extensions/jupyter-adapter',
 	// --- End Positron ---
-	'extensions/markdown-language-features/server',
 	'extensions/markdown-language-features',
 	'extensions/markdown-math',
 	'extensions/media-preview',
