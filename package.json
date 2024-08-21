@@ -241,7 +241,7 @@
     "yaserver": "^0.4.0"
   },
   "resolutions": {
-    "node-gyp-build": "4.8.0"
+    "node-gyp-build": "4.8.1"
   },
   "repository": {
     "type": "git",
