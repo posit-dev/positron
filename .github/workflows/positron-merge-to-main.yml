@@ -43,9 +43,13 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.4'
 
       - name: Execute yarn
         env:
