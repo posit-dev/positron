@@ -920,7 +920,7 @@
 						"$ref": "#/components/schemas/column_summary_stats"
 					},
 					"histogram": {
-						"description": "Results from summary_stats request",
+						"description": "Results from histogram request",
 						"$ref": "#/components/schemas/column_histogram"
 					},
 					"frequency_table": {
