@@ -4,11 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table {
-	display: flex;
-}
-
-.data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .x-axis {
-	fill: var(--vscode-positronDataExplorer-sparklineAxis);
+	grid-column: sparkline / missing-values;
 }
 
 .data-grid-row-cell .content .column-summary .basic-info .sparkline-frequency-table .count {

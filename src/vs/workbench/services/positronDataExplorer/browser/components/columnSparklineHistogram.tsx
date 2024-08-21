@@ -19,6 +19,7 @@ import { ColumnHistogram } from 'vs/workbench/services/languageRuntime/common/po
  */
 const GRAPH_WIDTH = 80;
 const GRAPH_HEIGHT = 20;
+const X_AXIS_HEIGHT = 0.5;
 const GRAPH_RANGE: Range = { min: 0, max: GRAPH_HEIGHT };
 
 /**
@@ -72,14 +73,14 @@ export const ColumnSparklineHistogram = ({
 
 	// Render.
 	return (
-		<div className='sparkline-histogram' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
-			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
+		<div className='sparkline-histogram' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT + X_AXIS_HEIGHT }}>
+			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT + X_AXIS_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
 					<rect className='x-axis'
 						x={0}
-						y={GRAPH_HEIGHT - 0.5}
+						y={GRAPH_HEIGHT - X_AXIS_HEIGHT}
 						width={GRAPH_WIDTH}
-						height={0.5}
+						height={X_AXIS_HEIGHT}
 					/>
 					{columnHistogram.bin_counts.map((binCount, binIndex) => {
 						const binHeight = linearConversion(binCount, binCountRange, GRAPH_RANGE);
@@ -88,7 +89,7 @@ export const ColumnSparklineHistogram = ({
 								className='bin-count'
 								key={`bin-${binIndex}`}
 								x={binIndex * binWidth}
-								y={GRAPH_HEIGHT - binHeight}
+								y={GRAPH_HEIGHT - X_AXIS_HEIGHT - binHeight}
 								width={binWidth}
 								height={binHeight}
 							/>
