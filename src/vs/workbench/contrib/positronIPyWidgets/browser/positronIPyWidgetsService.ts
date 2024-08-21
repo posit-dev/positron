@@ -10,11 +10,12 @@ import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWid
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
 import { isEqual } from 'vs/base/common/resources';
 import { ILogService } from 'vs/platform/log/common/log';
-import { FromWebviewMessage, ICommOpenFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
+import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 
 /**
  * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.
@@ -37,12 +38,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	/**
 	 * @param _runtimeSessionService The runtime session service.
+	 * @param _notebookService The notebook service.
 	 * @param _notebookEditorService The notebook editor service.
 	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
 	 * @param _logService The log service.
 	 */
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
+		@INotebookService private _notebookService: INotebookService,
 		@INotebookEditorService private _notebookEditorService: INotebookEditorService,
 		@INotebookRendererMessagingService private _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
@@ -121,7 +124,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				client.id, this._notebookRendererMessagingService
 			));
 			const ipywidgetsInstance = disposables.add(
-				new IPyWidgetsInstance(session, messaging, this._logService)
+				new IPyWidgetsInstance(session, messaging, this._notebookService, this._logService)
 			);
 			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
 
@@ -161,9 +164,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
 			notebookEditor.getId(), this._notebookRendererMessagingService
 		));
-		const ipywidgetsInstance = new IPyWidgetsInstance(session, messaging, this._logService);
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
+			session, messaging, this._notebookService, this._logService
+		));
 		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
-		disposables.add(ipywidgetsInstance);
 
 		// Unregister the instance when the session is disposed.
 		disposables.add(toDisposable(() => {
@@ -209,11 +213,13 @@ export class IPyWidgetsInstance extends Disposable {
 	/**
 	 * @param _session The language runtime session.
 	 * @param _messaging The IPyWidgets webview messaging interface.
+	 * @param _notebookService The notebook service.
 	 * @param _logService The log service.
 	 */
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _messaging: IIPyWidgetsWebviewMessaging,
+		private readonly _notebookService: INotebookService,
 		private readonly _logService: ILogService,
 	) {
 		super();
@@ -257,6 +263,9 @@ export class IPyWidgetsInstance extends Disposable {
 				}
 				case 'comm_open':
 					this.handleCommOpenFromWebview(message);
+					break;
+				case 'get_preferred_renderer':
+					this.handleGetPreferredRendererFromWebview(message);
 					break;
 			}
 		}));
@@ -311,6 +320,22 @@ export class IPyWidgetsInstance extends Disposable {
 		const client = await this._session.createClient(
 			RuntimeClientType.IPyWidgetControl, message.data, message.metadata, message.comm_id);
 		this.createClient(client);
+	}
+
+	private handleGetPreferredRendererFromWebview(message: IGetPreferredRendererFromWebview) {
+		let rendererId: string | undefined;
+		try {
+			const renderer = this._notebookService.getPreferredRenderer(message.mime_type);
+			rendererId = renderer?.id;
+		} catch {
+			this._logService.error(`Error while getting preferred renderer for mime type: ${message.mime_type}`);
+		}
+
+		this._messaging.postMessage({
+			type: 'get_preferred_renderer_result',
+			parent_id: message.msg_id,
+			renderer_id: rendererId,
+		});
 	}
 
 	hasClient(clientId: string) {

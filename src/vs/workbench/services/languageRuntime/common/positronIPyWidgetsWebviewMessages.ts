@@ -27,6 +27,12 @@ export interface ICommOpenFromWebview {
 	metadata: unknown;
 }
 
+export interface IGetPreferredRendererFromWebview {
+	type: 'get_preferred_renderer';
+	msg_id: string;
+	mime_type: string;
+}
+
 export interface IInitializeRequestFromWebview {
 	type: 'initialize_request';
 }
@@ -34,6 +40,7 @@ export interface IInitializeRequestFromWebview {
 export type FromWebviewMessage = ICommCloseFromWebview |
 	ICommMessageFromWebview |
 	ICommOpenFromWebview |
+	IGetPreferredRendererFromWebview |
 	IInitializeRequestFromWebview;
 
 //
@@ -66,7 +73,15 @@ export interface ICommOpenToWebview {
 	metadata: unknown;
 }
 
+export interface IGetPreferredRendererResultToWebview {
+	type: 'get_preferred_renderer_result';
+	parent_id: string;
+	/** The preferred renderer ID, or undefined if none found. */
+	renderer_id?: string;
+}
+
 export type ToWebviewMessage = IInitializeResultToWebview |
 	ICommCloseToWebview |
 	ICommMessageToWebview |
-	ICommOpenToWebview;
+	ICommOpenToWebview |
+	IGetPreferredRendererResultToWebview;

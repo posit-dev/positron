@@ -8,9 +8,12 @@ import { ManagerBase } from '@jupyter-widgets/base-manager';
 import { JSONObject } from '@lumino/coreutils';
 import * as LuminoWidget from '@lumino/widgets';
 import type * as WebviewMessage from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { RendererContext } from 'vscode-notebook-renderer';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
+import { IRenderMime, RenderMimeRegistry, standardRendererFactories } from '@jupyterlab/rendermime';
+import { PositronRenderer } from './renderer';
 
 // This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
 const CDN = 'https://cdn.jsdelivr.net/npm/';
@@ -43,15 +46,46 @@ function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
 }
 
 /**
+ * Create a RenderMimeRegistry with renderer factories for all standard mime types with
+ * standard ranks, but all using the PositronRenderer.
+ */
+function createRenderMimeRegistry(messaging: Messaging, context: RendererContext<any>): RenderMimeRegistry {
+	const positronRendererFactory = (options: IRenderMime.IRendererOptions) => {
+		return new PositronRenderer(options, messaging, context);
+	};
+
+	const factories = [];
+	// Reroute all standard mime types (with their default ranks) to the PositronRenderer.
+	for (const factory of standardRendererFactories) {
+		factories.push({
+			...factory,
+			createRenderer: positronRendererFactory,
+		});
+	}
+	// Also handle the widget mimetype.
+	factories.push({
+		safe: false,
+		mimeTypes: ['application/vnd.jupyter.widget-view+json'],
+		createRenderer: positronRendererFactory,
+	});
+	return new RenderMimeRegistry({ initialFactories: factories });
+}
+
+/**
  * A widget manager that interfaces with the Positron IPyWidgets service and renders to HTML.
  */
 export class PositronWidgetManager extends ManagerBase implements base.IWidgetManager, Disposable {
 	private _disposables: Disposable[] = [];
 
+	public readonly renderMime: RenderMimeRegistry;
+
 	constructor(
 		private readonly _messaging: Messaging,
+		context: RendererContext<any>,
 	) {
 		super();
+
+		this.renderMime = createRenderMimeRegistry(_messaging, context);
 
 		// Handle messages from the runtime.
 		this._disposables.push(_messaging.onDidReceiveMessage(async (message) => {

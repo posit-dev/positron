@@ -44,7 +44,7 @@ export const activate: ActivationFunction = async (context) => {
 	const messaging = new Messaging(context);
 
 	// Create the widget manager.
-	const manager = new PositronWidgetManager(messaging);
+	const manager = new PositronWidgetManager(messaging, context);
 
 	// Wait until the Positron IPyWidgets instance sends the initialize_result message.
 	await new Promise<void>((resolve) => {
