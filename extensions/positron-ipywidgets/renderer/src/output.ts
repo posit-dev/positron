@@ -8,16 +8,15 @@ import * as nbformat from '@jupyterlab/nbformat';
 import * as outputBase from '@jupyter-widgets/output';
 import { OutputAreaModel, OutputArea } from '@jupyterlab/outputarea';
 import { PositronWidgetManager } from './manager';
-import { KernelMessage, Session } from '@jupyterlab/services';
+import { KernelMessage } from '@jupyterlab/services';
 
 
 export class OutputModel extends outputBase.OutputModel {
-	// Properties assigned in initialize.
+	// Properties assigned on `initialize`.
 	private _outputs!: OutputAreaModel;
-	override widget_manager!: PositronWidgetManager;
-	private _msgHook!: (msg: KernelMessage.IIOPubMessage) => boolean;
+	public override widget_manager!: PositronWidgetManager;
 
-	override defaults(): Backbone.ObjectHash {
+	public override defaults(): Backbone.ObjectHash {
 		return {
 			...super.defaults(),
 			msg_id: '',
@@ -25,77 +24,57 @@ export class OutputModel extends outputBase.OutputModel {
 		};
 	}
 
-	override initialize(attributes: any, options: any): void {
+	public override initialize(attributes: any, options: any): void {
 		super.initialize(attributes, options);
 		// The output area model is trusted since widgets are only rendered in trusted contexts.
 		this._outputs = new OutputAreaModel({ trusted: true });
-		this._msgHook = (msg): boolean => {
-			this.add(msg);
-			return false;
-		};
 
-		// TODO: Handle kernel changes?
-		// if the context is available, react on kernel changes
-		// this.widget_manager.context.sessionContext.kernelChanged.connect(
-		// 	(sender, args) => {
-		// 		this._handleKernelChanged(args);
-		// 	}
-		// );
-		this.listenTo(this, 'change:msg_id', this.reset_msg_id);
+		this.listenTo(this, 'change:msg_id', this.setMsgId);
 		this.listenTo(this, 'change:outputs', this.setOutputs);
-		this.setOutputs();
 	}
 
-	get outputs(): OutputAreaModel {
+	public get outputs(): OutputAreaModel {
 		return this._outputs;
 	}
 
-	clear_output(wait = false): void {
+	private clearOutput(wait = false): void {
 		this._outputs.clear(wait);
 	}
 
-	setOutputs(_model?: any, _value?: any, options?: any): void {
-		if (!(options && options.newMessage)) {
+	private setOutputs(_model: OutputModel, _value?: string[], options?: any): void {
+		console.log('OutputModel.setOutputs', _value, options);
+		if (!options?.newMessage) {
 			// fromJSON does not clear the existing output
-			this.clear_output();
+			this.clearOutput();
 			// fromJSON does not copy the message, so we make a deep copy
 			this._outputs.fromJSON(JSON.parse(JSON.stringify(this.get('outputs'))));
 		}
 	}
 
-	/**
-	 * Register a new kernel
-	 */
-	_handleKernelChanged({
-		oldValue,
-	}: Session.ISessionConnection.IKernelChangedArgs): void {
-		const msgId = this.get('msg_id');
-		if (msgId && oldValue) {
-			oldValue.removeMessageHook(msgId, this._msgHook);
-			this.set('msg_id', null);
-		}
-	}
-
-	/**
-	 * Reset the message id.
-	 */
-	reset_msg_id(): void {
-		const kernel = this.widget_manager.kernel;
+	private setMsgId(): void {
 		const msgId = this.get('msg_id');
 		const oldMsgId = this.previous('msg_id');
 
+		if (msgId) {
+			console.debug(`positron-ipywidgets renderer: Output widget '${this.model_id}' listening for messages with id '${msgId}'`);
+		} else {
+			console.debug(`positron-ipywidgets renderer: Output widget '${this.model_id}' no longer listening`);
+		}
+
+		const kernel = this.widget_manager.kernel;
+
 		// Clear any old handler.
 		if (oldMsgId && kernel) {
-			kernel.removeMessageHook(oldMsgId, this._msgHook);
+			kernel.removeMessageHook(oldMsgId, this.handleMessage);
 		}
 
 		// Register any new handler.
 		if (msgId && kernel) {
-			kernel.registerMessageHook(msgId, this._msgHook);
+			kernel.registerMessageHook(msgId, this.handleMessage);
 		}
 	}
 
-	add(msg: KernelMessage.IIOPubMessage): void {
+	private handleMessage(msg: KernelMessage.IIOPubMessage): void {
 		const msgType = msg.header.msg_type;
 		switch (msgType) {
 			case 'execute_result':
@@ -107,9 +86,11 @@ export class OutputModel extends outputBase.OutputModel {
 				this._outputs.add(model);
 				break;
 			}
-			case 'clear_output':
-				this.clear_output((msg as KernelMessage.IClearOutputMsg).content.wait);
-				break;
+			// TODO: Positron supports this via a UI comm message and doesn't currently
+			//       support clear_output.
+			// case 'clear_output':
+			// 	this.clearOutput((msg as KernelMessage.IClearOutputMsg).content.wait);
+			// 	break;
 			default:
 				break;
 		}
@@ -149,10 +130,6 @@ export class OutputView extends outputBase.OutputView {
 			contentFactory: OutputArea.defaultContentFactory,
 			model: this.model.outputs,
 		});
-		// TODO: why is this a readonly property now?
-		// this._outputView.model = this.model.outputs;
-		// TODO: why is this on the model now?
-		// this._outputView.trusted = true;
 		this.luminoWidget.insertWidget(0, this._outputView);
 
 		this.luminoWidget.addClass('jupyter-widgets');
