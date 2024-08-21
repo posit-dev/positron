@@ -148,7 +148,8 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 */
 	public release(claimant: any) {
 		if (!this.isActive()) {
-			throw new Error('No webview to release');
+			// Webview is already disposed so there's nothing to release.
+			return;
 		}
 		this._webview.value.release(claimant);
 		this._claimed = false;
