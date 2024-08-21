@@ -26,7 +26,9 @@ sips -z 150 150 positron.png --out ../resources/win32/positron_150x150.png
 sips -z 192 192 positron.png --out ../resources/server/positron-192.png
 sips -z 512 512 positron.png --out ../resources/server/positron-512.png
 
-# Copy the product icon for Windows Inno Setup "big" images to the resources/win32 folder.
+# In order to convert the product icon for the Windows Inno Setup installer
+# UI, we need to resize the image, then pad it, and finally convert it to BMP
+# format in several steps. The following functions are used to achieve this.
 constrain_image() {
 	local max=$1
 	local input=$2
@@ -62,7 +64,6 @@ convert_png_to_bmp() {
 	rm -f "$output_png"
 }
 
-# We resize based on the prior inno setup icons, but need two steps to achieve padded background
 convert_png_to_bmp 164 314 164 positron.png ../resources/win32/positron-inno-big-100
 convert_png_to_bmp 192 386 192 positron.png ../resources/win32/positron-inno-big-125
 convert_png_to_bmp 246 459 246 positron.png ../resources/win32/positron-inno-big-150
