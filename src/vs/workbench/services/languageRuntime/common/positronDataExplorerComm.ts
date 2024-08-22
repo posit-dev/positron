@@ -480,7 +480,7 @@ export interface ColumnProfileResult {
 	summary_stats?: ColumnSummaryStats;
 
 	/**
-	 * Results from summary_stats request
+	 * Results from histogram request
 	 */
 	histogram?: ColumnHistogram;
 
@@ -1111,6 +1111,8 @@ export enum ColumnProfileType {
  */
 export enum ColumnHistogramParamsMethod {
 	Sturges = 'sturges',
+	FreedmanDiaconis = 'freedman_diaconis',
+	Scott = 'scott',
 	Fixed = 'fixed'
 }
 

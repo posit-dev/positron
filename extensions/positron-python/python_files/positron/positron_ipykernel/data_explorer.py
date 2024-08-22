@@ -1754,8 +1754,24 @@ def _get_histogram_numpy(data, params: ColumnHistogramParams):
         hist_params = {"bins": params.num_bins}
     elif params.method == ColumnHistogramParamsMethod.Sturges:
         hist_params = {"bins": "sturges"}
+    elif params.method == ColumnHistogramParamsMethod.FreedmanDiaconis:
+        hist_params = {"bins": "fd"}
+    elif params.method == ColumnHistogramParamsMethod.Scott:
+        hist_params = {"bins": "scott"}
     else:
         raise NotImplementedError
+
+    # For integers, we want to make sure the number of bins is smaller
+    # then than `data.max() - data.min()`, so we don't endup with more bins
+    # then there's data to display.
+    if issubclass(data.dtype.type, np_.integer):
+        width = data.max() - data.min()
+        bins = np_.histogram_bin_edges(data, hist_params["bins"])
+        if len(bins) > width and width > 0:
+            hist_params["bins"] = width
+        else:
+            # Don't need to recompute the bin edges, so we pass them
+            hist_params["bins"] = bins
 
     try:
         bin_counts, bin_edges = np_.histogram(data, **hist_params)

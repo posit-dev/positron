@@ -153,6 +153,10 @@ class ColumnHistogramParamsMethod(str, enum.Enum):
 
     Sturges = "sturges"
 
+    FreedmanDiaconis = "freedman_diaconis"
+
+    Scott = "scott"
+
     Fixed = "fixed"
 
 
@@ -615,7 +619,7 @@ class ColumnProfileResult(BaseModel):
 
     histogram: Optional[ColumnHistogram] = Field(
         default=None,
-        description="Results from summary_stats request",
+        description="Results from histogram request",
     )
 
     frequency_table: Optional[ColumnFrequencyTable] = Field(
