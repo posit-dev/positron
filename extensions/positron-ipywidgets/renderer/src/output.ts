@@ -8,7 +8,6 @@ import * as nbformat from '@jupyterlab/nbformat';
 import * as outputBase from '@jupyter-widgets/output';
 import { OutputAreaModel, OutputArea } from '@jupyterlab/outputarea';
 import { PositronWidgetManager } from './manager';
-import { KernelMessage } from '@jupyterlab/services';
 
 
 export class OutputModel extends outputBase.OutputModel {
@@ -61,41 +60,68 @@ export class OutputModel extends outputBase.OutputModel {
 			console.debug(`positron-ipywidgets renderer: Output widget '${this.model_id}' no longer listening`);
 		}
 
-		const kernel = this.widget_manager.kernel;
-
+		// TODO: Next up, handle calling this._outputs.add() when a message comes through that should be rendered in the output area.
+		//       Any message directed to msgId.
 		// Clear any old handler.
-		if (oldMsgId && kernel) {
-			kernel.removeMessageHook(oldMsgId, this.handleMessage);
+		if (oldMsgId) {
+			this.widget_manager.removeMessageHandler(oldMsgId);
 		}
 
-		// Register any new handler.
-		if (msgId && kernel) {
-			kernel.registerMessageHook(msgId, this.handleMessage);
+		// Register the new handler.
+		if (msgId) {
+			this.widget_manager.registerMessageHandler(msgId, (message) => {
+				// TODO: Make handlers take message.content as arg
+				console.log('positron-ipywidgets renderer: Output widget RECV:', message.content);
+				switch (message.content.output_type) {
+					case 'execute_result': {
+						const output: nbformat.IExecuteResult = {
+							output_type: 'execute_result',
+							// TODO: Runtime message doesn't currently include this...
+							// execution_count: message.content.execution_count,
+							execution_count: null,
+							data: message.content.data as nbformat.IMimeBundle,
+							metadata: message.content.metadata as nbformat.OutputMetadata,
+						};
+						this._outputs.add(output);
+						break;
+					}
+					case 'display_data': {
+						const output: nbformat.IDisplayData = {
+							output_type: 'display_data',
+							data: message.content.data as nbformat.IMimeBundle,
+							metadata: message.content.metadata as nbformat.OutputMetadata,
+						};
+						this._outputs.add(output);
+						break;
+					}
+					case 'stream': {
+						const output: nbformat.IStream = {
+							output_type: 'stream',
+							name: message.content.name,
+							text: message.content.text,
+						};
+						this._outputs.add(output);
+						break;
+					}
+					case 'error': {
+						const output: nbformat.IError = {
+							output_type: 'error',
+							ename: message.content.name,
+							evalue: message.content.message,
+							traceback: message.content.traceback,
+						};
+						this._outputs.add(output);
+						break;
+					}
+					case 'clear_output': {
+						this.clearOutput(message.content.wait);
+						break;
+					}
+				}
+				this.set('outputs', this._outputs.toJSON(), { newMessage: true });
+				this.save_changes();
+			});
 		}
-	}
-
-	private handleMessage(msg: KernelMessage.IIOPubMessage): void {
-		const msgType = msg.header.msg_type;
-		switch (msgType) {
-			case 'execute_result':
-			case 'display_data':
-			case 'stream':
-			case 'error': {
-				const model = msg.content as nbformat.IOutput;
-				model.output_type = msgType as nbformat.OutputType;
-				this._outputs.add(model);
-				break;
-			}
-			// TODO: Positron supports this via a UI comm message and doesn't currently
-			//       support clear_output.
-			// case 'clear_output':
-			// 	this.clearOutput((msg as KernelMessage.IClearOutputMsg).content.wait);
-			// 	break;
-			default:
-				break;
-		}
-		this.set('outputs', this._outputs.toJSON(), { newMessage: true });
-		this.save_changes();
 	}
 }
 

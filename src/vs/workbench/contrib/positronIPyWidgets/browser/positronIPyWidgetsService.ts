@@ -233,6 +233,67 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}
 
+		// TODO: Maybe only send these if there's a registered message handler?
+		this._register(_session.onDidReceiveRuntimeMessageOutput(message => {
+			this._messaging.postMessage({
+				type: 'kernel_message',
+				parent_id: message.parent_id,
+				content: {
+					output_type: 'display_data',
+					data: message.data,
+					metadata: message.metadata,
+				}
+			});
+		}));
+
+		this._register(_session.onDidReceiveRuntimeMessageResult(message => {
+			this._messaging.postMessage({
+				type: 'kernel_message',
+				parent_id: message.parent_id,
+				content: {
+					output_type: 'execute_result',
+					data: message.data,
+					metadata: message.metadata,
+				}
+			});
+		}));
+
+		this._register(_session.onDidReceiveRuntimeMessageStream(message => {
+			this._messaging.postMessage({
+				type: 'kernel_message',
+				parent_id: message.parent_id,
+				content: {
+					output_type: 'stream',
+					name: message.name,
+					text: message.text,
+				}
+			});
+		}));
+
+		this._register(_session.onDidReceiveRuntimeMessageError(message => {
+			this._messaging.postMessage({
+				type: 'kernel_message',
+				parent_id: message.parent_id,
+				content: {
+					output_type: 'error',
+					name: message.name,
+					message: message.message,
+					traceback: message.traceback,
+				}
+			});
+		}));
+
+		this._register(_session.onDidReceiveRuntimeMessageClearOutput(message => {
+			this._messaging.postMessage({
+				type: 'kernel_message',
+				parent_id: message.parent_id,
+				content: {
+					output_type: 'clear_output',
+					wait: message.wait,
+				},
+			});
+		}));
+
 		// Forward comm_open messages from the runtime to the webview.
 		this._register(_session.onDidCreateClientInstance(({ client, message }) => {
 			// Only handle IPyWidget clients.

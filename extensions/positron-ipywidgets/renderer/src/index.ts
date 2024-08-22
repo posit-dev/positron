@@ -5,7 +5,7 @@
 
 import * as base from '@jupyter-widgets/base';
 import * as controls from '@jupyter-widgets/controls';
-import * as output from '@jupyter-widgets/output';
+import * as output from './output';
 import { ActivationFunction } from 'vscode-notebook-renderer';
 import { PositronWidgetManager } from './manager';
 import { Messaging } from './messaging';
@@ -62,6 +62,7 @@ export const activate: ActivationFunction = async (context) => {
 	return {
 		async renderOutputItem(outputItem, element, _signal) {
 			const widgetData = outputItem.json();
+			console.log('positron-ipywidgets renderer:', widgetData, element);
 
 			// Check if the widget's comm exists in the manager.
 			if (!manager.has_model(widgetData.model_id)) {

@@ -12,7 +12,7 @@ import { RendererContext } from 'vscode-notebook-renderer';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
-import { IRenderMime, RenderMimeRegistry, standardRendererFactories } from '@jupyterlab/rendermime';
+import { errorRendererFactory, IRenderMime, RenderMimeRegistry, standardRendererFactories, textRendererFactory } from '@jupyterlab/rendermime';
 import { PositronRenderer } from './renderer';
 
 // This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
@@ -54,18 +54,37 @@ function createRenderMimeRegistry(messaging: Messaging, context: RendererContext
 		return new PositronRenderer(options, messaging, context);
 	};
 
-	const factories = [];
+	const factories = [textRendererFactory, errorRendererFactory];
 	// Reroute all standard mime types (with their default ranks) to the PositronRenderer.
 	for (const factory of standardRendererFactories) {
+		if (factories.includes(factory)) {
+			continue;
+		}
 		factories.push({
 			...factory,
 			createRenderer: positronRendererFactory,
 		});
 	}
-	// Also handle the widget mimetype.
+	// Also handle known widget mimetypes.
 	factories.push({
 		safe: false,
-		mimeTypes: ['application/vnd.jupyter.widget-view+json'],
+		mimeTypes: [
+			'application/geo+json',
+			'application/vdom.v1+json',
+			'application/vnd.dataresource+json',
+			'application/vnd.jupyter.widget-view+json',
+			'application/vnd.plotly.v1+json',
+			'application/vnd.r.htmlwidget',
+			'application/vnd.vega.v2+json',
+			'application/vnd.vega.v3+json',
+			'application/vnd.vega.v4+json',
+			'application/vnd.vega.v5+json',
+			'application/vnd.vegalite.v1+json',
+			'application/vnd.vegalite.v2+json',
+			'application/vnd.vegalite.v3+json',
+			'application/vnd.vegalite.v4+json',
+			'application/x-nteract-model-debug+json',
+		],
 		createRenderer: positronRendererFactory,
 	});
 	return new RenderMimeRegistry({ initialFactories: factories });
@@ -244,6 +263,37 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 
 	loadFromKernel(): Promise<void> {
 		return this._loadFromKernel();
+	}
+
+	private readonly _messageHandlers = new Map<string, Disposable>();
+
+	async registerMessageHandler(msgId: string, handler: (message: WebviewMessage.IKernelMessageToWebview) => void): Promise<void> {
+		if (this._messageHandlers.has(msgId)) {
+			throw new Error(`Message handler already exists for msgId: ${msgId}`);
+		}
+
+		// TODO: Does the backend need to know about the registered message handler?
+		//       I suppose it eventually does so that it can _not_ show the messages elsewhere...
+		//       But we can implement that next.
+		// this._messaging.postMessage({ type: 'register_message_handler', msg_id: msgId });
+
+		this._messageHandlers.set(
+			msgId,
+			this._messaging.onDidReceiveMessage(async (message) => {
+				if (message.type === 'kernel_message' && message.parent_id === msgId) {
+					handler(message);
+				}
+			})
+		);
+	}
+
+	removeMessageHandler(msgId: string): void {
+		const handler = this._messageHandlers.get(msgId);
+		if (!handler) {
+			throw new Error(`No message handler for msgId: ${msgId}`);
+		}
+		this._messageHandlers.delete(msgId);
+		handler.dispose();
 	}
 
 	dispose(): void {

@@ -37,11 +37,17 @@ export interface IInitializeRequestFromWebview {
 	type: 'initialize_request';
 }
 
+export interface IRegisterMessageHandlerFromWebview {
+	type: 'register_message_handler';
+	msg_id: string;
+}
+
 export type FromWebviewMessage = ICommCloseFromWebview |
 	ICommMessageFromWebview |
 	ICommOpenFromWebview |
 	IGetPreferredRendererFromWebview |
-	IInitializeRequestFromWebview;
+	IInitializeRequestFromWebview |
+	IRegisterMessageHandlerFromWebview;
 
 //
 // Messages to the webview.
@@ -80,8 +86,51 @@ export interface IGetPreferredRendererResultToWebview {
 	renderer_id?: string;
 }
 
+export interface IKernelMessageClearOutput {
+	output_type: 'clear_output';
+	wait: boolean;
+}
+
+export interface IKernelMessageDisplayData {
+	output_type: 'display_data';
+	data: unknown;
+	metadata: unknown;
+}
+
+export interface IKernelMessageError {
+	output_type: 'error';
+	name: string;
+	message: string;
+	traceback: Array<string>;
+}
+
+export interface IKernelMessageExecuteResult {
+	output_type: 'execute_result';
+	// TODO: Runtime message doesn't currently include this...
+	// execution_count: number | null;
+	data: unknown;
+	metadata: unknown;
+}
+
+export interface IKernelMessageStream {
+	output_type: 'stream';
+	name: 'stdout' | 'stderr';
+	text: string;
+}
+
+export interface IKernelMessageToWebview {
+	type: 'kernel_message';
+	parent_id: string;
+	content: IKernelMessageClearOutput |
+	IKernelMessageDisplayData |
+	IKernelMessageError |
+	IKernelMessageExecuteResult |
+	IKernelMessageStream;
+}
+
 export type ToWebviewMessage = IInitializeResultToWebview |
 	ICommCloseToWebview |
 	ICommMessageToWebview |
 	ICommOpenToWebview |
-	IGetPreferredRendererResultToWebview;
+	IGetPreferredRendererResultToWebview |
+	IKernelMessageToWebview;
