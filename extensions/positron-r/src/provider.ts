@@ -264,8 +264,9 @@ function discoverHQBinaries(): string[] {
 		// Windows: rig creates 'bin/', which is a directory of .bat files (at least, for now)
 		// https://github.com/r-lib/rig/issues/189
 		.map(listing => listing.filter(path => !path.endsWith('bin')))
-		// macOS: 'Current', if it exists, is a symlink to an actual version
-		.map(listing => listing.filter(path => !path.endsWith('Current')));
+		// macOS: 'Current' (uppercase 'C'), if it exists, is a symlink to an actual version
+		// linux: 'current' (lowercase 'c'), if it exists, is a symlink to an actual version
+		.map(listing => listing.filter(path => !path.toLowerCase().endsWith('current')));
 
 	// On Windows:
 	// In the case that both (1) and (2) exist we prefer (1).

@@ -68,6 +68,6 @@
     "url": "https://github.com/posit-dev/positron"
   },
   "resolutions": {
-    "node-gyp-build": "4.8.1"
+    "node-gyp-build": "4.8.0"
   }
 }

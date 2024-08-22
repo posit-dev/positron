@@ -124,7 +124,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 		if (!this.isActive()) {
 			throw new Error('No webview to claim');
 		}
-		this._webview.value.claim(claimant, DOM.getWindow(this._element), undefined);
+		this._webview.value!.claim(claimant, DOM.getWindow(this._element), undefined);
 		this._claimed = true;
 	}
 
@@ -138,7 +138,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 			throw new Error('No webview to layout');
 		}
 		this._element = ele;
-		this._webview.value.layoutWebviewOverElement(ele);
+		this._webview.value!.layoutWebviewOverElement(ele);
 	}
 
 	/**
@@ -151,7 +151,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 			// Webview is already disposed so there's nothing to release.
 			return;
 		}
-		this._webview.value.release(claimant);
+		this._webview.value!.release(claimant);
 		this._claimed = false;
 
 		// We can't render a thumbnail while the webview isn't showing, so cancel the
@@ -167,7 +167,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 		if (!this.isActive()) {
 			throw new Error('No webview to render thumbnail');
 		}
-		this._webview.value.captureContentsAsPng().then(data => {
+		this._webview.value!.captureContentsAsPng().then(data => {
 			if (data) {
 				this._thumbnail = data;
 				this._onDidRenderThumbnail.fire(this.asDataUri(data));
