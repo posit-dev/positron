@@ -55,9 +55,9 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			throw new Error(`Renderer not found: ${rendererId}`);
 		}
 
-		// TODO: Handle strings too?
-		const sourceJson = model.data[this._mimeType] as any;
-		const sourceString = JSON.stringify(sourceJson);
+		console.log('PositronRenderer.renderModel', this._mimeType, model.data[this._mimeType]);
+		const source = model.data[this._mimeType] as any;
+		const sourceString = typeof source === 'string' ? source : JSON.stringify(source);
 		const sourceBytes = new TextEncoder().encode(sourceString);
 		const outputItem = {
 			// TODO: Do we need the actual message ID? How can we get that?
@@ -70,7 +70,7 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 				return sourceString;
 			},
 			json() {
-				return sourceJson;
+				return source;
 			},
 			blob() {
 				return new Blob([sourceBytes], { type: this.mime });
