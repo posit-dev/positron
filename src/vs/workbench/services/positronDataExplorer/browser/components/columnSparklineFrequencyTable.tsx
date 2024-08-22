@@ -62,12 +62,6 @@ export const ColumnSparklineFrequencyTable = ({
 		<div className='sparkline-frequency-table' style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT }}>
 			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
-					<rect className='x-axis'
-						x={0}
-						y={GRAPH_HEIGHT - 0.5}
-						width={GRAPH_WIDTH}
-						height={0.5}
-					/>
 					{columnFrequencyTable.counts.map((count, countIndex) => {
 						const countWidth = Math.max(
 							1,
