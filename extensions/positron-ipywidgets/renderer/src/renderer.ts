@@ -55,14 +55,26 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			throw new Error(`Renderer not found: ${rendererId}`);
 		}
 
-		console.log('PositronRenderer.renderModel', this._mimeType, model.data[this._mimeType]);
+		console.log('PositronRenderer.renderModel', rendererId, this._mimeType, model.data[this._mimeType]);
 		const source = model.data[this._mimeType] as any;
 		const sourceString = typeof source === 'string' ? source : JSON.stringify(source);
 		const sourceBytes = new TextEncoder().encode(sourceString);
+
+		// Convert Jupyter mime types to VSCode mime types, if needed.
+		let vscodeMimeType = this._mimeType;
+		switch (vscodeMimeType) {
+			case 'application/vnd.jupyter.stdout':
+				vscodeMimeType = 'application/vnd.code.notebook.stdout';
+				break;
+			case 'application/vnd.jupyter.stderr':
+				vscodeMimeType = 'application/vnd.code.notebook.stderr';
+				break;
+		}
+
 		const outputItem = {
 			// TODO: Do we need the actual message ID? How can we get that?
 			id: uuid(),
-			mime: this._mimeType,
+			mime: vscodeMimeType,
 			data() {
 				return sourceBytes;
 			},

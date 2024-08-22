@@ -12,7 +12,7 @@ import { RendererContext } from 'vscode-notebook-renderer';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
-import { errorRendererFactory, IRenderMime, RenderMimeRegistry, standardRendererFactories, textRendererFactory } from '@jupyterlab/rendermime';
+import { IRenderMime, RenderMimeRegistry, standardRendererFactories } from '@jupyterlab/rendermime';
 import { PositronRenderer } from './renderer';
 
 // This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
@@ -54,12 +54,9 @@ function createRenderMimeRegistry(messaging: Messaging, context: RendererContext
 		return new PositronRenderer(options, messaging, context);
 	};
 
-	const factories = [textRendererFactory, errorRendererFactory];
+	const factories = [];
 	// Reroute all standard mime types (with their default ranks) to the PositronRenderer.
 	for (const factory of standardRendererFactories) {
-		if (factories.includes(factory)) {
-			continue;
-		}
 		factories.push({
 			...factory,
 			createRenderer: positronRendererFactory,
