@@ -14,14 +14,6 @@ import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlo
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
 
-/**
- * We dump the messages when the user enables an extension to avoid conflicts. But however
- * multiple messages are sent from a single extension loading call so we need to make sure we
- * only dump the messages once. To do this we keep track of the last message that caused a
- * reset.
- */
-type ResetMessagesNotification = { resetParentId: string | null };
-
 export class PositronHoloViewsService extends Disposable implements IPositronHoloViewsService {
 	/** Needed for service branding in dependency injector. */
 	_serviceBrand: undefined;
@@ -90,7 +82,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		const disposables = new DisposableStore();
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		this._messagesBySessionId.set(session.sessionId, []);
-		const resetNotification: ResetMessagesNotification = { resetParentId: null };
+		const resetNotification = new ResetMessageNotification();
 
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
 			if (msg.kind !== RuntimeOutputKind.HoloViews) {
@@ -110,7 +102,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			// code run was an extension command.
 			const isExtensionCommand = msg.code.includes('.extension(');
 			if (isExtensionCommand) {
-				resetNotification.resetParentId = msg.parent_id;
+				resetNotification.setResetId(msg.parent_id);
 			}
 		}));
 	}
@@ -124,11 +116,11 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	private _addMessageForSession(
 		session: ILanguageRuntimeSession,
 		msg: ILanguageRuntimeMessageWebOutput,
-		resetNotification: ResetMessagesNotification
+		resetNotification: ResetMessageNotification
 	) {
 		const sessionId = session.sessionId;
 
-		const messageIsExtensionCall = resetNotification.resetParentId === msg.parent_id;
+		const messageIsExtensionCall = resetNotification.shouldReset(msg.parent_id);
 		// If the message is coming in from a command to enable an extension, we should dump the
 		// previous messages to avoid conflicts.
 		if (messageIsExtensionCall) {
@@ -136,7 +128,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			// avoid conflicts.
 
 			// Reset the notification object to avoid dumping messages multiple times.
-			resetNotification.resetParentId = null;
+			resetNotification.reset();
 			this._messagesBySessionId.set(sessionId, []);
 		}
 
@@ -186,6 +178,28 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			this._notebookOutputWebviewService, runtime, storedMessages, displayMessage,
 		));
 		this._onDidCreatePlot.fire(client);
+	}
+}
+
+/**
+ * We dump the messages when the user enables an extension to avoid conflicts. But however
+ * multiple messages are sent from a single extension loading call so we need to make sure we
+ * only dump the messages once. To do this we keep track of the last message that caused a
+ * reset. We use a simple class so the value can be set after passing into helper functions.
+ */
+class ResetMessageNotification {
+	private _parent_id: string | null = null;
+
+	setResetId(parent_id: string) {
+		this._parent_id = parent_id;
+	}
+
+	shouldReset(parent_id: string): boolean {
+		return this._parent_id === parent_id;
+	}
+
+	reset() {
+		this._parent_id = null;
 	}
 }
 
