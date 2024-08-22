@@ -87,7 +87,10 @@ export async function activateComponents(
     }
     const promises: Promise<ActivationResult>[] = [
         // More component activations will go here
-        pythonEnvironments.activate(components.pythonEnvs, ext),
+        // --- Start Positron ---
+        // removed situational refresh (if it has not been triggered)
+        pythonEnvironments.activateRefresh(components.pythonEnvs),
+        // --- End Positron ---
     ];
     return Promise.all([legacyActivationResult, ...promises]);
 }
