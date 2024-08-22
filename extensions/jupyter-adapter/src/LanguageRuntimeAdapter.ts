@@ -33,6 +33,7 @@ import { uuidv4 } from './utils';
 import { JupyterCommRequest } from './JupyterCommRequest';
 import { JupyterSessionState } from './JupyterSession';
 import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSerialization';
+import { JupyterClearOutput } from './JupyterClearOutput';
 
 /**
  * LangaugeRuntimeSessionAdapter wraps a JupyterKernel in a LanguageRuntime
@@ -582,6 +583,9 @@ export class LanguageRuntimeSessionAdapter
 		}
 
 		switch (msg.msgType) {
+			case 'clear_output':
+				this.onClearOutput(msg, message as JupyterClearOutput);
+				break;
 			case 'display_data':
 				this.onDisplayData(msg, message as JupyterDisplayData);
 				break;
@@ -706,6 +710,24 @@ export class LanguageRuntimeSessionAdapter
 			data: msg.data,
 			metadata: message.metadata,
 		} as positron.LanguageRuntimeCommClosed);
+	}
+
+	/**
+	 * Converts a Jupyter clear_output message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The clear_output message
+	 */
+	onClearOutput(message: JupyterMessagePacket, data: JupyterClearOutput) {
+		this._messages.fire({
+			id: message.msgId,
+			parent_id: message.originId,
+			when: message.when,
+			type: positron.LanguageRuntimeMessageType.ClearOutput,
+			wait: data.wait,
+			metadata: message.metadata,
+		} as positron.LanguageRuntimeClearOutput);
 	}
 
 	/**
