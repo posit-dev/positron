@@ -2622,7 +2622,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             "f": np.ones(11),
         }
     )
-   
+
     dxf.register_table("df", df)
     dxf.register_table("dfp", dfp)
 
@@ -2710,7 +2710,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
                 "bin_counts": [11],
                 "quantiles": [],
             },
-        )
+        ),
     ]
 
     for name in ["df", "dfp"]:
@@ -2718,12 +2718,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             result = dxf.get_column_profiles(name, [profile])
             assert result[0]["histogram"] == ex_result
 
-    
-    dfl = pd.DataFrame(
-        {
-            "a": range(10)*1000
-        }
-    )
+    dfl = pd.DataFrame({"a": range(10) * 1000})
     dxf.register_table("dfl", dfl)
     result = dxf.get_column_profiles("dfl", _get_histogram(0, bins=50))
     assert len(result[0]["histogram"]["bin_edges"]) == (10 + 1)
