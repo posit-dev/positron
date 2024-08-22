@@ -297,7 +297,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			//       per viewType. Not sure what we should do.
 			// Use the active window's origin. All webviews with the same origin will reuse the same
 			// service worker.
-			origin: DOM.getActiveWindow().origin,
+			// TODO: `origin` is commented out to test whether reusing the service worker is causing
+			//       plot smoke tests to fail. Even if it is, if we aren't able to repro the bug,
+			//       its better to reuse service workers and find a way to make the test more robust.
+			// origin: DOM.getActiveWindow().origin,
 			contentOptions: {
 				allowScripts: true,
 				// Needed since we use the API ourselves, and it's also used by
