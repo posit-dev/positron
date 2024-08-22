@@ -82,31 +82,29 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		const disposables = new DisposableStore();
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		this._messagesBySessionId.set(session.sessionId, []);
-		const resetNotification = new ResetMessageNotification();
 
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
 			if (msg.kind !== RuntimeOutputKind.HoloViews) {
 				return;
 			}
 
-			this._addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput, resetNotification);
+			this._addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput);
 		};
 
 		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessage));
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessage));
 
-		// Listen for input messages to see if any of them should trigger a reset of the stored
-		// messages.
-		disposables.add(session.onDidReceiveRuntimeMessageInput((msg) => {
-			// Store the parent ID if the message to let the service know it should reset if the
-			// code run was an extension command.
-			const isExtensionCommand = msg.code.includes('.extension(');
-			if (isExtensionCommand) {
-				resetNotification.setResetId(msg.parent_id);
-			}
-		}));
+		// // Listen for input messages to see if any of them should trigger a reset of the stored
+		// // messages.
+		// disposables.add(session.onDidReceiveRuntimeMessageInput((msg) => {
+		// 	// Store the parent ID if the message to let the service know it should reset if the
+		// 	// code run was an extension command.
+		// 	const isExtensionCommand = msg.code.includes('.extension(');
+		// 	if (isExtensionCommand) {
+		// 		resetNotification.setResetId(msg.parent_id);
+		// 	}
+		// }));
 	}
-
 
 	/**
 	 * Record a message to the store keyed by session.
@@ -116,21 +114,9 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	private _addMessageForSession(
 		session: ILanguageRuntimeSession,
 		msg: ILanguageRuntimeMessageWebOutput,
-		resetNotification: ResetMessageNotification
 	) {
 		const sessionId = session.sessionId;
 
-		const messageIsExtensionCall = resetNotification.shouldReset(msg.parent_id);
-		// If the message is coming in from a command to enable an extension, we should dump the
-		// previous messages to avoid conflicts.
-		if (messageIsExtensionCall) {
-			// The user has enabled an extension and we should dump the previous stored messages to
-			// avoid conflicts.
-
-			// Reset the notification object to avoid dumping messages multiple times.
-			resetNotification.reset();
-			this._messagesBySessionId.set(sessionId, []);
-		}
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
@@ -153,6 +139,17 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		if (!messagesForSession) {
 			throw new Error(`PositronHoloViewsService: Session ${sessionId} not found in messagesBySessionId map.`);
 		}
+
+		const isLibraryLoadingMsg = PositronHoloViewsService._isLibraryLoadingMessage(msg);
+		if (isLibraryLoadingMsg) {
+			// Check for other library loading messages that may exist and swap them if they do.
+			const indexOfLibraryLoadingMsgs = messagesForSession.findIndex(PositronHoloViewsService._isLibraryLoadingMessage);
+			if (indexOfLibraryLoadingMsgs !== -1) {
+				messagesForSession.splice(indexOfLibraryLoadingMsgs, 1, msg);
+				return;
+			}
+		}
+
 		messagesForSession.push(msg);
 	}
 
@@ -179,27 +176,29 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		));
 		this._onDidCreatePlot.fire(client);
 	}
-}
 
-/**
- * We dump the messages when the user enables an extension to avoid conflicts. But however
- * multiple messages are sent from a single extension loading call so we need to make sure we
- * only dump the messages once. To do this we keep track of the last message that caused a
- * reset. We use a simple class so the value can be set after passing into helper functions.
- */
-class ResetMessageNotification {
-	private _parent_id: string | null = null;
+	/**
+	 * Check if a message is a holoviews library loading message.
+	 *
+	 * These messages are used to load the plotting extension for a plot and for some reason when both
+	 * the original (bokeh) message is sent over with the the plotly version they conflict and the plot
+	 * does not show. By introspecting the message content for the presence of a load_libs function we
+	 * can determine if the message is a library loading message. This is used to then replace the
+	 * original loading message in our message store with the new (and desired) one.
+	 *
+	 * @param msg The message to check.
+	 * @returns True if the message is a library loading message.
+	 */
+	private static _isLibraryLoadingMessage(msg: ILanguageRuntimeMessageWebOutput): boolean {
+		// return false;
+		if (!('application/javascript' in msg.data)) {
+			return false;
+		}
 
-	setResetId(parent_id: string) {
-		this._parent_id = parent_id;
-	}
+		const js = msg.data['application/javascript'];
 
-	shouldReset(parent_id: string): boolean {
-		return this._parent_id === parent_id;
-	}
-
-	reset() {
-		this._parent_id = null;
+		// Check for the definition of a load_libs function in the js code
+		return js.includes('function load_libs(');
 	}
 }
 
