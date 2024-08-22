@@ -1768,10 +1768,10 @@ def _get_histogram_numpy(data, params: ColumnHistogramParams):
         width = data.max() - data.min()
         bins = np_.histogram_bin_edges(data, hist_params["bins"])
         if len(bins) > width and width > 0:
-            hist_params["bins"] = width
+            hist_params = {"bins": width}
         else:
             # Don't need to recompute the bin edges, so we pass them
-            hist_params["bins"] = bins
+            hist_params = {"bins": bins}
 
     try:
         bin_counts, bin_edges = np_.histogram(data, **hist_params)
