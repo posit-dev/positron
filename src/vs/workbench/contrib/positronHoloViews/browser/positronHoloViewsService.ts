@@ -30,6 +30,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	 * closing before the session ends
 	 */
 	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
+	private _inputIdToCodeMap = new Map<string, string>();
 
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookMultiMessagePlotClient>());
@@ -94,7 +95,21 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessage));
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessage));
+
+		// Listen for input messages to store the code associated with the message. This is used
+		// later to determine if we should reset the stored messages.
+		disposables.add(session.onDidReceiveRuntimeMessageInput((msg) => {
+			this._inputIdToCodeMap.set(msg.parent_id, msg.code);
+		}));
 	}
+
+	/**
+	 * We dump the messages when the user enables an extension to avoid conflicts. But however
+	 * multiple messages are sent from a single extension loading call so we need to make sure we
+	 * only dump the messages once. To do this we keep track of the last message that caused a
+	 * reset.
+	 */
+	private _lastResetMessageParentId: string | undefined;
 
 	/**
 	 * Record a message to the store keyed by session.
@@ -103,6 +118,16 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	 */
 	private _addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput) {
 		const sessionId = session.sessionId;
+
+		const codeForMessage = this._inputIdToCodeMap.get(msg.parent_id) ?? '';
+		// If the message is coming in from a command to enable an extension, we should dump the
+		// previous messages to avoid conflicts.
+		if (codeForMessage.includes('.extension(') && this._lastResetMessageParentId !== msg.parent_id) {
+			// The user has enabled an extension and we should dump the previous
+			// stored messages to avoid conflicts.
+			this._lastResetMessageParentId = msg.parent_id;
+			this._messagesBySessionId.set(sessionId, []);
+		}
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
