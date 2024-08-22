@@ -2602,7 +2602,6 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
 
 def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
-
     format_options = FormatOptions(
         large_num_digits=2,
         small_num_digits=4,
@@ -2722,10 +2721,10 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
             },
         ),
         (
-            _get_histogram(0, bins = 50),
+            _get_histogram(0, bins=50),
             {
-                "bin_edges": [_format_float(x) for x in np.linspace(0., 10.0, 12)],
-                "bin_counts": [1]*11,
+                "bin_edges": [_format_float(x) for x in np.linspace(0.0, 10.0, 12)],
+                "bin_counts": [1] * 11,
                 "quantiles": [],
             },
         ),
