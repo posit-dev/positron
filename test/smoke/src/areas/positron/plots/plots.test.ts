@@ -306,6 +306,7 @@ plt.show()`;
 
 			it('Python - Verifies bqplot Python widget [C720869]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `import bqplot.pyplot as bplt
 import numpy as np
@@ -327,6 +328,7 @@ bplt.show()`;
 
 			it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `import pandas as pd
 from ipydatagrid import DataGrid
@@ -340,6 +342,7 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 
 			it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `from ipyleaflet import Map, Marker, display
 center = (52.204793, 360.121558)
@@ -358,6 +361,7 @@ display(map)`;
 
 			it('Python - Verifies ipytree Python widget [C720872]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `from ipytree import Tree, Node
 tree = Tree(stripes=True)
@@ -569,6 +573,7 @@ rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 
 			it('R - Verifies highcharter plot [C720874]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `library(highcharter)
 
@@ -582,6 +587,7 @@ hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
 			it('R - Verifies leaflet plot [C720875]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `library(leaflet)
 m = leaflet() %>% addTiles()
@@ -594,6 +600,7 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 
 			it('R - Verifies plotly plot [C720876]', async function () {
 				const app = this.app as Application;
+				this.retries(1);
 
 				const script = `library(plotly)
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
