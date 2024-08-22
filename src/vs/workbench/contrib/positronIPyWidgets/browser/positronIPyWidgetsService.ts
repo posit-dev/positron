@@ -323,9 +323,13 @@ export class IPyWidgetsInstance extends Disposable {
 	}
 
 	private handleGetPreferredRendererFromWebview(message: IGetPreferredRendererFromWebview) {
+		// TODO: Better way to handle this?
+		const mimeType = message.mime_type === 'application/vnd.jupyter.stdout' ?
+			'application/vnd.code.notebook.stdout' : message.mime_type;
+
 		let rendererId: string | undefined;
 		try {
-			const renderer = this._notebookService.getPreferredRenderer(message.mime_type);
+			const renderer = this._notebookService.getPreferredRenderer(mimeType);
 			rendererId = renderer?.id;
 		} catch {
 			this._logService.error(`Error while getting preferred renderer for mime type: ${message.mime_type}`);
