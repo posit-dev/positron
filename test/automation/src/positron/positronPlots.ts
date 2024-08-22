@@ -59,7 +59,7 @@ export class PositronPlots {
 	}
 
 	async waitForWebviewPlot(selector: string) {
-		await this.getWebviewPlotLocator(selector).waitFor({ state: 'visible' });
+		await this.getWebviewPlotLocator(selector).waitFor({ state: 'visible', timeout: 60000 });
 	}
 
 	async clearPlots() {
