@@ -662,4 +662,5 @@ export const codiconsLibrary = {
 	positronSelectColumn: register('positron-select-column', 0xf280),
 	positronSelectRow: register('positron-select-row', 0xf281),
 	positronDataTypeObject: register('positron-data-type-object', 0xf282),
+	positronSizeToFit: register('positron-size-to-fit', 0xf283),
 } as const;
