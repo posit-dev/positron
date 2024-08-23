@@ -24,9 +24,8 @@ export class TestIPyWidgetsWebviewMessaging extends Disposable implements IIPyWi
 	readonly messagesToWebview = new Array<ToWebviewMessage>();
 
 	/** Fire the onDidReceiveMessage event. */
-	receiveMessage(message: FromWebviewMessage): Promise<boolean> {
+	receiveMessage(message: FromWebviewMessage): void {
 		this._messageEmitter.fire(message);
-		return Promise.resolve(true);
 	}
 
 	private readonly _postMessageEmitter = new Emitter<ToWebviewMessage>();
