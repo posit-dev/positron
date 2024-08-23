@@ -173,6 +173,7 @@ function getHeaderInfo(rcFile) {
 		: undefined;
 }
 
+// --- Start Positron ---
 /**
  * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
  */
@@ -210,3 +211,4 @@ function generateRehWebPackageJson() {
 		// Write the merged package.json file to remote/reh-web
 		.pipe(gulp.dest(path.join(__dirname, '..', '..', 'remote', 'reh-web')));
 }
+// --- End Positron ---
