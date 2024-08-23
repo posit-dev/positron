@@ -140,12 +140,12 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			throw new Error(`PositronHoloViewsService: Session ${sessionId} not found in messagesBySessionId map.`);
 		}
 
-		const isLibraryLoadingMsg = PositronHoloViewsService._isLibraryLoadingMessage(msg);
-		if (isLibraryLoadingMsg) {
+		const loadingMsgType = PositronHoloViewsService._isLoadingMessage(msg);
+		if (loadingMsgType) {
 			// Check for other library loading messages that may exist and swap them if they do.
-			const indexOfLibraryLoadingMsgs = messagesForSession.findIndex(PositronHoloViewsService._isLibraryLoadingMessage);
-			if (indexOfLibraryLoadingMsgs !== -1) {
-				messagesForSession.splice(indexOfLibraryLoadingMsgs, 1, msg);
+			const indexOfExistingLoadingMsgs = messagesForSession.findIndex(m => PositronHoloViewsService._isLoadingMessage(m) === loadingMsgType);
+			if (indexOfExistingLoadingMsgs !== -1) {
+				messagesForSession.splice(indexOfExistingLoadingMsgs, 1, msg);
 				return;
 			}
 		}
@@ -189,16 +189,20 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	 * @param msg The message to check.
 	 * @returns True if the message is a library loading message.
 	 */
-	private static _isLibraryLoadingMessage(msg: ILanguageRuntimeMessageWebOutput): boolean {
+	private static _isLoadingMessage(msg: ILanguageRuntimeMessageWebOutput): 'library' | 'comm' | false {
 		// return false;
-		if (!('application/javascript' in msg.data)) {
-			return false;
+		if (('application/javascript' in msg.data)) {
+			const js = msg.data['application/javascript'];
+			// Check for the definition of a load_libs function in the js code
+			if (js.includes('function load_libs(')) {
+				return 'library';
+			}
+			if (js.includes('JupyterCommManager.prototype.register_target')) {
+				return 'comm';
+			}
 		}
 
-		const js = msg.data['application/javascript'];
-
-		// Check for the definition of a load_libs function in the js code
-		return js.includes('function load_libs(');
+		return false;
 	}
 }
 
