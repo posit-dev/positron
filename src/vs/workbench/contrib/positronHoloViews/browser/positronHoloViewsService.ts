@@ -12,6 +12,7 @@ import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/posi
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 
 const MIME_TYPE_HTML = 'text/html';
+const MIME_TYPE_JS = 'application/javascript';
 const MIME_TYPE_PLAIN = 'text/plain';
 
 export class PositronHoloViewsService extends Disposable implements IPositronHoloViewsService {
@@ -93,17 +94,6 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessage));
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessage));
-
-		// // Listen for input messages to see if any of them should trigger a reset of the stored
-		// // messages.
-		// disposables.add(session.onDidReceiveRuntimeMessageInput((msg) => {
-		// 	// Store the parent ID if the message to let the service know it should reset if the
-		// 	// code run was an extension command.
-		// 	const isExtensionCommand = msg.code.includes('.extension(');
-		// 	if (isExtensionCommand) {
-		// 		resetNotification.setResetId(msg.parent_id);
-		// 	}
-		// }));
 	}
 
 	/**
@@ -140,10 +130,10 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			throw new Error(`PositronHoloViewsService: Session ${sessionId} not found in messagesBySessionId map.`);
 		}
 
-		const loadingMsgType = PositronHoloViewsService._isLoadingMessage(msg);
+		const loadingMsgType = PositronHoloViewsService._identifyLoadingMsgType(msg);
 		if (loadingMsgType) {
 			// Check for other library loading messages that may exist and swap them if they do.
-			const indexOfExistingLoadingMsgs = messagesForSession.findIndex(m => PositronHoloViewsService._isLoadingMessage(m) === loadingMsgType);
+			const indexOfExistingLoadingMsgs = messagesForSession.findIndex(m => PositronHoloViewsService._identifyLoadingMsgType(m) === loadingMsgType);
 			if (indexOfExistingLoadingMsgs !== -1) {
 				messagesForSession.splice(indexOfExistingLoadingMsgs, 1, msg);
 				return;
@@ -178,22 +168,26 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	}
 
 	/**
-	 * Check if a message is a holoviews library loading message.
+	 * Identify if a message is a holoviews library loading message.
 	 *
-	 * These messages are used to load the plotting extension for a plot and for some reason when both
-	 * the original (bokeh) message is sent over with the the plotly version they conflict and the plot
-	 * does not show. By introspecting the message content for the presence of a load_libs function we
-	 * can determine if the message is a library loading message. This is used to then replace the
-	 * original loading message in our message store with the new (and desired) one.
+	 * These messages are used to load the plotting extension for a plot and for some reason when
+	 * both the original (bokeh) message is sent over with the the plotly version they conflict and
+	 * the plot does not show. By introspecting the message content we can determine if the message
+	 * is a library loading message. This is used to then replace the original loading message in
+	 * our message store with the new (and desired) one.
 	 *
 	 * @param msg The message to check.
-	 * @returns True if the message is a library loading message.
+	 * @returns The type of loading message or null if it is not a loading message.
 	 */
-	private static _isLoadingMessage(msg: ILanguageRuntimeMessageWebOutput): 'library' | 'comm' | false {
-		// return false;
-		if (('application/javascript' in msg.data)) {
-			const js = msg.data['application/javascript'];
-			// Check for the definition of a load_libs function in the js code
+	private static _identifyLoadingMsgType({ data }: ILanguageRuntimeMessageWebOutput): 'library' | 'comm' | 'destination' | null {
+
+		const html = data[MIME_TYPE_HTML];
+		if (html && data[MIME_TYPE_HTML].includes(`async function embed_document(root)`)) {
+			return 'destination';
+		}
+
+		const js = data[MIME_TYPE_JS];
+		if (js) {
 			if (js.includes('function load_libs(')) {
 				return 'library';
 			}
@@ -202,7 +196,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 			}
 		}
 
-		return false;
+		return null;
 	}
 }
 
