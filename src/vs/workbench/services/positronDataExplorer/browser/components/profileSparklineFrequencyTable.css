@@ -3,14 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-frequency-table {
-	grid-column: sparkline / missing-values;
+.data-grid-row-cell .content .column-summary .profile-info .profile-sparkline-frequency-table {
+	margin-bottom: 10px;
+	grid-row: sparkline / tabular-info;
+	grid-column: sparkline-tabular-info / right-gutter;
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-frequency-table .count {
+.data-grid-row-cell .content .column-summary .profile-info .profile-sparkline-frequency-table .count {
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-frequency-table .count.other {
+.data-grid-row-cell .content .column-summary .profile-info .profile-sparkline-frequency-table .count.other {
 	opacity: 0.65;
 }
