@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { decodeBase64, VSBuffer } from 'vs/base/common/buffer';
-import { Emitter, Event } from 'vs/base/common/event';
+import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { getExtensionForMimeType } from 'vs/base/common/mime';
 import { localize } from 'vs/nls';
@@ -14,7 +14,6 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { INotebookWebviewMessage } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { FromWebviewMessage, IClickedDataUrlMessage } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { IScopedRendererMessaging } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -34,11 +33,21 @@ interface NotebookOutputWebviewOptions<WType extends IOverlayWebview | IWebviewE
  */
 export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends Disposable implements INotebookOutputWebview<WType> {
 
-	private readonly _onDidRender = new Emitter<void>;
-	private readonly _onDidReceiveMessage = new Emitter<INotebookWebviewMessage>();
+	private readonly _onDidInitialize = this._register(new Emitter<void>());
+	private readonly _onDidRender = this._register(new Emitter<void>);
+
 	readonly id: string;
 	readonly sessionId: string;
 	readonly webview: WType;
+
+	/**
+	 * Fired when the webviewPreloads script is loaded.
+	 * Note: it will never fire in webviews that do not use the webviewPreloads script.
+	 */
+	onDidInitialize = this._onDidInitialize.event;
+
+	/** Fired when the content completes rendering */
+	onDidRender = this._onDidRender.event;
 
 	/**
 	 * Create a new notebook output webview.
@@ -71,9 +80,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 		this.id = id;
 		this.sessionId = sessionId;
 		this.webview = webview;
-		this.onDidRender = this._onDidRender.event;
-		this._register(this._onDidRender);
-		this._register(this._onDidReceiveMessage);
 
 		if (rendererMessaging) {
 			this._register(rendererMessaging);
@@ -97,6 +103,9 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 			}
 
 			switch (data.type) {
+				case 'initialized':
+					this._onDidInitialize.fire();
+					break;
 				case 'customRendererMessage':
 					rendererMessaging?.postMessage(data.rendererId, data.message);
 					break;
@@ -110,8 +119,6 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 
 		}));
 	}
-
-	onDidRender: Event<void>;
 
 	private async _downloadData(payload: IClickedDataUrlMessage): Promise<void> {
 		try {

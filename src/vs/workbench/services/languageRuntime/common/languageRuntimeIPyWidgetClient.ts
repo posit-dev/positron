@@ -14,7 +14,7 @@ import { ILogService } from 'vs/platform/log/common/log';
  */
 export interface IIPyWidgetsWebviewMessaging {
 	onDidReceiveMessage: Event<FromWebviewMessage>;
-	postMessage(message: ToWebviewMessage): void;
+	postMessage(message: ToWebviewMessage): Promise<boolean>;
 }
 
 /**

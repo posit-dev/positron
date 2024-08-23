@@ -342,30 +342,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				</body>
 					`);
 
-		// Loop through all the messages and render them in the webview
-		for (const { output: message, mimeType, renderer } of messagesInfo) {
-			const data = message.data[mimeType];
-			// Send a message to the webview to render the output.
-			const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
-				VSBuffer.fromString(JSON.stringify(data));
-			// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
-			//   argument to postMessage.
-			const transfer: ArrayBuffer[] = [];
-			const webviewMessage: IPositronRenderMessage = {
-				type: 'positronRender',
-				outputId: message.id,
-				elementId: 'container',
-				rendererId: renderer.id,
-				mimeType,
-				metadata: message.metadata,
-				valueBytes: valueBytes.buffer,
-			};
-			webview.postMessage(webviewMessage, transfer);
-		}
-
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
-		return this._instantiationService.createInstance(
+		const notebookOutputWebview = this._instantiationService.createInstance(
 			NotebookOutputWebview<IOverlayWebview>,
 			{
 				id,
@@ -374,6 +353,32 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				rendererMessaging: scopedRendererMessaging
 			},
 		);
+
+		// When the webview is ready to receive messages, send the render requests.
+		notebookOutputWebview.onDidInitialize(() => {
+			// Loop through all the messages and render them in the webview
+			for (const { output: message, mimeType, renderer } of messagesInfo) {
+				const data = message.data[mimeType];
+				// Send a message to the webview to render the output.
+				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
+					VSBuffer.fromString(JSON.stringify(data));
+				// TODO: We may need to pass valueBytes.buffer (or some version of it) as the `transfer`
+				//   argument to postMessage.
+				const transfer: ArrayBuffer[] = [];
+				const webviewMessage: IPositronRenderMessage = {
+					type: 'positronRender',
+					outputId: message.id,
+					elementId: 'container',
+					rendererId: renderer.id,
+					mimeType,
+					metadata: message.metadata,
+					valueBytes: valueBytes.buffer,
+				};
+				webview.postMessage(webviewMessage, transfer);
+			}
+		});
+
+		return notebookOutputWebview;
 	}
 
 	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
