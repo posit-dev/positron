@@ -617,7 +617,7 @@ class ColumnProfileResult(BaseModel):
         description="Results from summary_stats request",
     )
 
-    histogram: Optional[ColumnHistogram] = Field(
+    histogram: Optional[ColumnHistograms] = Field(
         default=None,
         description="Results from histogram request",
     )
@@ -780,6 +780,21 @@ class SummaryStatsDatetime(BaseModel):
     )
 
 
+class ColumnHistogramsParams(BaseModel):
+    """
+    Parameters to produce histograms for the summary profile
+    """
+
+    histogram: ColumnHistogramParams = Field(
+        description="Parameters to build the smaller histogram",
+    )
+
+    large_histogram: Optional[LargeHistogram] = Field(
+        default=None,
+        description="Parameters for the larger histogram used when the column is expanded",
+    )
+
+
 class ColumnHistogramParams(BaseModel):
     """
     Parameters for a column histogram profile request
@@ -800,9 +815,25 @@ class ColumnHistogramParams(BaseModel):
     )
 
 
-class ColumnHistogram(BaseModel):
+class ColumnHistograms(BaseModel):
     """
     Result from a histogram profile request
+    """
+
+    histogram: ColumnHistogram = Field(
+        description="A histogram used as the small sparkline plot.",
+    )
+
+    large_histogram: Optional[ColumnHistogram] = Field(
+        default=None,
+        description="A larger histogram, used when the column is expanded in the summary profile",
+    )
+
+
+class ColumnHistogram(BaseModel):
+    """
+    A histogram object. Contains all necessary information to draw an
+    histogram
     """
 
     bin_edges: List[StrictStr] = Field(
@@ -1101,8 +1132,13 @@ ColumnFilterParams = Union[
 ]
 # Extra parameters for different profile types
 ColumnProfileParams = Union[
-    ColumnHistogramParams,
+    ColumnHistogramsParams,
     ColumnFrequencyTableParams,
+]
+# Parameters for the larger histogram used when the column is expanded
+LargeHistogram = Union[
+    Union[StrictInt, StrictFloat],
+    ColumnHistogramParams,
 ]
 # A union of selection types
 Selection = Union[
@@ -1549,7 +1585,11 @@ SummaryStatsDate.update_forward_refs()
 
 SummaryStatsDatetime.update_forward_refs()
 
+ColumnHistogramsParams.update_forward_refs()
+
 ColumnHistogramParams.update_forward_refs()
+
+ColumnHistograms.update_forward_refs()
 
 ColumnHistogram.update_forward_refs()
 

@@ -482,7 +482,7 @@ export interface ColumnProfileResult {
 	/**
 	 * Results from histogram request
 	 */
-	histogram?: ColumnHistogram;
+	histogram?: ColumnHistograms;
 
 	/**
 	 * Results from frequency_table request
@@ -659,6 +659,22 @@ export interface SummaryStatsDatetime {
 }
 
 /**
+ * Parameters to produce histograms for the summary profile
+ */
+export interface ColumnHistogramsParams {
+	/**
+	 * Parameters to build the smaller histogram
+	 */
+	histogram: ColumnHistogramParams;
+
+	/**
+	 * Parameters for the larger histogram used when the column is expanded
+	 */
+	large_histogram?: LargeHistogram;
+
+}
+
+/**
  * Parameters for a column histogram profile request
  */
 export interface ColumnHistogramParams {
@@ -682,6 +698,24 @@ export interface ColumnHistogramParams {
 
 /**
  * Result from a histogram profile request
+ */
+export interface ColumnHistograms {
+	/**
+	 * A histogram used as the small sparkline plot.
+	 */
+	histogram: ColumnHistogram;
+
+	/**
+	 * A larger histogram, used when the column is expanded in the summary
+	 * profile
+	 */
+	large_histogram?: ColumnHistogram;
+
+}
+
+/**
+ * A histogram object. Contains all necessary information to draw an
+ * histogram
  */
 export interface ColumnHistogram {
 	/**
@@ -1017,7 +1051,10 @@ export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearc
 export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
 
 /// Extra parameters for different profile types
-export type ColumnProfileParams = ColumnHistogramParams | ColumnFrequencyTableParams;
+export type ColumnProfileParams = ColumnHistogramsParams | ColumnFrequencyTableParams;
+
+/// Parameters for the larger histogram used when the column is expanded
+export type LargeHistogram = number | ColumnHistogramParams;
 
 /// A union of selection types
 export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;

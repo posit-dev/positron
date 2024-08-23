@@ -35,7 +35,9 @@ from .data_explorer_comm import (
     ColumnFrequencyTable,
     ColumnFrequencyTableParams,
     ColumnHistogram,
+    ColumnHistograms,
     ColumnHistogramParams,
+    ColumnHistogramsParams,
     ColumnHistogramParamsMethod,
     ColumnProfileResult,
     ColumnProfileSpec,
@@ -516,8 +518,8 @@ class DataExplorerTableView(abc.ABC):
                     column_index, spec.params, format_options
                 )
             elif profile_type == ColumnProfileType.Histogram:
-                assert isinstance(spec.params, ColumnHistogramParams)
-                results["histogram"] = self._prof_histogram(
+                assert isinstance(spec.params, ColumnHistogramsParams)
+                results["histogram"] = self._prof_histograms(
                     column_index, spec.params, format_options
                 )
             else:
@@ -734,6 +736,36 @@ class DataExplorerTableView(abc.ABC):
         format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
         raise NotImplementedError
+    
+    def _prof_histograms(
+        self,
+        column_index,
+        params: ColumnHistogramsParams,
+        format_options: FormatOptions
+    ) -> ColumnHistograms:
+
+        # Compute the smaller histogram, then use the number of bins to
+        # compute a larger histogram if requested.
+        histogram = self._prof_histogram(column_index, params.histogram, format_options)
+        
+        if params.large_histogram is None:
+            return ColumnHistograms(histogram=histogram)
+
+
+        if isinstance(params.large_histogram, (int, float)):
+            large_params = ColumnHistogramParams(
+                method=ColumnHistogramParamsMethod.Fixed,
+                num_bins=params.large_histogram*len(histogram.bin_edges),
+                quantiles=params.histogram.quantiles
+            )
+        else:
+            large_params = params.large_histogram
+
+        large_histogram = self._prof_histogram(column_index, params.histogram, format_options)
+        return ColumnHistograms(
+            histogram=histogram,
+            large_histogram=large_histogram
+        )
 
     def _prof_histogram(
         self,

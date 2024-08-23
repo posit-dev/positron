@@ -2241,7 +2241,7 @@ def _get_histogram(column_index, bins=None, method="fixed"):
         [
             {
                 "profile_type": "histogram",
-                "params": {"method": method, "num_bins": bins},
+                "params": {"histogram": {"method": method, "num_bins": bins}},
             }
         ],
     )
@@ -2733,7 +2733,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
     for name in ["df", "dfp"]:
         for profile, ex_result in cases:
             result = dxf.get_column_profiles(name, [profile])
-            assert result[0]["histogram"] == ex_result
+            assert result[0]["histogram"]["histogram"] == ex_result
 
 
 def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):

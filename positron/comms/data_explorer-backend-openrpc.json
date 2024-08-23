@@ -870,8 +870,8 @@
 				"description": "Extra parameters for different profile types",
 				"oneOf": [
 					{
-						"name": "histogram",
-						"$ref": "#/components/schemas/column_histogram_params"
+						"name": "histograms",
+						"$ref": "#/components/schemas/column_histograms_params"
 					},
 					{
 						"name": "frequency_table",
@@ -921,7 +921,7 @@
 					},
 					"histogram": {
 						"description": "Results from histogram request",
-						"$ref": "#/components/schemas/column_histogram"
+						"$ref": "#/components/schemas/column_histograms"
 					},
 					"frequency_table": {
 						"description": "Results from frequency_table request",
@@ -1090,6 +1090,33 @@
 					}
 				}
 			},
+			"column_histograms_params": {
+				"type": "object",
+				"description": "Parameters to produce histograms for the summary profile",
+				"required": [
+					"histogram"
+				],
+				"properties": {
+					"histogram": {
+						"description": "Parameters to build the smaller histogram",
+						"$ref": "#/components/schemas/column_histogram_params"
+					},
+					"large_histogram": {
+						"description": "Parameters for the larger histogram used when the column is expanded",
+						"oneOf": [
+							{
+								"name": "num_bins_multiplier",
+								"description": "The number of bins will be this times larger as the number of bins of the smaller histogram",
+								"type": "number"
+							},
+							{
+								"name": "params",
+								"$ref": "#/components/schemas/column_histogram_params"
+							}
+						]
+					}
+				}
+			},
 			"column_histogram_params": {
 				"type": "object",
 				"description": "Parameters for a column histogram profile request",
@@ -1120,9 +1147,26 @@
 					}
 				}
 			},
-			"column_histogram": {
+			"column_histograms": {
 				"type": "object",
 				"description": "Result from a histogram profile request",
+				"required": [
+					"histogram"
+				],
+				"properties": {
+					"histogram": {
+						"description": "A histogram used as the small sparkline plot.",
+						"$ref": "#/components/schemas/column_histogram"
+					},
+					"large_histogram": {
+						"description": "A larger histogram, used when the column is expanded in the summary profile",
+						"$ref": "#/components/schemas/column_histogram"
+					}
+				}
+			},
+			"column_histogram": {
+				"type": "object",
+				"description": "A histogram object. Contains all necessary information to draw an histogram",
 				"required": [
 					"bin_edges",
 					"bin_counts",
