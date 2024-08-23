@@ -260,7 +260,7 @@ export class TableSummaryCache extends Disposable {
 		const frequencyTableSupported = this.isFrequencyTableSupported();
 
 		// Load the column profiles.
-		const columnProfiles = await this._dataExplorerClientInstance.getColumnProfiles(
+		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
 			columnIndices.map((column_index): ColumnProfileRequest => {
 				// Get the column schema.
 				const columnSchema = this._columnSchemaCache.get(column_index);
@@ -323,8 +323,8 @@ export class TableSummaryCache extends Disposable {
 		);
 
 		// Cache the column profiles that were returned.
-		for (let i = 0; i < columnProfiles.length; i++) {
-			this._columnProfileCache.set(columnIndices[i], columnProfiles[i]);
+		for (let i = 0; i < columnProfileResults.length; i++) {
+			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
 		}
 
 		// Fire the onDidUpdate event.

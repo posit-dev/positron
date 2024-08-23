@@ -26,7 +26,7 @@ import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataEx
 /**
  * Constants.
  */
-const MIN_COLUMN_WIDTH = 275;
+const MIN_COLUMN_WIDTH = 300;
 
 /**
  * DataExplorer component.
