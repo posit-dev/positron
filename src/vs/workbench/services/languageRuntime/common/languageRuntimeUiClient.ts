@@ -125,6 +125,23 @@ export class UiClientInstance extends Disposable {
 		this._register(this._comm.onDidShowUrl(async e => {
 			try {
 				let uri = URI.parse(e.url);
+
+				// If this is an HTML file URI, then treat it as a local file to
+				// be opened in a browser
+				if (uri.scheme === 'file') {
+					// Does the URI point to a plain directory (presumably
+					// containing an index.html of some kind), or a specific
+					// HTML file?  (lowercase to be case-insensitive)
+					const uriPath = uri.path.toLowerCase();
+					if (uriPath.endsWith('/') ||
+						uriPath.endsWith('.html') ||
+						uriPath.endsWith('.htm')) {
+						this.openHtmlFile(e.url);
+					}
+					return;
+				}
+
+				// Resolve the URI if it is an external URI
 				try {
 					const resolvedUri = await this._openerService.resolveExternalUri(uri);
 					uri = resolvedUri.resolved;
@@ -143,22 +160,8 @@ export class UiClientInstance extends Disposable {
 		// Wrap the ShowHtmlFile event to start a proxy server for the HTML file.
 		this._register(this._comm.onDidShowHtmlFile(async e => {
 			try {
-				const url = await this._commandService.executeCommand<string>(
-					'positronProxy.startHtmlProxyServer',
-					e.path
-				);
-
-				if (!url) {
-					throw new Error('Failed to start HTML file proxy server');
-				}
-
-				let uri = URI.parse(url);
-				try {
-					const resolvedUri = await this._openerService.resolveExternalUri(uri);
-					uri = resolvedUri.resolved;
-				} catch {
-					// Noop; use the original URI
-				}
+				// Start an HTML proxy server for the file
+				const uri = await this.startHtmlProxyServer(e.path);
 
 				if (e.is_plot) {
 					// Check the configuration to see if we should open the plot
@@ -180,5 +183,48 @@ export class UiClientInstance extends Disposable {
 				this._logService.error(`Failed to show HTML file ${e.path}: ${error}`);
 			}
 		}));
+	}
+
+	/**
+	 * Opens a file URI in an external browser.
+	 *
+	 * @param url The URL to open in the browser
+	 */
+	private async openHtmlFile(url: string): Promise<void> {
+		// Start an HTML proxy server for the file
+		const resolved = await this.startHtmlProxyServer(url);
+
+		// Open the resolved URI in the external browser. (Consider: should
+		// _all_ file URIs be opened in the external browser?)
+		this._openerService.open(resolved.toString(), {
+			openExternal: true,
+		});
+	}
+
+	/**
+	 * Starts an HTML proxy server for the given HTML file.
+	 *
+	 * @param htmlPath The path to the HTML file to open
+	 * @returns A URI representing the HTML file
+	 */
+	private async startHtmlProxyServer(htmlPath: string): Promise<URI> {
+		const url = await this._commandService.executeCommand<string>(
+			'positronProxy.startHtmlProxyServer',
+			htmlPath
+		);
+
+		if (!url) {
+			throw new Error('Failed to start HTML file proxy server');
+		}
+
+		let uri = URI.parse(url);
+		try {
+			const resolvedUri = await this._openerService.resolveExternalUri(uri);
+			uri = resolvedUri.resolved;
+		} catch {
+			// Noop; use the original URI
+		}
+
+		return uri;
 	}
 }
