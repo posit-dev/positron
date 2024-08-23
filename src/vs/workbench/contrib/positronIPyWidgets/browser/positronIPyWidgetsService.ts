@@ -354,8 +354,8 @@ class IPyWidgetsWebviewMessaging extends Disposable implements IIPyWidgetsWebvie
 	 *
 	 * @param message The message.
 	 */
-	postMessage(message: ToWebviewMessage) {
-		this._notebookRendererMessagingService.receiveMessage(
+	postMessage(message: ToWebviewMessage): Promise<boolean> {
+		return this._notebookRendererMessagingService.receiveMessage(
 			this._editorId, this._rendererId, message
 		);
 	}
