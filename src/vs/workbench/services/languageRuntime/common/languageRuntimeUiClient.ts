@@ -126,10 +126,18 @@ export class UiClientInstance extends Disposable {
 			try {
 				let uri = URI.parse(e.url);
 
-				// If this is a file URI, then treat it as a local file to be
-				// opened in a browser
+				// If this is an HTML file URI, then treat it as a local file to
+				// be opened in a browser
 				if (uri.scheme === 'file') {
-					this.openHtmlFile(e.url);
+					// Does the URI point to a plain directory (presumably
+					// containing an index.html of some kind), or a specific
+					// HTML file?  (lowercase to be case-insensitive)
+					const uriPath = uri.path.toLowerCase();
+					if (uriPath.endsWith('/') ||
+						uriPath.endsWith('.html') ||
+						uriPath.endsWith('.htm')) {
+						this.openHtmlFile(e.url);
+					}
 					return;
 				}
 
