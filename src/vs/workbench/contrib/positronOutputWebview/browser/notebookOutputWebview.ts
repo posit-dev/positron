@@ -18,6 +18,7 @@ import { FromWebviewMessage, IClickedDataUrlMessage } from 'vs/workbench/contrib
 import { IScopedRendererMessaging } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
+import { INotebookLoggingService } from 'vs/workbench/contrib/notebook/common/notebookLoggingService';
 
 interface NotebookOutputWebviewOptions<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> {
 	readonly id: string;
@@ -70,6 +71,7 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 		@IFileService private _fileService: IFileService,
 		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
 		@ILogService private _logService: ILogService,
+		@INotebookLoggingService private _notebookLogService: INotebookLoggingService,
 		@INotificationService private _notificationService: INotificationService,
 	) {
 		super();
@@ -108,6 +110,14 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 					break;
 				case 'customRendererMessage':
 					rendererMessaging?.postMessage(data.rendererId, data.message);
+					break;
+				case 'logRendererDebugMessage':
+					this._notebookLogService.debug(
+						'NotebookOutputWebview',
+						`${this.sessionId} (${this.id}) - ` +
+							data.message +
+							data.data ? ' ' + JSON.stringify(data.data, null, 4) : ''
+					);
 					break;
 				case 'positronRenderComplete':
 					this._onDidRender.fire();

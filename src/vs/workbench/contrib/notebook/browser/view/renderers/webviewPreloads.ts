@@ -1638,7 +1638,7 @@ async function webviewPreloads(ctx: PreloadContext) {
 			// --- Start Positron ---
 			case 'positronRender': {
 				const data = event.data;
-				outputRunner.enqueueIdle(data.outputId, async signal => {
+				outputRunner.enqueue(data.outputId, async signal => {
 					// Get the element to render into.
 					const element = document.getElementById(data.elementId);
 					if (!element) {
