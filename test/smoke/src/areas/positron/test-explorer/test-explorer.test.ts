@@ -38,7 +38,8 @@ export function setup(logger: Logger) {
 				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
 				await app.workbench.quickinput.waitForQuickInputOpened();
 				await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-				await app.code.driver.getLocator('.quick-input-widget .quick-input-action a:has-text("OK")').click();
+				// Had to add a positron class, because Microsoft did not have this:
+				await app.workbench.positronQuickInput.clickOkOnQuickInput();
 
 				// Wait for the console to be ready
 				await app.workbench.positronConsole.waitForReady('>', 10000);
