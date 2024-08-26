@@ -1094,7 +1094,8 @@
 				"type": "object",
 				"description": "Parameters for a column histogram profile request",
 				"required": [
-					"method"
+					"method",
+					"num_bins"
 				],
 				"properties": {
 					"method": {
@@ -1109,7 +1110,7 @@
 					},
 					"num_bins": {
 						"type": "integer",
-						"description": "Number of bins in the computed histogram"
+						"description": "Maximum number of bins in the computed histogram."
 					},
 					"quantiles": {
 						"type": "array",

@@ -789,9 +789,8 @@ class ColumnHistogramParams(BaseModel):
         description="Method for determining number of bins",
     )
 
-    num_bins: Optional[StrictInt] = Field(
-        default=None,
-        description="Number of bins in the computed histogram",
+    num_bins: StrictInt = Field(
+        description="Maximum number of bins in the computed histogram.",
     )
 
     quantiles: Optional[List[Union[StrictInt, StrictFloat]]] = Field(
