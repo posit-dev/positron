@@ -65,6 +65,54 @@ function yarnInstall(dir, opts) {
 	}
 }
 
+// --- Start Positron ---
+/**
+ * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
+ * NOTE: Must be run AFTER `yarn` has been run in the `build` directory and before `yarn` is run in
+ * the `remote/reh-web` directory.
+ */
+function generateRehWebPackageJson() {
+	const gulp = require('gulp');
+	// Note: this is a local require because this dependency is only available once the `build`
+	// directory has `yarn` executed in it (see for loop below -- `yarn` will be executed for
+	// `build` a while before `remote/reh-web` due to the array order of `dirs`).
+	const mergeJson = require('gulp-merge-json');
+
+	// If both package.json files contain the same dependency, the one from remote/web will be used
+	// because it is the last one in the stream.
+	gulp.src([
+		path.join(__dirname, '..', '..', 'remote', 'package.json'),
+		path.join(__dirname, '..', '..', 'remote', 'web', 'package.json'),
+	])
+		// Merge the package.json files
+		.pipe(
+			mergeJson({
+				fileName: 'package.json',
+				// Rename the "name" field to positron-reh-web
+				endObj: {
+					name: 'positron-reh-web',
+				},
+				transform: (mergedJson) => {
+					// Sort the dependencies alphabetically
+					if (mergedJson.dependencies) {
+						mergedJson.dependencies = Object.keys(
+							mergedJson.dependencies
+						)
+							.sort()
+							.reduce((obj, key) => {
+								obj[key] = mergedJson.dependencies[key];
+								return obj;
+							}, {});
+					}
+					return mergedJson;
+				},
+			})
+		)
+		// Write the merged package.json file to remote/reh-web
+		.pipe(gulp.dest(path.join(__dirname, '..', '..', 'remote', 'reh-web')));
+}
+// --- End Positron ---
+
 for (let dir of dirs) {
 
 	if (dir === '') {
@@ -100,7 +148,11 @@ for (let dir of dirs) {
 		continue;
 	}
 
-	if (/^(.build\/distro\/npm\/)?remote$/.test(dir)) {
+	// --- Start Positron ---
+	const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
+
+	if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
+	// --- End Positron ---
 		// node modules used by vscode server
 		const env = { ...process.env };
 		if (process.env['VSCODE_REMOTE_CC']) {
@@ -121,6 +173,16 @@ for (let dir of dirs) {
 		if (process.env['VSCODE_REMOTE_NODE_GYP']) { env['npm_config_node_gyp'] = process.env['VSCODE_REMOTE_NODE_GYP']; }
 
 		opts = { env };
+
+		// --- Start Positron ---
+		if (isRehWebDir) {
+			// This ensures that the `remote/reh-web` package.json file is created/updated before
+			// `yarn` is run, so the yarn.lock and node_modules are created/updated with the
+			// appropriate dependencies. This will create a side effect of needing to commit the
+			// changes to the `remote/reh-web` package.json and yarn.lock files if they are updated.
+			generateRehWebPackageJson();
+		}
+		// --- End Positron ---
 	} else if (/^extensions\//.test(dir)) {
 		opts = { ignoreEngines: true };
 	}

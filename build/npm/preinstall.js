@@ -19,8 +19,6 @@ if (!process.env['VSCODE_SKIP_NODE_VERSION_CHECK']) {
 const path = require('path');
 const fs = require('fs');
 const cp = require('child_process');
-const gulp = require('gulp');
-const mergeJson = require('gulp-merge-json');
 const yarnVersion = cp.execSync('yarn -v', { encoding: 'utf8' }).trim();
 const parsedYarnVersion = /^(\d+)\.(\d+)\.(\d+)/.exec(yarnVersion);
 const majorYarnVersion = parseInt(parsedYarnVersion[1]);
@@ -52,14 +50,6 @@ if (process.platform === 'win32') {
 		installHeaders();
 	}
 }
-
-// --- Start Positron ---
-// This ensures that the `remote/reh-web` package.json file is created/updated before `yarn` is run,
-// so the yarn.lock and node_modules are created/updated with the appropriate dependencies.
-// This will create a side effect of needing to commit the changes to the `remote/reh-web`
-// package.json and yarn.lock files if they are updated.
-generateRehWebPackageJson();
-// --- End Positron ---
 
 if (err) {
 	console.error('');
@@ -172,43 +162,3 @@ function getHeaderInfo(rcFile) {
 		? { disturl, target }
 		: undefined;
 }
-
-// --- Start Positron ---
-/**
- * Merge the package.json files for remote and remote/web into a package.json for remote/reh-web.
- */
-function generateRehWebPackageJson() {
-	// If both package.json files contain the same dependency, the one from remote/web will be used
-	// because it is the last one in the stream.
-	gulp.src([
-		path.join(__dirname, '..', '..', 'remote', 'package.json'),
-		path.join(__dirname, '..', '..', 'remote', 'web', 'package.json'),
-	])
-		// Merge the package.json files
-		.pipe(
-			mergeJson({
-				fileName: 'package.json',
-				// Rename the "name" field to positron-reh-web
-				endObj: {
-					name: 'positron-reh-web',
-				},
-				transform: (mergedJson) => {
-					// Sort the dependencies alphabetically
-					if (mergedJson.dependencies) {
-						mergedJson.dependencies = Object.keys(
-							mergedJson.dependencies
-						)
-							.sort()
-							.reduce((obj, key) => {
-								obj[key] = mergedJson.dependencies[key];
-								return obj;
-							}, {});
-					}
-					return mergedJson;
-				},
-			})
-		)
-		// Write the merged package.json file to remote/reh-web
-		.pipe(gulp.dest(path.join(__dirname, '..', '..', 'remote', 'reh-web')));
-}
-// --- End Positron ---

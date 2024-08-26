@@ -66,6 +66,7 @@ const dirs = [
 	'remote',
 	'remote/web',
 	// --- Start Positron ---
+	// Note: 'remote/reh-web' must be declared AFTER 'build' for the postinstall script to work.
 	'remote/reh-web',
 	'test/integration/browser',
 	'test/monaco',
