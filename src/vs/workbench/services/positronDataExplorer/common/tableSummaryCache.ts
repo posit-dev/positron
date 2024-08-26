@@ -283,7 +283,8 @@ export class TableSummaryCache extends Disposable {
 							profiles.push({
 								profile_type: ColumnProfileType.Histogram,
 								params: {
-									method: ColumnHistogramParamsMethod.FreedmanDiaconis
+									method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+									num_bins: 100
 								}
 							});
 						}
@@ -389,7 +390,8 @@ export class TableSummaryCache extends Disposable {
 					columnProfileSpecs.push({
 						profile_type: ColumnProfileType.Histogram,
 						params: {
-							method: ColumnHistogramParamsMethod.FreedmanDiaconis
+							method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+							num_bins: 100
 						}
 					});
 				}
