@@ -28,7 +28,9 @@ const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
-const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
+// --- Start Positron ---
+const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper, positronBuildNumber } = require('./gulpfile.vscode.web');
+// --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
 
@@ -334,7 +336,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		let productJsonContents;
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(json({ commit, date: readISODate('out-build'), version, positronVersion }))
+			.pipe(json({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
@@ -470,7 +472,7 @@ function tweakProductForServerWeb(product) {
 					loaderConfig: optimize.loaderConfig(),
 					inlineAmdImages: true,
 					bundleInfo: undefined,
-					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
 				},
 				commonJS: {
 					src: 'out-build',
