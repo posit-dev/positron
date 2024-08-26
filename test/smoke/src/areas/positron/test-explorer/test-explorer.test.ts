@@ -31,12 +31,14 @@ export function setup(logger: Logger) {
 
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 
+				await app.workbench.positronConsole.barClearButton.click();
+
 				// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 				// This is an R package embedded in qa-example-content
 				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
 				await app.workbench.quickinput.waitForQuickInputOpened();
 				await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-				await app.code.dispatchKeybinding('enter');
+				await app.code.driver.getLocator('.quick-input-widget .quick-input-action a:has-text("OK")').click();
 
 				// Wait for the console to be ready
 				await app.workbench.positronConsole.waitForReady('>', 10000);
@@ -51,9 +53,9 @@ export function setup(logger: Logger) {
 
 			it('R - Verify Basic Test Explorer Functionality [C749378]', async function () {
 
-				await app.workbench.positronTestExplorer.clickTestExplorerIcon();
-
 				await expect(async () => {
+					await app.workbench.positronTestExplorer.clickTestExplorerIcon();
+
 					const projectFiles = await app.workbench.positronTestExplorer.getTestExplorerFiles();
 
 					// test-mathstuff.R is the last section of tests in https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
