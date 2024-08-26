@@ -236,7 +236,7 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	});
 
 	async function createIPyWidgetsInstance() {
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, logService));
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, {} as INotebookService, logService));
 		await timeout(0);
 		return ipywidgetsInstance;
 	}
@@ -284,6 +284,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
+			{} as INotebookService,
 			logService,
 		));
 

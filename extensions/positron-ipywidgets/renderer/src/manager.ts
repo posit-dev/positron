@@ -269,10 +269,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 			throw new Error(`Message handler already exists for msgId: ${msgId}`);
 		}
 
-		// TODO: Does the backend need to know about the registered message handler?
-		//       I suppose it eventually does so that it can _not_ show the messages elsewhere...
-		//       But we can implement that next.
-		// this._messaging.postMessage({ type: 'register_message_handler', msg_id: msgId });
+		this._messaging.postMessage({ type: 'register_message_handler', msg_id: msgId });
 
 		this._messageHandlers.set(
 			msgId,

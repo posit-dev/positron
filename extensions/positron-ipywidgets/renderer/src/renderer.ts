@@ -30,9 +30,20 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 		//       this.node.textContent = 'Error displaying widget';
 		//       this.addClass('jupyter-widgets');
 
+		// Convert Jupyter mime types to VSCode mime types, if needed.
+		let vscodeMimeType = this._mimeType;
+		switch (vscodeMimeType) {
+			case 'application/vnd.jupyter.stdout':
+				vscodeMimeType = 'application/vnd.code.notebook.stdout';
+				break;
+			case 'application/vnd.jupyter.stderr':
+				vscodeMimeType = 'application/vnd.code.notebook.stderr';
+				break;
+		}
+
 		// Request the renderer ID for the preferred mime type.
 		const msgId = uuid();
-		this._messaging.postMessage({ type: 'get_preferred_renderer', msg_id: msgId, mime_type: this._mimeType });
+		this._messaging.postMessage({ type: 'get_preferred_renderer', msg_id: msgId, mime_type: vscodeMimeType });
 
 		// Wait for the response from the main thread.
 		const rendererId = await new Promise<IGetPreferredRendererResultToWebview['renderer_id']>((resolve, reject) => {
@@ -55,21 +66,10 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			throw new Error(`Renderer not found: ${rendererId}`);
 		}
 
-		console.log('PositronRenderer.renderModel', rendererId, this._mimeType, model.data[this._mimeType]);
+		console.log('PositronRenderer.renderModel', rendererId, vscodeMimeType, model.data[this._mimeType]);
 		const source = model.data[this._mimeType] as any;
 		const sourceString = typeof source === 'string' ? source : JSON.stringify(source);
 		const sourceBytes = new TextEncoder().encode(sourceString);
-
-		// Convert Jupyter mime types to VSCode mime types, if needed.
-		let vscodeMimeType = this._mimeType;
-		switch (vscodeMimeType) {
-			case 'application/vnd.jupyter.stdout':
-				vscodeMimeType = 'application/vnd.code.notebook.stdout';
-				break;
-			case 'application/vnd.jupyter.stderr':
-				vscodeMimeType = 'application/vnd.code.notebook.stderr';
-				break;
-		}
 
 		const outputItem = {
 			// TODO: Do we need the actual message ID? How can we get that?

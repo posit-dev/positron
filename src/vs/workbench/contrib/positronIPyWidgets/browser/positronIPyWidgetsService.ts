@@ -10,7 +10,7 @@ import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWid
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
 import { isEqual } from 'vs/base/common/resources';
 import { ILogService } from 'vs/platform/log/common/log';
-import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, IRegisterMessageHandlerFromWebview, IRemoveMessageHandlerFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
@@ -203,6 +203,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 */
 	initialize() {
 	}
+
+	willHandle(parentId: string): boolean {
+		const instances = [
+			...this._notebookInstancesBySessionId.values(),
+			...this._consoleInstancesByMessageId.values()
+		];
+		return instances.some(instance => instance.hasMessageHandler(parentId));
+	}
 }
 
 export class IPyWidgetsInstance extends Disposable {
@@ -328,6 +336,12 @@ export class IPyWidgetsInstance extends Disposable {
 				case 'get_preferred_renderer':
 					this.handleGetPreferredRendererFromWebview(message);
 					break;
+				case 'register_message_handler':
+					this.handleRegisterMessageHandlerFromWebview(message);
+					break;
+				case 'remove_message_handler':
+					this.handleRemoveMessageHandlerFromWebview(message);
+					break;
 			}
 		}));
 
@@ -399,8 +413,28 @@ export class IPyWidgetsInstance extends Disposable {
 		});
 	}
 
+	private readonly _messageHandlers = new Set<string>();
+
+	private handleRegisterMessageHandlerFromWebview(message: IRegisterMessageHandlerFromWebview) {
+		if (this._messageHandlers.has(message.msg_id)) {
+			throw new Error(`Message handler already registered for message ID: ${message.msg_id}`);
+		}
+		this._messageHandlers.add(message.msg_id);
+	}
+
+	private handleRemoveMessageHandlerFromWebview(message: IRemoveMessageHandlerFromWebview) {
+		if (this._messageHandlers.has(message.msg_id)) {
+			throw new Error(`No message handler registered for message ID: ${message.msg_id}`);
+		}
+		this._messageHandlers.delete(message.msg_id);
+	}
+
 	hasClient(clientId: string) {
 		return this._clients.has(clientId);
+	}
+
+	hasMessageHandler(messageId: string) {
+		return this._messageHandlers.has(messageId);
 	}
 }
 

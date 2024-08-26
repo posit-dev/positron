@@ -31,4 +31,11 @@ export interface IPositronIPyWidgetsService {
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;
+
+	/**
+	 * Whether the IPyWidgets service is handling messages to a given parent ID.
+	 *
+	 * @param parentId The parent ID to check.
+	 */
+	willHandle(parentId: string): boolean;
 }

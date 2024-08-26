@@ -42,12 +42,18 @@ export interface IRegisterMessageHandlerFromWebview {
 	msg_id: string;
 }
 
+export interface IRemoveMessageHandlerFromWebview {
+	type: 'remove_message_handler';
+	msg_id: string;
+}
+
 export type FromWebviewMessage = ICommCloseFromWebview |
 	ICommMessageFromWebview |
 	ICommOpenFromWebview |
 	IGetPreferredRendererFromWebview |
 	IInitializeRequestFromWebview |
-	IRegisterMessageHandlerFromWebview;
+	IRegisterMessageHandlerFromWebview |
+	IRemoveMessageHandlerFromWebview;
 
 //
 // Messages to the webview.
