@@ -1640,9 +1640,14 @@ async function webviewPreloads(ctx: PreloadContext) {
 				const data = event.data;
 				outputRunner.enqueue(data.outputId, async signal => {
 					// Get the element to render into.
-					const element = document.getElementById(data.elementId);
+					const container = document.getElementById('container')!;
+					let element = container.querySelector('#' + data.elementId) as HTMLElement | null;
 					if (!element) {
-						throw new Error(`No element with ID ${data.elementId}`);
+						// Create the element if it doesn't exist.
+						element = document.createElement('div');
+						element.classList.add('positron-output-container');
+						element.id = data.elementId;
+						container.appendChild(element);
 					}
 
 					// Create the output item for the renderer.
