@@ -22,6 +22,9 @@ export function setup(logger: Logger) {
 				app = this.app as Application;
 
 				try {
+
+					await PositronRFixtures.SetupFixtures(this.app as Application);
+
 					userSettings = new PositronUserSettingsFixtures(app);
 
 					// don't use native file picker
@@ -30,20 +33,8 @@ export function setup(logger: Logger) {
 						'true',
 					]);
 
-					await PositronRFixtures.SetupFixtures(this.app as Application);
-
 					await app.workbench.positronConsole.barClearButton.click();
 
-					// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
-					// This is an R package embedded in qa-example-content
-					await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
-					await app.workbench.quickinput.waitForQuickInputOpened();
-					await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
-					// Had to add a positron class, because Microsoft did not have this:
-					await app.workbench.positronQuickInput.clickOkOnQuickInput();
-
-					// Wait for the console to be ready
-					await app.workbench.positronConsole.waitForReady('>', 10000);
 				} catch (e) {
 					this.app.code.driver.takeScreenshot('testExplorerSetup');
 					throw e;
@@ -58,6 +49,19 @@ export function setup(logger: Logger) {
 			});
 
 			it('R - Verify Basic Test Explorer Functionality [C749378]', async function () {
+
+				await expect(async () => {
+					// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
+					// This is an R package embedded in qa-example-content
+					await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+					await app.workbench.quickinput.waitForQuickInputOpened();
+					await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
+					// Had to add a positron class, because Microsoft did not have this:
+					await app.workbench.positronQuickInput.clickOkOnQuickInput();
+
+					// Wait for the console to be ready
+					await app.workbench.positronConsole.waitForReady('>', 10000);
+				}).toPass({ timeout: 50000 });
 
 				await expect(async () => {
 					await app.workbench.positronTestExplorer.clickTestExplorerIcon();
