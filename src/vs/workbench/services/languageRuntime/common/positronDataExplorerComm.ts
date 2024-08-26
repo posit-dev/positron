@@ -668,9 +668,9 @@ export interface ColumnHistogramParams {
 	method: ColumnHistogramParamsMethod;
 
 	/**
-	 * Number of bins in the computed histogram
+	 * Maximum number of bins in the computed histogram.
 	 */
-	num_bins?: number;
+	num_bins: number;
 
 	/**
 	 * Sample quantiles (numbers between 0 and 1) to compute along with the
