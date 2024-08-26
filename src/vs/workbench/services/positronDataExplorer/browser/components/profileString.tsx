@@ -14,6 +14,7 @@ import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/c
 import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { positronEmpty, positronMissing, positronUnique } from 'vs/workbench/services/positronDataExplorer/common/constants';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { ProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/profileSparklineFrequencyTable';
 
 /**
  * Constants.
@@ -34,21 +35,25 @@ interface ProfileStringProps {
  * @returns The rendered component.
  */
 export const ProfileString = (props: ProfileStringProps) => {
-	// Get the null count and string stats.
+	// Get the column profile.
+	const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
 	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats;
 
 	// Render.
 	return (
-		<div className='tabular-info'>
-			<div className='labels'>
-				<div className='label'>{positronMissing}</div>
-				<div className='label'>{positronEmpty}</div>
-				<div className='label'>{positronUnique}</div>
-			</div>
-			<div className='values'>
-				<ColumnNullCountValue {...props} />
-				<StatsValue stats={stats} value={stats?.num_empty} />
-				<StatsValue stats={stats} value={stats?.num_unique} />
+		<div className='profile-info'>
+			<ProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+			<div className='tabular-info'>
+				<div className='labels'>
+					<div className='label'>{positronMissing}</div>
+					<div className='label'>{positronEmpty}</div>
+					<div className='label'>{positronUnique}</div>
+				</div>
+				<div className='values'>
+					<ColumnNullCountValue {...props} />
+					<StatsValue stats={stats} value={stats?.num_empty} />
+					<StatsValue stats={stats} value={stats?.num_unique} />
+				</div>
 			</div>
 		</div>
 	);

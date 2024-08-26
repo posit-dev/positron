@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSparklineFrequencyTable';
+import 'vs/css!./profileSparklineFrequencyTable';
 
 // React.
 import * as React from 'react';
@@ -17,30 +17,41 @@ import { ColumnFrequencyTable } from 'vs/workbench/services/languageRuntime/comm
 /**
  * Constants.
  */
-const GRAPH_WIDTH = 80;
-const GRAPH_HEIGHT = 20;
+const GRAPH_WIDTH = 200;
+const GRAPH_HEIGHT = 50;
 const GRAPH_RANGE: Range = { min: 0, max: GRAPH_WIDTH };
 
 /**
- * ColumnSparklineFrequencyTableProps interface.
+ * ProfileSparklineFrequencyTableProps interface.
  */
-interface ColumnSparklineFrequencyTableProps {
-	readonly columnFrequencyTable: ColumnFrequencyTable;
+interface ProfileSparklineFrequencyTableProps {
+	readonly columnFrequencyTable?: ColumnFrequencyTable;
 }
 
 /**
- * ColumnSparklineFrequencyTable component.
+ * ProfileSparklineFrequencyTable component.
  * @param columnFrequencyTable The column frequency table.
  * @returns The rendered component.
  */
-export const ColumnSparklineFrequencyTable = ({
+export const ProfileSparklineFrequencyTable = ({
 	columnFrequencyTable
-}: ColumnSparklineFrequencyTableProps) => {
+}: ProfileSparklineFrequencyTableProps) => {
 	// State hooks.
 	const [countRange] = useState((): Range => {
+		// Get the number of counts that will be rendered.
+		const counts = columnFrequencyTable?.counts.length;
+
+		// If the number of bin counts that will be rendered is undefined or 0, return 0.
+		if (!counts) {
+			return {
+				min: 0,
+				max: 0
+			};
+		}
+
 		// Add the counts.
 		let max = 0;
-		for (let i = 0; i < columnFrequencyTable.counts.length; i++) {
+		for (let i = 0; i < counts; i++) {
 			max += columnFrequencyTable.counts[i];
 		}
 
@@ -60,7 +71,7 @@ export const ColumnSparklineFrequencyTable = ({
 	let x = 0;
 	return (
 		<div
-			className='column-sparkline-frequency-table'
+			className='profile-sparkline-frequency-table'
 			style={{
 				width: GRAPH_WIDTH,
 				height: GRAPH_HEIGHT
@@ -68,7 +79,7 @@ export const ColumnSparklineFrequencyTable = ({
 		>
 			<svg viewBox={`0 0 ${GRAPH_WIDTH} ${GRAPH_HEIGHT}`} shapeRendering='crispEdges'>
 				<g>
-					{columnFrequencyTable.counts.map((count, countIndex) => {
+					{columnFrequencyTable && columnFrequencyTable.counts.map((count, countIndex) => {
 						const countWidth = Math.max(
 							1,
 							linearConversion(count, countRange, GRAPH_RANGE)
@@ -88,7 +99,7 @@ export const ColumnSparklineFrequencyTable = ({
 							x += countWidth + 1;
 						}
 					})}
-					{columnFrequencyTable.other_count &&
+					{columnFrequencyTable && columnFrequencyTable.other_count &&
 						<rect className='count other'
 							x={x}
 							y={0}

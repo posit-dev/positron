@@ -178,45 +178,57 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		 * @param profileLines
 		 * @returns
 		 */
-		const rowHeight = (profileLines: number) => profileLines === 0 ?
-			SUMMARY_HEIGHT :
-			SUMMARY_HEIGHT + (profileLines * PROFILE_LINE_HEIGHT) + 10;
+		const rowHeight = (displaySparkline: boolean, profileLines: number) => {
+			// Every row displays the column summary.
+			let rowHeight = SUMMARY_HEIGHT;
+
+			// Account for the sparkline.
+			if (displaySparkline) {
+				rowHeight += 50 + 10;
+			}
+
+			// Account for the profile lines.
+			if (profileLines) {
+				rowHeight += (profileLines * PROFILE_LINE_HEIGHT) + 12;
+			}
+
+			// Return the row height.
+			return rowHeight;
+		};
 
 		// Return the row height.
 		switch (columnSchema.type_display) {
+			// Number.
 			case ColumnDisplayType.Number:
-				return rowHeight(PROFILE_NUMBER_LINE_COUNT);
+				return rowHeight(true, PROFILE_NUMBER_LINE_COUNT);
 
+			// Boolean.
 			case ColumnDisplayType.Boolean:
-				return rowHeight(PROFILE_BOOLEAN_LINE_COUNT);
+				return rowHeight(true, PROFILE_BOOLEAN_LINE_COUNT);
 
+			// String.
 			case ColumnDisplayType.String:
-				return rowHeight(PROFILE_STRING_LINE_COUNT);
+				return rowHeight(true, PROFILE_STRING_LINE_COUNT);
 
+			// Date.
 			case ColumnDisplayType.Date:
-				return rowHeight(PROFILE_DATE_LINE_COUNT);
+				return rowHeight(false, PROFILE_DATE_LINE_COUNT);
 
+			// Datetime.
 			case ColumnDisplayType.Datetime:
-				return rowHeight(PROFILE_DATE_TIME_LINE_COUNT);
+				return rowHeight(false, PROFILE_DATE_TIME_LINE_COUNT);
 
+			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
-				return rowHeight(0);
-
 			case ColumnDisplayType.Object:
-				return rowHeight(0);
-
 			case ColumnDisplayType.Array:
-				return rowHeight(0);
-
 			case ColumnDisplayType.Struct:
-				return rowHeight(0);
-
 			case ColumnDisplayType.Unknown:
-				return rowHeight(0);
+				return rowHeight(false, 0);
 
 			// This shouldn't ever happen.
 			default:
-				return rowHeight(0);
+				return rowHeight(false, 0);
 		}
 	}
 

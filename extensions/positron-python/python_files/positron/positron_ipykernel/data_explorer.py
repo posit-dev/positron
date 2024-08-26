@@ -1749,8 +1749,9 @@ COMPARE_OPS = {
 
 
 def _get_histogram_numpy(data, params: ColumnHistogramParams):
+    assert params.num_bins is not None
+
     if params.method == ColumnHistogramParamsMethod.Fixed:
-        assert params.num_bins is not None
         hist_params = {"bins": params.num_bins}
     elif params.method == ColumnHistogramParamsMethod.Sturges:
         hist_params = {"bins": "sturges"}
@@ -1761,27 +1762,30 @@ def _get_histogram_numpy(data, params: ColumnHistogramParams):
     else:
         raise NotImplementedError
 
-    # For integers, we want to make sure the number of bins is smaller
-    # then than `data.max() - data.min()`, so we don't endup with more bins
-    # then there's data to display.
-    if issubclass(data.dtype.type, np_.integer):
-        width = (data.max() - data.min()).item()
-        bins = np_.histogram_bin_edges(data, hist_params["bins"])
-        if len(bins) > width and width > 0:
-            hist_params = {"bins": width + 1}
-        else:
-            # Don't need to recompute the bin edges, so we pass them
-            hist_params = {"bins": bins.tolist()}
-
     try:
-        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+        bin_edges = np_.histogram_bin_edges(data, bins=hist_params["bins"])
     except ValueError:
         # If there are inf/-inf values in the dataset, ValueError is
         # raised. We catch it and try again to avoid paying the
         # filtering cost every time
         data = data[np_.isfinite(data)]
-        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+        bin_edges = np_.histogram_bin_edges(data, bins=hist_params["bins"])
 
+    # If the method returns more bins than what the fron-end requested,
+    # we re-define the bin edges.
+    if len(bin_edges) > params.num_bins:
+        bin_edges = np_.histogram_bin_edges(data, bins=params.num_bins)
+
+    # For integers, we want to make sure the number of bins is smaller
+    # then than `data.max() - data.min()`, so we don't endup with more bins
+    # then there's data to display.
+    hist_params = {"bins": bin_edges.tolist()}
+    if issubclass(data.dtype.type, np_.integer):
+        width = (data.max() - data.min()).item()
+        if len(bin_edges) > width and width > 0:
+            hist_params = {"bins": width + 1}
+
+    bin_counts, bin_edges = np_.histogram(data, **hist_params)
     return bin_counts, bin_edges
 
 

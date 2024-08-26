@@ -304,8 +304,7 @@ plt.show()`;
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
 
-			// skipping for now as we have intermittent issues with blank plots appearing
-			it.skip('Python - Verifies bqplot Python widget [C720869]', async function () {
+			it('Python - Verifies bqplot Python widget [C720869]', async function () {
 				const app = this.app as Application;
 
 				const script = `import bqplot.pyplot as bplt
@@ -326,8 +325,7 @@ bplt.show()`;
 
 			});
 
-			// skipping for now as we have intermittent issues with blank plots appearing
-			it.skip('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
+			it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
 				const app = this.app as Application;
 
 				const script = `import pandas as pd
@@ -340,8 +338,7 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 
 			});
 
-			// skipping for now as we have intermittent issues with blank plots appearing
-			it.skip('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
+			it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
 				const app = this.app as Application;
 
 				const script = `from ipyleaflet import Map, Marker, display
@@ -359,8 +356,7 @@ display(map)`;
 
 			});
 
-			// skipping for now as we have intermittent issues with blank plots appearing
-			it.skip('Python - Verifies ipytree Python widget [C720872]', async function () {
+			it('Python - Verifies ipytree Python widget [C720872]', async function () {
 				const app = this.app as Application;
 
 				const script = `from ipytree import Tree, Node

@@ -2235,7 +2235,7 @@ def _get_null_count(column_index):
     return _profile_request(column_index, [{"profile_type": "null_count"}])
 
 
-def _get_histogram(column_index, bins=None, method="fixed"):
+def _get_histogram(column_index, bins=2000, method="fixed"):
     return _profile_request(
         column_index,
         [
@@ -2734,6 +2734,13 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         for profile, ex_result in cases:
             result = dxf.get_column_profiles(name, [profile])
             assert result[0]["histogram"] == ex_result
+
+    dfl = pd.DataFrame({"x": np.random.exponential(2, 2000)})
+    dxf.register_table("dfl", dfl)
+    result = dxf.get_column_profiles(
+        "dfl", [_get_histogram(0, bins=10, method="freedman_diaconis")]
+    )
+    assert len(result[0]["histogram"]["bin_counts"]) == 10
 
 
 def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):

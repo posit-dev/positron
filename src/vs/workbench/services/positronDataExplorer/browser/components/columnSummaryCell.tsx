@@ -19,11 +19,12 @@ import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGri
 import { ProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
 import { ProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { ProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
-import { ColumnSparkline } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparkline';
 import { ProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
 import { ColumnNullPercent } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullPercent';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
+import { ColumnSparklineHistogram } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparklineHistogram';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSparklineFrequencyTable';
 import { checkDataExplorerExperimentalFeaturesEnabled, dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
@@ -52,107 +53,151 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// State hooks.
 	const [mouseInside, setMouseInside] = useState(false);
 
+	/**
+	 * Sparkline component.
+	 * @returns The rendered component.
+	 */
+	const Sparkline = () => {
+		// Sparklines are an experimental feature.
+		if (!checkDataExplorerExperimentalFeaturesEnabled(context.configurationService)) {
+			return null;
+		}
+
+		// Render.
+		switch (props.columnSchema.type_display) {
+			// Column display types that render a histogram sparkline.
+			case ColumnDisplayType.Number: {
+				// Get the column histogram. If there is one, render the ColumnSparklineHistogram.
+				const columnHistogram = props.instance.getColumnHistogram(props.columnIndex);
+				if (columnHistogram) {
+					return <ColumnSparklineHistogram columnHistogram={columnHistogram} />;
+				}
+
+				// Render nothing.
+				return null;
+			}
+
+			// Column display types that render a frequency table sparkline.
+			case ColumnDisplayType.Boolean:
+			case ColumnDisplayType.String: {
+				// Get the column frequency table. If there is one, render it and return.
+				const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
+				if (columnFrequencyTable) {
+					return <ColumnSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />;
+				}
+
+				// Render nothing.
+				return null;
+			}
+
+			// Column display types that do not render a sparkline.
+			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Object:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown:
+				// Render nothing.
+				return null;
+
+			// This shouldn't ever happen.
+			default:
+				// Render nothing.
+				return null;
+		}
+	};
+
+	/**
+	 * Profile component.
+	 * @returns The rendered component.
+	 */
+	const Profile = () => {
+		// Return the profile for the display type.
+		switch (props.columnSchema.type_display) {
+			// Number.
+			case ColumnDisplayType.Number:
+				return <ProfileNumber instance={props.instance} columnIndex={props.columnIndex} />;
+
+			// Boolean.
+			case ColumnDisplayType.Boolean:
+				return <ProfileBoolean instance={props.instance} columnIndex={props.columnIndex} />;
+
+			// String.
+			case ColumnDisplayType.String:
+				return <ProfileString instance={props.instance} columnIndex={props.columnIndex} />;
+
+			// Date.
+			case ColumnDisplayType.Date:
+				return <ProfileDate instance={props.instance} columnIndex={props.columnIndex} />;
+
+			// Datetime.
+			case ColumnDisplayType.Datetime:
+				return <ProfileDatetime instance={props.instance} columnIndex={props.columnIndex} />;
+
+			// Column display types that do not render a profile.
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Object:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown:
+				// Render nothing.
+				return null;
+
+			// This shouldn't ever happen.
+			default:
+				// Render nothing.
+				return null;
+		}
+	};
+
 	// Set the data type icon.
 	const dataTypeIcon = (() => {
 		// Determine the alignment based on type.
 		switch (props.columnSchema.type_display) {
+			// Number.
 			case ColumnDisplayType.Number:
 				return 'codicon-positron-data-type-number';
 
+			// Boolean.
 			case ColumnDisplayType.Boolean:
 				return 'codicon-positron-data-type-boolean';
 
+			// String.
 			case ColumnDisplayType.String:
 				return 'codicon-positron-data-type-string';
 
+			// Date.
 			case ColumnDisplayType.Date:
 				return 'codicon-positron-data-type-date';
 
+			// Datetime.
 			case ColumnDisplayType.Datetime:
 				return 'codicon-positron-data-type-date-time';
 
+			// Time.
 			case ColumnDisplayType.Time:
 				return 'codicon-positron-data-type-time';
 
+			// Object.
 			case ColumnDisplayType.Object:
 				return 'codicon-positron-data-type-object';
 
+			// Array.
 			case ColumnDisplayType.Array:
 				return 'codicon-positron-data-type-array';
 
+			// Struct.
 			case ColumnDisplayType.Struct:
 				return 'codicon-positron-data-type-struct';
 
+			// Unknown.
 			case ColumnDisplayType.Unknown:
 				return 'codicon-positron-data-type-unknown';
 
 			// This shouldn't ever happen.
 			default:
 				return 'codicon-question';
-		}
-	})();
-
-	// Set the profile component for the column.
-	const profile = (() => {
-		switch (props.columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number:
-				return <ProfileNumber
-					instance={props.instance}
-					columnIndex={props.columnIndex}
-				/>;
-
-			// Boolean.
-			case ColumnDisplayType.Boolean:
-				return <ProfileBoolean
-					instance={props.instance}
-					columnIndex={props.columnIndex}
-				/>;
-
-			// String.
-			case ColumnDisplayType.String:
-				return <ProfileString
-					instance={props.instance}
-					columnIndex={props.columnIndex}
-				/>;
-
-			// Date.
-			case ColumnDisplayType.Date:
-				return <ProfileDate
-					instance={props.instance}
-					columnIndex={props.columnIndex}
-				/>;
-
-			// Datetime.
-			case ColumnDisplayType.Datetime:
-				return <ProfileDatetime
-					instance={props.instance}
-					columnIndex={props.columnIndex}
-				/>;
-
-			// Time.
-			case ColumnDisplayType.Time:
-				return null;
-
-			// Object.
-			case ColumnDisplayType.Object:
-				return null;
-
-			// Array.
-			case ColumnDisplayType.Array:
-				return null;
-
-			// Struct.
-			case ColumnDisplayType.Struct:
-				return null;
-
-			// Unknown.
-			case ColumnDisplayType.Unknown:
-				return null;
-
-			// This shouldn't ever happen.
-			default:
-				return null;
 		}
 	})();
 
@@ -164,15 +209,18 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	 * @returns true, if summary stats is supported; otherwise, false.
 	 */
 	const isSummaryStatsSupported = () => {
+		// Determine the summary stats support status.
 		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
 		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
 			status.profile_type === ColumnProfileType.SummaryStats
 		);
 
+		// If the summary status support status is undefined, return false.
 		if (!summaryStatsSupportStatus) {
 			return false;
 		}
 
+		// Return the summary stats support status.
 		return dataExplorerExperimentalFeatureEnabled(
 			summaryStatsSupportStatus.support_status,
 			props.instance.configurationService
@@ -195,6 +243,11 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		case ColumnDisplayType.Array:
 		case ColumnDisplayType.Struct:
 		case ColumnDisplayType.Unknown:
+			summaryStatsSupported = false;
+			break;
+
+		// This shouldn't ever happen.
+		default:
 			summaryStatsSupported = false;
 			break;
 	}
@@ -239,7 +292,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 						<div className={`expand-collapse-icon codicon codicon-chevron-right`} />
 					}
 				</div>
-
 				<div
 					ref={dataTypeRef}
 					className={`data-type-icon codicon ${dataTypeIcon}`}
@@ -264,16 +316,10 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				<div className='column-name'>
 					{props.columnSchema.column_name}
 				</div>
-				{checkDataExplorerExperimentalFeaturesEnabled(context.configurationService) &&
-					<ColumnSparkline {...props} />
-				}
+				{!expanded && <Sparkline />}
 				<ColumnNullPercent {...props} />
 			</div>
-			{expanded &&
-				<div className='profile-info'>
-					{profile}
-				</div>
-			}
+			{expanded && <Profile />}
 		</div>
 	);
 };
