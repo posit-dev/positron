@@ -57,7 +57,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verify Basic Test Explorer Functionality [C749378] #pr', async function () {
+			it('R - Verify Basic Test Explorer Functionality [C749378]', async function () {
 
 				await expect(async () => {
 					await app.workbench.positronTestExplorer.clickTestExplorerIcon();
