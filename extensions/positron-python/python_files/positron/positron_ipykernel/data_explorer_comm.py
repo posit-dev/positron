@@ -140,9 +140,13 @@ class ColumnProfileType(str, enum.Enum):
 
     SummaryStats = "summary_stats"
 
-    FrequencyTable = "frequency_table"
+    SmallFrequencyTable = "small_frequency_table"
 
-    Histogram = "histogram"
+    LargeFrequencyTable = "large_frequency_table"
+
+    SmallHistogram = "small_histogram"
+
+    LargeHistogram = "large_histogram"
 
 
 @enum.unique
@@ -617,14 +621,24 @@ class ColumnProfileResult(BaseModel):
         description="Results from summary_stats request",
     )
 
-    histogram: Optional[ColumnHistogram] = Field(
+    small_histogram: Optional[ColumnHistogram] = Field(
         default=None,
-        description="Results from histogram request",
+        description="Results from small histogram request",
     )
 
-    frequency_table: Optional[ColumnFrequencyTable] = Field(
+    large_histogram: Optional[ColumnHistogram] = Field(
         default=None,
-        description="Results from frequency_table request",
+        description="Results from large histogram request",
+    )
+
+    small_frequency_table: Optional[ColumnFrequencyTable] = Field(
+        default=None,
+        description="Results from small frequency_table request",
+    )
+
+    large_frequency_table: Optional[ColumnFrequencyTable] = Field(
+        default=None,
+        description="Results from large frequency_table request",
     )
 
 
@@ -1101,6 +1115,8 @@ ColumnFilterParams = Union[
 # Extra parameters for different profile types
 ColumnProfileParams = Union[
     ColumnHistogramParams,
+    ColumnHistogramParams,
+    ColumnFrequencyTableParams,
     ColumnFrequencyTableParams,
 ]
 # A union of selection types

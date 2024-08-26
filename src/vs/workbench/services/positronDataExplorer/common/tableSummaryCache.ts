@@ -281,7 +281,7 @@ export class TableSummaryCache extends Disposable {
 					case ColumnDisplayType.Number: {
 						if (histogramSupported) {
 							profiles.push({
-								profile_type: ColumnProfileType.Histogram,
+								profile_type: ColumnProfileType.SmallHistogram,
 								params: {
 									method: ColumnHistogramParamsMethod.FreedmanDiaconis,
 									num_bins: 100
@@ -295,7 +295,7 @@ export class TableSummaryCache extends Disposable {
 					case ColumnDisplayType.Boolean: {
 						if (frequencyTableSupported) {
 							profiles.push({
-								profile_type: ColumnProfileType.FrequencyTable,
+								profile_type: ColumnProfileType.SmallFrequencyTable,
 								params: {
 									limit: 2
 								}
@@ -308,7 +308,7 @@ export class TableSummaryCache extends Disposable {
 					case ColumnDisplayType.String: {
 						if (frequencyTableSupported) {
 							profiles.push({
-								profile_type: ColumnProfileType.FrequencyTable,
+								profile_type: ColumnProfileType.SmallFrequencyTable,
 								params: {
 									limit: 7
 								}
@@ -386,9 +386,9 @@ export class TableSummaryCache extends Disposable {
 				}
 
 				// Add histogram.
-				if (columnProfile.histogram) {
+				if (columnProfile.small_histogram) {
 					columnProfileSpecs.push({
-						profile_type: ColumnProfileType.Histogram,
+						profile_type: ColumnProfileType.SmallHistogram,
 						params: {
 							method: ColumnHistogramParamsMethod.FreedmanDiaconis,
 							num_bins: 100
@@ -397,8 +397,8 @@ export class TableSummaryCache extends Disposable {
 				}
 
 				// Add frequency table.
-				if (columnProfile.frequency_table) {
-					columnProfileSpecs.push({ profile_type: ColumnProfileType.FrequencyTable });
+				if (columnProfile.small_frequency_table) {
+					columnProfileSpecs.push({ profile_type: ColumnProfileType.SmallFrequencyTable });
 				}
 
 				// Add the column profile request.
@@ -453,7 +453,7 @@ export class TableSummaryCache extends Disposable {
 		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
 			.get_column_profiles;
 		const histogramSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.Histogram
+			status.profile_type === ColumnProfileType.SmallHistogram
 		);
 
 		if (!histogramSupportStatus) {
@@ -474,7 +474,7 @@ export class TableSummaryCache extends Disposable {
 		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
 			.get_column_profiles;
 		const frequencyTableSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.FrequencyTable
+			status.profile_type === ColumnProfileType.SmallFrequencyTable
 		);
 
 		if (!frequencyTableSupportStatus) {
