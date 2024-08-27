@@ -187,63 +187,20 @@ export class NotebookController implements vscode.Disposable {
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
 		const promise = new Promise<void>((resolve, reject) => {
 			// Update the cell execution using received runtime messages.
-			const handler = session.onDidReceiveRuntimeMessage(message => {
+			// TODO: Handle messages in sequence...
+			const handler = session.onDidReceiveRuntimeMessage(async message => {
 				// Track whether the cell execution was successful.
-				let success: boolean | undefined;
-				// The error message, if any.
-				let error: positron.LanguageRuntimeError | undefined;
-
-				// Is the message a reply to the cell we're executing?
-				if (message.parent_id === cellId) {
-
-					// Handle the message, and store any resulting outputs.
-					let cellOutput: vscode.NotebookCellOutput | undefined;
-					switch (message.type) {
-						case positron.LanguageRuntimeMessageType.Input:
-							currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
-							break;
-						case positron.LanguageRuntimeMessageType.Output:
-							cellOutput = handleRuntimeMessageOutput(
-								(message as positron.LanguageRuntimeOutput),
-								NotebookCellOutputType.DisplayData
-							);
-							break;
-						case positron.LanguageRuntimeMessageType.Result:
-							cellOutput = handleRuntimeMessageOutput(
-								(message as positron.LanguageRuntimeResult),
-								NotebookCellOutputType.ExecuteResult
-							);
-							break;
-						case positron.LanguageRuntimeMessageType.Stream:
-							cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
-							break;
-						case positron.LanguageRuntimeMessageType.Error:
-							error = message as positron.LanguageRuntimeError;
-							cellOutput = handleRuntimeMessageError(error);
-							success = false;
-							break;
-						case positron.LanguageRuntimeMessageType.State:
-							if ((message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
-								success = true;
-							}
-							break;
-					}
-
-					// Append any resulting outputs to the cell execution.
-					if (cellOutput) {
-						currentExecution.appendOutput(cellOutput);
-					}
-				}
-
-				// If a success code was set, end the execution, dispose the handler, and resolve the promise.
-				if (success !== undefined) {
-					currentExecution.end(success, Date.now());
+				let isExecutionCompleted = false;
+				try {
+					isExecutionCompleted = await this.handleMessageForCellExecution(message, session, currentExecution, cellId);
+				} catch (error) {
 					handler.dispose();
-					if (success) {
-						resolve();
-					} else {
-						reject(error);
-					}
+					reject(error);
+				}
+				// If a success code was set, end the execution, dispose the handler, and resolve the promise.
+				if (isExecutionCompleted) {
+					handler.dispose();
+					resolve();
 				}
 			});
 		});
@@ -257,6 +214,99 @@ export class NotebookController implements vscode.Disposable {
 		);
 
 		return promise;
+	}
+
+	private async handleMessageForCellExecution(
+		message: positron.LanguageRuntimeMessage,
+		session: positron.LanguageRuntimeSession,
+		currentExecution: vscode.NotebookCellExecution,
+		cellId: string,
+	): Promise<boolean> {
+		// Only handle replies to this cell execution.
+		if (message.parent_id !== cellId) {
+			return false;
+		}
+
+		// Track whether the cell execution is completed i.e. whether this is the last runtime message for the cell.
+		let isExecutionCompleted = false;
+
+		// The error message, if any.
+		let error: positron.LanguageRuntimeError | undefined;
+
+		// Handle the message, and store any resulting outputs.
+		let cellOutput: vscode.NotebookCellOutput | undefined;
+		switch (message.type) {
+			case positron.LanguageRuntimeMessageType.Input:
+				currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
+				break;
+			case positron.LanguageRuntimeMessageType.Output:
+				cellOutput = handleRuntimeMessageOutput(
+					(message as positron.LanguageRuntimeOutput),
+					NotebookCellOutputType.DisplayData
+				);
+				break;
+			case positron.LanguageRuntimeMessageType.Result:
+				cellOutput = handleRuntimeMessageOutput(
+					(message as positron.LanguageRuntimeResult),
+					NotebookCellOutputType.ExecuteResult
+				);
+				break;
+			case positron.LanguageRuntimeMessageType.Stream:
+				cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
+				break;
+			case positron.LanguageRuntimeMessageType.Error:
+				error = message as positron.LanguageRuntimeError;
+				cellOutput = handleRuntimeMessageError(error);
+				break;
+			case positron.LanguageRuntimeMessageType.State:
+				if ((message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
+					isExecutionCompleted = true;
+				}
+				break;
+		}
+
+		console.log('Message:', message.type, message, isExecutionCompleted);
+
+		// Append any resulting outputs to the cell execution.
+		if (cellOutput) {
+			// TODO: Will this appear in the ipynb file? Can we hide it somehow?
+			// cellOutput.metadata = {
+			// 	positron: {
+			// 		sessionId: session.metadata.sessionId,
+			// 		parentId: message.parent_id,
+			// 	}
+			// };
+
+			let shouldAppendOutputs = true;
+			try {
+				shouldAppendOutputs = !(await positron.runtime.isMessageHandledByIPyWidgets(
+					session.metadata.sessionId, message.parent_id
+				));
+			} catch (error) {
+				log.error(
+					`Error determining whether IPyWidgets will handle message ` +
+					`for session ID: ${session.metadata.sessionId}, ` +
+					`parent ID: ${message.parent_id}. Reason: ${error}`
+				);
+			}
+
+			if (shouldAppendOutputs) {
+				currentExecution.appendOutput(cellOutput);
+			}
+		}
+
+		if (error) {
+			currentExecution.end(false, Date.now());
+			throw error;
+		}
+
+		// If a success code was set, end the execution, dispose the handler, and resolve the promise.
+		if (isExecutionCompleted) {
+			currentExecution.end(true, Date.now());
+		}
+
+		return isExecutionCompleted;
+
 	}
 
 	/** Get the progress options for starting a runtime.  */
