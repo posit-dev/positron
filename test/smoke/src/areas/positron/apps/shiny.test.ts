@@ -53,7 +53,8 @@ export function setup(logger: Logger) {
 
 		describe('Shiny Application - R', () => {
 			before(async function () {
-				await PositronRFixtures.SetupFixtures(this.app as Application);
+				// setup R but do not wait for a default interpreter to finish starting
+				await PositronRFixtures.SetupFixtures(this.app as Application, true);
 			});
 
 			it('R - Verify Basic Shiny App [C699100]', async function () {

@@ -14,7 +14,7 @@ interface FlatVariables {
 	type: string;
 }
 
-const VARIABLE_ITEMS = '.variables-instance .list .variable-item';
+const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variable-item .name-column';

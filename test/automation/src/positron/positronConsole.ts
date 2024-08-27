@@ -44,10 +44,12 @@ export class PositronConsole {
 		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<IElement | undefined> {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<IElement | undefined> {
 
 		// don't try to start a new interpreter if one is currently starting up
-		await this.waitForReadyOrNoInterpreter();
+		if (!skipWait) {
+			await this.waitForReadyOrNoInterpreter();
+		}
 
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
@@ -77,7 +79,8 @@ export class PositronConsole {
 	): Promise<InterpreterInfo | undefined> {
 		const interpreterElem = await this.selectInterpreter(
 			desiredInterpreterType,
-			desiredInterpreter
+			desiredInterpreter,
+			true
 		);
 
 		if (interpreterElem) {
