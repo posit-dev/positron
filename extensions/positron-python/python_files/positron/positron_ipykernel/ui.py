@@ -133,6 +133,9 @@ class UiService:
     def clear_console(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearConsole, payload={})
 
+    def holoviz_extension_load(self) -> None:
+        self._send_event(name=UiFrontendEvent.HolovizExtensionLoad, payload={})
+
     def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
         request = msg.content.data
 
