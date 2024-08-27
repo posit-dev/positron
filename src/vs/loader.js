@@ -1614,12 +1614,16 @@ var AMDLoader;
 					// The set of original paths adjust.
 					const reactDomClientElectron = `/out/../node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
 					const reactDomClientWeb = `remote/web/node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
+					// REH web release builds load from 'static'
+					const reactDomClientRehWeb = `static/node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
 
 					// Attempt to adjust the original path.
 					if (paths[0].endsWith(reactDomClientElectron)) {
 						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientElectron.length)}/out/react-dom/client.js`;
 					} else if (paths[0].endsWith(reactDomClientWeb)) {
 						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientWeb.length)}out/react-dom/client.js`;
+					} else if (paths[0].endsWith(reactDomClientRehWeb)) {
+						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientRehWeb.length)}static/out/react-dom/client.js`;
 					}
 				}
 
