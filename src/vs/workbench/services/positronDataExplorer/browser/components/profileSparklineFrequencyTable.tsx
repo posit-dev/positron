@@ -25,7 +25,7 @@ const GRAPH_RANGE: Range = { min: 0, max: GRAPH_WIDTH };
  * ProfileSparklineFrequencyTableProps interface.
  */
 interface ProfileSparklineFrequencyTableProps {
-	readonly columnFrequencyTable?: ColumnFrequencyTable;
+	readonly columnFrequencyTable: ColumnFrequencyTable;
 }
 
 /**
@@ -39,7 +39,7 @@ export const ProfileSparklineFrequencyTable = ({
 	// State hooks.
 	const [countRange] = useState((): Range => {
 		// Get the number of counts that will be rendered.
-		const counts = columnFrequencyTable?.counts.length;
+		const counts = columnFrequencyTable.counts.length;
 
 		// If the number of bin counts that will be rendered is undefined or 0, return 0.
 		if (!counts) {

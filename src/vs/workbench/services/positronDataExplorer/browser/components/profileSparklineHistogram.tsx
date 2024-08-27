@@ -26,7 +26,7 @@ const GRAPH_RANGE: Range = { min: 0, max: GRAPH_HEIGHT };
  * ProfileSparklineHistogramProps interface.
  */
 interface ProfileSparklineHistogramProps {
-	readonly columnHistogram?: ColumnHistogram;
+	readonly columnHistogram: ColumnHistogram;
 }
 
 /**
@@ -40,7 +40,7 @@ export const ProfileSparklineHistogram = ({
 	// State hooks.
 	const [binWidth] = useState(() => {
 		// Get the number of bin counts that will be rendered.
-		const binCounts = columnHistogram?.bin_counts.length;
+		const binCounts = columnHistogram.bin_counts.length;
 
 		// If the number of bin counts that will be rendered is undefined or 0, return 0.
 		if (!binCounts) {
@@ -52,7 +52,7 @@ export const ProfileSparklineHistogram = ({
 	});
 	const [binCountRange] = useState((): Range => {
 		// Get the number of bin counts that will be rendered.
-		const binCounts = columnHistogram?.bin_counts.length;
+		const binCounts = columnHistogram.bin_counts.length;
 
 		// If the number of bin counts that will be rendered is undefined or 0, return 0.
 		if (!binCounts) {

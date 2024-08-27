@@ -42,7 +42,7 @@ export const ProfileBoolean = (props: ProfileBooleanProps) => {
 	// Render.
 	return (
 		<div className='profile-info'>
-			<ProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+			{columnFrequencyTable && <ProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />}
 			<div className='tabular-info'>
 				<div className='labels'>
 					<div className='label'>{positronMissing}</div>

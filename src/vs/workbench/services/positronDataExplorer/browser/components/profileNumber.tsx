@@ -42,7 +42,7 @@ export const ProfileNumber = (props: ProfileNumberProps) => {
 	// Render.
 	return (
 		<div className='profile-info'>
-			<ProfileSparklineHistogram columnHistogram={columnHistogram} />
+			{columnHistogram && <ProfileSparklineHistogram columnHistogram={columnHistogram} />}
 			<div className='tabular-info'>
 				<div className='labels'>
 					<div className='label'>{positronMissing}</div>

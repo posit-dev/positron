@@ -199,36 +199,52 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Return the row height.
 		switch (columnSchema.type_display) {
 			// Number.
-			case ColumnDisplayType.Number:
-				return rowHeight(true, PROFILE_NUMBER_LINE_COUNT);
+			case ColumnDisplayType.Number: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.small_histogram,
+					PROFILE_NUMBER_LINE_COUNT
+				);
+			}
 
 			// Boolean.
-			case ColumnDisplayType.Boolean:
-				return rowHeight(true, PROFILE_BOOLEAN_LINE_COUNT);
+			case ColumnDisplayType.Boolean: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.small_frequency_table,
+					PROFILE_BOOLEAN_LINE_COUNT
+				);
+			}
 
 			// String.
-			case ColumnDisplayType.String:
-				return rowHeight(true, PROFILE_STRING_LINE_COUNT);
+			case ColumnDisplayType.String: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.small_frequency_table,
+					PROFILE_STRING_LINE_COUNT
+				);
+			}
 
 			// Date.
-			case ColumnDisplayType.Date:
+			case ColumnDisplayType.Date: {
 				return rowHeight(false, PROFILE_DATE_LINE_COUNT);
+			}
 
 			// Datetime.
-			case ColumnDisplayType.Datetime:
+			case ColumnDisplayType.Datetime: {
 				return rowHeight(false, PROFILE_DATE_TIME_LINE_COUNT);
+			}
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
 			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
-			case ColumnDisplayType.Unknown:
+			case ColumnDisplayType.Unknown: {
 				return rowHeight(false, 0);
+			}
 
 			// This shouldn't ever happen.
-			default:
+			default: {
 				return rowHeight(false, 0);
+			}
 		}
 	}
 
