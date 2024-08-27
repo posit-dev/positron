@@ -44,6 +44,17 @@ class PlotUnit(str, enum.Enum):
     Inches = "inches"
 
 
+@enum.unique
+class PlotClientView(str, enum.Enum):
+    """
+    Possible values for PlotClientView
+    """
+
+    View = "view"
+
+    Editor = "editor"
+
+
 class IntrinsicSize(BaseModel):
     """
     The intrinsic size of a plot, if known
@@ -100,11 +111,45 @@ class PlotBackendRequest(str, enum.Enum):
     An enumeration of all the possible requests that can be sent to the backend plot comm.
     """
 
+    # Create a new plot client
+    CreateNewPlotClient = "create_new_plot_client"
+
     # Get the intrinsic size of a plot, if known.
     GetIntrinsicSize = "get_intrinsic_size"
 
     # Render a plot
     Render = "render"
+
+
+class CreateNewPlotClientParams(BaseModel):
+    """
+    Creates a new plot client based on the existing plot client. The new
+    client will be backed by the same plot.
+    """
+
+    client_view: PlotClientView = Field(
+        description="The location the client intends to show the plot",
+    )
+
+
+class CreateNewPlotClientRequest(BaseModel):
+    """
+    Creates a new plot client based on the existing plot client. The new
+    client will be backed by the same plot.
+    """
+
+    params: CreateNewPlotClientParams = Field(
+        description="Parameters to the CreateNewPlotClient method",
+    )
+
+    method: Literal[PlotBackendRequest.CreateNewPlotClient] = Field(
+        description="The JSON-RPC method name (create_new_plot_client)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class GetIntrinsicSizeRequest(BaseModel):
@@ -166,6 +211,7 @@ class RenderRequest(BaseModel):
 class PlotBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
+        CreateNewPlotClientRequest,
         GetIntrinsicSizeRequest,
         RenderRequest,
     ] = Field(..., discriminator="method")
@@ -189,6 +235,10 @@ IntrinsicSize.update_forward_refs()
 PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
+
+CreateNewPlotClientParams.update_forward_refs()
+
+CreateNewPlotClientRequest.update_forward_refs()
 
 GetIntrinsicSizeRequest.update_forward_refs()
 

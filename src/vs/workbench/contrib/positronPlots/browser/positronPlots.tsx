@@ -16,6 +16,7 @@ import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/component
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsView';
 import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
+import { PlotClientView } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /**
  * PositronPlotsProps interface.
@@ -44,7 +45,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 				return false;
 			case HistoryPolicy.Automatic:
 				// Don't show the history if there aren't at least two plots.
-				if (props.positronPlotsService.positronPlotInstances.length < 2) {
+				if (props.positronPlotsService.positronPlotInstances.filter(p => p.metadata.client_view === PlotClientView.View).length < 2) {
 					return false;
 				}
 

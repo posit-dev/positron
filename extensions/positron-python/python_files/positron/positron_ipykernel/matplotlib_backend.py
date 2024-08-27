@@ -20,6 +20,7 @@ import hashlib
 import io
 import logging
 from typing import Optional, Union, cast
+import uuid
 
 import matplotlib
 from matplotlib.backend_bases import FigureManagerBase
@@ -61,7 +62,8 @@ class FigureManagerPositron(FigureManagerBase):
 
         # Create the plot instance via the plots service.
         self._plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
-        self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size)
+        self._plot_id = str(uuid.uuid4())
+        self._plot = self._plots_service.create_plot(canvas.render, canvas.intrinsic_size, self._plot_id)
 
     @property
     def closed(self) -> bool:
@@ -71,13 +73,17 @@ class FigureManagerPositron(FigureManagerBase):
         """
         Called by matplotlib when a figure is shown via `plt.show()` or `figure.show()`.
         """
-        self._plot.show()
+        plot_clients = self._plots_service.get_plot_clients(self._plot_id)
+        for plot_client in plot_clients:
+          plot_client.show()
 
     def destroy(self) -> None:
         """
         Called by matplotlib when a figure is closed via `plt.close()`.
         """
-        self._plot.close()
+        plot_clients = self._plots_service.get_plot_clients(self._plot_id)
+        for plot_client in plot_clients:
+          plot_client.close()
 
     def update(self) -> None:
         """
@@ -85,7 +91,9 @@ class FigureManagerPositron(FigureManagerBase):
 
         Called by the canvas when a figure is drawn and its contents have changed.
         """
-        self._plot.update()
+        plot_clients = self._plots_service.get_plot_clients(self._plot_id)
+        for plot_client in plot_clients:
+          plot_client.update()
 
 
 class FigureCanvasPositron(FigureCanvasAgg):

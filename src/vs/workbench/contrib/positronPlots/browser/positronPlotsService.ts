@@ -46,6 +46,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { URI } from 'vs/base/common/uri';
+import { PlotClientView } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -489,6 +490,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							session_id: session.sessionId,
 							parent_id: '',
 							code: '',
+							client_view: PlotClientView.View,
 						};
 						plotClients.push(new PlotClientInstance(client, metadata));
 					}
@@ -544,6 +546,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// with the plots service.
 		this._register(session.onDidCreateClientInstance((event) => {
 			if (event.client.getClientType() === RuntimeClientType.Plot) {
+				const m = event.message.metadata as { [key: string]: any };
+				const clientView = m && m.hasOwnProperty('clientView') ? m['clientView'] : PlotClientView.View;
 				const clientId = event.client.getClientId();
 
 				// Check to see if we we already have a plot client for this
@@ -562,6 +566,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					id: clientId,
 					session_id: session.sessionId,
 					parent_id: event.message.parent_id,
+					client_view: clientView,
 					code,
 				};
 
@@ -577,8 +582,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				const plotClient = new PlotClientInstance(event.client, metadata);
 				this.registerPlotClient(plotClient, true);
 
-				// Raise the Plots pane so the plot is visible.
-				this._showPlotsPane();
+				if (clientView === PlotClientView.View) {
+					this._showPlotsPane();
+				} else if (clientView === PlotClientView.Editor) {
+					this.openEditor(plotClient);
+				}
+
 			}
 		}));
 
@@ -629,7 +638,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Fire events for this plot if requested
 		if (fireEvents) {
 			this._onDidEmitPlot.fire(plotClient);
-			this._onDidSelectPlot.fire(plotClient.id);
+			if (plotClient.metadata.client_view === PlotClientView.View) {
+				this._onDidSelectPlot.fire(plotClient.id);
+			}
 		}
 
 		// Remove the plot from our list when it is closed
@@ -653,15 +664,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._onDidSelectPlot.fire(plotClient.id);
 		};
 
-		// Raise the plot if it's updated by the runtime
-		plotClient.onDidRenderUpdate((_plot) => {
-			selectPlot();
-		});
+		if (plotClient.metadata.client_view === PlotClientView.View) {
+			// Raise the plot if it's updated by the runtime
+			plotClient.onDidRenderUpdate((_plot) => {
+				selectPlot();
+			});
 
-		// Focus the plot if the runtime requests it
-		plotClient.onDidShowPlot(() => {
-			selectPlot();
-		});
+			// Focus the plot if the runtime requests it
+			plotClient.onDidShowPlot(() => {
+				selectPlot();
+			});
+		}
 
 		// Dispose the plot client when this service is disposed (we own this
 		// object)
@@ -722,6 +735,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param index The ID of the plot to select.
 	 */
 	selectPlot(id: string): void {
+		const plot = this._plots.find(plot => plot.id === id);
+		if (plot && plot.metadata.client_view !== PlotClientView.View) {
+			return;
+		}
 		this._onDidSelectPlot.fire(id);
 	}
 
@@ -1003,34 +1020,35 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidEmitPlot.fire(client);
 		this._onDidSelectPlot.fire(client.id);
 		this._register(client);
-		this._showPlotsPane();
+		if (client.metadata.client_view === PlotClientView.View) {
+			this._showPlotsPane();
+		}
 	}
 
-	public async openEditor(): Promise<void> {
+	public async createEditorPlotClient(): Promise<void> {
 		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
 
 		if (plotClient instanceof WebviewPlotClient) {
 			throw new Error('Cannot open plot in editor: webview plot not supported');
 		}
 
-		let plotId: string | undefined;
 		if (plotClient instanceof StaticPlotClient) {
-			plotId = plotClient.id;
 			this._editorPlots.set(plotClient.id, plotClient);
-		}
-		if (plotClient instanceof PlotClientInstance) {
-			plotId = plotClient.id;
-			this._editorPlots.set(plotClient.id, plotClient.clone());
+			this.openEditor(plotClient);
+		} else if (plotClient instanceof PlotClientInstance) {
+			plotClient.createNewPlotClient(PlotClientView.Editor);
 		}
 
-		if (!plotId) {
+		if (!plotClient) {
 			throw new Error('Cannot open plot in editor: plot not found');
 		}
+	}
 
+	private async openEditor(plotClient: IPositronPlotClient): Promise<void> {
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPlotsEditor,
-				path: plotId,
+				path: plotClient.id,
 			}),
 		});
 
@@ -1040,7 +1058,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	public getEditorInstance(id: string) {
-		return this._editorPlots.get(id);
+		return this._plots.find(plot => plot.id === id);
 	}
 
 	/**

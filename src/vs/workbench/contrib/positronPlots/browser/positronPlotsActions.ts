@@ -228,7 +228,7 @@ export class PlotsEditorAction extends Action2 {
 	async run(accessor: ServicesAccessor) {
 		const plotsService = accessor.get(IPositronPlotsService);
 		if (plotsService.selectedPlotId) {
-			plotsService.openEditor();
+			plotsService.createEditorPlotClient();
 		} else {
 			accessor.get(INotificationService).info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 		}

@@ -9,6 +9,7 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { PlotClientView } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
@@ -39,7 +40,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 	// Initial set of plot instances.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(
-		services.positronPlotsService.positronPlotInstances);
+		services.positronPlotsService.positronPlotInstances.filter(p => p.metadata.client_view === PlotClientView.View));
 
 	// Initial selected plot instance.
 	const initialSelectedId = services.positronPlotsService.selectedPlotId;
@@ -56,6 +57,9 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Listen for new plot instances.
 		disposableStore.add(services.positronPlotsService.onDidEmitPlot(plotInstance => {
+			if (plotInstance.metadata.client_view !== PlotClientView.View) {
+				return;
+			}
 			// Add the plot instance to the list of plot instances
 			setPositronPlotInstances(positronPlotInstances => {
 				// This can be called multiple times for the same plot instance, so make sure
@@ -84,7 +88,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 			// Find the index of the selected plot instance.
 			const index = services.positronPlotsService.positronPlotInstances.findIndex(
-				p => p.id === id);
+				p => p.id === id && p.metadata.client_view === PlotClientView.View);
 			setSelectedInstanceIndex(index);
 		}));
 
@@ -95,7 +99,7 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 
 		// Listen for replacing all plots.
 		disposableStore.add(services.positronPlotsService.onDidReplacePlots((plots) => {
-			setPositronPlotInstances(plots);
+			setPositronPlotInstances(plots.filter(p => p.metadata.client_view === PlotClientView.View));
 		}));
 
 		// Return the clean up for our event handlers.

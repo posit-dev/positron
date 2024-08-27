@@ -144,8 +144,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
-		// const focusTracker = this._register(DOM.trackFocus(parent));
-
 		parent.appendChild(this._container);
 	}
 
@@ -179,6 +177,12 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
+		if (plotClient instanceof PlotClientInstance) {
+			plotClient.onDidClose(() => {
+				this._group.closeEditor(this._input);
+			});
+		}
+
 		input.setName(plotClient.id);
 
 		this.renderContainer(plotClient);
@@ -202,6 +206,38 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			width: this._width,
 			height: this._height
 		});
+	}
+
+	/**
+* Disposes of the PositronReactRenderer for the PositronDataExplorer.
+*/
+	private disposePositronReactRenderer() {
+		if (this._reactRenderer) {
+			this._reactRenderer.dispose();
+			this._reactRenderer = undefined;
+		}
+	}
+
+	/**
+		 * Clears the input.
+		 */
+	override clearInput(): void {
+		this.disposePositronReactRenderer();
+
+		// If there is an identifier, clear it.
+		if (this._identifier) {
+			this._identifier = undefined;
+		}
+
+		super.clearInput();
+	}
+
+	/**
+	 * Diposes the editor and the plot client
+	 */
+	override dispose(): void {
+		this.disposePositronReactRenderer();
+		super.dispose();
 	}
 }
 

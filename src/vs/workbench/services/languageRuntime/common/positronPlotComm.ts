@@ -88,6 +88,14 @@ export enum PlotUnit {
 }
 
 /**
+ * Possible values for PlotClientView
+ */
+export enum PlotClientView {
+	View = 'view',
+	Editor = 'editor'
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
@@ -105,6 +113,7 @@ export enum PlotFrontendEvent {
 }
 
 export enum PlotBackendRequest {
+	CreateNewPlotClient = 'create_new_plot_client',
 	GetIntrinsicSize = 'get_intrinsic_size',
 	Render = 'render'
 }
@@ -117,6 +126,20 @@ export class PositronPlotComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', []);
 		this.onDidShow = super.createEventEmitter('show', []);
+	}
+
+	/**
+	 * Create a new plot client
+	 *
+	 * Creates a new plot client based on the existing plot client. The new
+	 * client will be backed by the same plot.
+	 *
+	 * @param clientView The location the client intends to show the plot
+	 *
+	 * @returns undefined
+	 */
+	createNewPlotClient(clientView: PlotClientView): Promise<null> {
+		return super.performRpc('create_new_plot_client', ['client_view'], [clientView]);
 	}
 
 	/**

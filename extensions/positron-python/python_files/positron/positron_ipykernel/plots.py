@@ -8,12 +8,14 @@ from __future__ import annotations
 import base64
 import logging
 import uuid
-from typing import List, Optional, Protocol, Tuple
+from typing import Dict, List, Optional, Protocol, Tuple, Union, cast
 
 from .plot_comm import (
+    CreateNewPlotClientRequest,
     GetIntrinsicSizeRequest,
     IntrinsicSize,
     PlotBackendMessageContent,
+    PlotClientView,
     PlotFrontendEvent,
     PlotResult,
     PlotSize,
@@ -41,6 +43,8 @@ class Plot:
 
     Paramaters
     ----------
+    plot_id
+        The unique identifier of the backend plot.
     comm
         The communication channel to the frontend plot instance.
     render
@@ -51,13 +55,17 @@ class Plot:
 
     def __init__(
         self,
+        plot_id: str,
         comm: PositronComm,
         render: Renderer,
         intrinsic_size: Tuple[int, int],
+        client_view: PlotClientView,
     ) -> None:
+        self.plot_id = plot_id
         self._comm = comm
         self._render = render
         self._intrinsic_size = intrinsic_size
+        self._client_view = client_view
 
         self._closed = False
 
@@ -78,7 +86,7 @@ class Plot:
         if not self._closed:
             return
 
-        self._comm.open()
+        self._comm.open({"clientView": self._client_view})
         self._closed = False
 
     def close(self) -> None:
@@ -120,6 +128,8 @@ class Plot:
             )
         if isinstance(request, GetIntrinsicSizeRequest):
             self._handle_get_intrinsic_size()
+        if isinstance(request, CreateNewPlotClientRequest):
+            self._handle_create_new_plot_client(request.params.client_view)
         else:
             logger.warning(f"Unhandled request: {request}")
 
@@ -145,6 +155,11 @@ class Plot:
                 source="Matplotlib",
             ).dict()
         self._comm.send_result(data=result)
+
+    def _handle_create_new_plot_client(self, client_view: str) -> None:
+        from .positron_ipkernel import PositronIPyKernel
+        plots_service = cast(PositronIPyKernel, PositronIPyKernel.instance()).plots_service
+        plots_service.create_plot(self._render, self._intrinsic_size, self.plot_id, client_view)
 
     def _handle_close(self, msg: JsonRecord) -> None:
         self.close()
@@ -174,9 +189,25 @@ class PlotsService:
         self._target_name = target_name
         self._session_mode = session_mode
 
-        self._plots: List[Plot] = []
+        self._plots: Dict[str, List[Plot]] = {}
 
-    def create_plot(self, render: Renderer, intrinsic_size: Tuple[int, int]) -> Plot:
+    def get_plot_clients(self, plot_id: str) -> List[Plot]:
+        """
+        Get all the plot clients for a plot.
+
+        Parameters
+        ----------
+        plot_id
+            The unique identifier of the plot.
+
+        Returns
+        -------
+        List[Plot]
+            The plot clients.
+        """
+        return self._plots.get(plot_id, [])
+
+    def create_plot(self, render: Renderer, intrinsic_size: Tuple[int, int], plot_id: str, client_view: PlotClientView = PlotClientView.View) -> Plot:
         """
         Create a plot.
 
@@ -186,6 +217,10 @@ class PlotsService:
             A callable that renders the plot. See `plot_comm.RenderRequest` for parameter details.
         intrinsic_size
             The intrinsic size of the plot in inches.
+        plot_id
+            The plot id.
+        client_view
+            The type of plot to create. If not provided, the plot will be created as a view plot.
 
         See Also
         --------
@@ -193,15 +228,22 @@ class PlotsService:
         """
         comm_id = str(uuid.uuid4())
         logger.info(f"Creating plot with comm {comm_id}")
-        plot_comm = PositronComm.create(self._target_name, comm_id)
-        plot = Plot(plot_comm, render, intrinsic_size)
-        self._plots.append(plot)
+
+        plot_comm = PositronComm.create(self._target_name, comm_id, {"clientView": client_view})
+        plot = Plot(plot_id, plot_comm, render, intrinsic_size, client_view)
+        plot_clients = self._plots.get(plot_id)
+
+        if (plot_clients is None):
+            plot_clients = []
+            self._plots[plot_id] = plot_clients
+        plot_clients.append(plot)
         return plot
 
     def shutdown(self) -> None:
         """
         Shutdown the plots service.
         """
-        for plot in list(self._plots):
-            plot.close()
-            self._plots.remove(plot)
+        for plot_clients in self._plots.values():
+            for plot_client in plot_clients:
+                plot_client.close()
+        self._plots.clear()

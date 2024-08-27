@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Schemas } from 'vs/base/common/network';
 import { URI } from 'vs/base/common/uri';
 import { IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
-// import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export class PositronPlotsEditorInput extends EditorInput {
 	static readonly TypeID: string = 'workbench.input.positronPlots';
@@ -17,9 +18,17 @@ export class PositronPlotsEditorInput extends EditorInput {
 
 	constructor(
 		readonly resource: URI,
+		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService
 	) { super(); }
 
 	override dispose(): void {
+		const editorId = this.resource.toString().replace(`${Schemas.positronPlotsEditor}:`, '').trim();
+		const plotClient = this._positronPlotsService.getEditorInstance(editorId);
+
+		if (plotClient) {
+			this._positronPlotsService.removePlot(plotClient.id);
+		}
+
 		super.dispose();
 	}
 

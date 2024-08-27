@@ -8,7 +8,7 @@ import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/service
 import { Event, Emitter } from 'vs/base/common/event';
 import { DeferredPromise } from 'vs/base/common/async';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IntrinsicSize, PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
+import { IntrinsicSize, PlotClientView, PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
 
 /**
@@ -61,6 +61,9 @@ export interface IPositronPlotMetadata {
 
 	/** The ID of the runtime session that created the plot */
 	session_id: string;
+
+	/** The type of the plot to determine where in the frontend the plot is shown */
+	client_view?: PlotClientView;
 }
 
 /**
@@ -225,7 +228,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param metadata The plot's metadata
 	 */
 	constructor(
-		private readonly client: IRuntimeClientInstance<any, any>,
+		public readonly client: IRuntimeClientInstance<any, any>,
 		public readonly metadata: IPositronPlotMetadata) {
 		super();
 
@@ -581,7 +584,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		return req.promise;
 	}
 
-	public clone(): IPositronPlotClient {
-		return new PlotClientInstance(this.client, this.metadata);
+	public createNewPlotClient(kind: PlotClientView): void {
+		this._comm.createNewPlotClient(kind);
 	}
 }

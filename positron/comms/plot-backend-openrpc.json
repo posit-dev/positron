@@ -6,6 +6,25 @@
 	},
 	"methods": [
 		{
+			"name": "create_new_plot_client",
+			"summary": "Create a new plot client",
+			"description": "Creates a new plot client based on the existing plot client. The new client will be backed by the same plot.",
+			"params": [
+				{
+					"name": "client_view",
+					"description": "The location the client intends to show the plot",
+					"schema": {
+						"$ref": "#/components/schemas/plot_client_view"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "null"
+				}
+			}
+		},
+		{
 			"name": "get_intrinsic_size",
 			"summary": "Get the intrinsic size of a plot, if known.",
 			"description": "The intrinsic size of a plot is the size at which a plot would be if no size constraints were applied by Positron.",
@@ -120,6 +139,11 @@
 				"type": "string",
 				"description": "The unit of measurement of a plot's dimensions",
 				"enum": ["pixels", "inches"]
+			},
+			"plot_client_view": {
+				"type": "string",
+				"description": "The type of plot client",
+				"enum": ["view", "editor"]
 			}
 		}
 	}
