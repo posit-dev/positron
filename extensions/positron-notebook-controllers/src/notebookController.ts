@@ -182,59 +182,66 @@ export class NotebookController implements vscode.Disposable {
 		// Clear any existing outputs.
 		currentExecution.clearOutput();
 
-		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
-		// receives an error or status idle reply message.
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
-		const promise = new Promise<void>((resolve, reject) => {
-			// Update the cell execution using received runtime messages.
-			// TODO: Handle messages in sequence...
+
+		// Create a promise tracking the current message for the cell. Each execution may
+		// receive multiple messages, which we want to handle sequentially.
+		let currentMessagePromise = Promise.resolve();
+
+		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
+		// receives the final error or status idle message.
+		return new Promise<void>((resolve, reject) => {
 			const handler = session.onDidReceiveRuntimeMessage(async message => {
-				// Track whether the cell execution was successful.
-				let isExecutionCompleted = false;
-				try {
-					isExecutionCompleted = await this.handleMessageForCellExecution(message, session, currentExecution, cellId);
-				} catch (error) {
+				// Only handle replies to this execution.
+				if (message.parent_id !== cellId) {
+					return;
+				}
+
+				// Chain the message handler after the current one.
+				currentMessagePromise = currentMessagePromise.then(async () => {
+					const isExecutionCompleted = await this.handleMessageForCellExecution(
+						message, currentExecution, session.metadata.sessionId
+					);
+					if (isExecutionCompleted) {
+						handler.dispose();
+						resolve();
+					}
+				}).catch(error => {
 					handler.dispose();
 					reject(error);
-				}
-				// If a success code was set, end the execution, dispose the handler, and resolve the promise.
-				if (isExecutionCompleted) {
-					handler.dispose();
-					resolve();
-				}
+				});
 			});
+
+			// Execute the cell.
+			try {
+				session.execute(
+					cell.document.getText(),
+					cellId,
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Stop
+				);
+			} catch (error) {
+				handler.dispose();
+				reject(error);
+			}
 		});
-
-		// Execute the cell.
-		session.execute(
-			cell.document.getText(),
-			cellId,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Stop
-		);
-
-		return promise;
 	}
 
 	private async handleMessageForCellExecution(
 		message: positron.LanguageRuntimeMessage,
-		session: positron.LanguageRuntimeSession,
 		currentExecution: vscode.NotebookCellExecution,
-		cellId: string,
+		sessionId: string,
 	): Promise<boolean> {
-		// Only handle replies to this cell execution.
-		if (message.parent_id !== cellId) {
-			return false;
-		}
-
 		// Track whether the cell execution is completed i.e. whether this is the last runtime message for the cell.
 		let isExecutionCompleted = false;
 
 		// The error message, if any.
 		let error: positron.LanguageRuntimeError | undefined;
 
-		// Handle the message, and store any resulting outputs.
+		// Outputs to append to the cell, if any.
 		let cellOutput: vscode.NotebookCellOutput | undefined;
+
+		// Handle the message, and store any resulting state.
 		switch (message.type) {
 			case positron.LanguageRuntimeMessageType.Input:
 				currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
@@ -265,28 +272,18 @@ export class NotebookController implements vscode.Disposable {
 				break;
 		}
 
-		console.log('Message:', message.type, message, isExecutionCompleted);
-
 		// Append any resulting outputs to the cell execution.
 		if (cellOutput) {
-			// TODO: Will this appear in the ipynb file? Can we hide it somehow?
-			// cellOutput.metadata = {
-			// 	positron: {
-			// 		sessionId: session.metadata.sessionId,
-			// 		parentId: message.parent_id,
-			// 	}
-			// };
-
+			// Check if the message will be handled by IPyWidgets instead.
 			let shouldAppendOutputs = true;
 			try {
-				shouldAppendOutputs = !(await positron.runtime.isMessageHandledByIPyWidgets(
-					session.metadata.sessionId, message.parent_id
+				shouldAppendOutputs = !(await positron.runtime.willIPyWidgetsHandleMessage(
+					sessionId, message.parent_id
 				));
 			} catch (error) {
 				log.error(
 					`Error determining whether IPyWidgets will handle message ` +
-					`for session ID: ${session.metadata.sessionId}, ` +
-					`parent ID: ${message.parent_id}. Reason: ${error}`
+					`for session ID: ${sessionId}, parent ID: ${message.parent_id}. Reason: ${error}`
 				);
 			}
 
@@ -295,12 +292,13 @@ export class NotebookController implements vscode.Disposable {
 			}
 		}
 
+		// If there's an error, end the execution and throw the error.
 		if (error) {
 			currentExecution.end(false, Date.now());
 			throw error;
 		}
 
-		// If a success code was set, end the execution, dispose the handler, and resolve the promise.
+		// If the execution completed successfully, end the execution.
 		if (isExecutionCompleted) {
 			currentExecution.end(true, Date.now());
 		}

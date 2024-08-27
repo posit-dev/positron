@@ -1495,7 +1495,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				if (this._positronIPyWidgetsService.willHandle(languageRuntimeMessageOutput.parent_id)) {
+				// Don't display outputs that are currently handled by the IPyWidgets service.
+				if (this._positronIPyWidgetsService.willHandleMessage(
+					this._session.metadata.sessionId, languageRuntimeMessageOutput.parent_id
+				)) {
 					return;
 				}
 
@@ -1593,7 +1596,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				if (this._positronIPyWidgetsService.willHandle(languageRuntimeMessageStream.parent_id)) {
+				// Don't display streams that are currently handled by the IPyWidgets service.
+				if (this._positronIPyWidgetsService.willHandleMessage(
+					this._session.metadata.sessionId,
+					languageRuntimeMessageStream.parent_id
+				)) {
 					return;
 				}
 
@@ -1624,7 +1631,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageError(
 			languageRuntimeMessageError => {
-				if (this._positronIPyWidgetsService.willHandle(languageRuntimeMessageError.parent_id)) {
+				// Don't display errors that are currently handled by the IPyWidgets service.
+				if (this._positronIPyWidgetsService.willHandleMessage(
+					this._session.metadata.sessionId,
+					languageRuntimeMessageError.parent_id
+				)) {
 					return;
 				}
 

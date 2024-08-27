@@ -1210,6 +1210,10 @@ export class MainThreadLanguageRuntime
 		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete);
 	}
 
+	$willIPyWidgetsHandleMessage(sessionId: string, parentId: string): Promise<boolean> {
+		return Promise.resolve(this._positronIPyWidgetsService.willHandleMessage(sessionId, parentId));
+	}
+
 	public dispose(): void {
 		// Check each session that is still running and emit an exit event for it
 		// so we can clean it up properly on the front end.

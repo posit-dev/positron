@@ -128,6 +128,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				 */
 				return extHostLanguageRuntime.registerClientInstance(clientInstanceId);
 			},
+			willIPyWidgetsHandleMessage(sessionId: string, parentId: string): Thenable<boolean> {
+				return extHostLanguageRuntime.willIPyWidgetsHandleMessage(sessionId, parentId);
+			},
 			get onDidRegisterRuntime() {
 				return extHostLanguageRuntime.onDidRegisterRuntime;
 			}
