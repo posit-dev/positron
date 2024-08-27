@@ -41,7 +41,7 @@ jobs:
 
       - name: "CLA Assistant"
         if: (steps.strip_whitespace.outputs.body == 'recheck' || steps.strip_whitespace.outputs.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
-        uses: posit-dev/cla-assistant-github-action@v2.4.0
+        uses: posit-dev/cla-assistant-github-action@v2.5.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PERSONAL_ACCESS_TOKEN: ${{ steps.access-token.outputs.token }}
