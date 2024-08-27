@@ -299,6 +299,17 @@ export interface ShowHtmlFileEvent {
 }
 
 /**
+ * Event: A holoviz extension has been loaded
+ */
+export interface HolovizExtensionLoadEvent {
+	/**
+	 * The name of the extension that has been loaded
+	 */
+	extension: string;
+
+}
+
+/**
  * Request: Create a new document with text contents
  *
  * Use this to create a new document with the given language ID and text
@@ -477,7 +488,8 @@ export enum UiFrontendEvent {
 	OpenWorkspace = 'open_workspace',
 	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url',
-	ShowHtmlFile = 'show_html_file'
+	ShowHtmlFile = 'show_html_file',
+	HolovizExtensionLoad = 'holoviz_extension_load'
 }
 
 export enum UiFrontendRequest {
@@ -513,6 +525,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
+		this.onDidHolovizExtensionLoad = super.createEventEmitter('holoviz_extension_load', ['extension']);
 	}
 
 	/**
@@ -598,5 +611,13 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Causes the HTML file to be shown in Positron.
 	 */
 	onDidShowHtmlFile: Event<ShowHtmlFileEvent>;
+	/**
+	 * A holoviz extension has been loaded
+	 *
+	 * This event is used to signal that a holoviz extension has been loaded
+	 * so that the front-end can update the stored messages it replays to the
+	 * webviews when rendering plots
+	 */
+	onDidHolovizExtensionLoad: Event<HolovizExtensionLoadEvent>;
 }
 

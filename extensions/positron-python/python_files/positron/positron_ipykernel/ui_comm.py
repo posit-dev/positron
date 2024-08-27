@@ -219,6 +219,9 @@ class UiFrontendEvent(str, enum.Enum):
     # Show an HTML file in Positron
     ShowHtmlFile = "show_html_file"
 
+    # A holoviz extension has been loaded
+    HolovizExtensionLoad = "holoviz_extension_load"
+
 
 class BusyParams(BaseModel):
     """
@@ -454,6 +457,16 @@ class ShowHtmlFileParams(BaseModel):
     )
 
 
+class HolovizExtensionLoadParams(BaseModel):
+    """
+    A holoviz extension has been loaded
+    """
+
+    extension: StrictStr = Field(
+        description="The name of the extension that has been loaded",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -501,3 +514,5 @@ ModifyEditorSelectionsParams.update_forward_refs()
 ShowUrlParams.update_forward_refs()
 
 ShowHtmlFileParams.update_forward_refs()
+
+HolovizExtensionLoadParams.update_forward_refs()
