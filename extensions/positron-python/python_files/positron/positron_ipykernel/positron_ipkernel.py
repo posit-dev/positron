@@ -441,28 +441,23 @@ class PositronIPyKernel(IPythonKernel):
         # TODO: We could move this to its own function in a separate module.
         # Patch holoviews to use our custom notebook extension.
         try:
-            import holoviews as hv
+            import holoviews
         except ImportError:
             pass
         else:
-            if hv.extension == hv.ipython.notebook_extension:
+            if holoviews.extension == holoviews.ipython.notebook_extension:
 
-                # TODO: We could move this to a separate module.
-                class positron_notebook_extension(hv.ipython.notebook_extension):
+                uiService = self.ui_service
+
+                class positron_notebook_extension(holoviews.ipython.notebook_extension):
                     def __call__(self, *args, **kwargs) -> None:
-                        # TODO: We should notify the frontend that a new holoviews extension has
-                        #       been loaded, so that it can clear stored messages for the session.
-                        #       We could use a new backend message over the UI comm. Not sure
-                        #       whether we add such specialized messages to the comm contract file.
-
-                        # TODO: This prints red text to the console for debugging purposes.
-                        import sys
-
-                        print("We're in!", args, kwargs, file=sys.stderr)
+                        # Notify the frontend that a new holoviews extension has been loaded, so
+                        # that it can clear stored messages for the session.
+                        uiService.holoviz_extension_load()
 
                         super().__call__(*args, **kwargs)
 
-                hv.extension = positron_notebook_extension
+                holoviews.extension = positron_notebook_extension
 
     def publish_execute_input(
         self,
