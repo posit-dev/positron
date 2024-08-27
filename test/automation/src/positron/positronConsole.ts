@@ -12,7 +12,7 @@ import { InterpreterInfo, InterpreterType } from './utils/positronInterpreterInf
 import { PositronBaseElement } from './positronBaseElement';
 import { IElement } from '../driver';
 
-
+const POSITRON_CONSOLE = '.positron-console';
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
@@ -21,8 +21,9 @@ const CONSOLE_BAR_RESTART_BUTTON = 'div.action-bar-button-icon.codicon.codicon-p
 const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-clear-all';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
-const EMPTY_CONSOLE = '.positron-console .empty-console';
+const EMPTY_CONSOLE = `${POSITRON_CONSOLE} .empty-console`;
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
+const CONSOLE_DIRECTORY_LABEL = `${POSITRON_CONSOLE} .directory-label`;
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -36,6 +37,7 @@ export class PositronConsole {
 
 	activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
 	emptyConsole = this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+	consoleDirectoryLabel = this.code.driver.getLocator(CONSOLE_DIRECTORY_LABEL);
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);
@@ -151,24 +153,15 @@ export class PositronConsole {
 	 * @param retryCount The number of times to retry waiting for the console to be ready.
 	 * @throws An error if the console is not ready after the retry count.
 	 */
-	async waitForReadyOrNoInterpreter(retryCount: number = 200) {
+	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
 		for (let i = 0; i < retryCount; i++) {
-			// Check if the console is ready with Python.
+			// Check if the console is ready with an interpreter. The console is ready if the
+			// directory label is present.
 			try {
-				await this.waitForReady('>>>', 5);
-				// The console is ready with Python.
+				await this.consoleDirectoryLabel.waitFor({ state: 'visible', timeout: 5 });
 				return;
 			} catch (error) {
-				// Python is not ready. Try the next interpreter.
-			}
-
-			// Check if the console is ready with R.
-			try {
-				await this.waitForReady('>', 5);
-				// The console is ready with R.
-				return;
-			} catch (error) {
-				// R is not ready. Try the next interpreter.
+				// The directory label is not present. Try again.
 			}
 
 			// Check if there is no interpreter running.
