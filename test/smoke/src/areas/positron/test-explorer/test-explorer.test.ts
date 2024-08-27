@@ -33,7 +33,9 @@ export function setup(logger: Logger) {
 						'true',
 					]);
 
+					await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 					await app.workbench.positronConsole.barClearButton.click();
+					await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
 				} catch (e) {
 					this.app.code.driver.takeScreenshot('testExplorerSetup');
