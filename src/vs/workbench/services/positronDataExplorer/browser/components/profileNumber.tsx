@@ -36,7 +36,7 @@ interface ProfileNumberProps {
  */
 export const ProfileNumber = (props: ProfileNumberProps) => {
 	// Get the column profile.
-	const columnHistogram = props.instance.getColumnHistogram(props.columnIndex);
+	const columnHistogram = props.instance.getColumnSmallHistogram(props.columnIndex);
 	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.number_stats;
 
 	// Render.

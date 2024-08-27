@@ -36,7 +36,7 @@ interface ProfileStringProps {
  */
 export const ProfileString = (props: ProfileStringProps) => {
 	// Get the column profile.
-	const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
+	const columnFrequencyTable = props.instance.getColumnSmallFrequencyTable(props.columnIndex);
 	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats;
 
 	// Render.

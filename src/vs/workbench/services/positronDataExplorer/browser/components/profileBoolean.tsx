@@ -36,7 +36,7 @@ interface ProfileBooleanProps {
  */
 export const ProfileBoolean = (props: ProfileBooleanProps) => {
 	// Get the column profile.
-	const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
+	const columnFrequencyTable = props.instance.getColumnSmallFrequencyTable(props.columnIndex);
 	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.boolean_stats;
 
 	// Render.

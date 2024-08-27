@@ -68,7 +68,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			// Column display types that render a histogram sparkline.
 			case ColumnDisplayType.Number: {
 				// Get the column histogram. If there is one, render the ColumnSparklineHistogram.
-				const columnHistogram = props.instance.getColumnHistogram(props.columnIndex);
+				const columnHistogram = props.instance.getColumnSmallHistogram(props.columnIndex);
 				if (columnHistogram) {
 					return <ColumnSparklineHistogram columnHistogram={columnHistogram} />;
 				}
@@ -81,7 +81,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			case ColumnDisplayType.Boolean:
 			case ColumnDisplayType.String: {
 				// Get the column frequency table. If there is one, render it and return.
-				const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
+				const columnFrequencyTable = props.instance.getColumnSmallFrequencyTable(props.columnIndex);
 				if (columnFrequencyTable) {
 					return <ColumnSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />;
 				}
