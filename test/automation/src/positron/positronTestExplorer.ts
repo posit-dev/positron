@@ -21,7 +21,7 @@ export class PositronTestExplorer {
 	constructor(private code: Code, private positronExplorer: PositronExplorer) { }
 
 	/**
-	 * Constructs a object containg test results from the test explorer.
+	 * Constructs a object containing test results from the test explorer.
 	 * @returns Promise<object> Array of case names with fail/pass statuses.
 	 */
 	async getTestResults(): Promise<object> {
