@@ -32,7 +32,7 @@ export class PositronEditor {
 	 * current-line div parent.
 	 */
 	async getCurrentLineTop(): Promise<number> {
-		let retries = 10;
+		let retries = 20;
 		let topValue: number = NaN;
 
 		const currentLine = this.code.driver.getLocator(CURRENT_LINE);
