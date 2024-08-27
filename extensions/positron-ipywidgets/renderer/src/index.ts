@@ -62,7 +62,6 @@ export const activate: ActivationFunction = async (context) => {
 	return {
 		async renderOutputItem(outputItem, element, _signal) {
 			const widgetData = outputItem.json();
-			console.log('positron-ipywidgets renderer:', widgetData, element);
 
 			// Check if the widget's comm exists in the manager.
 			if (!manager.has_model(widgetData.model_id)) {
