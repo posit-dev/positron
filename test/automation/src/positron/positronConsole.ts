@@ -45,6 +45,10 @@ export class PositronConsole {
 	}
 
 	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<IElement | undefined> {
+
+		// don't try to start a new interpreter if one is currently starting up
+		await this.waitForReadyOrNoInterpreter();
+
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
 			command = 'python.setInterpreter';
