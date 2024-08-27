@@ -472,7 +472,9 @@ function tweakProductForServerWeb(product) {
 					loaderConfig: optimize.loaderConfig(),
 					inlineAmdImages: true,
 					bundleInfo: undefined,
+					// --- Start Positron ---
 					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// --- End Positron ---
 				},
 				commonJS: {
 					src: 'out-build',
