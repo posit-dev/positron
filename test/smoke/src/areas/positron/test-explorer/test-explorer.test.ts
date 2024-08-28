@@ -59,7 +59,7 @@ export function setup(logger: Logger) {
 					await app.workbench.quickinput.waitForQuickInputOpened();
 					await app.workbench.quickinput.type(path.join(app.workspacePathOrFolder, 'workspaces', 'r_testing'));
 					// Had to add a positron class, because Microsoft did not have this:
-					await app.workbench.positronQuickInput.clickOkOnQuickInput();
+					await app.workbench.quickinput.clickOkOnQuickInput();
 
 					// Wait for the console to be ready
 					await app.workbench.positronConsole.waitForReady('>', 10000);

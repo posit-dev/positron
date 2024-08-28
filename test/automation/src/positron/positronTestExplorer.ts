@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Code } from '../code';
 import { PositronExplorer } from './positronExplorer';
 
 const TEST_RESULT_ITEM = '.monaco-list-row[aria-level="2"] .test-peek-item';
@@ -16,9 +15,7 @@ const RUN_ALL = '.codicon-testing-run-all-icon';
 /*
  *  Reuseable Positron test explorer functionality for tests to leverage.
  */
-export class PositronTestExplorer {
-
-	constructor(private code: Code, private positronExplorer: PositronExplorer) { }
+export class PositronTestExplorer extends PositronExplorer {
 
 	/**
 	 * Constructs a object containing test results from the test explorer.
@@ -63,7 +60,7 @@ export class PositronTestExplorer {
 	 * @returns Promise<string[]> Array of test names.
 	 */
 	async getTestExplorerFiles(): Promise<string[]> {
-		return await this.positronExplorer.getExplorerProjectFiles('.test-explorer .monaco-list-row .label');
+		return await this.getExplorerProjectFiles('.test-explorer .monaco-list-row .label');
 	}
 
 	/**
