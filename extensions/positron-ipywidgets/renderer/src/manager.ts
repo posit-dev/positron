@@ -93,6 +93,9 @@ function createRenderMimeRegistry(messaging: Messaging, context: RendererContext
 export class PositronWidgetManager extends ManagerBase implements base.IWidgetManager, Disposable {
 	private _disposables: Disposable[] = [];
 
+	/** The pending load from kernel promise, if any. */
+	private _pendingLoadFromKernel: Promise<void> | undefined;
+
 	public readonly renderMime: RenderMimeRegistry;
 
 	constructor(
@@ -259,7 +262,10 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	}
 
 	loadFromKernel(): Promise<void> {
-		return this._loadFromKernel();
+		// Batch multiple calls to load from the kernel.
+		this._pendingLoadFromKernel ??= this._loadFromKernel()
+			.finally(() => this._pendingLoadFromKernel = undefined);
+		return this._pendingLoadFromKernel;
 	}
 
 	private readonly _messageHandlers = new Map<string, Disposable>();
@@ -268,8 +274,6 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		if (this._messageHandlers.has(msgId)) {
 			throw new Error(`Message handler already exists for msgId: ${msgId}`);
 		}
-
-		this._messaging.postMessage({ type: 'register_message_handler', msg_id: msgId });
 
 		this._messageHandlers.set(
 			msgId,
