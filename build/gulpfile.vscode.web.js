@@ -89,10 +89,10 @@ exports.vscodeWebEntryPoints = vscodeWebEntryPoints;
 
 // --- Begin Positron ---
 // Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.
-const buildNumber =
+const positronBuildNumber =
 	process.env.POSITRON_BUILD_NUMBER ??
 	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
-exports.positronBuildNumber = buildNumber;
+exports.positronBuildNumber = positronBuildNumber;
 // --- End Positron ---
 
 /**
@@ -110,7 +110,7 @@ const createVSCodeWebProductConfigurationPatcher = (product) => {
 				...product,
 				// --- Start Positron ---
 				positronVersion,
-				buildNumber,
+				positronBuildNumber,
 				// --- End Positron ---
 				version,
 				commit,
