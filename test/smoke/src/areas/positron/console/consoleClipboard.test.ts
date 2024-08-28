@@ -78,7 +78,7 @@ export function setup(logger: Logger) {
 		describe('Console Clipboard - R', () => {
 			before(async function () {
 				// setup R but do not wait for a default interpreter to finish starting
-				await PositronRFixtures.SetupFixtures(this.app as Application, true);
+				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
 			it('R - Copy from console & paste to console [C663725]', async function () {
