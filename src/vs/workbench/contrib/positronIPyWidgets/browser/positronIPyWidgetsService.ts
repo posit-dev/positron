@@ -2,7 +2,7 @@
  *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableMap, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
@@ -16,6 +16,7 @@ import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workben
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.
@@ -29,6 +30,9 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	/** Map of console IPyWidgetsInstances keyed by the language runtime output message ID that initiated the instance. */
 	private readonly _consoleInstancesByMessageId = new Map<string, IPyWidgetsInstance>();
+
+	/** Map of output client managers keyed by session ID. */
+	private readonly _outputManagersBySessionId = this._register(new DisposableMap<string, IPyWidgetsOutputClientManager>());
 
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookOutputPlotClient>());
@@ -94,6 +98,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		// Cleanup from map when disposed.
 		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session.sessionId)));
 
+		// Create an output client manager for the session.
+		this._outputManagersBySessionId.set(session.sessionId, new IPyWidgetsOutputClientManager(session));
+		disposables.add(toDisposable(() => this._outputManagersBySessionId.deleteAndDispose(session.sessionId)));
+
 		switch (session.metadata.sessionMode) {
 			case LanguageRuntimeSessionMode.Console:
 				this.attachConsoleSession(session, disposables);
@@ -109,6 +117,11 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	private attachConsoleSession(session: ILanguageRuntimeSession, disposables: DisposableStore) {
 		const handleMessageOutput = async (message: ILanguageRuntimeMessageOutput) => {
+			// If this message will be handled by an output widget, don't create a new instance.
+			if (this.willHandleMessage(session.sessionId, message.parent_id)) {
+				return;
+			}
+
 			// Only handle IPyWidget output messages.
 			if (message.kind !== RuntimeOutputKind.IPyWidget) {
 				return;
@@ -204,15 +217,102 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	initialize() {
 	}
 
+	/**
+	 * Whether the IPyWidgets service will handle messages to a session and parent message ID.
+	 *
+	 * Output widgets may intercept replies to an execution and instead render them inside the
+	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+	 * for more.
+	 *
+	 * @param sessionId The runtime session ID.
+	 * @param parentId The parent message ID.
+	 */
 	willHandleMessage(sessionId: string, parentId: string): boolean {
-		// Get all instances for the session.
-		const instances = [
-			...this._notebookInstancesBySessionId.values(),
-			...this._consoleInstancesByMessageId.values()
-		].filter(instance => instance.sessionId === sessionId);
+		return Array.from(this._outputManagersBySessionId.values())
+			// Get all output handlers for the session.
+			.filter(instance => instance.sessionId === sessionId)
+			// Check if any will handle the message.
+			.some(handler => handler.willHandleMessage(parentId));
+	}
+}
 
-		// Check if any instance will handle the message.
-		return instances.some(instance => instance.willHandleMessage(parentId));
+/**
+ * Manages IPyWidgets output clients for a given language runtime session.
+ */
+class IPyWidgetsOutputClientManager extends Disposable {
+	/** The session ID. */
+	public readonly sessionId: string;
+
+	/** Map of IPyWidget output clients, keyed by client ID. */
+	private readonly _clients = this._register(new DisposableMap<string, IPyWidgetsOutputClientInstance>());
+
+	constructor(session: ILanguageRuntimeSession) {
+		super();
+
+		this.sessionId = session.sessionId;
+
+		// Create output clients for existing runtime clients.
+		if (session.getRuntimeState() !== RuntimeState.Uninitialized) {
+			session.listClients(RuntimeClientType.IPyWidget).then((clients) => {
+				for (const client of clients) {
+					this.createClient(client);
+				}
+			});
+		}
+
+		// Create output clients for new runtime clients.
+		this._register(session.onDidCreateClientInstance(({ client }) => {
+			// Only handle IPyWidget clients.
+			if (client.getClientType() !== RuntimeClientType.IPyWidget) {
+				return;
+			}
+
+			// Create and register the client.
+			this.createClient(client);
+		}));
+	}
+
+	private createClient(client: IRuntimeClientInstance<any, any>) {
+		const clientId = client.getClientId();
+		const outputClient = new IPyWidgetsOutputClientInstance(client);
+		this._clients.set(clientId, outputClient);
+
+		// Delete and dispose the client when it is closed.
+		this._register(Event.fromObservable(client.clientState)(state => {
+			if (state === RuntimeClientState.Closed) {
+				this._clients.deleteAndDispose(clientId);
+			}
+		}));
+	}
+
+	/** Whether any of this session's clients will handle messages to the given parent ID. */
+	willHandleMessage(parentId: string) {
+		return Array.from(this._clients.values())
+			.some(client => client.willHandleMessage(parentId));
+	}
+}
+
+/**
+ * An IPyWidgets Output widget client instance.
+ */
+class IPyWidgetsOutputClientInstance extends Disposable {
+	/** The parent message ID that this widget client will handle, if any. */
+	private _willHandleMessagesForParentId?: string;
+
+	constructor(client: IRuntimeClientInstance<any, any>) {
+		super();
+
+		this._register(client.onDidReceiveData(({ data }) => {
+			// If this is an output widget beginning to handle messages, remember the parent ID.
+			if (data?.method === 'update' && typeof data?.state?.msg_id === 'string') {
+				this._willHandleMessagesForParentId = data.state.msg_id;
+			}
+		}));
+	}
+
+	/** Whether this client will handle messages to the given parent ID. */
+	public willHandleMessage(parentId: string) {
+		return this._willHandleMessagesForParentId === parentId;
 	}
 }
 
@@ -349,10 +449,6 @@ export class IPyWidgetsInstance extends Disposable {
 		});
 	}
 
-	public get sessionId() {
-		return this._session.sessionId;
-	}
-
 	private createClient(client: IRuntimeClientInstance<any, any>) {
 		// Determine the list of RPC methods by client type.
 		let rpcMethods: string[];
@@ -417,10 +513,6 @@ export class IPyWidgetsInstance extends Disposable {
 
 	hasClient(clientId: string) {
 		return this._clients.has(clientId);
-	}
-
-	willHandleMessage(parentId: string) {
-		return Array.from(this._clients.values()).some(client => client.willHandleMessage(parentId));
 	}
 }
 

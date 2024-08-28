@@ -26,15 +26,6 @@ export class IPyWidgetClientInstance extends Disposable {
 	/** Whether the client is closed. */
 	private _closed = false;
 
-	/**
-	 * The message parent ID that this widget client is intercepting, if any.
-	 *
-	 * Output widgets may intercept messages to a given parent ID and instead render them inside the
-	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
-	 * for more.
-	 **/
-	private _willHandleMessagesForParentId?: string;
-
 	/** Emitted when the runtime client is closed. */
 	onDidClose = this._closeEmitter.event;
 
@@ -85,11 +76,6 @@ export class IPyWidgetClientInstance extends Disposable {
 				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
 			}
 
-			// If this is an output widget beginning to intercept messages, remember the parent ID.
-			if (data?.method === 'update' && typeof data?.state?.msg_id === 'string') {
-				this._willHandleMessagesForParentId = data.state.msg_id;
-			}
-
 			this.postCommMessage(event);
 		}));
 
@@ -105,10 +91,6 @@ export class IPyWidgetClientInstance extends Disposable {
 				this._closeEmitter.fire();
 			}
 		}));
-	}
-
-	public willHandleMessage(parentId: string) {
-		return this._willHandleMessagesForParentId === parentId;
 	}
 
 	private async handleCommCloseFromWebview() {
