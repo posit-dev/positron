@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnNullCountValue';
+import 'vs/css!./columnProfileNullCountValue';
 
 // React.
 import * as React from 'react';
@@ -13,24 +13,24 @@ import * as React from 'react';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 
 /**
- * ColumnNullCountValueProps interface.
+ * ColumnProfileNullCountValueProps interface.
  */
-interface ColumnNullCountValueProps {
+interface ColumnProfileNullCountValueProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
 }
 
 /**
- * ColumnNullCountValue component.
- * @param props A ColumnNullCountValueProps that contains the component properties.
+ * ColumnProfileNullCountValue component.
+ * @param props A ColumnProfileNullCountValueProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ColumnNullCountValue = (props: ColumnNullCountValueProps) => {
-	// Get the column null count.
-	const columnNullCount = props.instance.getColumnNullCount(props.columnIndex);
+export const ColumnProfileNullCountValue = (props: ColumnProfileNullCountValueProps) => {
+	// Get the column profile null count.
+	const columnProfileNullCount = props.instance.getColumnProfileNullCount(props.columnIndex);
 
 	// Render placeholder.
-	if (columnNullCount === undefined) {
+	if (columnProfileNullCount === undefined) {
 		return (
 			<div className='value-placeholder'>&#x22ef;</div>
 		);
@@ -38,6 +38,6 @@ export const ColumnNullCountValue = (props: ColumnNullCountValueProps) => {
 
 	// Render value.
 	return (
-		<div className='value'>{columnNullCount}</div>
+		<div className='value'>{columnProfileNullCount}</div>
 	);
 };
