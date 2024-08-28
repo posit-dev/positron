@@ -3,14 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-histogram {
-	grid-column: sparkline / missing-values;
-}
-
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-histogram .x-axis {
+.vector-histogram .x-axis {
 	fill: var(--vscode-positronDataExplorer-sparklineAxis);
 }
 
-.data-grid-row-cell .content .column-summary .basic-info .column-sparkline-histogram .bin-count {
+.vector-histogram .bin-count {
 	fill: var(--vscode-positronDataExplorer-sparklineFill);
 }

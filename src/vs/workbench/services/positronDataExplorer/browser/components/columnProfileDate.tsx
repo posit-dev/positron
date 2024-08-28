@@ -4,56 +4,52 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./profileDatetime';
+import 'vs/css!./columnProfileDate';
 
 // React.
 import * as React from 'react';
 
 // Other dependencies.
 import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { positronMax, positronMedian, positronMin, positronMissing, positronTimezone } from 'vs/workbench/services/positronDataExplorer/common/constants';
+import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
+import { positronMax, positronMedian, positronMin, positronMissing } from 'vs/workbench/services/positronDataExplorer/common/constants';
 
 /**
  * Constants.
  */
-export const PROFILE_DATE_TIME_LINE_COUNT = 5;
+export const COLUMN_PROFILE_DATE_LINE_COUNT = 4;
 
 /**
- * profileDateProps interface.
+ * ColumnProfileDateProps interface.
  */
-interface profileDatetimeProps {
+interface ColumnProfileDateProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
 }
 
 /**
- * profileDate component.
- * @param props A ProfileStringProps that contains the component properties.
+ * ColumnProfileDate component.
+ * @param props A ColumnProfileDateProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ProfileDatetime = (props: profileDatetimeProps) => {
-	// Get the stats.
-	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.datetime_stats;
-
+export const ColumnProfileDate = (props: ColumnProfileDateProps) => {
 	// Render.
+	const stats = props.instance.getColumnProfileSummaryStats(props.columnIndex)?.date_stats;
 	return (
-		<div className='profile-info'>
+		<div className='column-profile-info'>
 			<div className='tabular-info'>
 				<div className='labels'>
 					<div className='label'>{positronMissing}</div>
 					<div className='label'>{positronMin}</div>
 					<div className='label'>{positronMedian}</div>
 					<div className='label'>{positronMax}</div>
-					<div className='label'>{positronTimezone}</div>
 				</div>
 				<div className='values'>
-					<ColumnNullCountValue {...props} />
+					<ColumnProfileNullCountValue {...props} />
 					<StatsValue stats={stats} value={stats?.min_date} />
 					<StatsValue stats={stats} value={stats?.median_date} />
 					<StatsValue stats={stats} value={stats?.max_date} />
-					<StatsValue stats={stats} value={stats?.timezone} />
 				</div>
 			</div>
 		</div>

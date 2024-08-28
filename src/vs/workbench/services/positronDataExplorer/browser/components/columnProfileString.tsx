@@ -4,45 +4,45 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./profileString';
+import 'vs/css!./columnProfileString';
 
 // React.
 import * as React from 'react';
 
 // Other dependencies.
 import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { positronEmpty, positronMissing, positronUnique } from 'vs/workbench/services/positronDataExplorer/common/constants';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/profileSparklineFrequencyTable';
+import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
+import { ColumnProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileSparklines';
 
 /**
  * Constants.
  */
-export const PROFILE_STRING_LINE_COUNT = 3;
+export const COLUMN_PROFILE_STRING_LINE_COUNT = 3;
 
 /**
- * ProfileStringProps interface.
+ * ColumnProfileStringProps interface.
  */
-interface ProfileStringProps {
+interface ColumnProfileStringProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
 }
 
 /**
- * ProfileString component.
- * @param props A ProfileStringProps that contains the component properties.
+ * ColumnProfileString component.
+ * @param props A ColumnProfileStringProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ProfileString = (props: ProfileStringProps) => {
-	// Get the column profile.
-	const columnFrequencyTable = props.instance.getColumnSmallFrequencyTable(props.columnIndex);
-	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.string_stats;
-
+export const ColumnProfileString = (props: ColumnProfileStringProps) => {
 	// Render.
+	const columnFrequencyTable = props.instance.getColumnProfileLargeFrequencyTable(props.columnIndex);
+	const stats = props.instance.getColumnProfileSummaryStats(props.columnIndex)?.string_stats;
 	return (
-		<div className='profile-info'>
-			{columnFrequencyTable && <ProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />}
+		<div className='column-profile-info'>
+			{columnFrequencyTable &&
+				<ColumnProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+			}
 			<div className='tabular-info'>
 				<div className='labels'>
 					<div className='label'>{positronMissing}</div>
@@ -50,7 +50,7 @@ export const ProfileString = (props: ProfileStringProps) => {
 					<div className='label'>{positronUnique}</div>
 				</div>
 				<div className='values'>
-					<ColumnNullCountValue {...props} />
+					<ColumnProfileNullCountValue {...props} />
 					<StatsValue stats={stats} value={stats?.num_empty} />
 					<StatsValue stats={stats} value={stats?.num_unique} />
 				</div>
