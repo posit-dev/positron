@@ -151,7 +151,7 @@ export class PositronConsole {
 	 * @param retryCount The number of times to retry waiting for the console to be ready.
 	 * @throws An error if the console is not ready after the retry count.
 	 */
-	async waitForReadyOrNoInterpreter(retryCount: number = 200) {
+	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
 		for (let i = 0; i < retryCount; i++) {
 			// Check if the console is ready with Python.
 			try {
