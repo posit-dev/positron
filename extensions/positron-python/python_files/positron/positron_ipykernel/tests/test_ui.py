@@ -214,3 +214,15 @@ show(p)
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
+
+
+def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
+    """
+    Running holoviews/holoviz code that sets an extension will trigger an event eon the ui comm that
+    can be used on the front end to react appropriately.
+    """
+
+    shell.run_cell("import holoviews as hv; hv.extension('plotly')")
+
+    assert len(ui_comm.messages) == 1
+    assert ui_comm.messages[0] == json_rpc_notification("load_holoviews_extension", {})
