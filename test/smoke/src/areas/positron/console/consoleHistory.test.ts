@@ -74,7 +74,6 @@ export function setup(logger: Logger) {
 
 		describe('Console History - R', () => {
 			before(async function () {
-				// setup R but do not wait for a default interpreter to finish starting
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
