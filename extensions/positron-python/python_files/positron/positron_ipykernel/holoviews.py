@@ -33,7 +33,7 @@ def set_holoviews_extension(ui_service: UiService) -> None:
                     """
                     # Notify the frontend that a new holoviews extension has been loaded, so
                     # that it can clear stored messages for the session.
-                    ui_service.holoviz_extension_load()
+                    ui_service.load_holoviews_extension()
 
                     super().__call__(*args, **kwargs)
 

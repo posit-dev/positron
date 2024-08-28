@@ -1300,11 +1300,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					});
 				}));
 
-				this._register(uiClient.onDidHolovizExtensionLoad(event => {
+				this._register(uiClient.onDidLoadHoloviewsExtension(event => {
 					this._onDidReceiveRuntimeEventEmitter.fire({
 						session_id: session.sessionId,
 						event: {
-							name: UiFrontendEvent.HolovizExtensionLoad,
+							name: UiFrontendEvent.LoadHoloviewsExtension,
 							data: event
 						}
 					});
