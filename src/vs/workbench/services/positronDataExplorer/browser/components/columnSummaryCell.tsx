@@ -24,7 +24,7 @@ import { ColumnProfileBoolean } from 'vs/workbench/services/positronDataExplorer
 import { ColumnProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDatetime';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { checkDataExplorerExperimentalFeaturesEnabled, dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
+import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 
 /**
  * Constants.
@@ -60,15 +60,33 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	const [mouseInside, setMouseInside] = useState(false);
 
 	/**
+	 * Determines whether summary stats is supported.
+	 * @returns true, if summary stats is supported; otherwise, false.
+	 */
+	const isSummaryStatsSupported = () => {
+		// Determine the summary stats support status.
+		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
+		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
+			status.profile_type === ColumnProfileType.SummaryStats
+		);
+
+		// If the summary status support status is undefined, return false.
+		if (!summaryStatsSupportStatus) {
+			return false;
+		}
+
+		// Return the summary stats support status.
+		return dataExplorerExperimentalFeatureEnabled(
+			summaryStatsSupportStatus.support_status,
+			props.instance.configurationService
+		);
+	};
+
+	/**
 	 * ColumnSparkline component.
 	 * @returns The rendered component.
 	 */
 	const ColumnSparkline = () => {
-		// Sparklines are an experimental feature.
-		if (!checkDataExplorerExperimentalFeaturesEnabled(context.configurationService)) {
-			return null;
-		}
-
 		// Render.
 		switch (props.columnSchema.type_display) {
 			// Column display types that render a histogram sparkline.
@@ -220,9 +238,9 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	};
 
 	/**
-		 * ColumnProfile component.
-		 * @returns The rendered component.
-		 */
+	 * ColumnProfile component.
+	 * @returns The rendered component.
+	 */
 	const ColumnProfile = () => {
 		// Return the profile for the display type.
 		switch (props.columnSchema.type_display) {
@@ -315,30 +333,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 	// Get the expanded state of the column.
 	const expanded = props.instance.isColumnExpanded(props.columnIndex);
 
-	/**
-	 * Determines whether summary stats is supported.
-	 * @returns true, if summary stats is supported; otherwise, false.
-	 */
-	const isSummaryStatsSupported = () => {
-		// Determine the summary stats support status.
-		const columnProfilesFeatures = props.instance.getSupportedFeatures().get_column_profiles;
-		const summaryStatsSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.SummaryStats
-		);
-
-		// If the summary status support status is undefined, return false.
-		if (!summaryStatsSupportStatus) {
-			return false;
-		}
-
-		// Return the summary stats support status.
-		return dataExplorerExperimentalFeatureEnabled(
-			summaryStatsSupportStatus.support_status,
-			props.instance.configurationService
-		);
-	};
-
-	// Set the summary supported flag.
+	// Set the summary stats supported flag.
 	let summaryStatsSupported;
 	switch (props.columnSchema.type_display) {
 		case ColumnDisplayType.Number:
