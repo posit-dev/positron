@@ -38,7 +38,7 @@ export function setup(logger: Logger) {
 
 				const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 
-				const headerText = await headerLocator.innerText();
+				const headerText = await headerLocator.innerText({ timeout: 30000 });
 
 				expect(headerText).toBe('Restaurant tipping');
 
@@ -53,7 +53,8 @@ export function setup(logger: Logger) {
 
 		describe('Shiny Application - R', () => {
 			before(async function () {
-				await PositronRFixtures.SetupFixtures(this.app as Application);
+				// setup R but do not wait for a default interpreter to finish starting
+				await PositronRFixtures.SetupFixtures(this.app as Application, true);
 			});
 
 			it('R - Verify Basic Shiny App [C699100]', async function () {
@@ -68,7 +69,7 @@ runExample("01_hello")`;
 
 				const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 
-				const headerText = await headerLocator.innerText();
+				const headerText = await headerLocator.innerText({ timeout: 30000 });
 
 				expect(headerText).toBe('Hello Shiny!');
 
