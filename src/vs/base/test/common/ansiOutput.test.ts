@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from 'vs/base/common/ansiOutput';
 
 //#region Test Helpers
@@ -1721,6 +1722,9 @@ suite('ANSIOutout', () => {
 		assert.equal(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number, outputLine);
 		assert.equal(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number, outputColumn);
 	};
+
+	// Ensure that no disposables are leaked.
+	ensureNoDisposablesAreLeakedInTestSuite();
 });
 
 //#endregion Test Suite
