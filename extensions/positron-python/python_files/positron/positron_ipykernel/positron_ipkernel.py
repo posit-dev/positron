@@ -38,6 +38,7 @@ from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
+from .holoviews import set_holoviews_extension
 
 
 class _CommTarget(str, enum.Enum):
@@ -438,26 +439,8 @@ class PositronIPyKernel(IPythonKernel):
             module="jedi",
         )
 
-        # TODO: We could move this to its own function in a separate module.
         # Patch holoviews to use our custom notebook extension.
-        try:
-            import holoviews
-        except ImportError:
-            pass
-        else:
-            if holoviews.extension == holoviews.ipython.notebook_extension:
-
-                uiService = self.ui_service
-
-                class positron_notebook_extension(holoviews.ipython.notebook_extension):
-                    def __call__(self, *args, **kwargs) -> None:
-                        # Notify the frontend that a new holoviews extension has been loaded, so
-                        # that it can clear stored messages for the session.
-                        uiService.holoviz_extension_load()
-
-                        super().__call__(*args, **kwargs)
-
-                holoviews.extension = positron_notebook_extension
+        set_holoviews_extension(self.ui_service)
 
     def publish_execute_input(
         self,
