@@ -4,6 +4,7 @@
 #
 
 import os
+import sys
 from pathlib import Path
 from typing import Any, Dict
 
@@ -216,6 +217,7 @@ show(p)
     assert params["height"] == 0
 
 
+@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")
 def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
     """
     Running holoviews/holoviz code that sets an extension will trigger an event eon the ui comm that
