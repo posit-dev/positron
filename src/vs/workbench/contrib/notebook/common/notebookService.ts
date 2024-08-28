@@ -68,6 +68,10 @@ export interface INotebookService {
 	tryGetDataProviderSync(viewType: string): SimpleNotebookProviderInfo | undefined;
 
 	getOutputMimeTypeInfo(textModel: NotebookTextModel, kernelProvides: readonly string[] | undefined, output: IOutputDto): readonly IOrderedMimeType[];
+	// --- Start Positron ---
+	/** Same as getOutputMimeTypeInfo but with a simpler interface. */
+	getMimeTypeInfo(viewType: string | undefined, kernelProvides: readonly string[] | undefined, mimeTypes: string[]): readonly IOrderedMimeType[];
+	// --- End Positron ---
 
 	getViewTypeProvider(viewType: string): string | undefined;
 	getRendererInfo(id: string): INotebookRendererInfo | undefined;
