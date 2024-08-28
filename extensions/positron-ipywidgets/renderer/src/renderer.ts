@@ -10,6 +10,16 @@ import { OutputItem, RendererContext } from 'vscode-notebook-renderer';
 import { Messaging } from './messaging';
 import { IGetPreferredRendererResultToWebview } from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 
+/** Map from Jupyter to VSCode mime types, for types that differ. */
+const JUPYTER_TO_VSCODE_MIME_TYPES = new Map([
+	['application/vnd.jupyter.stdout', 'application/vnd.code.notebook.stdout'],
+	['application/vnd.jupyter.stderr', 'application/vnd.code.notebook.stderr'],
+]);
+
+/**
+ * A Jupyter widget renderer that delegates rendering to a VSCode notebook renderer.
+ * This is required by output widgets which intercept and display outputs in their own way.
+ */
 export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 	private readonly _mimeType: string;
 
@@ -24,22 +34,8 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 	}
 
 	public async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
-		// TODO: Try catch and handle like Jupyter Lab?
-		//       console.log('Error displaying widget');
-		//       console.log(err);
-		//       this.node.textContent = 'Error displaying widget';
-		//       this.addClass('jupyter-widgets');
-
-		// Convert Jupyter mime types to VSCode mime types, if needed.
-		let vscodeMimeType = this._mimeType;
-		switch (vscodeMimeType) {
-			case 'application/vnd.jupyter.stdout':
-				vscodeMimeType = 'application/vnd.code.notebook.stdout';
-				break;
-			case 'application/vnd.jupyter.stderr':
-				vscodeMimeType = 'application/vnd.code.notebook.stderr';
-				break;
-		}
+		// Get the VSCode mime type.
+		const vscodeMimeType = JUPYTER_TO_VSCODE_MIME_TYPES.get(this._mimeType) ?? this._mimeType;
 
 		// Request the renderer ID for the preferred mime type.
 		const msgId = uuid();
@@ -66,13 +62,11 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			throw new Error(`Renderer not found: ${rendererId}`);
 		}
 
-		console.log('PositronRenderer.renderModel', rendererId, vscodeMimeType, model.data[this._mimeType]);
+		// Render the model using the VSCode renderer, stubbing as needed.
 		const source = model.data[this._mimeType] as any;
 		const sourceString = typeof source === 'string' ? source : JSON.stringify(source);
 		const sourceBytes = new TextEncoder().encode(sourceString);
-
 		const outputItem = {
-			// TODO: Do we need the actual message ID? How can we get that?
 			id: uuid(),
 			mime: vscodeMimeType,
 			data() {
@@ -87,13 +81,9 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 			blob() {
 				return new Blob([sourceBytes], { type: this.mime });
 			},
-			// TODO: Do we need the actual message metadata? How can we get that?
 			metadata: {},
 		} as OutputItem;
-
-		// TODO: Link to this renderer's controller?
 		const controller = new AbortController();
-
 		await renderer.renderOutputItem(outputItem, this.node, controller.signal);
 	}
 }

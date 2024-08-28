@@ -4,17 +4,33 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { JupyterLuminoPanelWidget } from '@jupyter-widgets/base';
-import * as nbformat from '@jupyterlab/nbformat';
 import * as outputBase from '@jupyter-widgets/output';
-import { OutputAreaModel, OutputArea } from '@jupyterlab/outputarea';
+import * as nbformat from '@jupyterlab/nbformat';
+import { OutputArea, OutputAreaModel } from '@jupyterlab/outputarea';
+import { Disposable } from 'vscode-notebook-renderer/events';
 import { PositronWidgetManager } from './manager';
 
 
+/** Options when setting the `outputs` state. */
+export interface ISetOutputOptions {
+	newMessage?: boolean;
+}
+
+
+/**
+ * The output widget's backing model.
+ *
+ * Adapted from the open source jupyter-widgets/ipywidgets repo for use in Positron.
+ */
 export class OutputModel extends outputBase.OutputModel {
-	// Properties assigned on `initialize`.
-	private _outputs!: OutputAreaModel;
+	// Properties assigned on `super.initialize`.
+	private _outputAreaModel!: OutputAreaModel;
 	public override widget_manager!: PositronWidgetManager;
 
+	/** The current message handle, if any. */
+	private _messageHandler?: Disposable;
+
+	// Initial state.
 	public override defaults(): Backbone.ObjectHash {
 		return {
 			...super.defaults(),
@@ -25,108 +41,113 @@ export class OutputModel extends outputBase.OutputModel {
 
 	public override initialize(attributes: any, options: any): void {
 		super.initialize(attributes, options);
+
 		// The output area model is trusted since widgets are only rendered in trusted contexts.
-		this._outputs = new OutputAreaModel({ trusted: true });
+		this._outputAreaModel = new OutputAreaModel({ trusted: true });
 
-		this.listenTo(this, 'change:msg_id', this.setMsgId);
-		this.listenTo(this, 'change:outputs', this.setOutputs);
+		this.listenTo(this, 'change:msg_id', this.handleChangeMsgId);
+		this.listenTo(this, 'change:outputs', this.handleChangeOutputs);
 	}
 
-	public get outputs(): OutputAreaModel {
-		return this._outputs;
+	public get outputAreaModel(): OutputAreaModel {
+		return this._outputAreaModel;
 	}
 
-	private clearOutput(wait = false): void {
-		this._outputs.clear(wait);
+	private get msgId(): string {
+		return this.get('msg_id');
 	}
 
-	private setOutputs(_model: OutputModel, _value?: string[], options?: any): void {
-		console.log('OutputModel.setOutputs', _value, options);
-		if (!options?.newMessage) {
-			// fromJSON does not clear the existing output
-			this.clearOutput();
-			// fromJSON does not copy the message, so we make a deep copy
-			this._outputs.fromJSON(JSON.parse(JSON.stringify(this.get('outputs'))));
-		}
+	private get outputs(): unknown[] {
+		return this.get('outputs');
 	}
 
-	private setMsgId(): void {
-		const msgId = this.get('msg_id');
-		const oldMsgId = this.previous('msg_id');
+	private handleChangeMsgId(): void {
+		// Dispose the existing handler, if any.
+		this._messageHandler?.dispose();
 
-		if (msgId) {
-			console.debug(`positron-ipywidgets renderer: Output widget '${this.model_id}' listening for messages with id '${msgId}'`);
-		} else {
-			console.debug(`positron-ipywidgets renderer: Output widget '${this.model_id}' no longer listening`);
-		}
+		// Register the new handler, if any.
+		if (this.msgId.length > 0) {
+			this._messageHandler = this.widget_manager.onDidReceiveKernelMessage(this.msgId, (message) => {
 
-		// TODO: Next up, handle calling this._outputs.add() when a message comes through that should be rendered in the output area.
-		//       Any message directed to msgId.
-		// Clear any old handler.
-		if (oldMsgId) {
-			this.widget_manager.removeMessageHandler(oldMsgId);
-		}
-
-		// Register the new handler.
-		if (msgId) {
-			this.widget_manager.registerMessageHandler(msgId, (message) => {
-				// TODO: Make handlers take message.content as arg
-				console.log('positron-ipywidgets renderer: Output widget RECV:', message.content);
-				switch (message.content.output_type) {
+				// Update the output area model based on the message.
+				switch (message.type) {
 					case 'execute_result': {
 						const output: nbformat.IExecuteResult = {
 							output_type: 'execute_result',
-							// TODO: Runtime message doesn't currently include this...
-							// execution_count: message.content.execution_count,
+							// Positron runtime execute_result messages don't currently include
+							// execution_count, so we'll leave it as null.
 							execution_count: null,
-							data: message.content.data as nbformat.IMimeBundle,
-							metadata: message.content.metadata as nbformat.OutputMetadata,
+							data: message.data as nbformat.IMimeBundle,
+							metadata: message.metadata as nbformat.OutputMetadata,
 						};
-						this._outputs.add(output);
+						this._outputAreaModel.add(output);
 						break;
 					}
 					case 'display_data': {
 						const output: nbformat.IDisplayData = {
 							output_type: 'display_data',
-							data: message.content.data as nbformat.IMimeBundle,
-							metadata: message.content.metadata as nbformat.OutputMetadata,
+							data: message.data as nbformat.IMimeBundle,
+							metadata: message.metadata as nbformat.OutputMetadata,
 						};
-						this._outputs.add(output);
+						this._outputAreaModel.add(output);
 						break;
 					}
 					case 'stream': {
 						const output: nbformat.IStream = {
 							output_type: 'stream',
-							name: message.content.name,
-							text: message.content.text,
+							name: message.name,
+							text: message.text,
 						};
-						this._outputs.add(output);
+						this._outputAreaModel.add(output);
 						break;
 					}
 					case 'error': {
 						const output: nbformat.IError = {
 							output_type: 'error',
-							ename: message.content.name,
-							evalue: message.content.message,
-							traceback: message.content.traceback,
+							ename: message.name,
+							evalue: message.message,
+							traceback: message.traceback,
 						};
-						this._outputs.add(output);
+						this._outputAreaModel.add(output);
 						break;
 					}
 					case 'clear_output': {
-						this.clearOutput(message.content.wait);
+						this._outputAreaModel.clear(message.wait);
 						break;
 					}
 				}
-				this.set('outputs', this._outputs.toJSON(), { newMessage: true });
+
+				// Update the outputs state.
+				const options: ISetOutputOptions = { newMessage: true };
+				this.set('outputs', this._outputAreaModel.toJSON(), options);
+
+				// Push the model's new state to the kernel.
 				this.save_changes();
 			});
 		}
 	}
+
+	private handleChangeOutputs(_model: OutputModel, _value: string[], options: ISetOutputOptions): void {
+		// If the state change was initiated by the kernel and not us (i.e. newMessage is undefined),
+		// update the output area model using the new state.
+		if (!options?.newMessage) {
+			// Clear any existing outputs.
+			this._outputAreaModel.clear();
+			// Make a deepcopy of the output since the output area model may mutate it.
+			const outputs = JSON.parse(JSON.stringify(this.outputs));
+			// Update the output area model.
+			this._outputAreaModel.fromJSON(outputs);
+		}
+	}
 }
 
+/**
+ * The output widget's view.
+ *
+ * Largely copied from the open source jupyter-widgets/ipywidgets repo.
+ */
 export class OutputView extends outputBase.OutputView {
-	// TODO:
+	// Properties assigned on parent class initialization.
 	override model!: OutputModel;
 	private _outputView!: OutputArea;
 	override luminoWidget!: JupyterLuminoPanelWidget;
@@ -138,7 +159,6 @@ export class OutputView extends outputBase.OutputView {
 
 	override _setElement(el: HTMLElement): void {
 		if (this.el || el !== this.luminoWidget.node) {
-			// Boxes don't allow setting the element beyond the initial creation.
 			throw new Error('Cannot reset the DOM element.');
 		}
 
@@ -154,7 +174,7 @@ export class OutputView extends outputBase.OutputView {
 		this._outputView = new OutputArea({
 			rendermime: this.model.widget_manager.renderMime,
 			contentFactory: OutputArea.defaultContentFactory,
-			model: this.model.outputs,
+			model: this.model.outputAreaModel,
 		});
 		this.luminoWidget.insertWidget(0, this._outputView);
 

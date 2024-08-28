@@ -268,30 +268,15 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		return this._pendingLoadFromKernel;
 	}
 
-	private readonly _messageHandlers = new Map<string, Disposable>();
-
-	async registerMessageHandler(msgId: string, handler: (message: WebviewMessage.IKernelMessageToWebview) => void): Promise<void> {
-		if (this._messageHandlers.has(msgId)) {
-			throw new Error(`Message handler already exists for msgId: ${msgId}`);
-		}
-
-		this._messageHandlers.set(
-			msgId,
-			this._messaging.onDidReceiveMessage(async (message) => {
-				if (message.type === 'kernel_message' && message.parent_id === msgId) {
-					handler(message);
-				}
-			})
-		);
-	}
-
-	removeMessageHandler(msgId: string): void {
-		const handler = this._messageHandlers.get(msgId);
-		if (!handler) {
-			throw new Error(`No message handler for msgId: ${msgId}`);
-		}
-		this._messageHandlers.delete(msgId);
-		handler.dispose();
+	onDidReceiveKernelMessage(
+		parentId: string,
+		listener: (message: WebviewMessage.IKernelMessageContent) => any
+	): Disposable {
+		return this._messaging.onDidReceiveMessage(message => {
+			if (message.type === 'kernel_message' && message.parent_id === parentId) {
+				listener(message.content);
+			}
+		});
 	}
 
 	dispose(): void {

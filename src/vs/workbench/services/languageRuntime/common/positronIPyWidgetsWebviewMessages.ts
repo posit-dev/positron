@@ -81,25 +81,25 @@ export interface IGetPreferredRendererResultToWebview {
 }
 
 export interface IKernelMessageClearOutput {
-	output_type: 'clear_output';
+	type: 'clear_output';
 	wait: boolean;
 }
 
 export interface IKernelMessageDisplayData {
-	output_type: 'display_data';
+	type: 'display_data';
 	data: unknown;
 	metadata: unknown;
 }
 
 export interface IKernelMessageError {
-	output_type: 'error';
+	type: 'error';
 	name: string;
 	message: string;
 	traceback: Array<string>;
 }
 
 export interface IKernelMessageExecuteResult {
-	output_type: 'execute_result';
+	type: 'execute_result';
 	// TODO: Runtime message doesn't currently include this...
 	// execution_count: number | null;
 	data: unknown;
@@ -107,19 +107,21 @@ export interface IKernelMessageExecuteResult {
 }
 
 export interface IKernelMessageStream {
-	output_type: 'stream';
+	type: 'stream';
 	name: 'stdout' | 'stderr';
 	text: string;
 }
 
-export interface IKernelMessageToWebview {
-	type: 'kernel_message';
-	parent_id: string;
-	content: IKernelMessageClearOutput |
+export type IKernelMessageContent = IKernelMessageClearOutput |
 	IKernelMessageDisplayData |
 	IKernelMessageError |
 	IKernelMessageExecuteResult |
 	IKernelMessageStream;
+
+export interface IKernelMessageToWebview {
+	type: 'kernel_message';
+	parent_id: string;
+	content: IKernelMessageContent;
 }
 
 export type ToWebviewMessage = IInitializeResultToWebview |

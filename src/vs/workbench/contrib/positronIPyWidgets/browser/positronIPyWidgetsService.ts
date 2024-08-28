@@ -350,7 +350,7 @@ export class IPyWidgetsInstance extends Disposable {
 				type: 'kernel_message',
 				parent_id: message.parent_id,
 				content: {
-					output_type: 'display_data',
+					type: 'display_data',
 					data: message.data,
 					metadata: message.metadata,
 				}
@@ -362,7 +362,7 @@ export class IPyWidgetsInstance extends Disposable {
 				type: 'kernel_message',
 				parent_id: message.parent_id,
 				content: {
-					output_type: 'execute_result',
+					type: 'execute_result',
 					data: message.data,
 					metadata: message.metadata,
 				}
@@ -374,7 +374,7 @@ export class IPyWidgetsInstance extends Disposable {
 				type: 'kernel_message',
 				parent_id: message.parent_id,
 				content: {
-					output_type: 'stream',
+					type: 'stream',
 					name: message.name,
 					text: message.text,
 				}
@@ -386,7 +386,7 @@ export class IPyWidgetsInstance extends Disposable {
 				type: 'kernel_message',
 				parent_id: message.parent_id,
 				content: {
-					output_type: 'error',
+					type: 'error',
 					name: message.name,
 					message: message.message,
 					traceback: message.traceback,
@@ -399,7 +399,7 @@ export class IPyWidgetsInstance extends Disposable {
 				type: 'kernel_message',
 				parent_id: message.parent_id,
 				content: {
-					output_type: 'clear_output',
+					type: 'clear_output',
 					wait: message.wait,
 				},
 			});
