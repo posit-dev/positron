@@ -3,6 +3,9 @@
 
 import { Event, Disposable, WorkspaceFolder } from 'vscode';
 import { EnvironmentTools } from '../../api/types';
+// --- Start Positron ---
+import { CreateEnvironmentOptionsInternal } from './types';
+// --- End Positron ---
 
 export type CreateEnvironmentUserActions = 'Back' | 'Cancel';
 export type EnvironmentProviderId = string;
@@ -128,12 +131,16 @@ export interface CreateEnvironmentProvider {
      * user wants. This API is expected to show a QuickPick or QuickInput to get the user input and return
      * the path to the Python executable in the environment.
      *
-     * @param {CreateEnvironmentOptions} [options] Options used to create a Python environment.
+     * // --- Start Positron ---
+     * @param {CreateEnvironmentOptions & CreateEnvironmentOptionsInternal} [options] Options used to create a Python environment.
+     * // --- End Positron ---
      *
      * @returns a promise that resolves to the path to the
      * Python executable in the environment. Or any action taken by the user, such as back or cancel.
      */
-    createEnvironment(options?: CreateEnvironmentOptions): Promise<CreateEnvironmentResult | undefined>;
+    // --- Start Positron ---
+    createEnvironment(options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal): Promise<CreateEnvironmentResult | undefined>;
+    // --- End Positron ---
 
     /**
      * Unique ID for the creation provider, typically <ExtensionId>:<environment-type | guid>
