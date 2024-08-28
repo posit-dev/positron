@@ -454,7 +454,7 @@ const makeLines = (count: number): string[] => {
 	// Make the lines.
 	const lines: string[] = [];
 	for (let i = 0; i < count; i++) {
-		lines.push('0'.repeat(Math.floor(Math.random() * 1025)));
+		lines.push('0'.repeat(Math.floor(Math.random() * 1024) + (i === count - 1 ? 1 : 0)));
 	}
 
 	// Done.
@@ -1694,9 +1694,9 @@ suite('ANSIOutout', () => {
 
 	const testOutputLines = (count: number, terminator: string) => {
 		// Setup.
-		const lines = makeLines(10);
+		const lines = makeLines(count);
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput(lines.join(LF));
+		ansiOutput.processOutput(lines.join(terminator));
 		const outputLines = ansiOutput.outputLines;
 
 		// Tests.
