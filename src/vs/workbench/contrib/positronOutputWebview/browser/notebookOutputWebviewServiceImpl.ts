@@ -165,15 +165,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	/**
-	 * Gets renderer data for a given MIME type. This is used to inject only the
-	 * needed renderers into the webview.
+	 * Gets renderer data. This is used to inject renderer contexts into the webview.
 	 *
-	 * @param mimeTypes The MIME types to get renderers for
-	 * @returns An array of renderers that can render the given MIME type
+	 * @returns An array of renderer metadata.
 	 */
-	private getRendererData(mimeTypes: string[]): RendererMetadata[] {
+	private getRendererData(): RendererMetadata[] {
 		return this._notebookService.getRenderers()
-			.filter(renderer => mimeTypes.some(mimeType => renderer.mimeTypes.includes(mimeType)))
 			.map((renderer): RendererMetadata => {
 				const entrypoint = {
 					extends: renderer.entrypoint.extends,
@@ -286,7 +283,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			linkifyFilePaths: false,
 			minimalError: false,
 		},
-			this.getRendererData(messagesInfo.map(info => info.mimeType)),
+			this.getRendererData(),
 			await this.getStaticPreloadsData(viewType),
 			this._workspaceTrustManagementService.isWorkspaceTrusted(),
 			id);
