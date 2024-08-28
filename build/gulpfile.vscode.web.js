@@ -32,8 +32,10 @@ const WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'web');
 
 const commit = getVersion(REPO_ROOT);
 const quality = product.quality;
+const version = (quality && quality !== 'stable') ? `${packageJson.version}-${quality}` : packageJson.version;
+
 // --- Start Positron ---
-const version = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
+const positronVersion = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
 // --- End Positron ---
 
 const vscodeWebResourceIncludes = [
@@ -87,9 +89,10 @@ exports.vscodeWebEntryPoints = vscodeWebEntryPoints;
 
 // --- Begin Positron ---
 // Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.
-const buildNumber =
+const positronBuildNumber =
 	process.env.POSITRON_BUILD_NUMBER ??
 	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
+exports.positronBuildNumber = positronBuildNumber;
 // --- End Positron ---
 
 /**
@@ -106,7 +109,8 @@ const createVSCodeWebProductConfigurationPatcher = (product) => {
 			const productConfiguration = JSON.stringify({
 				...product,
 				// --- Start Positron ---
-				buildNumber,
+				positronVersion,
+				positronBuildNumber,
 				// --- End Positron ---
 				version,
 				commit,

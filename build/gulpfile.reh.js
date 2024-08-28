@@ -28,7 +28,9 @@ const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
-const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
+// --- Start Positron ---
+const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper, positronBuildNumber } = require('./gulpfile.vscode.web');
+// --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
 
@@ -36,6 +38,9 @@ const REPO_ROOT = path.dirname(__dirname);
 const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
+// --- Start Positron ---
+const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
+// --- End Positron ---
 
 // Targets
 
@@ -317,8 +322,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const name = product.nameShort;
 
 		let packageJsonContents;
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: 'remote' })
+		// --- Start Positron ---
+		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
+		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
 			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }))
+			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
 				this.emit('data', file);
@@ -327,7 +336,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		let productJsonContents;
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
 			// --- Start Positron ---
-			.pipe(json({ commit, date: readISODate('out-build'), version, positronVersion }))
+			.pipe(json({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				productJsonContents = file.contents.toString();
@@ -338,9 +347,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
-		const productionDependencies = getProductionDependencies(REMOTE_FOLDER);
+		// --- Start Positron ---
+		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		const deps = gulp.src(dependenciesSrc, { base: 'remote', dot: true })
+
+		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
+			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/yarn.lock', '!**/*.js.map']))
 			.pipe(util.cleanNodeModules(path.join(__dirname, '.moduleignore')))
@@ -460,7 +472,9 @@ function tweakProductForServerWeb(product) {
 					loaderConfig: optimize.loaderConfig(),
 					inlineAmdImages: true,
 					bundleInfo: undefined,
-					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// --- Start Positron ---
+					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// --- End Positron ---
 				},
 				commonJS: {
 					src: 'out-build',

@@ -12,14 +12,14 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
-import { PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDate';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
-import { PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileNumber';
-import { PROFILE_STRING_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileString';
 import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { PROFILE_BOOLEAN_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileBoolean';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { PROFILE_DATE_TIME_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/profileDatetime';
+import { COLUMN_PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDate';
+import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNumber';
+import { COLUMN_PROFILE_STRING_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileString';
+import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileBoolean';
+import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDatetime';
 
 /**
  * Constants.
@@ -199,36 +199,52 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Return the row height.
 		switch (columnSchema.type_display) {
 			// Number.
-			case ColumnDisplayType.Number:
-				return rowHeight(true, PROFILE_NUMBER_LINE_COUNT);
+			case ColumnDisplayType.Number: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.large_histogram,
+					COLUMN_PROFILE_NUMBER_LINE_COUNT
+				);
+			}
 
 			// Boolean.
-			case ColumnDisplayType.Boolean:
-				return rowHeight(true, PROFILE_BOOLEAN_LINE_COUNT);
+			case ColumnDisplayType.Boolean: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.small_frequency_table,
+					COLUMN_PROFILE_BOOLEAN_LINE_COUNT
+				);
+			}
 
 			// String.
-			case ColumnDisplayType.String:
-				return rowHeight(true, PROFILE_STRING_LINE_COUNT);
+			case ColumnDisplayType.String: {
+				return rowHeight(
+					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.large_frequency_table,
+					COLUMN_PROFILE_STRING_LINE_COUNT
+				);
+			}
 
 			// Date.
-			case ColumnDisplayType.Date:
-				return rowHeight(false, PROFILE_DATE_LINE_COUNT);
+			case ColumnDisplayType.Date: {
+				return rowHeight(false, COLUMN_PROFILE_DATE_LINE_COUNT);
+			}
 
 			// Datetime.
-			case ColumnDisplayType.Datetime:
-				return rowHeight(false, PROFILE_DATE_TIME_LINE_COUNT);
+			case ColumnDisplayType.Datetime: {
+				return rowHeight(false, COLUMN_PROFILE_DATE_TIME_LINE_COUNT);
+			}
 
 			// Column display types that do not render a profile.
 			case ColumnDisplayType.Time:
 			case ColumnDisplayType.Object:
 			case ColumnDisplayType.Array:
 			case ColumnDisplayType.Struct:
-			case ColumnDisplayType.Unknown:
+			case ColumnDisplayType.Unknown: {
 				return rowHeight(false, 0);
+			}
 
 			// This shouldn't ever happen.
-			default:
+			default: {
 				return rowHeight(false, 0);
+			}
 		}
 	}
 
@@ -312,20 +328,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the column null count for the specified column index.
+	 * Gets the column profile null count for the specified column index.
 	 * @param columnIndex The column index.
-	 * @returns The column null count for the specified column index
+	 * @returns The column profile null count for the specified column index
 	 */
-	getColumnNullCount(columnIndex: number) {
+	getColumnProfileNullCount(columnIndex: number) {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.null_count;
 	}
 
 	/**
-	 * Gets the column null percent for the specified column index.
+	 * Gets the column profile null percent for the specified column index.
 	 * @param columnIndex The column index.
-	 * @returns The column null percent for the specified column index
+	 * @returns The column profile null percent for the specified column index
 	 */
-	getColumnNullPercent(columnIndex: number) {
+	getColumnProfileNullPercent(columnIndex: number) {
 		// If the table has no rows, it's meaningless to calculate the column null percent. Return
 		// undefined in this case.
 		const rows = this._tableSummaryCache.rows;
@@ -344,31 +360,49 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the column summary stats for the specified column index.
+	 * Gets the column profile summary stats for the specified column index.
 	 * @param columnIndex The column index.
-	 * @returns The column summary stats for the specified column index
+	 * @returns The column profile summary stats for the specified column index
 	 */
-	getColumnSummaryStats(columnIndex: number) {
+	getColumnProfileSummaryStats(columnIndex: number) {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.summary_stats;
 	}
 
 	/**
-	 * Gets the column histogram for the specified column index.
+	 * Gets the column profile small histogram for the specified column index.
 	 * @param columnIndex The column index.
-	 * @returns The column histogram for the specified column index
+	 * @returns The column profile small histogram for the specified column index
 	 */
-	getColumnHistogram(columnIndex: number) {
-		return this._tableSummaryCache.getColumnProfile(columnIndex)?.histogram;
+	getColumnProfileSmallHistogram(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.small_histogram;
 	}
 
 	/**
-	 * Gets the column frequency table for the specified column index.
+	 * Gets the column profile large histogram for the specified column index.
 	 * @param columnIndex The column index.
-	 * @returns The column frequency table for the specified column index
+	 * @returns The column profile large histogram for the specified column index
 	 */
-	getColumnFrequencyTable(columnIndex: number) {
-		return this._tableSummaryCache.getColumnProfile(columnIndex)?.frequency_table;
+	getColumnProfileLargeHistogram(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.large_histogram;
 	}
 
-	//#endregion Private Methods
+	/**
+	 * Gets the column profile small frequency table for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column profile small frequency table for the specified column index
+	 */
+	getColumnProfileSmallFrequencyTable(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.small_frequency_table;
+	}
+
+	/**
+	 * Gets the column profile large frequency table for the specified column index.
+	 * @param columnIndex The column index.
+	 * @returns The column profile large frequency table for the specified column index
+	 */
+	getColumnProfileLargeFrequencyTable(columnIndex: number) {
+		return this._tableSummaryCache.getColumnProfile(columnIndex)?.large_frequency_table;
+	}
+
+	//#endregion Public Methods
 }

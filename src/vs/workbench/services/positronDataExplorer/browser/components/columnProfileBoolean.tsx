@@ -4,45 +4,45 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./profileBoolean';
+import 'vs/css!./columnProfileBoolean';
 
 // React.
 import * as React from 'react';
 
 // Other dependencies.
 import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { ColumnNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnNullCountValue';
 import { positronFalse, positronMissing, positronTrue } from 'vs/workbench/services/positronDataExplorer/common/constants';
 import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/profileSparklineFrequencyTable';
+import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
+import { ColumnProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileSparklines';
 
 /**
  * Constants.
  */
-export const PROFILE_BOOLEAN_LINE_COUNT = 3;
+export const COLUMN_PROFILE_BOOLEAN_LINE_COUNT = 3;
 
 /**
- * ProfileBooleanProps interface.
+ * ColumnProfileBooleanProps interface.
  */
-interface ProfileBooleanProps {
+interface ColumnProfileBooleanProps {
 	instance: TableSummaryDataGridInstance;
 	columnIndex: number;
 }
 
 /**
- * ProfileBoolean component.
- * @param props A ProfileBooleanProps that contains the component properties.
+ * ColumnProfileBoolean component.
+ * @param props A ColumnProfileBooleanProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ProfileBoolean = (props: ProfileBooleanProps) => {
-	// Get the column profile.
-	const columnFrequencyTable = props.instance.getColumnFrequencyTable(props.columnIndex);
-	const stats = props.instance.getColumnSummaryStats(props.columnIndex)?.boolean_stats;
-
+export const ColumnProfileBoolean = (props: ColumnProfileBooleanProps) => {
 	// Render.
+	const columnFrequencyTable = props.instance.getColumnProfileSmallFrequencyTable(props.columnIndex);
+	const summaryStats = props.instance.getColumnProfileSummaryStats(props.columnIndex)?.boolean_stats;
 	return (
-		<div className='profile-info'>
-			<ProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+		<div className='column-profile-info'>
+			{columnFrequencyTable &&
+				<ColumnProfileSparklineFrequencyTable columnFrequencyTable={columnFrequencyTable} />
+			}
 			<div className='tabular-info'>
 				<div className='labels'>
 					<div className='label'>{positronMissing}</div>
@@ -50,9 +50,9 @@ export const ProfileBoolean = (props: ProfileBooleanProps) => {
 					<div className='label'>{positronFalse}</div>
 				</div>
 				<div className='values'>
-					<ColumnNullCountValue {...props} />
-					<StatsValue stats={stats} value={stats?.true_count} />
-					<StatsValue stats={stats} value={stats?.false_count} />
+					<ColumnProfileNullCountValue {...props} />
+					<StatsValue stats={summaryStats} value={summaryStats?.true_count} />
+					<StatsValue stats={summaryStats} value={summaryStats?.false_count} />
 				</div>
 			</div>
 		</div>

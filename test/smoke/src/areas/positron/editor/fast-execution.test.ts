@@ -40,7 +40,7 @@ export function setup(logger: Logger) {
 				// for every line of the file
 				for (let i = 0; i < 10; i++) {
 					let currentTop = await app.workbench.positronEditor.getCurrentLineTop();
-					let retries = 10;
+					let retries = 20;
 
 					// Note that top is a measurement of the distance from the top of the editor
 					// to the top of the current line.  By monitoring the top value, we can determine

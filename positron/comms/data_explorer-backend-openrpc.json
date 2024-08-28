@@ -870,11 +870,19 @@
 				"description": "Extra parameters for different profile types",
 				"oneOf": [
 					{
-						"name": "histogram",
+						"name": "small_histogram",
 						"$ref": "#/components/schemas/column_histogram_params"
 					},
 					{
-						"name": "frequency_table",
+						"name": "large_histogram",
+						"$ref": "#/components/schemas/column_histogram_params"
+					},
+					{
+						"name": "small_frequency_table",
+						"$ref": "#/components/schemas/column_frequency_table_params"
+					},
+					{
+						"name": "large_frequency_table",
 						"$ref": "#/components/schemas/column_frequency_table_params"
 					}
 				]
@@ -885,8 +893,10 @@
 				"enum": [
 					"null_count",
 					"summary_stats",
-					"frequency_table",
-					"histogram"
+					"small_frequency_table",
+					"large_frequency_table",
+					"small_histogram",
+					"large_histogram"
 				]
 			},
 			"column_profile_type_support_status": {
@@ -919,12 +929,20 @@
 						"description": "Results from summary_stats request",
 						"$ref": "#/components/schemas/column_summary_stats"
 					},
-					"histogram": {
-						"description": "Results from histogram request",
+					"small_histogram": {
+						"description": "Results from small histogram request",
 						"$ref": "#/components/schemas/column_histogram"
 					},
-					"frequency_table": {
-						"description": "Results from frequency_table request",
+					"large_histogram": {
+						"description": "Results from large histogram request",
+						"$ref": "#/components/schemas/column_histogram"
+					},
+					"small_frequency_table": {
+						"description": "Results from small frequency_table request",
+						"$ref": "#/components/schemas/column_frequency_table"
+					},
+					"large_frequency_table": {
+						"description": "Results from large frequency_table request",
 						"$ref": "#/components/schemas/column_frequency_table"
 					}
 				}

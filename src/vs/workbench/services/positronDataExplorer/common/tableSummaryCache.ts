@@ -16,6 +16,10 @@ import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, C
  */
 const TRIM_CACHE_TIMEOUT = 3000;
 const OVERSCAN_FACTOR = 3;
+const SMALL_HISTOGRAM_NUM_BINS = 80;
+const LARGE_HISTOGRAM_NUM_BINS = 200;
+const SMALL_FREQUENCY_TABLE_LIMIT = 8;
+const LARGE_FREQUENCY_TABLE_LIMIT = 16;
 
 /**
  * UpdateDescriptor interface.
@@ -160,26 +164,11 @@ export class TableSummaryCache extends Disposable {
 		// Expand the column.
 		this._expandedColumns.add(columnIndex);
 
-		// If we already have summary stats for the column, fire the onDidUpdate event and return.
-		if (this._columnProfileCache.get(columnIndex)?.summary_stats) {
-			this._onDidUpdateEmitter.fire();
-			return;
-		}
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
 
-		// Get the summary stats for the newly expanded column.
-		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles([({
-			column_index: columnIndex,
-			profiles: [{ profile_type: ColumnProfileType.SummaryStats }]
-		})]);
-
-		// Update the column profile.
-		if (columnProfileResults.length === 1) {
-			const columnProfile = this._columnProfileCache.get(columnIndex);
-			if (columnProfile) {
-				columnProfile.summary_stats = columnProfileResults[0].summary_stats;
-				this._onDidUpdateEmitter.fire();
-			}
-		}
+		// Update the column profile cache.
+		await this.updateColumnProfileCache([columnIndex]);
 	}
 
 	/**
@@ -255,81 +244,8 @@ export class TableSummaryCache extends Disposable {
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
-		// Determne whether histograms and frequency tables are supported.
-		const histogramSupported = this.isHistogramSupported();
-		const frequencyTableSupported = this.isFrequencyTableSupported();
-
-		// Load the column profiles.
-		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
-			columnIndices.map((column_index): ColumnProfileRequest => {
-				// Get the column schema.
-				const columnSchema = this._columnSchemaCache.get(column_index);
-
-				// Build the array of column profiles to load. Always load the null count.
-				const profiles: ColumnProfileSpec[] = [
-					{ profile_type: ColumnProfileType.NullCount }
-				];
-
-				// If the column is expanded, load the summary stats.
-				if (this._expandedColumns.has(column_index)) {
-					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
-				}
-
-				// Determine whether to load the histogram or the frequency table for the column.
-				switch (columnSchema?.type_display) {
-					// Number.
-					case ColumnDisplayType.Number: {
-						if (histogramSupported) {
-							profiles.push({
-								profile_type: ColumnProfileType.Histogram,
-								params: {
-									method: ColumnHistogramParamsMethod.FreedmanDiaconis,
-									num_bins: 100
-								}
-							});
-						}
-						break;
-					}
-
-					// Boolean.
-					case ColumnDisplayType.Boolean: {
-						if (frequencyTableSupported) {
-							profiles.push({
-								profile_type: ColumnProfileType.FrequencyTable,
-								params: {
-									limit: 2
-								}
-							});
-						}
-						break;
-					}
-
-					// String.
-					case ColumnDisplayType.String: {
-						if (frequencyTableSupported) {
-							profiles.push({
-								profile_type: ColumnProfileType.FrequencyTable,
-								params: {
-									limit: 7
-								}
-							});
-						}
-						break;
-					}
-				}
-
-				// Return the column profile request.
-				return { column_index, profiles };
-			})
-		);
-
-		// Cache the column profiles that were returned.
-		for (let i = 0; i < columnProfileResults.length; i++) {
-			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		// Update the column profile cache.
+		await this.updateColumnProfileCache(columnIndices);
 
 		// Clear the updating flag.
 		this._updating = false;
@@ -366,61 +282,10 @@ export class TableSummaryCache extends Disposable {
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
-		// Get the sorted column indicies so we can build the column profile requests in order.
-		const columnIndices = [...this._columnProfileCache.keys()].sort((a, b) => a - b);
-
-		// Build the column profile requests.
-		const columnProfileRequests: ColumnProfileRequest[] = [];
-		for (const columnIndex of columnIndices) {
-			// Get the column profile.
-			const columnProfile = this._columnProfileCache.get(columnIndex);
-			if (columnProfile) {
-				// Build the profiles. Always ask for the null count.
-				const columnProfileSpecs: ColumnProfileSpec[] = [
-					{ profile_type: ColumnProfileType.NullCount }
-				];
-
-				// Add summary stats.
-				if (columnProfile.summary_stats) {
-					columnProfileSpecs.push({ profile_type: ColumnProfileType.SummaryStats });
-				}
-
-				// Add histogram.
-				if (columnProfile.histogram) {
-					columnProfileSpecs.push({
-						profile_type: ColumnProfileType.Histogram,
-						params: {
-							method: ColumnHistogramParamsMethod.FreedmanDiaconis,
-							num_bins: 100
-						}
-					});
-				}
-
-				// Add frequency table.
-				if (columnProfile.frequency_table) {
-					columnProfileSpecs.push({ profile_type: ColumnProfileType.FrequencyTable });
-				}
-
-				// Add the column profile request.
-				columnProfileRequests.push({
-					column_index: columnIndex,
-					profiles: columnProfileSpecs
-				});
-			}
-		}
-
-		// Get the column profiles.
-		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
-			columnProfileRequests
+		// Update the column profile cache.
+		await this.updateColumnProfileCache(
+			[...this._columnProfileCache.keys()].sort((a, b) => a - b)
 		);
-
-		// Refresh the column profile cache with the column profiles.
-		for (let i = 0; i < columnIndices.length && i < columnProfileRequests.length; i++) {
-			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
-		}
-
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
 	}
 
 	/**
@@ -446,6 +311,120 @@ export class TableSummaryCache extends Disposable {
 	//#region Private Methods
 
 	/**
+	 * Updates the column profile cache for the specified column indices.
+	 * @param columnIndices The column indices.
+	 */
+	private async updateColumnProfileCache(columnIndices: number[]) {
+		// Determne whether histograms and frequency tables are supported.
+		const histogramSupported = this.isHistogramSupported();
+		const frequencyTableSupported = this.isFrequencyTableSupported();
+
+		// Load the column profiles.
+		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
+			columnIndices.map((column_index): ColumnProfileRequest => {
+				// Get the column schema.
+				const columnSchema = this._columnSchemaCache.get(column_index);
+
+				// Build the array of column profiles to load. Always load the null count.
+				const profiles: ColumnProfileSpec[] = [{
+					profile_type: ColumnProfileType.NullCount
+				}];
+
+				// Determine whether the column is expanded.
+				const columnExpanded = this._expandedColumns.has(column_index);
+
+				// If the column is expanded, load the summary stats.
+				if (columnExpanded) {
+					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
+				}
+
+				// Determine whether to load the histogram or the frequency table for the column.
+				switch (columnSchema?.type_display) {
+					// Number.
+					case ColumnDisplayType.Number: {
+						// If histograms are supported, load them.
+						if (histogramSupported) {
+							// Load the small histogram.
+							profiles.push({
+								profile_type: ColumnProfileType.SmallHistogram,
+								params: {
+									method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+									num_bins: SMALL_HISTOGRAM_NUM_BINS,
+								}
+							});
+
+							// If the column is expanded, load the large histogram.
+							if (columnExpanded) {
+								profiles.push({
+									profile_type: ColumnProfileType.LargeHistogram,
+									params: {
+										method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+										num_bins: LARGE_HISTOGRAM_NUM_BINS,
+									}
+								});
+							}
+						}
+						break;
+					}
+
+					// Boolean.
+					case ColumnDisplayType.Boolean: {
+						// If frequency tables are supported, load them.
+						if (frequencyTableSupported) {
+							// Load the small frequency table. Note that we do not load the large
+							// frequency table because there are only two possible values.
+							profiles.push({
+								profile_type: ColumnProfileType.SmallFrequencyTable,
+								params: {
+									limit: 2
+								}
+							});
+
+						}
+						break;
+					}
+
+					// String.
+					case ColumnDisplayType.String: {
+						// If frequency tables are supported, load them.
+						if (frequencyTableSupported) {
+							// Load the small frequency table.
+							profiles.push({
+								profile_type: ColumnProfileType.SmallFrequencyTable,
+								params: {
+									limit: SMALL_FREQUENCY_TABLE_LIMIT
+								}
+							});
+
+							// If the column is expanded, load the large frequency table.
+							if (columnExpanded) {
+								profiles.push({
+									profile_type: ColumnProfileType.LargeFrequencyTable,
+									params: {
+										limit: LARGE_FREQUENCY_TABLE_LIMIT
+									}
+								});
+							}
+						}
+						break;
+					}
+				}
+
+				// Return the column profile request.
+				return { column_index, profiles };
+			})
+		);
+
+		// Cache the column profiles that were returned.
+		for (let i = 0; i < columnProfileResults.length; i++) {
+			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
+		}
+
+		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
 	 * Determines whether histograms are supported.
 	 * @returns true if histograms are supported; otherwise, false.
 	 */
@@ -453,7 +432,7 @@ export class TableSummaryCache extends Disposable {
 		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
 			.get_column_profiles;
 		const histogramSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.Histogram
+			status.profile_type === ColumnProfileType.SmallHistogram
 		);
 
 		if (!histogramSupportStatus) {
@@ -474,7 +453,7 @@ export class TableSummaryCache extends Disposable {
 		const columnProfilesFeatures = this._dataExplorerClientInstance.getSupportedFeatures()
 			.get_column_profiles;
 		const frequencyTableSupportStatus = columnProfilesFeatures.supported_types.find(status =>
-			status.profile_type === ColumnProfileType.FrequencyTable
+			status.profile_type === ColumnProfileType.SmallFrequencyTable
 		);
 
 		if (!frequencyTableSupportStatus) {

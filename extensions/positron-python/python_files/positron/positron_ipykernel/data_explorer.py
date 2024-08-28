@@ -510,14 +510,24 @@ class DataExplorerTableView(abc.ABC):
                 results["null_count"] = self._prof_null_count(column_index)
             elif profile_type == ColumnProfileType.SummaryStats:
                 results["summary_stats"] = self._prof_summary_stats(column_index, format_options)
-            elif profile_type == ColumnProfileType.FrequencyTable:
+            elif profile_type == ColumnProfileType.SmallFrequencyTable:
                 assert isinstance(spec.params, ColumnFrequencyTableParams)
-                results["frequency_table"] = self._prof_freq_table(
+                results["small_frequency_table"] = self._prof_freq_table(
                     column_index, spec.params, format_options
                 )
-            elif profile_type == ColumnProfileType.Histogram:
+            elif profile_type == ColumnProfileType.LargeFrequencyTable:
+                assert isinstance(spec.params, ColumnFrequencyTableParams)
+                results["large_frequency_table"] = self._prof_freq_table(
+                    column_index, spec.params, format_options
+                )
+            elif profile_type == ColumnProfileType.SmallHistogram:
                 assert isinstance(spec.params, ColumnHistogramParams)
-                results["histogram"] = self._prof_histogram(
+                results["small_histogram"] = self._prof_histogram(
+                    column_index, spec.params, format_options
+                )
+            elif profile_type == ColumnProfileType.LargeHistogram:
+                assert isinstance(spec.params, ColumnHistogramParams)
+                results["large_histogram"] = self._prof_histogram(
                     column_index, spec.params, format_options
                 )
             else:
@@ -1717,11 +1727,19 @@ class PandasView(DataExplorerTableView):
                     support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.Histogram,
+                    profile_type=ColumnProfileType.SmallHistogram,
                     support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.FrequencyTable,
+                    profile_type=ColumnProfileType.LargeHistogram,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.SmallFrequencyTable,
+                    support_status=SupportStatus.Supported,
+                ),
+                ColumnProfileTypeSupportStatus(
+                    profile_type=ColumnProfileType.LargeFrequencyTable,
                     support_status=SupportStatus.Supported,
                 ),
             ],
