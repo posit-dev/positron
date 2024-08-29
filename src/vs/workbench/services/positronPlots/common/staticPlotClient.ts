@@ -6,7 +6,6 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { PlotClientView } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 /**
@@ -28,7 +27,6 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			created: Date.parse(message.when),
 			session_id: sessionId,
 			code: code ? code : '',
-			client_view: PlotClientView.View,
 		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if

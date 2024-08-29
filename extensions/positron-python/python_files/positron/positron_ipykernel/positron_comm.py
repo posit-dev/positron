@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import enum
 import logging
-from typing import Any, Callable, Dict, Generic, Optional, Type, TypeVar
+from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
 
@@ -88,7 +88,7 @@ class PositronComm:
         self.comm = comm
 
     @classmethod
-    def create(cls, target_name: str, comm_id: str, metadata: Dict[str, Any] = None) -> PositronComm:
+    def create(cls, target_name: str, comm_id: str) -> PositronComm:
         """
         Create a Positron comm.
 
@@ -104,7 +104,7 @@ class PositronComm:
         PositronComm
             The new PositronComm instance.
         """
-        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id, metadata=metadata)
+        base_comm = comm.create_comm(target_name=target_name, comm_id=comm_id)
         return cls(base_comm)
 
     @property
@@ -257,8 +257,8 @@ class PositronComm:
         """
         self.comm.close()
 
-    def open(self, metadata: Dict[str, Any] = None) -> None:
+    def open(self) -> None:
         """
         Open the frontend-side version of this comm.
         """
-        self.comm.open(metadata=metadata)
+        self.comm.open()

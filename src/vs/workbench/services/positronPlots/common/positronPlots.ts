@@ -168,7 +168,7 @@ export interface IPositronPlotsService {
 	 */
 	savePlot(): void;
 
-	createEditorPlotClient(): Promise<void>;
+	openEditor(): Promise<void>;
 
 	getEditorInstance(id: string): IPositronPlotClient | undefined;
 

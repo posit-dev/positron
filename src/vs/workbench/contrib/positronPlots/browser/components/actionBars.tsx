@@ -181,7 +181,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								ariaLabel={localize('positron-open-plot-editor', "Open plot in editor")}
 								onPressed={() => {
 									if (hasPlots) {
-										positronPlotsContext.positronPlotsService.createEditorPlotClient();
+										positronPlotsContext.positronPlotsService.openEditor();
 									}
 								}} />
 						}
