@@ -203,9 +203,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                     ):
                         is_plot = True
                         break
-                # windows will not accept file:// at beginning of url
-                if os.name == "nt":
-                    url = urlparse(url).netloc or urlparse(url).path
 
             # get path to the python_files/positron dir
             parent = str(Path(__file__).parent.parent)
