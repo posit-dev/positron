@@ -632,11 +632,19 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
             support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="histogram",
+            profile_type="small_histogram",
             support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="frequency_table",
+            profile_type="large_histogram",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="small_frequency_table",
+            support_status=SupportStatus.Supported,
+        ),
+        ColumnProfileTypeSupportStatus(
+            profile_type="large_frequency_table",
             support_status=SupportStatus.Supported,
         ),
     ]
@@ -2235,12 +2243,12 @@ def _get_null_count(column_index):
     return _profile_request(column_index, [{"profile_type": "null_count"}])
 
 
-def _get_histogram(column_index, bins=None, method="fixed"):
+def _get_histogram(column_index, bins=2000, method="fixed"):
     return _profile_request(
         column_index,
         [
             {
-                "profile_type": "histogram",
+                "profile_type": "small_histogram",
                 "params": {"method": method, "num_bins": bins},
             }
         ],
@@ -2250,7 +2258,7 @@ def _get_histogram(column_index, bins=None, method="fixed"):
 def _get_frequency_table(column_index, limit):
     return _profile_request(
         column_index,
-        [{"profile_type": "frequency_table", "params": {"limit": limit}}],
+        [{"profile_type": "small_frequency_table", "params": {"limit": limit}}],
     )
 
 
@@ -2602,6 +2610,15 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
 
 
 def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
+    format_options = FormatOptions(
+        large_num_digits=2,
+        small_num_digits=4,
+        max_integral_digits=7,
+        max_value_length=1000,
+        thousands_sep="_",
+    )
+    _format_float = _get_float_formatter(format_options)
+
     df = pd.DataFrame(
         {
             "a": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
@@ -2695,12 +2712,43 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
                 "quantiles": [],
             },
         ),
+        (
+            _get_histogram(5, method="freedman_diaconis"),
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(5, method="scott"),
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
+                "quantiles": [],
+            },
+        ),
+        (
+            _get_histogram(0, bins=50),
+            {
+                "bin_edges": [_format_float(x) for x in np.linspace(0.0, 10.0, 12)],
+                "bin_counts": [1] * 11,
+                "quantiles": [],
+            },
+        ),
     ]
 
     for name in ["df", "dfp"]:
         for profile, ex_result in cases:
             result = dxf.get_column_profiles(name, [profile])
-            assert result[0]["histogram"] == ex_result
+            assert result[0]["small_histogram"] == ex_result
+
+    dfl = pd.DataFrame({"x": np.random.exponential(2, 2000)})
+    dxf.register_table("dfl", dfl)
+    result = dxf.get_column_profiles(
+        "dfl", [_get_histogram(0, bins=10, method="freedman_diaconis")]
+    )
+    assert len(result[0]["small_histogram"]["bin_counts"]) == 10
 
 
 def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
@@ -2744,7 +2792,7 @@ def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
     for name in ["df", "dfp"]:
         for profile, ex_result in cases:
             result = dxf.get_column_profiles(name, [profile])
-            assert result[0]["frequency_table"] == ex_result
+            assert result[0]["small_frequency_table"] == ex_result
 
 
 # ----------------------------------------------------------------------

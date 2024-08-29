@@ -103,6 +103,9 @@ plt.show()`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
@@ -111,7 +114,9 @@ plt.show()`;
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -146,6 +151,9 @@ IPython.display.display_png(h)`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
@@ -154,7 +162,9 @@ IPython.display.display_png(h)`;
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -244,7 +254,9 @@ plt.show()`;
 				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -293,7 +305,9 @@ plt.show()`;
 				// verify the plot is in the file explorer with the new file name and format
 				await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -438,7 +452,9 @@ show(graph)`;
 				const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
 				expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 
@@ -474,6 +490,9 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
+						// FIXME: Temporarily ignore compilation issue
+						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+						// @ts-ignore
 						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
 					}
 					// capture a new master image in CI
@@ -482,7 +501,9 @@ title(main="Autos", col.main="red", font.main=4)`;
 					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 				}
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -527,7 +548,9 @@ title(main="Autos", col.main="red", font.main=4)`;
 				// verify the plot is in the file explorer with the new file name and format
 				await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 			});
@@ -552,7 +575,9 @@ rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronPlots.waitForCurrentPlot();
 
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronLayouts.enterLayout('stacked');
 
 				await app.workbench.positronPlots.waitForNoPlots();
 

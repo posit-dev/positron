@@ -7,6 +7,7 @@ import * as React from 'react';
 import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { detectHyperlinks } from 'vs/workbench/contrib/positronConsole/common/linkDetector';
 
 // OutputRunWithLinksProps interface.
 export interface OutputRunWithLinksProps {
@@ -47,10 +48,7 @@ export const OutputRunWithLinks = (props: OutputRunWithLinksProps) => {
 
 	// Look for a hyperlink in the text.
 	//
-	// Note that this regex ignores characters that typically delimit a
-	// hyperlink, such as quotes, parentheses, and braces, even though these
-	// characters are technically allowed in a URL.
-	const hyperlinkMatch = props.text.match(/\bhttps?:\/\/[^'")}\s]+/);
+	const hyperlinkMatch = detectHyperlinks(props.text);
 	if (hyperlinkMatch) {
 		// Create an array of text and hyperlinks for each entry in the match array.
 		const parts = [];

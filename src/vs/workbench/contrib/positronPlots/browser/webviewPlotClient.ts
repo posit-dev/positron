@@ -65,7 +65,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	}
 
 	/** Whether the plot's underlying webview is active. */
-	isActive(): this is { _webview: { value: IOverlayWebview } } {
+	isActive(): boolean {
 		return Boolean(this._webview.value);
 	}
 
@@ -84,7 +84,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 **/
 	public activate() {
 		// If we're already active, do nothing.
-		if (this.isActive()) {
+		if (this._webview.value) {
 			return Promise.resolve();
 		}
 
@@ -107,7 +107,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * Deactivates the plot, disposing the underlying webview if needed.
 	 **/
 	public deactivate() {
-		if (!this.isActive()) {
+		if (!this._webview.value) {
 			// Already inactive, do nothing.
 			return;
 		}
@@ -121,7 +121,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * @param claimant The object taking ownership.
 	 */
 	public claim(claimant: any) {
-		if (!this.isActive()) {
+		if (!this._webview.value) {
 			throw new Error('No webview to claim');
 		}
 		this._webview.value.claim(claimant, DOM.getWindow(this._element), undefined);
@@ -134,7 +134,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * @param ele The element over which to position the webview.
 	 */
 	public layoutWebviewOverElement(ele: HTMLElement) {
-		if (!this.isActive()) {
+		if (!this._webview.value) {
 			throw new Error('No webview to layout');
 		}
 		this._element = ele;
@@ -147,7 +147,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * @param claimant The object releasing ownership.
 	 */
 	public release(claimant: any) {
-		if (!this.isActive()) {
+		if (!this._webview.value) {
 			// Webview is already disposed so there's nothing to release.
 			return;
 		}
@@ -164,7 +164,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 	 * Electron APIs in desktop mode) as PNG.
 	 */
 	private renderThumbnail() {
-		if (!this.isActive()) {
+		if (!this._webview.value) {
 			throw new Error('No webview to render thumbnail');
 		}
 		this._webview.value.captureContentsAsPng().then(data => {

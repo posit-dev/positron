@@ -16,6 +16,10 @@ export class QuickInput {
 	private static QUICK_INPUT_ENTRY_LABEL = `${QuickInput.QUICK_INPUT_ROW} .quick-input-list-row > .monaco-icon-label .label-name`;
 	private static QUICK_INPUT_ENTRY_LABEL_SPAN = `${QuickInput.QUICK_INPUT_ROW} .monaco-highlighted-label`;
 
+	// --- Start Positron ---
+	private static QUICKINPUT_OK_BUTTON = '.quick-input-widget .quick-input-action a:has-text("OK")';
+	// --- End Positron ---
+
 	constructor(private code: Code) { }
 
 	async waitForQuickInputOpened(retryCount?: number): Promise<void> {
@@ -71,6 +75,10 @@ export class QuickInput {
 			const ariaLabels = elements.map(e => e.attributes['aria-label']);
 			throw new Error(`Could not find item containing '${contains}' in list:\n${ariaLabels.join('\n')}`);
 		}
+	}
+
+	async clickOkOnQuickInput(): Promise<void> {
+		await this.code.driver.getLocator(QuickInput.QUICKINPUT_OK_BUTTON).click();
 	}
 	// --- End Positron ---
 }

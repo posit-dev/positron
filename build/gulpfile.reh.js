@@ -12,11 +12,13 @@ const util = require('./lib/util');
 const { getVersion } = require('./lib/getVersion');
 const task = require('./lib/task');
 const optimize = require('./lib/optimize');
+const { inlineMeta } = require('./lib/inlineMeta');
 const product = require('../product.json');
 const rename = require('gulp-rename');
 const replace = require('gulp-replace');
 const filter = require('gulp-filter');
 const { getProductionDependencies } = require('./lib/dependencies');
+const { readISODate } = require('./lib/date');
 const vfs = require('vinyl-fs');
 const packageJson = require('../package.json');
 const flatmap = require('gulp-flatmap');
@@ -26,7 +28,9 @@ const fs = require('fs');
 const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
-const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
+// --- Start Positron ---
+const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper, positronBuildNumber } = require('./gulpfile.vscode.web');
+// --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
 
@@ -34,6 +38,9 @@ const REPO_ROOT = path.dirname(__dirname);
 const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
+// --- Start Positron ---
+const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
+// --- End Positron ---
 
 // Targets
 
@@ -55,14 +62,8 @@ const serverResources = [
 	'out-build/react-dom/client.js',
 	// --- End Positron ---
 
-	// Bootstrap
-	'out-build/bootstrap.js',
-	'out-build/bootstrap-fork.js',
-	'out-build/bootstrap-amd.js',
-	'out-build/bootstrap-node.js',
-
-	// Performance
-	'out-build/vs/base/common/performance.js',
+	// NLS
+	'out-build/nls.messages.json',
 
 	// Process monitor
 	'out-build/vs/base/node/cpuUsage.sh',
@@ -70,6 +71,8 @@ const serverResources = [
 
 	// Terminal shell integration
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration.ps1',
+	'out-build/vs/workbench/contrib/terminal/browser/media/CodeTabExpansion.psm1',
+	'out-build/vs/workbench/contrib/terminal/browser/media/GitTabExpansion.psm1',
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration-bash.sh',
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration-env.zsh',
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration-profile.zsh',
@@ -92,23 +95,23 @@ const serverWithWebResources = [
 const serverEntryPoints = [
 	{
 		name: 'vs/server/node/server.main',
-		exclude: ['vs/css', 'vs/nls']
+		exclude: ['vs/css']
 	},
 	{
 		name: 'vs/server/node/server.cli',
-		exclude: ['vs/css', 'vs/nls']
+		exclude: ['vs/css']
 	},
 	{
 		name: 'vs/workbench/api/node/extensionHostProcess',
-		exclude: ['vs/css', 'vs/nls']
+		exclude: ['vs/css']
 	},
 	{
 		name: 'vs/platform/files/node/watcher/watcherMain',
-		exclude: ['vs/css', 'vs/nls']
+		exclude: ['vs/css']
 	},
 	{
 		name: 'vs/platform/terminal/node/ptyHostMain',
-		exclude: ['vs/css', 'vs/nls']
+		exclude: ['vs/css']
 	}
 ];
 
@@ -121,6 +124,12 @@ const serverWithWebEntryPoints = [
 	...vscodeWebEntryPoints
 ];
 
+const commonJSEntryPoints = [
+	'out-build/server-main.js',
+	'out-build/server-cli.js',
+	'out-build/bootstrap-fork.js',
+];
+
 function getNodeVersion() {
 	const yarnrc = fs.readFileSync(path.join(REPO_ROOT, 'remote', '.yarnrc'), 'utf8');
 	const nodeVersion = /^target "(.*)"$/m.exec(yarnrc)[1];
@@ -128,21 +137,7 @@ function getNodeVersion() {
 	return { nodeVersion, internalNodeVersion };
 }
 
-function getNodeChecksum(nodeVersion, platform, arch, glibcPrefix) {
-	let expectedName;
-	switch (platform) {
-		case 'win32':
-			expectedName = product.nodejsRepository !== 'https://nodejs.org' ?
-				`win-${arch}-node.exe` : `win-${arch}/node.exe`;
-			break;
-
-		case 'darwin':
-		case 'alpine':
-		case 'linux':
-			expectedName = `node-v${nodeVersion}${glibcPrefix}-${platform}-${arch}.tar.gz`;
-			break;
-	}
-
+function getNodeChecksum(expectedName) {
 	const nodeJsChecksums = fs.readFileSync(path.join(REPO_ROOT, 'build', 'checksums', 'nodejs.txt'), 'utf8');
 	for (const line of nodeJsChecksums.split('\n')) {
 		const [checksum, name] = line.split(/\s+/);
@@ -186,7 +181,6 @@ if (defaultNodeTask) {
 function nodejs(platform, arch) {
 	const { fetchUrls, fetchGithub } = require('./lib/fetch');
 	const untar = require('gulp-untar');
-	const crypto = require('crypto');
 
 	if (arch === 'armhf') {
 		arch = 'armv7l';
@@ -198,7 +192,24 @@ function nodejs(platform, arch) {
 	log(`Downloading node.js ${nodeVersion} ${platform} ${arch} from ${product.nodejsRepository}...`);
 
 	const glibcPrefix = process.env['VSCODE_NODE_GLIBC'] ?? '';
-	const checksumSha256 = getNodeChecksum(nodeVersion, platform, arch, glibcPrefix);
+	let expectedName;
+	switch (platform) {
+		case 'win32':
+			expectedName = product.nodejsRepository !== 'https://nodejs.org' ?
+				`win-${arch}-node.exe` : `win-${arch}/node.exe`;
+			break;
+
+		case 'darwin':
+			expectedName = `node-v${nodeVersion}-${platform}-${arch}.tar.gz`;
+			break;
+		case 'linux':
+			expectedName = `node-v${nodeVersion}${glibcPrefix}-${platform}-${arch}.tar.gz`;
+			break;
+		case 'alpine':
+			expectedName = `node-v${nodeVersion}-linux-${arch}-musl.tar.gz`;
+			break;
+	}
+	const checksumSha256 = getNodeChecksum(expectedName);
 
 	if (checksumSha256) {
 		log(`Using SHA256 checksum for checking integrity: ${checksumSha256}`);
@@ -209,13 +220,13 @@ function nodejs(platform, arch) {
 	switch (platform) {
 		case 'win32':
 			return (product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: `win-${arch}-node.exe`, checksumSha256 }) :
+				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName, checksumSha256 }) :
 				fetchUrls(`/dist/v${nodeVersion}/win-${arch}/node.exe`, { base: 'https://nodejs.org', checksumSha256 }))
 				.pipe(rename('node.exe'));
 		case 'darwin':
 		case 'linux':
 			return (product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: `node-v${nodeVersion}${glibcPrefix}-${platform}-${arch}.tar.gz`, checksumSha256 }) :
+				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName, checksumSha256 }) :
 				fetchUrls(`/dist/v${nodeVersion}/node-v${nodeVersion}-${platform}-${arch}.tar.gz`, { base: 'https://nodejs.org', checksumSha256 })
 			).pipe(flatmap(stream => stream.pipe(gunzip()).pipe(untar())))
 				.pipe(filter('**/node'))
@@ -223,7 +234,7 @@ function nodejs(platform, arch) {
 				.pipe(rename('node'));
 		case 'alpine':
 			return product.nodejsRepository !== 'https://nodejs.org' ?
-				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: `node-v${nodeVersion}-${platform}-${arch}.tar.gz`, checksumSha256 })
+				fetchGithub(product.nodejsRepository, { version: `${nodeVersion}-${internalNodeVersion}`, name: expectedName, checksumSha256 })
 					.pipe(flatmap(stream => stream.pipe(gunzip()).pipe(untar())))
 					.pipe(filter('**/node'))
 					.pipe(util.setExecutableBit('**'))
@@ -309,23 +320,39 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		}
 
 		const name = product.nameShort;
-		const packageJsonStream = gulp.src(['remote/package.json'], { base: 'remote' })
-			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }));
 
-		const date = new Date().toISOString();
-
+		let packageJsonContents;
 		// --- Start Positron ---
+		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
+		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
+		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
+			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }))
+			// --- End Positron ---
+			.pipe(es.through(function (file) {
+				packageJsonContents = file.contents.toString();
+				this.emit('data', file);
+			}));
+
+		let productJsonContents;
 		const productJsonStream = gulp.src(['product.json'], { base: '.' })
-			.pipe(json({ commit, date, version, positronVersion }));
-		// --- End Positron ---
+			// --- Start Positron ---
+			.pipe(json({ commit, date: readISODate('out-build'), version, positronVersion, positronBuildNumber }))
+			// --- End Positron ---
+			.pipe(es.through(function (file) {
+				productJsonContents = file.contents.toString();
+				this.emit('data', file);
+			}));
 
 		const license = gulp.src(['remote/LICENSE'], { base: 'remote', allowEmpty: true });
 
 		const jsFilter = util.filter(data => !data.isDirectory() && /\.js$/.test(data.path));
 
-		const productionDependencies = getProductionDependencies(REMOTE_FOLDER);
+		// --- Start Positron ---
+		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d.path)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
-		const deps = gulp.src(dependenciesSrc, { base: 'remote', dot: true })
+
+		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
+			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/yarn.lock', '!**/*.js.map']))
 			.pipe(util.cleanNodeModules(path.join(__dirname, '.moduleignore')))
@@ -412,6 +439,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			);
 		}
 
+		result = inlineMeta(result, {
+			targetPaths: commonJSEntryPoints,
+			packageJsonFn: () => packageJsonContents,
+			productJsonFn: () => productJsonContents
+		});
+
 		return result.pipe(vfs.dest(destination));
 	};
 }
@@ -439,20 +472,20 @@ function tweakProductForServerWeb(product) {
 					loaderConfig: optimize.loaderConfig(),
 					inlineAmdImages: true,
 					bundleInfo: undefined,
-					fileContentMapper: createVSCodeWebFileContentMapper('.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// --- Start Positron ---
+					fileContentMapper: createVSCodeWebFileContentMapper(type === 'reh-web' ? '.build/web/extensions' : '.build/extensions', type === 'reh-web' ? tweakProductForServerWeb(product) : product)
+					// --- End Positron ---
 				},
 				commonJS: {
 					src: 'out-build',
-					entryPoints: [
-						'out-build/server-main.js',
-						'out-build/server-cli.js'
-					],
+					entryPoints: commonJSEntryPoints,
 					platform: 'node',
 					external: [
 						'minimist',
-						// TODO: we cannot inline `product.json` because
+						// We cannot inline `product.json` from here because
 						// it is being changed during build time at a later
 						// point in time (such as `checksums`)
+						// We have a manual step to inline these later.
 						'../product.json',
 						'../package.json'
 					]

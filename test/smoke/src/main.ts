@@ -55,6 +55,7 @@ import { setup as setupConsoleHistoryTest } from './areas/positron/console/conso
 import { setup as setupShinyTest } from './areas/positron/apps/shiny.test';
 import { setup as setupFastExecutionTest } from './areas/positron/editor/fast-execution.test';
 import { setup as setupInterpreterDropdownTest } from './areas/positron/top-action-bar/interpreter-dropdown.test';
+import { setup as setupTestExplorerTest } from './areas/positron/test-explorer/test-explorer.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -465,6 +466,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupConsoleHistoryTest(logger);
 	setupShinyTest(logger);
 	setupFastExecutionTest(logger);
+	setupTestExplorerTest(logger);
 	setupInterpreterDropdownTest(logger);
 	// --- End Positron ---
 });

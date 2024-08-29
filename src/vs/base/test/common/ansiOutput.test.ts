@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
+import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from 'vs/base/common/ansiOutput';
 
 //#region Test Helpers
@@ -453,7 +454,7 @@ const makeLines = (count: number): string[] => {
 	// Make the lines.
 	const lines: string[] = [];
 	for (let i = 0; i < count; i++) {
-		lines.push('0'.repeat(Math.floor(Math.random() * 1025)));
+		lines.push('0'.repeat(Math.floor(Math.random() * 1024) + (i === count - 1 ? 1 : 0)));
 	}
 
 	// Done.
@@ -1693,9 +1694,9 @@ suite('ANSIOutout', () => {
 
 	const testOutputLines = (count: number, terminator: string) => {
 		// Setup.
-		const lines = makeLines(10);
+		const lines = makeLines(count);
 		const ansiOutput = new ANSIOutput();
-		ansiOutput.processOutput(lines.join(LF));
+		ansiOutput.processOutput(lines.join(terminator));
 		const outputLines = ansiOutput.outputLines;
 
 		// Tests.
@@ -1721,6 +1722,9 @@ suite('ANSIOutout', () => {
 		assert.equal(ansiOutput['_outputLine' as keyof ANSIOutput] as unknown as number, outputLine);
 		assert.equal(ansiOutput['_outputColumn' as keyof ANSIOutput] as unknown as number, outputColumn);
 	};
+
+	// Ensure that no disposables are leaked.
+	ensureNoDisposablesAreLeakedInTestSuite();
 });
 
 //#endregion Test Suite

@@ -480,14 +480,24 @@ export interface ColumnProfileResult {
 	summary_stats?: ColumnSummaryStats;
 
 	/**
-	 * Results from summary_stats request
+	 * Results from small histogram request
 	 */
-	histogram?: ColumnHistogram;
+	small_histogram?: ColumnHistogram;
 
 	/**
-	 * Results from frequency_table request
+	 * Results from large histogram request
 	 */
-	frequency_table?: ColumnFrequencyTable;
+	large_histogram?: ColumnHistogram;
+
+	/**
+	 * Results from small frequency_table request
+	 */
+	small_frequency_table?: ColumnFrequencyTable;
+
+	/**
+	 * Results from large frequency_table request
+	 */
+	large_frequency_table?: ColumnFrequencyTable;
 
 }
 
@@ -668,9 +678,9 @@ export interface ColumnHistogramParams {
 	method: ColumnHistogramParamsMethod;
 
 	/**
-	 * Number of bins in the computed histogram
+	 * Maximum number of bins in the computed histogram.
 	 */
-	num_bins?: number;
+	num_bins: number;
 
 	/**
 	 * Sample quantiles (numbers between 0 and 1) to compute along with the
@@ -1017,7 +1027,7 @@ export type RowFilterParams = FilterBetween | FilterComparison | FilterTextSearc
 export type ColumnFilterParams = FilterTextSearch | FilterMatchDataTypes;
 
 /// Extra parameters for different profile types
-export type ColumnProfileParams = ColumnHistogramParams | ColumnFrequencyTableParams;
+export type ColumnProfileParams = ColumnHistogramParams | ColumnHistogramParams | ColumnFrequencyTableParams | ColumnFrequencyTableParams;
 
 /// A union of selection types
 export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataSelectionRange | DataSelectionIndices;
@@ -1102,8 +1112,10 @@ export enum ColumnFilterType {
 export enum ColumnProfileType {
 	NullCount = 'null_count',
 	SummaryStats = 'summary_stats',
-	FrequencyTable = 'frequency_table',
-	Histogram = 'histogram'
+	SmallFrequencyTable = 'small_frequency_table',
+	LargeFrequencyTable = 'large_frequency_table',
+	SmallHistogram = 'small_histogram',
+	LargeHistogram = 'large_histogram'
 }
 
 /**
@@ -1111,6 +1123,8 @@ export enum ColumnProfileType {
  */
 export enum ColumnHistogramParamsMethod {
 	Sturges = 'sturges',
+	FreedmanDiaconis = 'freedman_diaconis',
+	Scott = 'scott',
 	Fixed = 'fixed'
 }
 

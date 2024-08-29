@@ -20,6 +20,9 @@ declare module 'positron' {
 
 	/** The set of possible language runtime messages */
 	export enum LanguageRuntimeMessageType {
+		/** A message instructing the frontend to clear the output of a runtime execution. */
+		ClearOutput = 'clear_output',
+
 		/** A message representing output (text, plots, etc.) */
 		Output = 'output',
 
@@ -211,6 +214,14 @@ declare module 'positron' {
 
 		/** Additional binary data, if any */
 		buffers?: Array<Uint8Array>;
+	}
+
+	/**
+	 * LanguageRuntimeClearOutput is a LanguageRuntimeMessage instructing the frontend to clear the
+	 * output of a runtime execution. */
+	export interface LanguageRuntimeClearOutput extends LanguageRuntimeMessage {
+		/** Wait to clear the output until new output is available. */
+		wait: boolean;
 	}
 
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */

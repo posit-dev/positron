@@ -44,7 +44,13 @@ export class PositronConsole {
 		this.consoleRestartButton = new PositronBaseElement(CONSOLE_RESTART_BUTTON, this.code);
 	}
 
-	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string): Promise<IElement | undefined> {
+	async selectInterpreter(desiredInterpreterType: InterpreterType, desiredInterpreterString: string, skipWait: boolean = false): Promise<IElement | undefined> {
+
+		// don't try to start a new interpreter if one is currently starting up
+		if (!skipWait) {
+			await this.waitForReadyOrNoInterpreter();
+		}
+
 		let command: string;
 		if (desiredInterpreterType === InterpreterType.Python) {
 			command = 'python.setInterpreter';
@@ -73,7 +79,8 @@ export class PositronConsole {
 	): Promise<InterpreterInfo | undefined> {
 		const interpreterElem = await this.selectInterpreter(
 			desiredInterpreterType,
-			desiredInterpreter
+			desiredInterpreter,
+			true
 		);
 
 		if (interpreterElem) {
@@ -144,7 +151,7 @@ export class PositronConsole {
 	 * @param retryCount The number of times to retry waiting for the console to be ready.
 	 * @throws An error if the console is not ready after the retry count.
 	 */
-	async waitForReadyOrNoInterpreter(retryCount: number = 200) {
+	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
 		for (let i = 0; i < retryCount; i++) {
 			// Check if the console is ready with Python.
 			try {

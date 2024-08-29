@@ -56,6 +56,9 @@ export enum RuntimeOnlineState {
 
 /** The set of possible language runtime messages */
 export enum LanguageRuntimeMessageType {
+	/** A message instructing the frontend to clear the output of a runtime execution. */
+	ClearOutput = 'clear_output',
+
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
 

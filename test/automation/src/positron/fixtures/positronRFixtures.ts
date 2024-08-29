@@ -14,12 +14,12 @@ export class PositronRFixtures {
 
 	constructor(private app: Application) { }
 
-	static async SetupFixtures(app: Application) {
+	static async SetupFixtures(app: Application, skipReadinessCheck: boolean = false) {
 		const fixtures = new PositronRFixtures(app);
-		await fixtures.startRInterpreter();
+		await fixtures.startRInterpreter(skipReadinessCheck);
 	}
 
-	async startRInterpreter() {
+	async startRInterpreter(skipReadinessCheck: boolean = false) {
 
 		const desiredR = process.env.POSITRON_R_VER_SEL;
 		if (desiredR === undefined) {
@@ -29,7 +29,7 @@ export class PositronRFixtures {
 
 		// We currently don't capture fixtures in the Playwright trace, so take a screenshot on failure
 		try {
-			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR);
+			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.R, desiredR, skipReadinessCheck);
 			await this.app.workbench.positronConsole.waitForReady('>', 2000);
 		} catch (e) {
 			this.app.code.driver.takeScreenshot('startRInterpreter');
