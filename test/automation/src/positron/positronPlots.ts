@@ -58,8 +58,8 @@ export class PositronPlots {
 		return this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().locator(selector);
 	}
 
-	async waitForWebviewPlot(selector: string) {
-		await this.getWebviewPlotLocator(selector).waitFor({ state: 'visible' });
+	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible') {
+		await this.getWebviewPlotLocator(selector).waitFor({ state });
 	}
 
 	async clearPlots() {

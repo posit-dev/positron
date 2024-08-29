@@ -402,7 +402,36 @@ tree`;
 			});
 
 
-			it.skip('Python - Verifies boken Python widget [C730343]', async function () {
+			it('Python - Verifies ipywidget.Output Python widget', async function () {
+				const app = this.app as Application;
+
+				// Create the Output widget.
+				const script = `import ipywidgets
+output = ipywidgets.Output()
+output`;
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output', 'attached');
+
+				// Redirect a print statement to the Output widget.
+				await app.workbench.positronConsole.pasteCodeToConsole(`with output:
+    print('Hello, world!')
+`);  // Empty line needed for the statement to be considered complete.
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
+
+				// The printed statement should not be shown in the console.
+				const lines = await app.workbench.positronConsole.waitForConsoleContents();
+				expect(lines).not.toContain('Hello, world!');
+
+				// Clear the plots pane.
+				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronPlots.waitForNoPlots();
+
+			});
+
+
+			it.skip('Python - Verifies bokeh Python widget [C730343]', async function () {
 				const app = this.app as Application;
 
 				const script = `from bokeh.plotting import figure, output_file, show
