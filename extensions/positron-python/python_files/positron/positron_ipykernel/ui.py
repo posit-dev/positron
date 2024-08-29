@@ -6,6 +6,7 @@
 import inspect
 import logging
 import os
+import shutil
 import sys
 import webbrowser
 from pathlib import Path
@@ -205,6 +206,19 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 # windows will not accept file:// at beginning of url
                 if os.name == "nt":
                     url = urlparse(url).netloc or urlparse(url).path
+
+            # get path to the python_files/positron dir
+            parent = str(Path(__file__).parent.parent)
+
+            # bug where os.access is True on Windows when there is no access
+            # if the html file was not given a specific path, it will populate
+            # inside the positron_python extension. instead, put it in the cwd
+            if parent in url:
+                new_url = Path.cwd().joinpath('plot.html')
+                parsed = urlparse(url)
+                shutil.move(url.removeprefix('file://'), new_url)
+                url = str(Path(parsed.scheme).joinpath(new_url))
+
 
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
