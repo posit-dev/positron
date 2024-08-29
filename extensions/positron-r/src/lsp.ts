@@ -15,6 +15,7 @@ import {
 	LanguageClientOptions,
 	State,
 	StreamInfo,
+	RevealOutputChannelOn
 } from 'vscode-languageclient/node';
 
 import { Socket } from 'net';
@@ -118,7 +119,8 @@ export class ArkLsp implements vscode.Disposable {
 					fileEvents: vscode.workspace.createFileSystemWatcher('**/*.R')
 				},
 			errorHandler: new RErrorHandler(this._version, port),
-			outputChannel: outputChannel
+			outputChannel: outputChannel,
+			revealOutputChannelOn: RevealOutputChannelOn.Never
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
