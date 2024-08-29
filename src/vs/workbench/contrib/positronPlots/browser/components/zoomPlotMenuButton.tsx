@@ -9,7 +9,7 @@ import { IAction } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 
 export enum ZoomLevel {
-	Fill = 0,
+	Fit = 0,
 	Fifty = 0.5,
 	SeventyFive = 0.75,
 	OneHundred = 1,
@@ -22,7 +22,7 @@ interface ZoomPlotMenuButtonProps {
 }
 
 const zoomLevelMap = new Map<ZoomLevel, string>([
-	[ZoomLevel.Fill, nls.localize('positronZoomFill', 'Fill')],
+	[ZoomLevel.Fit, nls.localize('positronZoomFit', 'Fit')],
 	[ZoomLevel.Fifty, nls.localize('positronZoomFifty', '50%')],
 	[ZoomLevel.SeventyFive, nls.localize('positronZoomSeventyFive', '75%')],
 	[ZoomLevel.OneHundred, nls.localize('positronZoomActual', '100%')],
@@ -36,7 +36,7 @@ const zoomPlotTooltip = nls.localize('positronZoomPlotTooltip', "Set the plot zo
  * @returns The rendered component.
  */
 export const ZoomPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
-	const zoomLevels = [ZoomLevel.Fill, ZoomLevel.Fifty, ZoomLevel.SeventyFive, ZoomLevel.OneHundred, ZoomLevel.TwoHundred];
+	const zoomLevels = [ZoomLevel.Fit, ZoomLevel.Fifty, ZoomLevel.SeventyFive, ZoomLevel.OneHundred, ZoomLevel.TwoHundred];
 	// State.
 	const [activeZoomLabel, setActiveZoomLabel] =
 		React.useState(zoomLevelMap.get(props.zoomLevel) || ZoomLevel[props.zoomLevel]);
