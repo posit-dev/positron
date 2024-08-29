@@ -79,24 +79,100 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		positronIpywidgetsService = disposables.add(instantiationService.createInstance(PositronIPyWidgetsService));
 	});
 
-	async function createConsoleSession() {
-		// Listen for the plot client to be created.
-		let plotClient: WebviewPlotClient | undefined;
-		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
-
-		// Start a console session.
+	async function startConsoleSession() {
 		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
 		runtimeSessionService.startSession(session);
 		await timeout(0);
+		return session;
+	}
 
-		// Simulate the runtime sending an IPyWidgets output message.
-		const message = session.receiveOutputMessage({
+	async function createOutputClient() {
+		// Start a console session.
+		const session = await startConsoleSession();
+
+		// Create an IPyWidget client.
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
+
+		// Send an update message with a `msg_id` state.
+		const parentId = 'test-msg-id';
+		client.receiveData({
+			data: {
+				method: 'update',
+				state: { msg_id: parentId }
+			}
+		});
+		await timeout(0);
+
+		// The output client should handle messages to the `msg_id`.
+		assert(positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+
+		return { session, client, parentId };
+	}
+
+	test('output clients will handle messages to a given msg_id until msg_id is reset', async () => {
+		const { session, client, parentId } = await createOutputClient();
+
+		// Reset the `msg_id` state.
+		client.receiveData({
+			data: {
+				method: 'update',
+				state: { msg_id: '' }
+			}
+		});
+		await timeout(0);
+
+		// The output client should no longer handle messages to the parent ID.
+		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+	});
+
+	test('output clients will handle messages to a given msg_id until client is closed', async () => {
+		const { session, client, parentId } = await createOutputClient();
+
+		// Closed the client.
+		client.setClientState(RuntimeClientState.Closed);
+
+		// The output client should no longer handle messages to the parent ID.
+		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+	});
+
+	async function receiveIPyWidgetsResultMessage(
+		session: TestLanguageRuntimeSession,
+		parentId?: string,
+	) {
+		// Simulate the runtime sending a result message to the parent ID
+		// that the output client will handle.
+		const message = session.receiveResultMessage({
+			parent_id: parentId,
 			kind: RuntimeOutputKind.IPyWidget,
 			data: {
 				'application/vnd.jupyter.widget-view+json': {},
 			},
 		});
 		await timeout(0);
+
+		return message;
+	}
+
+	test('console session: no instance created if output client will handle message', async () => {
+		const { session, parentId } = await createOutputClient();
+
+		// Simulate the runtime sending an IPyWidgets output message.
+		const message = await receiveIPyWidgetsResultMessage(session, parentId);
+
+		// The IPyWidgets instance should not have been created.
+		assert(!positronIpywidgetsService.hasInstance(message.id));
+	});
+
+	async function createConsoleInstance() {
+		// Listen for the plot client to be created.
+		let plotClient: WebviewPlotClient | undefined;
+		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
+
+		// Start a console session.
+		const session = await startConsoleSession();
+
+		// Simulate the runtime sending an IPyWidgets output message.
+		const message = await receiveIPyWidgetsResultMessage(session);
 
 		// Check that an instance was created with the expected properties.
 		assert(positronIpywidgetsService.hasInstance(message.id));
@@ -114,7 +190,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	}
 
 	test('console session: create and end session', async () => {
-		const { session, plotClient } = await createConsoleSession();
+		const { session, plotClient } = await createConsoleInstance();
 
 		// End the session.
 		session.endSession();
@@ -125,7 +201,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('console session: respond to result message type and check for memory leaks', async () => {
-		const { session } = await createConsoleSession();
+		const { session } = await createConsoleInstance();
 
 		// Simulate the runtime sending a result message.
 		const message = session.receiveResultMessage({
@@ -142,8 +218,9 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
+
 	test('notebook session: check for memory leaks', async () => {
-		const { session } = await createNotebookSession();
+		const { session } = await createNotebookInstance();
 
 		await timeout(0);
 
@@ -152,7 +229,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
-	async function createNotebookSession() {
+	async function createNotebookInstance() {
 		const notebookUri = URI.file('notebook.ipynb');
 
 		// Add a mock notebook editor.
@@ -180,7 +257,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	}
 
 	test('notebook session: create and end session', async () => {
-		const { session } = await createNotebookSession();
+		const { session } = await createNotebookInstance();
 
 		// Check that an instance was created.
 		assert(positronIpywidgetsService.hasInstance(session.sessionId));
@@ -194,7 +271,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('notebook session: change notebook text model', async () => {
-		const { session, notebookEditor } = await createNotebookSession();
+		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Change the notebook's text model.
 		notebookEditor.changeModel(URI.file('other.ipynb'));
@@ -205,7 +282,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('notebook session: remove notebook editor', async () => {
-		const { session, notebookEditor } = await createNotebookSession();
+		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Check that an instance was created.
 		assert(positronIpywidgetsService.hasInstance(session.sessionId));
@@ -218,51 +295,6 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
 	});
 
-	const testOutputClientWillHandleMessage = async () => {
-		const { session } = await createConsoleSession();
-
-		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
-
-		// Send an update message with a `msg_id` state.
-		const parentId = 'test-msg-id';
-		client.receiveData({
-			data: {
-				method: 'update',
-				state: { msg_id: parentId }
-			}
-		});
-		await timeout(0);
-
-		// The output client should handle messages to the `msg_id`.
-		assert(positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-
-		return { session, client, parentId };
-	};
-
-	test('output clients will handle messages to a given msg_id until msg_id is reset', async () => {
-		const { session, client, parentId } = await testOutputClientWillHandleMessage();
-
-		// Reset the `msg_id` state.
-		client.receiveData({
-			data: {
-				method: 'update',
-				state: { msg_id: '' }
-			}
-		});
-		await timeout(0);
-
-		// The output client should no longer handle messages to the parent ID.
-		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-	});
-
-	test('output clients will handle messages to a given msg_id until client is closed', async () => {
-		const { session, client, parentId } = await testOutputClientWillHandleMessage();
-
-		client.setClientState(RuntimeClientState.Closed);
-
-		// The output client should no longer handle messages to the parent ID.
-		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-	});
 });
 
 suite('Positron - IPyWidgetsInstance constructor', () => {
