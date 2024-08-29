@@ -30,6 +30,7 @@ def set_holoviews_extension(ui_service: UiService) -> None:
                 Custom notebook extension for HoloViews that notifies the frontend
                 of new extension loads.
                 """
+
                 def __call__(self, *args, **kwargs) -> None:
                     # Notify the frontend that a new holoviews extension has been loaded, so
                     # that it can clear stored messages for the session.
