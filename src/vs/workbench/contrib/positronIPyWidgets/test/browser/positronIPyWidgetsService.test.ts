@@ -93,8 +93,12 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// Create an IPyWidget client.
 		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
 
-		// Send an update message with a `msg_id` state.
-		const parentId = 'test-msg-id';
+		const parentId = 'test-parent-id';
+
+		// The output client should not handle messages to the parent ID yet.
+		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+
+		// Update the client's msg_id to the test parent ID.
 		client.receiveData({
 			data: {
 				method: 'update',
