@@ -220,7 +220,7 @@ show(p)
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")
 def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
     """
-    Running holoviews/holoviz code that sets an extension will trigger an event eon the ui comm that
+    Running holoviews/holoviz code that sets an extension will trigger an event on the ui comm that
     can be used on the front end to react appropriately.
     """
 
