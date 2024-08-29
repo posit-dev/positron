@@ -357,7 +357,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		// When the webview is ready to receive messages, send the render requests.
 		notebookOutputWebview.onDidInitialize(() => {
 			// Loop through all the messages and render them in the webview
-			for (const { output: message, mimeType, renderer } of messagesInfo) {
+			for (let i = 0; i < messagesInfo.length; i++) {
+				const { output: message, mimeType, renderer } = messagesInfo[i];
 				const data = message.data[mimeType];
 				// Send a message to the webview to render the output.
 				const valueBytes = typeof (data) === 'string' ? VSBuffer.fromString(data) :
@@ -368,7 +369,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 				const webviewMessage: IPositronRenderMessage = {
 					type: 'positronRender',
 					outputId: message.id,
-					elementId: 'container',
+					elementId: `positron-container-${i}`,
 					rendererId: renderer.id,
 					mimeType,
 					metadata: message.metadata,

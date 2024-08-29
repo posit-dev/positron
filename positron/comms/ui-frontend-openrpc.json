@@ -445,6 +445,20 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "load_holoviews_extension",
+			"summary": "A holoviews extension has been loaded",
+			"description": "This event is used to signal that a holoviews extension has been loaded so that the front-end can update the stored messages it replays to the webviews when rendering plots",
+			"params": [
+				{
+					"name": "extension",
+					"description": "The name of the extension that has been loaded",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
 		}
 	],
 	"components": {
