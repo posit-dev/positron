@@ -15,7 +15,7 @@ import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/se
 import { NotebookEditorWidgetService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorServiceImpl';
 import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { INotebookRendererInfo, INotebookStaticPreloadInfo } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { INotebookRendererInfo, INotebookStaticPreloadInfo, IOrderedMimeType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { NotebookOutputRendererInfo } from 'vs/workbench/contrib/notebook/common/notebookOutputRenderer';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
@@ -307,18 +307,20 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let logService: ILogService;
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
+	let notebookService: INotebookService;
 
 	setup(async () => {
 		logService = new NullLogger() as unknown as ILogService;
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		notebookService = new TestNotebookService() as unknown as INotebookService;
 
 		// Set the runtime state to ready.
 		session.setRuntimeState(RuntimeState.Ready);
 	});
 
 	async function createIPyWidgetsInstance() {
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, {} as INotebookService, logService));
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, notebookService, logService));
 		await timeout(0);
 		return ipywidgetsInstance;
 	}
@@ -363,10 +365,11 @@ suite('Positron - IPyWidgetsInstance', () => {
 		const logService = new NullLogger() as unknown as ILogService;
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		const notebookService = new TestNotebookService() as unknown as INotebookService;
 		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
-			{} as INotebookService,
+			notebookService,
 			logService,
 		));
 
@@ -414,6 +417,25 @@ suite('Positron - IPyWidgetsInstance', () => {
 		assert(!ipywidgetsInstance.hasClient(clientId));
 	});
 
+	test('from webview: get_preferred_renderer', async () => {
+		// Simulate the webview sending a get preferred renderer message.
+		const msgId = 'test-msg-id';
+		messaging.receiveMessage({
+			type: 'get_preferred_renderer',
+			msg_id: msgId,
+			mime_type: 'test-mime-type',
+		});
+
+		// Check that the initialize result was sent.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'get_preferred_renderer_result',
+			parent_id: msgId,
+			// The positron-ipywidgets renderer ID is currently always returned by
+			// TestNotebookService.getPreferredRenderer.
+			renderer_id: 'positron-ipywidgets',
+		} as ToWebviewMessage]);
+	});
+
 	test('to webview: comm_open', async () => {
 		// Create a client.
 		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
@@ -438,4 +460,80 @@ suite('Positron - IPyWidgetsInstance', () => {
 		// Check that the client was removed.
 		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
 	});
+
+	test('to webview: kernel_message, display_data', async () => {
+		const message = session.receiveOutputMessage({});
+
+		// Check that the display_data kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'display_data',
+				data: message.data,
+				metadata: message.metadata,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, execute_result', async () => {
+		const message = session.receiveResultMessage({});
+
+		// Check that the display_data kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'execute_result',
+				data: message.data,
+				metadata: message.metadata,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, stream', async () => {
+		const message = session.receiveStreamMessage({});
+
+		// Check that the stream kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'stream',
+				name: message.name,
+				text: message.text,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, error', async () => {
+		const message = session.receiveErrorMessage({});
+
+		// Check that the error kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'error',
+				name: message.name,
+				message: message.message,
+				traceback: message.traceback,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, clear_output', async () => {
+		const message = session.receiveClearOutputMessage({});
+
+		// Check that the clear_output kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'clear_output',
+				wait: message.wait,
+			}
+		} as ToWebviewMessage]);
+	});
+
 });

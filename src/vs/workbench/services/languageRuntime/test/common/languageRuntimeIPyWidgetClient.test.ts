@@ -130,7 +130,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		assert.deepStrictEqual(messaging.messagesToWebview, []);
 	});
 
-	test('to webview: update', async () => {
+	test('to webview: comm_msg update', async () => {
 		// Simulate an 'update' message from the client.
 		const event = { data: { method: 'update', some_key: 'some_value' } };
 		client.receiveData(event);
@@ -146,7 +146,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		}]);
 	});
 
-	test('to webview: custom with buffers', async () => {
+	test('to webview: comm_msg custom with buffers', async () => {
 		// Simulate a 'custom' message from the client with buffers.
 		const event = {
 			data: { method: 'update', some_key: 'some_value' },
