@@ -18,16 +18,17 @@ const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[
 export class PositronExplorer {
 	explorerProjectTitle: PositronTextElement;
 
-	constructor(private code: Code) {
+	constructor(protected code: Code) {
 		this.explorerProjectTitle = new PositronTextElement(POSITRON_EXPLORER_PROJECT_TITLE, this.code);
 	}
 
 	/**
 	 * Constructs a string array of the top-level project files/directories in the explorer.
+	 * @param {string} locator - The locator for the project files/directories in the explorer.
 	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
 	 */
-	async getExplorerProjectFiles() {
-		const explorerProjectFiles = this.code.driver.getLocator(POSITRON_EXPLORER_PROJECT_FILES);
+	async getExplorerProjectFiles(locator: string = POSITRON_EXPLORER_PROJECT_FILES): Promise<string[]> {
+		const explorerProjectFiles = this.code.driver.getLocator(locator);
 		const filesList = await explorerProjectFiles.all();
 		const fileNames = filesList.map(async file => {
 			const fileText = await file.textContent();
