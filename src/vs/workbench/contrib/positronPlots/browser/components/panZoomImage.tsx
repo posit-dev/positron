@@ -36,10 +36,10 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		}
 		// scale by the zoom level
 		// if the zoom level is Fill, then the image should fill the container using css
-		const adjustedWidth = props.zoom === ZoomLevel.Fill ? naturalWidth : naturalWidth * props.zoom;
-		const adjustedHeight = props.zoom === ZoomLevel.Fill ? naturalHeight : naturalHeight * props.zoom;
+		const adjustedWidth = props.zoom === ZoomLevel.Fit ? naturalWidth : naturalWidth * props.zoom;
+		const adjustedHeight = props.zoom === ZoomLevel.Fit ? naturalHeight : naturalHeight * props.zoom;
 
-		if (props.zoom === ZoomLevel.Fill) {
+		if (props.zoom === ZoomLevel.Fit) {
 			imageRef.current.style.width = '100%';
 			imageRef.current.style.height = '100%';
 			imageRef.current.style.objectFit = 'contain';
