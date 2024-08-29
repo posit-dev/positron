@@ -11,7 +11,7 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
@@ -89,6 +89,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private readonly _startupFailureEmitter = new Emitter<ILanguageRuntimeStartupFailure>();
 	private readonly _exitEmitter = new Emitter<ILanguageRuntimeExit>();
 
+	private readonly _onDidReceiveRuntimeMessageClearOutputEmitter = new Emitter<ILanguageRuntimeMessageClearOutput>();
 	private readonly _onDidReceiveRuntimeMessageOutputEmitter = new Emitter<ILanguageRuntimeMessageOutput>();
 	private readonly _onDidReceiveRuntimeMessageResultEmitter = new Emitter<ILanguageRuntimeMessageResult>();
 	private readonly _onDidReceiveRuntimeMessageStreamEmitter = new Emitter<ILanguageRuntimeMessageStream>();
@@ -240,6 +241,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	onDidEndSession: Event<ILanguageRuntimeExit>;
 
+	onDidReceiveRuntimeMessageClearOutput = this._onDidReceiveRuntimeMessageClearOutputEmitter.event;
 	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutputEmitter.event;
 	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResultEmitter.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStreamEmitter.event;
@@ -255,6 +257,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		// Add the message to the event queue
 		const event = new QueuedRuntimeMessageEvent(message.event_clock, handled, message);
 		this.addToEventQueue(event);
+	}
+
+	emitDidReceiveRuntimeMessageClearOutput(languageRuntimeMessageClearOutput: ILanguageRuntimeMessageClearOutput) {
+		this._onDidReceiveRuntimeMessageClearOutputEmitter.fire(languageRuntimeMessageClearOutput);
 	}
 
 	emitDidReceiveRuntimeMessageOutput(languageRuntimeMessageOutput: ILanguageRuntimeMessageOutput) {
@@ -836,6 +842,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		switch (message.type) {
 			case LanguageRuntimeMessageType.Stream:
 				this.emitDidReceiveRuntimeMessageStream(message as ILanguageRuntimeMessageStream);
+				break;
+
+			case LanguageRuntimeMessageType.ClearOutput:
+				this.emitDidReceiveRuntimeMessageClearOutput(message as ILanguageRuntimeMessageClearOutput);
 				break;
 
 			case LanguageRuntimeMessageType.Output:

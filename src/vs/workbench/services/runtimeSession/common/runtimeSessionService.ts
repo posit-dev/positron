@@ -6,7 +6,7 @@
 import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult } from '../../languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput } from '../../languageRuntime/common/languageRuntimeService';
 import { RuntimeClientType, IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { IDisposable } from 'vs/base/common/lifecycle';
@@ -107,6 +107,7 @@ export interface ILanguageRuntimeSession {
 	 */
 	onDidCreateClientInstance: Event<ILanguageRuntimeClientCreatedEvent>;
 
+	onDidReceiveRuntimeMessageClearOutput: Event<ILanguageRuntimeMessageClearOutput>;
 	onDidReceiveRuntimeMessageOutput: Event<ILanguageRuntimeMessageOutput>;
 	onDidReceiveRuntimeMessageResult: Event<ILanguageRuntimeMessageResult>;
 	onDidReceiveRuntimeMessageStream: Event<ILanguageRuntimeMessageStream>;

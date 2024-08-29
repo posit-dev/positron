@@ -9,7 +9,7 @@ import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -21,6 +21,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private readonly _onDidEndSession = this._register(new Emitter<ILanguageRuntimeExit>());
 	private readonly _onDidCreateClientInstance = this._register(new Emitter<ILanguageRuntimeClientCreatedEvent>());
 
+	private readonly _onDidReceiveRuntimeMessageClearOutput = this._register(new Emitter<ILanguageRuntimeMessageClearOutput>());
 	private readonly _onDidReceiveRuntimeMessageOutput = this._register(new Emitter<ILanguageRuntimeMessageOutput>());
 	private readonly _onDidReceiveRuntimeMessageResult = this._register(new Emitter<ILanguageRuntimeMessageResult>());
 	private readonly _onDidReceiveRuntimeMessageStream = this._register(new Emitter<ILanguageRuntimeMessageStream>());
@@ -42,6 +43,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidEndSession = this._onDidEndSession.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstance.event;
 
+	onDidReceiveRuntimeMessageClearOutput = this._onDidReceiveRuntimeMessageClearOutput.event;
 	onDidReceiveRuntimeMessageOutput = this._onDidReceiveRuntimeMessageOutput.event;
 	onDidReceiveRuntimeMessageResult = this._onDidReceiveRuntimeMessageResult.event;
 	onDidReceiveRuntimeMessageStream = this._onDidReceiveRuntimeMessageStream.event;
@@ -217,6 +219,15 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			metadata: message.metadata ?? new Map(),
 			buffers: [],
 		};
+	}
+
+	receiveClearOutputMessage(message: Partial<ILanguageRuntimeMessageClearOutput>) {
+		const clearOutput = {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
+			wait: message.wait ?? false,
+		};
+		this._onDidReceiveRuntimeMessageClearOutput.fire(clearOutput);
+		return clearOutput;
 	}
 
 	receiveOutputMessage(message: Partial<ILanguageRuntimeMessageOutput>) {
