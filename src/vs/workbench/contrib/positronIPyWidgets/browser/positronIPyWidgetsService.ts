@@ -99,6 +99,8 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		disposables.add(toDisposable(() => this._sessionToDisposablesMap.delete(session.sessionId)));
 
 		// Create an output client manager for the session.
+		// This needs to be created before any webviews, since an output client may intercept
+		// a message that would otherwise have created an ipywidgets webview plot.
 		this._outputManagersBySessionId.set(session.sessionId, new IPyWidgetsOutputClientManager(session));
 		disposables.add(toDisposable(() => this._outputManagersBySessionId.deleteAndDispose(session.sessionId)));
 
@@ -344,7 +346,7 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}
 
-		// TODO: Maybe only send these if there's a registered message handler?
+		// Forward output messages from the runtime to the webview.
 		this._register(_session.onDidReceiveRuntimeMessageOutput(message => {
 			this._messaging.postMessage({
 				type: 'kernel_message',
@@ -357,6 +359,7 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}));
 
+		// Forward result messages from the runtime to the webview.
 		this._register(_session.onDidReceiveRuntimeMessageResult(message => {
 			this._messaging.postMessage({
 				type: 'kernel_message',
@@ -369,6 +372,7 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}));
 
+		// Forward stream messages from the runtime to the webview.
 		this._register(_session.onDidReceiveRuntimeMessageStream(message => {
 			this._messaging.postMessage({
 				type: 'kernel_message',
@@ -381,6 +385,7 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}));
 
+		// Forward error messages from the runtime to the webview.
 		this._register(_session.onDidReceiveRuntimeMessageError(message => {
 			this._messaging.postMessage({
 				type: 'kernel_message',
@@ -394,6 +399,7 @@ export class IPyWidgetsInstance extends Disposable {
 			});
 		}));
 
+		// Forward output messages from the runtime to the webview.
 		this._register(_session.onDidReceiveRuntimeMessageClearOutput(message => {
 			this._messaging.postMessage({
 				type: 'kernel_message',

@@ -849,6 +849,7 @@ export class NotebookService extends Disposable implements INotebookService {
 			.sort((a, b) => (a.rendererId === RENDERER_NOT_AVAILABLE ? 1 : 0) - (b.rendererId === RENDERER_NOT_AVAILABLE ? 1 : 0));
 	}
 	// --- Start Positron ---
+	/** Same as getOutputMimeTypeInfo but with a simpler interface. */
 	getMimeTypeInfo(viewType: string | undefined, kernelProvides: readonly string[] | undefined, mimeTypes: string[]): readonly IOrderedMimeType[] {
 		const sorted = this._displayOrder.sort(new Set<string>(mimeTypes));
 		const notebookProviderInfo = viewType ? this.notebookProviderInfoStore.get(viewType) : undefined;

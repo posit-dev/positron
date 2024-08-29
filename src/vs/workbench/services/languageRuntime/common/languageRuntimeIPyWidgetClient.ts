@@ -76,7 +76,18 @@ export class IPyWidgetClientInstance extends Disposable {
 				this._logService.trace(`RECV comm_msg: ${JSON.stringify(data)}`);
 			}
 
-			this.postCommMessage(event);
+			switch (data.method) {
+				case 'custom':
+				case 'update':
+					this.postCommMessage(event);
+					break;
+				default:
+					this._logService.warn(
+						`Unhandled message from client ${this._client.getClientId()} for webview: `
+						+ JSON.stringify(data)
+					);
+					break;
+			}
 		}));
 
 		// When the client is closed, notify the webview and emit the close event.
