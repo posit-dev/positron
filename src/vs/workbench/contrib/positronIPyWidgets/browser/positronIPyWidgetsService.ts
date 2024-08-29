@@ -279,7 +279,7 @@ class IPyWidgetsOutputClientManager extends Disposable {
 		const outputClient = new IPyWidgetsOutputClientInstance(client);
 		this._clients.set(clientId, outputClient);
 
-		// Delete and dispose the client when it is closed.
+		// Delete and dispose the output client when it is closed.
 		this._register(Event.fromObservable(client.clientState)(state => {
 			if (state === RuntimeClientState.Closed) {
 				this._clients.deleteAndDispose(clientId);

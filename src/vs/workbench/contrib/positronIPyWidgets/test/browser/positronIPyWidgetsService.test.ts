@@ -217,6 +217,52 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// Check that the instance was removed.
 		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
 	});
+
+	const testOutputClientWillHandleMessage = async () => {
+		const { session } = await createConsoleSession();
+
+		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
+
+		// Send an update message with a `msg_id` state.
+		const parentId = 'test-msg-id';
+		client.receiveData({
+			data: {
+				method: 'update',
+				state: { msg_id: parentId }
+			}
+		});
+		await timeout(0);
+
+		// The output client should handle messages to the `msg_id`.
+		assert(positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+
+		return { session, client, parentId };
+	};
+
+	test('output clients will handle messages to a given msg_id until msg_id is reset', async () => {
+		const { session, client, parentId } = await testOutputClientWillHandleMessage();
+
+		// Reset the `msg_id` state.
+		client.receiveData({
+			data: {
+				method: 'update',
+				state: { msg_id: '' }
+			}
+		});
+		await timeout(0);
+
+		// The output client should no longer handle messages to the parent ID.
+		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+	});
+
+	test('output clients will handle messages to a given msg_id until client is closed', async () => {
+		const { session, client, parentId } = await testOutputClientWillHandleMessage();
+
+		client.setClientState(RuntimeClientState.Closed);
+
+		// The output client should no longer handle messages to the parent ID.
+		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
+	});
 });
 
 suite('Positron - IPyWidgetsInstance constructor', () => {
