@@ -184,60 +184,32 @@ export class NotebookController implements vscode.Disposable {
 
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
 
-		// Create a promise tracking the current message for the cell. Each execution may
-		// receive multiple messages, which we want to handle sequentially.
-		let currentMessagePromise = Promise.resolve();
+		let success: boolean;
+		try {
+			await executeCode(
+				session,
+				cell.document.getText(),
+				cellId,
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Stop,
+				message => this.handleMessageForCellExecution(
+					message, currentExecution, session.metadata.sessionId
+				),
+			);
+			success = true;
+		} catch (error) {
+			// No need to log since the error message will be displayed in the cell output.
+			success = false;
+		}
 
-		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
-		// receives the final error or status idle message.
-		return new Promise<void>((resolve, reject) => {
-			const handler = session.onDidReceiveRuntimeMessage(async message => {
-				// Only handle replies to this execution.
-				if (message.parent_id !== cellId) {
-					return;
-				}
-
-				// Chain the message handler after the current one.
-				currentMessagePromise = currentMessagePromise.then(async () => {
-					const isExecutionCompleted = await this.handleMessageForCellExecution(
-						message, currentExecution, session.metadata.sessionId
-					);
-					if (isExecutionCompleted) {
-						handler.dispose();
-						resolve();
-					}
-				}).catch(error => {
-					handler.dispose();
-					reject(error);
-				});
-			});
-
-			// Execute the cell.
-			try {
-				session.execute(
-					cell.document.getText(),
-					cellId,
-					positron.RuntimeCodeExecutionMode.Interactive,
-					positron.RuntimeErrorBehavior.Stop
-				);
-			} catch (error) {
-				handler.dispose();
-				reject(error);
-			}
-		});
+		currentExecution.end(success, Date.now());
 	}
 
 	private async handleMessageForCellExecution(
 		message: positron.LanguageRuntimeMessage,
 		currentExecution: vscode.NotebookCellExecution,
 		sessionId: string,
-	): Promise<boolean> {
-		// Track whether the cell execution is completed i.e. whether this is the last runtime message for the cell.
-		let isExecutionCompleted = false;
-
-		// The error message, if any.
-		let error: positron.LanguageRuntimeError | undefined;
-
+	): Promise<void> {
 		// Outputs to append to the cell, if any.
 		let cellOutput: vscode.NotebookCellOutput | undefined;
 
@@ -262,13 +234,7 @@ export class NotebookController implements vscode.Disposable {
 				cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
 				break;
 			case positron.LanguageRuntimeMessageType.Error:
-				error = message as positron.LanguageRuntimeError;
-				cellOutput = handleRuntimeMessageError(error);
-				break;
-			case positron.LanguageRuntimeMessageType.State:
-				if ((message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
-					isExecutionCompleted = true;
-				}
+				cellOutput = handleRuntimeMessageError(message as positron.LanguageRuntimeError);
 				break;
 		}
 
@@ -291,20 +257,6 @@ export class NotebookController implements vscode.Disposable {
 				currentExecution.appendOutput(cellOutput);
 			}
 		}
-
-		// If there's an error, end the execution and throw the error.
-		if (error) {
-			currentExecution.end(false, Date.now());
-			throw error;
-		}
-
-		// If the execution completed successfully, end the execution.
-		if (isExecutionCompleted) {
-			currentExecution.end(true, Date.now());
-		}
-
-		return isExecutionCompleted;
-
 	}
 
 	/** Get the progress options for starting a runtime.  */
@@ -318,6 +270,62 @@ export class NotebookController implements vscode.Disposable {
 	public async dispose() {
 		this._disposables.forEach(d => d.dispose());
 	}
+}
+
+function executeCode(
+	session: positron.LanguageRuntimeSession,
+	code: string,
+	id: string,
+	mode: positron.RuntimeCodeExecutionMode,
+	errorBehavior: positron.RuntimeErrorBehavior,
+	callback: (message: positron.LanguageRuntimeMessage) => Promise<unknown>,
+) {
+	return new Promise<void>((resolve, reject) => {
+		// Create a promise tracking the current message for the cell. Each execution may
+		// receive multiple messages, which we want to handle in sequence.
+		let currentMessagePromise = Promise.resolve();
+
+		const handler = session.onDidReceiveRuntimeMessage(async message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== id) {
+				return;
+			}
+
+			// Chain the message promise, so that messages are processed in sequence.
+			currentMessagePromise = currentMessagePromise.then(async () => {
+				await callback(message);
+
+				// Handle the message.
+				if (message.type === positron.LanguageRuntimeMessageType.Error) {
+					const error = message as positron.LanguageRuntimeError;
+					throw error;
+				} else if (message.type === positron.LanguageRuntimeMessageType.State) {
+					const state = message as positron.LanguageRuntimeState;
+					if (state.state === positron.RuntimeOnlineState.Idle) {
+						handler.dispose();
+						resolve();
+					}
+				}
+			}).catch(error => {
+				handler.dispose();
+				reject(error);
+				throw error;
+			});
+		});
+
+		// Execute the cell.
+		try {
+			session.execute(
+				code,
+				id,
+				mode,
+				errorBehavior,
+			);
+		} catch (error) {
+			handler.dispose();
+			reject(error);
+		}
+	});
 }
 
 /**
