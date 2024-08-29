@@ -59,6 +59,26 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
     return api;
 }
 
+// --- Start Positron ---
+/**
+ * Make use of the component (e.g. register with VS Code).
+ */
+export async function activateAndRefreshEnvs(api: IDiscoveryAPI): Promise<ActivationResult> {
+    /**
+     * Force a background refresh of the environments for each extension activation
+     *
+     * Based off activate(), but not including the logic around triggering only if
+     * it has not previously been triggered
+     */
+
+    api.triggerRefresh().ignoreErrors();
+
+    return {
+        fullyReady: Promise.resolve(),
+    };
+}
+// --- End Positron ---
+
 /**
  * Make use of the component (e.g. register with VS Code).
  */
@@ -72,38 +92,34 @@ export async function activate(api: IDiscoveryAPI, ext: ExtensionState): Promise
      */
     const folders = vscode.workspace.workspaceFolders;
     // Trigger discovery if environment cache is empty.
-    // --- Start Positron ---
 
-    // do not refresh conditionally on if quickpick was opened once
-    // const wasTriggered = getGlobalStorage<PythonEnvInfo[]>(ext.context, PYTHON_ENV_INFO_CACHE_KEY, []).get().length > 0;
-    // if (!wasTriggered) {
-    //     api.triggerRefresh().ignoreErrors();
-    //     folders?.forEach(async (folder) => {
-    //         const wasTriggeredForFolder = getGlobalStorage<boolean>(
-    //             ext.context,
-    //             `PYTHON_WAS_DISCOVERY_TRIGGERED_${normCasePath(folder.uri.fsPath)}`,
-    //             false,
-    //         );
-    //         await wasTriggeredForFolder.set(true);
-    //     });
-    // } else {
-
-    // Figure out which workspace folders need to be activated if any.
-    folders?.forEach(async (folder) => {
-        const wasTriggeredForFolder = getGlobalStorage<boolean>(
-            ext.context,
-            `PYTHON_WAS_DISCOVERY_TRIGGERED_${normCasePath(folder.uri.fsPath)}`,
-            false,
-        );
-        if (!wasTriggeredForFolder.get()) {
-            api.triggerRefresh({
-                searchLocations: { roots: [folder.uri], doNotIncludeNonRooted: true },
-            }).ignoreErrors();
+    const wasTriggered = getGlobalStorage<PythonEnvInfo[]>(ext.context, PYTHON_ENV_INFO_CACHE_KEY, []).get().length > 0;
+    if (!wasTriggered) {
+        api.triggerRefresh().ignoreErrors();
+        folders?.forEach(async (folder) => {
+            const wasTriggeredForFolder = getGlobalStorage<boolean>(
+                ext.context,
+                `PYTHON_WAS_DISCOVERY_TRIGGERED_${normCasePath(folder.uri.fsPath)}`,
+                false,
+            );
             await wasTriggeredForFolder.set(true);
-        }
-    });
-    // }
-    // --- End Positron ---
+        });
+    } else {
+        // Figure out which workspace folders need to be activated if any.
+        folders?.forEach(async (folder) => {
+            const wasTriggeredForFolder = getGlobalStorage<boolean>(
+                ext.context,
+                `PYTHON_WAS_DISCOVERY_TRIGGERED_${normCasePath(folder.uri.fsPath)}`,
+                false,
+            );
+            if (!wasTriggeredForFolder.get()) {
+                api.triggerRefresh({
+                    searchLocations: { roots: [folder.uri], doNotIncludeNonRooted: true },
+                }).ignoreErrors();
+                await wasTriggeredForFolder.set(true);
+            }
+        });
+    }
 
     return {
         fullyReady: Promise.resolve(),
