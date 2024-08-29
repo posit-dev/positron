@@ -100,8 +100,6 @@ export interface IKernelMessageError {
 
 export interface IKernelMessageExecuteResult {
 	type: 'execute_result';
-	// TODO: Runtime message doesn't currently include this...
-	// execution_count: number | null;
 	data: unknown;
 	metadata: unknown;
 }
