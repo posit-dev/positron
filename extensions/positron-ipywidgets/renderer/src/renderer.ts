@@ -18,9 +18,10 @@ const JUPYTER_TO_VSCODE_MIME_TYPES = new Map([
 
 /**
  * A Jupyter widget renderer that delegates rendering to a VSCode notebook renderer.
- * This is required by output widgets which intercept and display outputs in their own way.
+ * This is required by output widgets which intercept outputs.
  */
 export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
+	/** The preferred mime type, determined by the render mime registry. */
 	private readonly _mimeType: string;
 
 	constructor(
@@ -43,9 +44,13 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 
 		// Wait for the response from the main thread.
 		const rendererId = await new Promise<IGetPreferredRendererResultToWebview['renderer_id']>((resolve, reject) => {
-			setTimeout(() => reject(new Error('Timeout waiting for renderer ID')), 5000);
+			const timeout = setTimeout(() => {
+				disposable.dispose();
+				reject(new Error('Timeout waiting for renderer ID'));
+			}, 5000);
 			const disposable = this._messaging.onDidReceiveMessage((message) => {
 				if (message.type === 'get_preferred_renderer_result' && message.parent_id === msgId) {
+					clearTimeout(timeout);
 					disposable.dispose();
 					resolve(message.renderer_id);
 				}
@@ -53,7 +58,7 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 		});
 
 		if (!rendererId) {
-			throw new Error(`No preferred renderer for mime type: ${this._mimeType}`);
+			throw new Error(`No renderer found for mime type: ${vscodeMimeType}`);
 		}
 
 		// Get the VSCode renderer.
@@ -63,23 +68,21 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 		}
 
 		// Render the model using the VSCode renderer, stubbing as needed.
-		const source = model.data[this._mimeType] as any;
-		const sourceString = typeof source === 'string' ? source : JSON.stringify(source);
-		const sourceBytes = new TextEncoder().encode(sourceString);
+		const sourceJson = model.data[this._mimeType];
 		const outputItem = {
 			id: uuid(),
 			mime: vscodeMimeType,
 			data() {
-				return sourceBytes;
+				return new TextEncoder().encode(this.text());
 			},
 			text() {
-				return sourceString;
+				return typeof sourceJson === 'string' ? sourceJson : JSON.stringify(sourceJson);
 			},
 			json() {
-				return source;
+				return sourceJson;
 			},
 			blob() {
-				return new Blob([sourceBytes], { type: this.mime });
+				return new Blob([this.data()], { type: this.mime });
 			},
 			metadata: {},
 		} as OutputItem;

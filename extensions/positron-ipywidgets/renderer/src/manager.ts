@@ -47,23 +47,27 @@ function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
 
 /**
  * Create a RenderMimeRegistry with renderer factories for all standard mime types with
- * standard ranks, but all using the PositronRenderer.
+ * default ranks, but all using the PositronRenderer.
+ *
+ * The RenderMimeRegistry is used by the output widget view's output area to render outputs.
  */
 function createRenderMimeRegistry(messaging: Messaging, context: RendererContext<any>): RenderMimeRegistry {
 	const positronRendererFactory = (options: IRenderMime.IRendererOptions) => {
 		return new PositronRenderer(options, messaging, context);
 	};
 
-	const factories = [];
+	const initialFactories = [];
+
 	// Reroute all standard mime types (with their default ranks) to the PositronRenderer.
 	for (const factory of standardRendererFactories) {
-		factories.push({
+		initialFactories.push({
 			...factory,
 			createRenderer: positronRendererFactory,
 		});
 	}
+
 	// Also handle known widget mimetypes.
-	factories.push({
+	initialFactories.push({
 		safe: false,
 		mimeTypes: [
 			'application/geo+json',
@@ -84,7 +88,7 @@ function createRenderMimeRegistry(messaging: Messaging, context: RendererContext
 		],
 		createRenderer: positronRendererFactory,
 	});
-	return new RenderMimeRegistry({ initialFactories: factories });
+	return new RenderMimeRegistry({ initialFactories });
 }
 
 /**
@@ -96,6 +100,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	/** The pending load from kernel promise, if any. */
 	private _pendingLoadFromKernel: Promise<void> | undefined;
 
+	/** The RenderMimeRegistry used to render outputs in output areas. */
 	public readonly renderMime: RenderMimeRegistry;
 
 	constructor(
@@ -262,12 +267,18 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	}
 
 	loadFromKernel(): Promise<void> {
-		// Batch multiple calls to load from the kernel.
+		// Batch calls received while awaiting.
 		this._pendingLoadFromKernel ??= this._loadFromKernel()
 			.finally(() => this._pendingLoadFromKernel = undefined);
 		return this._pendingLoadFromKernel;
 	}
 
+	/**
+	 * Create an event that fires when messages are received from the kernel for a given parent ID.
+	 *
+	 * @param parentId The parent ID to filter received messages.
+	 * @param listener The listener callback.
+	 */
 	onDidReceiveKernelMessage(
 		parentId: string,
 		listener: (message: WebviewMessage.IKernelMessageContent) => any

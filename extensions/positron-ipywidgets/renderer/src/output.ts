@@ -10,12 +10,10 @@ import { OutputArea, OutputAreaModel } from '@jupyterlab/outputarea';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { PositronWidgetManager } from './manager';
 
-
 /** Options when setting the `outputs` state. */
 export interface ISetOutputOptions {
 	newMessage?: boolean;
 }
-
 
 /**
  * The output widget's backing model.
@@ -27,7 +25,7 @@ export class OutputModel extends outputBase.OutputModel {
 	private _outputAreaModel!: OutputAreaModel;
 	public override widget_manager!: PositronWidgetManager;
 
-	/** The current message handle, if any. */
+	/** The current message handler's disposable, if any. */
 	private _messageHandler?: Disposable;
 
 	// Initial state.
@@ -117,7 +115,7 @@ export class OutputModel extends outputBase.OutputModel {
 					}
 				}
 
-				// Update the outputs state.
+				// Update the `outputs` state.
 				const options: ISetOutputOptions = { newMessage: true };
 				this.set('outputs', this._outputAreaModel.toJSON(), options);
 
