@@ -208,12 +208,19 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
                 // always trigger a refresh.
                 if (this.interpreterService.getInterpreters().length === 0) {
                     this.refreshCallback(quickPick, { showBackButton: params?.showBackButton });
-                } else {
-                    this.refreshCallback(quickPick, {
-                        ifNotTriggerredAlready: true,
-                        showBackButton: params?.showBackButton,
-                    });
                 }
+                // --- Start Positron ---
+                // Do not trigger a refresh when QuickPick is opened, to keep behavior the same
+                // between the Quick Pick and the Positron Interpreter Selector
+
+                // else {
+                //     this.refreshCallback(quickPick, {
+                //         ifNotTriggerredAlready: true,
+                //         showBackButton: params?.showBackButton,
+                //     });
+                // }
+
+                // --- End Positron ---
             },
             onChangeItem: {
                 event: this.interpreterService.onDidChangeInterpreters,
