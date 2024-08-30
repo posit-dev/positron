@@ -6,6 +6,7 @@
 import { URI } from 'vs/base/common/uri';
 import { IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
+import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export class PositronPlotsEditorInput extends EditorInput {
 	static readonly TypeID: string = 'workbench.input.positronPlots';
@@ -16,9 +17,14 @@ export class PositronPlotsEditorInput extends EditorInput {
 
 	constructor(
 		readonly resource: URI,
+		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService
 	) { super(); }
 
 	override dispose(): void {
+		const plotClient = this._positronPlotsService.getEditorInstance(this.resource.path);
+		if (plotClient) {
+			this._positronPlotsService.unregisterPlotClient(plotClient);
+		}
 		super.dispose();
 	}
 
