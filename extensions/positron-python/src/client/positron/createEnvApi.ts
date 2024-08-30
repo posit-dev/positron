@@ -43,8 +43,15 @@ export async function getCreateEnvironmentProviders(
 export async function createEnvironmentAndRegister(
     providers: readonly CreateEnvironmentProvider[],
     pythonRuntimeManager: IPythonRuntimeManager,
-    options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
 ): Promise<(CreateEnvironmentAndRegisterResult) | undefined> {
+    if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion)) {
+        return {
+            error: new Error(
+                'Missing required options for creating an environment. Please specify a provider ID and a Python interpreter path or a Conda Python version.',
+            ),
+        };
+    }
     const result = await handleCreateEnvironmentCommand(providers, options);
     if (result?.path) {
         const metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.path);
