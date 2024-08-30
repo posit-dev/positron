@@ -17,7 +17,10 @@ import * as commandApis from '../../../client/common/vscodeApis/commandApis';
 import * as createEnvironmentApis from '../../../client/pythonEnvironments/creation/createEnvironment';
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../../client/common/types';
 import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
-import { CreateEnvironmentOptions, CreateEnvironmentProvider } from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
+import {
+    CreateEnvironmentOptions,
+    CreateEnvironmentProvider,
+} from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { CreateEnvironmentOptionsInternal } from '../../../client/pythonEnvironments/creation/types';
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
 import { IInterpreterQuickPick } from '../../../client/interpreter/configuration/types';
@@ -54,7 +57,7 @@ suite('Create Environment and Register Tests', () => {
     const envOptionsWithInfo = {
         withInterpreterPath: { ...envOptions },
         withCondaPythonVersion: { ...envOptions, interpreterPath: undefined, condaPythonVersion: '3.12' },
-    }
+    };
     const envOptionsMissingInfo = {
         noProviderId: { ...envOptions, providerId: undefined },
         noPythonSpecified: { ...envOptions, interpreterPath: undefined, condaPythonVersion: undefined },
@@ -97,15 +100,9 @@ suite('Create Environment and Register Tests', () => {
                 .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
                 .returns(() => Promise.resolve(typemoq.Mock.ofType<LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.once());
-            handleCreateEnvironmentCommandStub.returns(
-                Promise.resolve({ path: resultPath })
-            );
+            handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
-            const result = await createEnvironmentAndRegister(
-                mockProviders,
-                pythonRuntimeManager.object,
-                options
-            );
+            const result = await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options);
 
             assert.isDefined(result);
             assert.isDefined(result?.path);
@@ -123,11 +120,7 @@ suite('Create Environment and Register Tests', () => {
                 .returns(() => Promise.resolve(typemoq.Mock.ofType<LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.never());
 
-            const result = await createEnvironmentAndRegister(
-                mockProviders,
-                pythonRuntimeManager.object,
-                options
-            );
+            const result = await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options);
 
             assert.isDefined(result);
             assert.isUndefined(result?.path);

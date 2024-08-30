@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
-import { CreateEnvironmentAndRegisterResult, CreateEnvironmentOptions, CreateEnvironmentProvider } from '../pythonEnvironments/creation/proposed.createEnvApis';
+import {
+    CreateEnvironmentAndRegisterResult,
+    CreateEnvironmentOptions,
+    CreateEnvironmentProvider,
+} from '../pythonEnvironments/creation/proposed.createEnvApis';
 import { handleCreateEnvironmentCommand } from '../pythonEnvironments/creation/createEnvironment';
 import { IPythonRuntimeManager } from './manager';
 
@@ -15,7 +19,7 @@ interface WizardEnvironmentProviders {
     id: string;
     name: string;
     description: string;
-};
+}
 
 /**
  * Get the list of providers that can be used in the Positron Project Wizard
@@ -44,7 +48,7 @@ export async function createEnvironmentAndRegister(
     providers: readonly CreateEnvironmentProvider[],
     pythonRuntimeManager: IPythonRuntimeManager,
     options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
-): Promise<(CreateEnvironmentAndRegisterResult) | undefined> {
+): Promise<CreateEnvironmentAndRegisterResult | undefined> {
     if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion)) {
         return {
             error: new Error(

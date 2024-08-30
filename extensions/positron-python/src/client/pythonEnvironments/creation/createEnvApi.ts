@@ -98,12 +98,9 @@ export function registerCreateEnvironmentFeatures(
             Commands.Create_Environment_And_Register,
             (options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal) => {
                 const providers = _createEnvironmentProviders.getAll();
-                return createEnvironmentAndRegister(
-                    providers,
-                    pythonRuntimeManager,
-                    options
-                )
-            }),
+                return createEnvironmentAndRegister(providers, pythonRuntimeManager, options);
+            },
+        ),
         registerCommand(
             Commands.Is_Conda_Installed,
             async (): Promise<boolean> => {

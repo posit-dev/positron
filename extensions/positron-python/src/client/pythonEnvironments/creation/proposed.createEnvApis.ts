@@ -150,7 +150,9 @@ export interface CreateEnvironmentProvider {
      * Python executable in the environment. Or any action taken by the user, such as back or cancel.
      */
     // --- Start Positron ---
-    createEnvironment(options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal): Promise<CreateEnvironmentResult | undefined>;
+    createEnvironment(
+        options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
+    ): Promise<CreateEnvironmentResult | undefined>;
     // --- End Positron ---
 
     /**
