@@ -204,6 +204,15 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         is_plot = True
                         break
 
+            filename = "plot.html"
+            title = ""
+            try:
+                import bokeh
+                bokeh_state = bokeh.io.state.curstate()
+                filename = bokeh_state.file.filename
+                title = bokeh_state.file.title
+            except ImportError:
+                pass
             # get path to the python_files/positron dir
             parent = str(Path(__file__).parent.parent)
 
@@ -211,9 +220,9 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             # if the html file was not given a specific path, it will populate
             # inside the positron_python extension. instead, put it in the cwd
             if parent in url:
-                new_url = Path.cwd().joinpath('plot.html')
+                new_url = Path.cwd().joinpath(filename)
                 parsed = urlparse(url)
-                shutil.move(url.removeprefix('file://'), new_url)
+                shutil.move(url, new_url)
                 url = str(Path(parsed.scheme).joinpath(new_url))
 
 
@@ -222,7 +231,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 payload=ShowHtmlFileParams(
                     path=url,
                     # Use the HTML file's title.
-                    title="",
+                    title=title,
                     is_plot=is_plot,
                     # No particular height is required.
                     height=0,
