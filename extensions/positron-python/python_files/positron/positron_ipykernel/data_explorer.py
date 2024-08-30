@@ -2631,8 +2631,6 @@ class DataExplorerService:
         if comm_id is None:
             comm_id = guid()
 
-        self.table_views[comm_id] = _get_table_view(table, DataExplorerState(title))
-
         base_comm = comm.create_comm(
             target_name=self.comm_target,
             comm_id=comm_id,
@@ -2651,7 +2649,7 @@ class DataExplorerService:
         wrapped_comm.on_msg(self.handle_msg, DataExplorerBackendMessageContent)
 
         self.table_views[comm_id] = _get_table_view(
-            table, wrapped_comm, DataExplorerState(full_title), self.job_queue
+            table, wrapped_comm, DataExplorerState(title), self.job_queue
         )
 
         if variable_path is not None:
