@@ -1076,7 +1076,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const plotClients = this._plotClientsByComm.get(plotId);
 			if (plotClients) {
 				const indexToRemove = plotClients.indexOf(plotClient);
-				plotClients.splice(indexToRemove, 1);
+				if (indexToRemove >= 0) {
+					plotClients.splice(indexToRemove, 1);
+				}
 				if (plotClients.length === 0) {
 					const commProxy = this._plotCommProxies.get(plotId);
 					commProxy?.dispose();
