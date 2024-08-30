@@ -181,10 +181,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._commProxy.onDidShowPlot(async (_evt) => {
 			this._didShowPlotEmitter.fire();
 		});
-
-		// Register the client instance with the runtime, so that when this instance is disposed,
-		// the runtime will also dispose the client.
-		this._register(this._commProxy);
 	}
 
 	/**

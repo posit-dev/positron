@@ -60,6 +60,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	private readonly _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
+	private _plotClient: IPositronPlotClient | undefined;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -143,9 +144,12 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		);
 	}
 
-	protected override createEditor(parent: HTMLElement): void {
-		// const focusTracker = this._register(DOM.trackFocus(parent));
+	private disposeReactRenderer(): void {
+		this._reactRenderer?.dispose();
+		this._reactRenderer = undefined;
+	}
 
+	protected override createEditor(parent: HTMLElement): void {
 		parent.appendChild(this._container);
 	}
 
@@ -174,19 +178,22 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		const plotClient = this._positronPlotsService.getEditorInstance(input.resource.path);
-		if (!plotClient) {
+		this._plotClient?.dispose();
+		this._plotClient = this._positronPlotsService.getEditorInstance(input.resource.path);
+		if (!this._plotClient) {
 			throw new Error('Plot client not found');
 		}
 
-		input.setName(plotClient.id);
+		input.setName(this._plotClient.id);
 
-		this.renderContainer(plotClient);
+		this.renderContainer(this._plotClient);
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
 
-			this.renderContainer(plotClient);
+			if (this._plotClient) {
+				this.renderContainer(this._plotClient);
+			}
 		});
 
 		await super.setInput(input, options, context, token);
@@ -202,6 +209,12 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			width: this._width,
 			height: this._height
 		});
+	}
+
+	override dispose(): void {
+		this.disposeReactRenderer();
+		this._plotClient?.dispose();
+		super.dispose();
 	}
 }
 

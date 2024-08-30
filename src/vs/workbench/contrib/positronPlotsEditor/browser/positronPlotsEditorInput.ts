@@ -6,7 +6,6 @@
 import { URI } from 'vs/base/common/uri';
 import { IUntypedEditorInput } from 'vs/workbench/common/editor';
 import { EditorInput } from 'vs/workbench/common/editor/editorInput';
-// import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
 export class PositronPlotsEditorInput extends EditorInput {
 	static readonly TypeID: string = 'workbench.input.positronPlots';

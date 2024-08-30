@@ -643,6 +643,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Remove the plot from our list when it is closed
 		plotClient.onDidClose(() => {
+			this.unregisterPlotClient(plotClient);
 			const index = this._plots.indexOf(plotClient);
 			if (index >= 0) {
 				this._plots.splice(index, 1);
@@ -1031,8 +1032,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plotId = plotClient.id;
 			const commProxy = this._plotCommProxies.get(plotId);
 			if (commProxy) {
-				const plotClient = this.createRuntimePlotClient(commProxy);
-				this._editorPlots.set(plotClient.id, plotClient);
+				const editorPlotClient = this.createRuntimePlotClient(commProxy);
+				this._editorPlots.set(editorPlotClient.id, editorPlotClient);
 			} else {
 				throw new Error('Cannot open plot in editor: plot comm not found');
 			}
@@ -1047,6 +1048,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				scheme: Schemas.positronPlotsEditor,
 				path: plotId,
 			}),
+		});
+
+		this._editorService.onDidCloseEditor(editor => {
+			if (editorPane?.getId() === editor.editor.editorId
+				&& editor.editor.resource?.path === plotId) {
+				const editorPlot = this._editorPlots.get(plotId);
+				if (editorPlot instanceof PlotClientInstance) {
+					this._editorPlots.delete(plotId);
+					this.unregisterPlotClient(editorPlot);
+				}
+			}
 		});
 
 		if (!editorPane) {
