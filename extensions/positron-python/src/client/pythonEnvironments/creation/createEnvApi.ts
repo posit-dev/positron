@@ -96,7 +96,7 @@ export function registerCreateEnvironmentFeatures(
         }),
         registerCommand(
             Commands.Create_Environment_And_Register,
-            (options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal) => {
+            (options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal) => {
                 const providers = _createEnvironmentProviders.getAll();
                 return createEnvironmentAndRegister(
                     providers,
