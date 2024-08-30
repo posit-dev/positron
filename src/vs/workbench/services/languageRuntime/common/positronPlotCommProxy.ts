@@ -178,6 +178,8 @@ export class PositronPlotCommProxy extends Disposable {
 
 		// Connect the intrinsic size emitter event
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
+
+		this._register(this._comm);
 	}
 
 	/**
