@@ -160,7 +160,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				width={this._width}
 				height={this._height}
 				plotClient={plotClient}
-				zoom={ZoomLevel.Fill} />;
+				zoom={ZoomLevel.Fit} />;
 		}
 		if (plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance

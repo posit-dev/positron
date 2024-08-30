@@ -200,9 +200,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param width The plot width, in pixels
 	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
 	 * @param format The format of the plot ('png', 'svg')
+	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png): Promise<IRenderedPlot> {
+	public render(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png, preview = false): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		const sizeInt = size && {
 			height: Math.floor(size.height),
@@ -248,59 +249,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			// immediately if we have never rendered before; otherwise, throttle
 			// (debounce) the render.
 			this._currentRender = deferred;
-			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500);
-		}
-
-		return deferred.promise;
-	}
-
-	/**
-	 * Requests that the plot be rendered at a specific size, but does not
-	 * store the rendered plot to _lastRender. This is useful for previewing
-	 * plots without updating the plot's state.
-	 *
-	 * @param size The plot size, in pixels. If undefined, the plot will be rendered at its intrinsic size.
-	 * @param height The plot height, in pixels
-	 * @param width The plot width, in pixels
-	 * @param pixel_ratio The device pixel ratio (e.g. 1 for standard displays, 2 for retina displays)
-	 * @returns A promise that resolves when the render request is scheduled, or rejects with an error.
-	 */
-	public preview(size: IPlotSize | undefined, pixel_ratio: number, format: RenderFormat): Promise<IRenderedPlot> {
-		// Deal with whole pixels only
-		const sizeInt = size && {
-			height: Math.floor(size.height),
-			width: Math.floor(size.width)
-		};
-
-		// Create a new deferred promise to track the render request
-		const request: RenderRequest = {
-			size: sizeInt,
-			pixel_ratio,
-			format
-		};
-		const deferred = new DeferredRender(request);
-
-		// Check which render request is currently pending. If we are currently
-		// rendering, then it's the queued render request. Otherwise, it's the
-		// current render request.
-		const pending = this._state === PlotClientState.Rendering ?
-			this._queuedRender : this._currentRender;
-
-		// If there is already a render request in flight, cancel it; this
-		// request supercedes it.
-		if (pending && !pending.isComplete) {
-			pending.cancel();
-		}
-
-		if (this._state === PlotClientState.Rendering) {
-			// We are currently rendering; don't start another render until we're done.
-			this._queuedRender = deferred;
-		} else {
-			// We are not currently rendering; start a new render. Render
-			// immediately if we have never rendered before; otherwise, throttle
-			// (debounce) the render.
-			this._currentRender = deferred;
-			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500, true);
+			this.scheduleRender(deferred, this._state === PlotClientState.Unrendered ? 0 : 500, preview);
 		}
 
 		return deferred.promise;
@@ -327,9 +276,11 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 			request.promise.then((rendered) => {
 				this._stateEmitter.fire(PlotClientState.Rendered);
-				this._lastRender = rendered;
-				this._lastRenderTimeMs = rendered.renderTimeMs;
-				this._completeRenderEmitter.fire(rendered);
+				if (!preview) {
+					this._lastRender = rendered;
+					this._lastRenderTimeMs = rendered.renderTimeMs;
+					this._completeRenderEmitter.fire(rendered);
+				}
 			}).catch((err) => {
 				this._stateEmitter.fire(PlotClientState.Rendered);
 			});
