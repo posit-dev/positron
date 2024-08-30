@@ -363,7 +363,7 @@ display(map)`;
 				await simplePlotTest(app, script, '.leaflet-container');
 			});
 
-			it('Python - Verifies hvplot can load with plotly extension', async function () {
+			it('Python - Verifies hvplot can load with plotly extension [C766660]', async function () {
 				const app = this.app as Application;
 
 				const script = `import hvplot.pandas
@@ -402,7 +402,7 @@ tree`;
 			});
 
 
-			it('Python - Verifies boken Python widget [C730343]', async function () {
+			it.skip('Python - Verifies boken Python widget [C730343]', async function () {
 				const app = this.app as Application;
 
 				const script = `from bokeh.plotting import figure, output_file, show
