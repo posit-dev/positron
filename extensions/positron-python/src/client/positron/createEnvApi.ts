@@ -3,11 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
+// --- End Positron ---
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
-    CreateEnvironmentAndRegisterResult,
     CreateEnvironmentOptions,
     CreateEnvironmentProvider,
+    CreateEnvironmentResult,
 } from '../pythonEnvironments/creation/proposed.createEnvApis';
 import { handleCreateEnvironmentCommand } from '../pythonEnvironments/creation/createEnvironment';
 import { IPythonRuntimeManager } from './manager';
@@ -20,6 +24,11 @@ interface WizardEnvironmentProviders {
     name: string;
     description: string;
 }
+
+/**
+ * Result of creating a Python environment and registering it with the language runtime manager.
+ */
+type CreateEnvironmentAndRegisterResult = CreateEnvironmentResult & { metadata?: positron.LanguageRuntimeMetadata };
 
 /**
  * Get the list of providers that can be used in the Positron Project Wizard

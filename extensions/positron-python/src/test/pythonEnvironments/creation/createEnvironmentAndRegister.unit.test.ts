@@ -10,7 +10,7 @@ import * as typemoq from 'typemoq';
 import { assert, use as chaiUse } from 'chai';
 import { Uri } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
-import { LanguageRuntimeMetadata } from 'positron';
+import * as positron from 'positron';
 import * as path from 'path';
 import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../constants';
 import * as commandApis from '../../../client/common/vscodeApis/commandApis';
@@ -98,7 +98,7 @@ suite('Create Environment and Register Tests', () => {
             const resultPath = '/path/to/created/env';
             pythonRuntimeManager
                 .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
-                .returns(() => Promise.resolve(typemoq.Mock.ofType<LanguageRuntimeMetadata>().object))
+                .returns(() => Promise.resolve(typemoq.Mock.ofType<positron.LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.once());
             handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
@@ -117,7 +117,7 @@ suite('Create Environment and Register Tests', () => {
         test(`Environment creation fails when options are missing: ${optionsName} `, async () => {
             pythonRuntimeManager
                 .setup((p) => p.registerLanguageRuntimeFromPath(typemoq.It.isAny()))
-                .returns(() => Promise.resolve(typemoq.Mock.ofType<LanguageRuntimeMetadata>().object))
+                .returns(() => Promise.resolve(typemoq.Mock.ofType<positron.LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.never());
 
             const result = await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options);

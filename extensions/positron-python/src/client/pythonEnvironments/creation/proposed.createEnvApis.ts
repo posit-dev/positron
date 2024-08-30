@@ -1,10 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License
 
-// --- Start Positron ---
-// eslint-disable-next-line import/no-unresolved
-import { LanguageRuntimeMetadata } from 'positron';
-// --- End Positron ---
 import { Event, Disposable, WorkspaceFolder } from 'vscode';
 import { EnvironmentTools } from '../../api/types';
 // --- Start Positron ---
@@ -124,13 +120,6 @@ export type EnvironmentDidCreateEvent = CreateEnvironmentResult & {
      */
     readonly options: CreateEnvironmentOptions | undefined;
 };
-
-// --- Start Positron ---
-/**
- * Result of creating a Python environment and registering it with the language runtime manager.
- */
-export type CreateEnvironmentAndRegisterResult = CreateEnvironmentResult & { metadata?: LanguageRuntimeMetadata };
-// --- End Positron ---
 
 /**
  * Extensions that want to contribute their own environment creation can do that by registering an object
