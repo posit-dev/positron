@@ -208,10 +208,12 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             title = ""
             try:
                 import bokeh
+
                 bokeh_state = bokeh.io.state.curstate()
                 filename = bokeh_state.file.filename
                 title = bokeh_state.file.title
-            except ImportError:
+            # bokoeh not installed, or has no state
+            except (ImportError, AttributeError):
                 pass
             # get path to the python_files/positron dir
             parent = str(Path(__file__).parent.parent)
@@ -222,9 +224,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             if parent in url:
                 new_url = Path.cwd().joinpath(filename)
                 parsed = urlparse(url)
-                shutil.move(url, new_url)
+                shutil.move(url.removeprefix("file://"), new_url)
                 url = str(Path(parsed.scheme).joinpath(new_url))
-
 
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
