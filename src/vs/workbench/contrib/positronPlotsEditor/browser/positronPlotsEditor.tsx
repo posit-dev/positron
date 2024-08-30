@@ -213,7 +213,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	override dispose(): void {
 		this.disposeReactRenderer();
-		this._plotClient?.dispose();
 		super.dispose();
 	}
 }

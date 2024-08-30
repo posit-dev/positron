@@ -47,6 +47,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { URI } from 'vs/base/common/uri';
 import { PositronPlotCommProxy } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
+import { EditorCloseContext } from 'vs/workbench/common/editor';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -1051,8 +1052,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		});
 
 		this._editorService.onDidCloseEditor(editor => {
+			// Dispose the plot client for the editor when the editor matches the plot ID
+			// and the editor was closed, not moved or replaced.
 			if (editorPane?.getId() === editor.editor.editorId
-				&& editor.editor.resource?.path === plotId) {
+				&& editor.editor.resource?.path === plotId
+				&& editor.context === EditorCloseContext.UNKNOWN) {
 				const editorPlot = this._editorPlots.get(plotId);
 				if (editorPlot instanceof PlotClientInstance) {
 					this._editorPlots.delete(plotId);
