@@ -38,6 +38,7 @@ from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
+from .holoviews import set_holoviews_extension
 
 
 class _CommTarget(str, enum.Enum):
@@ -437,6 +438,9 @@ class PositronIPyKernel(IPythonKernel):
             message=r"Module [^\s]+ not importable in path",
             module="jedi",
         )
+
+        # Patch holoviews to use our custom notebook extension.
+        set_holoviews_extension(self.ui_service)
 
     def publish_execute_input(
         self,

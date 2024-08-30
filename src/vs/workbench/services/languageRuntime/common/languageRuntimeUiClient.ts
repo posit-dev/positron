@@ -6,7 +6,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent } from './positronUiComm';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, LoadHoloviewsExtensionEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { URI } from 'vs/base/common/uri';
@@ -85,6 +85,7 @@ export class UiClientInstance extends Disposable {
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
 	onDidShowHtmlFile: Event<IShowHtmlUriEvent>;
+	onDidLoadHoloviewsExtension: Event<LoadHoloviewsExtensionEvent>;
 
 	/** Emitter wrapper for Show URL events */
 	private readonly _onDidShowUrlEmitter = this._register(new Emitter<ShowUrlEvent>());
@@ -119,6 +120,7 @@ export class UiClientInstance extends Disposable {
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidShowUrl = this._onDidShowUrlEmitter.event;
 		this.onDidShowHtmlFile = this._onDidShowHtmlFileEmitter.event;
+		this.onDidLoadHoloviewsExtension = this._comm.onDidLoadHoloviewsExtension;
 
 		// Wrap the ShowUrl event to resolve incoming external URIs from the
 		// backend before broadcasting them to the frontend.

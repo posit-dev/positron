@@ -10,6 +10,7 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/se
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
+import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
@@ -91,6 +92,12 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 			this._addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput);
 		};
+
+		disposables.add(session.onDidReceiveRuntimeClientEvent((e) => {
+			if (e.name !== UiFrontendEvent.LoadHoloviewsExtension) { return; }
+			// Dump all the messages for the session so new extension can take precidence.
+			this._messagesBySessionId.set(session.sessionId, []);
+		}));
 
 		disposables.add(session.onDidReceiveRuntimeMessageResult(handleMessage));
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessage));

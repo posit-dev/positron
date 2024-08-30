@@ -71,7 +71,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
 	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
 		props.positronPlotsService.historyPolicy));
-	const [zoom, setZoom] = useState(ZoomLevel.Fill);
+	const [zoom, setZoom] = useState(ZoomLevel.Fit);
 
 	// Add IReactComponentContainer event handlers.
 	useEffect(() => {
