@@ -209,7 +209,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             try:
                 import bokeh
 
-                bokeh_state = bokeh.io.state.curstate()
+                bokeh_state = bokeh.io.state.curstate()  # pyright: ignore[reportGeneralTypeIssues]
                 filename = bokeh_state.file.filename
                 title = bokeh_state.file.title
             # bokoeh not installed, or has no state
