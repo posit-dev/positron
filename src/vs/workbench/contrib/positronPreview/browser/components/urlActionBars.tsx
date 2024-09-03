@@ -5,7 +5,7 @@
 
 import 'vs/css!./actionBars';
 import * as React from 'react';
-import { PropsWithChildren, useEffect, } from 'react'; // eslint-disable-line no-duplicate-imports
+import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
@@ -43,6 +43,8 @@ const currentUrl = localize('positron.preview.currentUrl', "The current URL");
  * @returns The rendered component.
  */
 export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
+	const [title, setTitle] = useState<string>();
+
 	// Save the current URL.
 	const currentUri = props.preview.currentUri;
 
@@ -147,6 +149,11 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				urlInputRef.current.value = e.toString();
 			}
 		}));
+		disposables.add(props.preview.webview.onDidLoad((title) => {
+			if (title) {
+				setTitle(title);
+			}
+		}));
 		return () => disposables.dispose();
 	}, [props.preview]);
 
@@ -200,6 +207,11 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 							onPressed={clearHandler} />
 					</ActionBarRegion>
 				</PositronActionBar>
+				{title ?
+					<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
+						<span className='preview-title'>{title}</span>
+					</PositronActionBar>
+					: null}
 			</div>
 		</PositronActionBarContextProvider>
 	);
