@@ -8,7 +8,7 @@ import { Emitter } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILogService, NullLogger } from 'vs/platform/log/common/log';
+import { ILogService, NullLogService } from 'vs/platform/log/common/log';
 import { TestThemeService } from 'vs/platform/theme/test/common/testThemeService';
 import { INotebookEditor } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
@@ -310,10 +310,10 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let notebookService: INotebookService;
 
 	setup(async () => {
-		logService = new NullLogger() as unknown as ILogService;
+		logService = new NullLogService();
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
-		notebookService = new TestNotebookService() as unknown as INotebookService;
+		notebookService = new TestNotebookService() as INotebookService;
 
 		// Set the runtime state to ready.
 		session.setRuntimeState(RuntimeState.Ready);
@@ -362,10 +362,10 @@ suite('Positron - IPyWidgetsInstance', () => {
 	let ipywidgetsInstance: IPyWidgetsInstance;
 
 	setup(async () => {
-		const logService = new NullLogger() as unknown as ILogService;
+		const logService = new NullLogService();
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
-		const notebookService = new TestNotebookService() as unknown as INotebookService;
+		const notebookService = new TestNotebookService() as INotebookService;
 		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
@@ -379,7 +379,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 
 	test('from webview: initialize_request', async () => {
 		// Simulate the webview sending an initialize request.
-		messaging.receiveMessage({ type: 'initialize_request' });
+		messaging.receiveMessage({ type: 'initialize' });
 
 		// Check that the initialize result was sent.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);

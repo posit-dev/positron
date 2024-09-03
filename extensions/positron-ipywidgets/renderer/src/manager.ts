@@ -121,7 +121,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		}));
 
 		// Request initialization from the Positron IPyWidgets instance.
-		this._messaging.postMessage({ type: 'initialize_request' });
+		this._messaging.postMessage({ type: 'initialize' });
 	}
 
 	private async _handle_comm_open(message: WebviewMessage.ICommOpenToWebview): Promise<void> {
@@ -281,7 +281,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	 */
 	onDidReceiveKernelMessage(
 		parentId: string,
-		listener: (message: WebviewMessage.IKernelMessageContent) => any
+		listener: (message: WebviewMessage.IRuntimeMessageContent) => any
 	): Disposable {
 		return this._messaging.onDidReceiveMessage(message => {
 			if (message.type === 'kernel_message' && message.parent_id === parentId) {

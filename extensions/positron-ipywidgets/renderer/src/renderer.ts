@@ -10,12 +10,6 @@ import { OutputItem, RendererContext } from 'vscode-notebook-renderer';
 import { Messaging } from './messaging';
 import { IGetPreferredRendererResultToWebview } from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 
-/** Map from Jupyter to VSCode mime types, for types that differ. */
-const JUPYTER_TO_VSCODE_MIME_TYPES = new Map([
-	['application/vnd.jupyter.stdout', 'application/vnd.code.notebook.stdout'],
-	['application/vnd.jupyter.stderr', 'application/vnd.code.notebook.stderr'],
-]);
-
 /**
  * A Jupyter widget renderer that delegates rendering to a VSCode notebook renderer.
  * This is required by output widgets which intercept outputs.
@@ -36,7 +30,7 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 
 	public async renderModel(model: IRenderMime.IMimeModel): Promise<void> {
 		// Get the VSCode mime type.
-		const vscodeMimeType = JUPYTER_TO_VSCODE_MIME_TYPES.get(this._mimeType) ?? this._mimeType;
+		const vscodeMimeType = jupyterToVscodeMimeType(this._mimeType);
 
 		// Request the renderer ID for the preferred mime type.
 		const msgId = uuid();
@@ -88,5 +82,17 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 		} as OutputItem;
 		const controller = new AbortController();
 		await renderer.renderOutputItem(outputItem, this.node, controller.signal);
+	}
+}
+
+/** Map from Jupyter to VSCode mime types, for types that differ. */
+function jupyterToVscodeMimeType(mimeType: string): string {
+	switch (mimeType) {
+		case 'application/vnd.jupyter.stdout':
+			return 'application/vnd.code.notebook.stdout';
+		case 'application/vnd.jupyter.stderr':
+			return 'application/vnd.code.notebook.stderr';
+		default:
+			return mimeType;
 	}
 }

@@ -186,16 +186,16 @@ export class NotebookController implements vscode.Disposable {
 
 		let success: boolean;
 		try {
-			await executeCode(
+			await executeCode({
 				session,
-				cell.document.getText(),
-				cellId,
-				positron.RuntimeCodeExecutionMode.Interactive,
-				positron.RuntimeErrorBehavior.Stop,
-				message => this.handleMessageForCellExecution(
+				code: cell.document.getText(),
+				id: cellId,
+				mode: positron.RuntimeCodeExecutionMode.Interactive,
+				errorBehavior: positron.RuntimeErrorBehavior.Stop,
+				callback: message => this.handleMessageForCellExecution(
 					message, currentExecution, session.metadata.sessionId
 				),
-			);
+			});
 			success = true;
 		} catch (error) {
 			// No need to log since the error message will be displayed in the cell output.
@@ -273,27 +273,29 @@ export class NotebookController implements vscode.Disposable {
 }
 
 function executeCode(
-	session: positron.LanguageRuntimeSession,
-	code: string,
-	id: string,
-	mode: positron.RuntimeCodeExecutionMode,
-	errorBehavior: positron.RuntimeErrorBehavior,
-	callback: (message: positron.LanguageRuntimeMessage) => Promise<unknown>,
+	options: {
+		session: positron.LanguageRuntimeSession;
+		code: string;
+		id: string;
+		mode: positron.RuntimeCodeExecutionMode;
+		errorBehavior: positron.RuntimeErrorBehavior;
+		callback: (message: positron.LanguageRuntimeMessage) => Promise<unknown>;
+	}
 ) {
 	return new Promise<void>((resolve, reject) => {
 		// Create a promise tracking the current message for the cell. Each execution may
 		// receive multiple messages, which we want to handle in sequence.
 		let currentMessagePromise = Promise.resolve();
 
-		const handler = session.onDidReceiveRuntimeMessage(async message => {
+		const handler = options.session.onDidReceiveRuntimeMessage(async message => {
 			// Only handle replies to this execution.
-			if (message.parent_id !== id) {
+			if (message.parent_id !== options.id) {
 				return;
 			}
 
 			// Chain the message promise, so that messages are processed in sequence.
 			currentMessagePromise = currentMessagePromise.then(async () => {
-				await callback(message);
+				await options.callback(message);
 
 				// Handle the message.
 				if (message.type === positron.LanguageRuntimeMessageType.Error) {
@@ -315,11 +317,11 @@ function executeCode(
 
 		// Execute the cell.
 		try {
-			session.execute(
-				code,
-				id,
-				mode,
-				errorBehavior,
+			options.session.execute(
+				options.code,
+				options.id,
+				options.mode,
+				options.errorBehavior,
 			);
 		} catch (error) {
 			handler.dispose();

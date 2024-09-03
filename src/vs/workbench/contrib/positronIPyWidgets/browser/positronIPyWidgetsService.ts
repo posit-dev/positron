@@ -231,10 +231,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 	 */
 	willHandleMessage(sessionId: string, parentId: string): boolean {
 		return Array.from(this._outputManagersBySessionId.values())
-			// Get all output handlers for the session.
-			.filter(instance => instance.sessionId === sessionId)
-			// Check if any will handle the message.
-			.some(handler => handler.willHandleMessage(parentId));
+			.some(handler => handler.sessionId === sessionId && handler.willHandleMessage(parentId));
 	}
 }
 
@@ -435,7 +432,7 @@ export class IPyWidgetsInstance extends Disposable {
 		// Handle messages from the webview.
 		this._register(this._messaging.onDidReceiveMessage(async (message) => {
 			switch (message.type) {
-				case 'initialize_request': {
+				case 'initialize': {
 					await this.sendInitializeResultToWebview();
 					break;
 				}

@@ -35,7 +35,7 @@ suite('Positron - IPyWidgetClientInstance', () => {
 
 	test('from webview: ignore message with no comm_id', async () => {
 		// Simulate a message from the webview with no comm_id.
-		messaging.receiveMessage({ type: 'initialize_request' });
+		messaging.receiveMessage({ type: 'initialize' });
 		await timeout(0);
 
 		// Check that no replies were sent.
