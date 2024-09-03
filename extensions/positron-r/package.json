@@ -412,7 +412,7 @@
           "command": "r.sourceCurrentFile",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
-          "when": "editorLangId == r && !isRPackage"
+          "when": "editorLangId == r"
         },
         {
           "category": "R",
