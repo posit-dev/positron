@@ -6,6 +6,9 @@
 import * as vscode from 'vscode';
 import * as util from 'util';
 import { randomUUID } from 'crypto';
+// --- Start Positron ---
+import * as positron from 'positron';
+// --- End Positron ---
 
 const PATTERN = 'listening on.* (https?://\\S+|[0-9]+)'; // matches "listening on port 3000" or "Now listening on: https://localhost:5001"
 const URI_PORT_FORMAT = 'http://localhost:%s';
@@ -14,7 +17,10 @@ const WEB_ROOT = '${workspaceFolder}';
 
 interface ServerReadyAction {
 	pattern: string;
-	action?: 'openExternally' | 'debugWithChrome' | 'debugWithEdge' | 'startDebugging';
+	// --- Start Positron ---
+	// Add an action to open the URI in the Viewer pane.
+	action?: 'openExternally' | 'openInViewer' | 'debugWithChrome' | 'debugWithEdge' | 'startDebugging';
+	// --- End Positron ---
 	uriFormat?: string;
 	webRoot?: string;
 	name?: string;
@@ -201,6 +207,12 @@ class ServerReadyDetector extends vscode.Disposable {
 					await this.startDebugSession(session, args.name || 'unspecified');
 				}
 				break;
+			// --- Start Positron ---
+			// Open the URI in the Viewer pane.
+			case 'openInViewer':
+				positron.window.previewUrl(vscode.Uri.parse(uri));
+				break;
+			// --- End Positron ---
 
 			default:
 				// not supported

@@ -77,6 +77,43 @@
                     "additionalProperties": false,
                     "markdownDescription": "%debug.server.ready.serverReadyAction.description%",
                     "default": {
+                      "action": "openInViewer",
+                      "killOnServerStop": false
+                    },
+                    "properties": {
+                      "action": {
+                        "type": "string",
+                        "enum": [
+                          "openInViewer"
+                        ],
+                        "enumDescriptions": [
+                          "%debug.server.ready.action.openInViewer.description%"
+                        ],
+                        "markdownDescription": "%debug.server.ready.action.description%",
+                        "default": "openInViewer"
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "markdownDescription": "%debug.server.ready.pattern.description%",
+                        "default": "listening on port ([0-9]+)"
+                      },
+                      "uriFormat": {
+                        "type": "string",
+                        "markdownDescription": "%debug.server.ready.uriFormat.description%",
+                        "default": "http://localhost:%s"
+                      },
+                      "killOnServerStop": {
+                        "type": "boolean",
+                        "markdownDescription": "%debug.server.ready.killOnServerStop.description%",
+                        "default": false
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "markdownDescription": "%debug.server.ready.serverReadyAction.description%",
+                    "default": {
                       "action": "debugWithEdge",
                       "pattern": "listening on port ([0-9]+)",
                       "uriFormat": "http://localhost:%s",
