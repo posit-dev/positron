@@ -427,6 +427,11 @@
                 "category": "Python",
                 "command": "python.installJupyter",
                 "title": "%python.command.python.installJupyter.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.runStreamlitApp",
+                "title": "%python.command.python.runStreamlitApp.title%"
             }
         ],
         "configuration": {
