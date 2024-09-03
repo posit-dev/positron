@@ -5,6 +5,7 @@
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -192,7 +193,11 @@ webbrowser.open({repr(url)})
     assert ui_comm.messages == expected
 
 
-def test_bokeh_show_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
+def test_bokeh_show_sends_events(
+    tmp_path,
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
     """
     Test that showing a Bokeh plot sends the expected UI events.
     """
@@ -215,6 +220,7 @@ show(p)
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
+    assert tempfile.gettempdir() in params["path"]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")

@@ -38,7 +38,7 @@ from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
-from .holoviews import set_holoviews_extension
+from .patch.holoviews import set_holoviews_extension
 
 
 class _CommTarget(str, enum.Enum):

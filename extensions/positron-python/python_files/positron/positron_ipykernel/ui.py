@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
 
+from .patch.bokeh import bokeh_no_access
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
 from .third_party import np_, pd_, pl_, torch_
@@ -102,6 +103,9 @@ class UiService:
 
         self.browser = PositronViewerBrowser(comm=self._comm)
         webbrowser.register(self.browser.name, PositronViewerBrowser, self.browser, preferred=True)
+
+        # add patch to bokeh, if it is not imported
+        bokeh_no_access()
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -204,35 +208,12 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                         is_plot = True
                         break
 
-            filename = "plot.html"
-            title = ""
-            try:
-                import bokeh
-
-                bokeh_state = bokeh.io.state.curstate()  # pyright: ignore[reportGeneralTypeIssues]
-                filename = bokeh_state.file.filename
-                title = bokeh_state.file.title
-            # bokoeh not installed, or has no state
-            except (ImportError, AttributeError):
-                pass
-            # get path to the python_files/positron dir
-            parent = str(Path(__file__).parent.parent)
-
-            # bug where os.access is True on Windows when there is no access
-            # if the html file was not given a specific path, it will populate
-            # inside the positron_python extension. instead, put it in the cwd
-            if parent in url:
-                new_url = Path.cwd().joinpath(filename)
-                parsed = urlparse(url)
-                shutil.move(url.removeprefix("file://"), new_url)
-                url = str(Path(parsed.scheme).joinpath(new_url))
-
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
                 payload=ShowHtmlFileParams(
                     path=url,
                     # Use the HTML file's title.
-                    title=title,
+                    title="",
                     is_plot=is_plot,
                     # No particular height is required.
                     height=0,
