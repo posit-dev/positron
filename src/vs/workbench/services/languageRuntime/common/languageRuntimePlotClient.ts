@@ -119,8 +119,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
 
 	/**
- * Event that fires when the plot wants to display itself.
-	*/
+	 * Event that fires when the plot wants to display itself.
+	 */
 	onDidShowPlot: Event<void>;
 	private readonly _didShowPlotEmitter = new Emitter<void>();
 

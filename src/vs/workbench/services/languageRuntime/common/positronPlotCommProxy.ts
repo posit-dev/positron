@@ -93,13 +93,13 @@ export class DeferredRender {
 
 export class PositronPlotCommProxy extends Disposable {
 	/**
- * The currently active render request, if any.
- */
+	 * The currently active render request, if any.
+	 */
 	private _currentRender?: DeferredRender;
 
 	/**
- * The underlying comm
- */
+	 * The underlying comm
+	 */
 	private _comm: PositronPlotComm;
 
 	/**
@@ -123,17 +123,17 @@ export class PositronPlotCommProxy extends Disposable {
 	private _currentIntrinsicSize?: Promise<IntrinsicSize | undefined>;
 
 	/**
- * Event that fires when the plot is closed on the runtime side, typically
- * because the runtime exited and doesn't preserve plot state.
- */
+	 * Event that fires when the plot is closed on the runtime side, typically
+	 * because the runtime exited and doesn't preserve plot state.
+	 */
 	onDidClose: Event<void>;
 	private readonly _closeEmitter = new Emitter<void>();
 
 	/**
- * Event that fires when the plot has been updated by the runtime and
- * re-rendered. Notifies clients so they can request a render update with their own
- * render parameters.
- */
+	 * Event that fires when the plot has been updated by the runtime and
+	 * re-rendered. Notifies clients so they can request a render update with their own
+	 * render parameters.
+	 */
 	onDidRenderUpdate: Event<IRenderedPlot>;
 	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
 
@@ -190,8 +190,8 @@ export class PositronPlotCommProxy extends Disposable {
 	}
 
 	/**
- * Returns a boolean indicating whether this plot has a known intrinsic size.
- */
+	 * Returns a boolean indicating whether this plot has a known intrinsic size.
+	 */
 	get receivedIntrinsicSize(): boolean {
 		return this._receivedIntrinsicSize;
 	}
