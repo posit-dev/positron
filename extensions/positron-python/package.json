@@ -330,13 +330,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.execShinyInTerminal",
-                "icon": "$(play)",
-                "title": "%python.command.python.execShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
-            },
-            {
-                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1224,7 +1217,7 @@
                 "command": "python.execInConsole",
                 "key": "ctrl+shift+enter",
                 "mac": "cmd+shift+enter",
-                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused"
+                "when": "editorTextFocus && editorLangId == python && !findInputFocussed && !replaceInputFocussed && !jupyter.ownsSelection && !notebookEditorFocused && !(config.python.enableWebAppSupport && pythonAppFramework)"
             },
             {
                 "command": "python.execSelectionInConsole",
@@ -1364,7 +1357,7 @@
                     "category": "Python",
                     "command": "python.execInConsole",
                     "title": "%python.command.python.execInConsole.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python && !(config.python.enableWebAppSupport && pythonAppFramework)"
                 },
                 {
                     "category": "Python",
@@ -1490,7 +1483,7 @@
                 {
                     "command": "python.execInConsole",
                     "group": "Python",
-                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
+                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported && !(config.python.enableWebAppSupport && pythonAppFramework)"
                 },
                 {
                     "command": "python.execInTerminal",
@@ -1525,7 +1518,7 @@
                     "command": "python.execInConsole",
                     "group": "navigation@0",
                     "title": "%python.command.python.execInConsole.title%",
-                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported && !(config.python.enableWebAppSupport && pythonAppFramework)"
                 },
                 {
                     "command": "python.execDashInTerminal",
@@ -1550,12 +1543,6 @@
                     "group": "navigation@1",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
                     "when": "pythonAppFramework == flask && config.python.enableWebAppSupport"
-                },
-                {
-                    "command": "python.execShinyInTerminal",
-                    "group": "navigation@1",
-                    "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
