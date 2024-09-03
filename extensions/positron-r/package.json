@@ -396,7 +396,7 @@
         "command": "r.sourceCurrentFile",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r && !isRPackage"
       },
       {
         "command": "r.insertSection",
@@ -412,7 +412,7 @@
           "command": "r.sourceCurrentFile",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r && !isRPackage"
         },
         {
           "category": "R",
@@ -484,7 +484,7 @@
           "command": "r.sourceCurrentFile",
           "group": "R",
           "title": "%r.command.sourceCurrentFile.title%",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r && !isRPackage"
         },
         {
           "command": "r.rmarkdownRender",
@@ -499,7 +499,7 @@
           "group": "navigation@0",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
-          "when": "resourceLangId == r && !isInDiffEditor"
+          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
         },
         {
           "command": "r.rmarkdownRender",
