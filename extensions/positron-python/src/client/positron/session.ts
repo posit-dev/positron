@@ -454,7 +454,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // for more.
             if (message.type === positron.LanguageRuntimeMessageType.CommData) {
                 const commMessage = message as positron.LanguageRuntimeCommMessage;
-                const { data } = commMessage;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const data = commMessage.data as any;
                 if (
                     'method' in data &&
                     data.method === 'update' &&
