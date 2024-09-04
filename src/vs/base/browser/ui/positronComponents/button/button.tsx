@@ -61,6 +61,19 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
 
+	const sendOnPressed = (e: MouseEvent<HTMLButtonElement> | KeyboardEvent<HTMLButtonElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		props.hoverManager?.hideHover();
+
+		// Raise the onPressed event if the button isn't disabled.
+		if (!props.disabled && props.onPressed) {
+			props.onPressed(e);
+		}
+	};
+
 	/**
 	 * onKeyDown event handler.
 	 * @param e A KeyboardEvent<HTMLDivElement> that describes a user interaction with the keyboard.
@@ -71,14 +84,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 			// Space or Enter trigger the onPressed event.
 			case 'Space':
 			case 'Enter':
-				// Consume the event.
-				e.preventDefault();
-				e.stopPropagation();
-
-				// Raise the onPressed event if the button isn't disabled.
-				if (!props.disabled && props.onPressed) {
-					props.onPressed(e);
-				}
+				sendOnPressed(e);
 				break;
 		}
 	};
@@ -90,14 +96,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	const clickHandler = (e: MouseEvent<HTMLButtonElement>) => {
 		// If the mouse trigger is click, handle the event.
 		if (props.mouseTrigger === undefined || props.mouseTrigger === MouseTrigger.Click) {
-			// Consume the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Raise the onPressed event if the button isn't disabled.
-			if (!props.disabled && props.onPressed) {
-				props.onPressed(e);
-			}
+			sendOnPressed(e);
 		}
 	};
 
@@ -157,14 +156,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	const mouseDownHandler = (e: MouseEvent<HTMLButtonElement>) => {
 		// If the mouse trigger is mouse down, handle the event.
 		if (props.mouseTrigger === MouseTrigger.MouseDown) {
-			// Consume the event.
-			e.preventDefault();
-			e.stopPropagation();
-
-			// Raise the onPressed event if the button isn't disabled.
-			if (!props.disabled && props.onPressed) {
-				props.onPressed(e);
-			}
+			sendOnPressed(e);
 		}
 	};
 
