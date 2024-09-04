@@ -269,6 +269,7 @@
         "extensions": [
           ".R",
           ".r",
+          ".Rprofile",
           ".rprofile"
         ],
         "aliases": [

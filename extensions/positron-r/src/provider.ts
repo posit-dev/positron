@@ -24,6 +24,7 @@ export const R_DOCUMENT_SELECTORS = [
 	{ language: 'r', scheme: 'untitled' },
 	{ language: 'r', scheme: 'inmemory' },  // Console
 	{ language: 'r', pattern: '**/*.{r,R}' },
+	{ language: 'r', pattern: '**/*.{rprofile,Rprofile}' },
 	{ language: 'r', pattern: '**/*.{qmd,Qmd}' },
 	{ language: 'r', pattern: '**/*.{rmd,Rmd}' },
 ];
