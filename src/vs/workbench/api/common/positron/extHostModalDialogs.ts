@@ -24,4 +24,8 @@ export class ExtHostModalDialogs implements extHostProtocol.ExtHostModalDialogsS
 		return this._proxy.$showSimpleModalDialogMessage(title, message, okButtonTitle);
 	}
 
+	public showConfigurationModal(title: string, options: Array<any>): Promise<Array<any>> {
+		return this._proxy.$showConfigurationModal(title, options);
+	}
+
 }

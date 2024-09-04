@@ -537,6 +537,12 @@ export class ConnectionItemsProvider
 		this.fireOnDidChangeTreeData();
 	}
 
+	async createConnection() {
+		const options = await positron.window.showConfigurationModal(
+			'Hello world',
+			[]
+		);
+	}
 
 	/**
 	 * Expand all connection nodes

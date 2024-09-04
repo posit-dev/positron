@@ -7,6 +7,7 @@ import { MainThreadModalDialogsShape, MainPositronContext } from '../../common/p
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { PositronConfigurationModalOption } from 'vs/workbench/contrib/positronModalDialogs/browser/positronConfigurationModal';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadModalDialogs)
 export class MainThreadModalDialogs implements MainThreadModalDialogsShape {
@@ -24,6 +25,10 @@ export class MainThreadModalDialogs implements MainThreadModalDialogsShape {
 
 	$showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Promise<null> {
 		return this._positronModalDialogsService.showSimpleModalDialogMessage(title, message, okButtonTitle);
+	}
+
+	$showConfigurationModal(title: string, options: Array<PositronConfigurationModalOption>): Promise<Array<PositronConfigurationModalOption>> {
+		return this._positronModalDialogsService.showConfigurationModal(title, options);
 	}
 
 	public dispose(): void {

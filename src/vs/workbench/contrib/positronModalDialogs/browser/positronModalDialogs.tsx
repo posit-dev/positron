@@ -24,6 +24,7 @@ import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/posit
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
+import { PositronConfigurationModal, PositronConfigurationModalOption } from 'vs/workbench/contrib/positronModalDialogs/browser/positronConfigurationModal';
 
 /**
  * PositronModalDialogs class.
@@ -261,6 +262,47 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			dialog.onChoice(() => {
 				resolve(null);
 			});
+		});
+	}
+
+	showConfigurationModal(title: string,
+		options: Array<PositronConfigurationModalOption>):
+		Promise<Array<PositronConfigurationModalOption>> {
+		// Create the modal React renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: this._keybindingService,
+			layoutService: this._layoutService,
+			container: this._layoutService.mainContainer
+		});
+
+		const choiceEmitter = new Emitter<Array<PositronConfigurationModalOption>>();
+
+		const acceptHandler = () => {
+			renderer.dispose();
+			choiceEmitter.fire([]);
+			choiceEmitter.dispose();
+		};
+		const cancelHandler = () => {
+			renderer.dispose();
+			choiceEmitter.fire([]);
+			choiceEmitter.dispose();
+		};
+
+		renderer.render(
+			<PositronConfigurationModal
+				renderer={renderer}
+				title={title}
+				width={400}
+				height={200}
+				onAccept={acceptHandler}
+				onCancel={cancelHandler}
+				options={options}
+			>
+			</PositronConfigurationModal>
+		);
+
+		return new Promise(() => {
+			return new Array<PositronConfigurationModalOption>();
 		});
 	}
 }

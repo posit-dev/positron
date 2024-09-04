@@ -152,6 +152,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
 				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
 			},
+			showConfigurationModal(title: string, options: Array<any>): Thenable<Array<any>> {
+				return extHostModalDialogs.showConfigurationModal(title, options);
+			},
 			getConsoleForLanguage(id: string) {
 				return extHostConsoleService.getConsoleForLanguage(id);
 			},

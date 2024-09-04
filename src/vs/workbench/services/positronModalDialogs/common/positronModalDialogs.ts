@@ -5,6 +5,7 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { PositronConfigurationModalOption } from 'vs/workbench/contrib/positronModalDialogs/browser/positronConfigurationModal';
 
 /**
  * Export the service identifier.
@@ -103,4 +104,18 @@ export interface IPositronModalDialogsService {
 		message: string,
 		okButtonTitle?: string
 	): Promise<null>;
+
+	/**
+	 * Shows a configuration modal dialog
+	 *
+	 * A configuration modal takes a list of options as input and
+	 * returns the filled list.
+	 *
+	 * @param title Title of the dialog
+	 * @param options List of options of the dialog
+	 */
+	showConfigurationModal(
+		title: string,
+		options: Array<PositronConfigurationModalOption>
+	): Promise<Array<PositronConfigurationModalOption>>;
 }

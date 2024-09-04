@@ -1155,6 +1155,10 @@ declare module 'positron' {
 			message: string,
 			okButtonTitle?: string): Thenable<null>;
 
+
+		export function showConfigurationModal(title: string,
+			options: Array<any>): Thenable<Array<any>>;
+
 		/**
 		 * Get the `Console` for a runtime language `id`
 		 *

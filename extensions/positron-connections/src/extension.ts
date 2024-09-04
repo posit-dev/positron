@@ -50,6 +50,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
+			'positron.connections.createConnection',
+			() => {
+				connectionProvider.createConnection();
+			}
+		));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
 			'positron.connections.copyCodeToClipboard',
 			(item: DisconnectedConnectionItem) => {
 				const code = item.metadata.code;

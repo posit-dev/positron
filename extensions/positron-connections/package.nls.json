@@ -12,5 +12,6 @@
 	"commands.reopenConnection.title": "Execute connection code in the console",
 	"commands.copyCodeToClipboard.title": "Copy connection code to clipboard",
 	"commands.clearConnectionsHistory.title": "Clear connections history",
+	"commands.createConnection.title": "Create a connection to a database",
 	"commands.expandAll.title": "Connections: Expand All"
 }
