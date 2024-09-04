@@ -134,8 +134,8 @@ export class PositronPlotCommProxy extends Disposable {
 	 * re-rendered. Notifies clients so they can request a render update with their own
 	 * render parameters.
 	 */
-	onDidRenderUpdate: Event<IRenderedPlot>;
-	private readonly _renderUpdateEmitter = new Emitter<IRenderedPlot>();
+	onDidRenderUpdate: Event<void>;
+	private readonly _renderUpdateEmitter = new Emitter<void>();
 
 	/**
 	 * Event that fires when the plot wants to display itself.
@@ -178,6 +178,18 @@ export class PositronPlotCommProxy extends Disposable {
 
 		// Connect the intrinsic size emitter event
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
+
+		this._comm.onDidClose(() => {
+			this._closeEmitter.fire();
+		});
+
+		this._comm.onDidShow(() => {
+			this._didShowPlotEmitter.fire();
+		});
+
+		this._comm.onDidUpdate((_evt) => {
+			this._renderUpdateEmitter.fire();
+		});
 
 		this._register(this._comm);
 	}

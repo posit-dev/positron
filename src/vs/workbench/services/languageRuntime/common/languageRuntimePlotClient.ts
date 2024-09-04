@@ -172,7 +172,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		});
 
 		// Listen for plot updates
-		this._commProxy.onDidRenderUpdate(async (_evt) => {
+		this._commProxy.onDidRenderUpdate(async () => {
 			const rendered = await this.queuePlotUpdateRequest();
 			this._renderUpdateEmitter.fire(rendered);
 		});
