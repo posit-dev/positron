@@ -6,12 +6,10 @@
 import inspect
 import logging
 import os
-import shutil
 import sys
 import webbrowser
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
-from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
 
