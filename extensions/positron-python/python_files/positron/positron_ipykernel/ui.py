@@ -13,7 +13,6 @@ from typing import Callable, Dict, List, Optional, Union
 
 from comm.base_comm import BaseComm
 
-from .patch.bokeh import bokeh_no_access
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
 from .third_party import np_, pd_, pl_, torch_
@@ -101,9 +100,6 @@ class UiService:
 
         self.browser = PositronViewerBrowser(comm=self._comm)
         webbrowser.register(self.browser.name, PositronViewerBrowser, self.browser, preferred=True)
-
-        # add patch to bokeh, if it is not imported
-        bokeh_no_access()
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)

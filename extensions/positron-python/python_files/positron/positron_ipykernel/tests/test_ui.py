@@ -220,6 +220,8 @@ show(p)
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
+    # default behavior should be writing to temppath
+    # not wherever the process is running (see patch.bokeh)
     assert tempfile.gettempdir() in params["path"]
 
 
