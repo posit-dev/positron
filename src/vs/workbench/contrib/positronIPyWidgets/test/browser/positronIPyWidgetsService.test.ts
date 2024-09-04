@@ -8,7 +8,7 @@ import { Emitter } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILogService, NullLogger } from 'vs/platform/log/common/log';
+import { ILogService, NullLogService } from 'vs/platform/log/common/log';
 import { TestThemeService } from 'vs/platform/theme/test/common/testThemeService';
 import { INotebookEditor } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
@@ -26,7 +26,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
@@ -79,24 +79,41 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		positronIpywidgetsService = disposables.add(instantiationService.createInstance(PositronIPyWidgetsService));
 	});
 
-	async function createConsoleSession() {
-		// Listen for the plot client to be created.
-		let plotClient: WebviewPlotClient | undefined;
-		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
-
-		// Start a console session.
+	async function startConsoleSession() {
 		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
 		runtimeSessionService.startSession(session);
 		await timeout(0);
+		return session;
+	}
 
-		// Simulate the runtime sending an IPyWidgets output message.
-		const message = session.receiveOutputMessage({
+	async function receiveIPyWidgetsResultMessage(
+		session: TestLanguageRuntimeSession,
+		parentId?: string,
+	) {
+		// Simulate the runtime sending a result message to the parent ID
+		// that the output client will handle.
+		const message = session.receiveResultMessage({
+			parent_id: parentId,
 			kind: RuntimeOutputKind.IPyWidget,
 			data: {
 				'application/vnd.jupyter.widget-view+json': {},
 			},
 		});
 		await timeout(0);
+
+		return message;
+	}
+
+	async function createConsoleInstance() {
+		// Listen for the plot client to be created.
+		let plotClient: WebviewPlotClient | undefined;
+		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
+
+		// Start a console session.
+		const session = await startConsoleSession();
+
+		// Simulate the runtime sending an IPyWidgets output message.
+		const message = await receiveIPyWidgetsResultMessage(session);
 
 		// Check that an instance was created with the expected properties.
 		assert(positronIpywidgetsService.hasInstance(message.id));
@@ -114,7 +131,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	}
 
 	test('console session: create and end session', async () => {
-		const { session, plotClient } = await createConsoleSession();
+		const { session, plotClient } = await createConsoleInstance();
 
 		// End the session.
 		session.endSession();
@@ -125,7 +142,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('console session: respond to result message type and check for memory leaks', async () => {
-		const { session } = await createConsoleSession();
+		const { session } = await createConsoleInstance();
 
 		// Simulate the runtime sending a result message.
 		const message = session.receiveResultMessage({
@@ -142,8 +159,9 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
+
 	test('notebook session: check for memory leaks', async () => {
-		const { session } = await createNotebookSession();
+		const { session } = await createNotebookInstance();
 
 		await timeout(0);
 
@@ -152,7 +170,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// improper disposal of listeners
 	});
 
-	async function createNotebookSession() {
+	async function createNotebookInstance() {
 		const notebookUri = URI.file('notebook.ipynb');
 
 		// Add a mock notebook editor.
@@ -180,7 +198,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	}
 
 	test('notebook session: create and end session', async () => {
-		const { session } = await createNotebookSession();
+		const { session } = await createNotebookInstance();
 
 		// Check that an instance was created.
 		assert(positronIpywidgetsService.hasInstance(session.sessionId));
@@ -194,7 +212,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('notebook session: change notebook text model', async () => {
-		const { session, notebookEditor } = await createNotebookSession();
+		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Change the notebook's text model.
 		notebookEditor.changeModel(URI.file('other.ipynb'));
@@ -205,7 +223,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 	});
 
 	test('notebook session: remove notebook editor', async () => {
-		const { session, notebookEditor } = await createNotebookSession();
+		const { session, notebookEditor } = await createNotebookInstance();
 
 		// Check that an instance was created.
 		assert(positronIpywidgetsService.hasInstance(session.sessionId));
@@ -217,6 +235,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		// Check that the instance was removed.
 		assert(!positronIpywidgetsService.hasInstance(session.sessionId));
 	});
+
 });
 
 suite('Positron - IPyWidgetsInstance constructor', () => {
@@ -225,18 +244,20 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 	let logService: ILogService;
 	let session: TestLanguageRuntimeSession;
 	let messaging: TestIPyWidgetsWebviewMessaging;
+	let notebookService: INotebookService;
 
 	setup(async () => {
-		logService = new NullLogger() as unknown as ILogService;
+		logService = new NullLogService();
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		notebookService = new TestNotebookService() as INotebookService;
 
 		// Set the runtime state to ready.
 		session.setRuntimeState(RuntimeState.Ready);
 	});
 
 	async function createIPyWidgetsInstance() {
-		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, logService));
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(session, messaging, notebookService, logService));
 		await timeout(0);
 		return ipywidgetsInstance;
 	}
@@ -278,12 +299,14 @@ suite('Positron - IPyWidgetsInstance', () => {
 	let ipywidgetsInstance: IPyWidgetsInstance;
 
 	setup(async () => {
-		const logService = new NullLogger() as unknown as ILogService;
+		const logService = new NullLogService();
 		session = disposables.add(new TestLanguageRuntimeSession());
 		messaging = disposables.add(new TestIPyWidgetsWebviewMessaging());
+		const notebookService = new TestNotebookService() as INotebookService;
 		ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
 			session,
 			messaging,
+			notebookService,
 			logService,
 		));
 
@@ -293,7 +316,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 
 	test('from webview: initialize_request', async () => {
 		// Simulate the webview sending an initialize request.
-		messaging.receiveMessage({ type: 'initialize_request' });
+		messaging.receiveMessage({ type: 'initialize' });
 
 		// Check that the initialize result was sent.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);
@@ -331,6 +354,25 @@ suite('Positron - IPyWidgetsInstance', () => {
 		assert(!ipywidgetsInstance.hasClient(clientId));
 	});
 
+	test('from webview: get_preferred_renderer', async () => {
+		// Simulate the webview sending a get preferred renderer message.
+		const msgId = 'test-msg-id';
+		messaging.receiveMessage({
+			type: 'get_preferred_renderer',
+			msg_id: msgId,
+			mime_type: 'test-mime-type',
+		});
+
+		// Check that the initialize result was sent.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'get_preferred_renderer_result',
+			parent_id: msgId,
+			// The positron-ipywidgets renderer ID is currently always returned by
+			// TestNotebookService.getPreferredRenderer.
+			renderer_id: 'positron-ipywidgets',
+		} as ToWebviewMessage]);
+	});
+
 	test('to webview: comm_open', async () => {
 		// Create a client.
 		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
@@ -355,4 +397,85 @@ suite('Positron - IPyWidgetsInstance', () => {
 		// Check that the client was removed.
 		assert(!ipywidgetsInstance.hasClient(client.getClientId()));
 	});
+
+	test('to webview: kernel_message, display_data', async () => {
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Output });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageOutput;
+
+		// Check that the display_data kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'display_data',
+				data: message.data,
+				metadata: message.metadata,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, execute_result', async () => {
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Result });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageResult;
+
+		// Check that the display_data kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'execute_result',
+				data: message.data,
+				metadata: message.metadata,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, stream', async () => {
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Stream });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageStream;
+
+		// Check that the stream kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'stream',
+				name: message.name,
+				text: message.text,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, error', async () => {
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Error });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageError;
+
+		// Check that the error kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'error',
+				name: message.name,
+				message: message.message,
+				traceback: message.traceback,
+			}
+		} as ToWebviewMessage]);
+	});
+
+	test('to webview: kernel_message, clear_output', async () => {
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.ClearOutput });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageClearOutput;
+
+		// Check that the clear_output kernel_message was sent to the webview.
+		assert.deepStrictEqual(messaging.messagesToWebview, [{
+			type: 'kernel_message',
+			parent_id: message.parent_id,
+			content: {
+				type: 'clear_output',
+				wait: message.wait,
+			}
+		} as ToWebviewMessage]);
+	});
+
 });

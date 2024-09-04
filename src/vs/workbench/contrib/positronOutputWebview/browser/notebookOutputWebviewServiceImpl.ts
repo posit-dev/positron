@@ -10,7 +10,7 @@ import { URI } from 'vs/base/common/uri';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
 import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
-import { INotebookRendererInfo, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { INotebookRendererInfo, RENDERER_NOT_AVAILABLE, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -74,20 +74,31 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	/**
-	 * Gather preferred renderer and the mime type renderer is for from an output message.
+	 * Get the preferred mime type and renderer for an output message.
 	 *
 	 * @param output An output messages to find renderers for.
 	 * @returns A renderer and the mime type it is preferred for along with the output message.
 	 */
-	private _findRendererForOutput(output: ILanguageRuntimeMessageWebOutput): MessageRenderInfo | undefined {
-		for (const mimeType in output.data) {
-			const renderer = this._notebookService.getPreferredRenderer(mimeType);
-			if (renderer) {
-				return { mimeType, renderer, output };
-			}
+	private _findRendererForOutput(output: ILanguageRuntimeMessageWebOutput, viewType?: string): MessageRenderInfo | undefined {
+		// Get the preferred mime type.
+		// This is the same logic used in CellOutputViewModel.resolveMimeTypes.
+		const mimeTypes = this._notebookService.getMimeTypeInfo(
+			viewType, undefined, Object.keys(output.data)
+		);
+		const pickedMimeType = mimeTypes.find(
+			mimeType => mimeType.rendererId !== RENDERER_NOT_AVAILABLE && mimeType.isTrusted
+		);
+		if (!pickedMimeType) {
+			return;
 		}
 
-		return undefined;
+		// Get the renderer for the preferred mime type.
+		const renderer = this._notebookService.getRendererInfo(pickedMimeType.rendererId);
+		if (!renderer) {
+			return;
+		}
+
+		return { mimeType: pickedMimeType.mimeType, renderer, output };
 	}
 
 	async createMultiMessageWebview({
@@ -165,15 +176,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	/**
-	 * Gets renderer data for a given MIME type. This is used to inject only the
-	 * needed renderers into the webview.
+	 * Gets renderer data. This is used to inject renderer contexts into the webview.
 	 *
-	 * @param mimeTypes The MIME types to get renderers for
-	 * @returns An array of renderers that can render the given MIME type
+	 * @returns An array of renderer metadata.
 	 */
-	private getRendererData(mimeTypes: string[]): RendererMetadata[] {
+	private getRendererData(): RendererMetadata[] {
 		return this._notebookService.getRenderers()
-			.filter(renderer => mimeTypes.some(mimeType => renderer.mimeTypes.includes(mimeType)))
 			.map((renderer): RendererMetadata => {
 				const entrypoint = {
 					extends: renderer.entrypoint.extends,
@@ -286,7 +294,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			linkifyFilePaths: false,
 			minimalError: false,
 		},
-			this.getRendererData(messagesInfo.map(info => info.mimeType)),
+			this.getRendererData(),
 			await this.getStaticPreloadsData(viewType),
 			this._workspaceTrustManagementService.isWorkspaceTrusted(),
 			id);

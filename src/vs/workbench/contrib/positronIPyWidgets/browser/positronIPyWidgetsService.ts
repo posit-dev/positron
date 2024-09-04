@@ -3,18 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Emitter, Event } from 'vs/base/common/event';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
 import { isEqual } from 'vs/base/common/resources';
 import { ILogService } from 'vs/platform/log/common/log';
-import { FromWebviewMessage, ICommOpenFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { FromWebviewMessage, ICommOpenFromWebview, IGetPreferredRendererFromWebview, ToWebviewMessage } from '../../../services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IIPyWidgetsWebviewMessaging, IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
+import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 
 /**
  * The PositronIPyWidgetsService is responsible for managing IPyWidgetsInstances.
@@ -37,12 +38,14 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 
 	/**
 	 * @param _runtimeSessionService The runtime session service.
+	 * @param _notebookService The notebook service.
 	 * @param _notebookEditorService The notebook editor service.
 	 * @param _notebookRendererMessagingService The notebook renderer messaging service.
 	 * @param _logService The log service.
 	 */
 	constructor(
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
+		@INotebookService private _notebookService: INotebookService,
 		@INotebookEditorService private _notebookEditorService: INotebookEditorService,
 		@INotebookRendererMessagingService private _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
@@ -121,7 +124,7 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 				client.id, this._notebookRendererMessagingService
 			));
 			const ipywidgetsInstance = disposables.add(
-				new IPyWidgetsInstance(session, messaging, this._logService)
+				new IPyWidgetsInstance(session, messaging, this._notebookService, this._logService)
 			);
 			this._consoleInstancesByMessageId.set(message.id, ipywidgetsInstance);
 
@@ -161,9 +164,10 @@ export class PositronIPyWidgetsService extends Disposable implements IPositronIP
 		const messaging = disposables.add(new IPyWidgetsWebviewMessaging(
 			notebookEditor.getId(), this._notebookRendererMessagingService
 		));
-		const ipywidgetsInstance = new IPyWidgetsInstance(session, messaging, this._logService);
+		const ipywidgetsInstance = disposables.add(new IPyWidgetsInstance(
+			session, messaging, this._notebookService, this._logService
+		));
 		this._notebookInstancesBySessionId.set(session.sessionId, ipywidgetsInstance);
-		disposables.add(ipywidgetsInstance);
 
 		// Unregister the instance when the session is disposed.
 		disposables.add(toDisposable(() => {
@@ -209,11 +213,13 @@ export class IPyWidgetsInstance extends Disposable {
 	/**
 	 * @param _session The language runtime session.
 	 * @param _messaging The IPyWidgets webview messaging interface.
+	 * @param _notebookService The notebook service.
 	 * @param _logService The log service.
 	 */
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _messaging: IIPyWidgetsWebviewMessaging,
+		private readonly _notebookService: INotebookService,
 		private readonly _logService: ILogService,
 	) {
 		super();
@@ -226,6 +232,78 @@ export class IPyWidgetsInstance extends Disposable {
 				}
 			});
 		}
+
+		// Handle IPyWidget messages from the runtime.
+		this._register(_session.onDidReceiveRuntimeMessageIPyWidget(ipywidgetMessage => {
+			// Forward the wrapped message to the webview.
+			switch (ipywidgetMessage.original_message.type) {
+				case LanguageRuntimeMessageType.Output: {
+					const message = (ipywidgetMessage.original_message as ILanguageRuntimeMessageOutput);
+					this._messaging.postMessage({
+						type: 'kernel_message',
+						parent_id: message.parent_id,
+						content: {
+							type: 'display_data',
+							data: message.data,
+							metadata: message.metadata,
+						}
+					});
+					break;
+				}
+				case LanguageRuntimeMessageType.Result: {
+					const message = (ipywidgetMessage.original_message as ILanguageRuntimeMessageResult);
+					this._messaging.postMessage({
+						type: 'kernel_message',
+						parent_id: message.parent_id,
+						content: {
+							type: 'execute_result',
+							data: message.data,
+							metadata: message.metadata,
+						}
+					});
+					break;
+				}
+				case LanguageRuntimeMessageType.Stream: {
+					const message = (ipywidgetMessage.original_message as ILanguageRuntimeMessageStream);
+					this._messaging.postMessage({
+						type: 'kernel_message',
+						parent_id: message.parent_id,
+						content: {
+							type: 'stream',
+							name: message.name,
+							text: message.text,
+						}
+					});
+					break;
+				}
+				case LanguageRuntimeMessageType.Error: {
+					const message = (ipywidgetMessage.original_message as ILanguageRuntimeMessageError);
+					this._messaging.postMessage({
+						type: 'kernel_message',
+						parent_id: message.parent_id,
+						content: {
+							type: 'error',
+							name: message.name,
+							message: message.message,
+							traceback: message.traceback,
+						}
+					});
+					break;
+				}
+				case LanguageRuntimeMessageType.ClearOutput: {
+					const message = (ipywidgetMessage.original_message as ILanguageRuntimeMessageClearOutput);
+					this._messaging.postMessage({
+						type: 'kernel_message',
+						parent_id: message.parent_id,
+						content: {
+							type: 'clear_output',
+							wait: message.wait,
+						}
+					});
+					break;
+				}
+			}
+		}));
 
 		// Forward comm_open messages from the runtime to the webview.
 		this._register(_session.onDidCreateClientInstance(({ client, message }) => {
@@ -251,12 +329,15 @@ export class IPyWidgetsInstance extends Disposable {
 		// Handle messages from the webview.
 		this._register(this._messaging.onDidReceiveMessage(async (message) => {
 			switch (message.type) {
-				case 'initialize_request': {
+				case 'initialize': {
 					await this.sendInitializeResultToWebview();
 					break;
 				}
 				case 'comm_open':
 					this.handleCommOpenFromWebview(message);
+					break;
+				case 'get_preferred_renderer':
+					this.handleGetPreferredRendererFromWebview(message);
 					break;
 			}
 		}));
@@ -312,6 +393,23 @@ export class IPyWidgetsInstance extends Disposable {
 			RuntimeClientType.IPyWidgetControl, message.data, message.metadata, message.comm_id);
 		this.createClient(client);
 	}
+
+	private handleGetPreferredRendererFromWebview(message: IGetPreferredRendererFromWebview) {
+		let rendererId: string | undefined;
+		try {
+			const renderer = this._notebookService.getPreferredRenderer(message.mime_type);
+			rendererId = renderer?.id;
+		} catch {
+			this._logService.error(`Error while getting preferred renderer for mime type: ${message.mime_type}`);
+		}
+
+		this._messaging.postMessage({
+			type: 'get_preferred_renderer_result',
+			parent_id: message.msg_id,
+			renderer_id: rendererId,
+		});
+	}
+
 
 	hasClient(clientId: string) {
 		return this._clients.has(clientId);

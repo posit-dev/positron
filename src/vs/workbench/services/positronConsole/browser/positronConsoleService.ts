@@ -2052,7 +2052,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Add the pending input runtime item.
 			this._runtimeItems.push(this._runtimeItemPendingInput);
-		} else if (nCodeLines == nPendingLines) {
+		} else if (nCodeLines === nPendingLines) {
 			// We are about to execute everything available, so there isn't a new pending input item.
 			this._runtimeItemPendingInput = undefined;
 		} else {

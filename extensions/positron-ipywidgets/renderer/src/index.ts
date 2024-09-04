@@ -5,7 +5,7 @@
 
 import * as base from '@jupyter-widgets/base';
 import * as controls from '@jupyter-widgets/controls';
-import * as output from '@jupyter-widgets/output';
+import * as output from './output';
 import { ActivationFunction } from 'vscode-notebook-renderer';
 import { PositronWidgetManager } from './manager';
 import { Messaging } from './messaging';
@@ -44,7 +44,7 @@ export const activate: ActivationFunction = async (context) => {
 	const messaging = new Messaging(context);
 
 	// Create the widget manager.
-	const manager = new PositronWidgetManager(messaging);
+	const manager = new PositronWidgetManager(messaging, context);
 
 	// Wait until the Positron IPyWidgets instance sends the initialize_result message.
 	await new Promise<void>((resolve) => {
