@@ -5,7 +5,6 @@
 
 import { Event } from 'vs/base/common/event';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { PositronConfigurationModalOption } from 'vs/workbench/contrib/positronModalDialogs/browser/positronConfigurationModal';
 
 /**
  * Export the service identifier.
@@ -116,6 +115,6 @@ export interface IPositronModalDialogsService {
 	 */
 	showConfigurationModal(
 		title: string,
-		options: Array<PositronConfigurationModalOption>
-	): Promise<Array<PositronConfigurationModalOption>>;
+		options: Array<any>
+	): Promise<Array<any>>;
 }
