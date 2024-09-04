@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import webbrowser
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
@@ -201,6 +202,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                     ):
                         is_plot = True
                         break
+                if os.name == "nt":
+                    url = urlparse(url).netloc or urlparse(url).path
 
             self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
