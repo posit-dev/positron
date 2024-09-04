@@ -174,10 +174,13 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 			</div>
 			{context.instance.columnResize &&
 				<VerticalSplitter
+					configurationService={context.configurationService}
+					showSash={false}
+					collapsible={false}
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,
-						startingWidth: context.instance.getColumnWidth(props.columnIndex)
+						columnsWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
 					onResize={async width =>
 						await context.instance.setColumnWidth(props.columnIndex, width)

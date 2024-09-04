@@ -115,10 +115,13 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 				{context.instance.rowHeader(props.rowIndex)}
 			</div>
 			<VerticalSplitter
+				configurationService={context.configurationService}
+				showSash={false}
+				collapsible={false}
 				onBeginResize={() => ({
 					minimumWidth: context.instance.minimumColumnWidth,
 					maximumWidth: context.instance.maximumColumnWidth,
-					startingWidth: context.instance.rowHeadersWidth
+					columnsWidth: context.instance.rowHeadersWidth
 				})}
 				onResize={async width =>
 					await context.instance.setRowHeadersWidth(width)

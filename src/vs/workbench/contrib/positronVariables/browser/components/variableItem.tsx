@@ -435,6 +435,9 @@ export const VariableItem = (props: VariableItemProps) => {
 				</div>
 			</div>
 			<VerticalSplitter
+				configurationService={positronVariablesContext.configurationService}
+				showSash={false}
+				collapsible={false}
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>

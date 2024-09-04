@@ -4,27 +4,66 @@
  *--------------------------------------------------------------------------------------------*/
 
 .vertical-splitter {
-	width: 1px;
 	height: 100%;
+	position: relative;
+	background-origin: border-box;
+}
+
+:not(.mac) .vertical-splitter .sash {
+	/* On Windows and Linux, the cursor is ew-resize. */
 	cursor: ew-resize;
 }
 
-.mac
-.vertical-splitter {
+.mac .vertical-splitter .sash {
 	/* On macOS, the cursor is col-resize instead of ew-resize. */
 	cursor: col-resize;
 }
 
-.vertical-splitter
-.sizer {
-	left: -2px;
-	width: 4px;
-	z-index: 27;
+.vertical-splitter .sash {
+	z-index: 25;
 	height: 100%;
 	position: relative;
 }
 
-.vertical-splitter
-.sizer.resizing {
+.vertical-splitter .sash-hovering {
+	transition: background-color 0.1s ease-out;
 	background-color: var(--vscode-focusBorder);
+}
+
+.vertical-splitter .sash-resizing {
+	background-color: var(--vscode-focusBorder);
+}
+
+.vertical-splitter .expand-collapse-button {
+	top: 4px;
+	right: 50%;
+	width: 25px;
+	height: 25px;
+	z-index: 100;
+	cursor: pointer;
+	overflow: visible;
+	position: absolute;
+	transform: translateX(50%);
+}
+
+.vertical-splitter .expand-collapse-button .expand-collapse-button-face {
+	top: 0;
+	left: 0;
+	width: 25px;
+	height: 25px;
+	display: flex;
+	position: absolute;
+	border-radius: 50%;
+	font-weight: bolder;
+	align-items: center;
+	box-sizing: border-box;
+	justify-content: center;
+	border: 1px solid #3b79b3;
+	color: #3b79b3;
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.vertical-splitter .expand-collapse-button .expand-collapse-button-face.yack {
+	background-color: #3b79b3;
+	color: var(--vscode-positronDataExplorer-contrastBackground);
 }
