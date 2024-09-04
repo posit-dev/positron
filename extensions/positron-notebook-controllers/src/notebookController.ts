@@ -192,9 +192,7 @@ export class NotebookController implements vscode.Disposable {
 				id: cellId,
 				mode: positron.RuntimeCodeExecutionMode.Interactive,
 				errorBehavior: positron.RuntimeErrorBehavior.Stop,
-				callback: message => this.handleMessageForCellExecution(
-					message, currentExecution, session.metadata.sessionId
-				),
+				callback: message => this.handleMessageForCellExecution(message, currentExecution),
 			});
 			success = true;
 		} catch (error) {
@@ -208,7 +206,6 @@ export class NotebookController implements vscode.Disposable {
 	private async handleMessageForCellExecution(
 		message: positron.LanguageRuntimeMessage,
 		currentExecution: vscode.NotebookCellExecution,
-		sessionId: string,
 	): Promise<void> {
 		// Outputs to append to the cell, if any.
 		let cellOutput: vscode.NotebookCellOutput | undefined;
@@ -240,22 +237,7 @@ export class NotebookController implements vscode.Disposable {
 
 		// Append any resulting outputs to the cell execution.
 		if (cellOutput) {
-			// Check if the message will be handled by IPyWidgets instead.
-			let shouldAppendOutputs = true;
-			try {
-				shouldAppendOutputs = !(await positron.runtime.willIPyWidgetsHandleMessage(
-					sessionId, message.parent_id
-				));
-			} catch (error) {
-				log.error(
-					`Error determining whether IPyWidgets will handle message ` +
-					`for session ID: ${sessionId}, parent ID: ${message.parent_id}. Reason: ${error}`
-				);
-			}
-
-			if (shouldAppendOutputs) {
-				currentExecution.appendOutput(cellOutput);
-			}
+			currentExecution.appendOutput(cellOutput);
 		}
 	}
 

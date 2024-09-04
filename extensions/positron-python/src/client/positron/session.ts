@@ -72,6 +72,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The service for getting the Python extension interpreter path */
     private _interpreterPathService: IInterpreterPathService;
 
+    /**
+     * Map of parent message IDs currently handled by IPyWidgets output widget comms,
+     * keyed by comm ID.
+     *
+     * Output widgets may intercept replies to an execution and instead render them inside the
+     * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+     * for more.
+     */
+    private _parentIdsByOutputCommId = new Map<string, string>();
+
     dynState: positron.LanguageRuntimeDynState;
 
     private readonly interpreter: PythonEnvironment;
@@ -437,6 +447,47 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._stateEmitter.fire(state);
         });
         kernel.onDidReceiveRuntimeMessage((message) => {
+            // Check if an IPyWidgets Output widget is starting to listen to a parent message ID.
+            //
+            // Output widgets may intercept replies to an execution and instead render them inside the
+            // output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+            // for more.
+            if (message.type === positron.LanguageRuntimeMessageType.CommData) {
+                const commMessage = message as positron.LanguageRuntimeCommMessage;
+                const { data } = commMessage;
+                if (
+                    'method' in data &&
+                    data.method === 'update' &&
+                    'state' in data &&
+                    typeof data.state === 'object' &&
+                    data.state !== null &&
+                    'msg_id' in data.state &&
+                    typeof data.state.msg_id === 'string'
+                ) {
+                    if (data.state.msg_id.length > 0) {
+                        // Start intercepting messages for this parent ID.
+                        this._parentIdsByOutputCommId.set(commMessage.comm_id, data.state.msg_id);
+                    } else {
+                        // Stop intercepting messages for the comm ID.
+                        this._parentIdsByOutputCommId.delete(commMessage.comm_id);
+                    }
+                }
+                // If the message should be handled by an IPyWidgets output widget,
+                // emit a new IPyWidget message wrapping the original message.
+                // See the note and link above for more.
+            } else if (
+                message.type !== positron.LanguageRuntimeMessageType.CommClosed &&
+                message.type !== positron.LanguageRuntimeMessageType.CommOpen &&
+                message.type !== positron.LanguageRuntimeMessageType.State &&
+                Array.from(this._parentIdsByOutputCommId.values()).some((parentId) => parentId === message.parent_id)
+            ) {
+                message = {
+                    ...message,
+                    type: positron.LanguageRuntimeMessageType.IPyWidget,
+                    original_message: message,
+                } as positron.LanguageRuntimeMessageIPyWidget;
+            }
+
             this._messageEmitter.fire(message);
         });
         kernel.onDidEndSession(async (exit) => {

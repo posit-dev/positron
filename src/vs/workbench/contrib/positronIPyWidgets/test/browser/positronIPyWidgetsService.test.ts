@@ -26,7 +26,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
 import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
 import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
 import { INotebookDocumentService, NotebookDocumentWorkbenchService } from 'vs/workbench/services/notebook/common/notebookDocumentService';
@@ -86,59 +86,6 @@ suite('Positron - PositronIPyWidgetsService', () => {
 		return session;
 	}
 
-	async function createOutputClient() {
-		// Start a console session.
-		const session = await startConsoleSession();
-
-		// Create an IPyWidget client.
-		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
-
-		const parentId = 'test-parent-id';
-
-		// The output client should not handle messages to the parent ID yet.
-		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-
-		// Update the client's msg_id to the test parent ID.
-		client.receiveData({
-			data: {
-				method: 'update',
-				state: { msg_id: parentId }
-			}
-		});
-		await timeout(0);
-
-		// The output client should handle messages to the `msg_id`.
-		assert(positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-
-		return { session, client, parentId };
-	}
-
-	test('output clients will handle messages to a given msg_id until msg_id is reset', async () => {
-		const { session, client, parentId } = await createOutputClient();
-
-		// Reset the `msg_id` state.
-		client.receiveData({
-			data: {
-				method: 'update',
-				state: { msg_id: '' }
-			}
-		});
-		await timeout(0);
-
-		// The output client should no longer handle messages to the parent ID.
-		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-	});
-
-	test('output clients will handle messages to a given msg_id until client is closed', async () => {
-		const { session, client, parentId } = await createOutputClient();
-
-		// Closed the client.
-		client.setClientState(RuntimeClientState.Closed);
-
-		// The output client should no longer handle messages to the parent ID.
-		assert(!positronIpywidgetsService.willHandleMessage(session.sessionId, parentId));
-	});
-
 	async function receiveIPyWidgetsResultMessage(
 		session: TestLanguageRuntimeSession,
 		parentId?: string,
@@ -156,16 +103,6 @@ suite('Positron - PositronIPyWidgetsService', () => {
 
 		return message;
 	}
-
-	test('console session: no instance created if output client will handle message', async () => {
-		const { session, parentId } = await createOutputClient();
-
-		// Simulate the runtime sending an IPyWidgets output message.
-		const message = await receiveIPyWidgetsResultMessage(session, parentId);
-
-		// The IPyWidgets instance should not have been created.
-		assert(!positronIpywidgetsService.hasInstance(message.id));
-	});
 
 	async function createConsoleInstance() {
 		// Listen for the plot client to be created.
@@ -462,7 +399,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 	});
 
 	test('to webview: kernel_message, display_data', async () => {
-		const message = session.receiveOutputMessage({});
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Output });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageOutput;
 
 		// Check that the display_data kernel_message was sent to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
@@ -477,7 +415,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 	});
 
 	test('to webview: kernel_message, execute_result', async () => {
-		const message = session.receiveResultMessage({});
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Result });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageResult;
 
 		// Check that the display_data kernel_message was sent to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
@@ -492,7 +431,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 	});
 
 	test('to webview: kernel_message, stream', async () => {
-		const message = session.receiveStreamMessage({});
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Stream });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageStream;
 
 		// Check that the stream kernel_message was sent to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
@@ -507,7 +447,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 	});
 
 	test('to webview: kernel_message, error', async () => {
-		const message = session.receiveErrorMessage({});
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.Error });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageError;
 
 		// Check that the error kernel_message was sent to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{
@@ -523,7 +464,8 @@ suite('Positron - IPyWidgetsInstance', () => {
 	});
 
 	test('to webview: kernel_message, clear_output', async () => {
-		const message = session.receiveClearOutputMessage({});
+		const ipywidgetMessage = session.receiveIPyWidgetMessage({}, { type: LanguageRuntimeMessageType.ClearOutput });
+		const message = ipywidgetMessage.original_message as ILanguageRuntimeMessageClearOutput;
 
 		// Check that the clear_output kernel_message was sent to the webview.
 		assert.deepStrictEqual(messaging.messagesToWebview, [{

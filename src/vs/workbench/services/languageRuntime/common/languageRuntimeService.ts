@@ -209,6 +209,19 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 	password: boolean;
 }
 
+/**
+ * LanguageRuntimeMessageIPyWidget is a wrapped LanguageRuntimeMessage that should be handled
+ * by an IPyWidget.
+ *
+ * Output widgets may intercept replies to an execution and instead render them inside the
+ * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+ * for more.
+ */
+export interface ILanguageRuntimeMessageIPyWidget extends ILanguageRuntimeMessage {
+	/** The original runtime message that was intercepted by an IPyWidget */
+	original_message: ILanguageRuntimeMessage;
+}
+
 /** ILanguageRuntimeMessageCommOpen is a LanguageRuntimeMessage representing a comm open request */
 export interface ILanguageRuntimeMessageCommOpen extends ILanguageRuntimeMessage {
 	/** The comm ID */
@@ -469,6 +482,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
+
+	/** A message that should be handled by an IPyWidget */
+	IPyWidget = 'ipywidget',
 }
 
 /**

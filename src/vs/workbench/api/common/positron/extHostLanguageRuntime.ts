@@ -584,10 +584,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		});
 	}
 
-	public willIPyWidgetsHandleMessage(sessionId: string, parentId: string): Promise<boolean> {
-		return this._proxy.$willIPyWidgetsHandleMessage(sessionId, parentId);
-	}
-
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {
 		return Promise.resolve(this._registeredRuntimes);
 	}

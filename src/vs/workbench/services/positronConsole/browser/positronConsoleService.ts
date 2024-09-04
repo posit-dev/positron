@@ -40,7 +40,6 @@ import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageO
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -694,7 +693,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		attachMode: SessionAttachMode,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -1495,13 +1493,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				// Don't display outputs that are currently handled by the IPyWidgets service.
-				if (this._positronIPyWidgetsService.willHandleMessage(
-					this._session.metadata.sessionId, languageRuntimeMessageOutput.parent_id
-				)) {
-					return;
-				}
-
 				if (
 					languageRuntimeMessageOutput.kind === RuntimeOutputKind.ViewerWidget ||
 					languageRuntimeMessageOutput.kind === RuntimeOutputKind.IPyWidget
@@ -1596,14 +1587,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					);
 				}
 
-				// Don't display streams that are currently handled by the IPyWidgets service.
-				if (this._positronIPyWidgetsService.willHandleMessage(
-					this._session.metadata.sessionId,
-					languageRuntimeMessageStream.parent_id
-				)) {
-					return;
-				}
-
 				// Handle stdout and stderr.
 				if (languageRuntimeMessageStream.name === 'stdout') {
 					this.addOrUpdateUpdateRuntimeItemActivity(
@@ -1631,14 +1614,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Add the onDidReceiveRuntimeMessageError event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageError(
 			languageRuntimeMessageError => {
-				// Don't display errors that are currently handled by the IPyWidgets service.
-				if (this._positronIPyWidgetsService.willHandleMessage(
-					this._session.metadata.sessionId,
-					languageRuntimeMessageError.parent_id
-				)) {
-					return;
-				}
-
 				// If trace is enabled, add a trace runtime item.
 				if (this._trace) {
 					this.addRuntimeItemTrace(

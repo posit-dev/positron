@@ -55,6 +55,9 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+
+		/** A message that should be handled by an IPyWidget */
+		IPyWidget = 'ipywidget',
 	}
 
 	/**
@@ -335,6 +338,19 @@ declare module 'positron' {
 
 		/** The error stack trace */
 		traceback: Array<string>;
+	}
+
+	/**
+	 * LanguageRuntimeMessageIPyWidget is a wrapped LanguageRuntimeMessage that should be handled
+	 * by an IPyWidget.
+	 *
+	 * Output widgets may intercept replies to an execution and instead render them inside the
+	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+	 * for more.
+	 */
+	export interface LanguageRuntimeMessageIPyWidget extends LanguageRuntimeMessage {
+		/** The original runtime message that was intercepted by an IPyWidget */
+		original_message: LanguageRuntimeMessage;
 	}
 
 	/**
@@ -1271,21 +1287,6 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
-
-		/**
-		 * Whether the IPyWidgets service will handle messages to a session and parent message ID.
-		 *
-		 * Output widgets may intercept replies to an execution and instead render them inside the
-		 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
-		 * for more.
-		 *
-		 * @param sessionId The runtime session ID.
-		 * @param parentId The message parent ID.
-		 * @deprecated This method is a temporary workaround while Positron's notebook support lives
-		 *   in the Positron Notebook Controllers extension. It will be removed once the extension
-		 *   is brought into the core project.
-		 */
-		export function willIPyWidgetsHandleMessage(sessionId: string, parentId: string): Thenable<boolean>;
 
 		/**
 		 * An event that fires when a new runtime is registered.

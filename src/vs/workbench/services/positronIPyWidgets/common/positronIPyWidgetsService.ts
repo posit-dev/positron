@@ -31,16 +31,4 @@ export interface IPositronIPyWidgetsService {
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;
-
-	/**
-	 * Whether the IPyWidgets service will handle messages to a session and parent message ID.
-	 *
-	 * Output widgets may intercept replies to an execution and instead render them inside the
-	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
-	 * for more.
-	 *
-	 * @param sessionId The runtime session ID.
-	 * @param parentId The parent message ID.
-	 */
-	willHandleMessage(sessionId: string, parentId: string): boolean;
 }
