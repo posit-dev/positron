@@ -8,7 +8,7 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/uti
 import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
 import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { PositronHoloViewsService } from 'vs/workbench/contrib/positronHoloViews/browser/positronHoloViewsService';
+import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
 import { TestNotebookService } from 'vs/workbench/contrib/positronIPyWidgets/test/browser/positronIPyWidgetsService.test';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { PositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
@@ -22,23 +22,15 @@ import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/
 import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
 
 
-const hvPreloadMessage1 = {
-	kind: RuntimeOutputKind.HoloViews,
+const hvPreloadMessage = {
+	kind: RuntimeOutputKind.WebviewPreload,
 	data: {
 		'application/vnd.holoviews_load.v0+json': {},
 	},
 };
 
-const hvPreloadMessage2 = {
-	kind: RuntimeOutputKind.HoloViews,
-	data: {
-		'application/vnd.holoviews_load.v0+json': 'bar',
-		'text/html': '<div></div>',
-	},
-};
-
 const hvDisplayMessage = {
-	kind: RuntimeOutputKind.HoloViews,
+	kind: RuntimeOutputKind.WebviewPreload,
 	data: {
 		"application/vnd.holoviews_exec.v0+json": '',
 		'text/html': '<div></div>',
@@ -46,10 +38,25 @@ const hvDisplayMessage = {
 	},
 };
 
-suite('Positron - PositronHoloViewsService', () => {
+const bokehPreloadMessage = {
+	kind: RuntimeOutputKind.WebviewPreload,
+	data: {
+		'application/vnd.bokehjs_load.v0+json': {},
+	},
+};
+
+const bokehDisplayMessage = {
+	kind: RuntimeOutputKind.WebviewPreload,
+	data: {
+		"application/vnd.bokehjs_exec.v0+json": '',
+		"application/javascript": 'console.log("hello")',
+	},
+};
+
+suite('Positron - PositronWebviewPreloadService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-	let positronHoloViewsService: PositronHoloViewsService;
+	let positronWebviewPreloadService: PositronWebviewPreloadService;
 	let runtimeSessionService: TestRuntimeSessionService;
 
 	setup(() => {
@@ -60,7 +67,7 @@ suite('Positron - PositronHoloViewsService', () => {
 		instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
 		runtimeSessionService = disposables.add(new TestRuntimeSessionService());
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-		positronHoloViewsService = disposables.add(instantiationService.createInstance(PositronHoloViewsService));
+		positronWebviewPreloadService = disposables.add(instantiationService.createInstance(PositronWebviewPreloadService));
 	});
 
 	async function createConsoleSession() {
@@ -78,7 +85,7 @@ suite('Positron - PositronHoloViewsService', () => {
 			session, plotClient: undefined,
 		};
 
-		disposables.add(positronHoloViewsService.onDidCreatePlot(client => {
+		disposables.add(positronWebviewPreloadService.onDidCreatePlot(client => {
 			out.plotClient = client;
 		}));
 
@@ -89,17 +96,17 @@ suite('Positron - PositronHoloViewsService', () => {
 		const consoleSession = await createConsoleSession();
 
 		// Simulate the runtime sending an HoloViews output message.
-		consoleSession.session.receiveOutputMessage(hvPreloadMessage1);
+		consoleSession.session.receiveOutputMessage(hvPreloadMessage);
 		await timeout(0);
 
 		// No plot should have been emitted.
 		assert(!Boolean(consoleSession.plotClient));
-		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
+		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
 
 		// Send another preload message.
-		consoleSession.session.receiveOutputMessage(hvPreloadMessage2);
+		consoleSession.session.receiveOutputMessage(bokehPreloadMessage);
 		await timeout(0);
-		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 2);
+		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 2);
 
 		// End the session.
 		consoleSession.session.endSession();
@@ -110,19 +117,24 @@ suite('Positron - PositronHoloViewsService', () => {
 		const consoleSession = await createConsoleSession();
 
 		// Send one preload message.
-		consoleSession.session.receiveOutputMessage(hvPreloadMessage1);
+		consoleSession.session.receiveOutputMessage(hvPreloadMessage);
 		await timeout(0);
 
 		// Send a display message
-		const displayMessage = consoleSession.session.receiveOutputMessage(hvDisplayMessage);
+		const displayMessageHv = consoleSession.session.receiveOutputMessage(hvDisplayMessage);
 		await timeout(0);
 
 		// Display message shouldnt have been absorbed into preload messages
-		assert.equal(positronHoloViewsService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
+		assert.equal(positronWebviewPreloadService.sessionInfo(consoleSession.session.sessionId)?.numberOfMessages, 1);
 
 		// Plot client should have been emitted and it should be linked to the display message.
 		assert(Boolean(consoleSession.plotClient));
-		assert.strictEqual(consoleSession.plotClient!.id, displayMessage.id);
+		assert.strictEqual(consoleSession.plotClient!.id, displayMessageHv.id);
+
+		// Emit a bokeh display message and another plot should be created
+		const displayMessageBokeh = consoleSession.session.receiveOutputMessage(bokehDisplayMessage);
+		await timeout(0);
+		assert.strictEqual(consoleSession.plotClient!.id, displayMessageBokeh.id);
 
 		// End the session.
 		consoleSession.session.endSession();

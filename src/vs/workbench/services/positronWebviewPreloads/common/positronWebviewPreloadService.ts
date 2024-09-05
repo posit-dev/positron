@@ -7,16 +7,16 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { Event } from 'vs/base/common/event';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 
-export const POSITRON_HOLOVIEWS_ID = 'positronHoloViewsService';
+export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
 export const MIME_TYPE_HOLOVIEWS_EXEC = 'application/vnd.holoviews_exec.v0+json';
+export const MIME_TYPE_BOKEH_EXEC = 'application/vnd.bokehjs_exec.v0+json';
+export const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
+export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
 
-export const IPositronHoloViewsService = createDecorator<IPositronHoloViewsService>(POSITRON_HOLOVIEWS_ID);
+export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
 
-/**
- * IPositronHoloViewsService interface.
- */
-export interface IPositronHoloViewsService {
+export interface IPositronWebviewPreloadService {
 	/**
 	 * Needed for service branding in dependency injector.
 	 */

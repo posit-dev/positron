@@ -33,13 +33,13 @@ from .connections import ConnectionsService
 from .data_explorer import DataExplorerService
 from .help import HelpService, help
 from .lsp import LSPService
+from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
+from .patch.holoviews import set_holoviews_extension
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
 from .utils import JsonRecord, get_qualname
 from .variables import VariablesService
-from .patch.holoviews import set_holoviews_extension
-from .patch.bokeh import patch_bokeh_no_access
 
 
 class _CommTarget(str, enum.Enum):
@@ -442,6 +442,7 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch holoviews to use our custom notebook extension.
         set_holoviews_extension(self.ui_service)
+        handle_bokeh_output(self.session_mode)
 
         # Patch bokeh to generate html in tempfile
         patch_bokeh_no_access()

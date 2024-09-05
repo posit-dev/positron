@@ -160,6 +160,13 @@ def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> M
 
 
 @pytest.fixture
+def mock_display_pub(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell, "display_pub", mock)
+    return mock
+
+
+@pytest.fixture
 def variables_service(kernel: PositronIPyKernel) -> VariablesService:
     """
     The Positron variables service.
