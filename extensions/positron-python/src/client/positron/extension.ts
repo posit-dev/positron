@@ -83,119 +83,54 @@ export async function activatePositron(
         // Activate detection for web applications
         activateAppDetection(context.subscriptions);
 
+        disposables.push(
+            vscode.tasks.registerTaskProvider('streamlit', {
+                provideTasks(_token) {
+                    const document = vscode.window.activeTextEditor?.document;
+                    if (document?.languageId !== 'python') {
+                        return;
+                    }
+
+                    const path = document.uri.fsPath;
+                    console.log('Path:', path);
+
+                    return [
+                        new vscode.Task(
+                            {
+                                type: 'streamlit',
+                            },
+                            vscode.TaskScope.Workspace,
+                            'Run Streamlit app',
+                            'streamlit',
+                            new vscode.ShellExecution(
+                                '${command:python.interpreterPath} -m streamlit run --port ${file}',
+                            ),
+                            [],
+                        ),
+                    ];
+                },
+                resolveTask(_task, _token) {
+                    return undefined;
+                },
+            }),
+        );
         // TODO: This should probably live in its own extension, like Shiny.
         // Register a command to run Streamlit.
         disposables.push(
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                console.log('Running Streamlit App...');
-
-                const path = vscode.window.activeTextEditor?.document.uri.fsPath;
-                if (!path) {
-                    return;
-                }
-                console.log('Path:', path);
-
-                if (vscode.window.activeTextEditor?.document.isDirty) {
-                    await vscode.window.activeTextEditor.document.save();
-                }
-
-                const preferredRuntime = await positron.runtime.getPreferredRuntime('python');
-                console.log('Preferred Python runtime path:', preferredRuntime.runtimePath);
-
-                const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
-                if (!ext) {
-                    throw new Error('Jupyter Adapter extension not found');
-                }
-                if (!ext.isActive) {
-                    await ext.activate();
-                }
-                const adapterApi = ext?.exports as JupyterAdapterApi;
-
-                // TODO: Check for a streamlit.port setting
-                // TODO: Cache used port?
-                const port = await adapterApi.findAvailablePort([], 25);
-                console.log('Port:', port);
-
-                const terminalName = 'Streamlit';
-                const oldTerminals = vscode.window.terminals.filter((t) => t.name === terminalName);
-
-                const terminal = vscode.window.createTerminal({
-                    name: terminalName,
-                });
-                terminal.show(true);
-
-                const closingTerminals = oldTerminals.map((x) => {
-                    const p = new Promise<void>((resolve) => {
-                        // Resolve when the terminal is closed. We're working hard to be accurate
-                        // BUT empirically it doesn't seem like the old Shiny processes are
-                        // actually terminated at the time this promise is resolved, so callers
-                        // shouldn't assume that.
-                        const subscription = vscode.window.onDidCloseTerminal((term) => {
-                            if (term === x) {
-                                subscription.dispose();
-                                resolve();
-                            }
-                        });
-                    });
-                    x.dispose();
-                    return p;
-                });
-                await Promise.allSettled(closingTerminals);
-
-                const args: string[] = ['-m', 'streamlit', 'run'];
-                args.push('--server.port', `${port}`);
-                // args.push('--reload');
-                // args.push('--autoreload-port', `${autoreloadPort}`);
-                args.push('--server.headless', 'true');
-                args.push(path);
-                // TODO: Escape the command for the terminal.
-                // const cmdline = escapeCommandForTerminal(terminal, python, args);
-                const cmdline = `${preferredRuntime.runtimePath} ${args.join(' ')}`;
-                console.log('Command:', cmdline);
-                terminal.sendText(cmdline);
-
-                positron.window.previewUrl(vscode.Uri.parse('about:blank'));
-
-                // TODO: Handle being in workbench.
-                const localUri = vscode.Uri.parse(`http://localhost:${port}`);
-                const uri = await vscode.env.asExternalUri(localUri);
-
-                const host = '127.0.0.1';
-                const timeout = 1000;
-                const maxDate = Date.now() + 10_000;
-                while (Date.now() < maxDate) {
-                    try {
-                        await new Promise<boolean>((resolve, reject) => {
-                            const client = new net.Socket();
-
-                            client.setTimeout(timeout);
-                            client.connect(port, host, () => {
-                                resolve(true);
-                                client.end();
-                            });
-
-                            client.on('timeout', () => {
-                                client.destroy();
-                                reject(new Error('Timed out'));
-                            });
-
-                            client.on('error', (err) => {
-                                reject(err);
-                            });
-
-                            client.on('close', () => {
-                                reject(new Error('Connection closed'));
-                            });
-                        });
-                        break;
-                    } catch (ex) {
-                        console.log('Waiting for Streamlit to start...');
-                        await new Promise((resolve) => setTimeout(resolve, 20));
-                    }
-                }
-
-                positron.window.previewUrl(uri);
+                await runApp(
+                    ['${runtimePath}', '-m', 'streamlit', 'run', '${file}', '--port', '${port}'],
+                    'Streamlit',
+                    'python',
+                );
             }),
+            // vscode.commands.registerCommand('python.runGradioApp', async () => {
+            //     await runApp(
+            //         ['${runtimePath}', '-m', 'streamlit', 'run', '${file}', '--port', '${port}'],
+            //         'Streamlit',
+            //         'python',
+            //     );
+            // }),
         );
         traceInfo('activatePositron: done!');
     } catch (ex) {
@@ -238,4 +173,111 @@ export async function checkAndInstallPython(
         }
     }
     return InstallerResponse.Installed;
+}
+
+async function runApp(args: string[], title: string, languageId: string) {
+    console.log(`Running ${title} App...`);
+
+    const path = vscode.window.activeTextEditor?.document.uri.fsPath;
+    if (!path) {
+        return;
+    }
+    console.log('Path:', path);
+
+    if (vscode.window.activeTextEditor?.document.isDirty) {
+        await vscode.window.activeTextEditor.document.save();
+    }
+
+    const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+    if (!ext) {
+        throw new Error('Jupyter Adapter extension not found');
+    }
+    if (!ext.isActive) {
+        await ext.activate();
+    }
+    const adapterApi = ext?.exports as JupyterAdapterApi;
+
+    // TODO: Check for a port setting?
+    // TODO: Cache used port?
+    const port = await adapterApi.findAvailablePort([], 25);
+    console.log('Port:', port);
+
+    const terminalName = title;
+    const oldTerminals = vscode.window.terminals.filter((t) => t.name === terminalName);
+
+    const terminal = vscode.window.createTerminal({
+        name: terminalName,
+    });
+    terminal.show(true);
+
+    const closingTerminals = oldTerminals.map((x) => {
+        const p = new Promise<void>((resolve) => {
+            // Resolve when the terminal is closed. We're working hard to be accurate
+            // BUT empirically it doesn't seem like the old Shiny processes are
+            // actually terminated at the time this promise is resolved, so callers
+            // shouldn't assume that.
+            const subscription = vscode.window.onDidCloseTerminal((term) => {
+                if (term === x) {
+                    subscription.dispose();
+                    resolve();
+                }
+            });
+        });
+        x.dispose();
+        return p;
+    });
+    await Promise.allSettled(closingTerminals);
+
+    // TODO: Is there a VSCode API to do variable substitution?
+    const runtime = await positron.runtime.getPreferredRuntime(languageId);
+    args = args.map((arg) =>
+        arg.replace('${runtimePath}', runtime.runtimePath).replace('${file}', path).replace('${port}', port.toString()),
+    );
+    // TODO: Escape the command for the terminal.
+    // const cmdline = escapeCommandForTerminal(terminal, python, args);
+    const cmdline = args.join(' ');
+    console.log('Command:', cmdline);
+    terminal.sendText(cmdline);
+
+    positron.window.previewUrl(vscode.Uri.parse('about:blank'));
+
+    // TODO: Handle being in workbench.
+    const localUri = vscode.Uri.parse(`http://localhost:${port}`);
+    const uri = await vscode.env.asExternalUri(localUri);
+
+    const host = '127.0.0.1';
+    const timeout = 1000;
+    const maxDate = Date.now() + 10_000;
+    while (Date.now() < maxDate) {
+        try {
+            await new Promise<boolean>((resolve, reject) => {
+                const client = new net.Socket();
+
+                client.setTimeout(timeout);
+                client.connect(port, host, () => {
+                    resolve(true);
+                    client.end();
+                });
+
+                client.on('timeout', () => {
+                    client.destroy();
+                    reject(new Error('Timed out'));
+                });
+
+                client.on('error', (err) => {
+                    reject(err);
+                });
+
+                client.on('close', () => {
+                    reject(new Error('Connection closed'));
+                });
+            });
+            break;
+        } catch (ex) {
+            console.log('Waiting for Streamlit to start...');
+            await new Promise((resolve) => setTimeout(resolve, 20));
+        }
+    }
+
+    positron.window.previewUrl(uri);
 }
