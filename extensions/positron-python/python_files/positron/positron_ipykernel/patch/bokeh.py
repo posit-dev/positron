@@ -30,19 +30,27 @@ MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
 def handle_bokeh_output(session_mode: SessionMode) -> None:
     """
-    Override the bokeh notebook display function to add a flag that the front-end can pick up on to
-    know that the data coming over should be replayed in multiple steps.
+    Make various patches to improve the experience of using bokeh plots in console sessions.
 
     Args:
         session_mode: The mode that the kernel application was started in.
-        logger: A logger function.
     """
     if session_mode == SessionMode.NOTEBOOK:
         # Don't do anything if we're in a notebook
         return
 
+    hide_glyph_renderer_output()
+    add_preload_mime_type()
+
+
+def add_preload_mime_type():
+    """
+    Override the bokeh notebook display function to add a flag that the front-end can pick up on to
+    know that the data coming over should be replayed in multiple steps.
+    """
     try:
         from bokeh.io import notebook
+
     except ImportError:
         return
 
@@ -63,3 +71,24 @@ def handle_bokeh_output(session_mode: SessionMode) -> None:
 
     logger.debug("Overrode bokeh.notebook.publish_display_data")
     notebook.publish_display_data = new_publish_display_data
+
+
+def hide_glyph_renderer_output():
+    """
+    Disable the `_repr_html_` method on the GlyphRenderer class to prevent it from being called
+    when the model is displayed and thus confusing positron into thinking it's a plot to show.
+    """
+    try:
+        from bokeh.models import renderers
+
+        renderers.GlyphRenderer._repr_html_ = empty_repr_html
+
+    except ImportError:
+        return
+
+
+def empty_repr_html(self):
+    """
+    Empty function used to disable html printing of a class.
+    """
+    return ""
