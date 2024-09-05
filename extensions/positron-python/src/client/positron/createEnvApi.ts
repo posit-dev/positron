@@ -3,10 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Start Positron ---
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-// --- End Positron ---
 import { CreateEnvironmentOptionsInternal } from '../pythonEnvironments/creation/types';
 import {
     CreateEnvironmentOptions,
