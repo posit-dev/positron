@@ -12,23 +12,23 @@ import { Uri } from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
-import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../../constants';
-import * as commandApis from '../../../client/common/vscodeApis/commandApis';
-import * as createEnvironmentApis from '../../../client/pythonEnvironments/creation/createEnvironment';
-import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../../client/common/types';
-import { registerCreateEnvironmentFeatures } from '../../../client/pythonEnvironments/creation/createEnvApi';
+import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../constants';
+import * as commandApis from '../../client/common/vscodeApis/commandApis';
+import * as createEnvironmentApis from '../../client/pythonEnvironments/creation/createEnvironment';
+import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../client/common/types';
+import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
 import {
     CreateEnvironmentOptions,
     CreateEnvironmentProvider,
-} from '../../../client/pythonEnvironments/creation/proposed.createEnvApis';
-import { CreateEnvironmentOptionsInternal } from '../../../client/pythonEnvironments/creation/types';
-import { IPythonRuntimeManager } from '../../../client/positron/manager';
-import { IInterpreterQuickPick } from '../../../client/interpreter/configuration/types';
-import { createEnvironmentAndRegister } from '../../../client/positron/createEnvApi';
+} from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
+import { CreateEnvironmentOptionsInternal } from '../../client/pythonEnvironments/creation/types';
+import { IPythonRuntimeManager } from '../../client/positron/manager';
+import { IInterpreterQuickPick } from '../../client/interpreter/configuration/types';
+import { createEnvironmentAndRegister } from '../../client/positron/createEnvApi';
 
 chaiUse(chaiAsPromised);
 
-suite('Create Environment and Register Tests', () => {
+suite('Positron Create Environment APIs', () => {
     let registerCommandStub: sinon.SinonStub;
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
 
