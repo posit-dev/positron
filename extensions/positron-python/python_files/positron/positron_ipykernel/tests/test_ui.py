@@ -210,7 +210,9 @@ import webbrowser
 webbrowser._tryorder = ["positron_viewer"]
 
 from bokeh.plotting import figure, show
+from bokeh.io.import output
 
+output.reset_output()
 p = figure()
 p.line([0, 1], [2, 3])
 
