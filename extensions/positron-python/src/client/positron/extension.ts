@@ -119,47 +119,106 @@ export async function activatePositron(
         // Register a command to run Streamlit.
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
         disposables.push(
+            registerApplicationFramework({
+                id: 'python.streamlit',
+                label: 'Streamlit',
+                languageId: 'python',
+                getRunOptions(runtimePath, filePath, port) {
+                    return {
+                        command: [
+                            runtimePath,
+                            '-m',
+                            'streamlit',
+                            'run',
+                            filePath,
+                            '--server.port',
+                            port.toString(),
+                            '--server.headless',
+                            'true',
+                        ].join(' '),
+                    };
+                },
+            }),
+            registerApplicationFramework({
+                id: 'python.dash',
+                label: 'Dash',
+                languageId: 'python',
+                getRunOptions(runtimePath, filePath, port) {
+                    return {
+                        command: [runtimePath, filePath].join(' '),
+                        env: {
+                            PORT: port.toString(),
+                        },
+                    };
+                },
+            }),
+            registerApplicationFramework({
+                id: 'python.gradio',
+                label: 'Gradio',
+                languageId: 'python',
+                getRunOptions(runtimePath, filePath, port) {
+                    return {
+                        command: [runtimePath, filePath].join(' '),
+                        env: {
+                            GRADIO_SERVER_PORT: port.toString(),
+                        },
+                    };
+                },
+            }),
+            registerApplicationFramework({
+                id: 'python.fastapi',
+                label: 'FastAPI',
+                languageId: 'python',
+                getRunOptions(runtimePath, filePath, port) {
+                    return {
+                        command: [
+                            runtimePath,
+                            '-m',
+                            'uvicorn',
+                            // TODO: How to allow customizing the app name?
+                            `${pathToModule(filePath)}:app`,
+                            '--port',
+                            port.toString(),
+                        ].join(' '),
+                        url: `http://localhost:${port}/docs`,
+                    };
+                },
+            }),
+            registerApplicationFramework({
+                id: 'python.flask',
+                label: 'Flask',
+                languageId: 'python',
+                getRunOptions(runtimePath, filePath, port) {
+                    return {
+                        command: [
+                            runtimePath,
+                            '-m',
+                            'flask',
+                            '--app',
+                            // TODO: How to allow customizing the app name?
+                            `${pathToModule(filePath)}:app`,
+                            'run',
+                            '--port',
+                            port.toString(),
+                        ].join(' '),
+                    };
+                },
+            }),
+
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                await runApp(
-                    [
-                        '${runtimePath}',
-                        '-m',
-                        'streamlit',
-                        'run',
-                        '${file}',
-                        '--server.port',
-                        '${port}',
-                        '--server.headless',
-                        'true',
-                    ],
-                    'Streamlit',
-                    'python',
-                );
+                await runApplication('python.streamlit');
             }),
             vscode.commands.registerCommand('python.runDashApp', async () => {
-                await runApp(['${runtimePath}', '${file}'], 'Dash', 'python', { PORT: '${port}' });
+                await runApplication('python.dash');
             }),
-            // TODO: User can override with server_port arg.
             vscode.commands.registerCommand('python.runGradioApp', async () => {
-                await runApp(['${runtimePath}', '${file}'], 'Gradio', 'python', { GRADIO_SERVER_PORT: '${port}' });
+                await runApplication('python.gradio');
             }),
             vscode.commands.registerCommand('python.runFastAPIApp', async () => {
-                await runApp(
-                    // TODO: How to allow customizing the app name?
-                    ['${runtimePath}', '-m', 'uvicorn', '${fileAsModule}:app', '--port', '${port}'],
-                    'FastAPI',
-                    'python',
-                    undefined,
-                    'http://localhost:${port}/docs',
-                );
+                await runApplication('python.fastapi');
             }),
             vscode.commands.registerCommand('python.runFlaskApp', async () => {
-                await runApp(
-                    // TODO: How to allow customizing the app name?
-                    ['${runtimePath}', '-m', 'flask', '--app', '${fileAsModule}:app', 'run', '--port', '${port}'],
-                    'Flask',
-                    'python',
-                );
+                await runApplication('python.flask');
             }),
         );
         traceInfo('activatePositron: done!');
@@ -205,14 +264,55 @@ export async function checkAndInstallPython(
     return InstallerResponse.Installed;
 }
 
-async function runApp(
-    args: string[],
-    title: string,
-    languageId: string,
-    env?: { [key: string]: string | null | undefined },
-    url = 'http://localhost:${port}',
-) {
-    console.log(`Running ${title} App...`);
+// TODO: Better way?
+function pathToModule(p: string): string {
+    const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+    if (!workspacePath) {
+        throw new Error('No workspace path');
+    }
+    const relativePath = path.relative(workspacePath, p);
+    const mod = path.parse(relativePath).name;
+    const parts = path.dirname(relativePath).split(path.sep);
+    return parts.concat(mod).join('.');
+}
+
+interface ApplicationFrameworkRunOptions {
+    command: string;
+    env?: { [key: string]: string | null | undefined };
+    url?: string;
+}
+
+interface ApplicationFramework {
+    id: string;
+    label: string;
+    languageId: string;
+    getRunOptions(runtimePath: string, filePath: string, port: number): ApplicationFrameworkRunOptions;
+}
+
+const appFrameworksById = new Map<string, ApplicationFramework>();
+
+function registerApplicationFramework(appFramework: ApplicationFramework): vscode.Disposable {
+    if (appFrameworksById.has(appFramework.id)) {
+        throw new Error(`Application framework already registered for id '${appFramework.id}'`);
+    }
+
+    appFrameworksById.set(appFramework.id, appFramework);
+
+    return {
+        dispose() {
+            appFrameworksById.delete(appFramework.id);
+            // TODO: Should this also dispose the appFramework?
+        },
+    };
+}
+
+async function runApplication(id: string): Promise<void> {
+    const appFramework = appFrameworksById.get(id);
+    if (!appFramework) {
+        throw new Error(`Application framework not found for id '${id}'`);
+    }
+
+    console.log(`Running ${appFramework.label} App...`);
 
     const filePath = vscode.window.activeTextEditor?.document.uri.fsPath;
     if (!filePath) {
@@ -239,40 +339,15 @@ async function runApp(
     const port = await adapterApi.findAvailablePort([], 25);
     console.log('Port:', port);
 
-    const terminalName = title;
-    const oldTerminals = vscode.window.terminals.filter((t) => t.name === terminalName);
+    const oldTerminals = vscode.window.terminals.filter((t) => t.name === appFramework.label);
 
-    const runtime = await positron.runtime.getPreferredRuntime(languageId);
+    const runtime = await positron.runtime.getPreferredRuntime(appFramework.languageId);
 
-    // TODO: Better way?
-    const fileModule = (p: string) => {
-        const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-        if (!workspacePath) {
-            throw new Error('No workspace path');
-        }
-        const relativePath = path.relative(workspacePath, p);
-        const mod = path.parse(relativePath).name;
-        const parts = path.dirname(relativePath).split(path.sep);
-        return parts.concat(mod).join('.');
-    };
-
-    const substitute = (s: string) =>
-        s
-            .replace('${runtimePath}', runtime.runtimePath)
-            .replace('${file}', filePath)
-            .replace('${port}', port.toString())
-            // TODO: Better way?
-            .replace('${fileAsModule}', fileModule(filePath));
-
-    const substitutedEnv =
-        env &&
-        Object.fromEntries(
-            Object.entries(env).map(([key, value]) => [key, typeof value === 'string' ? substitute(value) : value]),
-        );
+    const commandOptions = appFramework.getRunOptions(runtime.runtimePath, filePath, port);
 
     const terminal = vscode.window.createTerminal({
-        name: terminalName,
-        env: substitutedEnv,
+        name: appFramework.label,
+        env: commandOptions.env,
     });
     terminal.show(true);
 
@@ -294,19 +369,15 @@ async function runApp(
     });
     await Promise.allSettled(closingTerminals);
 
-    // TODO: Is there a VSCode API to do variable substitution?
-    args = args.map(substitute);
     // TODO: Escape the command for the terminal.
     // const cmdline = escapeCommandForTerminal(terminal, python, args);
-    const cmdline = args.join(' ');
-    console.log('Command:', cmdline);
-    terminal.sendText(cmdline);
+    console.log('Command:', commandOptions.command);
+    terminal.sendText(commandOptions.command);
 
     positron.window.previewUrl(vscode.Uri.parse('about:blank'));
 
     // TODO: Handle being in workbench.
-    // TODO: Need to substitute multiple times?
-    const localUri = vscode.Uri.parse(substitute(url));
+    const localUri = vscode.Uri.parse(commandOptions.url ?? `http://localhost:${port}`);
     const uri = await vscode.env.asExternalUri(localUri);
 
     const host = '127.0.0.1';
