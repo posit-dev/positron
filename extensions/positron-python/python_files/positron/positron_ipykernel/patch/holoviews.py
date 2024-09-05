@@ -3,7 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from .ui import UiService
+from ..ui import UiService
 
 
 def set_holoviews_extension(ui_service: UiService) -> None:

@@ -1,10 +1,13 @@
+bokeh
 fastcore
 geopandas
+holoviz
 ipykernel
 ipywidgets
 matplotlib
 numpy
 pandas
+plotly
 polars; python_version >= '3.9'
 polars[timezone]; python_version < '3.9' or sys_platform == 'win32'
 pyarrow
