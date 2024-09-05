@@ -94,7 +94,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		};
 
 		disposables.add(session.onDidReceiveRuntimeClientEvent((e) => {
-			if (e.name !== UiFrontendEvent.LoadHoloviewsExtension) { return; }
+			if (e.name !== UiFrontendEvent.ClearWebviewPreloads) { return; }
 			// Dump all the messages for the session so new extension can take precidence.
 			this._messagesBySessionId.set(session.sessionId, []);
 		}));

@@ -237,4 +237,4 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     shell.run_cell("import holoviews as hv; hv.extension('plotly')")
 
     assert len(ui_comm.messages) == 1
-    assert ui_comm.messages[0] == json_rpc_notification("load_holoviews_extension", {})
+    assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
