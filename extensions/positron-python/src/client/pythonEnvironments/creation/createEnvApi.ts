@@ -1,11 +1,6 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
-// --- Start Positron ---
-// eslint-disable-next-line import/no-unresolved
-import { LanguageRuntimeMetadata } from 'positron';
-// --- End Positron ---
-
 import { ConfigurationTarget, Disposable } from 'vscode';
 import { Commands } from '../../common/constants';
 import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../common/types';
@@ -31,6 +26,7 @@ import { CreateEnvironmentOptionsInternal } from './types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
+import { createEnvironmentAndRegister, getCreateEnvironmentProviders } from '../../positron/createEnvApi';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -96,25 +92,13 @@ export function registerCreateEnvironmentFeatures(
         // --- Start Positron ---
         registerCommand(Commands.Get_Create_Environment_Providers, () => {
             const providers = _createEnvironmentProviders.getAll();
-            const providersForWizard = providers.map((provider) => ({
-                id: provider.id,
-                name: provider.name,
-                description: provider.description,
-            }));
-            return providersForWizard;
+            return getCreateEnvironmentProviders(providers);
         }),
         registerCommand(
             Commands.Create_Environment_And_Register,
-            async (
-                options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
-            ): Promise<(CreateEnvironmentResult & { metadata?: LanguageRuntimeMetadata }) | undefined> => {
+            (options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal) => {
                 const providers = _createEnvironmentProviders.getAll();
-                const result = await handleCreateEnvironmentCommand(providers, options);
-                if (result?.path) {
-                    const metadata = await pythonRuntimeManager.registerLanguageRuntimeFromPath(result.path);
-                    return { ...result, metadata };
-                }
-                return result;
+                return createEnvironmentAndRegister(providers, pythonRuntimeManager, options);
             },
         ),
         registerCommand(

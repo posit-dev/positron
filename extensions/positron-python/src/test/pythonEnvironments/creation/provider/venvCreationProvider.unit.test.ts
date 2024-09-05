@@ -547,4 +547,69 @@ suite('venv Creation provider tests', () => {
         assert.deepStrictEqual(actualRequirements, expectedRequirements);
         assert.isFalse(hasStdinArg);
     });
+
+    // --- Start Positron ---
+    test('Create venv with options and preselected python interpreter', async () => {
+        pickWorkspaceFolderStub.resolves(workspace1);
+        pickPackagesToInstallStub.resolves([]);
+
+        const deferred = createDeferred();
+        let _next: undefined | ((value: Output<string>) => void);
+        let _complete: undefined | (() => void);
+        execObservableStub.callsFake(() => {
+            deferred.resolve();
+            return {
+                proc: {
+                    exitCode: 0,
+                },
+                out: {
+                    subscribe: (
+                        next?: (value: Output<string>) => void,
+                        _error?: (error: unknown) => void,
+                        complete?: () => void,
+                    ) => {
+                        _next = next;
+                        _complete = complete;
+                    },
+                },
+                dispose: () => undefined,
+            };
+        });
+
+        progressMock.setup((p) => p.report({ message: CreateEnv.statusStarting })).verifiable(typemoq.Times.once());
+
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
+        // Options for createEnvironment (based on what we send via positronNewProjectService)
+        const options = {
+            workspaceFolder: workspace1,
+            interpreterPath: '/usr/bin/python',
+        };
+
+        const promise = venvProvider.createEnvironment(options);
+        await deferred.promise;
+        assert.isDefined(_next);
+        assert.isDefined(_complete);
+
+        _next!({ out: `${VENV_CREATED_MARKER}new_environment`, source: 'stdout' });
+        _complete!();
+
+        const actual = await promise;
+        assert.deepStrictEqual(actual, {
+            path: 'new_environment',
+            workspaceFolder: workspace1,
+        });
+        progressMock.verifyAll();
+        assert.isTrue(showErrorMessageWithLogsStub.notCalled);
+        assert.isTrue(deleteEnvironmentStub.notCalled);
+    });
+    // --- End Positron ---
 });
