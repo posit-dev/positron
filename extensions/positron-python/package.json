@@ -390,6 +390,26 @@
                 "category": "Python",
                 "command": "python.runStreamlitApp",
                 "title": "%python.command.python.runStreamlitApp.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.runDashApp",
+                "title": "%python.command.python.runDashApp.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.runGradioApp",
+                "title": "%python.command.python.runGradioApp.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.runFastAPIApp",
+                "title": "%python.command.python.runFastAPIApp.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.runFlaskApp",
+                "title": "%python.command.python.runFlaskApp.title%"
             }
         ],
         "configuration": {
