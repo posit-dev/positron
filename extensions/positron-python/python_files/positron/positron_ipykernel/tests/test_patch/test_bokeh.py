@@ -10,7 +10,7 @@ from positron_ipykernel.positron_ipkernel import PositronShell
 MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
 
-def test_bokeh_mime_tagging(shell: PositronShell, mock_display_pub: Mock):
+def test_bokeh_mime_tagging(shell: PositronShell, mock_display_pub: Mock, enable_bokeh_output_notebook: None):
     """
     Test to make sure that the send message function in bokeh is patched to append a mime-type
     on messages that the front-end will use to know that the data coming over should be replayed in
@@ -18,8 +18,7 @@ def test_bokeh_mime_tagging(shell: PositronShell, mock_display_pub: Mock):
     """
     shell.run_cell(
         """\
-from bokeh.plotting import figure, show, output_notebook
-output_notebook()
+from bokeh.plotting import figure, show
 p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
 p.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], legend_label="Temp.", line_width=2)
 show(p)
@@ -35,3 +34,4 @@ show(p)
         and "text/html" in call.kwargs["data"]
         for call in calls
     )
+
