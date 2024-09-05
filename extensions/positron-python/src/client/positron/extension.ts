@@ -76,9 +76,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         disposables.push(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
-        // Register application frameworks.
+        // Register application runners.
         disposables.push(
-            registerApplicationFramework({
+            registerApplicationRunner({
                 id: 'python.streamlit',
                 label: 'Streamlit',
                 languageId: 'python',
@@ -98,7 +98,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     };
                 },
             }),
-            registerApplicationFramework({
+            registerApplicationRunner({
                 id: 'python.dash',
                 label: 'Dash',
                 languageId: 'python',
@@ -111,7 +111,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     };
                 },
             }),
-            registerApplicationFramework({
+            registerApplicationRunner({
                 id: 'python.gradio',
                 label: 'Gradio',
                 languageId: 'python',
@@ -124,7 +124,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     };
                 },
             }),
-            registerApplicationFramework({
+            registerApplicationRunner({
                 id: 'python.fastapi',
                 label: 'FastAPI',
                 languageId: 'python',
@@ -143,7 +143,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     };
                 },
             }),
-            registerApplicationFramework({
+            registerApplicationRunner({
                 id: 'python.flask',
                 label: 'Flask',
                 languageId: 'python',
@@ -235,43 +235,43 @@ function pathToModule(p: string): string {
     return parts.concat(mod).join('.');
 }
 
-interface ApplicationFrameworkRunOptions {
+interface ApplicationRunOptions {
     command: string;
     env?: { [key: string]: string | null | undefined };
     url?: string;
 }
 
-interface ApplicationFramework {
+interface ApplicationRunner {
     id: string;
     label: string;
     languageId: string;
-    getRunOptions(runtimePath: string, filePath: string, port: number): ApplicationFrameworkRunOptions;
+    getRunOptions(runtimePath: string, filePath: string, port: number): ApplicationRunOptions;
 }
 
-const appFrameworksById = new Map<string, ApplicationFramework>();
+const appRunnersById = new Map<string, ApplicationRunner>();
 
-function registerApplicationFramework(appFramework: ApplicationFramework): vscode.Disposable {
-    if (appFrameworksById.has(appFramework.id)) {
-        throw new Error(`Application framework already registered for id '${appFramework.id}'`);
+function registerApplicationRunner(appRunner: ApplicationRunner): vscode.Disposable {
+    if (appRunnersById.has(appRunner.id)) {
+        throw new Error(`Application runner already registered for id '${appRunner.id}'`);
     }
 
-    appFrameworksById.set(appFramework.id, appFramework);
+    appRunnersById.set(appRunner.id, appRunner);
 
     return {
         dispose() {
-            appFrameworksById.delete(appFramework.id);
-            // TODO: Should this also dispose the appFramework?
+            appRunnersById.delete(appRunner.id);
+            // TODO: Should this also dispose the appRunner?
         },
     };
 }
 
 async function runApplication(id: string): Promise<void> {
-    const appFramework = appFrameworksById.get(id);
-    if (!appFramework) {
-        throw new Error(`Application framework not found for id '${id}'`);
+    const appRunner = appRunnersById.get(id);
+    if (!appRunner) {
+        throw new Error(`Application runner not found for id '${id}'`);
     }
 
-    console.log(`Running ${appFramework.label} App...`);
+    console.log(`Running ${appRunner.label} App...`);
 
     const filePath = vscode.window.activeTextEditor?.document.uri.fsPath;
     if (!filePath) {
@@ -298,14 +298,14 @@ async function runApplication(id: string): Promise<void> {
     const port = await adapterApi.findAvailablePort([], 25);
     console.log('Port:', port);
 
-    const oldTerminals = vscode.window.terminals.filter((t) => t.name === appFramework.label);
+    const oldTerminals = vscode.window.terminals.filter((t) => t.name === appRunner.label);
 
-    const runtime = await positron.runtime.getPreferredRuntime(appFramework.languageId);
+    const runtime = await positron.runtime.getPreferredRuntime(appRunner.languageId);
 
-    const commandOptions = appFramework.getRunOptions(runtime.runtimePath, filePath, port);
+    const commandOptions = appRunner.getRunOptions(runtime.runtimePath, filePath, port);
 
     const terminal = vscode.window.createTerminal({
-        name: appFramework.label,
+        name: appRunner.label,
         env: commandOptions.env,
     });
     terminal.show(true);
