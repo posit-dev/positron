@@ -165,6 +165,11 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
             "file://hello/my/friend.html",
             [show_html_file_event("file://hello/my/friend.html", False)],
         ),
+        # Windows path
+        (
+            "file:///C:/Users/username/Documents/index.htm",
+            [show_html_file_event("file:///C:/Users/username/Documents/index.htm", False)],
+        ),
         # Not a local html file
         ("http://example.com/page.html", []),
         # Not an html file
