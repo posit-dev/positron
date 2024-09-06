@@ -18,19 +18,19 @@ interface EditorPlotsContainerProps {
 }
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
-	const render = (plotClient: IPositronPlotClient) => {
-		if (plotClient instanceof PlotClientInstance) {
+	const render = () => {
+		if (props.plotClient instanceof PlotClientInstance) {
 			return <DynamicPlotInstance
 				key={props.plotClient.id}
 				height={props.height}
 				width={props.width}
-				plotClient={plotClient}
+				plotClient={props.plotClient}
 				zoom={ZoomLevel.Fit} />;
 		}
-		if (plotClient instanceof StaticPlotClient) {
+		if (props.plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={props.plotClient.id}
-				plotClient={plotClient}
+				plotClient={props.plotClient}
 				zoom={ZoomLevel.OneHundred} />;
 		}
 
@@ -44,7 +44,7 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				height: props.height
 			}
 		}>
-			{render(props.plotClient)}
+			{render()}
 		</div>
 	);
 };
