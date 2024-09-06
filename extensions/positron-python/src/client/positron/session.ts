@@ -113,11 +113,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.interpreter = interpreter;
         } else {
             // In the reticulate case, look for interpreters by path, not id.
-            const interpreter = interpreterService.getInterpreters().find((i) => {
-                const pathsEqual = i.path === extraData.pythonPath;
-                console.log("Interpreter path:", i.path, "Reticulate path:", extraData.pythonPath, "Equal:", pathsEqual);
-                return pathsEqual;
-            });
+            // the reticulate environment id is always 'reticulate'.
+            // We can probably be more robust when comparing the paths.
+            const interpreter = interpreterService.getInterpreters().find((i) => i.path === extraData.pythonPath);
             if (!interpreter) {
                 throw new Error(`Interpreter not found for reticulate`);
             }

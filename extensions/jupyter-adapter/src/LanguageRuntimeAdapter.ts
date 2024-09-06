@@ -378,9 +378,7 @@ export class LanguageRuntimeSessionAdapter
 		this._exitReason = exitReason;
 
 		try {
-			console.log('Shutting kernel down!');
 			await this._kernel.shutdown(restart);
-			console.log('Kernel is now down.');
 
 			if (exitReason === positron.RuntimeExitReason.Shutdown ||
 				exitReason === positron.RuntimeExitReason.ForcedQuit) {
