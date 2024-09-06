@@ -219,8 +219,8 @@ class UiFrontendEvent(str, enum.Enum):
     # Show an HTML file in Positron
     ShowHtmlFile = "show_html_file"
 
-    # A holoviews extension has been loaded
-    LoadHoloviewsExtension = "load_holoviews_extension"
+    # Webview preloads should be flushed
+    ClearWebviewPreloads = "clear_webview_preloads"
 
 
 class BusyParams(BaseModel):
@@ -457,16 +457,6 @@ class ShowHtmlFileParams(BaseModel):
     )
 
 
-class LoadHoloviewsExtensionParams(BaseModel):
-    """
-    A holoviews extension has been loaded
-    """
-
-    extension: StrictStr = Field(
-        description="The name of the extension that has been loaded",
-    )
-
-
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -514,5 +504,3 @@ ModifyEditorSelectionsParams.update_forward_refs()
 ShowUrlParams.update_forward_refs()
 
 ShowHtmlFileParams.update_forward_refs()
-
-LoadHoloviewsExtensionParams.update_forward_refs()

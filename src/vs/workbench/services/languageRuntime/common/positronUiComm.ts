@@ -299,14 +299,9 @@ export interface ShowHtmlFileEvent {
 }
 
 /**
- * Event: A holoviews extension has been loaded
+ * Event: Webview preloads should be flushed
  */
-export interface LoadHoloviewsExtensionEvent {
-	/**
-	 * The name of the extension that has been loaded
-	 */
-	extension: string;
-
+export interface ClearWebviewPreloadsEvent {
 }
 
 /**
@@ -489,7 +484,7 @@ export enum UiFrontendEvent {
 	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url',
 	ShowHtmlFile = 'show_html_file',
-	LoadHoloviewsExtension = 'load_holoviews_extension'
+	ClearWebviewPreloads = 'clear_webview_preloads'
 }
 
 export enum UiFrontendRequest {
@@ -525,7 +520,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
-		this.onDidLoadHoloviewsExtension = super.createEventEmitter('load_holoviews_extension', ['extension']);
+		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);
 	}
 
 	/**
@@ -612,12 +607,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 */
 	onDidShowHtmlFile: Event<ShowHtmlFileEvent>;
 	/**
-	 * A holoviews extension has been loaded
+	 * Webview preloads should be flushed
 	 *
-	 * This event is used to signal that a holoviews extension has been
-	 * loaded so that the front-end can update the stored messages it replays
-	 * to the webviews when rendering plots
+	 * This event is used to signal that the stored messages the front-end
+	 * replays when constructing multi-output plots should be reset. This
+	 * happens for things like a holoviews extension being changed.
 	 */
-	onDidLoadHoloviewsExtension: Event<LoadHoloviewsExtensionEvent>;
+	onDidClearWebviewPreloads: Event<ClearWebviewPreloadsEvent>;
 }
 
