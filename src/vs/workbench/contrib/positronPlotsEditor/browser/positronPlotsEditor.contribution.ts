@@ -85,7 +85,7 @@ configurationRegistry.registerConfiguration({
 		[POSITRON_EDITOR_PLOTS]: {
 			scope: ConfigurationScope.APPLICATION,
 			type: 'boolean',
-			default: true,
+			default: false,
 			tags: ['experimental'],
 			description: localize('workbench.positronPlotsEditor.description', 'When enabled, plots can be opened in an editor tab.')
 		}

@@ -21,17 +21,12 @@ import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
 import { IEditorOpenContext } from 'vs/workbench/common/editor';
-import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
-import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
 import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
 import { EditorPlotsContainer } from 'vs/workbench/contrib/positronPlotsEditor/browser/editorPlotsContainer';
 import { PositronPlotsEditorInput } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditorInput';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -152,25 +147,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	protected override createEditor(parent: HTMLElement): void {
 		parent.appendChild(this._container);
 	}
-
-	render = (plotClient?: IPositronPlotClient) => {
-		if (plotClient instanceof PlotClientInstance) {
-			return <DynamicPlotInstance
-				key={plotClient.id}
-				width={this._width}
-				height={this._height}
-				plotClient={plotClient}
-				zoom={ZoomLevel.Fit} />;
-		}
-		if (plotClient instanceof StaticPlotClient) {
-			return <StaticPlotInstance
-				key={plotClient.id}
-				plotClient={plotClient}
-				zoom={ZoomLevel.OneHundred} />;
-		}
-
-		return null;
-	};
 
 	override async setInput(
 		input: PositronPlotsEditorInput,

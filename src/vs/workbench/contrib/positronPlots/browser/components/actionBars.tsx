@@ -150,13 +150,13 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton iconId='positron-right-arrow' disabled={disableRight} tooltip={localize('positronShowNextPlot', "Show next plot")}
 							ariaLabel={localize('positronShowNextPlot', "Show next plot")} onPressed={showNextPlotHandler} />
 
-						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) && <ActionBarSeparator />}
-						{enableSavingPlots && <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}
-							ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} />}
-						{enableCopyPlot && <ActionBarButton iconId='copy' disabled={!hasPlots} tooltip={localize('positron-copy-plot', "Copy plot to clipboard")} ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")}
-							onPressed={copyPlotHandler} />}
-						{enableZoomPlot && <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} />}
-						{enableSizingPolicy &&
+						{(enableSizingPolicy || enableSavingPlots || enableZoomPlot || enablePopoutPlot) ? <ActionBarSeparator /> : null}
+						{enableSavingPlots ? <ActionBarButton iconId='positron-save' tooltip={localize('positronSavePlot', "Save plot")}
+							ariaLabel={localize('positronSavePlot', "Save plot")} onPressed={savePlotHandler} /> : null}
+						{enableCopyPlot ? <ActionBarButton iconId='copy' disabled={!hasPlots} tooltip={localize('positron-copy-plot', "Copy plot to clipboard")} ariaLabel={localize('positron-copy-plot', "Copy plot to clipboard")}
+							onPressed={copyPlotHandler} /> : null}
+						{enableZoomPlot ? <ZoomPlotMenuButton actionHandler={zoomPlotHandler} zoomLevel={props.zoomLevel} /> : null}
+						{enableSizingPolicy ?
 							<SizingPolicyMenuButton
 								keybindingService={props.keybindingService}
 								layoutService={props.layoutService}
@@ -164,16 +164,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								plotsService={positronPlotsContext.positronPlotsService}
 								plotClient={selectedPlot}
 							/>
+							: null
 						}
-						{enablePopoutPlot &&
+						{enablePopoutPlot ?
 							<ActionBarButton
 								iconId='positron-open-in-new-window'
 								align='right'
 								tooltip={localize('positron-popout-plot', "Open plot in new window")}
 								ariaLabel={localize('positron-popout-plot', "Open plot in new window")}
 								onPressed={popoutPlotHandler} />
+							: null
 						}
-						{enableEditorPlot &&
+						{enableEditorPlot ?
 							<ActionBarButton
 								iconId='go-to-file'
 								align='right'
@@ -184,6 +186,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 										positronPlotsContext.positronPlotsService.openEditor();
 									}
 								}} />
+							: null
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

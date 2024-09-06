@@ -642,7 +642,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		// Remove the plot from our list when it is closed
-		plotClient.onDidClose(() => {
+		this._register(plotClient.onDidClose(() => {
 			this.unregisterPlotClient(plotClient);
 			const index = this._plots.indexOf(plotClient);
 			if (index >= 0) {
@@ -652,7 +652,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._storageService.remove(
 				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id),
 				StorageScope.WORKSPACE);
-		});
+		}));
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
@@ -664,14 +664,14 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		};
 
 		// Raise the plot if it's updated by the runtime
-		plotClient.onDidRenderUpdate((_plot) => {
+		this._register(plotClient.onDidRenderUpdate((_plot) => {
 			selectPlot();
-		});
+		}));
 
 		// Focus the plot if the runtime requests it
-		plotClient.onDidShowPlot(() => {
+		this._register(plotClient.onDidShowPlot(() => {
 			selectPlot();
-		});
+		}));
 
 		// Dispose the plot client when this service is disposed (we own this
 		// object)
@@ -970,7 +970,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private async registerWebviewPlotClient(plotClient: IPositronPlotClient) {
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
-			plotClient.onDidActivate(() => {
+			this._register(plotClient.onDidActivate(() => {
 				// Get the active webview plots.
 				const activeWebviewPlots = this._plots.filter(isActiveWebviewPlot);
 
@@ -996,7 +996,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						break;
 					}
 				}
-			});
+			}));
 		}
 
 		this.registerNewPlotClient(plotClient);
@@ -1068,7 +1068,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (indexToRemove >= 0) {
 					plotClients.splice(indexToRemove, 1);
 				}
-                                 // If, after removing client, the comm's client list is now empty, clean it up.
+				// If, after removing client, the comm's client list is now empty, clean it up.
 				if (plotClients.length === 0) {
 					const commProxy = this._plotCommProxies.get(plotId);
 					commProxy?.dispose();
@@ -1085,7 +1085,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const commProxy = new PositronPlotCommProxy(client, metadata);
 		this._plotCommProxies.set(metadata.id, commProxy);
 
-		commProxy.onDidClose(() => {
+		this._register(commProxy.onDidClose(() => {
 			const plotClients = this._plotClientsByComm.get(metadata.id);
 			if (plotClients) {
 				plotClients.forEach(plotClient => {
@@ -1093,7 +1093,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				});
 			}
 			this._plotClientsByComm.delete(metadata.id);
-		});
+		}));
 
 		return commProxy;
 	}
@@ -1103,7 +1103,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		let plotClients = this._plotClientsByComm.get(comm.metadata.id);
 
 		if (!plotClients) {
-			plotClients = new Array<PlotClientInstance>();
+			plotClients = [];
 			this._plotClientsByComm.set(comm.metadata.id, plotClients);
 		}
 
