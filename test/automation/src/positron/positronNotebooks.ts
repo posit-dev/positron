@@ -9,6 +9,7 @@ import { Code } from '../code';
 import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
+import { basename } from 'path';
 
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';
@@ -23,6 +24,7 @@ const PYTHON_OUTPUT = '.output-plaintext';
 const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
+const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
@@ -62,6 +64,15 @@ export class PositronNotebooks {
 
 	async createNewNotebook() {
 		await this.quickaccess.runCommand(NEW_NOTEBOOK_COMMAND);
+	}
+
+	// Opens a Notebook that lives in the current workspace
+	async openNotebook(path: string) {
+		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
+		await this.quickinput.selectQuickInputElement(0);
+
+		await this.code.waitForElement(ACTIVE_ROW_SELECTOR);
+		await this.notebook.focusFirstCell();
 	}
 
 	async addCodeToFirstCell(code: string) {

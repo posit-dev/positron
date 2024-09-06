@@ -142,6 +142,51 @@ df2 = pd.DataFrame(data)`;
 				await app.workbench.positronVariables.openVariables();
 
 			});
+			// This test is not dependent on the previous test, so it refreshes the python environment
+			it('Python Pandas - Verifies data explorer after modification [C557574] #pr', async function () {
+
+				const app = this.app as Application;
+				// Restart python for clean environment & open the file
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.positronConsole.barClearButton.click();
+				await app.workbench.positronConsole.barRestartButton.click();
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
+
+				await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb'));
+				await app.workbench.notebook.focusFirstCell();
+				await app.workbench.notebook.executeActiveCell();
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				}).toPass( {timeout: 50000} );
+
+				await app.workbench.positronLayouts.enterLayout('notebook');
+
+				let tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				expect(tableData.length).toBe(11);
+
+				await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
+				await app.workbench.notebook.focusNextCell();
+				await app.workbench.notebook.executeActiveCell();
+				await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
+
+				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				expect(tableData.length).toBe(12);
+
+				await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
+				await app.workbench.notebook.focusNextCell();
+				await app.workbench.notebook.executeActiveCell();
+				await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
+				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
+
+				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
+				expect(tableData.length).toBe(12);
+
+				await app.workbench.positronLayouts.enterLayout('stacked');
+			});
 		});
 
 		describe('Python Polars Data Explorer', () => {
