@@ -182,81 +182,63 @@ export class NotebookController implements vscode.Disposable {
 		// Clear any existing outputs.
 		currentExecution.clearOutput();
 
-		// Create a promise that resolves when the cell execution is complete i.e. when the runtime
-		// receives an error or status idle reply message.
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
-		const promise = new Promise<void>((resolve, reject) => {
-			// Update the cell execution using received runtime messages.
-			const handler = session.onDidReceiveRuntimeMessage(message => {
-				// Track whether the cell execution was successful.
-				let success: boolean | undefined;
-				// The error message, if any.
-				let error: positron.LanguageRuntimeError | undefined;
 
-				// Is the message a reply to the cell we're executing?
-				if (message.parent_id === cellId) {
-
-					// Handle the message, and store any resulting outputs.
-					let cellOutput: vscode.NotebookCellOutput | undefined;
-					switch (message.type) {
-						case positron.LanguageRuntimeMessageType.Input:
-							currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
-							break;
-						case positron.LanguageRuntimeMessageType.Output:
-							cellOutput = handleRuntimeMessageOutput(
-								(message as positron.LanguageRuntimeOutput),
-								NotebookCellOutputType.DisplayData
-							);
-							break;
-						case positron.LanguageRuntimeMessageType.Result:
-							cellOutput = handleRuntimeMessageOutput(
-								(message as positron.LanguageRuntimeResult),
-								NotebookCellOutputType.ExecuteResult
-							);
-							break;
-						case positron.LanguageRuntimeMessageType.Stream:
-							cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
-							break;
-						case positron.LanguageRuntimeMessageType.Error:
-							error = message as positron.LanguageRuntimeError;
-							cellOutput = handleRuntimeMessageError(error);
-							success = false;
-							break;
-						case positron.LanguageRuntimeMessageType.State:
-							if ((message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
-								success = true;
-							}
-							break;
-					}
-
-					// Append any resulting outputs to the cell execution.
-					if (cellOutput) {
-						currentExecution.appendOutput(cellOutput);
-					}
-				}
-
-				// If a success code was set, end the execution, dispose the handler, and resolve the promise.
-				if (success !== undefined) {
-					currentExecution.end(success, Date.now());
-					handler.dispose();
-					if (success) {
-						resolve();
-					} else {
-						reject(error);
-					}
-				}
+		let success: boolean;
+		try {
+			await executeCode({
+				session,
+				code: cell.document.getText(),
+				id: cellId,
+				mode: positron.RuntimeCodeExecutionMode.Interactive,
+				errorBehavior: positron.RuntimeErrorBehavior.Stop,
+				callback: message => this.handleMessageForCellExecution(message, currentExecution),
 			});
-		});
+			success = true;
+		} catch (error) {
+			// No need to log since the error message will be displayed in the cell output.
+			success = false;
+		}
 
-		// Execute the cell.
-		session.execute(
-			cell.document.getText(),
-			cellId,
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Stop
-		);
+		currentExecution.end(success, Date.now());
+	}
 
-		return promise;
+	private async handleMessageForCellExecution(
+		message: positron.LanguageRuntimeMessage,
+		currentExecution: vscode.NotebookCellExecution,
+	): Promise<void> {
+		// Outputs to append to the cell, if any.
+		let cellOutput: vscode.NotebookCellOutput | undefined;
+
+		// Handle the message, and store any resulting state.
+		switch (message.type) {
+			case positron.LanguageRuntimeMessageType.Input:
+				currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
+				break;
+			case positron.LanguageRuntimeMessageType.Output:
+				cellOutput = handleRuntimeMessageOutput(
+					(message as positron.LanguageRuntimeOutput),
+					NotebookCellOutputType.DisplayData
+				);
+				break;
+			case positron.LanguageRuntimeMessageType.Result:
+				cellOutput = handleRuntimeMessageOutput(
+					(message as positron.LanguageRuntimeResult),
+					NotebookCellOutputType.ExecuteResult
+				);
+				break;
+			case positron.LanguageRuntimeMessageType.Stream:
+				cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
+				break;
+			case positron.LanguageRuntimeMessageType.Error:
+				cellOutput = handleRuntimeMessageError(message as positron.LanguageRuntimeError);
+				break;
+		}
+
+		// Append any resulting outputs to the cell execution.
+		if (cellOutput) {
+			currentExecution.appendOutput(cellOutput);
+		}
 	}
 
 	/** Get the progress options for starting a runtime.  */
@@ -270,6 +252,64 @@ export class NotebookController implements vscode.Disposable {
 	public async dispose() {
 		this._disposables.forEach(d => d.dispose());
 	}
+}
+
+function executeCode(
+	options: {
+		session: positron.LanguageRuntimeSession;
+		code: string;
+		id: string;
+		mode: positron.RuntimeCodeExecutionMode;
+		errorBehavior: positron.RuntimeErrorBehavior;
+		callback: (message: positron.LanguageRuntimeMessage) => Promise<unknown>;
+	}
+) {
+	return new Promise<void>((resolve, reject) => {
+		// Create a promise tracking the current message for the cell. Each execution may
+		// receive multiple messages, which we want to handle in sequence.
+		let currentMessagePromise = Promise.resolve();
+
+		const handler = options.session.onDidReceiveRuntimeMessage(async message => {
+			// Only handle replies to this execution.
+			if (message.parent_id !== options.id) {
+				return;
+			}
+
+			// Chain the message promise, so that messages are processed in sequence.
+			currentMessagePromise = currentMessagePromise.then(async () => {
+				await options.callback(message);
+
+				// Handle the message.
+				if (message.type === positron.LanguageRuntimeMessageType.Error) {
+					const error = message as positron.LanguageRuntimeError;
+					throw error;
+				} else if (message.type === positron.LanguageRuntimeMessageType.State) {
+					const state = message as positron.LanguageRuntimeState;
+					if (state.state === positron.RuntimeOnlineState.Idle) {
+						handler.dispose();
+						resolve();
+					}
+				}
+			}).catch(error => {
+				handler.dispose();
+				reject(error);
+				throw error;
+			});
+		});
+
+		// Execute the cell.
+		try {
+			options.session.execute(
+				options.code,
+				options.id,
+				options.mode,
+				options.errorBehavior,
+			);
+		} catch (error) {
+			handler.dispose();
+			reject(error);
+		}
+	});
 }
 
 /**

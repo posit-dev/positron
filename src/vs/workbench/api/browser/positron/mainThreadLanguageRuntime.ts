@@ -11,7 +11,7 @@ import {
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol';
 import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Event, Emitter } from 'vs/base/common/event';
@@ -38,8 +38,8 @@ import { IPositronDataExplorerService } from 'vs/workbench/services/positronData
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { isHoloViewsMessage } from 'vs/workbench/contrib/positronHoloViews/browser/utils';
-import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
+import { isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -99,6 +99,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private readonly _onDidReceiveRuntimeMessageStateEmitter = new Emitter<ILanguageRuntimeMessageState>();
 	private readonly _onDidReceiveRuntimeMessageClientEventEmitter = new Emitter<IRuntimeClientEvent>();
 	private readonly _onDidReceiveRuntimeMessagePromptConfigEmitter = new Emitter<void>();
+	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
@@ -251,6 +252,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageStateEmitter.event;
 	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeMessageClientEventEmitter.event;
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfigEmitter.event;
+	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 	onDidCreateClientInstance = this._onDidCreateClientInstanceEmitter.event;
 
 	handleRuntimeMessage(message: ILanguageRuntimeMessage, handled: boolean): void {
@@ -289,6 +291,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	emitDidReceiveRuntimeMessageState(languageRuntimeMessageState: ILanguageRuntimeMessageState) {
 		this._onDidReceiveRuntimeMessageStateEmitter.fire(languageRuntimeMessageState);
+	}
+
+	emitRuntimeMessageIPyWidget(languageRuntimeMessageIPyWidget: ILanguageRuntimeMessageIPyWidget) {
+		this._onDidReceiveRuntimeMessageIPyWidgetEmitter.fire(languageRuntimeMessageIPyWidget);
 	}
 
 	emitDidReceiveRuntimeMessagePromptConfig() {
@@ -721,10 +727,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	private inferPositronOutputKind(message: ILanguageRuntimeMessageOutput): RuntimeOutputKind {
 		const mimeTypes = Object.keys(message.data);
 
-		// We have special treatment for HoloViews messages as they need to be bundled together so
-		// dependencies are loaded properly.
-		if (isHoloViewsMessage(message)) {
-			return RuntimeOutputKind.HoloViews;
+		// We have special treatment for messages that need to be bundled together so dependencies
+		// are loaded properly.
+		if (isWebviewReplayMessage(message)) {
+			return RuntimeOutputKind.WebviewPreload;
 		}
 
 		// The most common type of output is plain text, so short-circuit for that before we
@@ -870,6 +876,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 			case LanguageRuntimeMessageType.State:
 				this.emitDidReceiveRuntimeMessageState(message as ILanguageRuntimeMessageState);
+				break;
+
+			case LanguageRuntimeMessageType.IPyWidget:
+				this.emitRuntimeMessageIPyWidget(message as ILanguageRuntimeMessageIPyWidget);
 				break;
 
 			case LanguageRuntimeMessageType.CommOpen:
@@ -1095,7 +1105,7 @@ export class MainThreadLanguageRuntime
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
-		@IPositronHoloViewsService private readonly _positronHoloViewsService: IPositronHoloViewsService,
+		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -1111,7 +1121,7 @@ export class MainThreadLanguageRuntime
 		this._positronVariablesService.initialize();
 		this._positronPlotService.initialize();
 		this._positronIPyWidgetsService.initialize();
-		this._positronHoloViewsService.initialize();
+		this._positronWebviewPreloadService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 

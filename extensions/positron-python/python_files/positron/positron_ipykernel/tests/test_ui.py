@@ -5,6 +5,7 @@
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any, Dict
 
@@ -181,6 +182,9 @@ def test_webbrowser_open_sends_events(
     """
     Test that opening different types of URLs via `webbrowser.open` sends the expected UI events.
     """
+    if sys.platform == "win32":
+        # Skip flakey windows tests for now.
+        pytest.skip("Skipping test on Windows machines")
     shell.run_cell(
         f"""
 import webbrowser
@@ -189,13 +193,13 @@ webbrowser._tryorder = ["positron_viewer"]
 webbrowser.open({repr(url)})
 """
     )
-    if sys.platform == "win32":
-        # Skip flakey windows tests for now.
-        pytest.skip("Skipping test on Windows machines")
     assert ui_comm.messages == expected
 
 
-def test_bokeh_show_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
+def test_bokeh_show_sends_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
     """
     Test that showing a Bokeh plot sends the expected UI events.
     """
@@ -206,7 +210,9 @@ import webbrowser
 webbrowser._tryorder = ["positron_viewer"]
 
 from bokeh.plotting import figure, show
+from bokeh.io import output
 
+output.reset_output()
 p = figure()
 p.line([0, 1], [2, 3])
 
@@ -218,6 +224,9 @@ show(p)
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
+    # default behavior should be writing to temppath
+    # not wherever the process is running (see patch.bokeh)
+    assert tempfile.gettempdir() in params["path"]
 
 
 @pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")
@@ -230,4 +239,4 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     shell.run_cell("import holoviews as hv; hv.extension('plotly')")
 
     assert len(ui_comm.messages) == 1
-    assert ui_comm.messages[0] == json_rpc_notification("load_holoviews_extension", {})
+    assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})

@@ -8,9 +8,12 @@ import { ManagerBase } from '@jupyter-widgets/base-manager';
 import { JSONObject } from '@lumino/coreutils';
 import * as LuminoWidget from '@lumino/widgets';
 import type * as WebviewMessage from '../../../../src/vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { RendererContext } from 'vscode-notebook-renderer';
 import { Disposable } from 'vscode-notebook-renderer/events';
 import { Messaging } from './messaging';
 import { Comm } from './comm';
+import { IRenderMime, RenderMimeRegistry, standardRendererFactories } from '@jupyterlab/rendermime';
+import { PositronRenderer } from './renderer';
 
 // This is the default CDN in @jupyter-widgets/html-manager/libembed-amd.
 const CDN = 'https://cdn.jsdelivr.net/npm/';
@@ -43,15 +46,70 @@ function moduleNameToCDNUrl(moduleName: string, moduleVersion: string): string {
 }
 
 /**
+ * Create a RenderMimeRegistry with renderer factories for all standard mime types with
+ * default ranks, but all using the PositronRenderer.
+ *
+ * The RenderMimeRegistry is used by the output widget view's output area to render outputs.
+ */
+function createRenderMimeRegistry(messaging: Messaging, context: RendererContext<any>): RenderMimeRegistry {
+	const positronRendererFactory = (options: IRenderMime.IRendererOptions) => {
+		return new PositronRenderer(options, messaging, context);
+	};
+
+	const initialFactories = [];
+
+	// Reroute all standard mime types (with their default ranks) to the PositronRenderer.
+	for (const factory of standardRendererFactories) {
+		initialFactories.push({
+			...factory,
+			createRenderer: positronRendererFactory,
+		});
+	}
+
+	// Also handle known widget mimetypes.
+	initialFactories.push({
+		safe: false,
+		mimeTypes: [
+			'application/geo+json',
+			'application/vdom.v1+json',
+			'application/vnd.dataresource+json',
+			'application/vnd.jupyter.widget-view+json',
+			'application/vnd.plotly.v1+json',
+			'application/vnd.r.htmlwidget',
+			'application/vnd.vega.v2+json',
+			'application/vnd.vega.v3+json',
+			'application/vnd.vega.v4+json',
+			'application/vnd.vega.v5+json',
+			'application/vnd.vegalite.v1+json',
+			'application/vnd.vegalite.v2+json',
+			'application/vnd.vegalite.v3+json',
+			'application/vnd.vegalite.v4+json',
+			'application/x-nteract-model-debug+json',
+		],
+		createRenderer: positronRendererFactory,
+	});
+	return new RenderMimeRegistry({ initialFactories });
+}
+
+/**
  * A widget manager that interfaces with the Positron IPyWidgets service and renders to HTML.
  */
 export class PositronWidgetManager extends ManagerBase implements base.IWidgetManager, Disposable {
 	private _disposables: Disposable[] = [];
 
+	/** The pending load from kernel promise, if any. */
+	private _pendingLoadFromKernel: Promise<void> | undefined;
+
+	/** The RenderMimeRegistry used to render outputs in output areas. */
+	public readonly renderMime: RenderMimeRegistry;
+
 	constructor(
 		private readonly _messaging: Messaging,
+		context: RendererContext<any>,
 	) {
 		super();
+
+		this.renderMime = createRenderMimeRegistry(_messaging, context);
 
 		// Handle messages from the runtime.
 		this._disposables.push(_messaging.onDidReceiveMessage(async (message) => {
@@ -63,7 +121,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 		}));
 
 		// Request initialization from the Positron IPyWidgets instance.
-		this._messaging.postMessage({ type: 'initialize_request' });
+		this._messaging.postMessage({ type: 'initialize' });
 	}
 
 	private async _handle_comm_open(message: WebviewMessage.ICommOpenToWebview): Promise<void> {
@@ -209,7 +267,27 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 	}
 
 	loadFromKernel(): Promise<void> {
-		return this._loadFromKernel();
+		// Batch calls received while awaiting.
+		this._pendingLoadFromKernel ??= this._loadFromKernel()
+			.finally(() => this._pendingLoadFromKernel = undefined);
+		return this._pendingLoadFromKernel;
+	}
+
+	/**
+	 * Create an event that fires when messages are received from the kernel for a given parent ID.
+	 *
+	 * @param parentId The parent ID to filter received messages.
+	 * @param listener The listener callback.
+	 */
+	onDidReceiveKernelMessage(
+		parentId: string,
+		listener: (message: WebviewMessage.IRuntimeMessageContent) => any
+	): Disposable {
+		return this._messaging.onDidReceiveMessage(message => {
+			if (message.type === 'kernel_message' && message.parent_id === parentId) {
+				listener(message.content);
+			}
+		});
 	}
 
 	dispose(): void {

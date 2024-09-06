@@ -39,7 +39,7 @@ import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/bro
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IPositronHoloViewsService } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -132,7 +132,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IOpenerService private _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
-		@IPositronHoloViewsService private _positronHoloViewsService: IPositronHoloViewsService,
+		@IPositronWebviewPreloadService private _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
 		@IFileService private readonly _fileService: IFileService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
@@ -174,7 +174,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}));
 		// Listen for plot clients from the holoviews service and register them with the plots
 		// service so they can be displayed in the plots pane.
-		this._register(this._positronHoloViewsService.onDidCreatePlot(async (plotClient) => {
+		this._register(this._positronWebviewPreloadService.onDidCreatePlot(async (plotClient) => {
 			await this.registerWebviewPlotClient(plotClient);
 		}));
 

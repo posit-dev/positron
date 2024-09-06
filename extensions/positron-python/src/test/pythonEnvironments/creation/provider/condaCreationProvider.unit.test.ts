@@ -277,4 +277,72 @@ suite('Conda Creation provider tests', () => {
 
         assert.deepStrictEqual(result, { path: 'existing_environment', workspaceFolder: workspace1 });
     });
+
+    // --- Start Positron ---
+    test('Create conda environment with options and pre-selected python version', async () => {
+        getCondaBaseEnvStub.resolves('/usr/bin/conda');
+        const newProjectWorkspace = {
+            uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'newProjectWorkspace')),
+            name: 'newProjectWorkspace',
+            index: 0,
+        };
+        pickWorkspaceFolderStub.resolves(newProjectWorkspace);
+        pickPythonVersionStub.resolves('3.12');
+
+        const deferred = createDeferred();
+        let _next: undefined | ((value: Output<string>) => void);
+        let _complete: undefined | (() => void);
+        execObservableStub.callsFake(() => {
+            deferred.resolve();
+            return {
+                proc: {
+                    exitCode: 0,
+                },
+                out: {
+                    subscribe: (
+                        next?: (value: Output<string>) => void,
+                        _error?: (error: unknown) => void,
+                        complete?: () => void,
+                    ) => {
+                        _next = next;
+                        _complete = complete;
+                    },
+                },
+                dispose: () => undefined,
+            };
+        });
+
+        progressMock.setup((p) => p.report({ message: CreateEnv.statusStarting })).verifiable(typemoq.Times.once());
+
+        withProgressStub.callsFake(
+            (
+                _options: ProgressOptions,
+                task: (
+                    progress: CreateEnvironmentProgress,
+                    token?: CancellationToken,
+                ) => Thenable<CreateEnvironmentResult>,
+            ) => task(progressMock.object),
+        );
+
+        // Options for createEnvironment (based on what we send via positronNewProjectService)
+        const options = {
+            workspaceFolder: newProjectWorkspace,
+            condaPythonVersion: '3.12',
+        };
+
+        const promise = condaProvider.createEnvironment(options);
+        await deferred.promise;
+        assert.isDefined(_next);
+        assert.isDefined(_complete);
+
+        _next!({ out: `${CONDA_ENV_CREATED_MARKER}new_environment`, source: 'stdout' });
+        _complete!();
+        assert.deepStrictEqual(await promise, {
+            path: 'new_environment',
+            workspaceFolder: newProjectWorkspace,
+        });
+        assert.isTrue(showErrorMessageWithLogsStub.notCalled);
+        assert.isTrue(pickExistingCondaActionStub.calledOnce);
+    });
+    // --- End Positron ---
 });

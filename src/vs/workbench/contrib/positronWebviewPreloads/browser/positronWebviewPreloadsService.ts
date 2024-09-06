@@ -5,7 +5,7 @@
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronHoloViewsService, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronHoloViews/common/positronHoloViewsService';
+import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -15,7 +15,7 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
 
-export class PositronHoloViewsService extends Disposable implements IPositronHoloViewsService {
+export class PositronWebviewPreloadService extends Disposable implements IPositronWebviewPreloadService {
 	/** Needed for service branding in dependency injector. */
 	_serviceBrand: undefined;
 
@@ -35,7 +35,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookMultiMessagePlotClient>());
 
-	/** Emitted when a new HoloViews webview is created. */
+	/** Emitted when a new webview is created. */
 	onDidCreatePlot = this._onDidCreatePlot.event;
 
 	constructor(
@@ -86,7 +86,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
-			if (msg.kind !== RuntimeOutputKind.HoloViews) {
+			if (msg.kind !== RuntimeOutputKind.WebviewPreload) {
 				return;
 			}
 
@@ -94,7 +94,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		};
 
 		disposables.add(session.onDidReceiveRuntimeClientEvent((e) => {
-			if (e.name !== UiFrontendEvent.LoadHoloviewsExtension) { return; }
+			if (e.name !== UiFrontendEvent.ClearWebviewPreloads) { return; }
 			// Dump all the messages for the session so new extension can take precidence.
 			this._messagesBySessionId.set(session.sessionId, []);
 		}));
@@ -113,11 +113,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
-		const isHoloViewDisplayMessage = MIME_TYPE_HOLOVIEWS_EXEC in msg.data &&
-			MIME_TYPE_HTML in msg.data &&
-			MIME_TYPE_PLAIN in msg.data;
-
-		if (isHoloViewDisplayMessage) {
+		if (PositronWebviewPreloadService.isDisplayMessage(msg)) {
 			// Create a new plot client.
 			this._createPlotClient(session, msg);
 			return;
@@ -130,7 +126,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		const messagesForSession = this._messagesBySessionId.get(sessionId);
 
 		if (!messagesForSession) {
-			throw new Error(`PositronHoloViewsService: Session ${sessionId} not found in messagesBySessionId map.`);
+			throw new Error(`PositronWebviewPreloadService: Session ${sessionId} not found in messagesBySessionId map.`);
 		}
 		messagesForSession.push(msg);
 	}
@@ -148,7 +144,7 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		// Grab disposables for this session
 		const disposables = this._sessionToDisposablesMap.get(runtime.sessionId);
 		if (!disposables) {
-			throw new Error(`PositronHoloViewsService: Could not find disposables for session ${runtime.sessionId}`);
+			throw new Error(`PositronWebviewPreloadService: Could not find disposables for session ${runtime.sessionId}`);
 		}
 
 		// Create a plot client and fire event letting plots pane know it's good to go.
@@ -158,8 +154,18 @@ export class PositronHoloViewsService extends Disposable implements IPositronHol
 		));
 		this._onDidCreatePlot.fire(client);
 	}
+
+	static isDisplayMessage(msg: ILanguageRuntimeMessageOutput): boolean {
+		const isHoloViewsDisplayMessage = (MIME_TYPE_HOLOVIEWS_EXEC in msg.data &&
+			MIME_TYPE_HTML in msg.data &&
+			MIME_TYPE_PLAIN in msg.data);
+
+		const isBokehDisplayMessage = MIME_TYPE_BOKEH_EXEC in msg.data;
+
+		return isHoloViewsDisplayMessage || isBokehDisplayMessage;
+	}
 }
 
-// Register service.
-registerSingleton(IPositronHoloViewsService, PositronHoloViewsService, InstantiationType.Delayed);
 
+// Register service.
+registerSingleton(IPositronWebviewPreloadService, PositronWebviewPreloadService, InstantiationType.Delayed);

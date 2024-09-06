@@ -4361,8 +4361,14 @@ export enum RuntimeOnlineState {
 
 /** The set of possible language runtime messages */
 export enum LanguageRuntimeMessageType {
+	/** A message instructing the frontend to clear the output of a runtime execution. */
+	ClearOutput = 'clear_output',
+
 	/** A message representing output (text, plots, etc.) */
 	Output = 'output',
+
+	/** A message representing the computational result of a runtime execution */
+	Result = 'result',
 
 	/** A message representing output from one of the standard streams (stdout or stderr) */
 	Stream = 'stream',
@@ -4387,6 +4393,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
+
+	/** A message that should be handled by an IPyWidget */
+	IPyWidget = 'ipywidget',
 }
 
 /**

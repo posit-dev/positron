@@ -3,7 +3,7 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from .ui import UiService
+from ..ui import UiService
 
 
 def set_holoviews_extension(ui_service: UiService) -> None:
@@ -34,7 +34,7 @@ def set_holoviews_extension(ui_service: UiService) -> None:
                 def __call__(self, *args, **kwargs) -> None:
                     # Notify the frontend that a new holoviews extension has been loaded, so
                     # that it can clear stored messages for the session.
-                    ui_service.load_holoviews_extension()
+                    ui_service.clear_webview_preloads()
 
                     super().__call__(*args, **kwargs)
 

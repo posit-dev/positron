@@ -9,7 +9,7 @@ import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -31,6 +31,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	private readonly _onDidReceiveRuntimeMessageState = this._register(new Emitter<ILanguageRuntimeMessageState>());
 	private readonly _onDidReceiveRuntimeClientEvent = this._register(new Emitter<IRuntimeClientEvent>());
 	private readonly _onDidReceiveRuntimeMessagePromptConfig = this._register(new Emitter<void>());
+	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 
 	private _currentState = RuntimeState.Uninitialized;
 
@@ -53,6 +54,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageState.event;
 	onDidReceiveRuntimeClientEvent = this._onDidReceiveRuntimeClientEvent.event;
 	onDidReceiveRuntimeMessagePromptConfig = this._onDidReceiveRuntimeMessagePromptConfig.event;
+	onDidReceiveRuntimeMessageIPyWidget = this._onDidReceiveRuntimeMessageIPyWidgetEmitter.event;
 
 	readonly dynState = {
 		inputPrompt: `T>`,
@@ -221,83 +223,136 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		};
 	}
 
-	receiveClearOutputMessage(message: Partial<ILanguageRuntimeMessageClearOutput>) {
-		const clearOutput = {
+	private _clearOutputMessage(
+		message: Partial<ILanguageRuntimeMessageClearOutput>,
+	): ILanguageRuntimeMessageClearOutput {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
 			wait: message.wait ?? false,
 		};
-		this._onDidReceiveRuntimeMessageClearOutput.fire(clearOutput);
-		return clearOutput;
 	}
 
-	receiveOutputMessage(message: Partial<ILanguageRuntimeMessageOutput>) {
-		const output = {
+	private _outputMessage(message: Partial<ILanguageRuntimeMessageOutput>): ILanguageRuntimeMessageOutput {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Output),
 			kind: message.kind ?? RuntimeOutputKind.Unknown,
 			data: message.data ?? {},
 		};
-		this._onDidReceiveRuntimeMessageOutput.fire(output);
-		return output;
 	}
 
-	receiveResultMessage(message: Partial<ILanguageRuntimeMessageResult>) {
-		const result = {
+	private _resultMessage(message: Partial<ILanguageRuntimeMessageResult>): ILanguageRuntimeMessageResult {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Result),
 			kind: message.kind ?? RuntimeOutputKind.Unknown,
 			data: message.data ?? {},
 		};
-		this._onDidReceiveRuntimeMessageResult.fire(result);
-		return result;
 	}
 
-	receiveStreamMessage(message: Partial<ILanguageRuntimeMessageStream>) {
-		const stream = {
+	private _streamMessage(message: Partial<ILanguageRuntimeMessageStream>): ILanguageRuntimeMessageStream {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Stream),
 			name: message.name ?? 'stdout',
 			text: message.text ?? '',
 		};
-		this._onDidReceiveRuntimeMessageStream.fire(stream);
-		return stream;
 	}
 
-	receiveInputMessage(message: Partial<ILanguageRuntimeMessageInput>) {
-		const input = {
+	private _inputMessage(message: Partial<ILanguageRuntimeMessageInput>): ILanguageRuntimeMessageInput {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Input),
 			code: message.code ?? '',
 			execution_count: message.execution_count ?? 0,
 		};
-		this._onDidReceiveRuntimeMessageInput.fire(input);
-		return input;
 	}
 
-	receiveErrorMessage(message: Partial<ILanguageRuntimeMessageError>) {
-		const error = {
+	private _errorMessage(message: Partial<ILanguageRuntimeMessageError>): ILanguageRuntimeMessageError {
+		return {
 			...this._defaultMessage(message, LanguageRuntimeMessageType.Error),
 			name: message.name ?? 'Error',
 			message: message.message ?? '',
 			traceback: [],
 		};
+	}
+
+	private _promptMessage(message: Partial<ILanguageRuntimeMessagePrompt>): ILanguageRuntimeMessagePrompt {
+		return {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.Prompt),
+			prompt: message.prompt ?? '',
+			password: message.password ?? false,
+		};
+	}
+
+	private _stateMessage(message: Partial<ILanguageRuntimeMessageState>): ILanguageRuntimeMessageState {
+		return {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.State),
+			state: message.state ?? RuntimeOnlineState.Idle,
+		};
+	}
+
+	private _ipyWidgetMessage(
+		message: Partial<ILanguageRuntimeMessageIPyWidget>,
+		originalMessage: Partial<ILanguageRuntimeMessage> & { type: LanguageRuntimeMessageType },
+	): ILanguageRuntimeMessageIPyWidget {
+		return {
+			...this._defaultMessage(message, LanguageRuntimeMessageType.IPyWidget),
+			original_message: this._defaultMessage(originalMessage, originalMessage.type),
+		};
+	}
+
+	receiveClearOutputMessage(message: Partial<ILanguageRuntimeMessageClearOutput>) {
+		const clearOutput = this._clearOutputMessage(message);
+		this._onDidReceiveRuntimeMessageClearOutput.fire(clearOutput);
+		return clearOutput;
+	}
+
+	receiveOutputMessage(message: Partial<ILanguageRuntimeMessageOutput>) {
+		const output = this._outputMessage(message);
+		this._onDidReceiveRuntimeMessageOutput.fire(output);
+		return output;
+	}
+
+	receiveResultMessage(message: Partial<ILanguageRuntimeMessageResult>) {
+		const result = this._resultMessage(message);
+		this._onDidReceiveRuntimeMessageResult.fire(result);
+		return result;
+	}
+
+	receiveStreamMessage(message: Partial<ILanguageRuntimeMessageStream>) {
+		const stream = this._streamMessage(message);
+		this._onDidReceiveRuntimeMessageStream.fire(stream);
+		return stream;
+	}
+
+	receiveInputMessage(message: Partial<ILanguageRuntimeMessageInput>) {
+		const input = this._inputMessage(message);
+		this._onDidReceiveRuntimeMessageInput.fire(input);
+		return input;
+	}
+
+	receiveErrorMessage(message: Partial<ILanguageRuntimeMessageError>) {
+		const error = this._errorMessage(message);
 		this._onDidReceiveRuntimeMessageError.fire(error);
 		return error;
 	}
 
 	receivePromptMessage(message: Partial<ILanguageRuntimeMessagePrompt>) {
-		const prompt = {
-			...this._defaultMessage(message, LanguageRuntimeMessageType.Prompt),
-			prompt: message.prompt ?? '',
-			password: message.password ?? false,
-		};
+		const prompt = this._promptMessage(message);
 		this._onDidReceiveRuntimeMessagePrompt.fire(prompt);
 		return prompt;
 	}
 
 	receiveStateMessage(message: Partial<ILanguageRuntimeMessageState>) {
-		const state = {
-			...this._defaultMessage(message, LanguageRuntimeMessageType.State),
-			state: message.state ?? RuntimeOnlineState.Idle,
-		};
+		const state = this._stateMessage(message);
 		this._onDidReceiveRuntimeMessageState.fire(state);
 		return state;
+	}
+
+	receiveIPyWidgetMessage(
+		message: Partial<ILanguageRuntimeMessageIPyWidget>,
+		originalMessage: Partial<ILanguageRuntimeMessage> & { type: LanguageRuntimeMessageType },
+	) {
+		const ipyWidget = this._ipyWidgetMessage(message, originalMessage);
+		this._onDidReceiveRuntimeMessageIPyWidgetEmitter.fire(ipyWidget);
+		return ipyWidget;
 	}
 
 	endSession(exit?: Partial<ILanguageRuntimeExit>) {

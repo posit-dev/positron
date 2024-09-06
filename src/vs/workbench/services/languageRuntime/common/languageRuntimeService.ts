@@ -114,10 +114,10 @@ export enum RuntimeOutputKind {
 	IPyWidget = 'ipywidget',
 
 	/**
-	 * Holoviews message.
-	 * These are typically batched by the holoviews service for rendering.
+	 * Webview preload message. These are messages that are batched together and handled by the
+	 * webview preload service on the front end.
 	 */
-	HoloViews = 'holoviews',
+	WebviewPreload = 'webview_preload',
 
 	/**
 	 * Some other kind of output. We've never heard of it.
@@ -207,6 +207,19 @@ export interface ILanguageRuntimeMessagePrompt extends ILanguageRuntimeMessage {
 
 	/** Whether this is a password prompt (and typing should be hidden)  */
 	password: boolean;
+}
+
+/**
+ * LanguageRuntimeMessageIPyWidget is a wrapped LanguageRuntimeMessage that should be handled
+ * by an IPyWidget.
+ *
+ * Output widgets may intercept replies to an execution and instead render them inside the
+ * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+ * for more.
+ */
+export interface ILanguageRuntimeMessageIPyWidget extends ILanguageRuntimeMessage {
+	/** The original runtime message that was intercepted by an IPyWidget */
+	original_message: ILanguageRuntimeMessage;
 }
 
 /** ILanguageRuntimeMessageCommOpen is a LanguageRuntimeMessage representing a comm open request */
@@ -469,6 +482,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
+
+	/** A message that should be handled by an IPyWidget */
+	IPyWidget = 'ipywidget',
 }
 
 /**

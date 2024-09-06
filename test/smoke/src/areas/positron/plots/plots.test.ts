@@ -8,7 +8,6 @@ import { expect } from '@playwright/test';
 import * as path from 'path';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { readFileSync } from 'fs';
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
@@ -99,7 +98,7 @@ plt.show()`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -147,7 +146,7 @@ IPython.display.display_png(h)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -402,7 +401,36 @@ tree`;
 			});
 
 
-			it.skip('Python - Verifies boken Python widget [C730343]', async function () {
+			it('Python - Verifies ipywidget.Output Python widget', async function () {
+				const app = this.app as Application;
+
+				// Create the Output widget.
+				const script = `import ipywidgets
+output = ipywidgets.Output()
+output`;
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output', 'attached');
+
+				// Redirect a print statement to the Output widget.
+				await app.workbench.positronConsole.pasteCodeToConsole(`with output:
+    print('Hello, world!')
+`);  // Empty line needed for the statement to be considered complete.
+				await app.workbench.positronConsole.sendEnterKey();
+				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
+
+				// The printed statement should not be shown in the console.
+				const lines = await app.workbench.positronConsole.waitForConsoleContents();
+				expect(lines).not.toContain('Hello, world!');
+
+				// Clear the plots pane.
+				await app.workbench.positronPlots.clearPlots();
+				await app.workbench.positronPlots.waitForNoPlots();
+
+			});
+
+
+			it('Python - Verifies bokeh Python widget [C730343]', async function () {
 				const app = this.app as Application;
 
 				const script = `from bokeh.plotting import figure, output_file, show
@@ -496,7 +524,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {

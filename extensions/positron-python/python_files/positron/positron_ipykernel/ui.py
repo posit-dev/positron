@@ -8,9 +8,9 @@ import logging
 import os
 import sys
 import webbrowser
+from urllib.parse import urlparse
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
-from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
 
@@ -133,8 +133,8 @@ class UiService:
     def clear_console(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearConsole, payload={})
 
-    def load_holoviews_extension(self) -> None:
-        self._send_event(name=UiFrontendEvent.LoadHoloviewsExtension, payload={})
+    def clear_webview_preloads(self) -> None:
+        self._send_event(name=UiFrontendEvent.ClearWebviewPreloads, payload={})
 
     def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
         request = msg.content.data
@@ -202,7 +202,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                     ):
                         is_plot = True
                         break
-                # windows will not accept file:// at beginning of url
                 if os.name == "nt":
                     url = urlparse(url).netloc or urlparse(url).path
 

@@ -55,6 +55,9 @@ declare module 'positron' {
 
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
+
+		/** A message that should be handled by an IPyWidget */
+		IPyWidget = 'ipywidget',
 	}
 
 	/**
@@ -335,6 +338,19 @@ declare module 'positron' {
 
 		/** The error stack trace */
 		traceback: Array<string>;
+	}
+
+	/**
+	 * LanguageRuntimeMessageIPyWidget is a wrapped LanguageRuntimeMessage that should be handled
+	 * by an IPyWidget.
+	 *
+	 * Output widgets may intercept replies to an execution and instead render them inside the
+	 * output widget. See https://ipywidgets.readthedocs.io/en/latest/examples/Output%20Widget.html
+	 * for more.
+	 */
+	export interface LanguageRuntimeMessageIPyWidget extends LanguageRuntimeMessage {
+		/** The original runtime message that was intercepted by an IPyWidget */
+		original_message: LanguageRuntimeMessage;
 	}
 
 	/**
