@@ -1068,6 +1068,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (indexToRemove >= 0) {
 					plotClients.splice(indexToRemove, 1);
 				}
+                                 // If, after removing client, the comm's client list is now empty, clean it up.
 				if (plotClients.length === 0) {
 					const commProxy = this._plotCommProxies.get(plotId);
 					commProxy?.dispose();

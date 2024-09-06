@@ -87,7 +87,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const enablePopoutPlot = hasPlots &&
 		selectedPlot instanceof HtmlPlotClient;
 
-	const isEditorPlotsEnabled = React.useCallback(() => {
+	const isEditorPlotsEnabled: () => boolean = React.useCallback(() => {
 		return hasPlots && positronPlotsEditorEnabled(props.configurationService)
 			&& (selectedPlot instanceof PlotClientInstance
 				|| selectedPlot instanceof StaticPlotClient);

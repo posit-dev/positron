@@ -35,7 +35,7 @@ class PositronPlotsEditorContribution extends Disposable {
 			`${Schemas.positronPlotsEditor}:**/**`,
 			{
 				id: PositronPlotsEditorInput.EditorID,
-				label: localize('positronPlotsEditor', 'Editor Plot tab'),
+				label: localize('positronPlotsEditor', 'Editor Plot Tab'),
 				priority: RegisteredEditorPriority.builtin
 			},
 			{
@@ -65,7 +65,7 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	EditorPaneDescriptor.create(
 		PositronPlotsEditor,
 		PositronPlotsEditorInput.EditorID,
-		'Editor Plot tab',
+		'Editor Plot Tab',
 	),
 	[
 		new SyncDescriptor(PositronPlotsEditorInput)
@@ -87,7 +87,7 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true,
 			tags: ['experimental'],
-			description: localize('workbench.positronPlotsEditor.description', 'When enabled, plots can be opened in an editor.')
+			description: localize('workbench.positronPlotsEditor.description', 'When enabled, plots can be opened in an editor tab.')
 		}
 	}
 });
