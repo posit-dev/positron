@@ -24,7 +24,7 @@ const PYTHON_OUTPUT = '.output-plaintext';
 const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
-const activeRowSelector = `.notebook-editor .monaco-list-row.focused`;
+const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
@@ -71,7 +71,7 @@ export class PositronNotebooks {
 		await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 		await this.quickinput.selectQuickInputElement(0);
 
-		await this.code.waitForElement(activeRowSelector);
+		await this.code.waitForElement(ACTIVE_ROW_SELECTOR);
 		await this.notebook.focusFirstCell();
 	}
 

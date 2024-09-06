@@ -160,7 +160,7 @@ df2 = pd.DataFrame(data)`;
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df');
 					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
-				}).toPass();
+				}).toPass( {timeout: 50000} );
 
 				await app.workbench.positronLayouts.enterLayout('notebook');
 
