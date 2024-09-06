@@ -20,7 +20,6 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-		console.log('Discovering reticulate runtimes');
 		return reticulateRuntimesDiscoverer();
 	}
 
@@ -80,7 +79,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
-		console.log(`Runtime metadata ${runtimeMetadata.runtimeId}:`, runtimeMetadata.extraRuntimeData);
 		const rSession = await getRSession();
 		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(rSession, runtimeMetadata);
 		return new ReticulateRuntimeSession(
@@ -139,8 +137,6 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				'startKernel': (session, kernel) => this.startKernel(session, kernel),
 			};
 		}
-
-		console.log('Creating python session with kernelSpec:', kernelSpec);
 
 		const api = vscode.extensions.getExtension('ms-python.python')?.exports;
 		this.pythonSession = api.positron.createPythonRuntimeSession(
@@ -260,7 +256,6 @@ file = "${kernelPath}",
 		this.pythonSession.shutdown(positron.RuntimeExitReason.Restart);
 		await this.rSession.restart();
 		const rSession = await getRSession();
-		console.log('Executing command to start the new reticulate session!');
 		rSession.execute(
 			'reticulate::repl_python()',
 			'start-reticulate',
@@ -271,7 +266,6 @@ file = "${kernelPath}",
 	}
 
 	public async shutdown() {
-		console.log('Shutting down the reticulate kernel');
 		await this.pythonSession.shutdown(positron.RuntimeExitReason.Shutdown);
 		// Tell Positron that the kernel has exit. When launching IPykernel from a standalone
 		// process, when the kernel exits, then all of it's threads, specially the IOPub thread
@@ -302,7 +296,7 @@ async function getRSession(): Promise<positron.LanguageRuntimeSession> {
 			return await getRSession_();
 		}
 		catch (err) {
-			console.log(`Could not find an R session. Retrying (${i}/${maxRetries}): ${err}`);
+			console.warn(`Could not find an R session. Retrying (${i}/${maxRetries}): ${err}`);
 		}
 	}
 	throw new Error('Could not find initialize an R session to launch reticulate.');
@@ -368,7 +362,6 @@ export class ReticulateProvider {
 		await positron.runtime.selectLanguageRuntime('reticulate');
 
 		this.manager._session?.onDidEndSession(() => {
-			console.log('Session ended, disposing client');
 			this._client?.dispose();
 			this._client = undefined;
 		});
@@ -382,7 +375,6 @@ export class ReticulateProvider {
 
 		this._client.onDidChangeClientState(
 			(state: positron.RuntimeClientState) => {
-				console.log('Reticulate state:', state);
 				if (state === positron.RuntimeClientState.Closed) {
 					this._client = undefined;
 				}
@@ -413,7 +405,6 @@ let CONTEXT: vscode.ExtensionContext;
  * @param context An ExtensionContext that contains the extention context.
  */
 export function activate(context: vscode.ExtensionContext) {
-	console.log('Activating Reticulate extension');
 	CONTEXT = context;
 
 	const manager = new ReticulateRuntimeManager(context);
@@ -431,8 +422,6 @@ export function activate(context: vscode.ExtensionContext) {
 		}));
 
 	context.subscriptions.push(reticulateProvider);
-
-	console.log('Reticulate extension activated');
 
 	return manager;
 }
