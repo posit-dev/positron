@@ -17,7 +17,7 @@ interface FlatVariables {
 const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
-const VARIABLES_NAME_COLUMN = '.variable-item .name-column';
+const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 
