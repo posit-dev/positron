@@ -25,7 +25,6 @@ import { getTelemetryReporter } from './telemetry';
 import { TensorboardExtensionIntegration } from './tensorBoard/tensorboardIntegration';
 import { getDebugpyPath } from './debugger/pythonDebugger';
 
-
 export function buildApi(
     ready: Promise<void>,
     serviceManager: IServiceManager,
@@ -159,12 +158,12 @@ export function buildApi(
     }
     // Start Positron ---------
     (api as any).positron = {
-        'createPythonRuntimeSession':
+        createPythonRuntimeSession:
             // Types should actually be:
             // (runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, spec: JupyterKernelSpec)
             // but we can't import them here.
             (runtimeMetadata: any, sessionMetadata: any, spec: any) =>
-                new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, spec)
+                new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, spec),
     };
     // End Positron ---------
     return api;

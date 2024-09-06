@@ -325,7 +325,6 @@ async function* reticulateRuntimesDiscoverer() {
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {
 		pythonEnvironmentId: 'reticulate',
-		//pythonPath: 'reticulate'
 	};
 	base64EncodedIconSvg: string | undefined;
 	constructor() {
