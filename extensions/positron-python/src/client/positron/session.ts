@@ -223,7 +223,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         // We require ipykernel >= 6.19.1 for the Python runtime in order to ensure the comm package
         // can be imported on its own (https://github.com/ipython/ipykernel/releases/tag/v6.18.0)
-        console.log('Interpreter', this.interpreter);
         const hasCompatibleKernel = await installer.isProductVersionCompatible(
             Product.ipykernel,
             IPYKERNEL_VERSION,
