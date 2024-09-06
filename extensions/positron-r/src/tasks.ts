@@ -78,7 +78,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			// out of caution.
 			exec = new vscode.ProcessExecution(
 				binpath,
-				['-e', data.rcode],
+				['--quiet --no-restore --no-save -e', data.rcode],
 				{ env }
 			);
 		} else {
@@ -86,7 +86,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			// test any changes on Windows.
 			exec = new vscode.ShellExecution(
 				binpath,
-				['--quiet -e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
+				['--quiet --no-restore --no-save -e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
 				{ env }
 			);
 		}
