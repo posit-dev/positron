@@ -48,7 +48,7 @@ try {
 	}
 	// Non-ideal way to fail on `only` being used in mocha tests without triggering other linting rules.
 	const result = child_process.execSync(
-		`npx eslint --no-eslintrc --parser '@typescript-eslint/parser' --plugin 'mocha' --rule 'mocha/no-exclusive-tests: error' ${files}`,
+		`npx eslint --no-eslintrc --parser "@typescript-eslint/parser" --plugin "mocha" --rule "mocha/no-exclusive-tests:error" ${files}`,
 		{ encoding: 'utf8' }
 	);
 	process.exit(ExitCodes.SUCCESS);
