@@ -271,18 +271,22 @@ file = "${kernelPath}",
 	}
 
 	public async shutdown() {
-		// To shutdown, we actually, send a shutdown request to the python session, but
-		// we don't wait for it, because by default it would only be resolved when
-		// the terminal exits, but thre's no terminal for it.
-		//(this.pythonSession as any)._kernel._kernel.setStatus(positron.RuntimeState.Exited);
 		console.log('Shutting down the reticulate kernel');
 		await this.pythonSession.shutdown(positron.RuntimeExitReason.Shutdown);
-		//(this.pythonSession as any)._stateEmitter.fire(positron.RuntimeState.Exited);
+		// Tell Positron that the kernel has exit. When launching IPykernel from a standalone
+		// process, when the kernel exits, then all of it's threads, specially the IOPub thread
+		// holding the ZeroMQ sockets will cease to exist, and thus Positron identifies that the
+		// kernel has successfuly closed. However, since we launch positron from a different thread,
+		// when the kernel exits, the thread exits, but all other dangling threads are still alive,
+		// thus Positron never identifies that the kernel exited. We must then manually fire exit event.
+		// We rely on an implementation detail of the jupyter adapter, that allows us to force the
+		// kernels to disconnect.
+		(this.pythonSession as any)._kernel._kernel._allSockets.forEach((socket: any) => socket.disconnect());
 		return;
-		//return await this.rSession.shutdown(positron.RuntimeExitReason.Shutdown);
 	}
 
 	public forceQuit() {
+		// Force quit will kill the process, which also kills the R process.
 		return this.pythonSession.forceQuit();
 	}
 
