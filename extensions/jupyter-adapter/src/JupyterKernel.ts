@@ -168,6 +168,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// to update our status
 		vscode.window.onDidCloseTerminal((closedTerminal) => {
 			if (closedTerminal === this._terminal) {
+				console.log(`Terminal closed and status is ${this._status}`);
 				if (this._status === positron.RuntimeState.Starting) {
 					// If we were starting the kernel, then we failed to start
 					this.log(
@@ -181,7 +182,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				// Save the exit code for error reporting if we know it
 				if (closedTerminal.exitStatus && closedTerminal.exitStatus.code) {
 					this._exitCode = closedTerminal.exitStatus.code;
-
+					console.log('Setting status to exited');
 					// The kernel's status is now exited
 					this.setStatus(positron.RuntimeState.Exited);
 				}
@@ -311,7 +312,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param session The Jupyter session information for the kernel running in
 	 *   the terminal
 	 */
-	private async connectToSession(session: JupyterSession) {
+	public async connectToSession(session: JupyterSession) {
 
 		// Establish a log channel for the kernel we're connecting to, if we
 		// don't already have one (we will if we're restarting)
@@ -1046,6 +1047,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * have disconnected, we consider the kernel to have exited.
 	 */
 	private onSocketDisconnected() {
+		console.log('Socket disconnected');
 
 		// Check to see whether all the sockets are disconnected
 		for (const socket of this._allSockets) {
@@ -1444,6 +1446,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param status The new status of the kernel
 	 */
 	private async onStatusChange(status: positron.RuntimeState) {
+		console.log(`Status changed to ${status}`);
 		if (status === positron.RuntimeState.Exited) {
 			// Ensure we don't try to reconnect to this kernel
 			this._context.workspaceState.update(this._runtimeId, undefined);

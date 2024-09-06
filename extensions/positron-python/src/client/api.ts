@@ -158,8 +158,14 @@ export function buildApi(
         (api as any).serviceManager = serviceManager;
     }
     // Start Positron ---------
-    (api as any).positron = PythonRuntimeSession;
-    (api as any).serviceContainer = serviceContainer;
+    (api as any).positron = {
+        'createPythonRuntimeSession':
+            // Types should actually be:
+            // (runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, spec: JupyterKernelSpec)
+            // but we can't import them here.
+            (runtimeMetadata: any, sessionMetadata: any, spec: any) =>
+                new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, spec)
+    };
     // End Positron ---------
     return api;
 }

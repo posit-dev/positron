@@ -29,6 +29,11 @@ export interface JupyterSession {
 	readonly state: JupyterSessionState;
 }
 
+export interface JupyterKernel {
+	connectToSession(session: JupyterSession): Promise<void>;
+	log(msg: string): void;
+}
+
 /**
  * This set of type definitions defines the interfaces used by the Positron
  * Jupyter Adapter extension.

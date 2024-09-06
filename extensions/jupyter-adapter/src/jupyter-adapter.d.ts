@@ -29,6 +29,11 @@ export interface JupyterSession {
 	readonly state: JupyterSessionState;
 }
 
+export interface JupyterKernel {
+	connectToSession(session: JupyterSession): Promise<void>;
+	log(msg: string): void;
+}
+
 /**
  * This set of type definitions defines the interfaces used by the Positron
  * Jupyter Adapter extension.
@@ -60,7 +65,7 @@ export interface JupyterKernelSpec {
 	 *  This is used to start the kernel if it's provided. In this case `argv`
 	 *  is ignored.
 	*/
-	startKernel?: (session: JupyterSession, self: any) => Promise<void>;
+	startKernel?: (session: JupyterSession, kernel: JupyterKernel) => Promise<void>;
 }
 
 /**
