@@ -102,8 +102,6 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 			</div>
 			<VerticalSplitter
 				configurationService={positronVariablesContext.configurationService}
-				showSash={false}
-				collapsible={false}
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>

@@ -49,8 +49,8 @@ export const DataExplorer = () => {
 	const [width, setWidth] = useState(0);
 	const [layout, setLayout] = useState(context.instance.layout);
 	const [columnsWidth, setColumnsWidth] = useState(0);
+	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(false);
-	const [transitionWidth, setTransitionWidth] = useState(false);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -287,18 +287,18 @@ export const DataExplorer = () => {
 	useLayoutEffect(() => {
 		if (columnsCollapsed) {
 			column1Ref.current.style.width = '0';
-			if (transitionWidth) {
+			if (animateColumnsWidth) {
 				column1Ref.current.style.transition = 'width 0.1s ease-out';
-				setTransitionWidth(false);
+				setAnimateColumnsWidth(false);
 			}
 		} else {
 			column1Ref.current.style.width = `${columnsWidth}px`;
-			if (transitionWidth) {
+			if (animateColumnsWidth) {
 				column1Ref.current.style.transition = 'width 0.1s ease-out';
-				setTransitionWidth(false);
+				setAnimateColumnsWidth(false);
 			}
 		}
-	}, [columnsWidth, columnsCollapsed, transitionWidth]);
+	}, [columnsWidth, columnsCollapsed, animateColumnsWidth]);
 
 	/**
 	 * onBeginResize handler.
@@ -307,8 +307,7 @@ export const DataExplorer = () => {
 	const beginResizeHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MIN_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * width / 3),
-		columnsWidth,
-		invert: layout === PositronDataExplorerLayout.SummaryOnRight
+		columnsWidth
 	});
 
 	/**
@@ -340,17 +339,14 @@ export const DataExplorer = () => {
 				}
 				<VerticalSplitter
 					configurationService={context.configurationService}
+					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
 					collapsible={true}
 					showSash={true}
 					onBeginResize={beginResizeHandler}
 					onResize={resizeHandler}
-					onCollapse={() => {
-						setColumnsCollapsed(true);
-						setTransitionWidth(true);
-					}}
-					onExpand={() => {
-						setColumnsCollapsed(false);
-						setTransitionWidth(true);
+					onCollapsedChanged={collapsed => {
+						setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+						setColumnsCollapsed(collapsed);
 					}}
 				/>
 				{columnsCollapsed && layout === PositronDataExplorerLayout.SummaryOnRight &&

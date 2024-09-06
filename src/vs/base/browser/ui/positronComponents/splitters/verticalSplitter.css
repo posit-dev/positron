@@ -22,7 +22,9 @@
 .vertical-splitter .sash {
 	z-index: 25;
 	height: 100%;
+	display: flex;
 	position: relative;
+	justify-content: center;
 }
 
 .vertical-splitter .sash-hovering {
@@ -31,6 +33,20 @@
 }
 
 .vertical-splitter .sash-resizing {
+	background-color: var(--vscode-focusBorder);
+}
+
+.vertical-splitter .sash .sash-indicator {
+	height: 100%;
+	position: relative;
+}
+
+.vertical-splitter .sash .sash-indicator.hovering {
+	transition: background-color 0.1s ease-out;
+	background-color: var(--vscode-focusBorder);
+}
+
+.vertical-splitter .sash .sash-indicator.resizing {
 	background-color: var(--vscode-focusBorder);
 }
 
@@ -58,12 +74,12 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
-	border: 1px solid #3b79b3;
-	color: #3b79b3;
-	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+	color: var(--vscode-positronSplitterExpandCollapseButton-foreground);
+	border: 1px solid var(--vscode-positronSplitterExpandCollapseButton-foreground);
+	background-color: var(--vscode-positronSplitterExpandCollapseButton-background);
 }
 
-.vertical-splitter .expand-collapse-button .expand-collapse-button-face.yack {
-	background-color: #3b79b3;
-	color: var(--vscode-positronDataExplorer-contrastBackground);
+.vertical-splitter .expand-collapse-button .expand-collapse-button-face.highlighted {
+	color: var(--vscode-positronSplitterExpandCollapseButton-background);
+	background-color: var(--vscode-positronSplitterExpandCollapseButton-foreground);
 }

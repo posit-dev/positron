@@ -852,6 +852,24 @@ export const POSITRON_SCROLL_BAR_BORDER = registerColor('positronScrollBar.borde
 	hcLight: PANEL_BORDER
 }, localize('positronScrollBar.border', "Positron scroll bar border color."));
 
+// < --- Positron Splitter --- >
+
+// Positron splitter expand / collapse button background color.
+export const POSITRON_SPLITTER_EXPAND_COLLAPSE_BUTTON_BACKGROUND = registerColor('positronSplitterExpandCollapseButton.background', {
+	dark: lighten(editorBackground, 0.2),
+	light: darken(editorBackground, 0.02),
+	hcDark: editorBackground,
+	hcLight: editorBackground
+}, localize('positronSplitterExpandCollapseButton.background', "Positron splitter expand / collapse button background color."));
+
+// Positron splitter expand / collapse button foreground color.
+export const POSITRON_SPLITTER_EXPAND_COLLAPSE_BUTTON_FOREGROUND = registerColor('positronSplitterExpandCollapseButton.foreground', {
+	dark: '#3b79b3',
+	light: '#3b79b3',
+	hcDark: editorForeground,
+	hcLight: editorForeground
+}, localize('positronSplitterExpandCollapseButton.foreground', "Positron splitter expand / collapse button foreground color."));
+
 // < --- Positron Tool Tip --- >
 
 // Positron tool tip background color.
