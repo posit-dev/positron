@@ -15,7 +15,7 @@ export function setup(logger: Logger) {
 		let app: Application;
 
 		describe('Viewer - Python', () => {
-			before(async function () {
+			beforeEach(async function () {
 				app = this.app as Application;
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -39,10 +39,14 @@ VetiverAPI(v).run()`;
 
 				await theDoc.waitFor({ state: 'attached' });
 
-				await app.workbench.positronConsole.activeConsole.click();
-				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
-
-				await app.workbench.positronConsole.waitForConsoleContents(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
+				// Due to https://github.com/posit-dev/positron/issues/4604 - interrupt doesn't work
+				// windows, have to restart console instead.
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+				await app.workbench.positronConsole.barClearButton.click();
+				await app.workbench.positronConsole.barRestartButton.click();
+				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
 				await app.workbench.positronViewer.clearViewer();
 
