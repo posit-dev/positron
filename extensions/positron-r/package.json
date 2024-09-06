@@ -121,6 +121,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "workbench.action.positronConsole.executeCode",
+        "category": "R",
+        "title": "%r.command.executeSelectionInConsole.title%",
+        "icon": "$(play)"
+      },
+      {
         "command": "r.rmarkdownRender",
         "category": "R",
         "title": "%r.command.rmarkdownRender.title%",
@@ -417,6 +423,13 @@
         },
         {
           "category": "R",
+          "command": "workbench.action.positronConsole.executeCode",
+          "icon": "$(play)",
+          "title": "%r.command.executeSelectionInConsole.title%",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
           "command": "r.rmarkdownRender",
           "icon": "$(play)",
           "title": "%r.command.rmarkdownRender.title%",
@@ -488,6 +501,13 @@
           "when": "editorLangId == r && !isRPackage"
         },
         {
+          "command": "workbench.action.positronConsole.executeCode",
+          "group": "R",
+          "title": "%r.command.executeSelectionInConsole.title%",
+          "when": "editorLangId == r"
+        },
+
+        {
           "command": "r.rmarkdownRender",
           "group": "R",
           "title": "%r.command.rmarkdownRender.title%",
@@ -501,6 +521,12 @@
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFile.title%",
           "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
+        },
+        {
+          "command": "workbench.action.positronConsole.executeCode",
+          "icon": "$(play)",
+          "title": "%r.command.executeSelectionInConsole.title%",
+          "when": "resourceLangId == r && !isInDiffEditor"
         },
         {
           "command": "r.rmarkdownRender",
