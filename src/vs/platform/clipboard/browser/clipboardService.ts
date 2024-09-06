@@ -191,7 +191,17 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 
 	// --- Start Positron ---
 	async writeImage(data: string): Promise<void> {
-		const blob = new Blob([data], { type: 'image/png' });
+		// convert image data to bytes
+		const byteString = atob(data.split(',')[1]);
+		const mimeString = data.split(',')[0].split(':')[1].split(';')[0];
+		const intArray = [];
+
+		// convert bytes to int array
+		for (let i = 0; i < byteString.length; i++) {
+			intArray.push(byteString.charCodeAt(i));
+		}
+
+		const blob = new Blob([new Uint8Array(intArray)], { type: mimeString });
 		navigator.clipboard.write([
 			new ClipboardItem({
 				[blob.type]: blob
