@@ -114,10 +114,10 @@ export enum RuntimeOutputKind {
 	IPyWidget = 'ipywidget',
 
 	/**
-	 * Holoviews message.
-	 * These are typically batched by the holoviews service for rendering.
+	 * Webview preload message. These are messages that are batched together and handled by the
+	 * webview preload service on the front end.
 	 */
-	HoloViews = 'holoviews',
+	WebviewPreload = 'webview_preload',
 
 	/**
 	 * Some other kind of output. We've never heard of it.

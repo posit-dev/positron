@@ -447,5 +447,5 @@ import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
 import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import 'vs/workbench/services/positronVariables/common/positronVariablesService';
 import 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerService';
-import 'vs/workbench/contrib/positronHoloViews/browser/positronHoloViewsService';
+import 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
 // --- End Positron ---

@@ -133,8 +133,8 @@ class UiService:
     def clear_console(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearConsole, payload={})
 
-    def load_holoviews_extension(self) -> None:
-        self._send_event(name=UiFrontendEvent.LoadHoloviewsExtension, payload={})
+    def clear_webview_preloads(self) -> None:
+        self._send_event(name=UiFrontendEvent.ClearWebviewPreloads, payload={})
 
     def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
         request = msg.content.data

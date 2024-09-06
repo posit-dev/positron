@@ -471,5 +471,10 @@ window.onload = function() {
 	.vega-actions a:not([download]) {
 		display: none;
 	}
+
+	/* Hide the logo and 'loaded' message for bokeh plots */
+	div:has(> .bk-notebook-logo) {
+		display: none;
+	}
 </style>`;
 }

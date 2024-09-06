@@ -8,7 +8,6 @@ import { expect } from '@playwright/test';
 import * as path from 'path';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { readFileSync } from 'fs';
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
@@ -99,7 +98,7 @@ plt.show()`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -147,7 +146,7 @@ IPython.display.display_png(h)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {
@@ -431,7 +430,7 @@ output`;
 			});
 
 
-			it.skip('Python - Verifies bokeh Python widget [C730343]', async function () {
+			it('Python - Verifies bokeh Python widget [C730343]', async function () {
 				const app = this.app as Application;
 
 				const script = `from bokeh.plotting import figure, output_file, show
@@ -525,7 +524,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(readFileSync(path.join('plots', 'autos.png'),), buffer, options);
+				const data = await compareImages(fs.readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
 				if (githubActions && data.rawMisMatchPercentage > 2.0) {
 					if (data.getBuffer) {

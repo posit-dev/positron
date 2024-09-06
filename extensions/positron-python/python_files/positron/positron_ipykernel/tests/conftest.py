@@ -160,6 +160,13 @@ def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> M
 
 
 @pytest.fixture
+def mock_display_pub(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(shell, "display_pub", mock)
+    return mock
+
+
+@pytest.fixture
 def variables_service(kernel: PositronIPyKernel) -> VariablesService:
     """
     The Positron variables service.
@@ -198,3 +205,20 @@ def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
     The Positron connections service.
     """
     return kernel.connections_service
+
+
+@pytest.fixture
+def enable_bokeh_output_notebook(shell: PositronShell) -> Iterable[None]:
+    shell.run_cell(
+        """\
+from bokeh.plotting import figure, show, output_notebook
+output_notebook()
+"""
+    )
+    yield
+    shell.run_cell(
+        """\
+from bokeh.io.import output
+output.reset_output()
+"""
+    )
