@@ -16,8 +16,12 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
+import { checkIfWebApp, runStreamlitCommand } from './webAppContexts';
 
-export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
+export async function activatePositron(
+    serviceContainer: IServiceContainer,
+    context: vscode.ExtensionContext,
+): Promise<void> {
     try {
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         // Register a command to check if ipykernel is installed for a given interpreter.
@@ -71,6 +75,25 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         disposables.push(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
+
+        // set contexts
+        const fileOpenListener = vscode.workspace.onDidOpenTextDocument((document) => {
+            if (document.languageId == 'python') {
+                checkIfWebApp(document);
+            }
+        });
+
+        // Register the event for when an editor window changes (e.g., switching between open files)
+        const activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (editor && editor.document.languageId == 'python') {
+                checkIfWebApp(editor.document);
+            }
+        });
+
+        context.subscriptions.push(fileOpenListener, activeEditorListener);
+        // Register the command for running Streamlit
+        vscode.commands.registerCommand('extension.runStreamlit', runStreamlitCommand);
+
         traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);
