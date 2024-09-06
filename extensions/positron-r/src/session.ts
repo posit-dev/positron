@@ -25,6 +25,10 @@ interface RPackageInstallation {
 	packageVersion?: string;
 }
 
+interface EnvVar {
+	[key: string]: string;
+}
+
 // At the time of writing, we only use LANG, but we expect other aspects of the active R session's
 // locale to also be present here, such as LC_CTYPE or LC_TIME. These can vary by OS, so this
 // interface doesn't attempt to enumerate them.
@@ -367,6 +371,20 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Get environment variables that start with the given regex from the R session.
+	 */
+	async getEnvVars(startsWith: string): Promise<EnvVar[]> {
+		try {
+			const envVars: EnvVar[] = await this.callMethod('get_env_vars', startsWith);
+			return envVars;
+		} catch (err) {
+			const runtimeError = err as positron.RuntimeMethodError;
+			throw new Error(`Error getting ${startsWith} environment variables: ${runtimeError.message} ` +
+				`(${runtimeError.code})`);
+		}
+	}
+
+	/**
 	 * Checks whether a package is installed in the runtime.
 	 * @param pkgName The name of the package to check
 	 * @param pkgVersion Optionally, the version of the package needed
@@ -697,8 +715,8 @@ export function createJupyterKernelSpec(
 		// https://github.com/posit-dev/positron/issues/1619#issuecomment-1971552522
 		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
 	} else if (process.platform === 'darwin') {
-	        // Workaround for
-	        // https://github.com/posit-dev/positron/issues/3732
+		// Workaround for
+		// https://github.com/posit-dev/positron/issues/3732
 		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
 	}
 
@@ -779,4 +797,12 @@ export async function getLocale(session?: RSession): Promise<Locale> {
 		return session.getLocale();
 	}
 	throw new Error(`Cannot get locale information; no R session available`);
+}
+
+export async function getEnvVars(startsWith: string, session?: RSession): Promise<EnvVar[]> {
+	session = session || RSessionManager.instance.getConsoleSession();
+	if (session) {
+		return session.getEnvVars(startsWith);
+	}
+	throw new Error(`Cannot get env var information; no R session available`);
 }
