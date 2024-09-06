@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as net from 'net';
+// --- Start Positron ---
+import { raceTimeout, retryTimeout } from 'vs/base/common/async';
+// --- End Positron ---
 
 /**
  * Given a start point and a max number of retries, will find a port that
@@ -201,3 +204,40 @@ function dispose(socket: net.Socket): void {
 		console.error(error); // otherwise this error would get lost in the callback chain
 	}
 }
+
+// --- Start Positron ---
+/**
+ * Wait for a port on localhost to be ready for a connection.
+ *
+ * @param port The port on localhost.
+ * @param timeout Stop retrying after this number of milliseconds.
+ * @returns A promise that resolves when the port is ready for a connection,
+ *          or rejects if the timeout is reached.
+ */
+export async function waitForPortConnection(port: number, timeout: number): Promise<void> {
+	// Retry connecting to the port until it is ready.
+	return retryTimeout(() => {
+		// Also apply a timeout to the connection attempt.
+		return raceTimeout(
+			// Create a promise that resolves when the port is ready for a connection,
+			// or rejects if the connection attempt fails.
+			new Promise((resolve, reject) => {
+				const client = new net.Socket();
+
+				// If we can connect to the port, resolve the promise.
+				client.once('connect', () => {
+					dispose(client);
+					resolve();
+				});
+
+				// If we can't connect to the port, reject the promise.
+				client.once('error', (err) => {
+					dispose(client);
+					reject(err);
+				});
+
+				client.connect(port, '127.0.0.1');
+			}), 5000);
+	}, timeout, 50);
+}
+// --- End Positron ---

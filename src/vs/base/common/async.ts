@@ -1410,6 +1410,39 @@ export async function retry<T>(task: ITask<Promise<T>>, delay: number, retries: 
 	throw lastError;
 }
 
+// --- Start Positron ---
+/**
+ * Retry a task until it succeeds or times out.
+ *
+ * @param task The task to run.
+ * @param delay The delay between retries in milliseconds.
+ * @param timeout Stop retrying after this number of milliseconds.
+ * @returns Promise that resolves with the result of the task, or rejects with the last error.
+ */
+export async function retryTimeout<T>(task: ITask<Promise<T>>, delay: number, timeout: number): Promise<T> {
+	// Track whether the task timed out.
+	let timedOut = false;
+	const timer = setTimeout(() => timedOut = true, timeout);
+
+	while (true) {
+		try {
+			// Run the task and clear the timer if it completes.
+			const result = await task();
+			clearTimeout(timer);
+			return result;
+		} catch (error) {
+			// If we timed out, throw the error.
+			if (timedOut) {
+				throw error;
+			}
+
+			// Otherwise, wait for the delay and try again.
+			await new Promise<void>((resolve) => setTimeout(() => resolve(), delay));
+		}
+	}
+}
+// --- End Positron ---
+
 //#region Task Sequentializer
 
 interface IRunningTask {
