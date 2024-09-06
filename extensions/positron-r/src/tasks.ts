@@ -78,7 +78,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			// out of caution.
 			exec = new vscode.ProcessExecution(
 				binpath,
-				['--quiet --no-restore --no-save -e', data.rcode],
+				['--quiet', '--no-restore', '--no-save', '-e', data.rcode],
 				{ env }
 			);
 		} else {
