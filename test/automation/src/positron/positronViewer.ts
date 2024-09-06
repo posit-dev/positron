@@ -37,6 +37,6 @@ export class PositronViewer {
 	}
 
 	async clearViewer() {
-		await this.fullApp.getByLabel('Clear the content').click();
+		await this.fullApp.getByLabel(/Clear the/).click();
 	}
 }

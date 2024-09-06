@@ -4,10 +4,70 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger, PositronRFixtures } from '../../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
+	describe('Viewer', () => {
+		// Shared before/after handling
+		installAllHandlers(logger);
+
+		let app: Application;
+
+		describe('Viewer - Python', () => {
+			before(async function () {
+				app = this.app as Application;
+
+				await PositronPythonFixtures.SetupFixtures(this.app as Application);
+			});
+
+			it('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
+
+				const script = `from vetiver import VetiverModel, VetiverAPI
+from vetiver.data import mtcars
+from sklearn.linear_model import LinearRegression
+
+model = LinearRegression().fit(mtcars.drop(columns="mpg"), mtcars["mpg"])
+v = VetiverModel(model, model_name = "cars_linear", prototype_data = mtcars.drop(columns="mpg"))
+VetiverAPI(v).run()`;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+
+				const theDoc = app.workbench.positronViewer.getViewerLocator('#thedoc');
+
+				await theDoc.waitFor({ state: 'attached' });
+
+				await app.workbench.positronConsole.activeConsole.click();
+				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
+
+				await app.workbench.positronConsole.waitForConsoleContents(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
+
+				await app.workbench.positronViewer.clearViewer();
+
+			});
+
+			it('Python - Verify Viewer functionality with great-tables [C784888]', async function () {
+
+				const script = `from great_tables import GT, exibble
+GT(exibble)`;
+
+				logger.log('Sending code to console');
+				await app.workbench.positronConsole.pasteCodeToConsole(script);
+				await app.workbench.positronConsole.sendEnterKey();
+
+				const apricot = app.workbench.positronViewer.getViewerLocator('td').filter({ hasText: 'apricot' });
+
+				await apricot.waitFor({ state: 'attached' });
+
+				// Note that there is not a control to clear the viewer at this point
+
+			});
+
+		});
+	});
+
 	describe('Viewer', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
@@ -26,7 +86,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verify Viewer functionality with modelsummary [C...]', async function () {
+			it('R - Verify Viewer functionality with modelsummary [C784889]', async function () {
 
 				const script = `library(palmerpenguins)
 library(fixest)
@@ -43,7 +103,7 @@ modelsummary(m1)`;
 
 			});
 
-			it('R - Verify Viewer functionality with reactable [C...]', async function () {
+			it('R - Verify Viewer functionality with reactable [C784930]', async function () {
 
 				const script = `library(reactable)
 mtcars |> reactable::reactable()`;
@@ -57,7 +117,7 @@ mtcars |> reactable::reactable()`;
 
 			});
 
-			it('R - Verify Viewer functionality with reprex [C...]', async function () {
+			it('R - Verify Viewer functionality with reprex [C784931]', async function () {
 
 				const script = `reprex::reprex({
 x <- rnorm(100)
