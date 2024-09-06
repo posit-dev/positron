@@ -54,6 +54,11 @@ VetiverAPI(v).run()`;
 
 			it('Python - Verify Viewer functionality with great-tables [C784888]', async function () {
 
+				// extra clean up - https://github.com/posit-dev/positron/issues/4604
+				// without this, on ubuntu, the Enter key send to the console
+				// won't work because the pasted code is out of view
+				await app.workbench.positronConsole.barClearButton.click();
+
 				const script = `from great_tables import GT, exibble
 GT(exibble)`;
 
