@@ -59,11 +59,6 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 		};
 
 		const onPressed = (focusInput?: boolean) => {
-
-			// stop processing the keydown listener if the user performs this action
-			const window = DOM.getWindow(ref.current);
-			window.removeEventListener('keydown', onKeyDown);
-
 			// Create the renderer.
 			const renderer = new PositronModalReactRenderer({
 				keybindingService: props.keybindingService,
