@@ -132,7 +132,7 @@ The current commands for Python packages:
 curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-python -m pip install matplotlib ipykernel trcli graphviz
+python -m pip install ipykernel
 ```
 
 The current commands for R packages:
@@ -155,6 +155,12 @@ Graphviz is external software that has a Python package to render graphs. Instal
 ## Environment Setup - Resemblejs dependency
 
 Make sure that you have followed the [Machine Setup](https://connect.posit.it/positron-wiki/machine-setup.html) instructions so that you can be sure you are set up to build resemblejs (which depends on node-canvas).
+
+## Install Step
+
+Prior to compiling the tests, install the test dependencies by running `yarn install` in both these directories:
+* test/automation
+* test/smoke
 
 ## Build step
 
@@ -186,23 +192,6 @@ It takes a long time to run all the tests. To only run specific tests you can re
 _Note: Don't forget to remove the `.only()`s when you're done!_
 
 ## Local debugging
-
-### Breakpoints
-
-Unfortunately setting breakpoints on the typescript source files for tests doesn't work, at least not like it does for the rest of Positron.
-
-_We're not totally sure why the generated map files aren't used, but this may be fixable._
-
-There are two ways to add breakpoints:
-
-- Set the breakpoint in the built javascript.
-  - Go into the build artifact `test/smoke/src/areas/positron/<area>/*.test.ts`
-    - Note the replacement of the `src` with `out`.
-    - Here's the path to the help test built js `test/smoke/out/areas/positron/help/help.test.js`
-  - Set a breakpoint in the desired place in this artifact.
-- Add a `debugger;` statement to your script
-  - If you simply place the line `debugger;` into your test code it will survive the build step.
-  - (Don't forget to delete after you've finished debugging!)
 
 ### Devtools
 
