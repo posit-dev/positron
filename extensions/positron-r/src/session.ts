@@ -371,15 +371,15 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Get environment variables that start with the given regex from the R session.
+	 * Get environment variables from the R session.
 	 */
-	async getEnvVars(startsWith: string): Promise<EnvVar[]> {
+	async getEnvVars(envVarNames: string[]): Promise<EnvVar[]> {
 		try {
-			const envVars: EnvVar[] = await this.callMethod('get_env_vars', startsWith);
+			const envVars: EnvVar[] = await this.callMethod('get_env_vars', envVarNames);
 			return envVars;
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
-			throw new Error(`Error getting ${startsWith} environment variables: ${runtimeError.message} ` +
+			throw new Error(`Error getting environment variable(s) ${envVarNames}: ${runtimeError.message} ` +
 				`(${runtimeError.code})`);
 		}
 	}
@@ -799,10 +799,10 @@ export async function getLocale(session?: RSession): Promise<Locale> {
 	throw new Error(`Cannot get locale information; no R session available`);
 }
 
-export async function getEnvVars(startsWith: string, session?: RSession): Promise<EnvVar[]> {
+export async function getEnvVars(envVars: string[], session?: RSession): Promise<EnvVar[]> {
 	session = session || RSessionManager.instance.getConsoleSession();
 	if (session) {
-		return session.getEnvVars(startsWith);
+		return session.getEnvVars(envVars);
 	}
 	throw new Error(`Cannot get env var information; no R session available`);
 }

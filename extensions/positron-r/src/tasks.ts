@@ -53,7 +53,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
 			rcode: 'devtools::test()',
 			package: 'devtools',
-			envVars: await getEnvVars('TESTTHAT')
+			envVars: await getEnvVars(['TESTTHAT_MAX_FAILS'])
 		},
 		{
 			task: 'r.task.rmarkdownRender',
