@@ -75,20 +75,12 @@ def add_preload_mime_type():
 
 def hide_glyph_renderer_output():
     """
-    Disable the `_repr_html_` method on the GlyphRenderer class to prevent it from being called
-    when the model is displayed and thus confusing positron into thinking it's a plot to show.
+    Disable the `_repr_html_` method on the Model class to prevent it from being called when the
+    model is displayed and thus confusing positron into thinking it's a plot to show.
     """
     try:
-        from bokeh.models import renderers
-
-        renderers.GlyphRenderer._repr_html_ = empty_repr_html
+        from bokeh.models import Model
+        del Model._repr_html_
 
     except ImportError:
         return
-
-
-def empty_repr_html(self):
-    """
-    Empty function used to disable html printing of a class.
-    """
-    return ""
