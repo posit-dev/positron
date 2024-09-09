@@ -238,6 +238,6 @@ export async function waitForPortConnection(port: number, timeout: number): Prom
 
 				client.connect(port, '127.0.0.1');
 			}), 5000);
-	}, timeout, 50);
+	}, 50, timeout);
 }
 // --- End Positron ---

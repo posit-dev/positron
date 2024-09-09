@@ -29,6 +29,9 @@ import { ExtHostConsoleService } from 'vs/workbench/api/common/positron/extHostC
 import { ExtHostMethods } from './extHostMethods';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { UiFrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { ExtHostApplicationsConstructor } from 'vs/workbench/api/common/positron/extHostApplications';
+import { ExtHostWindow } from 'vs/workbench/api/common/extHostWindow';
+import { IExtHostTerminalService } from 'vs/workbench/api/common/extHostTerminalService';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -41,7 +44,10 @@ export interface IExtensionPositronApiFactory {
  * This method instantiates and returns the extension API surface for Positron;
  * it mirrors IExtensionApiFactory for VS Code.
  */
-export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAccessor): IExtensionPositronApiFactory {
+export function createPositronApiFactoryAndRegisterActors(
+	accessor: ServicesAccessor,
+	ExtHostApplications: ExtHostApplicationsConstructor,
+): IExtensionPositronApiFactory {
 	const rpcProtocol = accessor.get(IExtHostRpcService);
 	const initData = accessor.get(IExtHostInitDataService);
 	const extHostWorkspace = accessor.get(IExtHostWorkspace);
@@ -63,6 +69,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		rpcProtocol.getRaw(ExtHostContext.ExtHostLanguageFeatures);
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
+	const extHostTerminalService: IExtHostTerminalService = rpcProtocol.getRaw(ExtHostContext.ExtHostTerminalService);
+	const extHostWindow: ExtHostWindow = rpcProtocol.getRaw(ExtHostContext.ExtHostWindow);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
@@ -71,6 +79,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostCommands, extHostContextKeyService));
+	const extHostApplications = new ExtHostApplications(extHostEditors, extHostTerminalService,
+		extHostLanguageRuntime, extHostPreviewPanels, extHostWindow);
 
 	return function (extension: IExtensionDescription, extensionInfo: IExtensionRegistries, configProvider: ExtHostConfigProvider): typeof positron {
 
@@ -192,6 +202,15 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 		};
 
+		const applications: typeof positron.applications = {
+			registerApplicationRunner(id: string, runner: positron.ApplicationRunner): vscode.Disposable {
+				return extHostApplications.registerApplicationRunner(id, runner);
+			},
+			runApplication(id: string): Thenable<void> {
+				return extHostApplications.runApplication(extension, id);
+			},
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
@@ -201,6 +220,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			window,
 			languages,
 			methods,
+			applications,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,

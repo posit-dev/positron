@@ -1070,6 +1070,18 @@ declare module 'positron' {
 		pasteText(text: string): void;
 	}
 
+	export interface ApplicationRunOptions {
+		command: string;
+		env?: { [key: string]: string | null | undefined };
+		url?: string;
+	}
+
+	export interface ApplicationRunner {
+		label: string;
+		languageId: string;
+		getRunOptions(runtimePath: string, filePath: string, port: number): ApplicationRunOptions;
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -1351,6 +1363,14 @@ declare module 'positron' {
 		 */
 		export function showDialog(title: string, message: string): Thenable<null>;
 
+
+	}
+
+	namespace applications {
+
+		export function registerApplicationRunner(id: string, runner: ApplicationRunner): vscode.Disposable;
+
+		export function runApplication(id: string): Thenable<void>;
 
 	}
 }
