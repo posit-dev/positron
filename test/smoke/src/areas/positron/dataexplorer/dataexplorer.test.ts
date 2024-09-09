@@ -59,13 +59,16 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
 
-				expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
-				expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' });
-				expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
-				expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
-				expect(tableData.length).toBe(4);
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+					expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
+					expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' });
+					expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
+					expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
+					expect(tableData.length).toBe(4);
+				}).toPass({ timeout: 60000 });
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
@@ -98,14 +101,17 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' });
-				expect(tableData[1]).toStrictEqual({ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' });
-				expect(tableData[2]).toStrictEqual({ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' });
-				expect(tableData[3]).toStrictEqual({ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' });
-				expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
-				expect(tableData.length).toBe(5);
+					expect(tableData[0]).toStrictEqual({ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' });
+					expect(tableData[1]).toStrictEqual({ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' });
+					expect(tableData[2]).toStrictEqual({ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' });
+					expect(tableData[3]).toStrictEqual({ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' });
+					expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
+					expect(tableData.length).toBe(5);
+				}).toPass({ timeout: 60000 });
+
 
 			});
 			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
@@ -160,20 +166,25 @@ df2 = pd.DataFrame(data)`;
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('df');
 					await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
-				}).toPass( {timeout: 50000} );
+				}).toPass({ timeout: 50000 });
 
 				await app.workbench.positronLayouts.enterLayout('notebook');
 
-				let tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
-				expect(tableData.length).toBe(11);
+				let tableData;
+				await expect(async () => {
+					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					expect(tableData.length).toBe(11);
+				}).toPass({ timeout: 60000 });
 
 				await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
 				await app.workbench.notebook.focusNextCell();
 				await app.workbench.notebook.executeActiveCell();
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
 
-				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
-				expect(tableData.length).toBe(12);
+				await expect(async () => {
+					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					expect(tableData.length).toBe(12);
+				}).toPass({ timeout: 60000 });
 
 				await app.code.driver.getLocator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
 				await app.workbench.notebook.focusNextCell();
@@ -181,9 +192,11 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
-				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
-				expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
-				expect(tableData.length).toBe(12);
+				await expect(async () => {
+					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
+					expect(tableData.length).toBe(12);
+				}).toPass({ timeout: 60000 });
 
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
@@ -219,18 +232,20 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]['foo']).toBe('1');
-				expect(tableData[1]['foo']).toBe('2');
-				expect(tableData[2]['foo']).toBe('3');
-				expect(tableData[0]['bar']).toBe('6.00');
-				expect(tableData[1]['bar']).toBe('7.00');
-				expect(tableData[2]['bar']).toBe('8.00');
-				expect(tableData[0]['ham']).toBe('2020-01-02');
-				expect(tableData[1]['ham']).toBe('2021-03-04');
-				expect(tableData[2]['ham']).toBe('2022-05-06');
-				expect(tableData.length).toBe(3);
+					expect(tableData[0]['foo']).toBe('1');
+					expect(tableData[1]['foo']).toBe('2');
+					expect(tableData[2]['foo']).toBe('3');
+					expect(tableData[0]['bar']).toBe('6.00');
+					expect(tableData[1]['bar']).toBe('7.00');
+					expect(tableData[2]['bar']).toBe('8.00');
+					expect(tableData[0]['ham']).toBe('2020-01-02');
+					expect(tableData[1]['ham']).toBe('2021-03-04');
+					expect(tableData[2]['ham']).toBe('2022-05-06');
+					expect(tableData.length).toBe(3);
+				}).toPass({ timeout: 60000 });
 
 			});
 			it('Python Polars - Verifies basic data explorer column info functionality [C734264] #pr', async function () {
@@ -274,42 +289,51 @@ df2 = pd.DataFrame(data)`;
 				const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
 
-				expect(tableData[0]['foo']).toBe('2');
-				expect(tableData[1]['foo']).toBe('3');
-				expect(tableData[0]['bar']).toBe('7.00');
-				expect(tableData[1]['bar']).toBe('8.00');
-				expect(tableData[0]['ham']).toBe('2021-03-04');
-				expect(tableData[1]['ham']).toBe('2022-05-06');
-				expect(tableData.length).toBe(2);
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+					expect(tableData[0]['foo']).toBe('2');
+					expect(tableData[1]['foo']).toBe('3');
+					expect(tableData[0]['bar']).toBe('7.00');
+					expect(tableData[1]['bar']).toBe('8.00');
+					expect(tableData[0]['ham']).toBe('2021-03-04');
+					expect(tableData[1]['ham']).toBe('2022-05-06');
+					expect(tableData.length).toBe(2);
+
+				}).toPass({ timeout: 60000 });
 			});
 
 			it('Python Polars - Add Simple Column Sort [C557561] #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
-				let tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				let tableData;
+				await expect(async () => {
+					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]['foo']).toBe('3');
-				expect(tableData[1]['foo']).toBe('2');
-				expect(tableData[0]['bar']).toBe('8.00');
-				expect(tableData[1]['bar']).toBe('7.00');
-				expect(tableData[0]['ham']).toBe('2022-05-06');
-				expect(tableData[1]['ham']).toBe('2021-03-04');
-				expect(tableData.length).toBe(2);
+					expect(tableData[0]['foo']).toBe('3');
+					expect(tableData[1]['foo']).toBe('2');
+					expect(tableData[0]['bar']).toBe('8.00');
+					expect(tableData[1]['bar']).toBe('7.00');
+					expect(tableData[0]['ham']).toBe('2022-05-06');
+					expect(tableData[1]['ham']).toBe('2021-03-04');
+					expect(tableData.length).toBe(2);
+				}).toPass({ timeout: 60000 });
 
 				await app.workbench.positronDataExplorer.clearSortingButton.click();
 
-				tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
+					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]['foo']).toBe('2');
-				expect(tableData[1]['foo']).toBe('3');
-				expect(tableData[0]['bar']).toBe('7.00');
-				expect(tableData[1]['bar']).toBe('8.00');
-				expect(tableData[0]['ham']).toBe('2021-03-04');
-				expect(tableData[1]['ham']).toBe('2022-05-06');
-				expect(tableData.length).toBe(2);
+					expect(tableData[0]['foo']).toBe('2');
+					expect(tableData[1]['foo']).toBe('3');
+					expect(tableData[0]['bar']).toBe('7.00');
+					expect(tableData[1]['bar']).toBe('8.00');
+					expect(tableData[0]['ham']).toBe('2021-03-04');
+					expect(tableData[1]['ham']).toBe('2022-05-06');
+					expect(tableData.length).toBe(2);
+				}).toPass({ timeout: 60000 });
 
 			});
 		});
@@ -343,12 +367,14 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 
-				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+				await expect(async () => {
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' });
-				expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
-				expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
-				expect(tableData.length).toBe(3);
+					expect(tableData[0]).toStrictEqual({ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' });
+					expect(tableData[1]).toStrictEqual({ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' });
+					expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
+					expect(tableData.length).toBe(3);
+				}).toPass({ timeout: 60000 });
 
 
 			});
