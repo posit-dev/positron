@@ -4,6 +4,7 @@ name: 'Nightly: Python CI'
 on:
   schedule:
     - cron: "0 2 * * 1-5"
+  workflow_dispatch:
 
 defaults:
  run:
@@ -69,6 +70,14 @@ jobs:
 
       - name: Run Python unit tests
         run: python python_files/tests/run_all.py
+
+      - name: slack-smoke-test-report
+        if: failure()
+        uses: testlabauto/xunit-slack-reporter@v2.0.1
+        env:
+          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: test-results.xml
 
   # Install the latest releases of test dependencies
   positron-ipykernel-tests-latest:
