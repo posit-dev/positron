@@ -71,7 +71,7 @@ jobs:
         run: python -m pip install -r build/test-requirements.txt
 
       - name: Run Python unit tests
-        run: python python_files/tests/run_all.py
+        run: python python_files/tests/run_all.py --junit-xml= python-unit-test-results.xml
 
       - name: slack-smoke-test-report
         uses: testlabauto/xunit-slack-reporter@v2.0.1
