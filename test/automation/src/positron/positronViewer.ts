@@ -10,7 +10,11 @@ const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REFRESH_BUTTON = '.codicon-positron-refresh';
 
+const FULL_APP = 'body';
+
 export class PositronViewer {
+
+	fullApp = this.code.driver.getLocator(FULL_APP);
 
 	constructor(private code: Code) { }
 
@@ -30,5 +34,9 @@ export class PositronViewer {
 
 	async refreshViewer() {
 		await this.code.waitAndClick(REFRESH_BUTTON);
+	}
+
+	async clearViewer() {
+		await this.fullApp.getByLabel(/Clear the/).click();
 	}
 }
