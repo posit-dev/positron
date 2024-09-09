@@ -417,6 +417,11 @@ export const VerticalSplitter = ({
 				<Button
 					ref={expandCollapseButtonRef}
 					className='expand-collapse-button'
+					style={{
+						top: EXPAND_COLLAPSE_BUTTON_TOP,
+						width: EXPAND_COLLAPSE_BUTTON_SIZE,
+						height: EXPAND_COLLAPSE_BUTTON_SIZE
+					}}
 					mouseTrigger={MouseTrigger.MouseDown}
 					onPressed={expandCollapseButtonPressedHandler}
 				>
@@ -429,6 +434,10 @@ export const VerticalSplitter = ({
 								!invert ? 'codicon-chevron-right' : 'codicon-chevron-left',
 							{ highlighted: highlightExpandCollapse }
 						)}
+						style={{
+							width: EXPAND_COLLAPSE_BUTTON_SIZE,
+							height: EXPAND_COLLAPSE_BUTTON_SIZE
+						}}
 						onPointerEnter={expandCollapseButtonPointerEnterHandler}
 						onPointerLeave={expandCollapseButtonPointerLeaveHandler}
 					/>

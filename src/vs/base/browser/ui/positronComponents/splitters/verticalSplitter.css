@@ -51,10 +51,7 @@
 }
 
 .vertical-splitter .expand-collapse-button {
-	top: 4px;
 	right: 50%;
-	width: 25px;
-	height: 25px;
 	z-index: 100;
 	cursor: pointer;
 	overflow: visible;
@@ -65,8 +62,6 @@
 .vertical-splitter .expand-collapse-button .expand-collapse-button-face {
 	top: 0;
 	left: 0;
-	width: 25px;
-	height: 25px;
 	display: flex;
 	position: absolute;
 	border-radius: 50%;
