@@ -49,7 +49,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		// Drive focus into the data grid so the user can immediately navigate.
 		props.columnSelectorDataGridInstance.setCursorPosition(0, 0);
 		positronDataGridRef.current.focus();
-	}, [props.focusInput, props.columnSelectorDataGridInstance]);
+	}, []);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
