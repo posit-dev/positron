@@ -107,3 +107,10 @@ jobs:
       - name: Run Positron IPyKernel unit tests
         run: pytest python_files/positron
 
+      - name: slack-smoke-test-report
+        uses: testlabauto/xunit-slack-reporter@v2.0.1
+        env:
+          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: test-results.xml
+
