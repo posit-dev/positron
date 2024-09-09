@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.data-explorer-panel
-.data-explorer {
+.data-explorer-panel .data-explorer {
 	min-width: 0;
 	min-height: 0;
 	display: grid;
@@ -13,52 +12,51 @@
 	grid-row: data-explorer / status-bar;
 }
 
-.data-explorer-panel
-.data-explorer
-.column-name-exemplar {
+.data-explorer-panel .data-explorer .column-name-exemplar {
 	font-weight: var(--positron-data-grid-column-header-title-font-weight);
 }
 
-.data-explorer-panel
-.data-explorer
-.type-name-exemplar {
+.data-explorer-panel .data-explorer .type-name-exemplar {
 	font-size: var(--positron-data-grid-column-header-description-font-size);
 }
 
-.data-explorer-panel
-.data-explorer
-.sort-index-exemplar {
+.data-explorer-panel .data-explorer .sort-index-exemplar {
 	font-size: var(--positron-data-grid-column-header-sort-index-font-size);
 	font-weight: var(--positron-data-grid-column-header-sort-index-font-weight);
 	font-variant-numeric: var(--positron-data-grid-column-header-sort-index-font-variant-numeric);
 }
 
-.data-explorer-panel
-.data-explorer
-.column-1 {
+.data-explorer-panel .data-explorer .column-1 {
 	min-width: 0;
 	min-height: 0;
 	display: none;
 	grid-row: row / end;
 }
 
-.data-explorer-panel
-.data-explorer
-.splitter {
+.data-explorer-panel .data-explorer .collapsed-left-spacer {
+	width: 12px;
+	grid-row: row / end;
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.data-explorer-panel .data-explorer .splitter {
 	display: none;
 	grid-row: row / end;
 }
 
-.data-explorer-panel
-.data-explorer
-.splitter
-.vertical-splitter {
-	background-color: var(--vscode-positronDataExplorer-border);
+.data-explorer-panel .data-explorer .collapsed-right-spacer {
+	width: 12px;
+	grid-row: row / end;
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
-.data-explorer-panel
-.data-explorer
-.column-2 {
+.data-explorer-panel .data-explorer .splitter .vertical-splitter {
+	border-left: 1px solid var(--vscode-positronDataExplorer-border);
+	border-right: 1px solid var(--vscode-positronDataExplorer-border);
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.data-explorer-panel .data-explorer .column-2 {
 	min-width: 0;
 	min-height: 0;
 	display: none;

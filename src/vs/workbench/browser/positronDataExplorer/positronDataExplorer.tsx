@@ -14,6 +14,7 @@ import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disabl
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { ActionBar } from 'vs/workbench/browser/positronDataExplorer/components/actionBar/actionBar';
 import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { PositronDataExplorerContextProvider } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
@@ -25,6 +26,7 @@ import { PositronDataExplorerClosed } from 'vs/workbench/browser/positronDataExp
  * PositronDataExplorerServices interface.
  */
 export interface PositronDataExplorerServices extends PositronActionBarServices {
+	readonly accessibilityService: IAccessibilityService;
 	readonly clipboardService: IClipboardService;
 	readonly layoutService: ILayoutService;
 }
