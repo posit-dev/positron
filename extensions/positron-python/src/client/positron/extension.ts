@@ -6,7 +6,6 @@
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
-import * as net from 'net';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
 import * as fs from 'fs';
@@ -20,7 +19,6 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
-import { JupyterAdapterApi } from '../jupyter-adapter.d';
 import { activateAppDetection } from './webAppContexts';
 
 export async function activatePositron(
@@ -119,8 +117,7 @@ export async function activatePositron(
         // Register a command to run Streamlit.
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
         disposables.push(
-            registerApplicationRunner({
-                id: 'python.streamlit',
+            positron.applications.registerApplicationRunner('python.streamlit', {
                 label: 'Streamlit',
                 languageId: 'python',
                 getRunOptions(runtimePath, filePath, port) {
@@ -139,8 +136,7 @@ export async function activatePositron(
                     };
                 },
             }),
-            registerApplicationRunner({
-                id: 'python.dash',
+            positron.applications.registerApplicationRunner('python.dash', {
                 label: 'Dash',
                 languageId: 'python',
                 getRunOptions(runtimePath, filePath, port) {
@@ -152,8 +148,7 @@ export async function activatePositron(
                     };
                 },
             }),
-            registerApplicationRunner({
-                id: 'python.gradio',
+            positron.applications.registerApplicationRunner('python.gradio', {
                 label: 'Gradio',
                 languageId: 'python',
                 getRunOptions(runtimePath, filePath, port) {
@@ -165,8 +160,7 @@ export async function activatePositron(
                     };
                 },
             }),
-            registerApplicationRunner({
-                id: 'python.fastapi',
+            positron.applications.registerApplicationRunner('python.fastapi', {
                 label: 'FastAPI',
                 languageId: 'python',
                 getRunOptions(runtimePath, filePath, port) {
@@ -184,8 +178,7 @@ export async function activatePositron(
                     };
                 },
             }),
-            registerApplicationRunner({
-                id: 'python.flask',
+            positron.applications.registerApplicationRunner('python.flask', {
                 label: 'Flask',
                 languageId: 'python',
                 getRunOptions(runtimePath, filePath, port) {
@@ -206,19 +199,19 @@ export async function activatePositron(
             }),
 
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                await runApplication('python.streamlit');
+                await positron.applications.runApplication('python.streamlit');
             }),
             vscode.commands.registerCommand('python.runDashApp', async () => {
-                await runApplication('python.dash');
+                await positron.applications.runApplication('python.dash');
             }),
             vscode.commands.registerCommand('python.runGradioApp', async () => {
-                await runApplication('python.gradio');
+                await positron.applications.runApplication('python.gradio');
             }),
             vscode.commands.registerCommand('python.runFastAPIApp', async () => {
-                await runApplication('python.fastapi');
+                await positron.applications.runApplication('python.fastapi');
             }),
             vscode.commands.registerCommand('python.runFlaskApp', async () => {
-                await runApplication('python.flask');
+                await positron.applications.runApplication('python.flask');
             }),
         );
         traceInfo('activatePositron: done!');
@@ -274,145 +267,4 @@ function pathToModule(p: string): string {
     const mod = path.parse(relativePath).name;
     const parts = path.dirname(relativePath).split(path.sep);
     return parts.concat(mod).join('.');
-}
-
-interface ApplicationRunOptions {
-    command: string;
-    env?: { [key: string]: string | null | undefined };
-    url?: string;
-}
-
-interface ApplicationRunner {
-    id: string;
-    label: string;
-    languageId: string;
-    getRunOptions(runtimePath: string, filePath: string, port: number): ApplicationRunOptions;
-}
-
-const appRunnersById = new Map<string, ApplicationRunner>();
-
-function registerApplicationRunner(appRunner: ApplicationRunner): vscode.Disposable {
-    if (appRunnersById.has(appRunner.id)) {
-        throw new Error(`Application runner already registered for id '${appRunner.id}'`);
-    }
-
-    appRunnersById.set(appRunner.id, appRunner);
-
-    return {
-        dispose() {
-            appRunnersById.delete(appRunner.id);
-            // TODO: Should this also dispose the appRunner?
-        },
-    };
-}
-
-async function runApplication(id: string): Promise<void> {
-    const appRunner = appRunnersById.get(id);
-    if (!appRunner) {
-        throw new Error(`Application runner not found for id '${id}'`);
-    }
-
-    console.log(`Running ${appRunner.label} App...`);
-
-    const filePath = vscode.window.activeTextEditor?.document.uri.fsPath;
-    if (!filePath) {
-        return;
-    }
-    console.log('Path:', filePath);
-
-    if (vscode.window.activeTextEditor?.document.isDirty) {
-        await vscode.window.activeTextEditor.document.save();
-    }
-
-    const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
-    if (!ext) {
-        throw new Error('Jupyter Adapter extension not found');
-    }
-    if (!ext.isActive) {
-        await ext.activate();
-    }
-    const adapterApi = ext?.exports as JupyterAdapterApi;
-
-    // TODO: Check for a port setting?
-    // TODO: Cache used port?
-    // TODO: Extract from jupyter-adapter extension
-    const port = await adapterApi.findAvailablePort([], 25);
-    console.log('Port:', port);
-
-    const oldTerminals = vscode.window.terminals.filter((t) => t.name === appRunner.label);
-
-    const runtime = await positron.runtime.getPreferredRuntime(appRunner.languageId);
-
-    const commandOptions = appRunner.getRunOptions(runtime.runtimePath, filePath, port);
-
-    const terminal = vscode.window.createTerminal({
-        name: appRunner.label,
-        env: commandOptions.env,
-    });
-    terminal.show(true);
-
-    const closingTerminals = oldTerminals.map((x) => {
-        const p = new Promise<void>((resolve) => {
-            // Resolve when the terminal is closed. We're working hard to be accurate
-            // BUT empirically it doesn't seem like the old Shiny processes are
-            // actually terminated at the time this promise is resolved, so callers
-            // shouldn't assume that.
-            const subscription = vscode.window.onDidCloseTerminal((term) => {
-                if (term === x) {
-                    subscription.dispose();
-                    resolve();
-                }
-            });
-        });
-        x.dispose();
-        return p;
-    });
-    await Promise.allSettled(closingTerminals);
-
-    // TODO: Escape the command for the terminal.
-    // const cmdline = escapeCommandForTerminal(terminal, python, args);
-    console.log('Command:', commandOptions.command);
-    terminal.sendText(commandOptions.command);
-
-    positron.window.previewUrl(vscode.Uri.parse('about:blank'));
-
-    // TODO: Handle being in workbench.
-    const localUri = vscode.Uri.parse(commandOptions.url ?? `http://localhost:${port}`);
-    const uri = await vscode.env.asExternalUri(localUri);
-
-    const host = '127.0.0.1';
-    const timeout = 1000;
-    const maxDate = Date.now() + 10_000;
-    while (Date.now() < maxDate) {
-        try {
-            await new Promise<boolean>((resolve, reject) => {
-                const client = new net.Socket();
-
-                client.setTimeout(timeout);
-                client.connect(port, host, () => {
-                    resolve(true);
-                    client.end();
-                });
-
-                client.on('timeout', () => {
-                    client.destroy();
-                    reject(new Error('Timed out'));
-                });
-
-                client.on('error', (err) => {
-                    reject(err);
-                });
-
-                client.on('close', () => {
-                    reject(new Error('Connection closed'));
-                });
-            });
-            break;
-        } catch (ex) {
-            console.log('Waiting for Streamlit to start...');
-            await new Promise((resolve) => setTimeout(resolve, 20));
-        }
-    }
-
-    positron.window.previewUrl(uri);
 }

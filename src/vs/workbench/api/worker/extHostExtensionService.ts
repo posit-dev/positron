@@ -12,7 +12,10 @@ import { IExtensionDescription } from 'vs/platform/extensions/common/extensions'
 import { ExtensionRuntime } from 'vs/workbench/api/common/extHostTypes';
 import { timeout } from 'vs/base/common/async';
 import { ExtHostConsoleForwarder } from 'vs/workbench/api/worker/extHostConsoleForwarder';
+// --- Start Positron ---
 import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+import { ExtHostApplications } from 'vs/workbench/api/worker/positron/extHostApplications';
+// --- End Positron ---
 
 class WorkerRequireInterceptor extends RequireInterceptor {
 
@@ -48,7 +51,10 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		// --- Start Positron ---
 		// Add the Positron API factory to the require interceptor so we can
 		// load it in the extension host.
-		const positronApiFactory = this._instaService.invokeFunction(createPositronApiFactoryAndRegisterActors);
+		const positronApiFactory = this._instaService.invokeFunction(
+			createPositronApiFactoryAndRegisterActors,
+			ExtHostApplications,
+		);
 		this._fakeModules = this._instaService.createInstance(WorkerRequireInterceptor,
 			apiFactory,
 			positronApiFactory,
