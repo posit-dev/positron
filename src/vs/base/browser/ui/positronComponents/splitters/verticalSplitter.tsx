@@ -20,6 +20,12 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { Button, KeyboardModifiers, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
 
 /**
+ * Constants.
+ */
+const EXPAND_COLLAPSE_BUTTON_TOP = 4;
+const EXPAND_COLLAPSE_BUTTON_SIZE = 25;
+
+/**
  * VerticalSplitterBaseProps type.
  */
 type VerticalSplitterBaseProps = | {
@@ -203,7 +209,8 @@ export const VerticalSplitter = ({
 		hoveringDelayer.trigger(() => {
 			setHovering(true);
 			const rect = sashRef.current.getBoundingClientRect();
-			if (e.clientY >= rect.top + 4 && e.clientY <= rect.top + 4 + 25) {
+			if (e.clientY >= rect.top + EXPAND_COLLAPSE_BUTTON_TOP &&
+				e.clientY <= rect.top + EXPAND_COLLAPSE_BUTTON_TOP + EXPAND_COLLAPSE_BUTTON_SIZE) {
 				setHighlightExpandCollapse(true);
 			}
 		}, hoverDelay);
