@@ -108,6 +108,7 @@ jobs:
         run: pytest python_files/positron
 
       - name: slack-smoke-test-report
+        if: failure()
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
