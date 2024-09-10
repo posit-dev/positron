@@ -66,7 +66,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// runtime session using the exported interface from the positron-python
 	// extension.
 
-	// The PythonRuntimeSession object in the positron-pyuthon extensions, is created
+	// The PythonRuntimeSession object in the positron-python extensions, is created
 	// by passing 'runtimeMetadata', 'sessionMetadata' and something called 'kernelSpec'
 	// that's further passed to the JupyterAdapter extension in order to actually initialize
 	// the session.
@@ -76,7 +76,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	// path and some arguments that are used start the kernel process. (The kernel is started
 	// by the Jupyter Adapter in a vscode terminal). In the reticulate case, the kernel isn't
 	// started that way. Instead, we need to call into the R console to start the python jupyter
-	// kernel (that's actually running in the same process as R), and only them, ask JupyterAdapter
+	// kernel (that's actually running in the same process as R), and only then, ask JupyterAdapter
 	// to connect to that kernel.
 	static async create(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -180,7 +180,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		this.onDidEndSession = this.pythonSession.onDidEndSession;
 	}
 
-	// A function that sstarts a kernel and then connects to it.
+	// A function that starts a kernel and then connects to it.
 	async startKernel(session: JupyterSession, kernel: JupyterKernel) {
 		kernel.log('Starting the reticulate session!');
 
