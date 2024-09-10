@@ -4,6 +4,9 @@ name: 'Nightly: Python CI'
 on:
   schedule:
     - cron: "0 2 * * 1-5"
+  workflow_dispatch:
+  push:
+    branches: ['main', 'cmead/try-*']
 
 defaults:
  run:
@@ -70,13 +73,11 @@ jobs:
       - name: Run Python unit tests
         run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
-      - name: slack-smoke-test-report
-        if: ${{ failure() && runner.os == 'Linux' }}
-        uses: testlabauto/xunit-slack-reporter@v2.0.1
-        env:
-          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
-          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          XUNIT_PATH: ${{ github.workspace }}/${{ env.special-working-directory-relative }}/extensions/positron-python/python-unit-test-results.xml
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}-${{ matrix.python }}
+          path: ${{ github.workspace }}/${{ env.special-working-directory-relative }}/extensions/positron-python/python-unit-test-results.xml
 
   # Install the latest releases of test dependencies
   positron-ipykernel-tests-latest:
@@ -115,11 +116,27 @@ jobs:
       - name: Run Positron IPyKernel unit tests
         run: pytest python_files/positron --junit-xml=python-test-results.xml
 
-      - name: slack-smoke-test-report
-        if: ${{ failure() && runner.os == 'Linux' }}
-        uses: testlabauto/xunit-slack-reporter@v2.0.1
-        env:
-          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
-          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          XUNIT_PATH: extensions/positron-python/python-test-results.xml
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output-${{ matrix.os }}-${{ matrix.python }}
+          path: extensions/positron-python/python-test-results.xml
+
+  slack-notification:
+    name: 'Send Slack notification'
+    runs-on: ubuntu-latest
+    needs: [vscode-python-tests, positron-ipykernel-tests-latest]
+
+    steps:
+      - name: Download test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: test-artifacts
+
+      - name: 'Send Slack notification'
+        uses: automattic/action-test-results-to-slack@v0.3.1
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: C07FR1JNZNJ
 
