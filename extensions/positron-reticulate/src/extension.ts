@@ -167,8 +167,11 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			};
 		}
 
-		const api = vscode.extensions.getExtension('ms-python.python')?.exports;
-		this.pythonSession = api.positron.createPythonRuntimeSession(
+		const api = vscode.extensions.getExtension('ms-python.python');
+		if (!api) {
+			throw new Error('Failed to find the Positron Python extension API.');
+		}
+		this.pythonSession = api.exports.positron.createPythonRuntimeSession(
 			runtimeMetadata,
 			sessionMetadata,
 			kernelSpec
