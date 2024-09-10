@@ -11,7 +11,7 @@ export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
     const foundImports = importsInApp(text, libraries);
     vscode.commands.executeCommand('setContext', 'pythonFileContainsApp', foundImports);
-    console.log('set context pythonFileContainsApp', foundImports)
+    console.log('set context pythonFileContainsApp', foundImports);
 }
 
 // find import statements for specified libraries via import XXXX or from XXX import

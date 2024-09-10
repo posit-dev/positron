@@ -37,7 +37,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-    ) { }
+    ) {}
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
@@ -77,7 +77,6 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         // --- Start Positron ---
         this.disposableRegistry.push(
             this.commandManager.registerCommand(Commands.Exec_App_In_Terminal as any, async (file: Resource) => {
-
                 const filePath = file?.path;
                 if (!filePath) {
                     // File is unsaved; show a warning
@@ -88,7 +87,6 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 // Save the file before sourcing it to ensure that the contents are
                 // up to date with editor buffer.
                 await vscode.commands.executeCommand('workbench.action.files.save');
-
             }),
         );
         this.disposableRegistry.push(
