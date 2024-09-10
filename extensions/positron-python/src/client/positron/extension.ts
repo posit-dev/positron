@@ -78,12 +78,12 @@ export async function activatePositron(
 
         // set contexts
         const fileOpenListener = vscode.workspace.onDidOpenTextDocument((document) => {
-            if (document.languageId == 'python') {
+            if (document.languageId === 'python') {
                 detectWebApp(document);
             }
         });
         const activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (editor && editor.document.languageId == 'python') {
+            if (editor && editor.document.languageId === 'python') {
                 detectWebApp(editor.document);
             }
         });

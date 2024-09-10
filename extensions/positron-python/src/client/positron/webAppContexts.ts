@@ -9,13 +9,13 @@ const libraries: string[] = ['streamlit', 'shiny', 'gradio', 'flask', 'fastapi']
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
-    const foundImports = importsInApp(text, libraries);
+    const foundImports = importsInApp(text);
     vscode.commands.executeCommand('setContext', 'pythonFileContainsApp', foundImports);
     console.log('set context pythonFileContainsApp', foundImports);
 }
 
 // find import statements for specified libraries via import XXXX or from XXX import
-function importsInApp(text: string, libraries: string[]): boolean {
+function importsInApp(text: string): boolean {
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
 
