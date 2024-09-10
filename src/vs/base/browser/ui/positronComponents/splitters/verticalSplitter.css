@@ -43,11 +43,10 @@
 
 .vertical-splitter .sash .sash-indicator.hovering {
 	transition: background-color 0.1s ease-out;
-	background-color: var(--vscode-focusBorder);
-}
+	background-color: var(--vscode-sash-hoverBorder);}
 
 .vertical-splitter .sash .sash-indicator.resizing {
-	background-color: var(--vscode-focusBorder);
+	background-color: var(--vscode-sash-hoverBorder);
 }
 
 .vertical-splitter .expand-collapse-button {

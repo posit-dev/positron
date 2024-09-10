@@ -26,5 +26,5 @@
 
 .horizontal-splitter
 .sizer.resizing {
-	background-color: var(--vscode-focusBorder);
+	background-color: var(--vscode-sash-hoverBorder);
 }
