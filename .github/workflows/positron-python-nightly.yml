@@ -73,7 +73,12 @@ jobs:
       - name: Run Python unit tests
         run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
+      - name: debug
+        if: runner.os == 'Linux'
+        run: find . | grep python-unit-test-results.xml
+
       - name: slack-smoke-test-report
+        if: runner.os == 'Linux'
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
@@ -118,6 +123,7 @@ jobs:
         run: pytest python_files/positron --junit-xml=python-test-results.xml
 
       - name: slack-smoke-test-report
+        if: runner.os == 'Linux'
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
