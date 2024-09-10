@@ -67,10 +67,10 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
         Uri | string,
         (
             | {
-                  installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
-                  installPreReleaseVersion?: boolean;
-                  donotSync?: boolean;
-              }
+                installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
+                installPreReleaseVersion?: boolean;
+                donotSync?: boolean;
+            }
             | undefined
         ),
     ];
@@ -102,6 +102,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
     // --- Start Positron ---
+    [Commands.Exec_App_In_Terminal]: [undefined, Uri];
     [Commands.Exec_In_Console]: [];
     [Commands.Focus_Positron_Console]: [];
     // --- End Positron ---

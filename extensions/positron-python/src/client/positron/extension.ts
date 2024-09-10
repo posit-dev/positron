@@ -16,7 +16,7 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
-import { checkIfWebApp, runStreamlitCommand } from './webAppContexts';
+import { detectWebApp } from './webAppContexts';
 
 export async function activatePositron(
     serviceContainer: IServiceContainer,
@@ -79,20 +79,16 @@ export async function activatePositron(
         // set contexts
         const fileOpenListener = vscode.workspace.onDidOpenTextDocument((document) => {
             if (document.languageId == 'python') {
-                checkIfWebApp(document);
+                detectWebApp(document);
             }
         });
-
-        // Register the event for when an editor window changes (e.g., switching between open files)
         const activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (editor && editor.document.languageId == 'python') {
-                checkIfWebApp(editor.document);
+                detectWebApp(editor.document);
             }
         });
 
         context.subscriptions.push(fileOpenListener, activeEditorListener);
-        // Register the command for running Streamlit
-        vscode.commands.registerCommand('extension.runStreamlit', runStreamlitCommand);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

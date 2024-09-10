@@ -4,77 +4,37 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as path from 'path';
 
-let webAppButton: vscode.StatusBarItem | undefined;
+const libraries: string[] = ['streamlit', 'shiny', 'gradio', 'flask', 'fastapi'];
 
-const libraries: string[] = ['streamlit', 'shiny', 'panel'];
-
-export function checkIfWebApp(document: vscode.TextDocument) {
+export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
-    const foundImports = findImportsInText(text, libraries);
-
-    if (foundImports) {
-        showRunAppButton();
-        console.log('webapp: found import');
-    } else {
-        hideRunAppButton();
-        console.log('webapp: did not find import');
-    }
+    const foundImports = importsInApp(text, libraries);
+    vscode.commands.executeCommand('setContext', 'pythonFileContainsApp', foundImports);
+    console.log('set context pythonFileContainsApp', foundImports)
 }
 
-// Function to find import statements for specified libraries using regex
-function findImportsInText(text: string, libraries: string[]): boolean {
+// find import statements for specified libraries via import XXXX or from XXX import
+function importsInApp(text: string, libraries: string[]): boolean {
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
-    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\s+import`, 'g');
+    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
+
     return importPattern.test(text) || fromImportPattern.test(text);
 }
 
-// adapted from shiny extension, not currently used
-export function isNamedApp(filename: string): boolean {
-    filename = path.basename(filename);
+// function getAppFramework(text: string): string | undefined {
+//     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
+//     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*import`, 'g');
 
-    // Only .py files (is this needed?)
-    if (!new RegExp(`\\.py$`, 'i').test(filename)) {
-        return false;
-    }
+//     const importMatch = importPattern.exec(text);
+//     if (importMatch) {
+//         return importMatch[1];
+//     }
 
-    // Accepted patterns:
-    // app.py, app-*.py, app_*.py, *-app.py, *_app.py
-    const rxApp = new RegExp(`^app\\.py$`, 'i');
-    const rxAppDash = new RegExp(`^app[-_].+\\.py$`, 'i');
-    const rxDashApp = new RegExp(`[-_]app\\.py$`, 'i');
+//     const fromImportMatch = fromImportPattern.exec(text);
+//     if (fromImportMatch) {
+//         return fromImportMatch[1];
+//     }
 
-    if (rxApp.test(filename)) {
-        return true;
-    } else if (rxAppDash.test(filename)) {
-        return true;
-    } else if (rxDashApp.test(filename)) {
-        return true;
-    }
-
-    return false;
-}
-
-function showRunAppButton() {
-    if (!webAppButton) {
-        webAppButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
-        webAppButton.text = '$(play) Run App';
-        webAppButton.command = 'extension.runWebApp';
-        webAppButton.tooltip = 'Run Python Web App';
-    }
-    webAppButton.show();
-}
-
-function hideRunAppButton() {
-    if (webAppButton) {
-        webAppButton.hide();
-    }
-}
-
-// Command to run Streamlit
-export function runStreamlitCommand() {
-    const terminal = vscode.window.createTerminal('Python Web App');
-    terminal.sendText('streamlit run app.py');
-    terminal.show();
-}
+//     return undefined;
+// }
