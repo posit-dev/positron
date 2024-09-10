@@ -1537,6 +1537,8 @@ class PandasView(DataExplorerTableView):
                     term = term.lower()
                 if params.search_type == TextSearchType.Contains:
                     mask = col.str.contains(term)
+                elif params.search_type == TextSearchType.NotContains:
+                    mask = ~col.str.contains(term, na=True)
                 elif params.search_type == TextSearchType.StartsWith:
                     mask = col.str.startswith(term)
                 elif params.search_type == TextSearchType.EndsWith:

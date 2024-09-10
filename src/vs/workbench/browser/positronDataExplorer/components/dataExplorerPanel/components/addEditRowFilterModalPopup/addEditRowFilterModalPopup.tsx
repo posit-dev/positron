@@ -94,6 +94,7 @@ const filterNumParams = (filterType: RowFilterDescrType | undefined) => {
 		case RowFilterDescrType.IS_LESS_OR_EQUAL:
 		case RowFilterDescrType.IS_LESS_THAN:
 		case RowFilterDescrType.SEARCH_CONTAINS:
+		case RowFilterDescrType.SEARCH_NOT_CONTAINS:
 		case RowFilterDescrType.SEARCH_STARTS_WITH:
 		case RowFilterDescrType.SEARCH_ENDS_WITH:
 		case RowFilterDescrType.SEARCH_REGEX_MATCHES:

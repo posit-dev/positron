@@ -1093,6 +1093,7 @@ export enum FilterComparisonOp {
  */
 export enum TextSearchType {
 	Contains = 'contains',
+	NotContains = 'not_contains',
 	StartsWith = 'starts_with',
 	EndsWith = 'ends_with',
 	RegexMatch = 'regex_match'

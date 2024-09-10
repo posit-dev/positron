@@ -37,6 +37,7 @@ export enum RowFilterDescrType {
 	IS_EQUAL_TO = 'is-equal-to',
 	IS_NOT_EQUAL_TO = 'is-not-equal-to',
 	SEARCH_CONTAINS = 'search-contains',
+	SEARCH_NOT_CONTAINS = 'search-not-contains',
 	SEARCH_STARTS_WITH = 'search-starts-with',
 	SEARCH_ENDS_WITH = 'search-ends-with',
 	SEARCH_REGEX_MATCHES = 'search-regex',
@@ -391,6 +392,8 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 		switch (this._descrType) {
 			case RowFilterDescrType.SEARCH_CONTAINS:
 				return 'contains';
+			case RowFilterDescrType.SEARCH_NOT_CONTAINS:
+				return 'does not contain';
 			case RowFilterDescrType.SEARCH_STARTS_WITH:
 				return 'starts with';
 			case RowFilterDescrType.SEARCH_ENDS_WITH:
@@ -417,6 +420,8 @@ export class RowFilterDescriptorSearch extends SingleValueRowFilterDescriptor {
 			switch (this._descrType) {
 				case RowFilterDescrType.SEARCH_CONTAINS:
 					return TextSearchType.Contains;
+				case RowFilterDescrType.SEARCH_NOT_CONTAINS:
+					return TextSearchType.NotContains;
 				case RowFilterDescrType.SEARCH_STARTS_WITH:
 					return TextSearchType.StartsWith;
 				case RowFilterDescrType.SEARCH_ENDS_WITH:
@@ -594,6 +599,8 @@ function getSearchDescrType(searchType: TextSearchType) {
 	switch (searchType) {
 		case TextSearchType.Contains:
 			return RowFilterDescrType.SEARCH_CONTAINS;
+		case TextSearchType.NotContains:
+			return RowFilterDescrType.SEARCH_NOT_CONTAINS;
 		case TextSearchType.EndsWith:
 			return RowFilterDescrType.SEARCH_ENDS_WITH;
 		case TextSearchType.StartsWith:
