@@ -24,13 +24,31 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	}
 
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
-		this._session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata);
-		return this._session;
+		try {
+			this._session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata);
+			return this._session;
+		} catch (err: any) {
+			// When an error happens trying to create a session, we'll create a notification
+			// to show the error to the user.
+			vscode.window.showErrorMessage(vscode.l10n.t(
+				'Failed to initialize the Reticulate Python session: {0}',
+				err.message
+			));
+			throw err;
+		}
 	}
 
 	async restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
-		this._session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata);
-		return this._session;
+		try {
+			this._session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata);
+			return this._session;
+		} catch (err: any) {
+			vscode.window.showErrorMessage(vscode.l10n.t(
+				'Failed to restore the Reticulate Python session: {0}',
+				err.message
+			));
+			throw err;
+		}
 	}
 }
 
@@ -134,7 +152,19 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				'display_name': "Reticulate Python Session", // eslint-disable-line
 				'language': 'Python',
 				'env': {},
-				'startKernel': (session, kernel) => this.startKernel(session, kernel),
+				'startKernel': async (session, kernel) => {
+					try {
+						await this.startKernel(session, kernel);
+					} catch (err: any) {
+						// Any error when trying to start kernel is caught and we send an error
+						// notification.
+						vscode.window.showErrorMessage(vscode.l10n.t(
+							'Failed to initialize and connect to the Reticulate Python session: {0}',
+							err.message
+						));
+						throw err;
+					}
+				},
 			};
 		}
 
@@ -164,20 +194,23 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		const kernelPath = `${__dirname}/../../positron-python/python_files/positron/positron_language_server.py`;
 		const code = `reticulate:::py_run_file_on_thread(
-file = "${kernelPath}",
-	args = c(
-		"-f", "${connnectionFile}",
-		"--logfile", "${logFile}",
-		"--loglevel", "${logLevel}",
-		"--session-mode", "console"
-	)
-)`;
+					file = "${kernelPath}",
+					args = c(
+						"-f", "${connnectionFile}",
+						"--logfile", "${logFile}",
+						"--loglevel", "${logLevel}",
+						"--session-mode", "console"
+					)
+				)`;
 
 		if (!this.rSession) {
 			kernel.log('No R session :(');
-			throw new Error('No R session to attach the reticulate kernel');
+			throw new Error('No R session to attach the Reticulate Python kernel');
 		}
 
+		// There's currently no way to discover if this execution worked or not.
+		// We just *hope* it worked and try to connect later.
+		// Connecting has a timeout of 20s before failing definitively.
 		this.rSession.execute(
 			code,
 			'start-reticulate',
@@ -188,7 +221,7 @@ file = "${kernelPath}",
 		try {
 			await kernel.connectToSession(session);
 		} catch (err: any) {
-			kernel.log('Failed starting session');
+			kernel.log('Failed connecting to the Reticulate Python session');
 			throw err;
 		}
 	}
@@ -290,16 +323,31 @@ file = "${kernelPath}",
 }
 
 async function getRSession(): Promise<positron.LanguageRuntimeSession> {
+
+	// Retry logic to start an R session.
 	const maxRetries = 5;
+	let session;
+	let error;
 	for (let i = 0; i < maxRetries; i++) {
 		try {
-			return await getRSession_();
+			session = await getRSession_();
 		}
 		catch (err) {
-			console.warn(`Could not find an R session. Retrying (${i}/${maxRetries}): ${err}`);
+			console.warn(`Could not find an R session .Retrying(${i} / ${maxRetries}): ${err} `);
+			error = err; // Keep the last error so we can display it
 		}
 	}
-	throw new Error('Could not find initialize an R session to launch reticulate.');
+
+	if (!session) {
+		throw new Error(`Could not initialize an R session to launch reticulate. ${error}`);
+	}
+
+	// Check that we have a minimum version of reticulate.
+	if (!await session.callMethod?.('is_installed', 'reticulate', '1.39')) {
+		throw new Error('Reticulate >= 1.39 is required');
+	}
+
+	return session;
 }
 
 async function getRSession_(): Promise<positron.LanguageRuntimeSession> {
