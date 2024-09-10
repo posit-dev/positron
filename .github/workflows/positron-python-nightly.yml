@@ -75,7 +75,9 @@ jobs:
 
       - name: debug
         if: runner.os == 'Linux'
-        run: find . | grep python-unit-test-results.xml
+        run: |
+          find . | grep python-unit-test-results.xml
+          pwd
 
       - name: slack-smoke-test-report
         if: runner.os == 'Linux'
@@ -83,7 +85,7 @@ jobs:
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
           SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          XUNIT_PATH: python-unit-test-results.xml
+          XUNIT_PATH: ./python-unit-test-results.xml
 
   # Install the latest releases of test dependencies
   positron-ipykernel-tests-latest:
