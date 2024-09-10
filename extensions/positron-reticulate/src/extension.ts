@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import path = require('path');
 import fs = require('fs');
 import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './jupyter-adapter.d';
-import { error } from 'console';
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
 
@@ -193,30 +192,28 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		const logLevel = 'debug';
 
 		const kernelPath = `${__dirname}/../../positron-python/python_files/positron/positron_language_server.py`;
-		const code = `reticulate:::py_run_file_on_thread(
-					file = "${kernelPath}",
-					args = c(
-						"-f", "${connnectionFile}",
-						"--logfile", "${logFile}",
-						"--loglevel", "${logLevel}",
-						"--session-mode", "console"
-					)
-				)`;
 
 		if (!this.rSession) {
 			kernel.log('No R session :(');
 			throw new Error('No R session to attach the Reticulate Python kernel');
 		}
 
-		// There's currently no way to discover if this execution worked or not.
-		// We just *hope* it worked and try to connect later.
-		// Connecting has a timeout of 20s before failing definitively.
-		this.rSession.execute(
-			code,
-			'start-reticulate',
-			positron.RuntimeCodeExecutionMode.Silent,
-			positron.RuntimeErrorBehavior.Stop
-		);
+		if (!this.rSession.callMethod) {
+			throw new Error('No `callMethod` method in the RSession. This is not expected.');
+		}
+
+		const init_err = await this.rSession.callMethod(
+			'reticulate_start_kernel',
+			kernelPath as string,
+			connnectionFile as string,
+			logFile as string,
+			logLevel as string
+		) as string;
+
+		// An empty result means that the initialization went fine.
+		if (init_err !== '') {
+			throw new Error(`Reticulate initialization failed: ${init_err}`);
+		}
 
 		try {
 			await kernel.connectToSession(session);
