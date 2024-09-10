@@ -76,6 +76,25 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         );
         // Register application runners.
         disposables.push(
+            positron.applications.registerApplicationRunner('python.shiny', {
+                label: 'Shiny',
+                languageId: 'python',
+                getRunOptions(runtimePath, document, port) {
+                    return {
+                        command: [
+                            runtimePath,
+                            '-m',
+                            'shiny',
+                            'run',
+                            '--port',
+                            port.toString(),
+                            '--reload',
+                            // TODO: --autoreload-port
+                            document.uri.fsPath,
+                        ].join(' '),
+                    };
+                },
+            }),
             positron.applications.registerApplicationRunner('python.streamlit', {
                 label: 'Streamlit',
                 languageId: 'python',
@@ -165,6 +184,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                 },
             }),
 
+            vscode.commands.registerCommand('python.runShinyApp', async () => {
+                await positron.applications.runApplication('python.shiny');
+            }),
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
                 await positron.applications.runApplication('python.streamlit');
             }),

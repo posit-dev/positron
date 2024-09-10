@@ -388,6 +388,11 @@
             },
             {
                 "category": "Python",
+                "command": "python.runShinyApp",
+                "title": "%python.command.python.runShinyApp.title%"
+            },
+            {
+                "category": "Python",
                 "command": "python.runStreamlitApp",
                 "title": "%python.command.python.runStreamlitApp.title%"
             },
