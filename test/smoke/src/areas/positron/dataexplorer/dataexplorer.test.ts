@@ -170,9 +170,8 @@ df2 = pd.DataFrame(data)`;
 
 				await app.workbench.positronLayouts.enterLayout('notebook');
 
-				let tableData;
 				await expect(async () => {
-					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 					expect(tableData.length).toBe(11);
 				}).toPass({ timeout: 60000 });
 
@@ -182,7 +181,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').click();
 
 				await expect(async () => {
-					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 					expect(tableData.length).toBe(12);
 				}).toPass({ timeout: 60000 });
 
@@ -193,7 +192,7 @@ df2 = pd.DataFrame(data)`;
 				await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 				await expect(async () => {
-					tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
+					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
 					expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
 					expect(tableData.length).toBe(12);
 				}).toPass({ timeout: 60000 });
