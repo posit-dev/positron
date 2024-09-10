@@ -196,6 +196,10 @@ export class BrowserClipboardService extends Disposable implements IClipboardSer
 		const mimeString = data.split(',')[0].split(':')[1].split(';')[0];
 		const intArray = [];
 
+		if (!ClipboardItem.supports(mimeString)) {
+			throw new Error(`Unsupported image format: ${mimeString}`);
+		}
+
 		// convert bytes to int array
 		for (let i = 0; i < byteString.length; i++) {
 			intArray.push(byteString.charCodeAt(i));
