@@ -160,9 +160,9 @@ class FetchPromise extends util_1.PromiseHandles {
 const fetchQueue = [];
 let fetching = false;
 /**
- * Fetches a URL from `fetchUrl` and returns a Vinyl file. This function is
- * similar to `fetchUrl` but queues the request to limit the number of
- * concurrent requests.
+ * Fetches a URL using `fetchUrl` and returns a Vinyl file. This function is
+ * similar to the `fetchUrl` function it wraps, but queues the request to limit
+ * the number of concurrent requests.
  *
  * @param url The URL to fetch
  * @param options The fetch options
@@ -179,13 +179,16 @@ function fetchUrlQueued(url, options, retries = 10, retryDelay = 1000) {
     processFetchQueue();
     return promise.promise;
 }
+/// Processes the fetch queue by fetching the next URL in the queue
 function processFetchQueue() {
+    // If we are already fetching or the fetch queue is empty, do nothing
     if (fetching) {
         return;
     }
     if (fetchQueue.length === 0) {
         return;
     }
+    // Splice off the next URL in the queue
     const next = fetchQueue.splice(0, 1)[0];
     fetching = true;
     // Determine if we should log verbose output (e.g. when running in CI)
@@ -193,6 +196,7 @@ function processFetchQueue() {
     if (verbose) {
         log(`[Fetch queue] start fetching ${next.url} (${fetchQueue.length} remaining)`);
     }
+    // Perform the fetch and resolve the promise when done
     fetchUrl(next.url, next.options, next.retries, next.retryDelay).then((vinyl) => {
         if (verbose) {
             log(`[Fetch queue] completed fetching ${next.url} (${fetchQueue.length} remaining)`);
@@ -208,4 +212,5 @@ function processFetchQueue() {
         processFetchQueue();
     });
 }
+// --- End Positron ---
 //# sourceMappingURL=fetch.js.map
