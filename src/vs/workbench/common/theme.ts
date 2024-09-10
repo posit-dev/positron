@@ -870,33 +870,7 @@ export const POSITRON_SPLITTER_EXPAND_COLLAPSE_BUTTON_FOREGROUND = registerColor
 	hcLight: editorForeground
 }, localize('positronSplitterExpandCollapseButton.foreground', "Positron splitter expand / collapse button foreground color."));
 
-// < --- Positron Tool Tip --- >
-
-// Positron tool tip background color.
-export const POSITRON_TOOL_TIP_BACKGROUND = registerColor('positronToolTip.background', {
-	dark: '#252526',
-	light: '#f3f3f3',
-	hcDark: '#252526',
-	hcLight: '#f3f3f3'
-}, localize('positronToolTip.background', "Positron tool tip background color."));
-
-// Positron tool tip border color.
-export const POSITRON_TOOL_TIP_BORDER = registerColor('positronToolTip.border', {
-	dark: '#454545',
-	light: '#c8c8c8',
-	hcDark: '#454545',
-	hcLight: '#c8c8c8'
-}, localize('positronToolTip.border', "Positron tool tip border color."));
-
 // < --- Positron Top Action Bar --- >
-
-// Positron top action bar logo background color.
-export const POSITRON_TOP_ACTION_BAR_LOGO_BACKGROUND = registerColor('positronTopActionBar.logoBackground', {
-	dark: darken(ACTIVITY_BAR_BACKGROUND, 0.15),
-	light: darken(ACTIVITY_BAR_BACKGROUND, 0.15),
-	hcDark: null,
-	hcLight: null
-}, localize('positronTopActionBar.logoBackground', "Positron top action bar logo background color."));
 
 // Positron top action bar border color.
 export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
