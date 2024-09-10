@@ -4,9 +4,6 @@ name: 'Nightly: Python CI'
 on:
   schedule:
     - cron: "0 2 * * 1-5"
-  workflow_dispatch:
-  push:
-    branches: ['main', 'cmead/push-python*']
 
 defaults:
  run:
@@ -81,7 +78,7 @@ jobs:
           echo ${{ github.workspace }}
 
       - name: slack-smoke-test-report
-        if: runner.os == 'Linux'
+        if: ${{ failure() && runner.os == 'Linux' }}
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
