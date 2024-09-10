@@ -90,9 +90,7 @@
 
 .custom-context-menu-item
 .shortcut {
-	/* display: block; */
-	letter-spacing: .2rem;
 	white-space: nowrap;
 	grid-column: shortcut / end;
-	padding: 10px 0 10px 10px;
+	padding: 10px;
 }
