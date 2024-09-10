@@ -295,7 +295,7 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     assert table_view.state.name == title
 
 
-def test_shutdown(de_service: DataExplorerService, event_loop):
+def test_shutdown(de_service: DataExplorerService):
     df = pd.DataFrame({"a": [1, 2, 3, 4, 5]})
     de_service.register_table(df, "t1", comm_id=guid())
     de_service.register_table(df, "t2", comm_id=guid())
