@@ -120,14 +120,14 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.streamlit', {
                 label: 'Streamlit',
                 languageId: 'python',
-                getRunOptions(runtimePath, filePath, port) {
+                getRunOptions(runtimePath, document, port) {
                     return {
                         command: [
                             runtimePath,
                             '-m',
                             'streamlit',
                             'run',
-                            filePath,
+                            document.uri.fsPath,
                             '--server.port',
                             port.toString(),
                             '--server.headless',
@@ -139,9 +139,9 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.dash', {
                 label: 'Dash',
                 languageId: 'python',
-                getRunOptions(runtimePath, filePath, port) {
+                getRunOptions(runtimePath, document, port) {
                     return {
-                        command: [runtimePath, filePath].join(' '),
+                        command: [runtimePath, document.uri.fsPath].join(' '),
                         env: {
                             PORT: port.toString(),
                         },
@@ -151,9 +151,9 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.gradio', {
                 label: 'Gradio',
                 languageId: 'python',
-                getRunOptions(runtimePath, filePath, port) {
+                getRunOptions(runtimePath, document, port) {
                     return {
-                        command: [runtimePath, filePath].join(' '),
+                        command: [runtimePath, document.uri.fsPath].join(' '),
                         env: {
                             GRADIO_SERVER_PORT: port.toString(),
                         },
@@ -163,14 +163,18 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.fastapi', {
                 label: 'FastAPI',
                 languageId: 'python',
-                getRunOptions(runtimePath, filePath, port) {
+                getRunOptions(runtimePath, document, port) {
+                    const text = document.getText();
+                    const appName = getAppName(text, 'FastAPI');
+                    if (!appName) {
+                        throw new Error('No FastAPI app object found');
+                    }
                     return {
                         command: [
                             runtimePath,
                             '-m',
                             'uvicorn',
-                            // TODO: How to allow customizing the app name?
-                            `${pathToModule(filePath)}:app`,
+                            `${pathToModule(document.uri.fsPath)}:${appName}`,
                             '--port',
                             port.toString(),
                         ].join(' '),
@@ -181,15 +185,19 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.flask', {
                 label: 'Flask',
                 languageId: 'python',
-                getRunOptions(runtimePath, filePath, port) {
+                getRunOptions(runtimePath, document, port) {
+                    const text = document.getText();
+                    const appName = getAppName(text, 'Flask');
+                    if (!appName) {
+                        throw new Error('No Flask app object found');
+                    }
                     return {
                         command: [
                             runtimePath,
                             '-m',
                             'flask',
                             '--app',
-                            // TODO: How to allow customizing the app name?
-                            `${pathToModule(filePath)}:app`,
+                            `${pathToModule(document.uri.fsPath)}:${appName}`,
                             'run',
                             '--port',
                             port.toString(),
@@ -267,4 +275,8 @@ function pathToModule(p: string): string {
     const mod = path.parse(relativePath).name;
     const parts = path.dirname(relativePath).split(path.sep);
     return parts.concat(mod).join('.');
+}
+
+function getAppName(text: string, className: string): string | undefined {
+    return text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
 }

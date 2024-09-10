@@ -52,9 +52,6 @@ export abstract class AbstractExtHostApplications {
 			return;
 		}
 
-		const filePath = document.uri.fsPath;
-		console.log('Path:', filePath);
-
 		if (document.isDirty) {
 			await document.save();
 		}
@@ -67,7 +64,7 @@ export abstract class AbstractExtHostApplications {
 
 		const runtime = await this._languageRuntime.getPreferredRuntime(runner.languageId);
 
-		const commandOptions = runner.getRunOptions(runtime.runtimePath, filePath, port);
+		const commandOptions = runner.getRunOptions(runtime.runtimePath, document, port);
 
 		const terminal = this._terminalService.createTerminalFromOptions({
 			name: runner.label,
