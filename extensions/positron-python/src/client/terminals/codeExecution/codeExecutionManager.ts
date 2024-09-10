@@ -27,7 +27,7 @@ import {
     triggerCreateEnvironmentCheckNonBlocking,
 } from '../../pythonEnvironments/creation/createEnvironmentTrigger';
 // --- Start Positron ---
-import { getAppFramework } from '../../positron/webAppContexts'
+//import { getAppFramework } from '../../positron/webAppContexts'
 // --- End Positron ---
 
 
@@ -80,11 +80,18 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         );
         // --- Start Positron ---
         this.disposableRegistry.push(
-            this.commandManager.registerCommand(Commands.Exec_App_In_Terminal as any, async (file: Resource) => {
-                const filePath = file?.path;
+            this.commandManager.registerCommand(Commands.Exec_App_In_Terminal as any, async () => {
+                // use editor to get contents of file
+                const editor = vscode.window.activeTextEditor;
+                if (!editor) {
+                    // No editor; nothing to do
+                    return;
+                }
+
+                const filePath = editor.document.uri.fsPath;
                 if (!filePath) {
                     // File is unsaved; show a warning
-                    vscode.window.showWarningMessage('Cannot source unsaved file.');
+                    vscode.window.showWarningMessage('Cannot run unsaved file.');
                     return;
                 }
 
@@ -92,8 +99,8 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 // up to date with editor buffer.
                 await vscode.commands.executeCommand('workbench.action.files.save');
 
-                const appFramework = getAppFramework(file.toString())
-                console.log('appFramework: ', appFramework)
+                // TODO: connect appFramework to commands to run script
+                //const appFramework = getAppFramework(editor.document.getText())
             }),
         );
         this.disposableRegistry.push(
