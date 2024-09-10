@@ -132,15 +132,24 @@ suite('Positron - Plots Service', () => {
 
 		// no event since 'auto' is the default
 		plotsService.selectSizingPolicy('auto');
+		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'auto');
 
 		// event occurs when changing to 'fill'
 		plotsService.selectSizingPolicy('fill');
+		assert.strictEqual(plotsService.selectedSizingPolicy.id, 'fill');
 
 		await raceTimeout(didChangeSizingPolicy, 100, () => assert.fail('onDidChangeSizingPolicy event did not fire'));
 		assert.strictEqual(sizingPolicyChanged, 1, 'onDidChangeSizingPolicy event should fire once for changing to "fill"');
 	});
 
 	test('selection: select plot', async () => {
+		const session = await createSession();
+
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
+
+		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+
 		let selectPlotCalled = false;
 		const didSelectPlot = new Promise<void>((resolve) => {
 			const disposable = plotsService.onDidSelectPlot((e) => {
@@ -158,9 +167,11 @@ suite('Positron - Plots Service', () => {
 	});
 
 	test('selection: remove selected plot', async () => {
-		let removePlotCalled = false;
+		const session = await createSession();
 
-		plotsService.selectPlot('plot1');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+
+		let removePlotCalled = false;
 
 		const didRemovePlot = new Promise<void>((resolve) => {
 			const disposable = plotsService.onDidRemovePlot((e) => {
@@ -170,7 +181,6 @@ suite('Positron - Plots Service', () => {
 			disposables.add(disposable);
 		});
 
-		plotsService.selectPlot('plot1');
 		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
 
 		plotsService.removeSelectedPlot();
@@ -178,10 +188,34 @@ suite('Positron - Plots Service', () => {
 		await raceTimeout(didRemovePlot, 100, () => assert.fail('onDidRemovePlot event did not fire'));
 
 		assert.ok(removePlotCalled, 'onDidRemovePlot event should fire');
+		assert.strictEqual(plotsService.positronPlotInstances.length, 0);
+		assert.strictEqual(plotsService.selectedPlotId, undefined);
 	});
 
 	test('selection: expect error removing plot when no plot selected', () => {
-		assert.throws(() => plotsService.removeSelectedPlot());
+		assert.throws(() => plotsService.removeSelectedPlot(), { message: 'No plot is selected' });
+	});
+
+	test('selection: select previous/next plot', async () => {
+		const session = await createSession();
+
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot2');
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot3');
+
+		assert.strictEqual(plotsService.selectedPlotId, 'plot3');
+
+		plotsService.selectPreviousPlot();
+		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+
+		plotsService.selectPreviousPlot();
+		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
+
+		plotsService.selectNextPlot();
+		assert.strictEqual(plotsService.selectedPlotId, 'plot2');
+
+		plotsService.selectNextPlot();
+		assert.strictEqual(plotsService.selectedPlotId, 'plot3');
 	});
 
 	test('plot client: create client event', async () => {
