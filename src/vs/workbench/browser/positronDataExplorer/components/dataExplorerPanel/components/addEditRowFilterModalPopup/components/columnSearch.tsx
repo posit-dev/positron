@@ -8,7 +8,7 @@ import 'vs/css!./columnSearch';
 
 // React.
 import * as React from 'react';
-import { useRef, useState, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';

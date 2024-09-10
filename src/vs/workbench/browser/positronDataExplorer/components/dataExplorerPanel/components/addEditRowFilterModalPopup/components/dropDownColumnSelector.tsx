@@ -8,7 +8,7 @@ import 'vs/css!./dropDownColumnSelector';
 
 // React.
 import * as React from 'react';
-import { useRef, useState, useCallback, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
