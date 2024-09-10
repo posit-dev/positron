@@ -8,6 +8,7 @@ from __future__ import annotations
 import enum
 import logging
 from typing import Callable, Generic, Optional, Type, TypeVar
+import threading
 
 import comm
 
@@ -86,6 +87,7 @@ class PositronComm:
 
     def __init__(self, comm: comm.base_comm.BaseComm) -> None:
         self.comm = comm
+        self.send_lock = threading.Lock()
 
     @classmethod
     def create(cls, target_name: str, comm_id: str) -> PositronComm:
@@ -143,7 +145,7 @@ class PositronComm:
             The Pydantic model to parse the message with.
         """
 
-        def handle_msg(
+        def _handle_msg(
             raw_msg: JsonRecord,
         ) -> None:
             try:
@@ -186,6 +188,10 @@ class PositronComm:
 
             callback(comm_msg, raw_msg)
 
+        def handle_msg(raw_msg: JsonRecord) -> None:
+            with self.send_lock:
+                _handle_msg(raw_msg)
+
         self.comm.on_msg(handle_msg)
 
     def send_result(self, data: JsonData = None, metadata: Optional[JsonRecord] = None) -> None:
@@ -225,7 +231,8 @@ class PositronComm:
             method=name,
             params=payload,
         )
-        self.comm.send(data=event)
+        with self.send_lock:
+            self.comm.send(data=event)
 
     def send_error(self, code: JsonRpcErrorCode, message: Optional[str] = None) -> None:
         """

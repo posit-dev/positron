@@ -1163,7 +1163,7 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Set or clear sort-by-column(s)
     SetSortColumns = "set_sort_columns"
 
-    # Request a batch of column profiles
+    # Async request a batch of column profiles
     GetColumnProfiles = "get_column_profiles"
 
     # Get the state
@@ -1430,8 +1430,13 @@ class SetSortColumnsRequest(BaseModel):
 
 class GetColumnProfilesParams(BaseModel):
     """
-    Requests a statistical summary or data profile for batch of columns
+    Async request for a statistical summary or data profile for batch of
+    columns
     """
+
+    callback_id: StrictStr = Field(
+        description="Async callback unique identifier",
+    )
 
     profiles: List[ColumnProfileRequest] = Field(
         description="Array of requested profiles",
@@ -1444,7 +1449,8 @@ class GetColumnProfilesParams(BaseModel):
 
 class GetColumnProfilesRequest(BaseModel):
     """
-    Requests a statistical summary or data profile for batch of columns
+    Async request for a statistical summary or data profile for batch of
+    columns
     """
 
     params: GetColumnProfilesParams = Field(
@@ -1504,6 +1510,23 @@ class DataExplorerFrontendEvent(str, enum.Enum):
 
     # Clear cache and request fresh data
     DataUpdate = "data_update"
+
+    # Return async result of get_column_profiles request
+    ReturnColumnProfiles = "return_column_profiles"
+
+
+class ReturnColumnProfilesParams(BaseModel):
+    """
+    Return async result of get_column_profiles request
+    """
+
+    callback_id: StrictStr = Field(
+        description="Async callback unique identifier",
+    )
+
+    profiles: List[ColumnProfileResult] = Field(
+        description="Array of individual column profile results",
+    )
 
 
 SearchSchemaResult.update_forward_refs()
@@ -1639,3 +1662,5 @@ GetColumnProfilesParams.update_forward_refs()
 GetColumnProfilesRequest.update_forward_refs()
 
 GetStateRequest.update_forward_refs()
+
+ReturnColumnProfilesParams.update_forward_refs()

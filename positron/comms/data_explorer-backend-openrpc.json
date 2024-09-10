@@ -265,9 +265,17 @@
 		},
 		{
 			"name": "get_column_profiles",
-			"summary": "Request a batch of column profiles",
-			"description": "Requests a statistical summary or data profile for batch of columns",
+			"summary": "Async request a batch of column profiles",
+			"description": "Async request for a statistical summary or data profile for batch of columns",
 			"params": [
+				{
+					"name": "callback_id",
+					"description": "Async callback unique identifier",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				},
 				{
 					"name": "profiles",
 					"description": "Array of requested profiles",
@@ -288,15 +296,7 @@
 					}
 				}
 			],
-			"result": {
-				"schema": {
-					"name": "column_profile_results",
-					"type": "array",
-					"items": {
-						"$ref": "#/components/schemas/column_profile_result"
-					}
-				}
-			}
+			"result": {}
 		},
 		{
 			"name": "get_state",
