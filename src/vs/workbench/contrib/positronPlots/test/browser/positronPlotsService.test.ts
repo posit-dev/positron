@@ -4,17 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { raceTimeout } from 'vs/base/common/async';
+import { raceTimeout, timeout } from 'vs/base/common/async';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
 import { PositronPlotsService } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsService';
 import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
+import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { HistoryPolicy } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { HistoryPolicy, IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
 import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
+import { TestViewsService, workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
 
 suite('Positron - Plots Service', () => {
 
@@ -28,9 +32,31 @@ suite('Positron - Plots Service', () => {
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
 		instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
 		instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
+		instantiationService.stub(IViewsService, new TestViewsService());
 
 		plotsService = disposables.add(instantiationService.createInstance(PositronPlotsService));
 	});
+
+	async function createSession() {
+		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
+		runtimeSessionService.startSession(session);
+
+		await timeout(0);
+
+		const out: {
+			session: TestLanguageRuntimeSession;
+			plotClient: IPositronPlotClient | undefined;
+		} = {
+			session, plotClient: undefined,
+		};
+
+		disposables.add(session.onDidCreateClientInstance(client => out.plotClient = {
+			id: client.client.getClientId(),
+			metadata: {} as IPositronPlotMetadata,
+		} as IPositronPlotClient));
+
+		return out;
+	}
 
 	test('history policy: change history policy', () => {
 		plotsService.selectHistoryPolicy(HistoryPolicy.AlwaysVisible);
@@ -156,5 +182,15 @@ suite('Positron - Plots Service', () => {
 
 	test('selection: expect error removing plot when no plot selected', () => {
 		assert.throws(() => plotsService.removeSelectedPlot());
+	});
+
+	test('plot client: create client event', async () => {
+		const session = await createSession();
+
+		assert.strictEqual(plotsService.positronPlotInstances.length, 0);
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+
+		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
+		assert.strictEqual(plotsService.positronPlotInstances.length, 1);
 	});
 });

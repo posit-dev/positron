@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { ILanguageRuntimeClientCreatedEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export class TestRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
 	private readonly _willStartEmitter = this._register(new Emitter<IRuntimeSessionWillStartEvent>());
 	private readonly _didStartRuntime = this._register(new Emitter<ILanguageRuntimeSession>());
 	private readonly _didReceiveRuntime = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _didCreateClientInstance = this._register(new Emitter<ILanguageRuntimeClientCreatedEvent>());
 
 	readonly activeSessions = new Array<ILanguageRuntimeSession>();
 
@@ -19,11 +21,15 @@ export class TestRuntimeSessionService extends Disposable implements Partial<IRu
 
 	readonly onDidReceiveRuntimeEvent = this._didReceiveRuntime.event;
 
+	readonly onDidCreateClientInstance = this._didStartRuntime.event;
+
 	// Test helpers.
 
 	startSession(session: ILanguageRuntimeSession): void {
 		this.activeSessions.push(session);
+		this._register(session.onDidCreateClientInstance(e => this._didCreateClientInstance.fire(e)));
 		this._willStartEmitter.fire({ session, isNew: true });
+		this._didStartRuntime.fire(session);
 	}
 }
 
