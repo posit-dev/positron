@@ -117,6 +117,25 @@ export async function activatePositron(
         // Register a command to run Streamlit.
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
         disposables.push(
+            positron.applications.registerApplicationRunner('python.shiny', {
+                label: 'Shiny',
+                languageId: 'python',
+                getRunOptions(runtimePath, document, port) {
+                    return {
+                        command: [
+                            runtimePath,
+                            '-m',
+                            'shiny',
+                            'run',
+                            '--port',
+                            port.toString(),
+                            '--reload',
+                            // TODO: --autoreload-port
+                            document.uri.fsPath,
+                        ].join(' '),
+                    };
+                },
+            }),
             positron.applications.registerApplicationRunner('python.streamlit', {
                 label: 'Streamlit',
                 languageId: 'python',
@@ -206,6 +225,9 @@ export async function activatePositron(
                 },
             }),
 
+            vscode.commands.registerCommand('python.runShinyApp', async () => {
+                await positron.applications.runApplication('python.shiny');
+            }),
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
                 await positron.applications.runApplication('python.streamlit');
             }),

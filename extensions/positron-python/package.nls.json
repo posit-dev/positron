@@ -20,6 +20,7 @@
     "python.command.python.clearWorkspaceInterpreter.title": "Clear Workspace Interpreter Setting",
     "python.command.python.viewOutput.title": "Show Output",
     "python.command.python.installJupyter.title": "Install the Jupyter extension",
+    "python.command.python.runShinyApp.title": "Run Shiny App",
     "python.command.python.runStreamlitApp.title": "Run Streamlit App",
     "python.command.python.runDashApp.title": "Run Dash App",
     "python.command.python.runGradioApp.title": "Run Gradio App",
