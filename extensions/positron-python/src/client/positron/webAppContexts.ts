@@ -22,19 +22,19 @@ function importsInApp(text: string, libraries: string[]): boolean {
     return importPattern.test(text) || fromImportPattern.test(text);
 }
 
-// function getAppFramework(text: string): string | undefined {
-//     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
-//     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*import`, 'g');
+export function getAppFramework(text: string): string | undefined {
+    const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
+    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*import`, 'g');
 
-//     const importMatch = importPattern.exec(text);
-//     if (importMatch) {
-//         return importMatch[1];
-//     }
+    const importMatch = importPattern.exec(text);
+    if (importMatch) {
+        return importMatch[1];
+    }
 
-//     const fromImportMatch = fromImportPattern.exec(text);
-//     if (fromImportMatch) {
-//         return fromImportMatch[1];
-//     }
+    const fromImportMatch = fromImportPattern.exec(text);
+    if (fromImportMatch) {
+        return fromImportMatch[1];
+    }
 
-//     return undefined;
-// }
+    return undefined;
+}

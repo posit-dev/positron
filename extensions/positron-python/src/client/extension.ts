@@ -94,6 +94,7 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
     activatePositron(serviceContainer, context)
         // Run in the background.
         .ignoreErrors();
+
     // --- End Positron ---
 
     sendStartupTelemetry(ready, durations, stopWatch, serviceContainer, isFirstSession)

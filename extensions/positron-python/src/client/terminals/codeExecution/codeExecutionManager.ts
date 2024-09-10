@@ -26,6 +26,10 @@ import {
     CreateEnvironmentCheckKind,
     triggerCreateEnvironmentCheckNonBlocking,
 } from '../../pythonEnvironments/creation/createEnvironmentTrigger';
+// --- Start Positron ---
+import { getAppFramework } from '../../positron/webAppContexts'
+// --- End Positron ---
+
 
 @injectable()
 export class CodeExecutionManager implements ICodeExecutionManager {
@@ -37,7 +41,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-    ) {}
+    ) { }
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
@@ -87,6 +91,9 @@ export class CodeExecutionManager implements ICodeExecutionManager {
                 // Save the file before sourcing it to ensure that the contents are
                 // up to date with editor buffer.
                 await vscode.commands.executeCommand('workbench.action.files.save');
+
+                const appFramework = getAppFramework(file.toString())
+                console.log('appFramework: ', appFramework)
             }),
         );
         this.disposableRegistry.push(

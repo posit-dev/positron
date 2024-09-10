@@ -1456,11 +1456,6 @@
                     "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
-                    "command": "python.execAppInTerminal",
-                    "group": "Python",
-                    "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
-                },
-                {
                     "command": "python.execSelectionInDjangoShell",
                     "group": "Python",
                     "when": "false"
