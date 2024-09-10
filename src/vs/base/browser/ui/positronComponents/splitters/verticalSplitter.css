@@ -68,6 +68,7 @@
 	align-items: center;
 	box-sizing: border-box;
 	justify-content: center;
+	box-shadow: rgba(0, 0, 0, 0.1) 0px 0px 8px 2px;
 	color: var(--vscode-positronSplitterExpandCollapseButton-foreground);
 	border: 1px solid var(--vscode-positronSplitterExpandCollapseButton-foreground);
 	background-color: var(--vscode-positronSplitterExpandCollapseButton-background);
