@@ -8,7 +8,7 @@ import 'vs/css!./dropDownColumnSelector';
 
 // React.
 import * as React from 'react';
-import { useRef, useState, useMemo, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef, useState, useCallback, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -49,52 +49,48 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 	const [title, _setTitle] = useState(props.title);
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(props.selectedColumnSchema);
 
-	// this is similar to having two useCallbacks point to one another
-	const [onKeyDown, onPressed] = useMemo(() => {
-		const onKeyDown = (evt: KeyboardEvent) => {
-			// eliminate key events for anything that isn't a single-character key or whitespaces
-			if (evt.key.trim().length !== 1) { return; }
-			// don't consume event here; the input will pick it up
-			onPressed(true);
-		};
+	const onPressed = useCallback((focusInput?: boolean) => {
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: props.keybindingService,
+			layoutService: props.layoutService,
+			container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
+			onDisposed: () => {
+				ref.current.focus();
+			}
+		});
 
-		const onPressed = (focusInput?: boolean) => {
-			// Create the renderer.
-			const renderer = new PositronModalReactRenderer({
-				keybindingService: props.keybindingService,
-				layoutService: props.layoutService,
-				container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
-				onDisposed: () => {
-					ref.current.focus();
-				}
-			});
+		// Create the column selector data grid instance.
+		const columnSelectorDataGridInstance = new ColumnSelectorDataGridInstance(
+			props.dataExplorerClientInstance
+		);
 
-			// Create the column selector data grid instance.
-			const columnSelectorDataGridInstance = new ColumnSelectorDataGridInstance(
-				props.dataExplorerClientInstance
-			);
+		// Show the drop down list box modal popup.
+		renderer.render(
+			<ColumnSelectorModalPopup
+				configurationService={props.configurationService}
+				renderer={renderer}
+				columnSelectorDataGridInstance={columnSelectorDataGridInstance}
+				anchorElement={ref.current}
+				focusInput={focusInput}
+				onItemHighlighted={columnSchema => {
+					console.log(`onItemHighlighted ${columnSchema.column_name}`);
+				}}
+				onItemSelected={columnSchema => {
+					renderer.dispose();
+					setSelectedColumnSchema(columnSchema);
+					props.onSelectedColumnSchemaChanged(columnSchema);
+				}}
+			/>
+		);
+	}, [props]);
 
-			// Show the drop down list box modal popup.
-			renderer.render(
-				<ColumnSelectorModalPopup
-					configurationService={props.configurationService}
-					renderer={renderer}
-					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
-					anchorElement={ref.current}
-					focusInput={focusInput}
-					onItemHighlighted={columnSchema => {
-						console.log(`onItemHighlighted ${columnSchema.column_name}`);
-					}}
-					onItemSelected={columnSchema => {
-						renderer.dispose();
-						setSelectedColumnSchema(columnSchema);
-						props.onSelectedColumnSchemaChanged(columnSchema);
-					}}
-				/>
-			);
-		};
-		return [onKeyDown, onPressed];
-	}, [ref, props]);
+	const onKeyDown = useCallback((evt: KeyboardEvent) => {
+		// eliminate key events for anything that isn't a single-character key or whitespaces
+		if (evt.key.trim().length !== 1) { return; }
+		// don't consume event here; the input will pick it up
+		onPressed(true);
+	}, [onPressed]);
 
 	useEffect(() => {
 		const el = ref.current;
