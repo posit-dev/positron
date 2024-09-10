@@ -78,6 +78,7 @@ jobs:
         run: |
           find . | grep python-unit-test-results.xml
           pwd
+          echo ${{ github.workspace }}
 
       - name: slack-smoke-test-report
         if: runner.os == 'Linux'
@@ -85,7 +86,7 @@ jobs:
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
           SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          XUNIT_PATH: ./python-unit-test-results.xml
+          XUNIT_PATH: ${{ github.workspace }}/python-unit-test-results.xml
 
   # Install the latest releases of test dependencies
   positron-ipykernel-tests-latest:
@@ -125,7 +126,7 @@ jobs:
         run: pytest python_files/positron --junit-xml=python-test-results.xml
 
       - name: slack-smoke-test-report
-        if: runner.os == 'Linux'
+        if: ${{ failure() && runner.os == 'Linux' }}
         uses: testlabauto/xunit-slack-reporter@v2.0.1
         env:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
