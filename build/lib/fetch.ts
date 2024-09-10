@@ -11,6 +11,10 @@ import * as crypto from 'crypto';
 import * as through2 from 'through2';
 import { Stream } from 'stream';
 
+// --- Start Positron ---
+import { PromiseHandles } from './util';
+// --- End Positron ---
+
 export interface IFetchOptions {
 	base?: string;
 	nodeFetchOptions?: RequestInit;
@@ -33,11 +37,15 @@ export function fetchUrls(urls: string[] | string, options: IFetchOptions): es.T
 
 	return es.readArray(urls).pipe(es.map<string, VinylFile | void>((data: string, cb) => {
 		const url = [options.base, data].join('');
-		fetchUrl(url, options).then(file => {
+		// --- Start Positron ---
+		// Replace call to fetchUrl with fetchUrlQueued to limit the number of
+		// concurrent requests to OpenVSX
+		fetchUrlQueued(url, options).then(file => {
 			cb(undefined, file);
 		}, error => {
 			cb(error);
 		});
+		// --- End Positron ---
 	}));
 }
 
@@ -147,4 +155,73 @@ export function fetchGithub(repo: string, options: IGitHubAssetOptions): Stream 
 			callback(error);
 		}
 	}));
+}
+
+// --- Start Positron ---
+
+/// A promise that fetches a URL from `fetchUrl` and returns a Vinyl file
+class FetchPromise extends PromiseHandles<VinylFile> {
+	constructor(readonly url: string, readonly options: IFetchOptions, readonly retries = 10, readonly retryDelay = 1000) {
+		super();
+	}
+}
+
+/// An array of fetch promises that are queued to be fetched
+const fetchQueue: Array<FetchPromise> = [];
+let fetching = false;
+
+/**
+ * Fetches a URL from `fetchUrl` and returns a Vinyl file. This function is
+ * similar to `fetchUrl` but queues the request to limit the number of
+ * concurrent requests.
+ *
+ * @param url The URL to fetch
+ * @param options The fetch options
+ * @param retries The number of retries to attempt
+ * @param retryDelay The delay between retries
+ *
+ * @returns A promise that resolves to a Vinyl file
+ */
+function fetchUrlQueued(url: string, options: IFetchOptions, retries = 10, retryDelay = 1000): Promise<VinylFile> {
+
+	// Create a new fetch promise and push it to the fetch queue
+	const promise = new FetchPromise(url, options, retries, retryDelay);
+	fetchQueue.push(promise);
+
+	// Process the fetch queue immediately (a no-op if we are already fetching)
+	processFetchQueue();
+	return promise.promise;
+}
+
+function processFetchQueue() {
+	if (fetching) {
+		return;
+	}
+	if (fetchQueue.length === 0) {
+		return;
+	}
+
+	const next = fetchQueue.splice(0, 1)[0];
+	fetching = true;
+
+	// Determine if we should log verbose output (e.g. when running in CI)
+	const verbose = !!next.options.verbose || !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'];
+	if (verbose) {
+		log(`[Fetch queue] start fetching ${next.url} (${fetchQueue.length} remaining)`);
+	}
+
+	fetchUrl(next.url, next.options, next.retries, next.retryDelay).then((vinyl) => {
+		if (verbose) {
+			log(`[Fetch queue] completed fetching ${next.url} (${fetchQueue.length} remaining)`);
+		}
+		next.resolve(vinyl);
+	}).catch((e) => {
+		if (verbose) {
+			log(`[Fetch queue] failed fetching ${next.url} (${fetchQueue.length} remaining): ${e}`);
+		}
+		next.reject(e);
+	}).finally(() => {
+		fetching = false;
+		processFetchQueue();
+	});
 }
