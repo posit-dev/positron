@@ -1095,6 +1095,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._plotClientsByComm.delete(metadata.id);
 		}));
 
+		this._register(commProxy);
+
 		return commProxy;
 	}
 
