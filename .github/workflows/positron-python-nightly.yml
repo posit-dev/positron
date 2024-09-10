@@ -70,13 +70,6 @@ jobs:
       - name: Run Python unit tests
         run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
-      - name: debug
-        if: runner.os == 'Linux'
-        run: |
-          find . | grep python-unit-test-results.xml
-          pwd
-          echo ${{ github.workspace }}
-
       - name: slack-smoke-test-report
         if: ${{ failure() && runner.os == 'Linux' }}
         uses: testlabauto/xunit-slack-reporter@v2.0.1
