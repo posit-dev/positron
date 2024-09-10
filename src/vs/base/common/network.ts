@@ -129,6 +129,7 @@ export namespace Schemas {
 	 */
 	export const positronDataExplorer = 'positron-data-explorer';
 	export const positronNotebook = 'positron-notebook';
+	export const positronPlotsEditor = 'positron-plots-editor';
 
 	// --- End Positron ---
 

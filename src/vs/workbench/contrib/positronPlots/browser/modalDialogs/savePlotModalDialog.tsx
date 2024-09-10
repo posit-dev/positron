@@ -7,7 +7,7 @@ import 'vs/css!./savePlotModalDialog';
 import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IRenderedPlot, PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { URI } from 'vs/base/common/uri';
 import { ProgressBar } from 'vs/base/browser/ui/positronComponents/progressBar';
@@ -29,6 +29,7 @@ import { IPlotSize, IPositronPlotSizingPolicy } from 'vs/workbench/services/posi
 import { ILogService } from 'vs/platform/log/common/log';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IRenderedPlot } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -249,7 +250,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			}
 			size = { height: height.value, width: width.value };
 		}
-		return props.plotClient.preview(size, dpi.value / BASE_DPI, format);
+		return props.plotClient.render(size, dpi.value / BASE_DPI, format, true);
 	};
 
 	const previewButton = () => {
