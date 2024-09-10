@@ -222,6 +222,14 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				value: RowFilterDescrType.SEARCH_CONTAINS
 			}));
 			conditionEntries.push(new DropDownListBoxItem({
+				identifier: RowFilterDescrType.SEARCH_NOT_CONTAINS,
+				title: localize(
+					'positron.addEditRowFilter.conditionSearchNotContains',
+					"does not contain"
+				),
+				value: RowFilterDescrType.SEARCH_NOT_CONTAINS
+			}));
+			conditionEntries.push(new DropDownListBoxItem({
 				identifier: RowFilterDescrType.SEARCH_STARTS_WITH,
 				title: localize(
 					'positron.addEditRowFilter.conditionSearchStartsWith',
@@ -659,6 +667,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 
 			// Apply comparison row filter.
 			case RowFilterDescrType.SEARCH_CONTAINS:
+			case RowFilterDescrType.SEARCH_NOT_CONTAINS:
 			case RowFilterDescrType.SEARCH_STARTS_WITH:
 			case RowFilterDescrType.SEARCH_ENDS_WITH:
 			case RowFilterDescrType.SEARCH_REGEX_MATCHES: {
