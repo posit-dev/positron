@@ -90,7 +90,7 @@
 
 .custom-context-menu-item
 .shortcut {
+	padding: 10px;
 	white-space: nowrap;
 	grid-column: shortcut / end;
-	padding: 10px;
 }
