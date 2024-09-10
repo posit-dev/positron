@@ -182,11 +182,10 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.fastapi', {
                 label: 'FastAPI',
                 languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    const text = document.getText();
-                    const appName = getAppName(text, 'FastAPI');
+                async getRunOptions(runtimePath, document, port) {
+                    const appName = await getAppName(document, 'FastAPI');
                     if (!appName) {
-                        throw new Error('No FastAPI app object found');
+                        return undefined;
                     }
                     return {
                         command: [
@@ -204,11 +203,10 @@ export async function activatePositron(
             positron.applications.registerApplicationRunner('python.flask', {
                 label: 'Flask',
                 languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    const text = document.getText();
-                    const appName = getAppName(text, 'Flask');
+                async getRunOptions(runtimePath, document, port) {
+                    const appName = await getAppName(document, 'Flask');
                     if (!appName) {
-                        throw new Error('No Flask app object found');
+                        return undefined;
                     }
                     return {
                         command: [
@@ -299,6 +297,23 @@ function pathToModule(p: string): string {
     return parts.concat(mod).join('.');
 }
 
-function getAppName(text: string, className: string): string | undefined {
-    return text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
+async function getAppName(document: vscode.TextDocument, className: string): Promise<string | undefined> {
+    const text = document.getText();
+    let appName = text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
+    if (!appName) {
+        appName = await vscode.window.showInputBox({
+            prompt: vscode.l10n.t('Enter the name of the {0} application object', className),
+            validateInput(value) {
+                if (!value.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+                    return vscode.l10n.t('Invalid {0} app object name.', className);
+                }
+                return undefined;
+            },
+        });
+        if (!appName) {
+            vscode.window.showErrorMessage(vscode.l10n.t('No {0} application object name provided.', className));
+            return undefined;
+        }
+    }
+    return appName;
 }

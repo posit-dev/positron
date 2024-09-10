@@ -1079,7 +1079,7 @@ declare module 'positron' {
 	export interface ApplicationRunner {
 		label: string;
 		languageId: string;
-		getRunOptions(runtimePath: string, document: vscode.TextDocument, port: number): ApplicationRunOptions;
+		getRunOptions(runtimePath: string, document: vscode.TextDocument, port: number): ApplicationRunOptions | undefined | Thenable<ApplicationRunOptions | undefined>;
 	}
 
 	namespace languages {

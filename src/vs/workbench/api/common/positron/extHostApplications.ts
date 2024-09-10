@@ -64,7 +64,10 @@ export abstract class AbstractExtHostApplications {
 
 		const runtime = await this._languageRuntime.getPreferredRuntime(runner.languageId);
 
-		const commandOptions = runner.getRunOptions(runtime.runtimePath, document, port);
+		const commandOptions = await runner.getRunOptions(runtime.runtimePath, document, port);
+		if (!commandOptions) {
+			return;
+		}
 
 		const terminal = this._terminalService.createTerminalFromOptions({
 			name: runner.label,
