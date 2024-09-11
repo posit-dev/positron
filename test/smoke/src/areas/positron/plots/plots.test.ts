@@ -44,15 +44,12 @@ export function setup(logger: Logger) {
 		installAllHandlers(logger);
 
 		async function simplePlotTest(app: Application, script: string, locator: string) {
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 
 			await app.workbench.positronConsole.pasteCodeToConsole(script);
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronPlots.waitForWebviewPlot(locator);
-
-			await app.workbench.positronPlots.clearPlots();
-
-			await app.workbench.positronPlots.waitForNoPlots();
-
 		}
 
 		describe('Python Plots', () => {
@@ -398,6 +395,13 @@ tree`;
 
 				await simplePlotTest(app, script, '.jstree-container-ul');
 
+				// tree should be expanded by default
+				const treeNodes = app.workbench.positronPlots.getWebviewPlotLocator('.jstree-container-ul .jstree-node');
+				await expect(treeNodes).toHaveCount(9);
+
+				// collapse the tree, only parent nodes should be visible
+				treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
+				await expect(treeNodes).toHaveCount(3);
 			});
 
 
@@ -414,7 +418,7 @@ output`;
 
 				// Redirect a print statement to the Output widget.
 				await app.workbench.positronConsole.pasteCodeToConsole(`with output:
-    print('Hello, world!')
+print('Hello, world!')
 `);  // Empty line needed for the statement to be considered complete.
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
