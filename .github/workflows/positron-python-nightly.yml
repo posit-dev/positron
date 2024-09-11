@@ -4,9 +4,6 @@ name: 'Nightly: Python CI'
 on:
   schedule:
     - cron: "0 2 * * 1-5"
-  workflow_dispatch:
-  push:
-    branches: ['main', 'cmead/try-*']
 
 defaults:
  run:
@@ -139,5 +136,5 @@ jobs:
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ
+          slack_channel: C07FR1JNZNJ #positron-test-results channel
 
