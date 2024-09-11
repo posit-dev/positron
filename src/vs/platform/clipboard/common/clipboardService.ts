@@ -38,6 +38,12 @@ export interface IClipboardService {
 	writeResources(resources: URI[]): Promise<void>;
 
 	// --- Start Positron ---
+	/**
+	 * Writes an image to the system clipboard.
+	 *
+	 * @param data The image data in data URI format
+	 * @throws if the image data is invalid or mime type is unsupported
+	 */
 	writeImage(data: string): Promise<void>;
 	// --- End Positron ---
 

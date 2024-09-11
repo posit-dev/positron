@@ -49,6 +49,8 @@ export const DataExplorer = () => {
 	const [width, setWidth] = useState(0);
 	const [layout, setLayout] = useState(context.instance.layout);
 	const [columnsWidth, setColumnsWidth] = useState(0);
+	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
+	const [columnsCollapsed, setColumnsCollapsed] = useState(false);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -212,7 +214,7 @@ export const DataExplorer = () => {
 	}, [context.instance]);
 
 	// Automatic layout useEffect.
-	useEffect(() => {
+	useLayoutEffect(() => {
 		// Set the initial width.
 		setWidth(dataExplorerRef.current.offsetWidth);
 
@@ -232,16 +234,16 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [context.instance.columnsWidthPercent, dataExplorerRef]);
+	}, [context.instance.columnsWidthPercent]);
 
 	// Layout useEffect.
-	useEffect(() => {
+	useLayoutEffect(() => {
 		switch (layout) {
 			// Summary on left.
 			case PositronDataExplorerLayout.SummaryOnLeft:
-				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] ${columnsWidth}px [splitter] 1px [column-2] 1fr [end]`;
+				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] min-content [collapsed-left-spacer] min-content [splitter] max-content [column-2] 1fr [end]`;
 
-				column1Ref.current.style.gridColumn = 'column-1 / splitter';
+				column1Ref.current.style.gridColumn = 'column-1 / collapsed-left-spacer';
 				column1Ref.current.style.display = 'grid';
 
 				splitterRef.current.style.gridColumn = 'splitter / column-2';
@@ -253,12 +255,12 @@ export const DataExplorer = () => {
 
 			// Summary on right.
 			case PositronDataExplorerLayout.SummaryOnRight:
-				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] 1px [column-2] ${columnsWidth}px [end]`;
+				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] max-content [collapsed-right-spacer] min-content [column-2] min-content [end]`;
 
 				column1Ref.current.style.gridColumn = 'column-2 / end';
 				column1Ref.current.style.display = 'grid';
 
-				splitterRef.current.style.gridColumn = 'splitter / column-2';
+				splitterRef.current.style.gridColumn = 'splitter / collapsed-right-spacer';
 				splitterRef.current.style.display = 'flex';
 
 				column2Ref.current.style.gridColumn = 'column-1 / splitter';
@@ -279,7 +281,24 @@ export const DataExplorer = () => {
 				column2Ref.current.style.display = 'grid';
 				break;
 		}
-	}, [layout, columnsWidth]);
+	}, [layout]);
+
+	// ColumnsWidth Layout useEffect.
+	useLayoutEffect(() => {
+		if (columnsCollapsed) {
+			column1Ref.current.style.width = '0';
+			if (animateColumnsWidth) {
+				column1Ref.current.style.transition = 'width 0.1s ease-out';
+				setAnimateColumnsWidth(false);
+			}
+		} else {
+			column1Ref.current.style.width = `${columnsWidth}px`;
+			if (animateColumnsWidth) {
+				column1Ref.current.style.transition = 'width 0.1s ease-out';
+				setAnimateColumnsWidth(false);
+			}
+		}
+	}, [columnsWidth, columnsCollapsed, animateColumnsWidth]);
 
 	/**
 	 * onBeginResize handler.
@@ -288,8 +307,7 @@ export const DataExplorer = () => {
 	const beginResizeHandler = (): VerticalSplitterResizeParams => ({
 		minimumWidth: MIN_COLUMN_WIDTH,
 		maximumWidth: Math.trunc(2 * width / 3),
-		startingWidth: columnsWidth,
-		invert: layout === PositronDataExplorerLayout.SummaryOnRight
+		columnsWidth
 	});
 
 	/**
@@ -316,11 +334,24 @@ export const DataExplorer = () => {
 				/>
 			</div>
 			<div ref={splitterRef} className='splitter'>
+				{columnsCollapsed && layout === PositronDataExplorerLayout.SummaryOnLeft &&
+					<div className='collapsed-left-spacer' style={{ width: 10 }}></div>
+				}
 				<VerticalSplitter
-					showResizeIndicator={true}
+					configurationService={context.configurationService}
+					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
+					collapsible={true}
+					showSash={true}
 					onBeginResize={beginResizeHandler}
 					onResize={resizeHandler}
+					onCollapsedChanged={collapsed => {
+						setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+						setColumnsCollapsed(collapsed);
+					}}
 				/>
+				{columnsCollapsed && layout === PositronDataExplorerLayout.SummaryOnRight &&
+					<div className='collapsed-right-spacer' style={{ width: 10 }}></div>
+				}
 			</div>
 			<div ref={column2Ref} className='column-2'>
 				<PositronDataGrid

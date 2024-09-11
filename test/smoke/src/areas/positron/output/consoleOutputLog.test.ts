@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 
@@ -31,12 +32,14 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.typeToConsole('a = b');
 				await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronOutput.openOutputPane('Console: Python');
+				// retry in case the console output log is slow to appear
+				await expect(async () => {
+					await app.workbench.positronOutput.openOutputPane('Console: Python');
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 
-				await app.workbench.positronOutput.waitForOutContaining("name 'b' is not defined");
-
+					await app.workbench.positronOutput.waitForOutContaining("name 'b' is not defined");
+				}).toPass({ timeout: 60000 });
 			});
 		});
 
@@ -65,11 +68,14 @@ export function setup(logger: Logger) {
 				await app.workbench.positronConsole.typeToConsole('a = b');
 				await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronOutput.openOutputPane('Console: R');
+				// retry in case the console output log is slow to appear
+				await expect(async () => {
+					await app.workbench.positronOutput.openOutputPane('Console: R');
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 
-				await app.workbench.positronOutput.waitForOutContaining("object 'b' not found");
+					await app.workbench.positronOutput.waitForOutContaining("object 'b' not found");
+				}).toPass({ timeout: 60000 });
 
 			});
 		});

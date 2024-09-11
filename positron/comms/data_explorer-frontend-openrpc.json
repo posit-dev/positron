@@ -16,6 +16,32 @@
 			"summary": "Clear cache and request fresh data",
 			"description": "Triggered when there is any data change detected, clearing cache data and triggering a refresh/redraw.",
 			"params": []
+		},
+		{
+			"name": "return_column_profiles",
+			"summary": "Return async result of get_column_profiles request",
+			"description": "Return async result of get_column_profiles request",
+			"params": [
+				{
+					"name": "callback_id",
+					"description": "Async callback unique identifier",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "profiles",
+					"description": "Array of individual column profile results",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_profile_result"
+						}
+					}
+				}
+			]
 		}
 	]
 }

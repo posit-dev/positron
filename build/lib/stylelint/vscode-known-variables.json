@@ -645,6 +645,8 @@
 		"--vscode-positronSideActionBar-textInputBorder",
 		"--vscode-positronSideActionBar-textInputSelectionBackground",
 		"--vscode-positronSideActionBar-textInputSelectionForeground",
+		"--vscode-positronSplitterExpandCollapseButton-background",
+		"--vscode-positronSplitterExpandCollapseButton-foreground",
 		"--vscode-positronToolTip-background",
 		"--vscode-positronToolTip-border",
 		"--vscode-positronTopActionBar-background",

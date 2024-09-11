@@ -11,6 +11,7 @@ import * as React from 'react';
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
+import { isMacintosh } from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
@@ -151,8 +152,13 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		if (options.commandId) {
 			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
 			if (keybinding) {
-				const label = keybinding.getLabel();
+				let label = keybinding.getLabel();
 				if (label) {
+					if (isMacintosh) {
+						label = label.replace('⇧', '⇧ ');
+						label = label.replace('⌥', '⌥ ');
+						label = label.replace('⌘', '⌘ ');
+					}
 					shortcut = label;
 				}
 			}

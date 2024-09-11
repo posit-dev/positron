@@ -18,7 +18,7 @@ import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from 'vs/workbench/serv
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
+import { PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
 import { POSITRON_SESSION_CONTAINER } from 'vs/workbench/contrib/positronSession/browser/positronSessionContainer';
 
 // Register the Positron plots service.
@@ -69,6 +69,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsPreviousAction);
 		registerAction2(PlotsClearAction);
 		registerAction2(PlotsPopoutAction);
+		registerAction2(PlotsEditorAction);
 	}
 }
 

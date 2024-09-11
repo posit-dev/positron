@@ -102,7 +102,7 @@
 		},
 		{
 			"name": "ms-toolsai.vscode-jupyter-cell-tags",
-			"version": "0.1.8",
+			"version": "0.1.9",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-cell-tags",
 			"metadata": {
 				"id": "ab4fb32a-befb-4102-adf9-1652d0cd6a5e",
@@ -117,7 +117,7 @@
 		},
 		{
 			"name": "ms-toolsai.vscode-jupyter-slideshow",
-			"version": "0.1.5",
+			"version": "0.1.6",
 			"repo": "https://github.com/Microsoft/vscode-jupyter-slideshow",
 			"metadata": {
 				"id": "e153ca70-b543-4865-b4c5-b31d34185948",
@@ -132,7 +132,7 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter-renderers",
-			"version": "1.0.15",
+			"version": "1.0.19",
 			"repo": "https://github.com/Microsoft/vscode-notebook-renderers",
 			"metadata": {
 				"id": "b15c72f8-d5fe-421a-a4f7-27ed9f6addbf",
@@ -147,7 +147,7 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2023.3.100",
+			"version": "2024.8.1",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -162,7 +162,7 @@
 		},
 		{
 			"name": "ms-pyright.pyright",
-			"version": "1.1.337",
+			"version": "1.1.379",
 			"repo": "https://github.com/Microsoft/pyright",
 			"metadata": {
 				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
@@ -177,7 +177,7 @@
 		},
 		{
 			"name": "ms-python.black-formatter",
-			"version": "2024.0.1",
+			"version": "2024.2.0",
 			"repo": "https://github.com/microsoft/vscode-black-formatter",
 			"metadata": {
 				"id": "859e640c-c157-47da-8699-9080b81c8371",
@@ -192,7 +192,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2024.2.0",
+			"version": "2024.8.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",

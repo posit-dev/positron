@@ -302,6 +302,7 @@ def test_shutdown(de_service: DataExplorerService):
     de_service.register_table(df, "t3", comm_id=guid())
 
     de_service.shutdown()
+
     assert len(de_service.comms) == 0
     assert len(de_service.table_views) == 0
 
@@ -370,11 +371,13 @@ class DataExplorerFixture:
         self.register_table(comm_id, df)
         return self.get_schema(comm_id)
 
-    def do_json_rpc(self, table_name, method, **params):
+    def _get_comm_id(self, table_name):
         paths = self.de_service.get_paths_for_variable(table_name)
         assert len(paths) == 1
+        return list(self.de_service.path_to_comm_ids[paths[0]])[0]
 
-        comm_id = list(self.de_service.path_to_comm_ids[paths[0]])[0]
+    def do_json_rpc(self, table_name, method, **params):
+        comm_id = self._get_comm_id(table_name)
 
         request = json_rpc_request(
             method,
@@ -439,12 +442,19 @@ class DataExplorerFixture:
         return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
     def get_column_profiles(self, table_name, profiles, format_options=DEFAULT_FORMAT):
-        return self.do_json_rpc(
+        callback_id = guid()
+        result = self.do_json_rpc(
             table_name,
             "get_column_profiles",
+            callback_id=callback_id,
             profiles=profiles,
             format_options=format_options,
         )
+        assert result == {}
+
+        self.de_service.job_queue.wait_for_all()
+        comm_id = self._get_comm_id(table_name)
+        return get_column_profile_result(self.de_service, comm_id, callback_id)
 
     def check_filter_case(self, table, filter_set, expected_table):
         table_id = guid()
@@ -517,6 +527,19 @@ class DataExplorerFixture:
                 raise AssertionError(f"Indices differ at {str(different_indices)}")
 
 
+def get_column_profile_result(de_service: DataExplorerService, comm_id: str, callback_id: str):
+    comm = cast(DummyComm, de_service.comms[comm_id].comm)
+    for message in comm.messages:
+        data = message["data"]
+        if data.get("method", "") == "return_column_profiles":
+            params = data["params"]
+            result_id = params["callback_id"]
+            if result_id == callback_id:
+                return params["profiles"]
+
+    raise KeyError(callback_id)
+
+
 def _select_all(num_rows, num_columns):
     return [
         {
@@ -538,7 +561,6 @@ def dxf(
 ):
     fixture = DataExplorerFixture(shell, de_service, variables_comm)
     yield fixture
-    de_service.shutdown()
 
 
 def _wrap_json(model: Type[BaseModel], data: JsonRecords):
@@ -2052,7 +2074,9 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
 
         new_view = PandasView(
             table,
+            None,  # type: ignore
             DataExplorerState(name, row_filters=state.row_filters, sort_keys=state.sort_keys),
+            dxf.de_service.job_queue,
         )
 
         schema_updated, new_state = new_view.get_updated_state(table)

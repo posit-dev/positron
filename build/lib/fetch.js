@@ -13,6 +13,8 @@ const log = require("fancy-log");
 const ansiColors = require("ansi-colors");
 const crypto = require("crypto");
 const through2 = require("through2");
+// --- Start Positron ---
+const util_1 = require("./util");
 function fetchUrls(urls, options) {
     if (options === undefined) {
         options = {};
@@ -25,11 +27,15 @@ function fetchUrls(urls, options) {
     }
     return es.readArray(urls).pipe(es.map((data, cb) => {
         const url = [options.base, data].join('');
-        fetchUrl(url, options).then(file => {
+        // --- Start Positron ---
+        // Replace call to fetchUrl with fetchUrlQueued to limit the number of
+        // concurrent requests to OpenVSX
+        fetchUrlQueued(url, options).then(file => {
             cb(undefined, file);
         }, error => {
             cb(error);
         });
+        // --- End Positron ---
     }));
 }
 async function fetchUrl(url, options, retries = 10, retryDelay = 1000) {
@@ -135,4 +141,76 @@ function fetchGithub(repo, options) {
         }
     }));
 }
+// --- Start Positron ---
+/// A promise that fetches a URL from `fetchUrl` and returns a Vinyl file
+class FetchPromise extends util_1.PromiseHandles {
+    url;
+    options;
+    retries;
+    retryDelay;
+    constructor(url, options, retries = 10, retryDelay = 1000) {
+        super();
+        this.url = url;
+        this.options = options;
+        this.retries = retries;
+        this.retryDelay = retryDelay;
+    }
+}
+/// An array of fetch promises that are queued to be fetched
+const fetchQueue = [];
+let fetching = false;
+/**
+ * Fetches a URL using `fetchUrl` and returns a Vinyl file. This function is
+ * similar to the `fetchUrl` function it wraps, but queues the request to limit
+ * the number of concurrent requests.
+ *
+ * @param url The URL to fetch
+ * @param options The fetch options
+ * @param retries The number of retries to attempt
+ * @param retryDelay The delay between retries
+ *
+ * @returns A promise that resolves to a Vinyl file
+ */
+function fetchUrlQueued(url, options, retries = 10, retryDelay = 1000) {
+    // Create a new fetch promise and push it to the fetch queue
+    const promise = new FetchPromise(url, options, retries, retryDelay);
+    fetchQueue.push(promise);
+    // Process the fetch queue immediately (a no-op if we are already fetching)
+    processFetchQueue();
+    return promise.promise;
+}
+/// Processes the fetch queue by fetching the next URL in the queue
+function processFetchQueue() {
+    // If we are already fetching or the fetch queue is empty, do nothing
+    if (fetching) {
+        return;
+    }
+    if (fetchQueue.length === 0) {
+        return;
+    }
+    // Splice off the next URL in the queue
+    const next = fetchQueue.splice(0, 1)[0];
+    fetching = true;
+    // Determine if we should log verbose output (e.g. when running in CI)
+    const verbose = !!next.options.verbose || !!process.env['CI'] || !!process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'];
+    if (verbose) {
+        log(`[Fetch queue] start fetching ${next.url} (${fetchQueue.length} remaining)`);
+    }
+    // Perform the fetch and resolve the promise when done
+    fetchUrl(next.url, next.options, next.retries, next.retryDelay).then((vinyl) => {
+        if (verbose) {
+            log(`[Fetch queue] completed fetching ${next.url} (${fetchQueue.length} remaining)`);
+        }
+        next.resolve(vinyl);
+    }).catch((e) => {
+        if (verbose) {
+            log(`[Fetch queue] failed fetching ${next.url} (${fetchQueue.length} remaining): ${e}`);
+        }
+        next.reject(e);
+    }).finally(() => {
+        fetching = false;
+        processFetchQueue();
+    });
+}
+// --- End Positron ---
 //# sourceMappingURL=fetch.js.map

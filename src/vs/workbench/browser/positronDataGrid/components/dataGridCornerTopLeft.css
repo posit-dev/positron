@@ -6,16 +6,25 @@
 .data-grid-corner-top-left {
 	display: grid;
 	cursor: pointer;
+	position: relative;
 	box-sizing: border-box;
 	grid-row: headers / waffle;
 	grid-column: headers / waffle;
-	grid-template-columns: [start] 1fr [splitter] 1px [end];
-	border-right: 1px solid var(--vscode-positronDataGrid-border);
-	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+	grid-template-columns: [content] 1fr [splitter] 1px [end-columns];
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
-.data-grid-corner-top-left
-.vertical-splitter {
-	grid-column: splitter / end;
+.data-grid-corner-top-left .border-overlay {
+	top: 0;
+	right: 0;
+	bottom: 0;
+	left: 0;
+	position: absolute;
+	box-sizing: border-box;
+	border-right: 1px solid var(--vscode-positronDataGrid-border);
+	border-bottom: 1px solid var(--vscode-positronDataGrid-border);
+}
+
+.data-grid-corner-top-left .vertical-splitter {
+	grid-column: splitter / end-columns;
 }

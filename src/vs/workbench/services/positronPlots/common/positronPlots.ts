@@ -168,6 +168,12 @@ export interface IPositronPlotsService {
 	 */
 	savePlot(): void;
 
+	openEditor(): Promise<void>;
+
+	getEditorInstance(id: string): IPositronPlotClient | undefined;
+
+	unregisterPlotClient(plotClient: IPositronPlotClient): void;
+
 	/**
 	 * Placeholder for service initialization.
 	 */

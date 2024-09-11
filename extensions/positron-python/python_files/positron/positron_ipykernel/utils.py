@@ -4,10 +4,12 @@
 #
 
 import asyncio
+import concurrent.futures
 import inspect
 import numbers
 import pprint
 import sys
+import threading
 import types
 import uuid
 from binascii import b2a_base64
@@ -239,6 +241,48 @@ async def cancel_tasks(tasks: Set[asyncio.Task]) -> None:
         task.cancel()
     await asyncio.gather(*tasks)
     tasks.clear()
+
+
+class BackgroundJobQueue:
+    """
+    Simple threadpool-based background job queue for
+    pseudo-asynchronous request handling in kernel services.
+    """
+
+    def __init__(self, max_workers=None):
+        # Initialize the ThreadPoolExecutor with the specified number
+        # of workers
+        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        self.pending_futures = set()
+        self.lock = threading.Lock()
+
+    def submit(self, fn, *args, **kwargs):
+        # Submit a job to the thread pool and track the future
+        future = self.executor.submit(fn, *args, **kwargs)
+        with self.lock:
+            self.pending_futures.add(future)
+
+        # Attach a callback to remove the future from the pending set when done
+        future.add_done_callback(self._remove_future)
+        return future
+
+    def _remove_future(self, future):
+        # Callback to remove the future from the pending set when it's done
+        with self.lock:
+            self.pending_futures.discard(future)
+
+    def wait_for_all(self):
+        # Wait for all pending futures to complete
+        with self.lock:
+            futures = list(self.pending_futures)
+
+        for future in futures:
+            future.result()  # This will block until the future is done
+
+    def shutdown(self, wait=True):
+        # Shut down the executor and optionally wait for all running
+        # futures to complete
+        self.executor.shutdown(wait=wait)
 
 
 def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool:

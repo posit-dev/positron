@@ -9,7 +9,7 @@ import 'vs/css!./button';
 
 // React.
 import * as React from 'react';
-import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
@@ -39,6 +39,7 @@ export interface KeyboardModifiers {
 interface ButtonProps {
 	readonly hoverManager?: IHoverManager;
 	readonly className?: string;
+	readonly style?: CSSProperties | undefined;
 	readonly tabIndex?: number;
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
@@ -169,6 +170,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 				props.className,
 				{ 'disabled': props.disabled }
 			)}
+			style={props.style}
 			tabIndex={props.tabIndex ?? 0}
 			disabled={props.disabled}
 			role='button'

@@ -28,6 +28,7 @@ import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService
 import { EditorActivation, IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
@@ -190,6 +191,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	/**
 	 * Constructor.
 	 * @param _group The editor group.
+	 * @param _accessibilityService The accessibility service.
 	 * @param _clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
@@ -205,6 +207,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IClipboardService private readonly _clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -310,6 +313,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer
+						accessibilityService={this._accessibilityService}
 						clipboardService={this._clipboardService}
 						commandService={this._commandService}
 						configurationService={this._configurationService}

@@ -1,14 +1,20 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./variableOverflow';
+
+// React.
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { localize } from 'vs/nls';
 import * as platform from 'vs/base/common/platform';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
 import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
 
@@ -34,6 +40,11 @@ export interface VariableOverflowProps {
  * @returns The rendered component.
  */
 export const VariableOverflow = (props: VariableOverflowProps) => {
+	/**
+	 * Context hooks.
+	 */
+	const positronVariablesContext = usePositronVariablesContext();
+
 	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
@@ -90,6 +101,7 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 				</div>
 			</div>
 			<VerticalSplitter
+				configurationService={positronVariablesContext.configurationService}
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>
