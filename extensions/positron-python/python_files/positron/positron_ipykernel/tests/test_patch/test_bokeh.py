@@ -52,5 +52,7 @@ p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
 has_repr_html = hasattr(p, '_repr_html_') and p._repr_html_() not in (None)
 """
     )
-
+    # May be better to if the machinery inside to print an html output of the object was activated,
+    # but it's substantially easier to test this way and plumbing the mocks for testing testing the
+    # internals would be a bit more complex.
     assert not shell.ns_table["user_local"]["has_repr_html"]
