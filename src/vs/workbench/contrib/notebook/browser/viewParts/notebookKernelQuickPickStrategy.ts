@@ -729,7 +729,6 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		// since this function resolves before the kernel is selected via this.selecteKernel below.
 		const deferred = new DeferredPromise<void>();
 		// --- End Positron ---
-		quickPick.onDidAccept(async () => {
 		localDisposableStore.add(quickPick.onDidAccept(async () => {
 			if (quickPick.selectedItems && quickPick.selectedItems.length > 0 && isKernelPick(quickPick.selectedItems[0])) {
 				await this._selecteKernel(notebook, quickPick.selectedItems[0].kernel);
@@ -740,7 +739,6 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 			// --- Start Positron ---
 			deferred.complete();
 			// --- End Positron ---
-		});
 		}));
 
 		localDisposableStore.add(quickPick.onDidHide(() => {

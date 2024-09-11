@@ -29,7 +29,6 @@ import { InQuickPickContextKey } from 'vs/workbench/browser/quickaccess';
 import { FormatOnType } from 'vs/editor/contrib/format/browser/formatActions';
 import { EditorExtensionsRegistry } from 'vs/editor/browser/editorExtensions';
 import { MarkerController } from 'vs/editor/contrib/gotoError/browser/gotoError';
-import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
 import { IEditorOptions, LineNumbersType } from 'vs/editor/common/config/editorOptions';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { SuggestController } from 'vs/editor/contrib/suggest/browser/suggestController';
@@ -48,6 +47,7 @@ import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
 import { IPositronConsoleInstance, PositronConsoleState } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { ContentHoverController } from 'vs/editor/contrib/hover/browser/contentHoverController2';
 
 // Position enumeration.
 const enum Position {
@@ -657,7 +657,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					SuggestController.ID,
 					SnippetController2.ID,
 					TabCompletionController.ID,
-					HoverController.ID,
+					ContentHoverController.ID,
 					MarkerController.ID,
 					ParameterHintsController.ID,
 					FormatOnType.ID,
