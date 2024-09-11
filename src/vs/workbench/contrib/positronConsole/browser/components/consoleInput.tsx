@@ -621,6 +621,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				fixedOverflowWidgets: true,
 				lineDecorationsWidth: '1.0ch',
 				renderLineHighlight: 'none',
+				renderFinalNewline: 'on',
 				wordWrap: 'bounded',
 				wordWrapColumn: 2048,
 				scrollbar: {
