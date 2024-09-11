@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html>
 	<head>
+		<!-- Start PWB: serve same origin -->
 		<meta http-equiv="Content-Security-Policy" content="
 			default-src 'none';
 			child-src 'self' data: blob:;
-			script-src 'self' 'unsafe-eval' 'sha256-++yLFGtZAMsPOtftkIktNKpSEupSQGmZufZGVEWmSu4=' https: http://localhost:* blob:;
+			script-src 'self' 'unsafe-eval' 'sha256-8E6fG+G1zD7AG0qI0zVe9p7PPsYL3YA7kjTGIzQdp7s=' https:;
 			connect-src 'self' https: wss: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:*;"/>
+		<!-- End PWB: serve same origin -->
 	</head>
 	<body>
 	<script>
@@ -23,6 +25,14 @@
 			// validation not requested
 			return start();
 		}
+		// --- Start PWB: server same origin ---
+		if (parentOrigin) {
+			const parent = new URL(parentOrigin);
+			if (parent.hostname === hostname) {
+				return start(parentOrigin);
+			}
+		}
+		// --- End PWB: server same origin ---
 		if (!crypto.subtle) {
 			// cannot validate, not running in a secure context
 			return sendError(new Error(`Cannot validate in current context!`));

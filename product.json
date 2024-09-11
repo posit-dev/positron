@@ -220,6 +220,16 @@
 				},
 				"publisherDisplayName": "Quarto"
 			}
+		},
+		{
+			"name": "rstudio.rstudio-workbench",
+			"version": "1.5.7",
+			"s3Bucket": "rsw-vscode-extension",
+			"type": "reh-web",
+			"sha256": "9ac536b65c91fd86274fe2cbb2ea2c381e13ba309027044bc98438730c4fa66c",
+			"metadata": {
+				"publisherDisplayName": "Posit PBC"
+			}
 		}
 	],
 	"extensionsGallery": {

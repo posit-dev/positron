@@ -33,6 +33,18 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	 */
 	readonly options?: IWorkbenchConstructionOptions;
 
+	// --- Start PWB: disable file downloads ---
+	/**
+	 * Enable downloading files via menu actions.
+	 */
+	readonly isEnabledFileDownloads?: boolean;
+
+	/**
+	 * Enable uploading files via menu actions.
+	 */
+	readonly isEnabledFileUploads?: boolean;
+	// --- End PWB ---
+
 	/**
 	 * Gets whether a resolver extension is expected for the environment.
 	 */
@@ -102,7 +114,32 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	get logFile(): URI { return joinPath(this.windowLogsPath, 'window.log'); }
 
 	@memoize
-	get userRoamingDataHome(): URI { return URI.file('/User').with({ scheme: Schemas.vscodeUserData }); }
+	// -- Start PWB: Local storage ---
+	get userRoamingDataHome(): URI { return joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User'); }
+
+	get userDataPath(): string {
+		if (!this.options.userDataPath) {
+			throw new Error('userDataPath was not provided to the browser');
+		}
+		return this.options.userDataPath;
+	}
+	// --- End PWB ---
+
+	// --- Start PWB: disable file downloads ---
+	get isEnabledFileDownloads(): boolean {
+		if (typeof this.options.isEnabledFileDownloads === 'undefined') {
+			throw new Error('isEnabledFileDownloads was not provided to the browser');
+		}
+		return this.options.isEnabledFileDownloads;
+	}
+
+	get isEnabledFileUploads(): boolean {
+		if (typeof this.options.isEnabledFileUploads === 'undefined') {
+			throw new Error('isEnabledFileUploads was not provided to the browser');
+		}
+		return this.options.isEnabledFileUploads;
+	}
+	// --- End PWB ---
 
 	@memoize
 	get argvResource(): URI { return joinPath(this.userRoamingDataHome, 'argv.json'); }
@@ -225,9 +262,11 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	get webviewExternalEndpoint(): string {
-		const endpoint = this.options.webviewEndpoint
+		// --- Start PWB: serve same origin ---
+		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, window.location.toString()).toString())
 			|| this.productService.webviewContentExternalBaseUrlTemplate
 			|| 'https://{{uuid}}.vscode-cdn.net/{{quality}}/{{commit}}/out/vs/workbench/contrib/webview/browser/pre/';
+		// --- End PWB: serve same origin ---
 
 		const webviewExternalEndpointCommit = this.payload?.get('webviewExternalEndpointCommit');
 		return endpoint

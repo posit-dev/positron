@@ -343,6 +343,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const marketplaceExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).builtInExtensions
 			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
 			.filter(entry => !entry.clientOnly)
+			// --- Start PWB ---
+			// If an entry specifies a type, ensure that the type specified
+			// matches the type we're building. We use this to prevent the
+			// Workbench extension from being bundled in non-web releases.
+			.filter(entry => !entry.type || entry.type === type)
+			// --- End PWB ---
 			.map(entry => entry.name);
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);

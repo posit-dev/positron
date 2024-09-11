@@ -4,9 +4,10 @@
 <head>
 	<meta charset="UTF-8">
 
+	<!-- Start PWB: serve same origin -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-DXeP32g8BdMsVuVabYTmznoTH59F7M7UtV0vXemEFqc=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
-
+		content="default-src 'none'; script-src 'sha256-+ovIJoRj7d8FrfIuAWHjH1mece4hgyIcSOKA1OlOO+4=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+	<!-- End PWB: serve same origin -->
 
 	<!-- Disable pinch zooming -->
 	<meta name="viewport"
@@ -348,6 +349,15 @@
 				const parentOrigin = searchParams.get('parentOrigin');
 
 				const hostname = location.hostname;
+
+				// --- Start PWB: server same origin ---
+				if (parentOrigin) {
+					const parent = new URL(parentOrigin);
+					if (parent.hostname === hostname) {
+						return start(parentOrigin);
+					}
+				}
+				// --- End PWB: server same origin ---
 
 				if (!crypto.subtle) {
 					// cannot validate, not running in a secure context

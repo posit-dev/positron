@@ -313,16 +313,9 @@ function extensionDescriptionArrayToMap(extensions: IExtensionDescription[]): Ex
 }
 
 export function isProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): boolean {
-	// --- Start Positron ---
-	// Enable all proposed APIs for builtin extensions.
-	if (extension.isBuiltin) {
-		return true;
-	}
-	// --- End Positron ---
-	if (!extension.enabledApiProposals) {
-		return false;
-	}
-	return extension.enabledApiProposals.includes(proposal);
+	// --- Start PWB: Always allow proposed API
+	return true;
+	// --- End PWB
 }
 
 export function checkProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): void {

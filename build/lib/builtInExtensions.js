@@ -46,6 +46,13 @@ function isUpToDate(extension) {
     }
 }
 function getExtensionDownloadStream(extension) {
+    // --- Start PWB: Bundle PWB extension ---
+    // the PWB extension is a special case because it's not availble from the marketplace or github
+    if (extension.name === 'rstudio.rstudio-workbench') {
+        return ext.fromS3Bucket(extension)
+            .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
+    }
+    // --- End PWB: Bundle PWB extension ---
     // --- Start Positron ---
     const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
     return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))

@@ -318,6 +318,13 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			.pipe(util.setExecutableBit(['**/*.sh']));
 
 		const platformSpecificBuiltInExtensionsExclusions = product.builtInExtensions.filter(ext => {
+			// --- Start PWB ---
+			// Don't bundle reh-web extensions here. We bundle them for the
+			// remote web gulp build targets (see gulpfile.reh.js)
+			if (ext.type === 'reh-web') {
+				return true;
+			}
+			// --- End PWB ---
 			if (!ext.platforms) {
 				return false;
 			}

@@ -65,6 +65,9 @@ import { timeout } from 'vs/base/common/async';
 import { IFilesConfigurationService } from 'vs/workbench/services/filesConfiguration/common/filesConfigurationService';
 import { mainWindow } from 'vs/base/browser/window';
 import { IExplorerFileContribution, explorerFileContribRegistry } from 'vs/workbench/contrib/files/browser/explorerFileContrib';
+// --- Start PWB: disable file downloads ---
+import { IBrowserWorkbenchEnvironmentService } from 'vs/workbench/services/environment/browser/environmentService';
+// --- End PWB ---
 
 export class ExplorerDelegate implements IListVirtualDelegate<ExplorerItem> {
 
@@ -1005,7 +1008,10 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 		@IConfigurationService private configurationService: IConfigurationService,
 		@IInstantiationService private instantiationService: IInstantiationService,
 		@IWorkspaceEditingService private workspaceEditingService: IWorkspaceEditingService,
-		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService
+		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
+		// --- Start PWB: disable file downloads ---
+		@IBrowserWorkbenchEnvironmentService protected readonly environmentService: IBrowserWorkbenchEnvironmentService
+		// --- End PWB ---
 	) {
 		const updateDropEnablement = (e: IConfigurationChangeEvent | undefined) => {
 			if (!e || e.affectsConfiguration('explorer.enableDragAndDrop')) {
@@ -1230,15 +1236,19 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 
 			// External file DND (Import/Upload file)
 			if (data instanceof NativeDragAndDropData) {
-				// Use local file import when supported
-				if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
-					const fileImport = this.instantiationService.createInstance(ExternalFileImport);
-					await fileImport.import(resolvedTarget, originalEvent, mainWindow);
-				}
-				// Otherwise fallback to browser based file upload
-				else {
-					const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
-					await browserUpload.upload(target, originalEvent);
+				// --- Start PWB: disable file downloads ---
+				if (this.environmentService.isEnabledFileUploads) {
+					// Use local file import when supported
+					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
+						const fileImport = this.instantiationService.createInstance(ExternalFileImport);
+						await fileImport.import(resolvedTarget, originalEvent, mainWindow);
+					}
+					// Otherwise fallback to browser based file upload
+					else {
+						const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
+						await browserUpload.upload(target, originalEvent);
+					}
+					// --- End PWB ---
 				}
 			}
 
