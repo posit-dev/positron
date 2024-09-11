@@ -6,7 +6,9 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronRunAppApi, RunAppOptions } from './positron-run-app';
-import { findFreePort, randomPort, waitForPortConnection } from './ports';
+import { raceTimeout } from './utils';
+
+const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
 
 export const log = vscode.window.createOutputChannel('Positron App Runners', { log: true });
 
@@ -29,15 +31,11 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 			await document.save();
 		}
 
-		// TODO: Check for a port setting?
-		// TODO: Cache used port?
-		const port = await findFreePort(randomPort(), 10, 3000);
-
 		const oldTerminals = vscode.window.terminals.filter((t) => t.name === options.label);
 
 		const runtime = await positron.runtime.getPreferredRuntime(options.languageId);
 
-		const commandOptions = await options.getRunCommand(runtime.runtimePath, document, port);
+		const commandOptions = await options.getRunCommand(runtime.runtimePath, document);
 		if (!commandOptions) {
 			return;
 		}
@@ -66,24 +64,49 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		});
 		await Promise.allSettled(closingTerminals);
 
+		positron.window.previewUrl(vscode.Uri.parse('about:blank'));
+
+		const shellIntegration = await new Promise<vscode.TerminalShellIntegration>(resolve => {
+			const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
+				if (e.terminal === terminal) {
+					disposable.dispose();
+					resolve(e.shellIntegration);
+				}
+			});
+		});
 		// TODO: Escape the command for the terminal.
 		// const cmdline = escapeCommandForTerminal(terminal, python, args);
 		console.log('Command:', commandOptions.command);
-		terminal.sendText(commandOptions.command);
+		const execution = shellIntegration.executeCommand(commandOptions.command);
 
-		positron.window.previewUrl(vscode.Uri.parse('about:blank'));
-
-		// TODO: Handle being in workbench.
-		const localUri = vscode.Uri.parse(commandOptions.url ?? `http://localhost:${port}`);
-		let uri: vscode.Uri;
-		try {
-			uri = await vscode.env.asExternalUri(localUri);
-		} catch (error) {
-			uri = localUri;
+		// Wait for the server URL to appear in the terminal output, or a timeout.
+		const stream = execution.read();
+		const url = await raceTimeout(waitForUrl(stream), 5000);
+		if (!url) {
+			throw new Error('Timed out waiting for server URL in terminal output');
 		}
 
-		await waitForPortConnection(port, 10_000);
-
-		positron.window.previewUrl(uri);
+		const localBaseUri = vscode.Uri.parse(url.toString());
+		const localUri = commandOptions.path ?
+			vscode.Uri.joinPath(localBaseUri, commandOptions.path) : localBaseUri;
+		const externalUri = await vscode.env.asExternalUri(localUri);
+		positron.window.previewUrl(externalUri);
 	}
+}
+
+async function waitForUrl(stream: AsyncIterable<string>): Promise<URL> {
+	for await (const data of stream) {
+		log.debug(`Data: ${data}`);
+		const match = data.match(localUrlRegex)?.[0];
+		log.debug(`Match: ${Boolean(match)}`);
+		if (match) {
+			try {
+				return new URL(match);
+			} catch (e) {
+				log.debug(`Ignoring invalid URL: ${data}`);
+				// Not a valid URL
+			}
+		}
+	}
+	throw new Error('No URL found in stream');
 }

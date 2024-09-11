@@ -121,15 +121,13 @@ export async function activatePositron(
                 await runApplication({
                     label: 'Shiny',
                     languageId: 'python',
-                    getRunCommand(runtimePath, document, port) {
+                    getRunCommand(runtimePath, document) {
                         return {
                             command: [
                                 runtimePath,
                                 '-m',
                                 'shiny',
                                 'run',
-                                '--port',
-                                port.toString(),
                                 '--reload',
                                 // TODO: --autoreload-port
                                 document.uri.fsPath,
@@ -142,7 +140,7 @@ export async function activatePositron(
                 await runApplication({
                     label: 'Streamlit',
                     languageId: 'python',
-                    async getRunCommand(runtimePath, document, port) {
+                    async getRunCommand(runtimePath, document) {
                         return {
                             command: [
                                 runtimePath,
@@ -150,8 +148,6 @@ export async function activatePositron(
                                 'streamlit',
                                 'run',
                                 document.uri.fsPath,
-                                '--server.port',
-                                port.toString(),
                                 '--server.headless',
                                 'true',
                             ].join(' '),
@@ -163,14 +159,9 @@ export async function activatePositron(
                 await runApplication({
                     label: 'Dash',
                     languageId: 'python',
-                    getRunCommand(runtimePath, document, port) {
+                    getRunCommand(runtimePath, document) {
                         return {
                             command: [runtimePath, document.uri.fsPath].join(' '),
-                            env: {
-                                PORT: port.toString(),
-                                // TODO: Workbench
-                                // DASH_REQUESTS_PATHNAME_PREFIX: '',
-                            },
                         };
                     },
                 });
@@ -179,12 +170,9 @@ export async function activatePositron(
                 await runApplication({
                     label: 'Gradio',
                     languageId: 'python',
-                    getRunCommand(runtimePath, document, port) {
+                    getRunCommand(runtimePath, document) {
                         return {
                             command: [runtimePath, document.uri.fsPath].join(' '),
-                            env: {
-                                GRADIO_SERVER_PORT: port.toString(),
-                            },
                         };
                     },
                 });
@@ -193,7 +181,7 @@ export async function activatePositron(
                 await runApplication({
                     label: 'FastAPI',
                     languageId: 'python',
-                    async getRunCommand(runtimePath, document, port) {
+                    async getRunCommand(runtimePath, document) {
                         const appName = await getAppName(document, 'FastAPI');
                         if (!appName) {
                             return undefined;
@@ -204,10 +192,8 @@ export async function activatePositron(
                                 '-m',
                                 'uvicorn',
                                 `${pathToModule(document.uri.fsPath)}:${appName}`,
-                                '--port',
-                                port.toString(),
                             ].join(' '),
-                            url: `http://localhost:${port}/docs`,
+                            path: 'docs',
                         };
                     },
                 });
@@ -216,7 +202,7 @@ export async function activatePositron(
                 await runApplication({
                     label: 'Flask',
                     languageId: 'python',
-                    async getRunCommand(runtimePath, document, port) {
+                    async getRunCommand(runtimePath, document) {
                         const appName = await getAppName(document, 'Flask');
                         if (!appName) {
                             return undefined;
@@ -229,8 +215,6 @@ export async function activatePositron(
                                 '--app',
                                 `${pathToModule(document.uri.fsPath)}:${appName}`,
                                 'run',
-                                '--port',
-                                port.toString(),
                             ].join(' '),
                         };
                     },

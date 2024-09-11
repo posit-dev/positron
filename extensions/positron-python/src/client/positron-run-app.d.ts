@@ -5,13 +5,10 @@
 
 import * as vscode from 'vscode';
 
-// eslint-disable-next-line import/no-unresolved
-import * as positron from 'positron';
-
 export interface RunAppCommand {
     command: string;
     env?: { [key: string]: string | null | undefined };
-    url?: string;
+    path?: string;
 }
 
 export interface RunAppOptions {
@@ -20,7 +17,6 @@ export interface RunAppOptions {
     getRunCommand(
         runtimePath: string,
         document: vscode.TextDocument,
-        port: number,
     ): RunAppCommand | undefined | Promise<RunAppCommand | undefined>;
 }
 

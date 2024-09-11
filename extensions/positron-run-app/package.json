@@ -11,6 +11,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "enabledApiProposals": [
+    "terminalShellIntegration"
+  ],
   "contributes": {
     "commands": [
     ]
