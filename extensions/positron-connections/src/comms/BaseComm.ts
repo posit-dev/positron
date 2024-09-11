@@ -183,7 +183,8 @@ export class PositronBaseComm {
 			const error: PositronCommError = {
 				code: JsonRpcErrorCode.InternalError,
 				message:
-					`Invalid response from ${this.clientInstance.getClientId()}: ` +
+					`Invalid response from ${this.clientInstance.getClientId()}` +
+					` (${this.clientInstance.getClientType()}):` +
 					`no 'result' field. ` +
 					`(response = ${JSON.stringify(response)})`,
 				name: `InvalidResponseError`,
