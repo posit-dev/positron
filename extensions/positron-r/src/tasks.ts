@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as os from 'os';
 import { RSessionManager } from './session-manager';
 import { getPandocPath } from './pandoc';
+import { getEnvVars } from './session';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -37,25 +38,29 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			task: 'r.task.packageCheck',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
 			rcode: 'devtools::check()',
-			package: 'devtools'
+			package: 'devtools',
+			envVars: null
 		},
 		{
 			task: 'r.task.packageInstall',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Install R package' }),
 			rcode: 'pak::local_install(upgrade = FALSE)',
-			package: 'pak'
+			package: 'pak',
+			envVars: null
 		},
 		{
 			task: 'r.task.packageTest',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
 			rcode: 'devtools::test()',
-			package: 'devtools'
+			package: 'devtools',
+			envVars: await getEnvVars(['TESTTHAT_MAX_FAILS'])
 		},
 		{
 			task: 'r.task.rmarkdownRender',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
 			rcode: `rmarkdown::render("${editorFilePath}")`,
-			package: 'rmarkdown'
+			package: 'rmarkdown',
+			envVars: null
 		}
 	];
 
@@ -68,6 +73,9 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	}
 
 	return taskData.map(data => {
+		if (data.envVars) {
+			Object.assign(env, data.envVars);
+		}
 		let exec: vscode.ProcessExecution | vscode.ShellExecution;
 		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
 			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
