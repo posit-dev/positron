@@ -35,14 +35,13 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 
 		const runtime = await positron.runtime.getPreferredRuntime(options.languageId);
 
-		const commandOptions = await options.getRunCommand(runtime.runtimePath, document);
-		if (!commandOptions) {
+		const command = await options.getRunCommand(runtime.runtimePath, document);
+		if (!command) {
 			return;
 		}
 
 		const terminal = vscode.window.createTerminal({
 			name: options.label,
-			env: commandOptions.env,
 		});
 		terminal.show(true);
 
@@ -76,8 +75,8 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		});
 		// TODO: Escape the command for the terminal.
 		// const cmdline = escapeCommandForTerminal(terminal, python, args);
-		console.log('Command:', commandOptions.command);
-		const execution = shellIntegration.executeCommand(commandOptions.command);
+		console.log('Command:', command);
+		const execution = shellIntegration.executeCommand(command);
 
 		// Wait for the server URL to appear in the terminal output, or a timeout.
 		const stream = execution.read();
@@ -87,8 +86,8 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		}
 
 		const localBaseUri = vscode.Uri.parse(url.toString());
-		const localUri = commandOptions.path ?
-			vscode.Uri.joinPath(localBaseUri, commandOptions.path) : localBaseUri;
+		const localUri = options.urlPath ?
+			vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
 		const externalUri = await vscode.env.asExternalUri(localUri);
 		positron.window.previewUrl(externalUri);
 	}

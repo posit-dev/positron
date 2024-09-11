@@ -5,16 +5,11 @@
 
 import * as vscode from 'vscode';
 
-export interface RunAppCommand {
-	command: string;
-	env?: { [key: string]: string | null | undefined };
-	path?: string;
-}
-
 export interface RunAppOptions {
 	label: string;
 	languageId: string;
-	getRunCommand(runtimePath: string, document: vscode.TextDocument): Promise<RunAppCommand | undefined>;
+	urlPath?: string;
+	getRunCommand(runtimePath: string, document: vscode.TextDocument): string | undefined | Promise<string | undefined>;
 }
 
 export interface PositronRunAppApi {

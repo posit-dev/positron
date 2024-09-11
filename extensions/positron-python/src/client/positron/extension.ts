@@ -122,17 +122,15 @@ export async function activatePositron(
                     label: 'Shiny',
                     languageId: 'python',
                     getRunCommand(runtimePath, document) {
-                        return {
-                            command: [
-                                runtimePath,
-                                '-m',
-                                'shiny',
-                                'run',
-                                '--reload',
-                                // TODO: --autoreload-port
-                                document.uri.fsPath,
-                            ].join(' '),
-                        };
+                        return [
+                            runtimePath,
+                            '-m',
+                            'shiny',
+                            'run',
+                            '--reload',
+                            // TODO: --autoreload-port
+                            document.uri.fsPath,
+                        ].join(' ');
                     },
                 });
             }),
@@ -141,17 +139,15 @@ export async function activatePositron(
                     label: 'Streamlit',
                     languageId: 'python',
                     async getRunCommand(runtimePath, document) {
-                        return {
-                            command: [
-                                runtimePath,
-                                '-m',
-                                'streamlit',
-                                'run',
-                                document.uri.fsPath,
-                                '--server.headless',
-                                'true',
-                            ].join(' '),
-                        };
+                        return [
+                            runtimePath,
+                            '-m',
+                            'streamlit',
+                            'run',
+                            document.uri.fsPath,
+                            '--server.headless',
+                            'true',
+                        ].join(' ');
                     },
                 });
             }),
@@ -160,9 +156,7 @@ export async function activatePositron(
                     label: 'Dash',
                     languageId: 'python',
                     getRunCommand(runtimePath, document) {
-                        return {
-                            command: [runtimePath, document.uri.fsPath].join(' '),
-                        };
+                        return [runtimePath, document.uri.fsPath].join(' ');
                     },
                 });
             }),
@@ -171,9 +165,7 @@ export async function activatePositron(
                     label: 'Gradio',
                     languageId: 'python',
                     getRunCommand(runtimePath, document) {
-                        return {
-                            command: [runtimePath, document.uri.fsPath].join(' '),
-                        };
+                        return [runtimePath, document.uri.fsPath].join(' ');
                     },
                 });
             }),
@@ -186,15 +178,9 @@ export async function activatePositron(
                         if (!appName) {
                             return undefined;
                         }
-                        return {
-                            command: [
-                                runtimePath,
-                                '-m',
-                                'uvicorn',
-                                `${pathToModule(document.uri.fsPath)}:${appName}`,
-                            ].join(' '),
-                            path: 'docs',
-                        };
+                        return [runtimePath, '-m', 'uvicorn', `${pathToModule(document.uri.fsPath)}:${appName}`].join(
+                            ' ',
+                        );
                     },
                 });
             }),
@@ -207,16 +193,14 @@ export async function activatePositron(
                         if (!appName) {
                             return undefined;
                         }
-                        return {
-                            command: [
-                                runtimePath,
-                                '-m',
-                                'flask',
-                                '--app',
-                                `${pathToModule(document.uri.fsPath)}:${appName}`,
-                                'run',
-                            ].join(' '),
-                        };
+                        return [
+                            runtimePath,
+                            '-m',
+                            'flask',
+                            '--app',
+                            `${pathToModule(document.uri.fsPath)}:${appName}`,
+                            'run',
+                        ].join(' ');
                     },
                 });
             }),
