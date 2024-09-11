@@ -126,7 +126,7 @@ def test_show_help(
     assert data["method"] == HelpFrontendEvent.ShowHelp.value
 
     params = data["params"]
-    assert params["kind"] == "1234"
+    assert params["kind"] == "url"
     assert params["focus"]
     prefix = f"{url}get?key="
     assert params["content"].startswith(prefix)
