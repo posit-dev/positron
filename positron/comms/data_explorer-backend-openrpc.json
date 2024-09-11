@@ -750,6 +750,7 @@
 				"description": "Type of string text search filter to perform",
 				"enum": [
 					"contains",
+					"not_contains",
 					"starts_with",
 					"ends_with",
 					"regex_match"
