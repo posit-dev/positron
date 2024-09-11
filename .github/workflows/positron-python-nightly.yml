@@ -138,5 +138,5 @@ jobs:
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: "C07FR1JNZNJ"
+          slack_channel: C07FR1JNZNJ
 
