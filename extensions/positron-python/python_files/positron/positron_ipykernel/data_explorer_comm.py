@@ -112,6 +112,8 @@ class TextSearchType(str, enum.Enum):
 
     Contains = "contains"
 
+    NotContains = "not_contains"
+
     StartsWith = "starts_with"
 
     EndsWith = "ends_with"

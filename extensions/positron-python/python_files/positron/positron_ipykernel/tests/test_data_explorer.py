@@ -1537,6 +1537,20 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         ),
         ("contains", schema[0], "foo", True, df["a"].str.contains("foo")),
         (
+            "not_contains",
+            schema[0],
+            "foo",
+            False,
+            ~df["a"].str.lower().str.contains("foo", na=True),
+        ),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            True,
+            ~df["a"].str.contains("foo", na=True),
+        ),
+        (
             "starts_with",
             schema[0],
             "foo",
@@ -2282,7 +2296,12 @@ def _get_histogram(column_index, bins=2000, method="fixed"):
 def _get_frequency_table(column_index, limit):
     return _profile_request(
         column_index,
-        [{"profile_type": "small_frequency_table", "params": {"limit": limit}}],
+        [
+            {
+                "profile_type": "small_frequency_table",
+                "params": {"limit": limit},
+            }
+        ],
     )
 
 
