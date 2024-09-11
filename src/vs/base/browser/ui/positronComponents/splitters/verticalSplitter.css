@@ -27,15 +27,6 @@
 	justify-content: center;
 }
 
-.vertical-splitter .sash-hovering {
-	transition: background-color 0.1s ease-out;
-	background-color: var(--vscode-focusBorder);
-}
-
-.vertical-splitter .sash-resizing {
-	background-color: var(--vscode-focusBorder);
-}
-
 .vertical-splitter .sash .sash-indicator {
 	height: 100%;
 	position: relative;
@@ -43,7 +34,8 @@
 
 .vertical-splitter .sash .sash-indicator.hovering {
 	transition: background-color 0.1s ease-out;
-	background-color: var(--vscode-sash-hoverBorder);}
+	background-color: var(--vscode-sash-hoverBorder);
+}
 
 .vertical-splitter .sash .sash-indicator.resizing {
 	background-color: var(--vscode-sash-hoverBorder);
