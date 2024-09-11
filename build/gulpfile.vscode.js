@@ -125,7 +125,10 @@ const vscodeResourceIncludes = isESM() ? [
 	// Issue Reporter
 	'out-build/vs/workbench/contrib/issue/electron-sandbox/issueReporter.esm.html'
 ] : [
->>>>>>> 48a8e4be382 (Upstream Code OSS changes from 1.92.0 to 1.93.0)
+	// --- Start Positron ---
+	'out-build/react-dom/client.js',
+	// --- End Positron ---
+
 	'out-build/nls.messages.json',
 	'out-build/nls.keys.json',
 	'out-build/vs/**/*.{svg,png,html,jpg,mp3}',
