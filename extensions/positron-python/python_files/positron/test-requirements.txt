@@ -1,3 +1,4 @@
+bokeh
 fastcore
 geopandas
 holoviews
