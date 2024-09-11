@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 // eslint-disable-next-line import/no-unresolved
-import * as positron from 'positron';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
@@ -20,6 +19,7 @@ import { isProblematicCondaEnvironment } from '../interpreter/configuration/envi
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection } from './webAppContexts';
+import { PositronRunAppApi, RunAppOptions } from '../positron-run-app.d';
 
 export async function activatePositron(
     serviceContainer: IServiceContainer,
@@ -117,129 +117,124 @@ export async function activatePositron(
         // Register a command to run Streamlit.
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
         disposables.push(
-            positron.applications.registerApplicationRunner('python.shiny', {
-                label: 'Shiny',
-                languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    return {
-                        command: [
-                            runtimePath,
-                            '-m',
-                            'shiny',
-                            'run',
-                            '--port',
-                            port.toString(),
-                            '--reload',
-                            // TODO: --autoreload-port
-                            document.uri.fsPath,
-                        ].join(' '),
-                    };
-                },
-            }),
-            positron.applications.registerApplicationRunner('python.streamlit', {
-                label: 'Streamlit',
-                languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    return {
-                        command: [
-                            runtimePath,
-                            '-m',
-                            'streamlit',
-                            'run',
-                            document.uri.fsPath,
-                            '--server.port',
-                            port.toString(),
-                            '--server.headless',
-                            'true',
-                        ].join(' '),
-                    };
-                },
-            }),
-            positron.applications.registerApplicationRunner('python.dash', {
-                label: 'Dash',
-                languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    return {
-                        command: [runtimePath, document.uri.fsPath].join(' '),
-                        env: {
-                            PORT: port.toString(),
-                        },
-                    };
-                },
-            }),
-            positron.applications.registerApplicationRunner('python.gradio', {
-                label: 'Gradio',
-                languageId: 'python',
-                getRunOptions(runtimePath, document, port) {
-                    return {
-                        command: [runtimePath, document.uri.fsPath].join(' '),
-                        env: {
-                            GRADIO_SERVER_PORT: port.toString(),
-                        },
-                    };
-                },
-            }),
-            positron.applications.registerApplicationRunner('python.fastapi', {
-                label: 'FastAPI',
-                languageId: 'python',
-                async getRunOptions(runtimePath, document, port) {
-                    const appName = await getAppName(document, 'FastAPI');
-                    if (!appName) {
-                        return undefined;
-                    }
-                    return {
-                        command: [
-                            runtimePath,
-                            '-m',
-                            'uvicorn',
-                            `${pathToModule(document.uri.fsPath)}:${appName}`,
-                            '--port',
-                            port.toString(),
-                        ].join(' '),
-                        url: `http://localhost:${port}/docs`,
-                    };
-                },
-            }),
-            positron.applications.registerApplicationRunner('python.flask', {
-                label: 'Flask',
-                languageId: 'python',
-                async getRunOptions(runtimePath, document, port) {
-                    const appName = await getAppName(document, 'Flask');
-                    if (!appName) {
-                        return undefined;
-                    }
-                    return {
-                        command: [
-                            runtimePath,
-                            '-m',
-                            'flask',
-                            '--app',
-                            `${pathToModule(document.uri.fsPath)}:${appName}`,
-                            'run',
-                            '--port',
-                            port.toString(),
-                        ].join(' '),
-                    };
-                },
-            }),
-
             vscode.commands.registerCommand('python.runShinyApp', async () => {
-                await positron.applications.runApplication('python.shiny');
+                await runApplication({
+                    label: 'Shiny',
+                    languageId: 'python',
+                    getRunCommand(runtimePath, document, port) {
+                        return {
+                            command: [
+                                runtimePath,
+                                '-m',
+                                'shiny',
+                                'run',
+                                '--port',
+                                port.toString(),
+                                '--reload',
+                                // TODO: --autoreload-port
+                                document.uri.fsPath,
+                            ].join(' '),
+                        };
+                    },
+                });
             }),
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                await positron.applications.runApplication('python.streamlit');
+                await runApplication({
+                    label: 'Streamlit',
+                    languageId: 'python',
+                    async getRunCommand(runtimePath, document, port) {
+                        return {
+                            command: [
+                                runtimePath,
+                                '-m',
+                                'streamlit',
+                                'run',
+                                document.uri.fsPath,
+                                '--server.port',
+                                port.toString(),
+                                '--server.headless',
+                                'true',
+                            ].join(' '),
+                        };
+                    },
+                });
             }),
             vscode.commands.registerCommand('python.runDashApp', async () => {
-                await positron.applications.runApplication('python.dash');
+                await runApplication({
+                    label: 'Dash',
+                    languageId: 'python',
+                    getRunCommand(runtimePath, document, port) {
+                        return {
+                            command: [runtimePath, document.uri.fsPath].join(' '),
+                            env: {
+                                PORT: port.toString(),
+                                // TODO: Workbench
+                                // DASH_REQUESTS_PATHNAME_PREFIX: '',
+                            },
+                        };
+                    },
+                });
             }),
             vscode.commands.registerCommand('python.runGradioApp', async () => {
-                await positron.applications.runApplication('python.gradio');
+                await runApplication({
+                    label: 'Gradio',
+                    languageId: 'python',
+                    getRunCommand(runtimePath, document, port) {
+                        return {
+                            command: [runtimePath, document.uri.fsPath].join(' '),
+                            env: {
+                                GRADIO_SERVER_PORT: port.toString(),
+                            },
+                        };
+                    },
+                });
             }),
             vscode.commands.registerCommand('python.runFastAPIApp', async () => {
-                await positron.applications.runApplication('python.fastapi');
+                await runApplication({
+                    label: 'FastAPI',
+                    languageId: 'python',
+                    async getRunCommand(runtimePath, document, port) {
+                        const appName = await getAppName(document, 'FastAPI');
+                        if (!appName) {
+                            return undefined;
+                        }
+                        return {
+                            command: [
+                                runtimePath,
+                                '-m',
+                                'uvicorn',
+                                `${pathToModule(document.uri.fsPath)}:${appName}`,
+                                '--port',
+                                port.toString(),
+                            ].join(' '),
+                            url: `http://localhost:${port}/docs`,
+                        };
+                    },
+                });
             }),
             vscode.commands.registerCommand('python.runFlaskApp', async () => {
-                await positron.applications.runApplication('python.flask');
+                await runApplication({
+                    label: 'Flask',
+                    languageId: 'python',
+                    async getRunCommand(runtimePath, document, port) {
+                        const appName = await getAppName(document, 'Flask');
+                        if (!appName) {
+                            return undefined;
+                        }
+                        return {
+                            command: [
+                                runtimePath,
+                                '-m',
+                                'flask',
+                                '--app',
+                                `${pathToModule(document.uri.fsPath)}:${appName}`,
+                                'run',
+                                '--port',
+                                port.toString(),
+                            ].join(' '),
+                        };
+                    },
+                });
             }),
         );
         traceInfo('activatePositron: done!');
@@ -316,4 +311,13 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
         }
     }
     return appName;
+}
+
+async function runApplication(options: RunAppOptions): Promise<void> {
+    const ext = vscode.extensions.getExtension<PositronRunAppApi>('vscode.positron-run-app');
+    if (!ext) {
+        throw new Error('vscode.positron-run-app extension not found');
+    }
+    const api = await ext.activate();
+    return api.runApplication(options);
 }
