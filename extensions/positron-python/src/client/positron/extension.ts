@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
@@ -19,7 +20,7 @@ import { isProblematicCondaEnvironment } from '../interpreter/configuration/envi
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection } from './webAppContexts';
-import { PositronRunAppApi, RunAppOptions } from '../positron-run-app.d';
+import { PositronRunAppApi } from '../positron-run-app.d';
 
 export async function activatePositron(
     serviceContainer: IServiceContainer,
@@ -118,90 +119,69 @@ export async function activatePositron(
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
         disposables.push(
             vscode.commands.registerCommand('python.runShinyApp', async () => {
-                await runApplication({
-                    label: 'Shiny',
-                    languageId: 'python',
-                    getRunCommand(runtimePath, document) {
-                        return [
-                            runtimePath,
-                            '-m',
-                            'shiny',
-                            'run',
-                            '--reload',
-                            // TODO: --autoreload-port
-                            document.uri.fsPath,
-                        ].join(' ');
-                    },
-                });
+                await runApplication('Shiny', (runtime, document) =>
+                    [
+                        runtime.runtimePath,
+                        '-m',
+                        'shiny',
+                        'run',
+                        '--reload',
+                        // TODO: --autoreload-port
+                        document.uri.fsPath,
+                    ].join(' '),
+                );
             }),
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                await runApplication({
-                    label: 'Streamlit',
-                    languageId: 'python',
-                    async getRunCommand(runtimePath, document) {
-                        return [
-                            runtimePath,
-                            '-m',
-                            'streamlit',
-                            'run',
-                            document.uri.fsPath,
-                            '--server.headless',
-                            'true',
-                        ].join(' ');
-                    },
-                });
+                await runApplication('Streamlit', (runtime, document) =>
+                    [
+                        runtime.runtimePath,
+                        '-m',
+                        'streamlit',
+                        'run',
+                        document.uri.fsPath,
+                        '--server.headless',
+                        'true',
+                    ].join(' '),
+                );
             }),
             vscode.commands.registerCommand('python.runDashApp', async () => {
-                await runApplication({
-                    label: 'Dash',
-                    languageId: 'python',
-                    getRunCommand(runtimePath, document) {
-                        return [runtimePath, document.uri.fsPath].join(' ');
-                    },
-                });
+                await runApplication('Dash', (runtime, document) =>
+                    [runtime.runtimePath, document.uri.fsPath].join(' '),
+                );
             }),
             vscode.commands.registerCommand('python.runGradioApp', async () => {
-                await runApplication({
-                    label: 'Gradio',
-                    languageId: 'python',
-                    getRunCommand(runtimePath, document) {
-                        return [runtimePath, document.uri.fsPath].join(' ');
-                    },
-                });
+                await runApplication('Gradio', (runtime, document) =>
+                    [runtime.runtimePath, document.uri.fsPath].join(' '),
+                );
             }),
             vscode.commands.registerCommand('python.runFastAPIApp', async () => {
-                await runApplication({
-                    label: 'FastAPI',
-                    languageId: 'python',
-                    async getRunCommand(runtimePath, document) {
-                        const appName = await getAppName(document, 'FastAPI');
-                        if (!appName) {
-                            return undefined;
-                        }
-                        return [runtimePath, '-m', 'uvicorn', `${pathToModule(document.uri.fsPath)}:${appName}`].join(
-                            ' ',
-                        );
-                    },
+                await runApplication('FastAPI', async (runtime, document) => {
+                    const appName = await getAppName(document, 'FastAPI');
+                    if (!appName) {
+                        return undefined;
+                    }
+                    return [
+                        runtime.runtimePath,
+                        '-m',
+                        'uvicorn',
+                        `${pathToModule(document.uri.fsPath)}:${appName}`,
+                    ].join(' ');
                 });
             }),
             vscode.commands.registerCommand('python.runFlaskApp', async () => {
-                await runApplication({
-                    label: 'Flask',
-                    languageId: 'python',
-                    async getRunCommand(runtimePath, document) {
-                        const appName = await getAppName(document, 'Flask');
-                        if (!appName) {
-                            return undefined;
-                        }
-                        return [
-                            runtimePath,
-                            '-m',
-                            'flask',
-                            '--app',
-                            `${pathToModule(document.uri.fsPath)}:${appName}`,
-                            'run',
-                        ].join(' ');
-                    },
+                await runApplication('Flask', async (runtime, document) => {
+                    const appName = await getAppName(document, 'Flask');
+                    if (!appName) {
+                        return undefined;
+                    }
+                    return [
+                        runtime.runtimePath,
+                        '-m',
+                        'flask',
+                        '--app',
+                        `${pathToModule(document.uri.fsPath)}:${appName}`,
+                        'run',
+                    ].join(' ');
                 });
             }),
         );
@@ -281,11 +261,29 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     return appName;
 }
 
-async function runApplication(options: RunAppOptions): Promise<void> {
+async function runApplication(
+    label: string,
+    getCommandLine: (
+        runtime: positron.LanguageRuntimeMetadata,
+        document: vscode.TextDocument,
+    ) => string | undefined | Promise<string | undefined>,
+    urlPath?: string,
+): Promise<void> {
     const ext = vscode.extensions.getExtension<PositronRunAppApi>('vscode.positron-run-app');
     if (!ext) {
         throw new Error('vscode.positron-run-app extension not found');
     }
     const api = await ext.activate();
-    return api.runApplication(options);
+
+    const runtime = await positron.runtime.getPreferredRuntime('python');
+    const document = vscode.window.activeTextEditor?.document;
+    if (!document) {
+        return;
+    }
+
+    const commandLine = await getCommandLine(runtime, document);
+    if (!commandLine) {
+        return;
+    }
+    await api.runApplication(label, commandLine, urlPath);
 }

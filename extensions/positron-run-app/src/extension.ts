@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PositronRunAppApi, RunAppOptions } from './positron-run-app';
+import { PositronRunAppApi } from './positron-run-app';
 import { raceTimeout } from './utils';
 
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
@@ -19,8 +19,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<Positr
 }
 
 class PositronRunAppApiImpl implements PositronRunAppApi {
-	async runApplication(options: RunAppOptions): Promise<void> {
-		console.log(`Running ${options.label} App...`);
+	async runApplication(label: string, commandLine: string, urlPath?: string): Promise<void> {
+		console.log(`Running ${label} App...`);
 
 		const document = vscode.window.activeTextEditor?.document;
 		if (!document) {
@@ -31,17 +31,10 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 			await document.save();
 		}
 
-		const oldTerminals = vscode.window.terminals.filter((t) => t.name === options.label);
-
-		const runtime = await positron.runtime.getPreferredRuntime(options.languageId);
-
-		const command = await options.getRunCommand(runtime.runtimePath, document);
-		if (!command) {
-			return;
-		}
+		const oldTerminals = vscode.window.terminals.filter((t) => t.name === label);
 
 		const terminal = vscode.window.createTerminal({
-			name: options.label,
+			name: label,
 		});
 		terminal.show(true);
 
@@ -73,10 +66,7 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 				}
 			});
 		});
-		// TODO: Escape the command for the terminal.
-		// const cmdline = escapeCommandForTerminal(terminal, python, args);
-		console.log('Command:', command);
-		const execution = shellIntegration.executeCommand(command);
+		const execution = shellIntegration.executeCommand(commandLine);
 
 		// Wait for the server URL to appear in the terminal output, or a timeout.
 		const stream = execution.read();
@@ -86,8 +76,8 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		}
 
 		const localBaseUri = vscode.Uri.parse(url.toString());
-		const localUri = options.urlPath ?
-			vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
+		const localUri = urlPath ?
+			vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
 		const externalUri = await vscode.env.asExternalUri(localUri);
 		positron.window.previewUrl(externalUri);
 	}
