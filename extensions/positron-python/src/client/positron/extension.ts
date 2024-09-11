@@ -5,6 +5,7 @@
 
 // eslint-disable-next-line import/no-unresolved
 import * as path from 'path';
+import * as net from 'net';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
 import * as fs from 'fs';

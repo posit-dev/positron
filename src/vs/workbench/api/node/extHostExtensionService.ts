@@ -25,7 +25,6 @@ import { ExtHostDiskFileSystemProvider } from 'vs/workbench/api/node/extHostDisk
 
 // --- Start Positron ---
 import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
-import { ExtHostApplications } from 'vs/workbench/api/node/positron/extHostApplications';
 // --- End Positron ---
 
 class NodeModuleRequireInterceptor extends RequireInterceptor {
@@ -76,10 +75,7 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		const extensionApiFactory = this._instaService.invokeFunction(createApiFactoryAndRegisterActors);
 
 		// --- Start Positron ---
-		const positronExtensionApiFactory = this._instaService.invokeFunction(
-			createPositronApiFactoryAndRegisterActors,
-			ExtHostApplications,
-		);
+		const positronExtensionApiFactory = this._instaService.invokeFunction(createPositronApiFactoryAndRegisterActors);
 		// --- End Positron ---
 
 		// Register Download command
