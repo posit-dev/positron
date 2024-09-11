@@ -119,6 +119,8 @@ export class DataExplorerClientInstance extends Disposable {
 		// Call the disposable constructor.
 		super();
 
+		console.warn('Client id:', client.getClientId());
+
 		this._dataFormatOptions = {
 			large_num_digits: 2,
 			small_num_digits: 4,
