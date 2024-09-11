@@ -122,6 +122,15 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 		const output = runtimeMetadata;
 		output.runtimePath = interpreterPath;
+
+		// Uses the Positron Python extension API to query the environment id
+		// given it's path.
+		const api = vscode.extensions.getExtension('ms-python.python');
+		if (!api) {
+			throw new Error('Failed to find the Positron Python extension API.');
+		}
+		const env = await api.exports.environments.resolveEnvironment(interpreterPath);
+		output.extraRuntimeData.pythonEnvironmentId = env.id;
 		output.extraRuntimeData.pythonPath = interpreterPath;
 
 		return output;

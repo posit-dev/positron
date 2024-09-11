@@ -105,24 +105,13 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             throw new Error(`Runtime metadata missing Python environment ID: ${JSON.stringify(runtimeMetadata)}`);
         }
 
-        if (extraData.pythonEnvironmentId !== 'reticulate') {
-            const interpreter = interpreterService
-                .getInterpreters()
-                .find((i) => i.id === extraData.pythonEnvironmentId);
-            if (!interpreter) {
-                throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
-            }
-            this.interpreter = interpreter;
-        } else {
-            // In the reticulate case, look for interpreters by path, not id.
-            // the reticulate environment id is always 'reticulate'.
-            // We can probably be more robust when comparing the paths.
-            const interpreter = interpreterService.getInterpreters().find((i) => i.path === extraData.pythonPath);
-            if (!interpreter) {
-                throw new Error(`Interpreter not found for reticulate`);
-            }
-            this.interpreter = interpreter;
+        const interpreter = interpreterService
+            .getInterpreters()
+            .find((i) => i.id === extraData.pythonEnvironmentId);
+        if (!interpreter) {
+            throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
         }
+        this.interpreter = interpreter;
 
         this._queue = new PQueue({ concurrency: 1 });
 
@@ -446,15 +435,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as JupyterAdapterApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              this.adapterApi.createSession(
-                  this.runtimeMetadata,
-                  this.metadata,
-                  this.kernelSpec,
-                  this.dynState,
-                  createJupyterKernelExtra(),
-              )
+            this.adapterApi.createSession(
+                this.runtimeMetadata,
+                this.metadata,
+                this.kernelSpec,
+                this.dynState,
+                createJupyterKernelExtra(),
+            )
             : // We don't have a kernel spec, so we're restoring a session
-              this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+            this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -576,10 +565,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                      '{0} exited unexpectedly with error: {1}',
-                      kernel.runtimeMetadata.runtimeName,
-                      logFileContent,
-                  )
+                    '{0} exited unexpectedly with error: {1}',
+                    kernel.runtimeMetadata.runtimeName,
+                    logFileContent,
+                )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));
