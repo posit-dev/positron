@@ -36,3 +36,21 @@ show(p)
         and "text/html" in call.kwargs["data"]
         for call in calls
     )
+
+
+def test_model_repr_html_disabled(shell: PositronShell, mock_display_pub: Mock):
+    """
+    Test to make sure that the _repr_html_ method is disabled on objects of the Bokeh Model class.
+    This is used to prevent the awkward behavior of simple text showing up in the plots pane when a
+    user builds a bokeh plot command line-by-line in the console.
+    """
+
+    shell.run_cell(
+        """\
+from bokeh.plotting import figure, show
+p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
+has_repr_html = hasattr(p, '_repr_html_') and p._repr_html_() not in (None)
+"""
+    )
+
+    assert not shell.ns_table["user_local"]["has_repr_html"]
