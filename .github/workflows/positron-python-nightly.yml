@@ -123,6 +123,7 @@ jobs:
           path: extensions/positron-python/python-test-results.xml
 
   slack-notification:
+    if: always()
     name: 'Send Slack notification'
     runs-on: ubuntu-latest
     needs: [vscode-python-tests, positron-ipykernel-tests-latest]
