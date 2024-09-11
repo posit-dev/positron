@@ -19,6 +19,7 @@ import { isRpmArchString, RpmArchString } from './rpm/types';
 // which we don't need.
 // import product = require('../../product.json');
 // --- End Positron --
+import { isESM } from '../lib/esm';
 
 // A flag that can easily be toggled.
 // Make sure to compile the build directory after toggling the value.
@@ -55,7 +56,8 @@ export async function getDependencies(packageType: 'deb' | 'rpm', buildDir: stri
 	}
 
 	// Get the files for which we want to find dependencies.
-	const nativeModulesPath = path.join(buildDir, 'resources', 'app', 'node_modules.asar.unpacked');
+	const canAsar = !isESM('ASAR disabled in Linux builds'); // TODO@esm ASAR disabled in ESM
+	const nativeModulesPath = path.join(buildDir, 'resources', 'app', canAsar ? 'node_modules.asar.unpacked' : 'node_modules');
 	const findResult = spawnSync('find', [nativeModulesPath, '-name', '*.node']);
 	if (findResult.status) {
 		console.error('Error finding files:');
