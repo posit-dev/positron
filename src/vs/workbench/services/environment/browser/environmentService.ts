@@ -20,6 +20,10 @@ import { refineServiceDecorator } from 'vs/platform/instantiation/common/instant
 import { ITextEditorOptions } from 'vs/platform/editor/common/editor';
 import { EXTENSION_IDENTIFIER_WITH_LOG_REGEX } from 'vs/platform/environment/common/environmentService';
 
+// --- Start PWB ---
+import { isWeb } from 'vs/base/common/platform';
+// --- End PWB ---
+
 export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvironmentService, IBrowserWorkbenchEnvironmentService>(IEnvironmentService);
 
 /**
@@ -115,7 +119,11 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	// -- Start PWB: Local storage ---
-	get userRoamingDataHome(): URI { return joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User'); }
+	get userRoamingDataHome(): URI {
+		return isWeb ?
+			joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
+			URI.file('/User').with({ scheme: Schemas.vscodeUserData });
+	}
 
 	get userDataPath(): string {
 		if (!this.options.userDataPath) {
