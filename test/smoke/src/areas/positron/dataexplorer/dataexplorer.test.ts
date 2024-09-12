@@ -13,6 +13,8 @@ import { join } from 'path';
  *  Data explorer tests with small data frames
  */
 export function setup(logger: Logger) {
+	// There is a known issue with the data explorer tests causing them to intermittently fail:
+	// https://github.com/posit-dev/positron/issues/4663
 	describe.skip('Data Explorer', () => {
 
 		// Shared before/after handling
