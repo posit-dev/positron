@@ -46,8 +46,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - run: cwd
-
       # Cache for root directory
       - name: Cache node_modules in root
         uses: actions/cache@v4
