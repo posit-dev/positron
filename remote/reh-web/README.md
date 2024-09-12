@@ -9,5 +9,7 @@ The package.json file in this directory is created/updated via the [build/npm/po
 
 Since the files in this directory are auto-generated, please don't edit them directly. Running `yarn` at the top-level of the project will kick off updates to these files.
 
+Git line ending normalization is set to LF for package.json via [.gitattributes](./.gitattributes) to avoid changing the line endings when the file is generated on different platforms.
+
 > [!NOTE]
 > Please commit the created/updated package.json and yarn.lock files in this directory when they are updated.
