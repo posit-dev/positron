@@ -205,7 +205,16 @@ export class TreeSitterParseResult implements IDisposable, ITreeSitterParseResul
 				return;
 			}
 		} while (!tree && !this._newEdits); // exit if there a new edits, as anhy parsing done while there are new edits is throw away work
-		this.sendParseTimeTelemetry(parseType, language, time, passes);
+		// --- Start Positron ---
+		// Disable telemetry (which leaks into tests and causes failures) by
+		// effectively surrounding it with `if false`; we don't just comment it
+		// out because that results in a TS error due to the unused method.
+		//
+		// this.sendParseTimeTelemetry(parseType, language, time, passes);
+		if (!model) {
+			this.sendParseTimeTelemetry(parseType, language, time, passes);
+		}
+		// --- End Positron ---
 		return tree;
 	}
 
