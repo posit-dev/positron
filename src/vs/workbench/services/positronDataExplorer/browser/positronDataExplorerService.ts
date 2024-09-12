@@ -7,7 +7,7 @@ import { localize } from 'vs/nls';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { ICommandService } from 'vs/platform/commands/common/commands';
+import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
@@ -18,11 +18,14 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
+import { DataExplorerClientInstance, DataExplorerUiEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
+import { PositronDataExplorerComm } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { PositronDataExplorerDuckDBBackend } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerDuckDBBackend';
+import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
 
 /**
  * DataExplorerRuntime class.
@@ -58,8 +61,8 @@ class DataExplorerRuntime extends Disposable {
 
 	/**
 	 * Constructor.
-	 * @param _session The session.
 	 * @param _notificationService The notification service.
+	 * @param _session The session.
 	 */
 	constructor(
 		private readonly _notificationService: INotificationService,
@@ -79,7 +82,8 @@ class DataExplorerRuntime extends Disposable {
 				}
 
 				// Create and register the DataExplorerClientInstance for the client instance.
-				const dataExplorerClientInstance = new DataExplorerClientInstance(e.client);
+				const commInstance = new PositronDataExplorerComm(e.client);
+				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 				this._register(dataExplorerClientInstance);
 
 				// Add the onDidClose event handler on the DataExplorerClientInstance,
@@ -123,6 +127,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * The Positron data explorer variable-to-instance map.
 	 */
 	private _varIdToInstanceIdMap = new Map<string, string>();
+
+	/**
+	 * A registry for events routed to a data explorer via vscode's command system
+	 */
+	private _uiEventCommandHandlers = new Map<
+		string, (event: DataExplorerUiEvent) => void
+	>();
 
 	/**
 	 * The focused Positron data explorer identifier.
@@ -190,6 +201,22 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._register(this._runtimeSessionService.onDidChangeRuntimeState(stateEvent => {
 			// console.log(`++++++++++ PositronDataExplorerService: onDidChangeRuntimeState from ${stateEvent.old_state} to ${stateEvent.new_state}`);
 		}));
+
+		// This is a temporary mechanism for extensions like positron-duckdb implementing
+		// a data explorer backend to be able to invoke the frontend methods
+		// (updates, async column profiles) normally invoked by a language runtime kernel
+		this._register(CommandsRegistry.registerCommand('positron-data-explorer.sendUiEvent',
+			(accessor: ServicesAccessor, event: DataExplorerUiEvent) => {
+				const handler = this._uiEventCommandHandlers.get(event.uri);
+
+				// If not event handler registered, ignore for now
+				if (handler === undefined) {
+					return;
+				}
+
+				return handler(event);
+			}
+		));
 	}
 
 	/**
@@ -281,6 +308,27 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		return this._positronDataExplorerInstances.get(identifier);
 	}
 
+	/**
+	 * Open a workspace file using the positron-duckdb extension for use with
+	 * the data explorer.
+	 * @param filePath Path to file to open with positron-duckdb extension
+	 */
+	async openWithDuckDB(filePath: string) {
+		const backend = new PositronDataExplorerDuckDBBackend(this._commandService, filePath);
+
+		// Associate UI events (like ReturnColumnProfiles) for this file path
+		// with this backend. We're presuming only one backend per file path, so
+		// if we need multiple backends per file path we can extend
+		this._uiEventCommandHandlers.set(filePath, (event) => {
+			backend.handleUiEvent(event);
+		});
+
+		// TODO: error handling if opening the file failed
+
+		const client = new DataExplorerClientInstance(backend);
+		this.registerDataExplorerClient('duckdb', client);
+	}
+
 	//#endregion IPositronDataExplorerService Implementation
 
 	//#region Private Methods
@@ -329,22 +377,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			return;
 		}
 
-		// Set the Positron data explorer client instance.
-		this._positronDataExplorerInstances.set(
-			dataExplorerClientInstance.identifier,
-			new PositronDataExplorerInstance(
-				this._clipboardService,
-				this._commandService,
-				this._configurationService,
-				this._hoverService,
-				this._keybindingService,
-				this._layoutService,
-				this._notificationService,
-				this._editorService,
-				languageName,
-				dataExplorerClientInstance
-			)
-		);
+		this.registerDataExplorerClient(languageName, dataExplorerClientInstance);
 
 		// Open an editor for the Positron data explorer client instance.
 		const editorPane = await this._editorService.openEditor({
@@ -359,37 +392,41 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 			));
 			return;
 		}
+	}
 
-		// Hack to be able to call PositronDataExplorerEditorInput.setName without eslint errors.
-		this._register(dataExplorerClientInstance.onDidUpdateBackendState(backendState => {
-			const dxInput = editorPane?.input as any;
-			if (dxInput !== undefined && backendState.display_name !== undefined) {
-				// We truncate the `display_name` to a reasonable length as
-				// the editor tab title has limited space.
-				const maxTabSize = 30;
-				let display_name = backendState.display_name;
-				if (backendState.display_name.length > maxTabSize) {
-					display_name = backendState.display_name.substring(0, maxTabSize - 3) + '...';
-				}
+	/**
+	 * Registers a DataExplorerClientInstance so that it is available when the
+	 * PositronDataExplorerEditor is instantiated.
+	 */
+	private registerDataExplorerClient(languageName: string, client: DataExplorerClientInstance) {
+		// Set the Positron data explorer client instance.
+		this._positronDataExplorerInstances.set(
+			client.identifier,
+			new PositronDataExplorerInstance(
+				this._clipboardService,
+				this._commandService,
+				this._configurationService,
+				this._hoverService,
+				this._keybindingService,
+				this._layoutService,
+				this._notificationService,
+				this._editorService,
+				languageName,
+				client
+			)
+		);
 
-				dxInput.setName?.(`Data: ${display_name}`);
-			}
-		}));
-
-		this._register(dataExplorerClientInstance.onDidClose(() => {
+		this._register(client.onDidClose(() => {
 			// When the data explorer client instance is closed, clean up
 			// references to variables. We may still need to keep the instance
 			// map since the defunct instances may still be bound to open
 			// editors.
 			for (const [key, value] of this._varIdToInstanceIdMap.entries()) {
-				if (value === dataExplorerClientInstance.identifier) {
+				if (value === client.identifier) {
 					this._varIdToInstanceIdMap.delete(key);
 				}
 			}
 		}));
-
-		// Trigger the initial state update.
-		await dataExplorerClientInstance.updateBackendState();
 	}
 
 	/**

@@ -89,6 +89,27 @@ export enum PlotUnit {
 }
 
 /**
+ * Parameters for the Render method.
+ */
+export interface RenderParams {
+	/**
+	 * The requested size of the plot. If not provided, the plot will be
+	 * rendered at its intrinsic size.
+	 */
+	size?: PlotSize;
+
+	/**
+	 * The pixel ratio of the display device
+	 */
+	pixel_ratio: number;
+
+	/**
+	 * The requested plot format
+	 */
+	format: RenderFormat;
+}
+
+/**
  * Event: Notification that a plot has been updated on the backend.
  */
 export interface UpdateEvent {
