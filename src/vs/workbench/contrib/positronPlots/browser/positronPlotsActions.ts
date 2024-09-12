@@ -96,7 +96,7 @@ export class PlotsCopyAction extends Action2 {
 		});
 	}
 
-	private getItems(plotsService: IPositronPlotsService, editorService: IEditorService): IQuickPickItem[] {
+	private getItems(editorService: IEditorService): IQuickPickItem[] {
 		const items: IQuickPickItem[] = [
 			{
 				type: 'item',
@@ -152,6 +152,12 @@ export class PlotsCopyAction extends Action2 {
 			target = CopyPlotTarget.VIEW;
 		}
 
+		const quickPickItems = this.getItems(editorService);
+		// no need to show the quick pick if the only option is the Plots View
+		if (quickPickItems.length === 1) {
+			target = CopyPlotTarget.VIEW;
+		}
+
 		if (target === CopyPlotTarget.VIEW) {
 			if (plotsService.selectedPlotId) {
 				this.copyPlotToClipboard(plotsService, notificationService, plotsService.selectedPlotId);
@@ -167,7 +173,7 @@ export class PlotsCopyAction extends Action2 {
 		} else {
 			this._currentQuickPick = quickPick.createQuickPick();
 
-			this._currentQuickPick.items = this.getItems(plotsService, editorService);
+			this._currentQuickPick.items = quickPickItems;
 			this._currentQuickPick.ignoreFocusOut = true;
 			this._currentQuickPick.hideInput = true;
 			this._currentQuickPick.title = localize('positronPlots.copyQuickPickTitle', 'Select the plot to copy to clipboard');
