@@ -235,6 +235,7 @@ export class PositronBaseComm extends Disposable {
 		let response = {} as any;
 		try {
 			const timeout = this.options?.[rpcName]?.timeout ?? 5000;
+			console.warn('Performing RPC: ', rpcArgs);
 			response = await this.clientInstance.performRpc(request, timeout);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
@@ -264,6 +265,7 @@ export class PositronBaseComm extends Disposable {
 		// JSON-RPC specifies that the return value must have either a 'result'
 		// or an 'error'; make sure we got a result before we pass it back.
 		if (!Object.keys(response).includes('result')) {
+			console.warn('Rpc arguments that resulted in the error:', rpcArgs);
 			const error: PositronCommError = {
 				code: JsonRpcErrorCode.InternalError,
 				message: `Invalid response from ${this.clientInstance.getClientId()}: ` +
