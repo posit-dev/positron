@@ -127,6 +127,15 @@ function getBuiltInExtensions() {
     for (const extension of [...builtInExtensions, ...webBuiltInExtensions]) {
         const controlState = control[extension.name] || 'marketplace';
         control[extension.name] = controlState;
+        // --- Start Positron ---
+        // Discard extensions intended for the web. The 'type' field isn't a
+        // formal part of the extension definition but a custom field we use to
+        // filter out web-only extensions (i.e. Posit Workbench)
+        // @ts-ignore
+        if (extension.type === 'reh-web') {
+            continue;
+        }
+        // --- End Positron ---
         streams.push(syncExtension(extension, controlState));
     }
     writeControlFile(control);
