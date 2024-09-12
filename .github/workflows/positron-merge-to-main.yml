@@ -46,27 +46,31 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Cache for root directory
+      # Restore cache for node_modules
       - name: Cache node_modules in root
-        uses: actions/cache@v4
+        id: cache-node-modules
+        if: always()
+        uses: actions/cache/restore@v4
         with:
           path: node_modules
           key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
             root-node-modules-
 
-      # Cache for test/automation directory
+      # Restore cache for test/automation directory
       - name: Cache node_modules in test/automation
-        uses: actions/cache@v4
+        id: cache-automation-node-modules
+        uses: actions/cache/restore@v4
         with:
           path: test/automation/node_modules
           key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
           restore-keys: |
             automation-node-modules-
 
-      # Cache for test/smoke directory
+      # Restore cache for test/smoke directory
       - name: Cache node_modules in test/smoke
-        uses: actions/cache@v4
+        id: cache-smoke-node-modules
+        uses: actions/cache/restore@v4
         with:
           path: test/smoke/node_modules
           key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
@@ -91,6 +95,36 @@ jobs:
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
+
+      # Save cache for node_modules
+      - name: Cache node_modules in root
+        if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            root-node-modules-
+
+      # Save cache for test/automation directory
+      - name: Cache node_modules in test/automation
+        if: always() && steps.cache-automation-node-modules.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: test/automation/node_modules
+          key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
+          restore-keys: |
+            automation-node-modules-
+
+      # Save cache for test/smoke directory
+      - name: Cache node_modules in test/smoke
+        if: always() && steps.cache-smoke-node-modules.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: test/smoke/node_modules
+          key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
+          restore-keys: |
+            smoke-node-modules-
 
     #   - name: Compile and Download
     #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
