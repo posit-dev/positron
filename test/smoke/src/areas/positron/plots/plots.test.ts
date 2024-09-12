@@ -418,7 +418,7 @@ output`;
 
 				// Redirect a print statement to the Output widget.
 				await app.workbench.positronConsole.pasteCodeToConsole(`with output:
-print('Hello, world!')
+    print('Hello, world!')
 `);  // Empty line needed for the statement to be considered complete.
 				await app.workbench.positronConsole.sendEnterKey();
 				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
