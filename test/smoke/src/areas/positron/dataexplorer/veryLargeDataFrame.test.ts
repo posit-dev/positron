@@ -5,13 +5,10 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { Application, downloadFileFromS3, Logger, PositronPythonFixtures, PositronRFixtures, S3FileDownloadOptions } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
-import { S3Client, GetObjectCommand, GetObjectCommandOutput } from "@aws-sdk/client-s3";
-import { createWriteStream } from "fs";
-import { pipeline } from "stream";
-import { promisify } from "util";
+import { fail } from 'assert';
 
 /*
  * Data explorer test suite for large data frames
@@ -30,34 +27,15 @@ export function setup(logger: Logger) {
 
 		before(async function () {
 
-			// debug locally - set to your profile name
-			// process.env.AWS_PROFILE = 'my-dev-profile';
-
 			const localFilePath = join(this.app.workspacePathOrFolder, "data-files", objectKey);
 
-			const s3 = new S3Client({ region });
-
-			const command = new GetObjectCommand({
-				Bucket: bucketName,
-				Key: objectKey,
-			});
-
-			let response: GetObjectCommandOutput = {
-				$metadata: {}
+			const downloadOptions: S3FileDownloadOptions = {
+				region: region,
+				bucketName: bucketName,
+				key: objectKey,
+				localFilePath: localFilePath
 			};
-			try {
-				response = await s3.send(command);
-			} catch (error) {
-				console.error("Error:", (error as any).message, (error as any).stack);
-			}
-
-			if (!response.Body || !("pipe" in response.Body)) {
-				throw new Error("Unexpected response from S3: Body is not a stream");
-			}
-
-			const fileStream = createWriteStream(localFilePath);
-			const streamPipeline = promisify(pipeline);
-			await streamPipeline(response.Body, fileStream);
+			await downloadFileFromS3(downloadOptions);
 
 		});
 
@@ -100,7 +78,13 @@ export function setup(logger: Logger) {
 
 				const endTime = performance.now();
 
-				console.log(`Opening large parquet took ${endTime - startTime} milliseconds`);
+				const timeTaken = endTime - startTime;
+
+				if (timeTaken > 7500) {
+					fail(`Opening large parquet took ${timeTaken} milliseconds (pandas)`);
+				} else {
+					logger.log(`Opening large parquet took ${timeTaken} milliseconds (pandas)`);
+				}
 
 			});
 		});
@@ -143,7 +127,13 @@ export function setup(logger: Logger) {
 
 				const endTime = performance.now();
 
-				console.log(`Opening large parquet took ${endTime - startTime} milliseconds`);
+				const timeTaken = endTime - startTime;
+
+				if (timeTaken > 15000) {
+					fail(`Opening large parquet took ${timeTaken} milliseconds (R)`);
+				} else {
+					logger.log(`Opening large parquet took ${timeTaken} milliseconds (R)`);
+				}
 			});
 		});
 
