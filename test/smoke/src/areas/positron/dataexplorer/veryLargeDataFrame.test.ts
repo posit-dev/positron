@@ -57,7 +57,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies data explorer functionality with very large data frame [C...] #pr', async function () {
+			it('Python - Verifies data explorer functionality with very large data frame [C804823]', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
 
@@ -106,7 +106,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verifies data explorer functionality with very large data frame [C...] #pr', async function () {
+			it('R - Verifies data explorer functionality with very large data frame [C804824]', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
 
