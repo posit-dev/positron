@@ -160,7 +160,10 @@ export class PlaywrightDriver {
 		return await this._cdpSession.send('Runtime.getProperties', parameters);
 	}
 
-	private async takeScreenshot(name: string): Promise<void> {
+	// --- Start Positron ---
+	// Positron: make this method public for access from R/Python fixtures
+	async takeScreenshot(name: string): Promise<void> {
+		// --- End Positron ---
 		try {
 			const persistPath = join(this.options.logsPath, `playwright-screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
 
@@ -308,9 +311,7 @@ export class PlaywrightDriver {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
 
-	// --- Start Positron ---
-	private async evaluateWithDriver<T>(pageFunction: PageFunction<playwright.JSHandle<IWindowDriver>[], T>) {
-		// --- End Positron ---
+	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
 		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
 
