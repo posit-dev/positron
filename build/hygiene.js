@@ -164,6 +164,9 @@ function hygiene(some, linting = true, secrets = true) {
 
 		this.emit('data', file);
 	});
+
+	const testDataFiles = filter(['**/*', '!**/*.csv', '!**/*.parquet'], { restore: true });
+
 	// --- End Positron ---
 
 	const formatting = es.map(function (file, cb) {
@@ -208,6 +211,9 @@ function hygiene(some, linting = true, secrets = true) {
 	const result = input
 		.pipe(filter((f) => !f.stat.isDirectory()))
 		.pipe(snapshotFilter)
+		// --- Start Positron ---
+		.pipe(testDataFiles)
+		// --- End Positron ---
 		.pipe(productJsonFilter)
 		.pipe(process.env['BUILD_SOURCEVERSION'] ? es.through() : productJson)
 		.pipe(productJsonFilter.restore)

@@ -26,6 +26,21 @@ export interface CallMethodResult {
 }
 
 /**
+ * Parameters for the CallMethod method.
+ */
+export interface CallMethodParams {
+	/**
+	 * The method to call inside the interpreter
+	 */
+	method: string;
+
+	/**
+	 * The parameters for `method`
+	 */
+	params: Array<Param>;
+}
+
+/**
  * Editor metadata
  */
 export interface EditorContext {
@@ -153,6 +168,259 @@ export interface Range {
 	 */
 	end: Position;
 
+}
+
+/**
+ * Parameters for the Busy method.
+ */
+export interface BusyParams {
+	/**
+	 * Whether the backend is busy
+	 */
+	busy: boolean;
+}
+
+/**
+ * Parameters for the OpenEditor method.
+ */
+export interface OpenEditorParams {
+	/**
+	 * The path of the file to open
+	 */
+	file: string;
+
+	/**
+	 * The line number to jump to
+	 */
+	line: number;
+
+	/**
+	 * The column number to jump to
+	 */
+	column: number;
+}
+
+/**
+ * Parameters for the NewDocument method.
+ */
+export interface NewDocumentParams {
+	/**
+	 * Document contents
+	 */
+	contents: string;
+
+	/**
+	 * Language identifier
+	 */
+	language_id: string;
+}
+
+/**
+ * Parameters for the ShowMessage method.
+ */
+export interface ShowMessageParams {
+	/**
+	 * The message to show to the user.
+	 */
+	message: string;
+}
+
+/**
+ * Parameters for the ShowQuestion method.
+ */
+export interface ShowQuestionParams {
+	/**
+	 * The title of the dialog
+	 */
+	title: string;
+
+	/**
+	 * The message to display in the dialog
+	 */
+	message: string;
+
+	/**
+	 * The title of the OK button
+	 */
+	ok_button_title: string;
+
+	/**
+	 * The title of the Cancel button
+	 */
+	cancel_button_title: string;
+}
+
+/**
+ * Parameters for the ShowDialog method.
+ */
+export interface ShowDialogParams {
+	/**
+	 * The title of the dialog
+	 */
+	title: string;
+
+	/**
+	 * The message to display in the dialog
+	 */
+	message: string;
+}
+
+/**
+ * Parameters for the PromptState method.
+ */
+export interface PromptStateParams {
+	/**
+	 * Prompt for primary input.
+	 */
+	input_prompt: string;
+
+	/**
+	 * Prompt for incomplete input.
+	 */
+	continuation_prompt: string;
+}
+
+/**
+ * Parameters for the WorkingDirectory method.
+ */
+export interface WorkingDirectoryParams {
+	/**
+	 * The new working directory
+	 */
+	directory: string;
+}
+
+/**
+ * Parameters for the DebugSleep method.
+ */
+export interface DebugSleepParams {
+	/**
+	 * Duration in milliseconds
+	 */
+	ms: number;
+}
+
+/**
+ * Parameters for the ExecuteCommand method.
+ */
+export interface ExecuteCommandParams {
+	/**
+	 * The command to execute
+	 */
+	command: string;
+}
+
+/**
+ * Parameters for the EvaluateWhenClause method.
+ */
+export interface EvaluateWhenClauseParams {
+	/**
+	 * The values for context keys, as a `when` clause
+	 */
+	when_clause: string;
+}
+
+/**
+ * Parameters for the ExecuteCode method.
+ */
+export interface ExecuteCodeParams {
+	/**
+	 * The language ID of the code to execute
+	 */
+	language_id: string;
+
+	/**
+	 * The code to execute
+	 */
+	code: string;
+
+	/**
+	 * Whether to focus the runtime's console
+	 */
+	focus: boolean;
+
+	/**
+	 * Whether to bypass runtime code completeness checks
+	 */
+	allow_incomplete: boolean;
+}
+
+/**
+ * Parameters for the OpenWorkspace method.
+ */
+export interface OpenWorkspaceParams {
+	/**
+	 * The path for the workspace to be opened
+	 */
+	path: string;
+
+	/**
+	 * Should the workspace be opened in a new window?
+	 */
+	new_window: boolean;
+}
+
+/**
+ * Parameters for the SetEditorSelections method.
+ */
+export interface SetEditorSelectionsParams {
+	/**
+	 * The selections (really, ranges) to set in the document
+	 */
+	selections: Array<Range>;
+}
+
+/**
+ * Parameters for the ModifyEditorSelections method.
+ */
+export interface ModifyEditorSelectionsParams {
+	/**
+	 * The selections (really, ranges) to set in the document
+	 */
+	selections: Array<Range>;
+
+	/**
+	 * The text values to insert at the selections
+	 */
+	values: Array<string>;
+}
+
+/**
+ * Parameters for the ShowUrl method.
+ */
+export interface ShowUrlParams {
+	/**
+	 * The URL to display
+	 */
+	url: string;
+}
+
+/**
+ * Parameters for the ShowHtmlFile method.
+ */
+export interface ShowHtmlFileParams {
+	/**
+	 * The fully qualified filesystem path to the HTML file to display
+	 */
+	path: string;
+
+	/**
+	 * A title to be displayed in the viewer. May be empty, and can be
+	 * superseded by the title in the HTML file.
+	 */
+	title: string;
+
+	/**
+	 * Whether the HTML file is a plot-like object
+	 */
+	is_plot: boolean;
+
+	/**
+	 * The desired height of the HTML viewer, in pixels. The special value 0
+	 * indicates that no particular height is desired, and -1 indicates that
+	 * the viewer should be as tall as possible.
+	 */
+	height: number;
 }
 
 /**
