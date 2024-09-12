@@ -45,7 +45,33 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "yarn"
+
+      # Cache for root directory
+      - name: Cache node_modules in root
+        uses: actions/cache@v3
+        with:
+          path: node_modules
+          key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            root-node-modules-
+
+      # Cache for test/automation directory
+      - name: Cache node_modules in test/automation
+        uses: actions/cache@v3
+        with:
+          path: test/automation/node_modules
+          key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
+          restore-keys: |
+            automation-node-modules-
+
+      # Cache for test/smoke directory
+      - name: Cache node_modules in test/smoke
+        uses: actions/cache@v3
+        with:
+          path: test/smoke/node_modules
+          key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
+          restore-keys: |
+            smoke-node-modules-
 
       - name: Execute yarn
         env:
