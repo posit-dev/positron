@@ -89,8 +89,8 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install
-          yarn --cwd test/smoke install
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
