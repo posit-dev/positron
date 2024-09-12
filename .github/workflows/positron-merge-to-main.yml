@@ -23,7 +23,6 @@ env:
   SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
 
 jobs:
-
   linux:
     name: Tests on Linux
     runs-on: ubuntu-latest
@@ -46,6 +45,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          cache: "yarn"
 
       - name: Execute yarn
         env:
@@ -117,7 +117,6 @@ jobs:
         if: always()
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-
       - name: Upload run artifacts
         if: always()
         uses: actions/upload-artifact@v4
@@ -132,5 +131,3 @@ jobs:
           SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
           SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
-
-
