@@ -285,5 +285,5 @@ async function runApplication(
     if (!commandLine) {
         return;
     }
-    await api.runApplication(label, commandLine, urlPath);
+    await api.runApplication({ label, commandLine, urlPath });
 }

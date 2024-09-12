@@ -3,6 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+export interface RunAppOptions {
+	label: string;
+
+	commandLine: string;
+
+	urlPath?: string;
+
+	env?: { [key: string]: string | null | undefined };
+}
+
 export interface PositronRunAppApi {
-	runApplication(label: string, command: string, urlPath?: string): Promise<void>;
+	runApplication(options: RunAppOptions): Promise<void>;
 }

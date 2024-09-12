@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PositronRunAppApi } from './positron-run-app';
+import { PositronRunAppApi, RunAppOptions } from './positron-run-app';
 import { raceTimeout } from './utils';
 
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
@@ -19,83 +19,116 @@ export async function activate(context: vscode.ExtensionContext): Promise<Positr
 }
 
 class PositronRunAppApiImpl implements PositronRunAppApi {
-	async runApplication(label: string, commandLine: string, urlPath?: string): Promise<void> {
-		console.log(`Running ${label} App...`);
-
+	async runApplication(options: RunAppOptions): Promise<void> {
+		// If there's no active text editor, do nothing.
 		const document = vscode.window.activeTextEditor?.document;
 		if (!document) {
 			return;
 		}
 
+		// Save the active document if it's dirty.
 		if (document.isDirty) {
 			await document.save();
 		}
 
-		const oldTerminals = vscode.window.terminals.filter((t) => t.name === label);
+		// Get existing terminals with the application's name.
+		const existingTerminals = vscode.window.terminals.filter((t) => t.name === options.label);
 
+		// Create a new terminal for the application.
 		const terminal = vscode.window.createTerminal({
-			name: label,
+			name: options.label,
+			env: options.env,
 		});
+
+		// Reveal the new terminal.
 		terminal.show(true);
 
-		const closingTerminals = oldTerminals.map((x) => {
-			const p = new Promise<void>((resolve) => {
-				// Resolve when the terminal is closed. We're working hard to be accurate
-				// BUT empirically it doesn't seem like the old Shiny processes are
-				// actually terminated at the time this promise is resolved, so callers
-				// shouldn't assume that.
-				const subscription = vscode.window.onDidCloseTerminal((term) => {
-					if (term === x) {
-						subscription.dispose();
-						resolve();
-					}
+		// Wait for existing terminals to close, or a timeout.
+		await raceTimeout(
+			Promise.allSettled(existingTerminals.map((terminal) => {
+				// Create a promise that resolves when the terminal is closed.
+				// Note that the application process may still be running once this promise resolves.
+				const terminalDidClose = new Promise<void>((resolve) => {
+					const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
+						if (closedTerminal === terminal) {
+							disposable.dispose();
+							resolve();
+						}
+					});
 				});
-			});
-			x.dispose();
-			return p;
-		});
-		await Promise.allSettled(closingTerminals);
 
+				// Close the terminal.
+				terminal.dispose();
+
+				return terminalDidClose;
+			})),
+			5000,
+			() => {
+				log.warn('Timed out waiting for existing terminals to close. Proceeding anyway');
+			}
+		);
+
+		// Replace the contents of the viewer pane with a blank page while the app is loading.
 		positron.window.previewUrl(vscode.Uri.parse('about:blank'));
 
-		const shellIntegration = await new Promise<vscode.TerminalShellIntegration>(resolve => {
-			const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
-				if (e.terminal === terminal) {
-					disposable.dispose();
-					resolve(e.shellIntegration);
-				}
-			});
-		});
-		const execution = shellIntegration.executeCommand(commandLine);
-
-		// Wait for the server URL to appear in the terminal output, or a timeout.
-		const stream = execution.read();
-		const url = await raceTimeout(waitForUrl(stream), 5000);
-		if (!url) {
-			throw new Error('Timed out waiting for server URL in terminal output');
+		// Wait for shell integration to be available, or a timeout.
+		let shellIntegration = terminal.shellIntegration;
+		if (!shellIntegration) {
+			shellIntegration = await raceTimeout(
+				new Promise<vscode.TerminalShellIntegration>(resolve => {
+					const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
+						if (e.terminal === terminal) {
+							disposable.dispose();
+							resolve(e.shellIntegration);
+						}
+					});
+				}),
+				1000,
+				() => {
+					log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
+				});
 		}
 
-		const localBaseUri = vscode.Uri.parse(url.toString());
-		const localUri = urlPath ?
-			vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
-		const externalUri = await vscode.env.asExternalUri(localUri);
-		positron.window.previewUrl(externalUri);
-	}
-}
+		if (shellIntegration) {
+			const execution = shellIntegration.executeCommand(options.commandLine);
 
-async function waitForUrl(stream: AsyncIterable<string>): Promise<URL> {
-	for await (const data of stream) {
-		log.debug(`Data: ${data}`);
-		const match = data.match(localUrlRegex)?.[0];
-		log.debug(`Match: ${Boolean(match)}`);
-		if (match) {
-			try {
-				return new URL(match);
-			} catch (e) {
-				log.debug(`Ignoring invalid URL: ${data}`);
-				// Not a valid URL
+			// Wait for the server URL to appear in the terminal output, or a timeout.
+			const stream = execution.read();
+			const url = await vscode.window.withProgress(
+				{
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t(`Starting ${options.label} server...`),
+				},
+				() => raceTimeout(
+					(async () => {
+						for await (const data of stream) {
+							const match = data.match(localUrlRegex)?.[0];
+							if (match) {
+								return new URL(match);
+							}
+						}
+						log.warn('URL not found in terminal output');
+						return undefined;
+					})(),
+					5000,
+					() => {
+						log.warn('Timed out waiting for server URL in terminal output');
+					}
+				));
+
+			if (url) {
+				// Convert the url to an external URI.
+				const localBaseUri = vscode.Uri.parse(url.toString());
+				const localUri = options.urlPath ?
+					vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
+				const externalUri = await vscode.env.asExternalUri(localUri);
+
+				// Open the server URL in the viewer pane.
+				positron.window.previewUrl(externalUri);
 			}
+		} else {
+			// No shell integration support, just run the command.
+			terminal.sendText(options.commandLine);
 		}
 	}
-	throw new Error('No URL found in stream');
 }
