@@ -8,8 +8,10 @@ from unittest.mock import MagicMock, Mock
 
 import comm
 import pytest
+from jupyter_client.session import Session
 from traitlets.config import Config
 
+import positron_ipykernel.utils as utils
 from positron_ipykernel.connections import ConnectionsService
 from positron_ipykernel.positron_ipkernel import (
     PositronIPKernelApp,
@@ -18,7 +20,6 @@ from positron_ipykernel.positron_ipkernel import (
 )
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
-import positron_ipykernel.utils as utils
 
 utils.TESTING = True
 
@@ -48,6 +49,21 @@ class DummyComm(comm.base_comm.BaseComm):
                 error = message.get("data", {}).get("error")
                 if error is not None:
                     raise AssertionError(error["message"])
+
+
+class TestSession(Session):
+    """
+    A session that records sent messages for testing purposes.
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.messages = []
+        super().__init__(*args, **kwargs)
+
+    def send(self, *args, **kwargs):
+        msg = super().send(*args, **kwargs)
+        self.messages.append(msg)
+        return msg
 
 
 # Enable autouse so that all comms are created as DummyComms.
@@ -92,8 +108,11 @@ def kernel() -> PositronIPyKernel:
     # Positron-specific attributes:
     app.session_mode = SessionMode.CONSOLE
 
+    # Use a test session to capture sent messages.
+    session = TestSession()
+
     try:
-        kernel = PositronIPyKernel.instance(parent=app)
+        kernel = PositronIPyKernel.instance(parent=app, session=session)
     except Exception:
         print(
             "Error instantiating PositronIPyKernel. Did you import IPython.conftest, "
@@ -122,6 +141,16 @@ def shell(kernel) -> Iterable[PositronShell]:
     new_user_ns_keys = set(shell.user_ns.keys()) - user_ns_keys
     for key in new_user_ns_keys:
         del shell.user_ns[key]
+
+
+@pytest.fixture
+def session(kernel) -> TestSession:
+    session: TestSession = kernel.session
+
+    # Clear all messages from previous tests.
+    session.messages.clear()
+
+    return session
 
 
 @pytest.fixture

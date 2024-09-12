@@ -7,6 +7,8 @@ from unittest.mock import Mock
 
 from positron_ipykernel.positron_ipkernel import PositronShell
 
+from ..conftest import TestSession
+
 MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
 
@@ -38,9 +40,9 @@ show(p)
     )
 
 
-def test_model_repr_html_disabled(shell: PositronShell, mock_display_pub: Mock):
+def test_model_repr_html_disabled(shell: PositronShell, session: TestSession):
     """
-    Test to make sure that the _repr_html_ method is disabled on objects of the Bokeh Model class.
+    Test to make sure that the text/html mime type is excluded from Bokeh Model subclass instances.
     This is used to prevent the awkward behavior of simple text showing up in the plots pane when a
     user builds a bokeh plot command line-by-line in the console.
     """
@@ -49,10 +51,9 @@ def test_model_repr_html_disabled(shell: PositronShell, mock_display_pub: Mock):
         """\
 from bokeh.plotting import figure, show
 p = figure(title="Simple line example", x_axis_label='x', y_axis_label='y')
-has_repr_html = hasattr(p, '_repr_html_') and p._repr_html_() not in (None)
+p
 """
     )
-    # May be better to if the machinery inside to print an html output of the object was activated,
-    # but it's substantially easier to test this way and plumbing the mocks for testing testing the
-    # internals would be a bit more complex.
-    assert not shell.ns_table["user_local"]["has_repr_html"]
+
+    # Assert that none of the messages have a text/html mime type
+    assert not any("text/html" in message["content"]["data"] for message in session.messages)

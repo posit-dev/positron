@@ -119,6 +119,7 @@ def json_rpc_request(
             },
             **content,
         },
+        "header": {},
     }
 
 
