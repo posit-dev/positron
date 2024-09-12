@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { executeCommand } from '../common/vscodeApis/commandApis';
 
 const libraries: string[] = ['streamlit', 'shiny', 'gradio', 'flask', 'fastapi'];
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
     const foundImports = importsInApp(text);
-    vscode.commands.executeCommand('setContext', 'pythonFileContainsApp', foundImports);
-    console.log('set context pythonFileContainsApp', foundImports);
+    executeCommand('setContext', 'pythonFileContainsApp', foundImports);
 }
 
 // find import statements for specified libraries via import XXXX or from XXX import
@@ -24,9 +24,9 @@ function importsInApp(text: string): boolean {
 
 export function getAppFramework(text: string): string | undefined {
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
-    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*import`, 'g');
-
+    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
     const importMatch = importPattern.exec(text);
+
     if (importMatch) {
         return importMatch[1];
     }

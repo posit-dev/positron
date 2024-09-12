@@ -30,7 +30,6 @@ import {
 //import { getAppFramework } from '../../positron/webAppContexts'
 // --- End Positron ---
 
-
 @injectable()
 export class CodeExecutionManager implements ICodeExecutionManager {
     private eventEmitter: EventEmitter<string> = new EventEmitter<string>();
@@ -41,7 +40,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-    ) { }
+    ) {}
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
