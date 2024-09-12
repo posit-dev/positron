@@ -912,8 +912,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		});
 	}
 
-	async copyPlotToClipboard(): Promise<void> {
-		const plot = this._plots.find(plot => plot.id === this.selectedPlotId);
+	async copyPlotToClipboard(plotId?: string): Promise<void> {
+		const isEditorPlot = plotId?.startsWith(Schemas.positronPlotsEditor);
+		const plotToCopy = plotId?.replace(`${Schemas.positronPlotsEditor}:`, '').trim() ?? this.selectedPlotId;
+		const plot = isEditorPlot && plotToCopy ?
+			this._editorPlots.get(plotToCopy)
+			: this._plots.find(plot => plot.id === plotToCopy);
+
 		if (plot instanceof StaticPlotClient) {
 			try {
 				await this._clipboardService.writeImage(plot.uri);

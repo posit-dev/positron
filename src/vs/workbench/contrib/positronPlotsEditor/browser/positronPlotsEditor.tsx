@@ -12,7 +12,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IEditorOptions } from 'vs/platform/editor/common/editor';
+import { EditorActivation, IEditorOptions } from 'vs/platform/editor/common/editor';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -74,6 +74,9 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	}
 
 	takeFocus(): void {
+		if (this.input) {
+			this._group.openEditor(this.input, { activation: EditorActivation.ACTIVATE });
+		}
 		this.focus();
 	}
 
@@ -111,6 +114,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		);
 
 		this._container = DOM.$('.positron-plots-editor-container');
+		this._container.onclick = () => this.takeFocus();
 	}
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
@@ -160,7 +164,9 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
-		input.setName(this._plotClient.id);
+		const code = this._plotClient.metadata.code.trim();
+
+		input.setName(`Plot: ${code.length === 0 ? this._plotClient.id : code}`);
 
 		this.renderContainer(this._plotClient);
 		this.onSizeChanged((event: ISize) => {
@@ -190,6 +196,11 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	override dispose(): void {
 		this.disposeReactRenderer();
 		super.dispose();
+	}
+
+	override focus(): void {
+		super.focus();
+		this._container.focus();
 	}
 }
 
