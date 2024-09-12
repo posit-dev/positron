@@ -17,7 +17,6 @@ import { Schemas } from 'vs/base/common/network';
 import { KeyCode } from 'vs/base/common/keyCodes';
 import { generateUuid } from 'vs/base/common/uuid';
 import { isMacintosh } from 'vs/base/common/platform';
-import { getActiveElement } from 'vs/base/browser/dom';
 import { HistoryNavigator2 } from 'vs/base/common/history';
 import { ISelection } from 'vs/editor/common/core/selection';
 import { IKeyboardEvent } from 'vs/base/browser/keyboardEvent';
@@ -621,6 +620,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				fixedOverflowWidgets: true,
 				lineDecorationsWidth: '1.0ch',
 				renderLineHighlight: 'none',
+				renderFinalNewline: 'on',
 				wordWrap: 'bounded',
 				wordWrapColumn: 2048,
 				scrollbar: {
@@ -762,7 +762,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 						// Only take focus if there is no focused editor to avoid stealing
 						// focus when the user could be actively working in an editor
 
-						const ctxt = positronConsoleContext.contextKeyService.getContext(getActiveElement());
+						const ctxt = positronConsoleContext.contextKeyService.getContext(DOM.getActiveElement());
 
 						// Sensitive to all editor contexts, simple (e.g. git commit textbox) or not (e.g. code editor)
 						const inTextInput = ctxt.getValue(EditorContextKeys.textInputFocus.key);
