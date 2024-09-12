@@ -10,7 +10,7 @@ import { raceTimeout } from './utils';
 
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
 
-export const log = vscode.window.createOutputChannel('Positron App Runners', { log: true });
+export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
 
 export async function activate(context: vscode.ExtensionContext): Promise<PositronRunAppApi> {
 	context.subscriptions.push(log);
@@ -31,13 +31,25 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 			await document.save();
 		}
 
+		// Get the preferred runtime for the document's language.
+		const runtime = await positron.runtime.getPreferredRuntime(document.languageId);
+
+		// Get the terminal options for the application.
+		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
+		const port = undefined;
+		const urlPrefix = undefined;
+		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
+		if (!terminalOptions) {
+			return;
+		}
+
 		// Get existing terminals with the application's name.
 		const existingTerminals = vscode.window.terminals.filter((t) => t.name === options.label);
 
 		// Create a new terminal for the application.
 		const terminal = vscode.window.createTerminal({
 			name: options.label,
-			env: options.env,
+			env: terminalOptions.env,
 		});
 
 		// Reveal the new terminal.
@@ -90,7 +102,7 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		}
 
 		if (shellIntegration) {
-			const execution = shellIntegration.executeCommand(options.commandLine);
+			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
 
 			// Wait for the server URL to appear in the terminal output, or a timeout.
 			const stream = execution.read();
@@ -128,7 +140,7 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 			}
 		} else {
 			// No shell integration support, just run the command.
-			terminal.sendText(options.commandLine);
+			terminal.sendText(terminalOptions.commandLine);
 		}
 	}
 }
