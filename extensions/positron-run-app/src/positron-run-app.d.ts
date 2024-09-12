@@ -14,7 +14,12 @@ export interface RunAppTerminalOptions {
 
 export interface RunAppOptions {
 	label: string;
-	getTerminalOptions: (runtime: positron.LanguageRuntimeMetadata, document: vscode.TextDocument, port?: string, urlPrefix?: string) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
+	getTerminalOptions: (
+		runtime: positron.LanguageRuntimeMetadata,
+		document: vscode.TextDocument,
+		port?: string,
+		urlPrefix?: string,
+	) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
 	urlPath?: string;
 }
 

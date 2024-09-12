@@ -8,16 +8,21 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export interface RunAppTerminalOptions {
-	commandLine: string;
-	env?: { [key: string]: string | null | undefined };
+    commandLine: string;
+    env?: { [key: string]: string | null | undefined };
 }
 
 export interface RunAppOptions {
-	label: string;
-	getTerminalOptions: (runtime: positron.LanguageRuntimeMetadata, document: vscode.TextDocument, port?: string, urlPrefix?: string) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
-	urlPath?: string;
+    label: string;
+    getTerminalOptions: (
+        runtime: positron.LanguageRuntimeMetadata,
+        document: vscode.TextDocument,
+        port?: string,
+        urlPrefix?: string,
+    ) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
+    urlPath?: string;
 }
 
 export interface PositronRunAppApi {
-	runApplication(options: RunAppOptions): Promise<void>;
+    runApplication(options: RunAppOptions): Promise<void>;
 }
