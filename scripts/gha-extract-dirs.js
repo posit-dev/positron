@@ -5,9 +5,6 @@
 
 const { dirs } = require('../build/npm/dirs.js'); // replace with the correct path to your file
 
-// Output each directory's node_modules path
-dirs.forEach(dir => {
-	// Ensure that empty strings represent the root directory
-	const path = dir ? `${dir}/node_modules` : 'node_modules';
-	console.log(path);
-});
+// Output each directory's node_modules path, joined by spaces
+const paths = dirs.map(dir => dir ? `${dir}/node_modules` : 'node_modules');
+console.log(paths.join(' '));  // Outputs a space-separated list
