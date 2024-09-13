@@ -111,24 +111,24 @@ jobs:
             remote-node-modules-v2-${{ runner.os }}-
             remote-node-modules-
 
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Install Yarn
-          npm install -g yarn
+      # - name: Execute yarn
+      #   env:
+      #     PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+      #     ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+      #     POSITRON_GITHUB_PAT: ${{ github.token }}
+      #   run: |
+      #     # Install Yarn
+      #     npm install -g yarn
 
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
+      #     # Install node-gyp; this is required by some packages, and yarn
+      #     # sometimes fails to automatically install it.
+      #     yarn global add node-gyp
 
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
+      #     # Perform the main yarn command; this installs all Node packages and
+      #     # dependencies
+      #     yarn --immutable --network-timeout 120000
+      #     yarn --cwd test/automation install --frozen-lockfile
+      #     yarn --cwd test/smoke install --frozen-lockfile
 
       # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
       # For a partial key match it will be set to false
