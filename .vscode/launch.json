@@ -518,7 +518,9 @@
 			"program": "${workspaceFolder}/test/smoke/test/index.js",
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
-			"args": [],
+			"args": [
+				"--tracing"
+			],
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],

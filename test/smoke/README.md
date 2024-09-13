@@ -210,6 +210,10 @@ await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');`
 
 (Again, don't forget to remove this line after you've finished debugging!)
 
+### Playwright Traces
+
+Note that in launch.json for `Launch Smoke Test` we are passing the `--tracing` argument for you.  This will result in Playwright traces being generated locally for you when tests fail at `.build/logs/smoke-tests-electron/{testCase}`.  Note that for command line runs you will need to pass this arg yourself to get the trace file(s).
+
 ## Running Tests in Github Actions
 
 New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml).  In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system.  Also, you can easily run your new tests against a branch to verify them before merge.  Simply pick the branch after you click on "Run Workflow".  Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly.  To do this, skip the runs of the unit and integration tests.
