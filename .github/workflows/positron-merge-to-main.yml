@@ -46,7 +46,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # Restore cache for node_modules
       - name: Restore cache node_modules in root
         id: cache-node-modules
         if: always()
@@ -57,7 +56,6 @@ jobs:
           restore-keys: |
             root-node-modules-
 
-      # Restore cache for test/automation directory
       - name: Restore cache node_modules in test/automation
         id: cache-automation-node-modules
         uses: actions/cache/restore@v4
@@ -67,7 +65,6 @@ jobs:
           restore-keys: |
             automation-node-modules-
 
-      # Restore cache for test/smoke directory
       - name: Restore cache node_modules in test/smoke
         id: cache-smoke-node-modules
         uses: actions/cache/restore@v4
@@ -76,6 +73,27 @@ jobs:
           key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
           restore-keys: |
             smoke-node-modules-
+
+      - name: Restore cache node_modules in extensions
+        id: cache-extensions-node-modules
+        uses: actions/cache/restore@v4
+        with:
+          path: extensions
+          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-node-modules-
+
+      - name: Restore cache for build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/node_modules
+            remote/node_modules
+            remote/reh-web/node_modules
+          key: build-node-modules-${{ hashFiles('build/yarn.lock') }}
+          restore-keys: |
+            build-node-modules-
 
       - name: Execute yarn
         env:
@@ -88,7 +106,7 @@ jobs:
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
-          #   yarn global add node-gyp
+          yarn global add node-gyp
 
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
@@ -125,6 +143,25 @@ jobs:
           key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
           restore-keys: |
             smoke-node-modules-
+
+      - name: Cache node_modules in extensions
+        if: always() && steps.cache-extensions-node-modules.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: extensions/node_modules
+          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-node-modules-
+
+      - name: Cache build
+        if: always() && steps.cache-build.outputs.cache-hit != 'true'
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/node_modules
+            remote/node_modules
+            remote/reh-web/node_modules
+          key: build-node-modules-${{ hashFiles('build/yarn.lock') }}
 
     #   - name: Compile and Download
     #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
