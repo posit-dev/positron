@@ -232,8 +232,8 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 			// exited runtime with a matching language.
 			const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(e.session.runtimeMetadata.languageId);
 			if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
-				positronConsoleInstance.setRuntimeSession(e.session, attachMode);
 				this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.session.sessionId);
+				positronConsoleInstance.setRuntimeSession(e.session, attachMode);
 				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
 			} else {
 				// New runtime with a new language, so start a new Positron console instance.
