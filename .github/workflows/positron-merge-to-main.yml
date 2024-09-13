@@ -82,7 +82,7 @@ jobs:
             extensions/**/node_modules
           key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
-            extensions-node-modules-
+            extensions-node-modules-v1-
 
       - name: Restore cache for build
         id: cache-build
@@ -90,9 +90,9 @@ jobs:
         with:
           path: |
             build/node_modules
-          key: build-node-modules-${{ hashFiles('yarn.lock') }}
+          key: build-node-modules-v1-${{ hashFiles('yarn.lock') }}
           restore-keys: |
-            build-node-modules-
+            build-node-modules-v1-
 
       - name: Restore cache for remote
         id: cache-remote
@@ -151,7 +151,7 @@ jobs:
         with:
           path: |
             build/node_modules
-          key: build-node-modules-${{ hashFiles('build/yarn.lock') }}
+          key: build-node-modules-v1-${{ hashFiles('build/yarn.lock') }}
 
       - name: Cache remote
         if: always() && steps.cache-remote.outputs.cache-hit != 'true'
