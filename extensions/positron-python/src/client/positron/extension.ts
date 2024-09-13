@@ -297,6 +297,10 @@ export async function checkAndInstallPython(
     return InstallerResponse.Installed;
 }
 
+/**
+ * Convert a file path string to Python module format.
+ * For example `path/to/module.py` becomes `path.to.module`.
+ */
 function pathToModule(p: string): string {
     const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
     if (!workspacePath) {
@@ -308,6 +312,13 @@ function pathToModule(p: string): string {
     return parts.concat(mod).join('.');
 }
 
+/**
+ * Get a ASGI application object's name from a document, prompting the user if necessary.
+ *
+ * @param document The Python application document.
+ * @param className The name of the ASGI application class e.g. 'FastAPI' or 'Flask'.
+ * @returns The name of the ASGI application object, or `undefined` if it could not be determined.
+ */
 async function getAppName(document: vscode.TextDocument, className: string): Promise<string | undefined> {
     const text = document.getText();
     let appName = text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
@@ -329,6 +340,7 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     return appName;
 }
 
+/** Get the Positron Run App extension's API. */
 async function getPositronRunAppApi(): Promise<PositronRunApp> {
     const runAppExt = vscode.extensions.getExtension<PositronRunApp>('vscode.positron-run-app');
     if (!runAppExt) {
