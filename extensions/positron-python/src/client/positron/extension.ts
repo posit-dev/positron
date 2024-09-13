@@ -116,6 +116,9 @@ export async function activatePositron(
         // TODO: This should probably live in its own extension, like Shiny.
         // Register a command to run Streamlit.
         // TODO: Could provide a callback that has access to runtimePath, file, port, session URL (?).
+        // TODO: Once we have contexts defined for the various application frameworks (e.g. isShinyApp),
+        //       We could have a single "Run Python App in Terminal" command with behavior conditional
+        //       on the context value.
         disposables.push(
             vscode.commands.registerCommand('python.runShinyApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
