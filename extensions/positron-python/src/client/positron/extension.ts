@@ -16,7 +16,7 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
-import { detectWebApp } from './webAppContexts';
+import { activateAppDetection } from './webAppContexts';
 
 export async function activatePositron(
     serviceContainer: IServiceContainer,
@@ -76,19 +76,8 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
 
-        // set contexts
-        const fileOpenListener = vscode.workspace.onDidOpenTextDocument((document) => {
-            if (document.languageId === 'python') {
-                detectWebApp(document);
-            }
-        });
-        const activeEditorListener = vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (editor && editor.document.languageId === 'python') {
-                detectWebApp(editor.document);
-            }
-        });
-
-        context.subscriptions.push(fileOpenListener, activeEditorListener);
+        // Activate detection for web applications
+        activateAppDetection(context.subscriptions);
 
         traceInfo('activatePositron: done!');
     } catch (ex) {

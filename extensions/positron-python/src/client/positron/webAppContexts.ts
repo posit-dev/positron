@@ -10,21 +10,11 @@ const libraries: string[] = ['streamlit', 'shiny', 'dash', 'gradio', 'flask', 'f
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
-    const foundImports = importsInApp(text);
-    const framework = getAppFramework(text);
-    executeCommand('setContext', 'pythonFileContainsApp', foundImports);
+    const framework = getFramework(text);
     executeCommand('setContext', 'pythonAppFramework', framework);
 }
 
-// find import statements for specified libraries via import XXXX or from XXX import
-function importsInApp(text: string): boolean {
-    const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
-    const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
-
-    return importPattern.test(text) || fromImportPattern.test(text);
-}
-
-export function getAppFramework(text: string): string | undefined {
+export function getFramework(text: string): string | undefined {
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
     const importMatch = importPattern.exec(text);
@@ -39,4 +29,60 @@ export function getAppFramework(text: string): string | undefined {
     }
 
     return undefined;
+}
+
+export function activateAppDetection(disposables: vscode.Disposable[]): void {
+    let timeout: NodeJS.Timeout | undefined;
+    const activeEditor = vscode.window.activeTextEditor;
+
+    function updateWebApp() {
+        if (!activeEditor) {
+            return;
+        }
+        detectWebApp(activeEditor.document);
+    }
+
+    // Throttle updates if needed
+    function triggerUpdateApp(throttle = false) {
+        if (!activeEditor) {
+            return;
+        }
+        if (timeout) {
+            clearTimeout(timeout);
+            timeout = undefined;
+        }
+        if (throttle) {
+            timeout = setTimeout(updateWebApp, 500);
+        } else {
+            detectWebApp(activeEditor.document);
+        }
+    }
+
+    // Trigger for the current active editor.
+    if (activeEditor) {
+        triggerUpdateApp();
+    }
+
+    disposables.push(
+        // Trigger when the active editor changes
+        vscode.window.onDidChangeActiveTextEditor((editor) => {
+            if (editor && editor.document.languageId === 'python') {
+                triggerUpdateApp();
+            }
+        }),
+
+        // Trigger when the active editor's content changes
+        vscode.workspace.onDidChangeTextDocument((event) => {
+            if (activeEditor && event.document === activeEditor.document) {
+                triggerUpdateApp(true);
+            }
+        }),
+
+        // Trigger when new text document is opened
+        vscode.workspace.onDidOpenTextDocument((document) => {
+            if (document.languageId === 'python') {
+                triggerUpdateApp();
+            }
+        }),
+    );
 }

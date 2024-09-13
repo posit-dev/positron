@@ -67,10 +67,10 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
         Uri | string,
         (
             | {
-                installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
-                installPreReleaseVersion?: boolean;
-                donotSync?: boolean;
-            }
+                  installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
+                  installPreReleaseVersion?: boolean;
+                  donotSync?: boolean;
+              }
             | undefined
         ),
     ];
