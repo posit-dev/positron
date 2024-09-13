@@ -209,7 +209,7 @@ jobs:
           path: .build/logs/smoke-tests-electron/
 
       - name: 'Send Slack notification'
-        if: env.SMOKETEST_TARGET == 'smoketest-merge-to-main'
+        if: ${{ failure() && env.SMOKETEST_TARGET == 'smoketest-merge-to-main' }}
         uses: automattic/action-test-results-to-slack@v0.3.1
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
