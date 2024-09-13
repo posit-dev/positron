@@ -22,6 +22,10 @@ on:
 env:
   SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   linux:
     name: Tests on Linux

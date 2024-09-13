@@ -1680,7 +1680,9 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             data = data.view(np_.int64)
 
-        bin_counts, bin_edges = _get_histogram_numpy(data, params)
+        method = _get_histogram_method(params.method)
+
+        bin_counts, bin_edges = _get_histogram_numpy(data, params.num_bins, method=method)
 
         if is_datetime64:
             # A bit hacky for now, but will replace this with
@@ -1791,44 +1793,55 @@ COMPARE_OPS = {
 }
 
 
-def _get_histogram_numpy(data, params: ColumnHistogramParams):
-    assert params.num_bins is not None
+def _get_histogram_method(method: ColumnHistogramParamsMethod):
+    return {
+        ColumnHistogramParamsMethod.Fixed: "fixed",
+        ColumnHistogramParamsMethod.Sturges: "sturges",
+        ColumnHistogramParamsMethod.FreedmanDiaconis: "fd",
+        ColumnHistogramParamsMethod.Scott: "scott",
+    }[method]
 
-    if params.method == ColumnHistogramParamsMethod.Fixed:
-        hist_params = {"bins": params.num_bins}
-    elif params.method == ColumnHistogramParamsMethod.Sturges:
-        hist_params = {"bins": "sturges"}
-    elif params.method == ColumnHistogramParamsMethod.FreedmanDiaconis:
-        hist_params = {"bins": "fd"}
-    elif params.method == ColumnHistogramParamsMethod.Scott:
-        hist_params = {"bins": "scott"}
+
+def _get_histogram_numpy(data, num_bins, method="fd"):
+    assert num_bins is not None
+    if method == "fixed":
+        hist_params = {"bins": num_bins}
     else:
-        raise NotImplementedError
+        hist_params = {"bins": method}
 
+    # We optimistically compute the histogram once, and then do extra
+    # work in the special cases where the binning method produces a
+    # finer-grained histogram than the maximum number of bins that we
+    # want to render, as indicated by the num_bins argument
     try:
-        bin_edges = np_.histogram_bin_edges(data, bins=hist_params["bins"])
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
     except ValueError:
         # If there are inf/-inf values in the dataset, ValueError is
         # raised. We catch it and try again to avoid paying the
         # filtering cost every time
         data = data[np_.isfinite(data)]
-        bin_edges = np_.histogram_bin_edges(data, bins=hist_params["bins"])
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
 
-    # If the method returns more bins than what the fron-end requested,
+    need_recompute = False
+
+    # If the method returns more bins than what the front-end requested,
     # we re-define the bin edges.
-    if len(bin_edges) > params.num_bins:
-        bin_edges = np_.histogram_bin_edges(data, bins=params.num_bins)
+    if len(bin_edges) > num_bins:
+        hist_params = {"bins": num_bins}
+        need_recompute = True
 
     # For integers, we want to make sure the number of bins is smaller
     # then than `data.max() - data.min()`, so we don't endup with more bins
     # then there's data to display.
-    hist_params = {"bins": bin_edges.tolist()}
+    # hist_params = {"bins": bin_edges.tolist()}
     if issubclass(data.dtype.type, np_.integer):
         width = (data.max() - data.min()).item()
         if len(bin_edges) > width and width > 0:
             hist_params = {"bins": width + 1}
+            need_recompute = True
 
-    bin_counts, bin_edges = np_.histogram(data, **hist_params)
+    if need_recompute:
+        bin_counts, bin_edges = np_.histogram(data, **hist_params)
     return bin_counts, bin_edges
 
 
@@ -2475,7 +2488,11 @@ class PolarsView(DataExplorerTableView):
         else:
             cast_bin_edges = False
 
-        bin_counts, bin_edges = _get_histogram_numpy(data.to_numpy(), params)
+        method = _get_histogram_method(params.method)
+
+        bin_counts, bin_edges = _get_histogram_numpy(
+            data.to_numpy(), params.num_bins, method=method
+        )
         bin_edges = pl_.Series(bin_edges)
 
         if cast_bin_edges:

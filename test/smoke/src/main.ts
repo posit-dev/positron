@@ -56,7 +56,9 @@ import { setup as setupShinyTest } from './areas/positron/apps/shiny.test';
 import { setup as setupFastExecutionTest } from './areas/positron/editor/fast-execution.test';
 import { setup as setupInterpreterDropdownTest } from './areas/positron/top-action-bar/interpreter-dropdown.test';
 import { setup as setupTestExplorerTest } from './areas/positron/test-explorer/test-explorer.test';
+import { setup as setupRPKgDevelopment } from './areas/positron/r-pkg-development/r-pkg-development.test';
 import { setup as setupViewersTest } from './areas/positron/viewer/viewer.test';
+import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplorer/veryLargeDataFrame.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -468,7 +470,9 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupShinyTest(logger);
 	setupFastExecutionTest(logger);
 	setupTestExplorerTest(logger);
+	setupRPKgDevelopment(logger);
 	setupInterpreterDropdownTest(logger);
 	setupViewersTest(logger);
+	setupVeryLargeDataFrameTest(logger);
 	// --- End Positron ---
 });
