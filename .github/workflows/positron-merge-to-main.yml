@@ -64,7 +64,6 @@ jobs:
           key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             root-node-modules-v2-${{ runner.os }}-
-            root-node-modules-
 
       - name: Restore cache for test/automation
         id: cache-automation
@@ -74,7 +73,6 @@ jobs:
           key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
           restore-keys: |
             automation-node-modules-v2-${{ runner.os }}-
-            automation-node-modules-
 
       - name: Restore cache for test/smoke
         id: cache-smoke
@@ -84,7 +82,6 @@ jobs:
           key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
           restore-keys: |
             smoke-node-modules-v2-${{ runner.os }}-
-            smoke-node-modules-
 
       - name: Restore cache for build
         id: cache-build
@@ -95,7 +92,6 @@ jobs:
           key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
           restore-keys: |
             build-node-modules-v3-${{ runner.os }}-
-            build-node-modules-
 
       - name: Restore cache for extensions
         id: cache-extensions
@@ -107,7 +103,6 @@ jobs:
           key: extensions-v2-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
             extensions-v2-${{ runner.os }}-
-            extensions-
 
       - name: Restore cache for remote
         id: cache-remote
@@ -119,7 +114,6 @@ jobs:
           key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
           restore-keys: |
             remote-node-modules-v2-${{ runner.os }}-
-            remote-node-modules-
 
       - run: yarn global add node-gyp
       - name: Execute yarn
