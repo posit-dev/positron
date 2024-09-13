@@ -65,24 +65,6 @@ jobs:
           restore-keys: |
             root-node-modules-v2-${{ runner.os }}-
 
-      # - name: Restore cache for test/automation
-      #   id: cache-automation
-      #   uses: actions/cache/restore@v4
-      #   with:
-      #     path: test/automation/node_modules
-      #     key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
-      #     restore-keys: |
-      #       automation-node-modules-v2-${{ runner.os }}-
-
-      # - name: Restore cache for test/smoke
-      #   id: cache-smoke
-      #   uses: actions/cache/restore@v4
-      #   with:
-      #     path: test/smoke/node_modules
-      #     key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
-      #     restore-keys: |
-      #       smoke-node-modules-v2-${{ runner.os }}-
-
       - name: Restore cache for build
         id: cache-build
         uses: actions/cache/restore@v4
@@ -143,20 +125,6 @@ jobs:
           path: node_modules
           key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      # - name: Cache test/automation node_modules
-      #   if: always() && steps.cache-automation.outputs.cache-hit != 'true'
-      #   uses: actions/cache/save@v4
-      #   with:
-      #     path: test/automation/node_modules
-      #     key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
-
-      # - name: Cache test/smoke node_modules
-      #   if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
-      #   uses: actions/cache/save@v4
-      #   with:
-      #     path: test/smoke/node_modules
-      #     key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
-
       - name: Cache build node_modules
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -182,68 +150,68 @@ jobs:
             remote/**/node_modules
           key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
 
-    #   - name: Compile and Download
-    #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-    #   - name: Compile Integration Tests
-    #     run: yarn --cwd test/integration/browser compile
+      - name: Compile Integration Tests
+        run: yarn --cwd test/integration/browser compile
 
-    #   - name: Compile Smoke Tests
-    #     run: yarn --cwd test/smoke compile
+      - name: Compile Smoke Tests
+        run: yarn --cwd test/smoke compile
 
-    #   - name: Install rig, R, and R packages
-    #     run: |
-    #       curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-    #       rig add 4.4.0
-    #       curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-    #       Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      - name: Install rig, R, and R packages
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-    #   - name: Setup Graphviz
-    #     uses: ts-graphviz/setup-graphviz@v2.0.2
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
 
-    #   - name: Install python dependencies
-    #     run: |
-    #       curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-    #       python -m pip install --upgrade pip
-    #       python -m pip install -r requirements.txt
-    #       python -m pip install ipykernel trcli
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ipykernel trcli
 
-    #   - name: Run Unit Tests (node.js)
-    #     id: nodejs-unit-tests
-    #     run: yarn test-node
+      - name: Run Unit Tests (node.js)
+        id: nodejs-unit-tests
+        run: yarn test-node
 
-    #   - name: Run Integration Tests (Electron)
-    #     id: electron-integration-tests
-    #     run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
-    #   - name: Run Smoke Tests (Electron)
-    #     env:
-    #       POSITRON_PY_VER_SEL: 3.10.12
-    #       POSITRON_R_VER_SEL: 4.4.0
-    #     id: electron-smoke-tests
-    #     run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
+      - name: Run Smoke Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-smoke-tests
+        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
-    #   - name: Set TestRail Run Title
-    #     id: set-testrail-run-title
-    #     if: always()
-    #     run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: always()
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-    #   - name: Upload Test Results to TestRail
-    #     id: testrail-upload
-    #     if: always()
-    #     run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-    #   - name: Upload run artifacts
-    #     if: always()
-    #     uses: actions/upload-artifact@v4
-    #     with:
-    #       name: run-artifacts
-    #       path: .build/logs/smoke-tests-electron/
+      - name: Upload run artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts
+          path: .build/logs/smoke-tests-electron/
 
-    #   - name: slack-smoke-test-report
-    #     if: ${{ failure() && env.SMOKETEST_TARGET == 'smoketest-merge-to-main' }}
-    #     uses: testlabauto/xunit-slack-reporter@v2.0.1
-    #     env:
-    #       SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
-    #       SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-    #       XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
+      - name: slack-smoke-test-report
+        if: ${{ failure() && env.SMOKETEST_TARGET == 'smoketest-merge-to-main' }}
+        uses: testlabauto/xunit-slack-reporter@v2.0.1
+        env:
+          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
+          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
