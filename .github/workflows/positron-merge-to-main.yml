@@ -95,17 +95,27 @@ jobs:
           restore-keys: |
             build-node-modules-
 
-      - name: Get dynamic list of directories to cache
-        id: get_dirs
-        run: echo "dirs=$(node scripts/gha-extract-dirs.js)" >> $GITHUB_ENV
+      - name: Generate cache paths
+        id: cache_paths
+        run: |
+          # Run the script to get the comma-separated list of directories
+          dirs=$(node scripts/gha-extract-dirs.js)
 
-      - name: Cache dependencies for each dir
-        id: cache-dirs
+          # Replace commas with newlines and save it in a file
+          echo "$dirs" | tr ',' '\n' > dirs_to_cache.txt
+
+          # Save the formatted list to the environment variable
+          echo "dirs=$(cat dirs_to_cache.txt)" >> $GITHUB_ENV
+          cat dirs_to_cache.txt
+
+      - name: Cache Node.js dependencies
         uses: actions/cache/restore@v4
         with:
           path: |
-            ${{ env.dirs }}
+            ${{ env.dirs }}  # Paths are now newline-separated
           key: ${{ runner.os }}-dirs-node-modules-${{ hashFiles('**/yarn.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-dirs-node-modules-
 
       - name: Execute yarn
         env:

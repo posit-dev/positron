@@ -5,6 +5,6 @@
 
 const { dirs } = require('../build/npm/dirs.js'); // replace with the correct path to your file
 
-// Output each directory's node_modules path, joined by spaces
+// Output directories joined by commas
 const paths = dirs.map(dir => dir ? `${dir}/node_modules` : 'node_modules');
-console.log(paths.join(' '));  // Outputs a space-separated list
+console.log(paths.join(','));
