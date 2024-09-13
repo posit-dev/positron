@@ -51,7 +51,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: root-node-modules-v2-${{ hashFiles('yarn.lock') }}
+          key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             root-node-modules-v2-${{ runner.os }}-
             root-node-modules-
@@ -61,7 +61,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: test/automation/node_modules
-          key: automation-node-modules-v2-${{ hashFiles('test/automation/yarn.lock') }}
+          key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
           restore-keys: |
             automation-node-modules-v2-${{ runner.os }}-
             automation-node-modules-
@@ -71,7 +71,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: test/smoke/node_modules
-          key: smoke-node-modules-v2-${{ hashFiles('test/smoke/yarn.lock') }}
+          key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
           restore-keys: |
             smoke-node-modules-v2-${{ runner.os }}-
             smoke-node-modules-
@@ -106,7 +106,7 @@ jobs:
           path: |
             remote/node_modules
             remote/**/node_modules
-          key: remote-node-modules-v2-${{ hashFiles('remote/yarn.lock') }}
+          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
           restore-keys: |
             remote-node-modules-v2-${{ runner.os }}-
             remote-node-modules-
