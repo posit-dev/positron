@@ -132,7 +132,7 @@ jobs:
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
-          yarn global add node-gyp
+          # yarn global add node-gyp
 
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
