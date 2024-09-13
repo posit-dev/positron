@@ -48,7 +48,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
+			afterEach(async function () {
 
 				const app = this.app as Application;
 
@@ -57,13 +57,13 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Verifies data explorer functionality with very large data frame [C804823]', async function () {
+			it('Python - Verifies data explorer functionality with very large unque data dataframe [C804823] #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
 
-				const startTime = performance.now();
-
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
+
+				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
@@ -81,11 +81,43 @@ export function setup(logger: Logger) {
 				const timeTaken = endTime - startTime;
 
 				if (timeTaken > 7500) {
-					fail(`Opening large parquet took ${timeTaken} milliseconds (pandas)`);
+					fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
 				} else {
-					logger.log(`Opening large parquet took ${timeTaken} milliseconds (pandas)`);
+					//todo: change back to logger
+					console.log(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
 				}
 
+			});
+
+			it('Python - Verifies data explorer functionality with very large duplicated data dataframe [C807824] #pr', async function () {
+				const app = this.app as Application;
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
+
+				await app.workbench.quickaccess.runCommand('python.execInConsole');
+
+				const startTime = performance.now();
+
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df_large');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df_large")').innerText();
+				}).toPass();
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				// awaits table load completion
+				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				const endTime = performance.now();
+
+				const timeTaken = endTime - startTime;
+
+				if (timeTaken > 7500) {
+					fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
+				} else {
+					//todo: change back to logger
+					console.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
+				}
 			});
 		});
 
@@ -97,7 +129,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			after(async function () {
+			afterEach(async function () {
 
 				const app = this.app as Application;
 
@@ -106,13 +138,13 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('R - Verifies data explorer functionality with very large data frame [C804824]', async function () {
+			it('R - Verifies data explorer functionality with very large unique data dataframe [C804824] #pr', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
 
-				const startTime = performance.now();
-
 				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+
+				const startTime = performance.now();
 
 				logger.log('Opening data grid');
 				await expect(async () => {
@@ -130,13 +162,43 @@ export function setup(logger: Logger) {
 				const timeTaken = endTime - startTime;
 
 				if (timeTaken > 15000) {
-					fail(`Opening large parquet took ${timeTaken} milliseconds (R)`);
+					fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
 				} else {
-					logger.log(`Opening large parquet took ${timeTaken} milliseconds (R)`);
+					//todo: change back to logger
+					console.log(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
+				}
+			});
+
+			it('R - Verifies data explorer functionality with very large duplicated data dataframe [C807825] #pr', async function () {
+				const app = this.app as Application;
+				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
+
+				await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+
+				const startTime = performance.now();
+
+				logger.log('Opening data grid');
+				await expect(async () => {
+					await app.workbench.positronVariables.doubleClickVariableRow('df3_large');
+					await app.code.driver.getLocator('.label-name:has-text("Data: df3_large")').innerText();
+				}).toPass();
+
+				await app.workbench.positronSideBar.closeSecondarySideBar();
+
+				// awaits table load completion
+				await app.workbench.positronDataExplorer.getDataExplorerTableData();
+
+				const endTime = performance.now();
+
+				const timeTaken = endTime - startTime;
+
+				if (timeTaken > 15000) {
+					fail(`Opening large dupliacted parquet took ${timeTaken} milliseconds (R)`);
+				} else {
+					//todo: change back to logger
+					console.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
 				}
 			});
 		});
-
-
 	});
 }
