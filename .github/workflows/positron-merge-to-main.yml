@@ -117,45 +117,37 @@ jobs:
       # Save cache for node_modules
       - name: Cache node_modules in root
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/save@v4
         with:
           path: node_modules
           key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
-          restore-keys: |
-            root-node-modules-
 
       # Save cache for test/automation directory
       - name: Cache node_modules in test/automation
         if: always() && steps.cache-automation-node-modules.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/save@v4
         with:
           path: test/automation/node_modules
           key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
-          restore-keys: |
-            automation-node-modules-
 
       # Save cache for test/smoke directory
       - name: Cache node_modules in test/smoke
         if: always() && steps.cache-smoke-node-modules.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/save@v4
         with:
           path: test/smoke/node_modules
           key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
-          restore-keys: |
-            smoke-node-modules-
 
       - name: Cache node_modules in extensions
         if: always() && steps.cache-extensions-node-modules.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/save@v4
         with:
           path: extensions/node_modules
           key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
-          restore-keys: |
-            extensions-node-modules-
 
       - name: Cache build
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
-        uses: actions/cache/restore@v4
+        uses: actions/cache/save@v4
         with:
           path: |
             build/node_modules
