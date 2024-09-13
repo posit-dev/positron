@@ -119,6 +119,7 @@ jobs:
             remote-node-modules-v2-${{ runner.os }}-
             remote-node-modules-
 
+      - run: yarn global add node-gyp
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
