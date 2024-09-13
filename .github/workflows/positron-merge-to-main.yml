@@ -80,7 +80,7 @@ jobs:
         with:
           path: extensions
             extensions/**/node_modules
-          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
+          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
             extensions-node-modules-
 
@@ -169,7 +169,7 @@ jobs:
           path: |
             extensions
             extensions/**/node_modules
-          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
+          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
 
     #   - name: Compile and Download
     #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
