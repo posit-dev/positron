@@ -5,20 +5,20 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PositronRunAppApi, RunAppOptions } from './positron-run-app';
+import { PositronRunApp, RunAppOptions } from './positron-run-app';
 import { raceTimeout } from './utils';
 
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
 
 export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
 
-export async function activate(context: vscode.ExtensionContext): Promise<PositronRunAppApi> {
+export async function activate(context: vscode.ExtensionContext): Promise<PositronRunApp> {
 	context.subscriptions.push(log);
 
 	return new PositronRunAppApiImpl();
 }
 
-class PositronRunAppApiImpl implements PositronRunAppApi {
+class PositronRunAppApiImpl implements PositronRunApp {
 	async runApplication(options: RunAppOptions): Promise<void> {
 		// If there's no active text editor, do nothing.
 		const document = vscode.window.activeTextEditor?.document;
@@ -44,11 +44,11 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 		}
 
 		// Get existing terminals with the application's name.
-		const existingTerminals = vscode.window.terminals.filter((t) => t.name === options.label);
+		const existingTerminals = vscode.window.terminals.filter((t) => t.name === options.name);
 
 		// Create a new terminal for the application.
 		const terminal = vscode.window.createTerminal({
-			name: options.label,
+			name: options.name,
 			env: terminalOptions.env,
 		});
 
@@ -109,7 +109,7 @@ class PositronRunAppApiImpl implements PositronRunAppApi {
 			const url = await vscode.window.withProgress(
 				{
 					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t(`Starting ${options.label} server...`),
+					title: vscode.l10n.t(`Starting ${options.name} server...`),
 				},
 				() => raceTimeout(
 					(async () => {

@@ -19,7 +19,7 @@ import { isProblematicCondaEnvironment } from '../interpreter/configuration/envi
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
 import { activateAppDetection } from './webAppContexts';
-import { PositronRunAppApi, RunAppTerminalOptions } from '../positron-run-app.d';
+import { PositronRunApp, RunAppTerminalOptions } from '../positron-run-app.d';
 
 export async function activatePositron(
     serviceContainer: IServiceContainer,
@@ -120,7 +120,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runShinyApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'Shiny',
+                    name: 'Shiny',
                     getTerminalOptions(runtime, document, port, _urlPrefix) {
                         const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload'];
                         if (port) {
@@ -135,7 +135,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runStreamlitApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'Streamlit',
+                    name: 'Streamlit',
                     getTerminalOptions(runtime, document, port, _urlPrefix) {
                         const args = [
                             runtime.runtimePath,
@@ -143,6 +143,8 @@ export async function activatePositron(
                             'streamlit',
                             'run',
                             document.uri.fsPath,
+                            // Enable headless mode to avoid opening a browser window since it
+                            // will already be previewed in the viewer pane.
                             '--server.headless',
                             'true',
                         ];
@@ -157,7 +159,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runDashApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'Dash',
+                    name: 'Dash',
                     getTerminalOptions(runtime, document, port, urlPrefix) {
                         const env: RunAppTerminalOptions['env'] = {};
                         if (port) {
@@ -177,7 +179,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runGradioApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'Gradio',
+                    name: 'Gradio',
                     getTerminalOptions(runtime, document, port, urlPrefix) {
                         const env: RunAppTerminalOptions['env'] = {};
                         if (port) {
@@ -197,7 +199,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runFastAPIApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'FastAPI',
+                    name: 'FastAPI',
                     async getTerminalOptions(runtime, document, port, urlPrefix) {
                         const appName = await getAppName(document, 'FastAPI');
                         if (!appName) {
@@ -224,7 +226,7 @@ export async function activatePositron(
             vscode.commands.registerCommand('python.runFlaskApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
-                    label: 'Flask',
+                    name: 'Flask',
                     async getTerminalOptions(runtime, document, port, urlPrefix) {
                         const appName = await getAppName(document, 'Flask');
                         if (!appName) {
@@ -324,8 +326,8 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     return appName;
 }
 
-async function getPositronRunAppApi(): Promise<PositronRunAppApi> {
-    const runAppExt = vscode.extensions.getExtension<PositronRunAppApi>('vscode.positron-run-app');
+async function getPositronRunAppApi(): Promise<PositronRunApp> {
+    const runAppExt = vscode.extensions.getExtension<PositronRunApp>('vscode.positron-run-app');
     if (!runAppExt) {
         throw new Error('vscode.positron-run-app extension not found');
     }
