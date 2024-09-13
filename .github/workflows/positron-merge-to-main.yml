@@ -95,6 +95,18 @@ jobs:
           restore-keys: |
             build-node-modules-
 
+      - name: Get dynamic list of directories to cache
+        id: get_dirs
+        run: echo "dirs=$(node scripts/gha-extract-dirs.js)" >> $GITHUB_ENV
+
+      - name: Cache dependencies for each dir
+        id: cache-dirs
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ${{ env.dirs }}
+          key: ${{ runner.os }}-dirs-node-modules-${{ hashFiles('**/yarn.lock') }}
+
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -114,7 +126,13 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      # Save cache for node_modules
+      - name: Cache dynamic dirs list
+        if: always() && steps.cache-dirs.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.dirs }}
+          key: ${{ runner.os }}-dirs-node-modules-${{ hashFiles('**/yarn.lock') }}
+
       - name: Cache node_modules in root
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -122,7 +140,6 @@ jobs:
           path: node_modules
           key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
 
-      # Save cache for test/automation directory
       - name: Cache node_modules in test/automation
         if: always() && steps.cache-automation-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -130,7 +147,6 @@ jobs:
           path: test/automation/node_modules
           key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
 
-      # Save cache for test/smoke directory
       - name: Cache node_modules in test/smoke
         if: always() && steps.cache-smoke-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
