@@ -9,6 +9,9 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
+// todo: remove me
+import { fail } from 'assert';
+
 /*
  *  Data explorer tests with small data frames
  */
@@ -72,6 +75,9 @@ df = pd.DataFrame(data)`;
 
 				await app.workbench.positronDataExplorer.closeDataExplorer();
 				await app.workbench.positronVariables.openVariables();
+
+				// todo remove me
+				fail('dummy failure');
 
 			});
 
