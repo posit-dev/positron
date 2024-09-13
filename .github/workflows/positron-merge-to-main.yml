@@ -46,7 +46,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Restore cache node_modules in root
+      - name: Restore cache root node_modules
         id: cache-node-modules
         if: always()
         uses: actions/cache/restore@v4
@@ -56,8 +56,8 @@ jobs:
           restore-keys: |
             root-node-modules-
 
-      - name: Restore cache node_modules in test/automation
-        id: cache-automation-node-modules
+      - name: Restore cache for test/automation
+        id: cache-automation
         uses: actions/cache/restore@v4
         with:
           path: test/automation/node_modules
@@ -65,8 +65,8 @@ jobs:
           restore-keys: |
             automation-node-modules-
 
-      - name: Restore cache node_modules in test/smoke
-        id: cache-smoke-node-modules
+      - name: Restore cache for test/smoke
+        id: cache-smoke
         uses: actions/cache/restore@v4
         with:
           path: test/smoke/node_modules
@@ -74,11 +74,12 @@ jobs:
           restore-keys: |
             smoke-node-modules-
 
-      - name: Restore cache node_modules in extensions
-        id: cache-extensions-node-modules
+      - name: Restore cache for extensions
+        id: cache-extensions
         uses: actions/cache/restore@v4
         with:
           path: extensions
+            extensions/**/node_modules
           key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
             extensions-node-modules-
@@ -89,33 +90,20 @@ jobs:
         with:
           path: |
             build/node_modules
-            remote/node_modules
-            remote/reh-web/node_modules
-          key: build-node-modules-${{ hashFiles('build/yarn.lock') }}
+          key: build-node-modules-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             build-node-modules-
 
-      - name: Generate cache paths
-        id: cache_paths
-        run: |
-          # Run the script to get the comma-separated list of directories
-          dirs=$(node scripts/gha-extract-dirs.js)
-
-          # Replace commas with newlines and save it in a file
-          echo "$dirs" | tr ',' '\n' > dirs_to_cache.txt
-
-          # Save the formatted list to the environment variable
-          echo "dirs=$(cat dirs_to_cache.txt)" >> $GITHUB_ENV
-          cat dirs_to_cache.txt
-
-      - name: Cache Node.js dependencies
+      - name: Restore cache for remote
+        id: cache-remote
         uses: actions/cache/restore@v4
         with:
           path: |
-            ${{ env.dirs }}  # Paths are now newline-separated
-          key: ${{ runner.os }}-dirs-node-modules-${{ hashFiles('**/yarn.lock') }}
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-${{ hashFiles('remote/yarn.lock') }}
           restore-keys: |
-            ${{ runner.os }}-dirs-node-modules-
+            remote-node-modules-
 
       - name: Execute yarn
         env:
@@ -136,13 +124,6 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      - name: Cache dynamic dirs list
-        if: always() && steps.cache-dirs.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.dirs }}
-          key: ${{ runner.os }}-dirs-node-modules-${{ hashFiles('**/yarn.lock') }}
-
       - name: Cache node_modules in root
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -151,25 +132,18 @@ jobs:
           key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
 
       - name: Cache node_modules in test/automation
-        if: always() && steps.cache-automation-node-modules.outputs.cache-hit != 'true'
+        if: always() && steps.cache-automation.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/automation/node_modules
           key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
 
       - name: Cache node_modules in test/smoke
-        if: always() && steps.cache-smoke-node-modules.outputs.cache-hit != 'true'
+        if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/smoke/node_modules
           key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
-
-      - name: Cache node_modules in extensions
-        if: always() && steps.cache-extensions-node-modules.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: extensions/node_modules
-          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
 
       - name: Cache build
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
@@ -177,9 +151,25 @@ jobs:
         with:
           path: |
             build/node_modules
-            remote/node_modules
-            remote/reh-web/node_modules
           key: build-node-modules-${{ hashFiles('build/yarn.lock') }}
+
+      - name: Cache remote
+        if: always() && steps.cache-remote.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-${{ hashFiles('remote/yarn.lock') }}
+
+      - name: Cache extensions
+        if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-node-modules-${{ hashFiles('extensions/yarn.lock') }}
 
     #   - name: Compile and Download
     #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
