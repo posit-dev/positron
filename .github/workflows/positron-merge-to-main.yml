@@ -131,35 +131,35 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      - name: Cache node_modules in root
+      - name: Cache root node_modules
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: node_modules
           key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - name: Cache node_modules in test/automation
+      - name: Cache test/automation node_modules
         if: always() && steps.cache-automation.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/automation/node_modules
           key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
 
-      - name: Cache node_modules in test/smoke
+      - name: Cache test/smoke node_modules
         if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/smoke/node_modules
           key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
 
-      - name: Cache build
+      - name: Cache build node_modules
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: build/node_modules
           key: build-node-modules-v2-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
-      - name: Cache extensions
+      - name: Cache extensions node_modules
         if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
@@ -168,7 +168,7 @@ jobs:
             extensions/**/node_modules
           key: extensions-node-modules-v2-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
-      - name: Cache remote
+      - name: Cache remote node_modules
         if: always() && steps.cache-remote.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
