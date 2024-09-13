@@ -95,7 +95,9 @@ class PositronRunAppApiImpl implements PositronRunApp {
 						}
 					});
 				}),
-				1000,
+				// TODO: Currently, this will wait 5 seconds *every* time we run an app in a terminal
+				//       that doesn't have shell integration. We should consider caching the result.
+				5000,
 				() => {
 					log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
 				});
@@ -141,6 +143,9 @@ class PositronRunAppApiImpl implements PositronRunApp {
 		} else {
 			// No shell integration support, just run the command.
 			terminal.sendText(terminalOptions.commandLine);
+
+			// TODO: If a port was provided, we could poll the server until it responds,
+			//       then open the URL in the viewer pane.
 		}
 	}
 }

@@ -14,10 +14,6 @@
   "enabledApiProposals": [
     "terminalShellIntegration"
   ],
-  "contributes": {
-    "commands": [
-    ]
-  },
   "main": "./out/extension.js",
   "scripts": {
     "vscode:prepublish": "yarn run compile",
@@ -26,7 +22,12 @@
     "lint": "eslint src --ext ts"
   },
   "dependencies": {},
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/mocha": "^10.0.8",
+    "@types/node": "^22.5.4",
+    "@types/sinon": "^17.0.3",
+    "@types/sinon-test": "^2.4.6"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/positron"
