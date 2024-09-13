@@ -12,8 +12,8 @@ import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import { IAction } from 'vs/base/common/actions';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IAction, Separator } from 'vs/base/common/actions';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
@@ -25,7 +25,6 @@ const layoutButtonTitle = localize('positron.layoutButtonTitle', "Layout");
 const layoutButtonDescription = localize('positron.layoutButtonDescription', "Change layout");
 const summaryOnLeft = localize('positron.summaryOnLeft', "Summary on Left");
 const summaryOnRight = localize('positron.summaryOnRight', "Summary on Right");
-const summaryHidden = localize('positron.summaryHidden', "Summary Hidden");
 
 /**
  * LayoutMenuButton component.
@@ -86,22 +85,6 @@ export const LayoutMenuButton = () => {
 			}
 		});
 
-		// Separator.
-		actions.push(new Separator());
-
-		// Summary hidden.
-		actions.push({
-			id: 'SummaryHidden',
-			label: summaryHidden,
-			tooltip: '',
-			class: undefined,
-			enabled: true,
-			checked: layout === PositronDataExplorerLayout.SummaryHidden,
-			run: () => {
-				context.instance.layout = PositronDataExplorerLayout.SummaryHidden;
-			}
-		});
-
 		// Done. Return the actions.
 		return actions;
 	};
@@ -119,10 +102,6 @@ export const LayoutMenuButton = () => {
 			// Summary on right.
 			case PositronDataExplorerLayout.SummaryOnRight:
 				return 'positron-data-explorer-summary-on-right';
-
-			// Summary hidden.
-			case PositronDataExplorerLayout.SummaryHidden:
-				return 'positron-data-explorer-summary-hidden';
 
 			// Can't happen.
 			default:

@@ -14,8 +14,7 @@ export const IPositronDataExplorerService = createDecorator<IPositronDataExplore
  */
 export enum PositronDataExplorerLayout {
 	SummaryOnLeft = 'SummaryOnLeft',
-	SummaryOnRight = 'SummaryOnRight',
-	SummaryHidden = 'SummaryHidden',
+	SummaryOnRight = 'SummaryOnRight'
 }
 
 /**

@@ -69,3 +69,8 @@ docstring-code-format = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+# --- Start Positron ---
+[tool.pytest.ini_options]
+# Enable colors in the VSCode Test Results pane.
+addopts = "--color=yes"
+# --- End Positron ---

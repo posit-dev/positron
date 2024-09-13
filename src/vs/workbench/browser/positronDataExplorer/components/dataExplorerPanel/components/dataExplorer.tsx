@@ -266,20 +266,6 @@ export const DataExplorer = () => {
 				column2Ref.current.style.gridColumn = 'column-1 / splitter';
 				column2Ref.current.style.display = 'grid';
 				break;
-
-			// Summary hidden.
-			case PositronDataExplorerLayout.SummaryHidden:
-				dataExplorerRef.current.style.gridTemplateColumns = `[column] 1fr [end]`;
-
-				column1Ref.current.style.gridColumn = '';
-				column1Ref.current.style.display = 'none';
-
-				splitterRef.current.style.gridColumn = '';
-				splitterRef.current.style.display = 'none';
-
-				column2Ref.current.style.gridColumn = 'column / end';
-				column2Ref.current.style.display = 'grid';
-				break;
 		}
 	}, [layout]);
 
