@@ -83,7 +83,7 @@ jobs:
           path: |
             build
             build/node_modules
-          key: build-node-modules-v2-${{ hashFiles('build/yarn.lock') }}
+          key: build-node-modules-v2-${{ runner.os }}${{ hashFiles('build/yarn.lock') }}
           restore-keys: |
             build-node-modules-v2-${{ runner.os }}-
             build-node-modules-
@@ -130,6 +130,15 @@ jobs:
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
+
+      - run: |
+          echo ${{ steps.cache-automation.outputs.cache-hit != 'true' }}
+          echo ${{ steps.cache-node-modules.outputs.cache-hit }}
+          echo ${{ steps.cache-automation.outputs.cache-hit }}
+          echo ${{ steps.cache-smoke.outputs.cache-hit }}
+          echo ${{ steps.cache-build.outputs.cache-hit }}
+          echo ${{ steps.cache-extensions.outputs.cache-hit }}
+          echo ${{ steps.cache-remote.outputs.cache-hit }}
 
       - name: Cache root node_modules
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
