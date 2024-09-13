@@ -48,41 +48,45 @@ jobs:
 
       - name: Restore cache root node_modules
         id: cache-node-modules
-        if: always()
         uses: actions/cache/restore@v4
         with:
           path: node_modules
-          key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-root-node-modules-v1-${{ hashFiles('**/yarn.lock') }}
           restore-keys: |
-            root-node-modules-
+            ${{ runner.os }}-root-node-modules-v1-
+            ${{ runner.os }}-root-node-modules-
 
       - name: Restore cache for test/automation
         id: cache-automation
         uses: actions/cache/restore@v4
         with:
           path: test/automation/node_modules
-          key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
+          key: ${{ runner.os }}-automation-node-modules-v1-${{ hashFiles('test/automation/yarn.lock') }}
           restore-keys: |
-            automation-node-modules-
+            ${{ runner.os }}-automation-node-modules-v1-
+            ${{ runner.os }}-automation-node-modules-
 
       - name: Restore cache for test/smoke
         id: cache-smoke
         uses: actions/cache/restore@v4
         with:
           path: test/smoke/node_modules
-          key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
+          key: ${{ runner.os }}-smoke-node-modules-v1-${{ hashFiles('test/smoke/yarn.lock') }}
           restore-keys: |
-            smoke-node-modules-
+            ${{ runner.os }}-smoke-node-modules-v1
+            ${{ runner.os }}-smoke-node-modules
 
       - name: Restore cache for build
         id: cache-build
         uses: actions/cache/restore@v4
         with:
           path: |
+            build
             build/node_modules
-          key: build-node-modules-v1-${{ hashFiles('yarn.lock') }}
+          key: ${{ runner.os }}-build-node-modules-v1-${{ hashFiles('build/yarn.lock') }}
           restore-keys: |
-            build-node-modules-v1-
+            ${{ runner.os }}-build-node-modules-v1-
+            ${{ runner.os }}-build-node-modules-
 
       - name: Restore cache for extensions
         id: cache-extensions
@@ -91,9 +95,10 @@ jobs:
           path: |
             extensions
             extensions/**/node_modules
-          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
+          key: ${{ runner.os }}-extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
-            extensions-node-modules-v1-
+            ${{ runner.os }}-extensions-node-modules-v1-
+            ${{ runner.os }}-extensions-node-modules-
 
       - name: Restore cache for remote
         id: cache-remote
@@ -102,9 +107,10 @@ jobs:
           path: |
             remote/node_modules
             remote/**/node_modules
-          key: remote-node-modules-${{ hashFiles('remote/yarn.lock') }}
+          key: ${{ runner.os }}-remote-node-modules-v1-${{ hashFiles('remote/yarn.lock') }}
           restore-keys: |
-            remote-node-modules-
+            ${{ runner.os }}-remote-node-modules-v1-
+            ${{ runner.os }}-remote-node-modules-
 
       - name: Execute yarn
         env:
@@ -130,29 +136,28 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: node_modules
-          key: root-node-modules-${{ hashFiles('**/yarn.lock') }}
+          key: ${{ runner.os }}-root-node-modules-v1-${{ hashFiles('**/yarn.lock') }}
 
       - name: Cache node_modules in test/automation
         if: always() && steps.cache-automation.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/automation/node_modules
-          key: automation-node-modules-${{ hashFiles('test/automation/yarn.lock') }}
+          key: ${{ runner.os }}-automation-node-modules-v1-${{ hashFiles('test/automation/yarn.lock') }}
 
       - name: Cache node_modules in test/smoke
         if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: test/smoke/node_modules
-          key: smoke-node-modules-${{ hashFiles('test/smoke/yarn.lock') }}
+          key: ${{ runner.os }}-smoke-node-modules-v1-${{ hashFiles('test/smoke/yarn.lock') }}
 
       - name: Cache build
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: |
-            build/node_modules
-          key: build-node-modules-v1-${{ hashFiles('build/yarn.lock') }}
+          path: build/node_modules
+          key: ${{ runner.os }}-build-node-modules-v1-${{ hashFiles('build/yarn.lock') }}
 
       - name: Cache remote
         if: always() && steps.cache-remote.outputs.cache-hit != 'true'
@@ -161,7 +166,7 @@ jobs:
           path: |
             remote/node_modules
             remote/**/node_modules
-          key: remote-node-modules-${{ hashFiles('remote/yarn.lock') }}
+          key: ${{ runner.os }}-remote-node-modules-v1-${{ hashFiles('remote/yarn.lock') }}
 
       - name: Cache extensions
         if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
@@ -170,7 +175,7 @@ jobs:
           path: |
             extensions
             extensions/**/node_modules
-          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
+          key: ${{ runner.os }}-extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
 
     #   - name: Compile and Download
     #     run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
