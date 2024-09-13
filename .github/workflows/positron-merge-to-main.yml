@@ -83,7 +83,7 @@ jobs:
           path: |
             build
             build/node_modules
-          key: build-node-modules-v2-${{ runner.os }}${{ hashFiles('build/yarn.lock') }}
+          key: build-node-modules-v2-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
           restore-keys: |
             build-node-modules-v2-${{ runner.os }}-
             build-node-modules-
@@ -132,14 +132,15 @@ jobs:
           yarn --cwd test/smoke install --frozen-lockfile
 
       - run: |
-          echo ${{ steps.cache-automation.outputs.cache-hit != 'true' }}
-          echo ${{ steps.cache-node-modules.outputs.cache-hit }}
-          echo ${{ steps.cache-automation.outputs.cache-hit }}
-          echo ${{ steps.cache-smoke.outputs.cache-hit }}
-          echo ${{ steps.cache-build.outputs.cache-hit }}
-          echo ${{ steps.cache-extensions.outputs.cache-hit }}
-          echo ${{ steps.cache-remote.outputs.cache-hit }}
+          echo ${{ steps.cache-node-modules.outputs.cache-hit }} # false
+          echo ${{ steps.cache-automation.outputs.cache-hit }} # false
+          echo ${{ steps.cache-smoke.outputs.cache-hit }} # false
+          echo ${{ steps.cache-build.outputs.cache-hit }} #
+          echo ${{ steps.cache-extensions.outputs.cache-hit }} # true
+          echo ${{ steps.cache-remote.outputs.cache-hit }} # false
 
+      # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
+      # For a partial key match via restore-keys or a cache miss, it will be set to false
       - name: Cache root node_modules
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
