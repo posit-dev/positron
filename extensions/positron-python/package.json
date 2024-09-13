@@ -431,32 +431,38 @@
             {
                 "category": "Python",
                 "command": "python.runShinyApp",
-                "title": "%python.command.python.runShinyApp.title%"
+                "title": "%python.command.python.runShinyApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.runStreamlitApp",
-                "title": "%python.command.python.runStreamlitApp.title%"
+                "title": "%python.command.python.runStreamlitApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.runDashApp",
-                "title": "%python.command.python.runDashApp.title%"
+                "title": "%python.command.python.runDashApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.runGradioApp",
-                "title": "%python.command.python.runGradioApp.title%"
+                "title": "%python.command.python.runGradioApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.runFastAPIApp",
-                "title": "%python.command.python.runFastAPIApp.title%"
+                "title": "%python.command.python.runFastAPIApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.runFlaskApp",
-                "title": "%python.command.python.runFlaskApp.title%"
+                "title": "%python.command.python.runFlaskApp.title%",
+                "enablement": "config.python.enableWebAppSupport"
             }
         ],
         "configuration": {
@@ -512,9 +518,9 @@
                     "scope": "application",
                     "type": "boolean"
                 },
-                "python.enableWebAppSupport": {
+                "python.enableWebAppSupportSupport": {
                     "defaut": false,
-                    "description": "%python.enableWebAppSupport.description%",
+                    "description": "%python.enableWebAppSupportSupport.description%",
                     "scope": "application",
                     "type": "boolean"
                 },
@@ -1561,7 +1567,7 @@
                     "command": "python.execDashInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash && config.python.enableWebAppSupport"
+                    "when": "pythonAppFramework == dash && config.python.enableWebAppSupportSupport"
                 },
                 {
                     "command": "python.execGradioInTerminal",
