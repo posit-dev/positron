@@ -78,30 +78,40 @@ export class CodeExecutionManager implements ICodeExecutionManager {
             },
         );
         // --- Start Positron ---
-        this.disposableRegistry.push(
-            this.commandManager.registerCommand(Commands.Exec_App_In_Terminal as any, async () => {
-                // use editor to get contents of file
-                const editor = vscode.window.activeTextEditor;
-                if (!editor) {
-                    // No editor; nothing to do
-                    return;
-                }
+        [
+            Commands.Exec_App_In_Terminal,
+            Commands.Exec_Streamlit_In_Terminal,
+            Commands.Exec_Dash_In_Terminal,
+            Commands.Exec_FastAPI_In_Terminal,
+            Commands.Exec_Flask_In_Terminal,
+            Commands.Exec_Gradio_In_Terminal,
+            Commands.Exec_Shiny_In_Terminal,
+        ].forEach((cmd) => {
+            this.disposableRegistry.push(
+                this.commandManager.registerCommand(cmd as any, async () => {
+                    // use editor to get contents of file
+                    const editor = vscode.window.activeTextEditor;
+                    if (!editor) {
+                        // No editor; nothing to do
+                        return;
+                    }
 
-                const filePath = editor.document.uri.fsPath;
-                if (!filePath) {
-                    // File is unsaved; show a warning
-                    vscode.window.showWarningMessage('Cannot run unsaved file.');
-                    return;
-                }
+                    const filePath = editor.document.uri.fsPath;
+                    if (!filePath) {
+                        // File is unsaved; show a warning
+                        vscode.window.showWarningMessage('Cannot run unsaved file.');
+                        return;
+                    }
 
-                // Save the file before sourcing it to ensure that the contents are
-                // up to date with editor buffer.
-                await vscode.commands.executeCommand('workbench.action.files.save');
+                    // Save the file before sourcing it to ensure that the contents are
+                    // up to date with editor buffer.
+                    await vscode.commands.executeCommand('workbench.action.files.save');
 
-                // TODO: connect appFramework to commands to run script
-                //const appFramework = getAppFramework(editor.document.getText())
-            }),
-        );
+                    // TODO: connect appFramework to commands to run script
+                    //const appFramework = getAppFramework(editor.document.getText())
+                }),
+            );
+        });
         this.disposableRegistry.push(
             this.commandManager.registerCommand(Commands.Exec_In_Console as any, async () => {
                 // Get the active text editor.

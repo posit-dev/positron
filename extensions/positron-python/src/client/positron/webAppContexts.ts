@@ -6,12 +6,14 @@
 import * as vscode from 'vscode';
 import { executeCommand } from '../common/vscodeApis/commandApis';
 
-const libraries: string[] = ['streamlit', 'shiny', 'gradio', 'flask', 'fastapi'];
+const libraries: string[] = ['streamlit', 'shiny', 'dash', 'gradio', 'flask', 'fastapi'];
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
     const foundImports = importsInApp(text);
+    const framework = getAppFramework(text);
     executeCommand('setContext', 'pythonFileContainsApp', foundImports);
+    executeCommand('setContext', 'pythonAppFramework', framework);
 }
 
 // find import statements for specified libraries via import XXXX or from XXX import

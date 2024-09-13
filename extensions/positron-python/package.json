@@ -95,7 +95,7 @@
                 "description": "%walkthrough.pythonWelcome.description%",
                 "when": "workspacePlatform != webworker",
                 "steps": [
-                   {
+                    {
                         "id": "python.createPythonFolder",
                         "title": "%walkthrough.step.python.createPythonFolder.title%",
                         "description": "%walkthrough.step.python.createPythonFolder.description%",
@@ -305,6 +305,42 @@
                 "command": "python.execAppInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execAppInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execDashInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execDashInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execFastAPIInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execFastAPIInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execFlaskInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execFlaskInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execGradioInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execGradioInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execShinyInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execShinyInTerminal.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.execStreamlitInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execStreamlitInTerminal.title%"
             },
             {
                 "category": "Python",
@@ -1496,6 +1532,42 @@
                     "group": "navigation@1",
                     "title": "%python.command.python.execAppInTerminal.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported && pythonFileContainsApp"
+                },
+                {
+                    "command": "python.execDashInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execDashInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == dash"
+                },
+                {
+                    "command": "python.execGradioInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execGradioInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == gradio"
+                },
+                {
+                    "command": "python.execFastAPIInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execFastAPIInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == fastapi"
+                },
+                {
+                    "command": "python.execFlaskInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execFlaskInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == flask"
+                },
+                {
+                    "command": "python.execShinyInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execShinyInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == shiny"
+                },
+                {
+                    "command": "python.execStreamlitInTerminal",
+                    "group": "navigation@1",
+                    "title": "%python.command.python.execStreamlitInTerminal.title%",
+                    "when": "pythonFileContainsApp && pythonAppFramework == streamlit"
                 },
                 {
                     "command": "python.execInTerminal-icon",

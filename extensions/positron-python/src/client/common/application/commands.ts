@@ -67,10 +67,10 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
         Uri | string,
         (
             | {
-                  installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
-                  installPreReleaseVersion?: boolean;
-                  donotSync?: boolean;
-              }
+                installOnlyNewlyAddedFromExtensionPackVSIX?: boolean;
+                installPreReleaseVersion?: boolean;
+                donotSync?: boolean;
+            }
             | undefined
         ),
     ];
@@ -103,6 +103,12 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Debug_In_Terminal]: [Uri];
     // --- Start Positron ---
     [Commands.Exec_App_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_Dash_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_FastAPI_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_Flask_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_Gradio_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_Shiny_In_Terminal]: [undefined, Uri];
+    [Commands.Exec_Streamlit_In_Terminal]: [undefined, Uri];
     [Commands.Exec_In_Console]: [];
     [Commands.Focus_Positron_Console]: [];
     // --- End Positron ---
