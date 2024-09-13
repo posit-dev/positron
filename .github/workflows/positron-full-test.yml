@@ -111,8 +111,8 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install
-          yarn --cwd test/smoke install
+          yarn --cwd test/automation install install --frozen-lockfile
+          yarn --cwd test/smoke install install --frozen-lockfile
 
       # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
       # For a partial key match it will be set to false
