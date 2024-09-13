@@ -65,23 +65,23 @@ jobs:
           restore-keys: |
             root-node-modules-v2-${{ runner.os }}-
 
-      - name: Restore cache for test/automation
-        id: cache-automation
-        uses: actions/cache/restore@v4
-        with:
-          path: test/automation/node_modules
-          key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
-          restore-keys: |
-            automation-node-modules-v2-${{ runner.os }}-
+      # - name: Restore cache for test/automation
+      #   id: cache-automation
+      #   uses: actions/cache/restore@v4
+      #   with:
+      #     path: test/automation/node_modules
+      #     key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
+      #     restore-keys: |
+      #       automation-node-modules-v2-${{ runner.os }}-
 
-      - name: Restore cache for test/smoke
-        id: cache-smoke
-        uses: actions/cache/restore@v4
-        with:
-          path: test/smoke/node_modules
-          key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
-          restore-keys: |
-            smoke-node-modules-v2-${{ runner.os }}-
+      # - name: Restore cache for test/smoke
+      #   id: cache-smoke
+      #   uses: actions/cache/restore@v4
+      #   with:
+      #     path: test/smoke/node_modules
+      #     key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
+      #     restore-keys: |
+      #       smoke-node-modules-v2-${{ runner.os }}-
 
       - name: Restore cache for build
         id: cache-build
@@ -143,19 +143,19 @@ jobs:
           path: node_modules
           key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - name: Cache test/automation node_modules
-        if: always() && steps.cache-automation.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: test/automation/node_modules
-          key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
+      # - name: Cache test/automation node_modules
+      #   if: always() && steps.cache-automation.outputs.cache-hit != 'true'
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: test/automation/node_modules
+      #     key: automation-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/automation/yarn.lock') }}
 
-      - name: Cache test/smoke node_modules
-        if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          path: test/smoke/node_modules
-          key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
+      # - name: Cache test/smoke node_modules
+      #   if: always() && steps.cache-smoke.outputs.cache-hit != 'true'
+      #   uses: actions/cache/save@v4
+      #   with:
+      #     path: test/smoke/node_modules
+      #     key: smoke-node-modules-v2-${{ runner.os }}-${{ hashFiles('test/smoke/yarn.lock') }}
 
       - name: Cache build node_modules
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
