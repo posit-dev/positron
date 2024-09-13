@@ -11,7 +11,6 @@ permissions:
   contents: read
 
 jobs:
-
   linux:
     name: Tests on Linux
     runs-on: ubuntu-latest
@@ -55,6 +54,47 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Restore cache for node_modules
+        id: cache-node-modules
+        uses: actions/cache/restore@v4
+        with:
+          path: node_modules
+          key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+          restore-keys: |
+            root-node-modules-v2-${{ runner.os }}-
+
+      - name: Restore cache for build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            build/node_modules
+          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+          restore-keys: |
+            build-node-modules-v3-${{ runner.os }}-
+
+      - name: Restore cache for extensions
+        id: cache-extensions
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-v3-${{ runner.os }}-
+
+      - name: Restore cache for remote
+        id: cache-remote
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+          restore-keys: |
+            remote-node-modules-v2-${{ runner.os }}-
+
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -73,6 +113,40 @@ jobs:
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
+
+      # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
+      # For a partial key match it will be set to false
+      - name: Cache root node_modules
+        if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: node_modules
+          key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+      - name: Cache build node_modules
+        if: always() && steps.cache-build.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: build/node_modules
+          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+
+      - name: Cache extensions
+        if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+
+      - name: Cache remote node_modules
+        if: always() && steps.cache-remote.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
@@ -99,17 +173,17 @@ jobs:
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
-#      Remote integration tests currently disabled since licensing is required.
-#      See https://github.com/posit-dev/positron/issues/3514 for details.
-#
-#      - name: Run Integration Tests (Remote)
-#        id: electron-remote-integration-tests
-#        timeout-minutes: 15
-#        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-#
-#      - name: Run Integration Tests (Browser, Chromium)
-#        id: browser-integration-tests
-#        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+      #      Remote integration tests currently disabled since licensing is required.
+      #      See https://github.com/posit-dev/positron/issues/3514 for details.
+      #
+      #      - name: Run Integration Tests (Remote)
+      #        id: electron-remote-integration-tests
+      #        timeout-minutes: 15
+      #        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+      #
+      #      - name: Run Integration Tests (Browser, Chromium)
+      #        id: browser-integration-tests
+      #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Check Python version
         run: |
@@ -138,7 +212,7 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         if: success() || failure() # always run even if the previous step fails
         with:
-          report_paths: '**/.build/logs/smoke-tests-electron/test-results/*results.xml'
+          report_paths: "**/.build/logs/smoke-tests-electron/test-results/*results.xml"
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
