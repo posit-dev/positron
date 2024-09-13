@@ -74,16 +74,6 @@ jobs:
           restore-keys: |
             smoke-node-modules-
 
-      - name: Restore cache for extensions
-        id: cache-extensions
-        uses: actions/cache/restore@v4
-        with:
-          path: extensions
-            extensions/**/node_modules
-          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
-          restore-keys: |
-            extensions-node-modules-v1-
-
       - name: Restore cache for build
         id: cache-build
         uses: actions/cache/restore@v4
@@ -93,6 +83,17 @@ jobs:
           key: build-node-modules-v1-${{ hashFiles('yarn.lock') }}
           restore-keys: |
             build-node-modules-v1-
+
+      - name: Restore cache for extensions
+        id: cache-extensions
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-node-modules-v1-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-node-modules-v1-
 
       - name: Restore cache for remote
         id: cache-remote
