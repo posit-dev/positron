@@ -94,9 +94,9 @@ jobs:
           path: |
             extensions/node_modules
             extensions/**/node_modules
-          key: extensions-node-modules-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          key: extensions-node-modules-v4-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
-            extensions-node-modules-v3-${{ runner.os }}-
+            extensions-node-modules-v4-${{ runner.os }}-
             extensions-node-modules-
 
       - name: Restore cache for remote
@@ -165,9 +165,9 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
-            extensions
+            extensions/node_modules
             extensions/**/node_modules
-          key: extensions-node-modules-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          key: extensions-node-modules-v4-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
       - name: Cache remote node_modules
         if: always() && steps.cache-remote.outputs.cache-hit != 'true'
