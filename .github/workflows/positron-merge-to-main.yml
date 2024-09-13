@@ -115,7 +115,6 @@ jobs:
           restore-keys: |
             remote-node-modules-v2-${{ runner.os }}-
 
-      - run: yarn global add node-gyp
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -127,7 +126,7 @@ jobs:
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
-          # yarn global add node-gyp
+          yarn global add node-gyp
 
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
