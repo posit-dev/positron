@@ -120,16 +120,11 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	@memoize
 	// -- Start PWB: Local storage ---
 	get userRoamingDataHome(): URI {
-		return isWeb ?
-			joinPath(URI.file(this.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
+		// In a web context, derive the user data path from the `userDataPath`
+		// option if provided (always used on PWB)
+		return isWeb && this.options.userDataPath ?
+			joinPath(URI.file(this.options.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
 			URI.file('/User').with({ scheme: Schemas.vscodeUserData });
-	}
-
-	get userDataPath(): string {
-		if (!this.options.userDataPath) {
-			throw new Error('userDataPath was not provided to the browser');
-		}
-		return this.options.userDataPath;
 	}
 	// --- End PWB ---
 
