@@ -19,7 +19,6 @@ import { PositronDataGridConfiguration, PositronDataGridContextProvider } from '
  */
 interface PositronDataGridProps extends PositronDataGridConfiguration {
 	id?: string;
-	tabIndex: number;
 }
 
 /**

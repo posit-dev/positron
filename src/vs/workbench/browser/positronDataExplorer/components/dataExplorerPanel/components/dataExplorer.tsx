@@ -15,6 +15,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { PositronDataGrid } from 'vs/workbench/browser/positronDataGrid/positronDataGrid';
@@ -41,9 +42,9 @@ export const DataExplorer = () => {
 	const columnNameExemplar = useRef<HTMLDivElement>(undefined!);
 	const typeNameExemplar = useRef<HTMLDivElement>(undefined!);
 	const sortIndexExemplar = useRef<HTMLDivElement>(undefined!);
-	const column1Ref = useRef<HTMLDivElement>(undefined!);
+	const leftColumnRef = useRef<HTMLDivElement>(undefined!);
 	const splitterRef = useRef<HTMLDivElement>(undefined!);
-	const column2Ref = useRef<HTMLDivElement>(undefined!);
+	const rightColumnRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
 	const [width, setWidth] = useState(0);
@@ -236,55 +237,41 @@ export const DataExplorer = () => {
 		return () => resizeObserver.disconnect();
 	}, [context.instance.columnsWidthPercent]);
 
-	// Layout useEffect.
+	// ColumnsWidth Layout useEffect.
 	useLayoutEffect(() => {
+		// Set up the columns.
+		let tableSchemaColumn: HTMLDivElement;
+		let tableDataColumn: HTMLDivElement;
 		switch (layout) {
 			// Summary on left.
 			case PositronDataExplorerLayout.SummaryOnLeft:
-				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] min-content [collapsed-left-spacer] min-content [splitter] max-content [column-2] 1fr [end]`;
-
-				column1Ref.current.style.gridColumn = 'column-1 / collapsed-left-spacer';
-				column1Ref.current.style.display = 'grid';
-
-				splitterRef.current.style.gridColumn = 'splitter / column-2';
-				splitterRef.current.style.display = 'flex';
-
-				column2Ref.current.style.gridColumn = 'column-2 / end';
-				column2Ref.current.style.display = 'grid';
+				tableSchemaColumn = leftColumnRef.current;
+				tableDataColumn = rightColumnRef.current;
 				break;
 
 			// Summary on right.
 			case PositronDataExplorerLayout.SummaryOnRight:
-				dataExplorerRef.current.style.gridTemplateColumns = `[column-1] 1fr [splitter] max-content [collapsed-right-spacer] min-content [column-2] min-content [end]`;
-
-				column1Ref.current.style.gridColumn = 'column-2 / end';
-				column1Ref.current.style.display = 'grid';
-
-				splitterRef.current.style.gridColumn = 'splitter / collapsed-right-spacer';
-				splitterRef.current.style.display = 'flex';
-
-				column2Ref.current.style.gridColumn = 'column-1 / splitter';
-				column2Ref.current.style.display = 'grid';
+				tableSchemaColumn = rightColumnRef.current;
+				tableDataColumn = leftColumnRef.current;
 				break;
 		}
-	}, [layout]);
 
-	// ColumnsWidth Layout useEffect.
-	useLayoutEffect(() => {
+		// Layout the columns.
+		tableDataColumn.style.width = 'auto';
 		if (columnsCollapsed) {
-			column1Ref.current.style.width = '0';
+			tableSchemaColumn.style.width = '0';
 			if (animateColumnsWidth) {
-				column1Ref.current.style.transition = 'width 0.1s ease-out';
+				tableSchemaColumn.style.transition = 'width 0.1s ease-out';
 				setAnimateColumnsWidth(false);
 			}
 		} else {
-			column1Ref.current.style.width = `${columnsWidth}px`;
+			tableSchemaColumn.style.width = `${columnsWidth}px`;
 			if (animateColumnsWidth) {
-				column1Ref.current.style.transition = 'width 0.1s ease-out';
+				tableSchemaColumn.style.transition = 'width 0.1s ease-out';
 				setAnimateColumnsWidth(false);
 			}
 		}
-	}, [columnsWidth, columnsCollapsed, animateColumnsWidth]);
+	}, [animateColumnsWidth, columnsCollapsed, columnsWidth, layout]);
 
 	/**
 	 * onBeginResize handler.
@@ -307,22 +294,32 @@ export const DataExplorer = () => {
 
 	// Render.
 	return (
-		<div ref={dataExplorerRef} className='data-explorer'>
+		<div
+			ref={dataExplorerRef}
+			className={positronClassNames(
+				'data-explorer',
+				{ 'summary-on-left': layout === PositronDataExplorerLayout.SummaryOnLeft },
+				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight }
+			)}
+		>
 			<div ref={columnNameExemplar} className='column-name-exemplar' />
 			<div ref={typeNameExemplar} className='type-name-exemplar' />
 			<div ref={sortIndexExemplar} className='sort-index-exemplar' />
-			<div ref={column1Ref} className='column-1'>
+
+			<div ref={leftColumnRef} className='left-column'>
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					layoutService={context.layoutService}
-					instance={context.instance.tableSchemaDataGridInstance}
-					tabIndex={0}
+					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+						context.instance.tableSchemaDataGridInstance :
+						context.instance.tableDataDataGridInstance
+					}
 				/>
 			</div>
+			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
+				<div className='collapsed-left-spacer' />
+			}
 			<div ref={splitterRef} className='splitter'>
-				{columnsCollapsed && layout === PositronDataExplorerLayout.SummaryOnLeft &&
-					<div className='collapsed-left-spacer' style={{ width: 10 }}></div>
-				}
 				<VerticalSplitter
 					configurationService={context.configurationService}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
@@ -335,18 +332,20 @@ export const DataExplorer = () => {
 						setColumnsCollapsed(collapsed);
 					}}
 				/>
-				{columnsCollapsed && layout === PositronDataExplorerLayout.SummaryOnRight &&
-					<div className='collapsed-right-spacer' style={{ width: 10 }}></div>
-				}
 			</div>
-			<div ref={column2Ref} className='column-2'>
+			{layout === PositronDataExplorerLayout.SummaryOnRight && columnsCollapsed &&
+				<div className='collapsed-right-spacer' />
+			}
+			<div ref={rightColumnRef} className='right-column'>
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					layoutService={context.layoutService}
-					instance={context.instance.tableDataDataGridInstance}
-					tabIndex={1}
+					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
+						context.instance.tableDataDataGridInstance :
+						context.instance.tableSchemaDataGridInstance
+					}
 				/>
 			</div>
-		</div>
+		</div >
 	);
 };
