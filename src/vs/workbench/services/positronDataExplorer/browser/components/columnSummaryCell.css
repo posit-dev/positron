@@ -134,6 +134,7 @@
 .data-grid-row-cell .content .column-summary .column-profile-info {
 	display: grid;
 	margin: 0 auto;
+	pointer-events: none;
 	grid-row: profile-info / end-rows;
 	grid-template-rows: [sparkline] min-content [tabular-info] min-content [end-rows];
 	grid-template-columns: [left-gutter] 55px [sparkline-tabular-info] 1fr [right-gutter] 30px [end-column];
