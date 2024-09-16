@@ -63,6 +63,8 @@ const BUILD_TARGETS = [
 const serverResourceIncludes = [
 	// --- Start Positron ---
 	'out-build/react-dom/client.js',
+	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
+	'out-build/vs/code/browser/workbench/urlPorts.js',
 	// --- End Positron ---
 
 	// NLS
