@@ -9,7 +9,6 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 
-
 /*
  *  Data explorer tests with small data frames
  */
