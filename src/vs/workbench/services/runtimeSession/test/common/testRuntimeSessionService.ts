@@ -10,7 +10,7 @@ import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, IRuntimeSessionSe
 export class TestRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
 	private readonly _willStartEmitter = this._register(new Emitter<IRuntimeSessionWillStartEvent>());
 	private readonly _didStartRuntime = this._register(new Emitter<ILanguageRuntimeSession>());
-	private readonly _didReceiveRuntime = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _didReceiveRuntimeEvent = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
 	private readonly _didCreateClientInstance = this._register(new Emitter<ILanguageRuntimeClientCreatedEvent>());
 
 	readonly activeSessions = new Array<ILanguageRuntimeSession>();
@@ -19,9 +19,9 @@ export class TestRuntimeSessionService extends Disposable implements Partial<IRu
 
 	readonly onDidStartRuntime = this._didStartRuntime.event;
 
-	readonly onDidReceiveRuntimeEvent = this._didReceiveRuntime.event;
+	readonly onDidReceiveRuntimeEvent = this._didReceiveRuntimeEvent.event;
 
-	readonly onDidCreateClientInstance = this._didStartRuntime.event;
+	readonly onDidCreateClientInstance = this._didCreateClientInstance.event;
 
 	// Test helpers.
 

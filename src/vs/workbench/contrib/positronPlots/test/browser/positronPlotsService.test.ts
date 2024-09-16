@@ -72,7 +72,7 @@ suite('Positron - Plots Service', () => {
 	test('history policy: change event', async () => {
 		let historyPolicyChanged = 0;
 
-		const didChangeHisotryPolicy = new Promise<void>((resolve) => {
+		const didChangeHistoryPolicy = new Promise<void>((resolve) => {
 			const disposable = plotsService.onDidChangeHistoryPolicy((e) => {
 				historyPolicyChanged++;
 				resolve();
