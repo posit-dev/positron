@@ -85,6 +85,7 @@
 /* column-sparkline */
 
 .data-grid-row-cell .content .column-summary .basic-info .column-sparkline {
+	pointer-events: none;
 	grid-column: sparkline / missing-values;
 }
 
@@ -94,6 +95,7 @@
 	display: grid;
 	grid-gap: 5px;
 	align-items: center;
+	pointer-events: none;
 	grid-column: missing-values / right-gutter;
 	grid-template-columns: [percent] 35px [graph] 25px [end];
 }
