@@ -40,7 +40,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-    ) {}
+    ) { }
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
@@ -79,7 +79,6 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         );
         // --- Start Positron ---
         [
-            Commands.Exec_App_In_Terminal,
             Commands.Exec_Streamlit_In_Terminal,
             Commands.Exec_Dash_In_Terminal,
             Commands.Exec_FastAPI_In_Terminal,

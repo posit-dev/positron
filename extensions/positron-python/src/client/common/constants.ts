@@ -52,7 +52,6 @@ export namespace Commands {
     export const Exec_In_Terminal_Icon = 'python.execInTerminal-icon';
     export const Exec_In_Separate_Terminal = 'python.execInDedicatedTerminal';
     // --- Start Positron ---
-    export const Exec_App_In_Terminal = 'python.execAppInTerminal';
     export const Exec_Dash_In_Terminal = 'python.execDashInTerminal';
     export const Exec_FastAPI_In_Terminal = 'python.execFastAPIInTerminal';
     export const Exec_Flask_In_Terminal = 'python.execFlaskInTerminal';

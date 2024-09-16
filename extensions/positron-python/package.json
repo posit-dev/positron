@@ -302,12 +302,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.execAppInTerminal",
-                "icon": "$(play)",
-                "title": "%python.command.python.execAppInTerminal.title%"
-            },
-            {
-                "category": "Python",
                 "command": "python.execDashInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execDashInTerminal.title%"
@@ -1528,46 +1522,40 @@
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
-                    "command": "python.execAppInTerminal",
-                    "group": "navigation@1",
-                    "title": "%python.command.python.execAppInTerminal.title%",
-                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported && pythonFileContainsApp"
-                },
-                {
                     "command": "python.execDashInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execDashInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == dash"
+                    "when": "pythonAppFramework == dash"
                 },
                 {
                     "command": "python.execGradioInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execGradioInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == gradio"
+                    "when": "pythonAppFramework == gradio"
                 },
                 {
                     "command": "python.execFastAPIInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execFastAPIInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == fastapi"
+                    "when": "pythonAppFramework == fastapi"
                 },
                 {
                     "command": "python.execFlaskInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == flask"
+                    "when": "pythonAppFramework == flask"
                 },
                 {
                     "command": "python.execShinyInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == shiny"
+                    "when": "pythonAppFramework == shiny"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
-                    "when": "pythonFileContainsApp && pythonAppFramework == streamlit"
+                    "when": "pythonAppFramework == streamlit"
                 },
                 {
                     "command": "python.execInTerminal-icon",
