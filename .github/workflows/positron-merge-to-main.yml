@@ -222,4 +222,5 @@ jobs:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           slack_channel: C07FR1JNZNJ #positron-test-results channel
+          suite_name: Positron Merge to Main Test Suite
 
