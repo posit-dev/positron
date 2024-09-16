@@ -34,21 +34,13 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+      # Pull the pre-built Docker image with system-level dependencies
+      - name: Pull Docker image
+        run: docker pull mdefurio/positron-smoke-tests:latest
 
       - name: AWS S3 Access Setup
         uses: aws-actions/configure-aws-credentials@v4
@@ -56,6 +48,7 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      # Restore cache for root node_modules
       - name: Restore cache for node_modules
         id: cache-node-modules
         uses: actions/cache/restore@v4
@@ -65,27 +58,27 @@ jobs:
           restore-keys: |
             root-node-modules-v2-${{ runner.os }}-
 
+      # Restore cache for build
       - name: Restore cache for build
         id: cache-build
         uses: actions/cache/restore@v4
         with:
-          path: |
-            build/node_modules
+          path: build/node_modules
           key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
           restore-keys: |
             build-node-modules-v3-${{ runner.os }}-
 
+      # Restore cache for extensions
       - name: Restore cache for extensions
         id: cache-extensions
         uses: actions/cache/restore@v4
         with:
-          path: |
-            extensions
-            extensions/**/node_modules
+          path: extensions
           key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
             extensions-v3-${{ runner.os }}-
 
+      # Restore cache for remote
       - name: Restore cache for remote
         id: cache-remote
         uses: actions/cache/restore@v4
@@ -116,8 +109,19 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
-      # For a partial key match it will be set to false
+      - name: Run Tests in Docker
+        run: |
+          docker run --rm \
+            -e SMOKETEST_TARGET="${{ env.SMOKETEST_TARGET }}" \
+            -e POSITRON_PY_VER_SEL=3.10.12 \
+            -e POSITRON_R_VER_SEL=4.4.0 \
+            -e DISPLAY=:10 \
+            -v $(pwd)/node_modules:/usr/src/positron/node_modules \
+            -v $(pwd):/usr/src/positron \
+            positron-smoke-tests:latest \
+            bash -c "yarn ${SMOKETEST_TARGET} --tracing"
+
+      # Cache root node_modules if cache miss
       - name: Cache root node_modules
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -125,6 +129,7 @@ jobs:
           path: node_modules
           key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
+      # Cache build node_modules if cache miss
       - name: Cache build node_modules
         if: always() && steps.cache-build.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -132,15 +137,15 @@ jobs:
           path: build/node_modules
           key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
-      - name: Cache extensions
+      # Cache extensions node_modules if cache miss
+      - name: Cache extensions node_modules
         if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: |
-            extensions
-            extensions/**/node_modules
+          path: extensions
           key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
+      # Cache remote node_modules if cache miss
       - name: Cache remote node_modules
         if: always() && steps.cache-remote.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -153,9 +158,9 @@ jobs:
       # - name: Compile and Download
       # run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
       - run: yarn compile
-      - run: yarn install "electron x64"
+      - run: yarn "electron x64"
       - run: yarn playwright-install
-      - run: yarn download-builtin-extensions
+      - run: yarn add download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -163,22 +168,22 @@ jobs:
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
-      - name: Install rig, R, and R packages
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      # - name: Install rig, R, and R packages
+      #   run: |
+      #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+      #     rig add 4.4.0
+      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+      #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
+      # - name: Install python dependencies
+      #   run: |
+      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+      #     python -m pip install --upgrade pip
+      #     python -m pip install -r requirements.txt
+      #     python -m pip install ipykernel trcli
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -203,7 +208,7 @@ jobs:
       - name: Upload Test Results to TestRail
         id: testrail-upload
         if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY }} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload run artifacts
         if: always()
