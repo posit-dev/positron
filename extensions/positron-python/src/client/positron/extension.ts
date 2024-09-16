@@ -120,45 +120,6 @@ export async function activatePositron(
         //       We could have a single "Run Python App in Terminal" command with behavior conditional
         //       on the context value.
         disposables.push(
-            vscode.commands.registerCommand('python.runShinyApp', async () => {
-                const runAppApi = await getPositronRunAppApi();
-                await runAppApi.runApplication({
-                    name: 'Shiny',
-                    getTerminalOptions(runtime, document, port, _urlPrefix) {
-                        const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload'];
-                        if (port) {
-                            args.push('--port', port);
-                        }
-                        args.push(document.uri.fsPath);
-                        return { commandLine: args.join(' ') };
-                    },
-                });
-            }),
-
-            vscode.commands.registerCommand('python.runStreamlitApp', async () => {
-                const runAppApi = await getPositronRunAppApi();
-                await runAppApi.runApplication({
-                    name: 'Streamlit',
-                    getTerminalOptions(runtime, document, port, _urlPrefix) {
-                        const args = [
-                            runtime.runtimePath,
-                            '-m',
-                            'streamlit',
-                            'run',
-                            document.uri.fsPath,
-                            // Enable headless mode to avoid opening a browser window since it
-                            // will already be previewed in the viewer pane.
-                            '--server.headless',
-                            'true',
-                        ];
-                        if (port) {
-                            args.push('--port', port);
-                        }
-                        return { commandLine: args.join(' ') };
-                    },
-                });
-            }),
-
             vscode.commands.registerCommand('python.runDashApp', async () => {
                 const runAppApi = await getPositronRunAppApi();
                 await runAppApi.runApplication({
@@ -170,26 +131,6 @@ export async function activatePositron(
                         }
                         if (urlPrefix) {
                             env.DASH_URL_PREFIX = urlPrefix;
-                        }
-                        return {
-                            commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
-                            env,
-                        };
-                    },
-                });
-            }),
-
-            vscode.commands.registerCommand('python.runGradioApp', async () => {
-                const runAppApi = await getPositronRunAppApi();
-                await runAppApi.runApplication({
-                    name: 'Gradio',
-                    getTerminalOptions(runtime, document, port, urlPrefix) {
-                        const env: RunAppTerminalOptions['env'] = {};
-                        if (port) {
-                            env.GRADIO_SERVER_PORT = port;
-                        }
-                        if (urlPrefix) {
-                            env.GRADIO_ROOT_PATH = urlPrefix;
                         }
                         return {
                             commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
@@ -250,6 +191,65 @@ export async function activatePositron(
                             ].join(' '),
                             env,
                         };
+                    },
+                });
+            }),
+
+            vscode.commands.registerCommand('python.runGradioApp', async () => {
+                const runAppApi = await getPositronRunAppApi();
+                await runAppApi.runApplication({
+                    name: 'Gradio',
+                    getTerminalOptions(runtime, document, port, urlPrefix) {
+                        const env: RunAppTerminalOptions['env'] = {};
+                        if (port) {
+                            env.GRADIO_SERVER_PORT = port;
+                        }
+                        if (urlPrefix) {
+                            env.GRADIO_ROOT_PATH = urlPrefix;
+                        }
+                        return {
+                            commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
+                            env,
+                        };
+                    },
+                });
+            }),
+
+            vscode.commands.registerCommand('python.runShinyApp', async () => {
+                const runAppApi = await getPositronRunAppApi();
+                await runAppApi.runApplication({
+                    name: 'Shiny',
+                    getTerminalOptions(runtime, document, port, _urlPrefix) {
+                        const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload'];
+                        if (port) {
+                            args.push('--port', port);
+                        }
+                        args.push(document.uri.fsPath);
+                        return { commandLine: args.join(' ') };
+                    },
+                });
+            }),
+
+            vscode.commands.registerCommand('python.runStreamlitApp', async () => {
+                const runAppApi = await getPositronRunAppApi();
+                await runAppApi.runApplication({
+                    name: 'Streamlit',
+                    getTerminalOptions(runtime, document, port, _urlPrefix) {
+                        const args = [
+                            runtime.runtimePath,
+                            '-m',
+                            'streamlit',
+                            'run',
+                            document.uri.fsPath,
+                            // Enable headless mode to avoid opening a browser window since it
+                            // will already be previewed in the viewer pane.
+                            '--server.headless',
+                            'true',
+                        ];
+                        if (port) {
+                            args.push('--port', port);
+                        }
+                        return { commandLine: args.join(' ') };
                     },
                 });
             }),
