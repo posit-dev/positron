@@ -29,7 +29,7 @@ permissions:
 jobs:
   linux:
     name: Tests on Linux
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -51,8 +51,8 @@ jobs:
           node-version-file: .nvmrc
 
       # Pull the pre-built Docker image with system-level dependencies
-      # - name: Pull Docker image
-      #   run: docker pull mdefurio/positron-smoke-tests:latest
+      - name: Pull Docker image
+        run: docker pull mdefurio/positron-smoke-tests:latest
 
       - name: AWS S3 Access Setup
         uses: aws-actions/configure-aws-credentials@v4
@@ -167,12 +167,8 @@ jobs:
             remote/**/node_modules
           key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
 
-      # - name: Compile and Download
-      # run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-      - run: yarn compile
-      - run: yarn "electron x64"
-      - run: yarn playwright-install
-      - run: yarn add download-builtin-extensions
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -187,8 +183,8 @@ jobs:
       #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
       #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+      # - name: Setup Graphviz
+      #   uses: ts-graphviz/setup-graphviz@v2.0.2
 
       # - name: Install python dependencies
       #   run: |
@@ -212,27 +208,27 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: always()
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+      # - name: Set TestRail Run Title
+      #   id: set-testrail-run-title
+      #   if: always()
+      #   run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-      - name: Upload Test Results to TestRail
-        id: testrail-upload
-        if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY }} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      # - name: Upload Test Results to TestRail
+      #   id: testrail-upload
+      #   if: always()
+      #   run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY }} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload run artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-artifacts
-          path: .build/logs/smoke-tests-electron/
+      # - name: Upload run artifacts
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: run-artifacts
+      #     path: .build/logs/smoke-tests-electron/
 
-      - name: slack-smoke-test-report
-        if: ${{ failure() && env.SMOKETEST_TARGET == 'smoketest-merge-to-main' }}
-        uses: testlabauto/xunit-slack-reporter@v2.0.1
-        env:
-          SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
-          SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
+      # - name: slack-smoke-test-report
+      #   if: ${{ failure() && env.SMOKETEST_TARGET == 'smoketest-merge-to-main' }}
+      #   uses: testlabauto/xunit-slack-reporter@v2.0.1
+      #   env:
+      #     SLACK_CHANNEL: C07FR1JNZNJ #positron-test-results channel
+      #     SLACK_TOKEN: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+      #     XUNIT_PATH: .build/logs/smoke-tests-electron/test-results/results.xml
