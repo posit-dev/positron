@@ -150,8 +150,12 @@ jobs:
             remote/**/node_modules
           key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      # - name: Compile and Download
+      # run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - run: yarn compile
+      - run: yarn install "electron x64"
+      - run: yarn playwright-install
+      - run: yarn download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
