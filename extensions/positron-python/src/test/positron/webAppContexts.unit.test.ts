@@ -29,7 +29,7 @@ suite('Discover webapp frameworks', () => {
     };
     Object.entries(texts).forEach(([text, framework]) => {
         const expected = text.includes('numpy') ? undefined : framework;
-        test('should set context pythonFileContainsApp if application is found', () => {
+        test('should set context pythonAppFramework if application is found', () => {
             document.getText = () => text;
             detectWebApp(document);
 
