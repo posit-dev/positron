@@ -160,7 +160,7 @@ export class PositronPlotCommProxy extends Disposable {
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		clientStateEvent((state) => {
+		this._register(clientStateEvent((state) => {
 			if (state === RuntimeClientState.Closed) {
 				this._closeEmitter.fire();
 
@@ -168,7 +168,7 @@ export class PositronPlotCommProxy extends Disposable {
 				this._currentRender?.cancel();
 				this._renderQueue.forEach((render) => render.cancel());
 			}
-		});
+		}));
 
 		// Connect the render update emitter event
 		this.onDidRenderUpdate = this._renderUpdateEmitter.event;
@@ -179,17 +179,17 @@ export class PositronPlotCommProxy extends Disposable {
 		// Connect the intrinsic size emitter event
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
 
-		this._comm.onDidClose(() => {
+		this._register(this._comm.onDidClose(() => {
 			this._closeEmitter.fire();
-		});
+		}));
 
-		this._comm.onDidShow(() => {
+		this._register(this._comm.onDidShow(() => {
 			this._didShowPlotEmitter.fire();
-		});
+		}));
 
-		this._comm.onDidUpdate((_evt) => {
+		this._register(this._comm.onDidUpdate((_evt) => {
 			this._renderUpdateEmitter.fire();
-		});
+		}));
 
 		this._register(this._comm);
 	}
