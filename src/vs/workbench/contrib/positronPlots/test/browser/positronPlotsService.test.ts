@@ -86,7 +86,7 @@ suite('Positron - Plots Service', () => {
 		// event occurs when changing to 'AlwaysVisible'
 		plotsService.selectHistoryPolicy(HistoryPolicy.AlwaysVisible);
 
-		await raceTimeout(didChangeHisotryPolicy, 100, () => assert.fail('onDidChangeHistoryPolicy event did not fire'));
+		await raceTimeout(didChangeHistoryPolicy, 100, () => assert.fail('onDidChangeHistoryPolicy event did not fire'));
 		assert.strictEqual(historyPolicyChanged, 1, 'onDidChangeHistoryPolicy event should fire once');
 	});
 
