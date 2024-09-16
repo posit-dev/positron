@@ -4,15 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as sinon from 'sinon';
+import * as fs from 'fs/promises';
+import * as os from 'os';
+import * as path from 'path';
 import * as positron from 'positron';
+import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { PositronRunApp, RunAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 
 suite('PositronRunApp', () => {
+	let tempDir: string;
+
+	setup(async () => {
+		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
+	});
+
 	teardown(async () => {
 		sinon.restore();
+		await fs.rm(tempDir, { recursive: true, force: true });
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 	});
 
@@ -31,12 +41,10 @@ suite('PositronRunApp', () => {
 			runtimePath: 'cat',
 		} as positron.LanguageRuntimeMetadata;
 
-		// Create and open a file in the workspace with the contents of a local URL.
+		// Create and open a temporary file with the contents of a local URL.
 		const url = 'http://localhost:8000';
 		const content = Buffer.from(`Server started: ${url}`);
-		assert(vscode.workspace.workspaceFolders, 'No workspace folders');
-		const workspaceUri = vscode.workspace.workspaceFolders[0].uri;
-		const uri = vscode.Uri.joinPath(workspaceUri, 'test.py');
+		const uri = vscode.Uri.parse(path.join(tempDir, 'test.txt'));
 		await vscode.workspace.fs.writeFile(uri, content);
 		await vscode.window.showTextDocument(uri);
 
