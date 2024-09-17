@@ -59,16 +59,11 @@ jobs:
           # Install Yarn
           npm install -g yarn
 
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          # yarn global add node-gyp
-
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
-
       # Cache root node_modules if cache miss
       - name: Cache root node_modules
         if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
@@ -121,13 +116,12 @@ jobs:
         run: docker pull mdefurio/positron-tests:latest
 
       - name: Restore caches for node_modules, build, extensions, and remote
-        uses: ./github/actions/restore-cache-multi-paths
+        uses: ./.github/actions/restore-cache-multi-paths
 
       - run: yarn --cwd test/automation install --frozen-lockfile
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
-        if: always()
         run: |
           docker run --rm \
             -v $(pwd):/usr/src/positron \
@@ -140,7 +134,6 @@ jobs:
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        if: always()
         run: |
           docker run --rm \
             -e DISPLAY=:10 \
@@ -166,12 +159,15 @@ jobs:
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
 
+      - run: |
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
+
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
       - name: Run Smoke Tests (Electron)
         id: electron-smoke-tests
-        if: always()
         #   run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
         run: |
           docker run --rm \
