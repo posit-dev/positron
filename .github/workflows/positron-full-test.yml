@@ -80,9 +80,9 @@ jobs:
           path: |
             extensions
             extensions/**/node_modules
-          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          key: extensions-v4-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
-            extensions-v3-${{ runner.os }}-
+            extensions-v4-${{ runner.os }}-
 
       - name: Restore cache for remote
         id: cache-remote
