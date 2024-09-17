@@ -103,8 +103,8 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
-          # Install Yarn
-          npm install -g yarn
+          # Enable corepack (for yarn)
+          corepack enable
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
@@ -113,8 +113,9 @@ jobs:
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
           yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
+          yarn --cwd test/automation add install --frozen-lockfile
+          yarn --cwd test/smoke add install --frozen-lockfile
+
 
       # Note cache-hit will be set to true only when cache hit occurs for the exact key match.
       # For a partial key match it will be set to false
