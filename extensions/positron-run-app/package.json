@@ -22,6 +22,11 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.positron.runApplication.showShellIntegrationPrompt%"
+        },
+        "positron.runApplication.useShellIntegration": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.positron.runApplication.useShellIntegration%"
         }
       }
     }

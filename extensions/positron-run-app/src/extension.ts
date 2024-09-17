@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronRunApp, RunAppOptions } from './positron-run-app';
-import { raceTimeout } from './utils';
+import { raceTimeout, SequencerByKey } from './utils';
 
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
 
@@ -19,7 +19,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<Positr
 }
 
 class PositronRunAppApiImpl implements PositronRunApp {
+	private _runApplicationSequencerByName = new SequencerByKey<string>();
+
 	async runApplication(options: RunAppOptions): Promise<void> {
+		return this._runApplicationSequencerByName.queue(
+			options.name,
+			() => this.doRunApplication(options)
+		);
+	}
+
+	async doRunApplication(options: RunAppOptions): Promise<void> {
 		// If there's no active text editor, do nothing.
 		const document = vscode.window.activeTextEditor?.document;
 		if (!document) {
@@ -36,6 +45,7 @@ class PositronRunAppApiImpl implements PositronRunApp {
 
 		// Get the terminal options for the application.
 		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
+		//       Some application frameworks need to know the URL prefix when running behind a proxy.
 		const port = undefined;
 		const urlPrefix = undefined;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
@@ -84,46 +94,78 @@ class PositronRunAppApiImpl implements PositronRunApp {
 		positron.window.previewUrl(vscode.Uri.parse('about:blank'));
 
 		// Show a prompt to enable shell integration, if necessary.
-		// We'll await the promise after first starting the application with or without shell integration.
-		const shellIntegrationPromptResultPromise = maybeShowShellIntegrationPrompt();
+		// If shell integration is disabled, proceed without it but give the user the option to
+		// enable it and rerun the application.
+		maybeShowShellIntegrationPrompt()
+			.then((result) => {
+				// TODO: Rename to didEnableShellIntegration?
+				if (result.rerunApplication) {
+					this.runApplication(options);
+				}
+			});
 
-		let shellIntegration: vscode.TerminalShellIntegration | undefined;
-		const shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
-		if (shellIntegrationConfig.get('enabled')) {
-			// Shell integration may have already been injected into the terminal.
-			shellIntegration = terminal.shellIntegration;
+		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
 
-			// If shell integration has not yet been injected, wait for it, or a timeout.
-			if (!shellIntegration) {
-				shellIntegration = await raceTimeout(
-					new Promise<vscode.TerminalShellIntegration>(resolve => {
-						const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
-							if (e.terminal === terminal) {
-								disposable.dispose();
-								resolve(e.shellIntegration);
-							}
-						});
-					}),
-					// TODO: Currently, this will wait 5 seconds *every* time we run an app in a terminal
-					//       that doesn't have shell integration. We should consider caching the result.
-					5000,
-					() => {
-						log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
-					});
+		const shellIntegrationPromise = new Promise<vscode.TerminalShellIntegration>((resolve) => {
+			const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
+				if (e.terminal === terminal) {
+					disposable.dispose();
+					resolve(e.shellIntegration);
+				}
+			});
+		});
+
+		// If shell integration isn't injected in 1 second, show the shell integration not supported message.
+		// If it is, let the user know that it's now supported and ask if they want to rerun the application.
+		(async () => {
+			const shellIntegration = await raceTimeout(shellIntegrationPromise, 1000, () => {
+				showShellIntegrationNotSupportedMessage();
+			});
+			// TODO: Rather use a global memento for useShellIntegration?
+			if (shellIntegration && !runAppConfig.get('useShellIntegration')) {
+				await runAppConfig.update('useShellIntegration', true, vscode.ConfigurationTarget.Global);
+
+				const rerunApplication = vscode.l10n.t('Rerun Application');
+				const selection = await vscode.window.showInformationMessage(
+					vscode.l10n.t('Shell integration is now supported in this terminal. Would you like to rerun the application with shell integration?'),
+					rerunApplication,
+				);
+				if (selection === rerunApplication) {
+					this.runApplication(options);
+				}
 			}
-		}
+		})();
 
-		if (shellIntegration) {
-			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
+		return await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: vscode.l10n.t(`Running ${options.name} application`),
+		}, async (progress) => {
 
-			// Wait for the server URL to appear in the terminal output, or a timeout.
-			const stream = execution.read();
-			const url = await vscode.window.withProgress(
-				{
-					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t(`Starting ${options.name} server...`),
-				},
-				() => raceTimeout(
+			let shellIntegration: vscode.TerminalShellIntegration | undefined;
+			const shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
+			if (shellIntegrationConfig.get('enabled')) {
+				// Shell integration may have already been injected into the terminal.
+				shellIntegration = terminal.shellIntegration;
+				// If shell integration has not yet been injected, wait for it, or a timeout.
+				if (!shellIntegration) {
+					if (runAppConfig.get('useShellIntegration')) {
+						progress.report({ message: vscode.l10n.t('Activating terminal shell integration...') });
+						shellIntegration = await raceTimeout(shellIntegrationPromise, 5000, async () => {
+							log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
+							await runAppConfig.update('useShellIntegration', false, vscode.ConfigurationTarget.Global);
+							showShellIntegrationNotSupportedMessage();
+						});
+					}
+				}
+			}
+
+			if (shellIntegration) {
+				progress.report({ message: vscode.l10n.t('Starting application server...') });
+				const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
+
+				// Wait for the server URL to appear in the terminal output, or a timeout.
+				const stream = execution.read();
+				const url = await raceTimeout(
 					(async () => {
 						for await (const data of stream) {
 							const match = data.match(localUrlRegex)?.[0];
@@ -138,30 +180,26 @@ class PositronRunAppApiImpl implements PositronRunApp {
 					() => {
 						log.warn('Timed out waiting for server URL in terminal output');
 					}
-				));
+				);
 
-			if (url) {
-				// Convert the url to an external URI.
-				const localBaseUri = vscode.Uri.parse(url.toString());
-				const localUri = options.urlPath ?
-					vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
-				const externalUri = await vscode.env.asExternalUri(localUri);
+				if (url) {
+					// Convert the url to an external URI.
+					const localBaseUri = vscode.Uri.parse(url.toString());
+					const localUri = options.urlPath ?
+						vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
+					const externalUri = await vscode.env.asExternalUri(localUri);
 
-				// Open the server URL in the viewer pane.
-				positron.window.previewUrl(externalUri);
+					// Open the server URL in the viewer pane.
+					positron.window.previewUrl(externalUri);
+				}
+			} else {
+				// No shell integration support, just run the command.
+				terminal.sendText(terminalOptions.commandLine);
+
+				// TODO: If a port was provided, we could poll the server until it responds,
+				//       then open the URL in the viewer pane.
 			}
-		} else {
-			// No shell integration support, just run the command.
-			terminal.sendText(terminalOptions.commandLine);
-
-			// TODO: If a port was provided, we could poll the server until it responds,
-			//       then open the URL in the viewer pane.
-		}
-
-		const shellIntegrationPromptResult = await shellIntegrationPromptResultPromise;
-		if (shellIntegrationPromptResult.rerunApplication) {
-			await this.runApplication(options);
-		}
+		});
 	}
 }
 
@@ -215,4 +253,19 @@ async function maybeShowShellIntegrationPrompt(): Promise<IShellIntegrationPromp
 	}
 
 	return { rerunApplication: false };
+}
+
+async function showShellIntegrationNotSupportedMessage(): Promise<void> {
+	const learnMore = vscode.l10n.t('Learn More');
+	const selection = await vscode.window.showWarningMessage(
+		vscode.l10n.t(
+			'Shell integration isn\'t supported in this terminal, ' +
+			'so automatic preview in the Viewer pane isn\'t available. ' +
+			'To use this feature, please switch to a terminal that supports shell integration.'
+		),
+		learnMore,
+	);
+	if (selection === learnMore) {
+		await vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/terminal/shell-integration'));
+	}
 }

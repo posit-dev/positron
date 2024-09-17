@@ -17,3 +17,26 @@ export function raceTimeout<T>(promise: Promise<T>, timeout: number, onTimeout?:
 		new Promise<T | undefined>(resolve => promiseResolve = resolve)
 	]);
 }
+
+export interface ITask<T> {
+	(): T;
+}
+
+export class SequencerByKey<TKey> {
+
+	private promiseMap = new Map<TKey, Promise<unknown>>();
+
+	queue<T>(key: TKey, promiseTask: ITask<Promise<T>>): Promise<T> {
+		const runningPromise = this.promiseMap.get(key) ?? Promise.resolve();
+		const newPromise = runningPromise
+			.catch(() => { })
+			.then(promiseTask)
+			.finally(() => {
+				if (this.promiseMap.get(key) === newPromise) {
+					this.promiseMap.delete(key);
+				}
+			});
+		this.promiseMap.set(key, newPromise);
+		return newPromise;
+	}
+}
