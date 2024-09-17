@@ -39,7 +39,7 @@ export function setup(logger: Logger) {
 				await userSettings.unsetUserSettings();
 			});
 
-			it('R Package Development Tasks', async function () {
+			it('R Package Development Tasks [C809821]', async function () {
 				await expect(async () => {
 					// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 					// This is an R package embedded in qa-example-content

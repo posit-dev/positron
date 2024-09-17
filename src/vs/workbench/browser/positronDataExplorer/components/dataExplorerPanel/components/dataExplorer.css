@@ -4,12 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer-panel .data-explorer {
-	min-width: 0;
-	min-height: 0;
 	display: grid;
-	overflow: hidden;
-	grid-template-rows: [row] 1fr [end];
 	grid-row: data-explorer / status-bar;
+	grid-template-rows: [main-row] 1fr [end-rows];
+}
+
+.data-explorer-panel .data-explorer.summary-on-left {
+	grid-template-columns: [left-column] min-content [collapsed-left-spacer] min-content [splitter] max-content [collapsed-right-spacer] min-content [right-column] 1fr [end-columns];
+}
+
+.data-explorer-panel .data-explorer.summary-on-right {
+	grid-template-columns: [left-column] 1fr [collapsed-left-spacer] min-content [splitter] max-content [collapsed-right-spacer] min-content [right-column] min-content [end-columns];
 }
 
 .data-explorer-panel .data-explorer .column-name-exemplar {
@@ -26,28 +31,23 @@
 	font-variant-numeric: var(--positron-data-grid-column-header-sort-index-font-variant-numeric);
 }
 
-.data-explorer-panel .data-explorer .column-1 {
-	min-width: 0;
-	min-height: 0;
-	display: none;
-	grid-row: row / end;
+.data-explorer-panel .data-explorer .left-column {
+	display: grid;
+	grid-row: main-row / end-rows;
+	grid-column: left-column / collapsed-left-spacer;
 }
 
 .data-explorer-panel .data-explorer .collapsed-left-spacer {
-	width: 12px;
-	grid-row: row / end;
+	width: 10px;
+	grid-row: main-row / end-rows;
+	grid-column: collapsed-left-spacer / splitter;
 	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
 .data-explorer-panel .data-explorer .splitter {
-	display: none;
-	grid-row: row / end;
-}
-
-.data-explorer-panel .data-explorer .collapsed-right-spacer {
-	width: 12px;
-	grid-row: row / end;
-	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+	display: grid;
+	grid-row: main-row / end-rows;
+	grid-column: splitter / collapsed-right-spacer;
 }
 
 .data-explorer-panel .data-explorer .splitter .vertical-splitter {
@@ -56,9 +56,15 @@
 	background-color: var(--vscode-positronDataExplorer-contrastBackground);
 }
 
-.data-explorer-panel .data-explorer .column-2 {
-	min-width: 0;
-	min-height: 0;
-	display: none;
-	grid-row: row / end;
+.data-explorer-panel .data-explorer .collapsed-right-spacer {
+	width: 10px;
+	grid-row: main-row / end-rows;
+	grid-column: collapsed-right-spacer / right-column;
+	background-color: var(--vscode-positronDataExplorer-contrastBackground);
+}
+
+.data-explorer-panel .data-explorer .right-column {
+	display: grid;
+	grid-row: main-row / end-rows;
+	grid-column: right-column / end-columns;
 }
