@@ -7,7 +7,7 @@ import * as decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
-import { platform } from 'os';
+import { platform, arch } from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
 
@@ -188,7 +188,7 @@ async function downloadAndReplaceArk(version: string,
 			switch (platform()) {
 				case 'win32': os = 'windows-x64'; break;
 				case 'darwin': os = 'darwin-universal'; break;
-				case 'linux': os = 'linux-x64'; break;
+				case 'linux': os = (arch()  === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
 				default: {
 					console.error(`Unsupported platform ${platform()}.`);
 					return;
