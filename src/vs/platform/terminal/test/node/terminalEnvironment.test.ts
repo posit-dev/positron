@@ -12,6 +12,11 @@ import { IProductService } from 'vs/platform/product/common/productService';
 import { ITerminalProcessOptions } from 'vs/platform/terminal/common/terminal';
 import { getShellIntegrationInjection, getWindowsBuildNumber, IShellIntegrationConfigInjection } from 'vs/platform/terminal/node/terminalEnvironment';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { isWeb } from 'vs/base/common/platform';
+// --- End Positron ---
+
 const enabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, environmentVariableCollections: undefined, workspaceFolder: undefined };
 const disabledProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: false, suggestEnabled: false, nonce: '' }, windowsEnableConpty: true, environmentVariableCollections: undefined, workspaceFolder: undefined };
 const winptyProcessOptions: ITerminalProcessOptions = { shellIntegration: { enabled: true, suggestEnabled: false, nonce: '' }, windowsEnableConpty: false, environmentVariableCollections: undefined, workspaceFolder: undefined };
@@ -52,6 +57,9 @@ suite('platform - terminalEnvironment', () => {
 					envMixin: {
 						// --- Start Positron ---
 						POSITRON: '1',
+						POSITRON_VERSION: productService.positronVersion,
+						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
+						POSITRON_MODE: isWeb ? 'web' : 'desktop',
 						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
@@ -86,6 +94,9 @@ suite('platform - terminalEnvironment', () => {
 					envMixin: {
 						// --- Start Positron ---
 						POSITRON: '1',
+						POSITRON_VERSION: productService.positronVersion,
+						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
+						POSITRON_MODE: isWeb ? 'web' : 'desktop',
 						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
@@ -133,7 +144,7 @@ suite('platform - terminalEnvironment', () => {
 					function assertIsEnabled(result: IShellIntegrationConfigInjection, globalZdotdir = homedir()) {
 						// --- Start Positron ---
 						// strictEqual(Object.keys(result.envMixin!).length, 3);
-						strictEqual(Object.keys(result.envMixin!).length, 4);
+						strictEqual(Object.keys(result.envMixin!).length, 7);
 						// --- End Positron ---
 						ok(result.envMixin!['ZDOTDIR']?.match(expectedDir));
 						strictEqual(result.envMixin!['USER_ZDOTDIR'], globalZdotdir);
@@ -200,6 +211,9 @@ suite('platform - terminalEnvironment', () => {
 							envMixin: {
 								// --- Start Positron ---
 								POSITRON: '1',
+								POSITRON_VERSION: productService.positronVersion,
+								POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
+								POSITRON_MODE: isWeb ? 'web' : 'desktop',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
 								VSCODE_STABLE: '0'
@@ -218,6 +232,9 @@ suite('platform - terminalEnvironment', () => {
 							envMixin: {
 								// --- Start Positron ---
 								POSITRON: '1',
+								POSITRON_VERSION: productService.positronVersion,
+								POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
+								POSITRON_MODE: isWeb ? 'web' : 'desktop',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
 								VSCODE_SHELL_LOGIN: '1',
