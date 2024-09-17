@@ -1,5 +1,5 @@
-# Use a more recent Debian-based Node.js image
-FROM node:20-bullseye
+# Use same as 'ubuntu-latest' in GitHub Actions
+FROM ubuntu:22.04
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -8,14 +8,18 @@ RUN apt-get update && apt-get install -y \
     libsdl-pango-dev libjpeg-dev libgif-dev graphviz \
     && rm -rf /var/lib/apt/lists/*
 
-# Install global dependencies
-RUN npm install -g node-gyp npm-run-all
+# Install Node.js (v20.14.0) and npm
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+apt-get install -y nodejs=20.14.0-1nodesource1
+
+# Verify Node.js and npm versions
+RUN node -v && npm -v
+
+# Install global npm dependencies
+RUN npm install -g node-gyp npm-run-all yarn
 
 # Set the working directory inside the container
 WORKDIR /usr/src/positron
-
-# Copy package.json and yarn.lock (if using) into the container
-# COPY package.json yarn.lock ./
 
 # Install Rig and R, along with R packages
 RUN curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | tar xz -C /usr/local
@@ -26,8 +30,8 @@ RUN curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DES
 # Install Python dependencies
 RUN curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt \
     && python3 -m pip install --upgrade pip \
-    && python3 -m pip install --no-cache-dir --ignore-installed -r requirements.txt \
-    && python3 -m pip install --no-cache-dir --ignore-installed ipykernel trcli
+    && python3 -m pip install --no-cache-dir --ignore-installed --break-system-packages -r requirements.txt \
+    && python3 -m pip install --no-cache-dir --ignore-installed --break-system-packages ipykernel trcli
 
 # Copy xvfb init script and set up xvfb
 COPY build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
