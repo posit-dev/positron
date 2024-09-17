@@ -19,6 +19,11 @@ import { EnvironmentVariableMutatorType } from 'vs/platform/terminal/common/envi
 import { deserializeEnvironmentVariableCollections } from 'vs/platform/terminal/common/environmentVariableShared';
 import { MergedEnvironmentVariableCollection } from 'vs/platform/terminal/common/environmentVariableCollection';
 
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { isWeb } from 'vs/base/common/platform';
+// --- End Positron ---
+
 export function getWindowsBuildNumber(): number {
 	const osVersion = (/(\d+)\.(\d+)\.(\d+)/g).exec(os.release());
 	let buildNumber: number = 0;
@@ -140,7 +145,10 @@ export function getShellIntegrationInjection(
 		// --- Start Positron ---
 		// 'VSCODE_INJECTION': '1'
 		'VSCODE_INJECTION': '1',
-		'POSITRON': '1'
+		'POSITRON': '1',
+		'POSITRON_VERSION': productService.positronVersion,
+		'POSITRON_LONG_VERSION': `${productService.positronVersion}+${productService.positronBuildNumber}`,
+		'POSITRON_MODE': isWeb ? 'web' : 'desktop'
 		// --- End Positron ---
 	};
 
