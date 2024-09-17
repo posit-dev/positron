@@ -212,6 +212,7 @@ jobs:
       #   id: electron-smoke-tests
       #   run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
 
+      - run: docker images
       - name: Run Tests in Docker
         id: all-tests
         run: |
@@ -225,7 +226,7 @@ jobs:
             positron-smoke-tests:latest \
             bash -c "yarn test-node && \
               DISPLAY=:10 ./scripts/test-integration-pr.sh && \
-              DISPLAY=:10 yarn $SMOKETEST_TARGET --tracing"
+              DISPLAY=:10 yarn \$SMOKETEST_TARGET --tracing"
 
       # - name: Set TestRail Run Title
       #   id: set-testrail-run-title
