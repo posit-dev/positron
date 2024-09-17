@@ -205,12 +205,26 @@ jobs:
       #   id: electron-integration-tests
       #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
-      - name: Run Smoke Tests (Electron)
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
-        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
+      # - name: Run Smoke Tests (Electron)
+      #   env:
+      #     POSITRON_PY_VER_SEL: 3.10.12
+      #     POSITRON_R_VER_SEL: 4.4.0
+      #   id: electron-smoke-tests
+      #   run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
+
+      - name: Run Tests in Docker
+        id: all-tests
+        run: |
+          docker run --rm \
+            -e DISPLAY=:10 \
+            -e POSITRON_PY_VER_SEL=3.10.12 \
+            -e POSITRON_R_VER_SEL=4.4.0 \
+            -v $(pwd):/usr/src/positron \
+            -w /usr/src/positron \
+            sh -c "yarn install && \
+                  yarn test-node && \
+                  DISPLAY=:10 ./scripts/test-integration-pr.sh && \
+                  DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing"
 
       # - name: Set TestRail Run Title
       #   id: set-testrail-run-title
