@@ -10,8 +10,6 @@ runs:
       with:
         path: node_modules
         key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-        restore-keys: |
-          root-node-modules-v6-${{ runner.os }}-
 
     # Restore cache for build
     - name: Restore cache for build
@@ -20,8 +18,6 @@ runs:
       with:
         path: build/node_modules
         key: build-node-modules-v6-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
-        restore-keys: |
-          build-node-modules-v6-${{ runner.os }}-
 
     # Restore cache for extensions
     - name: Restore cache for extensions
@@ -32,8 +28,6 @@ runs:
           extensions
           extensions/**/node_modules
         key: extensions-v6-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
-        restore-keys: |
-          extensions-v6-${{ runner.os }}-
 
     # Restore cache for remote
     - name: Restore cache for remote
@@ -44,5 +38,3 @@ runs:
           remote/node_modules
           remote/**/node_modules
         key: remote-node-modules-v6-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
-        restore-keys: |
-          remote-node-modules-v6-${{ runner.os }}-
