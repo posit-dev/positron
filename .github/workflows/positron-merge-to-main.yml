@@ -101,7 +101,7 @@ jobs:
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
-          yarn global add node-gyp
+          # yarn global add node-gyp
 
           # Perform the main yarn command; this installs all Node packages and
           # dependencies
@@ -148,16 +148,6 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      # Upload the build artifacts to be used by downstream jobs
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifacts
-          path: |
-            build/
-            extensions/
-            remote/
-
   unit-integration-tests:
     runs-on: ubuntu-latest
     needs: build
@@ -167,14 +157,42 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          path: .
-
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
+
+      # Restore cache for build
+      - name: Restore cache for build
+        id: cache-build
+        uses: actions/cache/restore@v4
+        with:
+          path: build/node_modules
+          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+          restore-keys: |
+            build-node-modules-v3-${{ runner.os }}-
+
+      # Restore cache for extensions
+      - name: Restore cache for extensions
+        id: cache-extensions
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-v3-${{ runner.os }}-
+
+      # Restore cache for remote
+      - name: Restore cache for remote
+        id: cache-remote
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+          restore-keys: |
+            remote-node-modules-v2-${{ runner.os }}-
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -211,10 +229,39 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
+      # Restore cache for build
+      - name: Restore cache for build
+        id: cache-build
+        uses: actions/cache/restore@v4
         with:
-          name: build-artifacts
+          path: build/node_modules
+          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+          restore-keys: |
+            build-node-modules-v3-${{ runner.os }}-
+
+      # Restore cache for extensions
+      - name: Restore cache for extensions
+        id: cache-extensions
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            extensions
+            extensions/**/node_modules
+          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+          restore-keys: |
+            extensions-v3-${{ runner.os }}-
+
+      # Restore cache for remote
+      - name: Restore cache for remote
+        id: cache-remote
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            remote/node_modules
+            remote/**/node_modules
+          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+          restore-keys: |
+            remote-node-modules-v2-${{ runner.os }}-
 
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
