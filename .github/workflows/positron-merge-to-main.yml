@@ -176,7 +176,7 @@ jobs:
           docker run --rm \
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
-            mdefurio/positron-smoke-tests:latest \
+            mdefurio/positron-tests:latest \
             bash -c "yarn test-node"
 
       - name: Run Integration Tests (Electron)
