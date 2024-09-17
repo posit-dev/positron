@@ -24,9 +24,13 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+				await this.app.workbench.positronLayouts.enterLayout('stacked');
+
+			});
+
 			it('Verifies Variables pane basic function with python interpreter [C628634] #pr', async function () {
 				const app = this.app as Application;
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('Python', code, '>>>');
@@ -39,6 +43,8 @@ export function setup(logger: Logger) {
 				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
+
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
 
@@ -57,9 +63,13 @@ export function setup(logger: Logger) {
 
 			});
 
+			after(async function () {
+				await this.app.workbench.positronLayouts.enterLayout('stacked');
+
+			});
+
 			it('Verifies Variables pane basic function with R interpreter [C628635] #pr', async function () {
 				const app = this.app as Application;
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const executeCode = async (code: string) => {
 					await app.workbench.positronConsole.executeCode('R', code, '>');
@@ -72,6 +82,8 @@ export function setup(logger: Logger) {
 				logger.log('Entered lines in console defining variables');
 
 				await app.workbench.positronConsole.logConsoleContents();
+
+				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
 				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
 
