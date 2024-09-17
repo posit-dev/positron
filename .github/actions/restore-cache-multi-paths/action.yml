@@ -6,7 +6,7 @@ runs:
     # Restore cache for node_modules
     - name: Restore cache for node_modules
       id: cache-node-modules
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: node_modules
         key: root-node-modules-v5-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
@@ -16,7 +16,7 @@ runs:
     # Restore cache for build
     - name: Restore cache for build
       id: cache-build
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: build/node_modules
         key: build-node-modules-v5-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
@@ -26,7 +26,7 @@ runs:
     # Restore cache for extensions
     - name: Restore cache for extensions
       id: cache-extensions
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           extensions
@@ -38,7 +38,7 @@ runs:
     # Restore cache for remote
     - name: Restore cache for remote
       id: cache-remote
-      uses: actions/cache@v4
+      uses: actions/cache/restore@v4
       with:
         path: |
           remote/node_modules
