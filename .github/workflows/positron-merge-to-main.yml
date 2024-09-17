@@ -46,49 +46,8 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      # Restore cache for root node_modules
-      - name: Restore cache for node_modules
-        id: cache-node-modules
-        uses: actions/cache/restore@v4
-        with:
-          path: node_modules
-          key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-          restore-keys: |
-            root-node-modules-v2-${{ runner.os }}-
-
-      # Restore cache for build
-      - name: Restore cache for build
-        id: cache-build
-        uses: actions/cache/restore@v4
-        with:
-          path: build/node_modules
-          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
-          restore-keys: |
-            build-node-modules-v3-${{ runner.os }}-
-
-      # Restore cache for extensions
-      - name: Restore cache for extensions
-        id: cache-extensions
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            extensions
-            extensions/**/node_modules
-          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
-          restore-keys: |
-            extensions-v3-${{ runner.os }}-
-
-      # Restore cache for remote
-      - name: Restore cache for remote
-        id: cache-remote
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            remote/node_modules
-            remote/**/node_modules
-          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
-          restore-keys: |
-            remote-node-modules-v2-${{ runner.os }}-
+      - name: Restore caches for node_modules, build, extensions, and remote
+        uses: ./github/actions/restore-cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -160,39 +119,10 @@ jobs:
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
 
-      # Restore cache for build
-      - name: Restore cache for build
-        id: cache-build
-        uses: actions/cache/restore@v4
-        with:
-          path: build/node_modules
-          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
-          restore-keys: |
-            build-node-modules-v3-${{ runner.os }}-
+      - name: Restore caches for node_modules, build, extensions, and remote
+        uses: ./github/actions/restore-cache-multi-paths
 
-      # Restore cache for extensions
-      - name: Restore cache for extensions
-        id: cache-extensions
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            extensions
-            extensions/**/node_modules
-          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
-          restore-keys: |
-            extensions-v3-${{ runner.os }}-
-
-      # Restore cache for remote
-      - name: Restore cache for remote
-        id: cache-remote
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            remote/node_modules
-            remote/**/node_modules
-          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
-          restore-keys: |
-            remote-node-modules-v2-${{ runner.os }}-
+      - run: yarn --cwd test/automation install --frozen-lockfile
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -215,7 +145,7 @@ jobs:
             -e DISPLAY=:10 \
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
-            mdefurio/positron-smoke-tests:latest \
+            mdefurio/positron-tests:latest \
             bash -c "service xvfb start && ps aux | grep Xvfb && yarn test-node && \
               DISPLAY=:10 ./scripts/test-integration-pr.sh"
 
@@ -229,39 +159,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Restore cache for build
-      - name: Restore cache for build
-        id: cache-build
-        uses: actions/cache/restore@v4
-        with:
-          path: build/node_modules
-          key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
-          restore-keys: |
-            build-node-modules-v3-${{ runner.os }}-
-
-      # Restore cache for extensions
-      - name: Restore cache for extensions
-        id: cache-extensions
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            extensions
-            extensions/**/node_modules
-          key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
-          restore-keys: |
-            extensions-v3-${{ runner.os }}-
-
-      # Restore cache for remote
-      - name: Restore cache for remote
-        id: cache-remote
-        uses: actions/cache/restore@v4
-        with:
-          path: |
-            remote/node_modules
-            remote/**/node_modules
-          key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
-          restore-keys: |
-            remote-node-modules-v2-${{ runner.os }}-
+      - name: Restore caches for node_modules, build, extensions, and remote
+        uses: ./github/actions/restore-cache-multi-paths
 
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
@@ -281,7 +180,7 @@ jobs:
             -e SMOKETEST_TARGET=${{ env.SMOKETEST_TARGET }} \
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
-            mdefurio/positron-smoke-tests:latest \
+            mdefurio/positron-tests:latest \
             bash -c "service xvfb start && ps aux | grep Xvfb && \
               DISPLAY=:10 yarn $SMOKETEST_TARGET --tracing"
 
