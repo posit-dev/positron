@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line import/no-unresolved
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { ProgressLocation, ProgressOptions } from 'vscode';
@@ -145,16 +144,36 @@ export async function activatePositron(
                 await runAppApi.runApplication({
                     name: 'FastAPI',
                     async getTerminalOptions(runtime, document, port, urlPrefix) {
-                        const appName = await getAppName(document, 'FastAPI');
-                        if (!appName) {
-                            return undefined;
+                        let hasFastapiCli = false;
+
+                        const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+                        const interpreter = await interpreterService.getInterpreterDetails(runtime.runtimePath);
+                        if (interpreter) {
+                            const installer = serviceContainer.get<IInstaller>(IInstaller);
+                            hasFastapiCli = await installer.isInstalled(Product.fastapiCli, interpreter);
+                        } else {
+                            traceError(
+                                `Could not check if fastapi-cli is installed due to an invalid interpreter path: ${runtime.runtimePath}`,
+                            );
                         }
-                        const args = [
-                            runtime.runtimePath,
-                            '-m',
-                            'uvicorn',
-                            `${pathToModule(document.uri.fsPath)}:${appName}`,
-                        ];
+
+                        let args: string[];
+                        if (hasFastapiCli) {
+                            args = [runtime.runtimePath, '-m', 'fastapi', 'dev', document.uri.fsPath];
+                        } else {
+                            const appName = await getAppName(document, 'FastAPI');
+                            if (!appName) {
+                                return undefined;
+                            }
+                            args = [
+                                runtime.runtimePath,
+                                '-m',
+                                'uvicorn',
+                                '--reload',
+                                `${pathToModule(document.uri.fsPath)}:${appName}`,
+                            ];
+                        }
+
                         if (port) {
                             args.push('--port', port);
                         }
@@ -172,23 +191,14 @@ export async function activatePositron(
                 await runAppApi.runApplication({
                     name: 'Flask',
                     async getTerminalOptions(runtime, document, port, urlPrefix) {
-                        const appName = await getAppName(document, 'Flask');
-                        if (!appName) {
-                            return undefined;
-                        }
                         const env: RunAppTerminalOptions['env'] = {};
                         if (port) {
                             env.SCRIPT_NAME = urlPrefix;
                         }
                         return {
-                            commandLine: [
-                                runtime.runtimePath,
-                                '-m',
-                                'flask',
-                                '--app',
-                                `${pathToModule(document.uri.fsPath)}:${appName}`,
-                                'run',
-                            ].join(' '),
+                            commandLine: [runtime.runtimePath, '-m', 'flask', '--app', document.uri.fsPath, 'run'].join(
+                                ' ',
+                            ),
                             env,
                         };
                     },
@@ -324,7 +334,10 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
     let appName = text.match(new RegExp(`([^\\s]+)\\s*=\\s*${className}\\(`))?.[1];
     if (!appName) {
         appName = await vscode.window.showInputBox({
-            prompt: vscode.l10n.t('Enter the name of the {0} application object', className),
+            prompt: vscode.l10n.t(
+                'No {0} object found in your application code. Please enter the name manually.',
+                className,
+            ),
             validateInput(value) {
                 if (!value.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
                     return vscode.l10n.t('Invalid {0} app object name.', className);
@@ -333,7 +346,9 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
             },
         });
         if (!appName) {
-            vscode.window.showErrorMessage(vscode.l10n.t('No {0} application object name provided.', className));
+            vscode.window.showErrorMessage(
+                vscode.l10n.t('No {0} application object name provided, aborting. Please try again.', className),
+            );
             return undefined;
         }
     }
