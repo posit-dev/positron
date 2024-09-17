@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
@@ -99,7 +99,13 @@ export class PositronConsole {
 	}
 
 	async executeCode(languageName: string, code: string, prompt: string): Promise<void> {
-		await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+
+		await expect(async () => {
+			// Kind of hacky, but activate console in case focus was previously lost
+			await this.activeConsole.click();
+			await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
+
+		}).toPass();
 
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(languageName);
