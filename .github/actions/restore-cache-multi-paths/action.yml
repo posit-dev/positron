@@ -1,4 +1,4 @@
-name: "Cache Multiple Directories"
+name: "Restore Cache: Multiple Directories"
 description: "Restores cache for node_modules, build, extensions, and remote directories"
 runs:
   using: "composite"

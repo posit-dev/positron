@@ -36,6 +36,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Restore caches for node_modules, build, extensions, and remote
+        uses: ./github/actions/restore-cache-multi-paths
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -45,9 +49,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Restore caches for node_modules, build, extensions, and remote
-        uses: ./github/actions/restore-cache-multi-paths
 
       - name: Execute yarn
         env:
