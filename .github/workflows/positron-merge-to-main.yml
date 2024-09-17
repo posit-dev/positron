@@ -223,7 +223,7 @@ jobs:
             -e SMOKETEST_TARGET=${{ env.SMOKETEST_TARGET }} \
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
-            positron-smoke-tests:latest \
+            mdefurio/positron-smoke-tests:latest \
             bash -c "yarn test-node && \
               DISPLAY=:10 ./scripts/test-integration-pr.sh && \
               DISPLAY=:10 yarn \$SMOKETEST_TARGET --tracing"
