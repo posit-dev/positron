@@ -8,7 +8,7 @@ import 'vs/css!./columnSummaryCell';
 
 // React.
 import * as React from 'react';
-import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { IHoverService } from 'vs/platform/hover/browser/hover';
@@ -55,9 +55,6 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
-
-	// State hooks.
-	const [mouseInside, setMouseInside] = useState(false);
 
 	/**
 	 * Determines whether summary stats is supported.
@@ -366,21 +363,18 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 		<div
 			className='column-summary'
 			onDoubleClick={props.onDoubleClick}
-			onMouseEnter={() => setMouseInside(true)}
-			onMouseLeave={() => setMouseInside(false)}
 			onMouseDown={() => {
 				props.instance.scrollToRow(props.columnIndex);
 				props.instance.setCursorRow(props.columnIndex);
 			}}
 		>
-			{(mouseInside || cursor) &&
-				<div
-					className={positronClassNames(
-						'cursor',
-						{ 'focused': context.instance.focused && cursor }
-					)}
-				/>
-			}
+			<div
+				className={positronClassNames(
+					'cursor-indicator',
+					{ 'cursor': cursor },
+					{ 'focused': cursor && context.instance.focused }
+				)}
+			/>
 			<div className='basic-info'>
 				<div
 					className={
