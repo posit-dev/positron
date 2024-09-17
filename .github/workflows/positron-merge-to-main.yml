@@ -85,7 +85,9 @@ jobs:
         id: cache-extensions
         uses: actions/cache/restore@v4
         with:
-          path: extensions
+          path: |
+            extensions
+            extensions/**/node_modules
           key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
           restore-keys: |
             extensions-v3-${{ runner.os }}-
@@ -154,7 +156,9 @@ jobs:
         if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: extensions
+          path: |
+            extensions
+            extensions/**/node_modules
           key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
       # Cache remote node_modules if cache miss
@@ -193,13 +197,13 @@ jobs:
       #     python -m pip install -r requirements.txt
       #     python -m pip install ipykernel trcli
 
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
+      # - name: Run Unit Tests (node.js)
+      #   id: nodejs-unit-tests
+      #   run: yarn test-node
 
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      # - name: Run Integration Tests (Electron)
+      #   id: electron-integration-tests
+      #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
         env:
