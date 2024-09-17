@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore caches for node_modules, build, extensions, and remote
-        uses: ./github/actions/restore-cache-multi-paths
+        uses: ./.github/actions/restore-cache-multi-paths
 
       - uses: actions/setup-node@v4
         with:
@@ -161,7 +161,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Restore caches for node_modules, build, extensions, and remote
-        uses: ./github/actions/restore-cache-multi-paths
+        uses: ./.github/actions/restore-cache-multi-paths
 
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
