@@ -33,7 +33,7 @@ export function getFramework(text: string): string | undefined {
 
 export function activateAppDetection(disposables: vscode.Disposable[]): void {
     let timeout: NodeJS.Timeout | undefined;
-    const activeEditor = vscode.window.activeTextEditor;
+    let activeEditor = vscode.window.activeTextEditor;
 
     function updateWebApp() {
         if (!activeEditor) {
@@ -67,6 +67,7 @@ export function activateAppDetection(disposables: vscode.Disposable[]): void {
         // Trigger when the active editor changes
         vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (editor && editor.document.languageId === 'python') {
+                activeEditor = editor;
                 triggerUpdateApp();
             }
         }),
@@ -81,6 +82,8 @@ export function activateAppDetection(disposables: vscode.Disposable[]): void {
         // Trigger when new text document is opened
         vscode.workspace.onDidOpenTextDocument((document) => {
             if (document.languageId === 'python') {
+                // update to opened text document
+                activeEditor = vscode.window.activeTextEditor;
                 triggerUpdateApp();
             }
         }),
