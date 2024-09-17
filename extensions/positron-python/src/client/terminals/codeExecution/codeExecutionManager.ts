@@ -40,7 +40,7 @@ export class CodeExecutionManager implements ICodeExecutionManager {
         @inject(IFileSystem) private fileSystem: IFileSystem,
         @inject(IConfigurationService) private readonly configSettings: IConfigurationService,
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
-    ) { }
+    ) {}
 
     public get onExecutedCode(): Event<string> {
         return this.eventEmitter.event;
