@@ -38,8 +38,7 @@ export interface RunAppOptions {
      * @param document The document to run.
      * @param port The port to run the application on, if known.
      * @param urlPrefix The URL prefix to use, if known.
-     * @returns The terminal options for running the application, or `undefined` if the application
-     *  cannot be run.
+     * @returns The terminal options for running the application. Return `undefined` to abort the run.
      */
     getTerminalOptions: (
         runtime: positron.LanguageRuntimeMetadata,

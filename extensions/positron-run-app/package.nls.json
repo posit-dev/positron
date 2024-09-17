@@ -1,4 +1,5 @@
 {
 	"displayName": "Positron Run App",
-	"description": "Generic 'Run App' Framework for Positron"
+	"description": "Generic 'Run App' Framework for Positron",
+	"configuration.positron.runApplication.showShellIntegrationPrompt": "Show a prompt when shell integration is disabled."
 }

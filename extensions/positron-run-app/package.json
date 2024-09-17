@@ -15,6 +15,17 @@
     "terminalShellIntegration"
   ],
   "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "positron.runApplication.showShellIntegrationPrompt": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.positron.runApplication.showShellIntegrationPrompt%"
+        }
+      }
+    }
+  },
   "scripts": {
     "vscode:prepublish": "yarn run compile",
     "compile": "tsc -p ./",

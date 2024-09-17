@@ -83,24 +83,34 @@ class PositronRunAppApiImpl implements PositronRunApp {
 		// Replace the contents of the viewer pane with a blank page while the app is loading.
 		positron.window.previewUrl(vscode.Uri.parse('about:blank'));
 
-		// Wait for shell integration to be available, or a timeout.
-		let shellIntegration = terminal.shellIntegration;
-		if (!shellIntegration) {
-			shellIntegration = await raceTimeout(
-				new Promise<vscode.TerminalShellIntegration>(resolve => {
-					const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
-						if (e.terminal === terminal) {
-							disposable.dispose();
-							resolve(e.shellIntegration);
-						}
+		// Show a prompt to enable shell integration, if necessary.
+		// We'll await the promise after first starting the application with or without shell integration.
+		const shellIntegrationPromptResultPromise = maybeShowShellIntegrationPrompt();
+
+		let shellIntegration: vscode.TerminalShellIntegration | undefined;
+		const shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
+		if (shellIntegrationConfig.get('enabled')) {
+			// Shell integration may have already been injected into the terminal.
+			shellIntegration = terminal.shellIntegration;
+
+			// If shell integration has not yet been injected, wait for it, or a timeout.
+			if (!shellIntegration) {
+				shellIntegration = await raceTimeout(
+					new Promise<vscode.TerminalShellIntegration>(resolve => {
+						const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
+							if (e.terminal === terminal) {
+								disposable.dispose();
+								resolve(e.shellIntegration);
+							}
+						});
+					}),
+					// TODO: Currently, this will wait 5 seconds *every* time we run an app in a terminal
+					//       that doesn't have shell integration. We should consider caching the result.
+					5000,
+					() => {
+						log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
 					});
-				}),
-				// TODO: Currently, this will wait 5 seconds *every* time we run an app in a terminal
-				//       that doesn't have shell integration. We should consider caching the result.
-				5000,
-				() => {
-					log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
-				});
+			}
 		}
 
 		if (shellIntegration) {
@@ -147,5 +157,62 @@ class PositronRunAppApiImpl implements PositronRunApp {
 			// TODO: If a port was provided, we could poll the server until it responds,
 			//       then open the URL in the viewer pane.
 		}
+
+		const shellIntegrationPromptResult = await shellIntegrationPromptResultPromise;
+		if (shellIntegrationPromptResult.rerunApplication) {
+			await this.runApplication(options);
+		}
 	}
+}
+
+interface IShellIntegrationPromptResult {
+	rerunApplication: boolean;
+}
+
+async function maybeShowShellIntegrationPrompt(): Promise<IShellIntegrationPromptResult> {
+	// Don't show the prompt if shell integration is already enabled.
+	const shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
+	if (shellIntegrationConfig.get('enabled')) {
+		return { rerunApplication: false };
+	}
+
+	// Don't show the prompt if the user has disabled it.
+	const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
+	if (runAppConfig.get('showShellIntegrationPrompt') === false) {
+		return { rerunApplication: false };
+	}
+
+	// Prompt the user to enable shell integration.
+	const enableShellIntegration = vscode.l10n.t('Enable Shell Integration');
+	const notNow = vscode.l10n.t('Not Now');
+	const dontAskAgain = vscode.l10n.t('Don\'t Ask Again');
+	const selection = await vscode.window.showInformationMessage(
+		vscode.l10n.t(
+			'Shell integration is disabled. Would you like to enable shell integration for this ' +
+			'workspace to automatically preview your application in the Viewer pane?',
+		),
+		enableShellIntegration,
+		notNow,
+		dontAskAgain,
+	);
+
+	if (selection === enableShellIntegration) {
+		// Enable shell integration.
+		await shellIntegrationConfig.update('enabled', true, vscode.ConfigurationTarget.Workspace);
+
+		// Prompt the user to rerun the application.
+		const rerunApplication = vscode.l10n.t('Rerun Application');
+		const notNow = vscode.l10n.t('Not Now');
+		const selection = await vscode.window.showInformationMessage(
+			vscode.l10n.t('Shell integration is now enabled. Would you like to rerun the application?'),
+			rerunApplication,
+			notNow,
+		);
+		return { rerunApplication: selection === rerunApplication };
+	} else if (selection === dontAskAgain) {
+		// Disable the prompt for future runs.
+		await runAppConfig.update('showShellIntegrationPrompt', false, vscode.ConfigurationTarget.Global);
+	}
+
+	return { rerunApplication: false };
 }
