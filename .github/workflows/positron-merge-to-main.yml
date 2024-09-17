@@ -66,6 +66,10 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
+          # Install node-gyp; this is required by some packages, and yarn
+          # sometimes fails to automatically install it.
+          yarn global add node-gyp
+
           # Install Yarn
           npm install -g yarn
 
