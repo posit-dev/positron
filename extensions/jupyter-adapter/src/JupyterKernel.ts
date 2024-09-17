@@ -745,6 +745,10 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const wrapperName = os.platform() === 'win32' ? 'kernel-wrapper.bat' : 'kernel-wrapper.sh';
 		const shellPath = path.join(this._context.extensionPath, 'resources', wrapperName);
 
+		// defense against very old versions of Windows
+		// https://github.com/posit-dev/positron/issues/3788
+		const quotedShellPath = os.platform() === 'win32' ? `"${shellPath}"` : shellPath;
+
 		const shellArgs = [logFile].concat(args);
 
 		// Use the VS Code terminal API to create a terminal for the kernel
@@ -752,7 +756,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			name: this._spec.display_name,
 			// Always start notebook sessions in the directory of the notebook
 			cwd: this._notebookUri ? path.dirname(this._notebookUri.fsPath) : undefined,
-			shellPath: shellPath,
+			shellPath: quotedShellPath,
 			shellArgs: shellArgs,
 			env,
 			message: '',
