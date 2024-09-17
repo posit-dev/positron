@@ -92,10 +92,10 @@
   resolved "https://registry.yarnpkg.com/@xterm/addon-webgl/-/addon-webgl-0.19.0-beta.52.tgz#695b20a5fa88ff92e115624149592080fad59594"
   integrity sha512-kbPO9iR166xW8qgRkYmKX2Vu0kQHXpxYLQ9jY/01e5kvNrI/rqRDV63FIq14ncOi7N3+dmTuUkjvbg8anCpuIw==
 
-"@xterm/xterm@5.6.0-beta.51":
-  version "5.6.0-beta.51"
-  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.6.0-beta.51.tgz#3b9a5016d9588eb0a05226f6fc090b48a85b7698"
-  integrity sha512-0i9gkiP2hhCMIRk5ACM8LJXHRd1umzC27ZDHD8n14vutrQRgdW4ENvCdmrWHiVJy4Ui1t7m70zdgg72shOgcEA==
+"@xterm/xterm@5.6.0-beta.52":
+  version "5.6.0-beta.52"
+  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.6.0-beta.52.tgz#ed7456a8b78ea1d00431737d078b5ab0bafbcdfe"
+  integrity sha512-aZh8IBdZPb2N4NjTt/fQ/C90z/PM3Zxkfoqhmlsp5+v3Otmyw5kd3DepeHK1SFW/pz0/xdj4KFgX8t8Y2lDRbA==
 
 he@^1.2.0:
   version "1.2.0"

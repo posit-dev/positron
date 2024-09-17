@@ -171,10 +171,10 @@
   resolved "https://registry.yarnpkg.com/@xterm/headless/-/headless-5.6.0-beta.52.tgz#7f934a7d7c5bbf88e2d78c22317cd2464bc9638a"
   integrity sha512-f4QITQwotblRLW6YOHnK801wHJWfFDnjD7jUEwaaAXtSp32xH3jguWnMP9/uuQX45q9ndjDjnm1t5aXX7gwqBQ==
 
-"@xterm/xterm@5.6.0-beta.51":
-  version "5.6.0-beta.51"
-  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.6.0-beta.51.tgz#3b9a5016d9588eb0a05226f6fc090b48a85b7698"
-  integrity sha512-0i9gkiP2hhCMIRk5ACM8LJXHRd1umzC27ZDHD8n14vutrQRgdW4ENvCdmrWHiVJy4Ui1t7m70zdgg72shOgcEA==
+"@xterm/xterm@5.6.0-beta.52":
+  version "5.6.0-beta.52"
+  resolved "https://registry.yarnpkg.com/@xterm/xterm/-/xterm-5.6.0-beta.52.tgz#ed7456a8b78ea1d00431737d078b5ab0bafbcdfe"
+  integrity sha512-aZh8IBdZPb2N4NjTt/fQ/C90z/PM3Zxkfoqhmlsp5+v3Otmyw5kd3DepeHK1SFW/pz0/xdj4KFgX8t8Y2lDRbA==
 
 agent-base@^7.0.1, agent-base@^7.0.2, agent-base@^7.1.0, agent-base@^7.1.1:
   version "7.1.1"
