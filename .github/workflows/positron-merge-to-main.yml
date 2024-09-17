@@ -108,7 +108,7 @@ jobs:
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
             mdefurio/positron-tests:latest \
-            bash -c "yarn ./scripts/test-integration.sh"
+            bash -c "./scripts/test-integration.sh"
         # bash -c "service xvfb start && ps aux | grep Xvfb && \
         #   DISPLAY=:10 ./scripts/test-integration-pr.sh"
 
