@@ -1474,15 +1474,15 @@
             ],
             "editor/title/run": [
                 {
-                    "command": "python.execSelectionInConsole",
+                    "command": "python.execInConsole",
                     "group": "navigation@0",
-                    "title": "%python.command.python.execSelectionInConsole.title%",
+                    "title": "%python.command.python.execInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
-                    "command": "python.execInConsole",
+                    "command": "python.execSelectionInConsole",
                     "group": "navigation@1",
-                    "title": "%python.command.python.execInConsole.title%",
+                    "title": "%python.command.python.execSelectionInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
