@@ -1,0 +1,40 @@
+name: "Save Cache: Multiple Directories"
+description: "Saves cache for node_modules, build, extensions, and remote directories"
+runs:
+  using: "composite"
+  steps:
+    # Cache root node_modules if cache miss
+    - name: Cache root node_modules
+      if: always() && steps.cache-node-modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: node_modules
+        key: root-node-modules-v5-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+
+    # Cache build node_modules if cache miss
+    - name: Cache build node_modules
+      if: always() && steps.cache-build.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: build/node_modules
+        key: build-node-modules-v5-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+
+    # Cache extensions node_modules if cache miss
+    - name: Cache extensions node_modules
+      if: always() && steps.cache-extensions.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          extensions
+          extensions/**/node_modules
+        key: extensions-v5-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+
+    # Cache remote node_modules if cache miss
+    - name: Cache remote node_modules
+      if: always() && steps.cache-remote.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: |
+          remote/node_modules
+          remote/**/node_modules
+        key: remote-node-modules-v5-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}

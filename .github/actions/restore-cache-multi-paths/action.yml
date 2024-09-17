@@ -9,9 +9,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: node_modules
-        key: root-node-modules-v2-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        key: root-node-modules-v5-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
         restore-keys: |
-          root-node-modules-v2-${{ runner.os }}-
+          root-node-modules-v5-${{ runner.os }}-
 
     # Restore cache for build
     - name: Restore cache for build
@@ -19,9 +19,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: build/node_modules
-        key: build-node-modules-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+        key: build-node-modules-v5-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
         restore-keys: |
-          build-node-modules-v3-${{ runner.os }}-
+          build-node-modules-v5-${{ runner.os }}-
 
     # Restore cache for extensions
     - name: Restore cache for extensions
@@ -31,9 +31,9 @@ runs:
         path: |
           extensions
           extensions/**/node_modules
-        key: extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+        key: extensions-v5-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
         restore-keys: |
-          extensions-v3-${{ runner.os }}-
+          extensions-v5-${{ runner.os }}-
 
     # Restore cache for remote
     - name: Restore cache for remote
@@ -43,6 +43,6 @@ runs:
         path: |
           remote/node_modules
           remote/**/node_modules
-        key: remote-node-modules-v2-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+        key: remote-node-modules-v5-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
         restore-keys: |
-          remote-node-modules-v2-${{ runner.os }}-
+          remote-node-modules-v5-${{ runner.os }}-

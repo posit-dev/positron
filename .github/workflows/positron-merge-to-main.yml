@@ -69,14 +69,14 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      - name: Save caches for node_modules, build, extensions, and remote
-        uses: ./.github/actions/save-cache-multi-paths
-
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
+
+      - name: Save caches for node_modules, build, extensions, and remote
+        uses: ./.github/actions/save-cache-multi-paths
 
       - name: Pull Docker image
         run: docker pull mdefurio/positron-tests:latest
