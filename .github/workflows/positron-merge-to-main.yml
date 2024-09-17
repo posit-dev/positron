@@ -108,8 +108,9 @@ jobs:
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
             mdefurio/positron-tests:latest \
-            bash -c "service xvfb start && ps aux | grep Xvfb && yarn test-node && \
-              DISPLAY=:10 ./scripts/test-integration-pr.sh"
+            bash -c "yarn ./scripts/test-integration.sh"
+        # bash -c "service xvfb start && ps aux | grep Xvfb && \
+        #   DISPLAY=:10 ./scripts/test-integration-pr.sh"
 
       - name: Run Smoke Tests (Electron)
         id: electron-smoke-tests
@@ -122,8 +123,9 @@ jobs:
             -v $(pwd):/usr/src/positron \
             -w /usr/src/positron \
             mdefurio/positron-tests:latest \
-            bash -c "service xvfb start && ps aux | grep Xvfb && \
-              DISPLAY=:10 yarn $SMOKETEST_TARGET --tracing"
+            bash -c "yarn $SMOKETEST_TARGET --tracing"
+        # bash -c "service xvfb start && ps aux | grep Xvfb && \
+        #   DISPLAY=:10 yarn $SMOKETEST_TARGET --tracing"
 
       # - name: Set TestRail Run Title
       #   id: set-testrail-run-title
