@@ -82,9 +82,8 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	const keyDownHandler = (e: KeyboardEvent<HTMLButtonElement>) => {
 		// Process the key down event.
 		switch (e.code) {
-			// Space or Enter trigger the onPressed event.
+			// Space triggers the onPressed event.
 			case 'Space':
-			case 'Enter':
 				sendOnPressed(e);
 				break;
 		}
