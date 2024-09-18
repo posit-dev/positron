@@ -123,6 +123,7 @@ import 'vs/editor/common/services/languageFeaturesService';
 import 'vs/editor/common/services/semanticTokensStylingService';
 import 'vs/editor/common/services/treeViewsDndService';
 import 'vs/workbench/services/textMate/browser/textMateTokenizationFeature.contribution';
+import 'vs/workbench/services/treeSitter/browser/treeSitterTokenizationFeature.contribution';
 import 'vs/workbench/services/userActivity/common/userActivityService';
 import 'vs/workbench/services/userActivity/browser/userActivityBrowser';
 import 'vs/workbench/services/editor/browser/editorPaneService';
@@ -136,7 +137,7 @@ import { ContextViewService } from 'vs/platform/contextview/browser/contextViewS
 import { IContextViewService } from 'vs/platform/contextview/browser/contextView';
 import { IListService, ListService } from 'vs/platform/list/browser/listService';
 import { IEditorWorkerService } from 'vs/editor/common/services/editorWorker';
-import { EditorWorkerService } from 'vs/editor/browser/services/editorWorkerService';
+import { WorkbenchEditorWorkerService } from 'vs/workbench/contrib/codeEditor/browser/workbenchEditorWorkerService';
 import { MarkerDecorationsService } from 'vs/editor/common/services/markerDecorationsService';
 import { IMarkerDecorationsService } from 'vs/editor/common/services/markerDecorations';
 import { IMarkerService } from 'vs/platform/markers/common/markers';
@@ -161,7 +162,7 @@ registerSingleton(IExtensionStorageService, ExtensionStorageService, Instantiati
 registerSingleton(IExtensionGalleryService, ExtensionGalleryService, InstantiationType.Delayed);
 registerSingleton(IContextViewService, ContextViewService, InstantiationType.Delayed);
 registerSingleton(IListService, ListService, InstantiationType.Delayed);
-registerSingleton(IEditorWorkerService, EditorWorkerService, InstantiationType.Eager /* registers link detection and word based suggestions for any document */);
+registerSingleton(IEditorWorkerService, WorkbenchEditorWorkerService, InstantiationType.Eager /* registers link detection and word based suggestions for any document */);
 registerSingleton(IMarkerDecorationsService, MarkerDecorationsService, InstantiationType.Delayed);
 registerSingleton(IMarkerService, MarkerService, InstantiationType.Delayed);
 registerSingleton(IContextKeyService, ContextKeyService, InstantiationType.Delayed);
@@ -346,7 +347,6 @@ import 'vs/workbench/contrib/update/browser/update.contribution';
 
 // Surveys
 import 'vs/workbench/contrib/surveys/browser/nps.contribution';
-import 'vs/workbench/contrib/surveys/browser/ces.contribution';
 import 'vs/workbench/contrib/surveys/browser/languageSurveys.contribution';
 
 // Welcome

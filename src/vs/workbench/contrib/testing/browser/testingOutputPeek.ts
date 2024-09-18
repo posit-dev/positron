@@ -14,6 +14,7 @@ import { Iterable } from 'vs/base/common/iterator';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { Lazy } from 'vs/base/common/lazy';
 import { Disposable, MutableDisposable } from 'vs/base/common/lifecycle';
+import { observableValue } from 'vs/base/common/observable';
 import { count } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { ICodeEditor, isCodeEditor } from 'vs/editor/browser/editorBrowser';
@@ -43,6 +44,7 @@ import { ServiceCollection } from 'vs/platform/instantiation/common/serviceColle
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { bindContextKey } from 'vs/platform/observable/common/platformObservableUtils';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
@@ -52,7 +54,7 @@ import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity'
 import { IViewPaneOptions, ViewPane } from 'vs/workbench/browser/parts/views/viewPane';
 import { IViewDescriptorService } from 'vs/workbench/common/views';
 import { renderTestMessageAsText } from 'vs/workbench/contrib/testing/browser/testMessageColorizer';
-import { InspectSubject, MessageSubject, TaskSubject, TestOutputSubject, mapFindTestMessage } from 'vs/workbench/contrib/testing/browser/testResultsView/testResultsSubject';
+import { InspectSubject, MessageSubject, TaskSubject, TestOutputSubject, inspectSubjectHasStack, mapFindTestMessage } from 'vs/workbench/contrib/testing/browser/testResultsView/testResultsSubject';
 import { TestResultsViewContent } from 'vs/workbench/contrib/testing/browser/testResultsView/testResultsViewContent';
 import { testingMessagePeekBorder, testingPeekBorder, testingPeekHeaderBackground, testingPeekMessageHeaderBackground } from 'vs/workbench/contrib/testing/browser/theme';
 import { AutoOpenPeekViewWhen, TestingConfigKeys, getTestingConfiguration } from 'vs/workbench/contrib/testing/common/configuration';
@@ -92,18 +94,11 @@ export class TestingPeekOpener extends Disposable implements ITestingPeekOpener 
 	private lastUri?: TestUriWithDocument;
 
 	/** @inheritdoc */
-	public readonly historyVisible = MutableObservableValue.stored(this._register(new StoredValue<boolean>({
+	public readonly historyVisible = this._register(MutableObservableValue.stored(new StoredValue<boolean>({
 		key: 'testHistoryVisibleInPeek',
 		scope: StorageScope.PROFILE,
 		target: StorageTarget.USER,
-	}, this.storageService)), false);
-
-	/** @inheritdoc */
-	public readonly callStackVisible = MutableObservableValue.stored(this._register(new StoredValue<boolean>({
-		key: 'testCallStackVisible',
-		scope: StorageScope.PROFILE,
-		target: StorageTarget.USER,
-	}, this.storageService)), true);
+	}, this.storageService), false));
 
 	constructor(
 		@IConfigurationService private readonly configuration: IConfigurationService,
@@ -506,6 +501,13 @@ export class TestingOutputPeekController extends Disposable implements IEditorCo
 	}
 
 	/**
+	 * Collapses all displayed stack frames.
+	 */
+	public collapseStack() {
+		this.peek.value?.collapseStack();
+	}
+
+	/**
 	 * Shows the next message in the peek, if possible.
 	 */
 	public next() {
@@ -652,10 +654,14 @@ class TestResultsPeek extends PeekViewWidget {
 	private static lastHeightInLines?: number;
 
 	private readonly visibilityChange = this._disposables.add(new Emitter<boolean>());
+	private readonly _current = observableValue<InspectSubject | undefined>('testPeekCurrent', undefined);
 	private content!: TestResultsViewContent;
 	private scopedContextKeyService!: IContextKeyService;
 	private dimension?: dom.Dimension;
-	public current?: InspectSubject;
+
+	public get current() {
+		return this._current.get();
+	}
 
 	constructor(
 		editor: ICodeEditor,
@@ -709,7 +715,14 @@ class TestResultsPeek extends PeekViewWidget {
 	protected override _fillHead(container: HTMLElement): void {
 		super._fillHead(container);
 
-		const menu = this.menuService.createMenu(MenuId.TestPeekTitle, this.contextKeyService);
+		const menuContextKeyService = this._disposables.add(this.contextKeyService.createScoped(container));
+		this._disposables.add(bindContextKey(
+			TestingContextKeys.peekHasStack,
+			menuContextKeyService,
+			reader => inspectSubjectHasStack(this._current.read(reader)),
+		));
+
+		const menu = this.menuService.createMenu(MenuId.TestPeekTitle, menuContextKeyService);
 		const actionBar = this._actionbarWidget!;
 		this._disposables.add(menu.onDidChange(() => {
 			actions.length = 0;
@@ -739,7 +752,7 @@ class TestResultsPeek extends PeekViewWidget {
 	 */
 	public setModel(subject: InspectSubject): Promise<void> {
 		if (subject instanceof TaskSubject || subject instanceof TestOutputSubject) {
-			this.current = subject;
+			this._current.set(subject, undefined);
 			return this.showInPlace(subject);
 		}
 
@@ -750,14 +763,14 @@ class TestResultsPeek extends PeekViewWidget {
 			return Promise.resolve();
 		}
 
-		this.current = subject;
+		this._current.set(subject, undefined);
 		if (!revealLocation) {
 			return this.showInPlace(subject);
 		}
 
 		// If there is a stack we want to display, ensure the default size is large-ish
 		const peekLines = TestResultsPeek.lastHeightInLines || Math.max(
-			subject instanceof MessageSubject && subject.stack?.length ? Math.ceil(this.getVisibleEditorLines() / 2) : 0,
+			inspectSubjectHasStack(subject) ? Math.ceil(this.getVisibleEditorLines() / 2) : 0,
 			hintMessagePeekHeight(message)
 		);
 
@@ -765,6 +778,13 @@ class TestResultsPeek extends PeekViewWidget {
 		this.editor.revealRangeNearTopIfOutsideViewport(Range.fromPositions(revealLocation), ScrollType.Smooth);
 
 		return this.showInPlace(subject);
+	}
+
+	/**
+	 * Collapses all displayed stack frames.
+	 */
+	public collapseStack() {
+		this.content.collapseStack();
 	}
 
 	private getVisibleEditorLines() {
@@ -1028,6 +1048,31 @@ export class GoToPreviousMessageAction extends Action2 {
 		const editor = getPeekedEditorFromFocus(accessor.get(ICodeEditorService));
 		if (editor) {
 			TestingOutputPeekController.get(editor)?.previous();
+		}
+	}
+}
+
+export class CollapsePeekStack extends Action2 {
+	public static readonly ID = 'testing.collapsePeekStack';
+	constructor() {
+		super({
+			id: CollapsePeekStack.ID,
+			title: localize2('testing.collapsePeekStack', 'Collapse Stack Frames'),
+			icon: Codicon.collapseAll,
+			category: Categories.Test,
+			menu: [{
+				id: MenuId.TestPeekTitle,
+				when: TestingContextKeys.peekHasStack,
+				group: 'navigation',
+				order: 4,
+			}],
+		});
+	}
+
+	public override run(accessor: ServicesAccessor) {
+		const editor = getPeekedEditorFromFocus(accessor.get(ICodeEditorService));
+		if (editor) {
+			TestingOutputPeekController.get(editor)?.collapseStack();
 		}
 	}
 }

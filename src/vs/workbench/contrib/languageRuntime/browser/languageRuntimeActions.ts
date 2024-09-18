@@ -140,7 +140,9 @@ const selectLanguageRuntime = async (
 
 	// Prompt the user to select a language runtime.
 	return new Promise((resolve) => {
-		const input = quickInputService.createQuickPick<LanguageRuntimeQuickPickItem>();
+		const input = quickInputService.createQuickPick<LanguageRuntimeQuickPickItem>(
+			{ useSeparators: true }
+		);
 		const runtimePicks = new Map<string, LanguageRuntimeQuickPickItem>();
 
 		const addRuntime = (runtimeMetadata: ILanguageRuntimeMetadata) => {

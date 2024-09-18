@@ -33,6 +33,8 @@ const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileCont
 // --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
+const { isESM } = require('./lib/esm');
+const buildfile = require('./buildfile');
 
 const REPO_ROOT = path.dirname(__dirname);
 const commit = getVersion(REPO_ROOT);
@@ -46,6 +48,7 @@ const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
 
 const BUILD_TARGETS = [
 	{ platform: 'win32', arch: 'x64' },
+	{ platform: 'win32', arch: 'arm64' },
 	{ platform: 'darwin', arch: 'x64' },
 	{ platform: 'darwin', arch: 'arm64' },
 	{ platform: 'linux', arch: 'x64' },
@@ -57,7 +60,7 @@ const BUILD_TARGETS = [
 	{ platform: 'linux', arch: 'alpine' },
 ];
 
-const serverResources = [
+const serverResourceIncludes = [
 	// --- Start Positron ---
 	'out-build/react-dom/client.js',
 	// --- End Positron ---
@@ -79,17 +82,38 @@ const serverResources = [
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration-rc.zsh',
 	'out-build/vs/workbench/contrib/terminal/browser/media/shellIntegration-login.zsh',
 	'out-build/vs/workbench/contrib/terminal/browser/media/fish_xdg_data/fish/vendor_conf.d/shellIntegration.fish',
+];
 
+const serverResourceExcludes = [
+	'!out-build/vs/**/{electron-sandbox,electron-main}/**',
+	'!out-build/vs/editor/standalone/**',
+	'!out-build/vs/workbench/**/*-tb.png',
 	'!**/test/**'
 ];
 
-const serverWithWebResources = [
+const serverResources = [
+	...serverResourceIncludes,
+	...serverResourceExcludes
+];
 
-	// Include all of server...
-	...serverResources,
-
-	// ...and all of web
+const serverWithWebResourceIncludes = isESM() ? [
+	...serverResourceIncludes,
+	'out-build/vs/code/browser/workbench/*.html',
 	...vscodeWebResourceIncludes
+] : [
+	...serverResourceIncludes,
+	...vscodeWebResourceIncludes
+];
+
+const serverWithWebResourceExcludes = [
+	...serverResourceExcludes,
+	'!out-build/vs/code/**/*-dev.html',
+	'!out-build/vs/code/**/*-dev.esm.html',
+];
+
+const serverWithWebResources = [
+	...serverWithWebResourceIncludes,
+	...serverWithWebResourceExcludes
 ];
 
 const serverEntryPoints = [
@@ -115,14 +139,35 @@ const serverEntryPoints = [
 	}
 ];
 
+const webEntryPoints = isESM() ? [
+	buildfile.base,
+	buildfile.workerExtensionHost,
+	buildfile.workerNotebook,
+	buildfile.workerLanguageDetection,
+	buildfile.workerLocalFileSearch,
+	buildfile.workerOutputLinks,
+	buildfile.workerBackgroundTokenization,
+	buildfile.keyboardMaps,
+	buildfile.codeWeb
+].flat() : [
+	buildfile.entrypoint('vs/workbench/workbench.web.main'),
+	buildfile.base,
+	buildfile.workerExtensionHost,
+	buildfile.workerNotebook,
+	buildfile.workerLanguageDetection,
+	buildfile.workerLocalFileSearch,
+	buildfile.keyboardMaps,
+	buildfile.workbenchWeb()
+].flat();
+
 const serverWithWebEntryPoints = [
 
 	// Include all of server
 	...serverEntryPoints,
 
-	// Include workbench web
-	...vscodeWebEntryPoints
-];
+	// Include all of web
+	...webEntryPoints,
+].flat();
 
 const commonJSEntryPoints = [
 	'out-build/server-main.js',
@@ -298,6 +343,12 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const marketplaceExtensions = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'product.json'), 'utf8')).builtInExtensions
 			.filter(entry => !entry.platforms || new Set(entry.platforms).has(platform))
 			.filter(entry => !entry.clientOnly)
+			// --- Start PWB ---
+			// If an entry specifies a type, ensure that the type specified
+			// matches the type we're building. We use this to prevent the
+			// Workbench extension from being bundled in non-web releases.
+			.filter(entry => !entry.type || entry.type === type)
+			// --- End PWB ---
 			.map(entry => entry.name);
 		const extensionPaths = [...localWorkspaceExtensions, ...marketplaceExtensions]
 			.map(name => `.build/extensions/${name}/**`);
@@ -326,7 +377,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		// Note: The remote/reh-web/package.json is generated/updated in build/npm/postinstall.js
 		const packageJsonBase = type === 'reh-web' ? 'remote/reh-web' : 'remote';
 		const packageJsonStream = gulp.src([`${packageJsonBase}/package.json`], { base: packageJsonBase })
-			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined }))
+			.pipe(json({ name, version, dependencies: undefined, optionalDependencies: undefined, ...(isESM(`Setting 'type: module' in top level package.json`) ? { type: 'module' } : {}) })) // TODO@esm this should be configured in the top level package.json
 			// --- End Positron ---
 			.pipe(es.through(function (file) {
 				packageJsonContents = file.contents.toString();
