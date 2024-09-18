@@ -60,6 +60,8 @@ jobs:
 
       - name: Restore cache for node_modules, build, extensions, and remote
         uses: ./.github/actions/restore-cache-multi-paths
+        env:
+          ACTIONS_STEP_DEBUG: true
 
       - name: Execute yarn
         env:
@@ -82,6 +84,8 @@ jobs:
 
       - name: Save cache for node_modules, build, extensions, and remote
         uses: ./.github/actions/save-cache-multi-paths
+        env:
+          ACTIONS_STEP_DEBUG: true
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
