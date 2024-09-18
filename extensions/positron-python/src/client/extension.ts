@@ -91,7 +91,7 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
 
     // --- Start Positron ---
 
-    activatePositron(serviceContainer)
+    activatePositron(serviceContainer, context)
         // Run in the background.
         .ignoreErrors();
 
