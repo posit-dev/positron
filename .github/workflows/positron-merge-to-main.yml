@@ -90,7 +90,10 @@ jobs:
         run: echo "Remote cache hit ${{ steps.cache-remote.outputs.cache-hit }}"
 
       - name: Debug node_modules cache hit
-        run: echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"
+        run: |
+          echo "${{ steps }}"
+          echo "${{ steps.cache-node-modules.outputs }}"
+          echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"
 
       - name: Save cache for node_modules, build, extensions, and remote
         uses: ./.github/actions/save-cache-multi-paths
