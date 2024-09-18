@@ -1474,21 +1474,21 @@
             ],
             "editor/title/run": [
                 {
-                    "command": "python.execSelectionInConsole",
-                    "group": "navigation@0",
-                    "title": "%python.command.python.execSelectionInConsole.title%",
-                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
-                },
-                {
                     "command": "python.execInConsole",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
                     "command": "python.execInTerminal-icon",
-                    "group": "navigation@2",
+                    "group": "navigation@1",
                     "title": "%python.command.python.execInTerminalIcon.title%",
+                    "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "command": "python.execSelectionInConsole",
+                    "group": "navigation@2",
+                    "title": "%python.command.python.execSelectionInConsole.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
