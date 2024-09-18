@@ -63,10 +63,11 @@ jobs:
           path: ./node_modules
           key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-      - name: Restore cache for node_modules, build, extensions, and remote
+      - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/restore-cache-multi-paths
-        env:
-          ACTIONS_STEP_DEBUG: true
+
+      - name: Debug node_modules cache hit
+        run: echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"
 
       - name: Execute yarn
         env:
@@ -86,24 +87,6 @@ jobs:
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation add install --frozen-lockfile
           yarn --cwd test/smoke add install --frozen-lockfile
-
-      - name: Debug build node_modules cache hit
-        run: echo "Node_modules cache hit ${{ steps.cache-build.outputs.cache-hit }}"
-
-      - name: Debug extensions cache hit
-        run: echo "Extensions cache hit ${{ steps.cache-extensions.outputs.cache-hit }}"
-
-      - name: Debug remote cache hit
-        run: echo "Remote cache hit ${{ steps.cache-remote.outputs.cache-hit }}"
-
-      - name: Debug node_modules cache hit
-        run: |
-          echo "${{ steps }}"
-          echo "${{ steps.cache-node-modules.outputs }}"
-          echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"
-
-      - name: Save cache for node_modules, build, extensions, and remote
-        uses: ./.github/actions/save-cache-multi-paths
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
