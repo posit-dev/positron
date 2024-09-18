@@ -202,4 +202,9 @@ export class PositronDataExplorer {
 		return profileData;
 
 	}
+
+	async expandColumnProfile(rowNumber = 0): Promise<void> {
+		await this.code.driver.getLocator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
+	}
+
 }
