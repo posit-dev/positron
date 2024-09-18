@@ -22,7 +22,7 @@ suite('Python Path Settings Updater', () => {
             .returns(() => workspaceService.object);
         serviceContainer
             .setup((c) => c.get(TypeMoq.It.isValue(IExperimentService)))
-            .returns(() => experimentsManager!.object); // Positron: Add ! to appease TS nightly
+            .returns(() => experimentsManager.object);
         serviceContainer
             .setup((c) => c.get(TypeMoq.It.isValue(IInterpreterPathService)))
             .returns(() => interpreterPathService.object);

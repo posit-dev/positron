@@ -32,7 +32,6 @@
 		"src/vs/base/test/common/filters.perf.data.js": true,
 		"src/vs/base/test/node/uri.perf.data.txt": true,
 		"src/vs/workbench/api/test/browser/extHostDocumentData.test.perf-data.ts": true,
-		"src/vs/base/test/node/uri.test.data.txt": true,
 		"src/vs/editor/test/node/diffing/fixtures/**": true,
 	},
 	"files.readonlyInclude": {
@@ -51,7 +50,6 @@
 		"test/smoke/out/**": true,
 		"test/automation/out/**": true,
 		"test/integration/browser/out/**": true,
-		"src2/**": true,
 	},
 	"files.readonlyExclude": {
 		"build/builtin/*.js": true,
@@ -171,9 +169,10 @@
 		"editor.wordWrap": "on"
 	},
 	"css.format.spaceAroundSelectorSeparator": true,
+	"inlineChat.mode": "live",
 	"editor.rulers": [
 		100
 	],
-	"typescript.enablePromptUseWorkspaceTsdk": true,
-	"inlineChat.experimental.onlyZoneWidget": true
+	"inlineChat.experimental.textButtons": true,
+	"typescript.enablePromptUseWorkspaceTsdk": true
 }

@@ -203,6 +203,7 @@ export class TerminalChatWidget extends Disposable {
 		this._container.classList.add('hide');
 		this._inlineChatWidget.reset();
 		this._reset();
+		this._inlineChatWidget.updateChatMessage(undefined);
 		this._inlineChatWidget.updateToolbar(false);
 		this._visibleContextKey.set(false);
 		this._inlineChatWidget.value = '';
@@ -229,6 +230,12 @@ export class TerminalChatWidget extends Disposable {
 	}
 	input(): string {
 		return this._inlineChatWidget.value;
+	}
+	addToHistory(input: string): void {
+		this._inlineChatWidget.addToHistory(input);
+		this._inlineChatWidget.saveState();
+		this._inlineChatWidget.value = input;
+		this._inlineChatWidget.selectAll(true);
 	}
 	setValue(value?: string) {
 		this._inlineChatWidget.value = value ?? '';

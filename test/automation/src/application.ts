@@ -6,7 +6,6 @@
 import { Workbench } from './workbench';
 import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
-import { Profiler } from './profiler';
 
 export const enum Quality {
 	Dev,
@@ -64,10 +63,6 @@ export class Application {
 		return this._userDataPath;
 	}
 
-	private _profiler: Profiler | undefined;
-
-	get profiler(): Profiler { return this._profiler!; }
-
 	async start(): Promise<void> {
 		await this._start();
 		await this.code.waitForElement('.explorer-folders-view');
@@ -115,7 +110,6 @@ export class Application {
 		});
 
 		this._workbench = new Workbench(this._code);
-		this._profiler = new Profiler(this.code);
 
 		return code;
 	}

@@ -23,7 +23,6 @@ import { EncodedTokenizationResult, IState, ITokenizationSupport, TokenizationRe
 import { NullState } from 'vs/editor/common/languages/nullTokenize';
 import { MetadataConsts, StandardTokenType } from 'vs/editor/common/encodedTokenAttributes';
 import { ITextModel } from 'vs/editor/common/model';
-import { FileAccess } from 'vs/base/common/network';
 
 function getIRange(range: IRange): IRange {
 	return {
@@ -57,7 +56,7 @@ function registerLanguageConfiguration(instantiationService: TestInstantiationSe
 	let configPath: string;
 	switch (languageId) {
 		case LanguageId.TypeScript:
-			configPath = FileAccess.asFileUri('vs/workbench/contrib/codeEditor/test/node/language-configuration.json').fsPath;
+			configPath = path.join('extensions', 'typescript-basics', 'language-configuration.json');
 			break;
 		default:
 			throw new Error('Unknown languageId');

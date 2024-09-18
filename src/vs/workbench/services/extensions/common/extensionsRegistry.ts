@@ -392,7 +392,7 @@ export const schema: IJSONSchema = {
 					},
 					{
 						label: 'onLanguageModelTool',
-						body: 'onLanguageModelTool:${1:toolId}',
+						body: 'onLanguageModelTool:${1:toolName}',
 						description: nls.localize('vscode.extension.activationEvents.onLanguageModelTool', 'An activation event emitted when the specified language model tool is invoked.'),
 					},
 					{

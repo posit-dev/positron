@@ -238,7 +238,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 	}
 
 	private async doOpenWindow(toOpen: IWindowOpenable[], options?: IOpenWindowOptions): Promise<void> {
-		const payload = this.preservePayload(false /* not an empty window */, options);
+		const payload = this.preservePayload(false /* not an empty window */);
 		const fileOpenables: IFileToOpen[] = [];
 		const foldersToAdd: IWorkspaceFolderCreationData[] = [];
 
@@ -395,7 +395,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 		this.instantiationService.invokeFunction(accessor => fn(accessor));
 	}
 
-	private preservePayload(isEmptyWindow: boolean, options?: IOpenWindowOptions): Array<unknown> | undefined {
+	private preservePayload(isEmptyWindow: boolean): Array<unknown> | undefined {
 
 		// Selectively copy payload: for now only extension debugging properties are considered
 		const newPayload: Array<unknown> = new Array();
@@ -411,11 +411,12 @@ export class BrowserHostService extends Disposable implements IHostService {
 			}
 		}
 
-		const newWindowProfile = (options?.forceProfile
-			? this.userDataProfilesService.profiles.find(profile => profile.name === options?.forceProfile)
+		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		const newWindowProfile = (windowConfig?.newWindowProfile
+			? this.userDataProfilesService.profiles.find(profile => profile.name === windowConfig.newWindowProfile)
 			: undefined) ?? this.userDataProfileService.currentProfile;
 		if (!newWindowProfile.isDefault) {
-			newPayload.push(['profile', newWindowProfile.name]);
+			newPayload.push(['lastActiveProfile', newWindowProfile.id]);
 		}
 
 		return newPayload.length ? newPayload : undefined;
@@ -452,7 +453,7 @@ export class BrowserHostService extends Disposable implements IHostService {
 	private async doOpenEmptyWindow(options?: IOpenEmptyWindowOptions): Promise<void> {
 		return this.doOpen(undefined, {
 			reuse: options?.forceReuseWindow,
-			payload: this.preservePayload(true /* empty window */, options)
+			payload: this.preservePayload(true /* empty window */)
 		});
 	}
 

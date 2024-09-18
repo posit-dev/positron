@@ -3,12 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// eslint-disable-next-line local/code-import-patterns
-import { getNLSLanguage, getNLSMessages } from 'vs/nls.messages';
-// eslint-disable-next-line local/code-import-patterns
-export { getNLSLanguage, getNLSMessages } from 'vs/nls.messages';
-
-const isPseudo = getNLSLanguage() === 'pseudo' || (typeof document !== 'undefined' && document.location && document.location.hash.indexOf('pseudo=true') >= 0);
+// VSCODE_GLOBALS: NLS
+const isPseudo = globalThis._VSCODE_NLS_LANGUAGE === 'pseudo' || (typeof document !== 'undefined' && document.location && document.location.hash.indexOf('pseudo=true') >= 0);
 
 export interface ILocalizeInfo {
 	key: string;
@@ -91,7 +87,8 @@ export function localize(data: ILocalizeInfo | string /* | number when built */,
  * depending on the target context.
  */
 function lookupMessage(index: number, fallback: string | null): string {
-	const message = getNLSMessages()?.[index];
+	// VSCODE_GLOBALS: NLS
+	const message = globalThis._VSCODE_NLS_MESSAGES?.[index];
 	if (typeof message !== 'string') {
 		if (typeof fallback === 'string') {
 			return fallback;

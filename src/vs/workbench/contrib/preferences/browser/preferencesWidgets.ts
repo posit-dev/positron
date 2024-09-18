@@ -437,7 +437,8 @@ export class SearchWidget extends Widget {
 
 	protected createInputBox(parent: HTMLElement): HistoryInputBox {
 		const showHistoryHint = () => showHistoryKeybindingHint(this.keybindingService);
-		return new ContextScopedHistoryInputBox(parent, this.contextViewService, { ...this.options, showHistoryHint }, this.contextKeyService);
+		const box = this._register(new ContextScopedHistoryInputBox(parent, this.contextViewService, { ...this.options, showHistoryHint }, this.contextKeyService));
+		return box;
 	}
 
 	showMessage(message: string): void {

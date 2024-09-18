@@ -8,7 +8,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { localize, localize2 } from 'vs/nls';
 import { Action2 } from 'vs/platform/actions/common/actions';
 import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IProductService } from 'vs/platform/product/common/productService';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from 'vs/platform/quickinput/common/quickInput';
 import { IAuthenticationAccessService } from 'vs/workbench/services/authentication/browser/authenticationAccessService';
@@ -26,51 +26,23 @@ export class ManageTrustedExtensionsForAccountAction extends Action2 {
 		});
 	}
 
-	override run(accessor: ServicesAccessor, options?: { providerId: string; accountLabel: string }): Promise<void> {
-		const instantiationService = accessor.get(IInstantiationService);
-		return instantiationService.createInstance(ManageTrustedExtensionsForAccountActionImpl).run(options);
-	}
-}
+	override async run(accessor: ServicesAccessor, options?: { providerId: string; accountLabel: string }): Promise<void> {
+		const productService = accessor.get(IProductService);
+		const extensionService = accessor.get(IExtensionService);
+		const dialogService = accessor.get(IDialogService);
+		const quickInputService = accessor.get(IQuickInputService);
+		const authenticationService = accessor.get(IAuthenticationService);
+		const authenticationUsageService = accessor.get(IAuthenticationUsageService);
+		const authenticationAccessService = accessor.get(IAuthenticationAccessService);
 
-interface TrustedExtensionsQuickPickItem extends IQuickPickItem {
-	extension: AllowedExtension;
-	lastUsed?: number;
-}
+		let providerId = options?.providerId;
+		let accountLabel = options?.accountLabel;
 
-class ManageTrustedExtensionsForAccountActionImpl {
-	constructor(
-		@IProductService private readonly _productService: IProductService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
-		@IDialogService private readonly _dialogService: IDialogService,
-		@IQuickInputService private readonly _quickInputService: IQuickInputService,
-		@IAuthenticationService private readonly _authenticationService: IAuthenticationService,
-		@IAuthenticationUsageService private readonly _authenticationUsageService: IAuthenticationUsageService,
-		@IAuthenticationAccessService private readonly _authenticationAccessService: IAuthenticationAccessService
-	) { }
-
-	async run(options?: { providerId: string; accountLabel: string }) {
-		const { providerId, accountLabel } = await this._resolveProviderAndAccountLabel(options?.providerId, options?.accountLabel);
-		if (!providerId || !accountLabel) {
-			return;
-		}
-
-		const items = await this._getItems(providerId, accountLabel);
-		if (!items.length) {
-			return;
-		}
-		const disposables = new DisposableStore();
-		const picker = this._createQuickPick(disposables, providerId, accountLabel);
-		picker.items = items;
-		picker.selectedItems = items.filter((i): i is TrustedExtensionsQuickPickItem => i.type !== 'separator' && !!i.picked);
-		picker.show();
-	}
-
-	private async _resolveProviderAndAccountLabel(providerId: string | undefined, accountLabel: string | undefined) {
 		if (!providerId || !accountLabel) {
 			const accounts = new Array<{ providerId: string; providerLabel: string; accountLabel: string }>();
-			for (const id of this._authenticationService.getProviderIds()) {
-				const providerLabel = this._authenticationService.getProvider(id).label;
-				const sessions = await this._authenticationService.getSessions(id);
+			for (const id of authenticationService.getProviderIds()) {
+				const providerLabel = authenticationService.getProvider(id).label;
+				const sessions = await authenticationService.getSessions(id);
 				const uniqueAccountLabels = new Set<string>();
 				for (const session of sessions) {
 					if (!uniqueAccountLabels.has(session.account.label)) {
@@ -80,7 +52,7 @@ class ManageTrustedExtensionsForAccountActionImpl {
 				}
 			}
 
-			const pick = await this._quickInputService.pick(
+			const pick = await quickInputService.pick(
 				accounts.map(account => ({
 					providerId: account.providerId,
 					label: account.accountLabel,
@@ -96,15 +68,12 @@ class ManageTrustedExtensionsForAccountActionImpl {
 				providerId = pick.providerId;
 				accountLabel = pick.label;
 			} else {
-				return { providerId: undefined, accountLabel: undefined };
+				return;
 			}
 		}
-		return { providerId, accountLabel };
-	}
 
-	private async _getItems(providerId: string, accountLabel: string) {
-		const allowedExtensions = this._authenticationAccessService.readAllowedExtensions(providerId, accountLabel);
-		const trustedExtensionAuthAccess = this._productService.trustedExtensionAuthAccess;
+		const allowedExtensions = authenticationAccessService.readAllowedExtensions(providerId, accountLabel);
+		const trustedExtensionAuthAccess = productService.trustedExtensionAuthAccess;
 		const trustedExtensionIds =
 			// Case 1: trustedExtensionAuthAccess is an array
 			Array.isArray(trustedExtensionAuthAccess)
@@ -117,7 +86,7 @@ class ManageTrustedExtensionsForAccountActionImpl {
 			const allowedExtension = allowedExtensions.find(ext => ext.id === extensionId);
 			if (!allowedExtension) {
 				// Add the extension to the allowedExtensions list
-				const extension = await this._extensionService.getExtension(extensionId);
+				const extension = await extensionService.getExtension(extensionId);
 				if (extension) {
 					allowedExtensions.push({
 						id: extensionId,
@@ -134,11 +103,21 @@ class ManageTrustedExtensionsForAccountActionImpl {
 		}
 
 		if (!allowedExtensions.length) {
-			this._dialogService.info(localize('noTrustedExtensions', "This account has not been used by any extensions."));
-			return [];
+			dialogService.info(localize('noTrustedExtensions', "This account has not been used by any extensions."));
+			return;
 		}
 
-		const usages = this._authenticationUsageService.readAccountUsages(providerId, accountLabel);
+		interface TrustedExtensionsQuickPickItem extends IQuickPickItem {
+			extension: AllowedExtension;
+			lastUsed?: number;
+		}
+
+		const disposableStore = new DisposableStore();
+		const quickPick = disposableStore.add(quickInputService.createQuickPick<TrustedExtensionsQuickPickItem>());
+		quickPick.canSelectMany = true;
+		quickPick.customButton = true;
+		quickPick.customLabel = localize('manageTrustedExtensions.cancel', 'Cancel');
+		const usages = authenticationUsageService.readAccountUsages(providerId, accountLabel);
 		const trustedExtensions = [];
 		const otherExtensions = [];
 		for (const extension of allowedExtensions) {
@@ -152,43 +131,34 @@ class ManageTrustedExtensionsForAccountActionImpl {
 		}
 
 		const sortByLastUsed = (a: AllowedExtension, b: AllowedExtension) => (b.lastUsed || 0) - (a.lastUsed || 0);
-
-		const items = [
-			...otherExtensions.sort(sortByLastUsed).map(this._toQuickPickItem),
-			{ type: 'separator', label: localize('trustedExtensions', "Trusted by Microsoft") } satisfies IQuickPickSeparator,
-			...trustedExtensions.sort(sortByLastUsed).map(this._toQuickPickItem)
+		const toQuickPickItem = function (extension: AllowedExtension): IQuickPickItem & { extension: AllowedExtension } {
+			const lastUsed = extension.lastUsed;
+			const description = lastUsed
+				? localize({ key: 'accountLastUsedDate', comment: ['The placeholder {0} is a string with time information, such as "3 days ago"'] }, "Last used this account {0}", fromNow(lastUsed, true))
+				: localize('notUsed', "Has not used this account");
+			let tooltip: string | undefined;
+			let disabled: boolean | undefined;
+			if (extension.trusted) {
+				tooltip = localize('trustedExtensionTooltip', "This extension is trusted by Microsoft and\nalways has access to this account");
+				disabled = true;
+			}
+			return {
+				label: extension.name,
+				extension,
+				description,
+				tooltip,
+				disabled,
+				picked: extension.allowed === undefined || extension.allowed
+			};
+		};
+		const items: Array<TrustedExtensionsQuickPickItem | IQuickPickSeparator> = [
+			...otherExtensions.sort(sortByLastUsed).map(toQuickPickItem),
+			{ type: 'separator', label: localize('trustedExtensions', "Trusted by Microsoft") },
+			...trustedExtensions.sort(sortByLastUsed).map(toQuickPickItem)
 		];
 
-		return items;
-	}
-
-	private _toQuickPickItem(extension: AllowedExtension): TrustedExtensionsQuickPickItem {
-		const lastUsed = extension.lastUsed;
-		const description = lastUsed
-			? localize({ key: 'accountLastUsedDate', comment: ['The placeholder {0} is a string with time information, such as "3 days ago"'] }, "Last used this account {0}", fromNow(lastUsed, true))
-			: localize('notUsed', "Has not used this account");
-		let tooltip: string | undefined;
-		let disabled: boolean | undefined;
-		if (extension.trusted) {
-			tooltip = localize('trustedExtensionTooltip', "This extension is trusted by Microsoft and\nalways has access to this account");
-			disabled = true;
-		}
-		return {
-			label: extension.name,
-			extension,
-			description,
-			tooltip,
-			disabled,
-			picked: extension.allowed === undefined || extension.allowed
-		};
-	}
-
-	private _createQuickPick(disposableStore: DisposableStore, providerId: string, accountLabel: string) {
-		const quickPick = disposableStore.add(this._quickInputService.createQuickPick<TrustedExtensionsQuickPickItem>({ useSeparators: true }));
-		quickPick.canSelectMany = true;
-		quickPick.customButton = true;
-		quickPick.customLabel = localize('manageTrustedExtensions.cancel', 'Cancel');
-
+		quickPick.items = items;
+		quickPick.selectedItems = items.filter((item): item is TrustedExtensionsQuickPickItem => item.type !== 'separator' && (item.extension.allowed === undefined || item.extension.allowed));
 		quickPick.title = localize('manageTrustedExtensions', "Manage Trusted Extensions");
 		quickPick.placeholder = localize('manageExtensions', "Choose which extensions can access this account");
 
@@ -201,7 +171,7 @@ class ManageTrustedExtensionsForAccountActionImpl {
 			updatedAllowedList.forEach(extension => {
 				extension.allowed = allowedExtensionsSet.has(extension);
 			});
-			this._authenticationAccessService.updateAllowedExtensions(providerId, accountLabel, updatedAllowedList);
+			authenticationAccessService.updateAllowedExtensions(providerId, accountLabel, updatedAllowedList);
 			quickPick.hide();
 		}));
 
@@ -212,6 +182,8 @@ class ManageTrustedExtensionsForAccountActionImpl {
 		disposableStore.add(quickPick.onDidCustom(() => {
 			quickPick.hide();
 		}));
-		return quickPick;
+
+		quickPick.show();
 	}
+
 }

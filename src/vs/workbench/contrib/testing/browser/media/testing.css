@@ -252,8 +252,7 @@
 
 .test-output-peek-message-container .preview-text {
 	padding: 8px 12px 8px 20px;
-	line-height: normal;
-	white-space: normal;
+	height: calc(100% - 16px);
 }
 
 .test-output-peek-message-container .preview-text p:first-child {
@@ -399,11 +398,11 @@
 }
 
 .monaco-editor .testing-inline-message-severity-0 {
-	background: var(--vscode-testing-message-error-lineBackground) !important;
+	color: var(--vscode-testing-message-error-decorationForeground) !important;
 }
 
 .monaco-editor .testing-inline-message-severity-1 {
-	background: var(--vscode-testing-message-info-lineBackground) !important;
+	color: var(--vscode-testing-message-info-decorationForeground) !important;
 }
 
 /** -- coverage  */

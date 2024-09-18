@@ -75,7 +75,7 @@ export class SetLogLevelAction extends Action {
 
 		return new Promise((resolve, reject) => {
 			const disposables = new DisposableStore();
-			const quickPick = disposables.add(this.quickInputService.createQuickPick({ useSeparators: true }));
+			const quickPick = this.quickInputService.createQuickPick();
 			quickPick.placeholder = nls.localize('selectlog', "Set Log Level");
 			quickPick.items = entries;
 			let selectedItem: IQuickPickItem | undefined;
@@ -108,7 +108,7 @@ export class SetLogLevelAction extends Action {
 
 		return new Promise((resolve, reject) => {
 			const disposables = new DisposableStore();
-			const quickPick = disposables.add(this.quickInputService.createQuickPick());
+			const quickPick = this.quickInputService.createQuickPick();
 			quickPick.placeholder = logChannel ? nls.localize('selectLogLevelFor', " {0}: Select log level", logChannel?.label) : nls.localize('selectLogLevel', "Select log level");
 			quickPick.items = entries;
 			quickPick.activeItems = entries.filter((entry) => entry.level === this.loggerService.getLogLevel());

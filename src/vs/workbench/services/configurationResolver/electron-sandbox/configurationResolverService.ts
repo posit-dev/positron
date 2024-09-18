@@ -16,7 +16,6 @@ import { ILabelService } from 'vs/platform/label/common/label';
 import { IShellEnvironmentService } from 'vs/workbench/services/environment/electron-sandbox/shellEnvironmentService';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { IStorageService } from 'vs/platform/storage/common/storage';
 
 export class ConfigurationResolverService extends BaseConfigurationResolverService {
 
@@ -31,7 +30,6 @@ export class ConfigurationResolverService extends BaseConfigurationResolverServi
 		@IShellEnvironmentService shellEnvironmentService: IShellEnvironmentService,
 		@IPathService pathService: IPathService,
 		@IExtensionService extensionService: IExtensionService,
-		@IStorageService storageService: IStorageService,
 	) {
 		super({
 			getAppRoot: (): string | undefined => {
@@ -41,7 +39,7 @@ export class ConfigurationResolverService extends BaseConfigurationResolverServi
 				return environmentService.execPath;
 			},
 		}, shellEnvironmentService.getShellEnv(), editorService, configurationService, commandService,
-			workspaceContextService, quickInputService, labelService, pathService, extensionService, storageService);
+			workspaceContextService, quickInputService, labelService, pathService, extensionService);
 	}
 }
 

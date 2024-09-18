@@ -20,7 +20,7 @@ export class NotebookLoggingService extends Disposable implements INotebookLoggi
 		@ILoggerService loggerService: ILoggerService,
 	) {
 		super();
-		this._logger = this._register(loggerService.createLogger(logChannelId, { name: nls.localize('renderChannelName', "Notebook") }));
+		this._logger = this._register(loggerService.createLogger(logChannelId, { name: nls.localize('renderChannelName', "Notebook rendering") }));
 	}
 
 	debug(category: string, output: string): void {
@@ -29,14 +29,6 @@ export class NotebookLoggingService extends Disposable implements INotebookLoggi
 
 	info(category: string, output: string): void {
 		this._logger.info(`[${category}] ${output}`);
-	}
-
-	warn(category: string, output: string): void {
-		this._logger.warn(`[${category}] ${output}`);
-	}
-
-	error(category: string, output: string): void {
-		this._logger.error(`[${category}] ${output}`);
 	}
 }
 

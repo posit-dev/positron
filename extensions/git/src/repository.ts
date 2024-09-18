@@ -718,8 +718,6 @@ export class Repository implements Disposable {
 	private _untrackedGroup: SourceControlResourceGroup;
 	get untrackedGroup(): GitResourceGroup { return this._untrackedGroup as GitResourceGroup; }
 
-	private _EMPTY_TREE: string | undefined;
-
 	private _HEAD: Branch | undefined;
 	get HEAD(): Branch | undefined {
 		return this._HEAD;
@@ -1048,9 +1046,8 @@ export class Repository implements Disposable {
 		return this.run(Operation.Config(false), () => this.repository.config('local', key, value));
 	}
 
-	log(options?: LogOptions & { silent?: boolean }): Promise<Commit[]> {
-		const showProgress = !options || options.silent !== true;
-		return this.run(Operation.Log(showProgress), () => this.repository.log(options));
+	log(options?: LogOptions): Promise<Commit[]> {
+		return this.run(Operation.Log, () => this.repository.log(options));
 	}
 
 	logFile(uri: Uri, options?: LogFileOptions): Promise<Commit[]> {
@@ -1113,10 +1110,6 @@ export class Repository implements Disposable {
 
 	diffBetweenShortStat(ref1: string, ref2: string): Promise<{ files: number; insertions: number; deletions: number }> {
 		return this.run(Operation.Diff, () => this.repository.diffBetweenShortStat(ref1, ref2));
-	}
-
-	diffTrees(treeish1: string, treeish2?: string): Promise<Change[]> {
-		return this.run(Operation.Diff, () => this.repository.diffTrees(treeish1, treeish2));
 	}
 
 	getMergeBase(ref1: string, ref2: string, ...refs: string[]): Promise<string | undefined> {
@@ -1609,15 +1602,6 @@ export class Repository implements Disposable {
 		return await this.repository.getCommit(ref);
 	}
 
-	async getEmptyTree(): Promise<string> {
-		if (!this._EMPTY_TREE) {
-			const result = await this.repository.exec(['hash-object', '-t', 'tree', '/dev/null']);
-			this._EMPTY_TREE = result.stdout.trim();
-		}
-
-		return this._EMPTY_TREE;
-	}
-
 	async getCommitCount(range: string): Promise<{ ahead: number; behind: number }> {
 		return await this.run(Operation.RevList, () => this.repository.getCommitCount(range));
 	}
@@ -1835,7 +1819,7 @@ export class Repository implements Disposable {
 			return true;
 		}
 
-		const maybeRebased = await this.run(Operation.Log(true), async () => {
+		const maybeRebased = await this.run(Operation.Log, async () => {
 			try {
 				const result = await this.repository.exec(['log', '--oneline', '--cherry', `${currentBranch ?? ''}...${currentBranch ?? ''}@{upstream}`, '--']);
 				if (result.exitCode) {
@@ -1959,8 +1943,7 @@ export class Repository implements Disposable {
 		return await this.run(Operation.Ignore, async () => {
 			const ignoreFile = `${this.repository.root}${path.sep}.gitignore`;
 			const textToAppend = files
-				.map(uri => relativePath(this.repository.root, uri.fsPath)
-					.replace(/\\|\[/g, match => match === '\\' ? '/' : `\\${match}`))
+				.map(uri => relativePath(this.repository.root, uri.fsPath).replace(/\\/g, '/'))
 				.join('\n');
 
 			const document = await new Promise(c => fs.exists(ignoreFile, c))

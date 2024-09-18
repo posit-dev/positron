@@ -42,14 +42,6 @@ export interface ISimpleSuggestionTemplateData {
 	readonly disposables: DisposableStore;
 }
 
-export interface ISimpleSuggestWidgetFontInfo {
-	fontFamily: string;
-	fontSize: number;
-	lineHeight: number;
-	fontWeight: string;
-	letterSpacing: number;
-}
-
 export class SimpleSuggestWidgetItemRenderer implements IListRenderer<SimpleCompletionItem, ISimpleSuggestionTemplateData> {
 
 	private readonly _onDidToggleDetails = new Emitter<void>();
@@ -57,7 +49,7 @@ export class SimpleSuggestWidgetItemRenderer implements IListRenderer<SimpleComp
 
 	readonly templateId = 'suggestion';
 
-	constructor(private readonly _getFontInfo: () => ISimpleSuggestWidgetFontInfo) {
+	constructor(private readonly _getFontInfo: () => { fontFamily: string; fontSize: number; lineHeight: number; fontWeight: string; letterSpacing: number }) {
 	}
 
 	dispose(): void {

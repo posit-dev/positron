@@ -20,10 +20,6 @@ import { refineServiceDecorator } from 'vs/platform/instantiation/common/instant
 import { ITextEditorOptions } from 'vs/platform/editor/common/editor';
 import { EXTENSION_IDENTIFIER_WITH_LOG_REGEX } from 'vs/platform/environment/common/environmentService';
 
-// --- Start PWB ---
-import { isWeb } from 'vs/base/common/platform';
-// --- End PWB ---
-
 export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvironmentService, IBrowserWorkbenchEnvironmentService>(IEnvironmentService);
 
 /**
@@ -36,18 +32,6 @@ export interface IBrowserWorkbenchEnvironmentService extends IWorkbenchEnvironme
 	 * Options used to configure the workbench.
 	 */
 	readonly options?: IWorkbenchConstructionOptions;
-
-	// --- Start PWB: disable file downloads ---
-	/**
-	 * Enable downloading files via menu actions.
-	 */
-	readonly isEnabledFileDownloads?: boolean;
-
-	/**
-	 * Enable uploading files via menu actions.
-	 */
-	readonly isEnabledFileUploads?: boolean;
-	// --- End PWB ---
 
 	/**
 	 * Gets whether a resolver extension is expected for the environment.
@@ -118,31 +102,7 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	get logFile(): URI { return joinPath(this.windowLogsPath, 'window.log'); }
 
 	@memoize
-	// -- Start PWB: Local storage ---
-	get userRoamingDataHome(): URI {
-		// In a web context, derive the user data path from the `userDataPath`
-		// option if provided (always used on PWB)
-		return isWeb && this.options.userDataPath ?
-			joinPath(URI.file(this.options.userDataPath).with({ scheme: Schemas.vscodeRemote }), 'User') :
-			URI.file('/User').with({ scheme: Schemas.vscodeUserData });
-	}
-	// --- End PWB ---
-
-	// --- Start PWB: disable file downloads ---
-	get isEnabledFileDownloads(): boolean {
-		if (typeof this.options.isEnabledFileDownloads === 'undefined') {
-			throw new Error('isEnabledFileDownloads was not provided to the browser');
-		}
-		return this.options.isEnabledFileDownloads;
-	}
-
-	get isEnabledFileUploads(): boolean {
-		if (typeof this.options.isEnabledFileUploads === 'undefined') {
-			throw new Error('isEnabledFileUploads was not provided to the browser');
-		}
-		return this.options.isEnabledFileUploads;
-	}
-	// --- End PWB ---
+	get userRoamingDataHome(): URI { return URI.file('/User').with({ scheme: Schemas.vscodeUserData }); }
 
 	@memoize
 	get argvResource(): URI { return joinPath(this.userRoamingDataHome, 'argv.json'); }
@@ -265,11 +225,9 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 
 	@memoize
 	get webviewExternalEndpoint(): string {
-		// --- Start PWB: serve same origin ---
-		const endpoint = (this.options.webviewEndpoint && new URL(this.options.webviewEndpoint, window.location.toString()).toString())
+		const endpoint = this.options.webviewEndpoint
 			|| this.productService.webviewContentExternalBaseUrlTemplate
 			|| 'https://{{uuid}}.vscode-cdn.net/{{quality}}/{{commit}}/out/vs/workbench/contrib/webview/browser/pre/';
-		// --- End PWB: serve same origin ---
 
 		const webviewExternalEndpointCommit = this.payload?.get('webviewExternalEndpointCommit');
 		return endpoint
@@ -299,7 +257,7 @@ export class BrowserWorkbenchEnvironmentService implements IBrowserWorkbenchEnvi
 	get disableWorkspaceTrust(): boolean { return !this.options.enableWorkspaceTrust; }
 
 	@memoize
-	get profile(): string | undefined { return this.payload?.get('profile'); }
+	get lastActiveProfile(): string | undefined { return this.payload?.get('lastActiveProfile'); }
 
 	editSessionId: string | undefined = this.options.editSessionId;
 

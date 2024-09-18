@@ -92,7 +92,7 @@ export class ChatCollapsibleListContentPart extends Disposable implements IChatC
 		this.domNode.appendChild(list.getHTMLElement().parentElement!);
 
 		this._register(list.onDidOpen((e) => {
-			if (e.element && 'reference' in e.element && typeof e.element.reference === 'object') {
+			if (e.element && 'reference' in e.element) {
 				const uriOrLocation = 'variableName' in e.element.reference ? e.element.reference.value : e.element.reference;
 				const uri = URI.isUri(uriOrLocation) ? uriOrLocation :
 					uriOrLocation?.uri;
@@ -174,9 +174,7 @@ export class CollapsibleListPool extends Disposable {
 							return element.content.value;
 						}
 						const reference = element.reference;
-						if (typeof reference === 'string') {
-							return reference;
-						} else if ('variableName' in reference) {
+						if ('variableName' in reference) {
 							return reference.variableName;
 						} else if (URI.isUri(reference)) {
 							return basename(reference.path);
@@ -193,7 +191,7 @@ export class CollapsibleListPool extends Disposable {
 							return null;
 						}
 						const { reference } = element;
-						if (typeof reference === 'string' || 'variableName' in reference) {
+						if ('variableName' in reference) {
 							return null;
 						} else if (URI.isUri(reference)) {
 							return reference.toString();
@@ -276,7 +274,7 @@ class CollapsibleListRenderer implements IListRenderer<IChatCollapsibleListItem,
 		const reference = data.reference;
 		const icon = this.getReferenceIcon(data);
 		templateData.label.element.style.display = 'flex';
-		if (typeof reference === 'object' && 'variableName' in reference) {
+		if ('variableName' in reference) {
 			if (reference.value) {
 				const uri = URI.isUri(reference.value) ? reference.value : reference.value.uri;
 				templateData.label.setResource(
@@ -294,9 +292,6 @@ class CollapsibleListRenderer implements IListRenderer<IChatCollapsibleListItem,
 				const label = `${asThemeIcon}${variable?.fullName ?? asVariableName}`;
 				templateData.label.setLabel(label, asVariableName, { title: data.options?.status?.description ?? variable?.description });
 			}
-		} else if (typeof reference === 'string') {
-			templateData.label.setLabel(reference, undefined, { iconPath: URI.isUri(icon) ? icon : undefined, title: data.options?.status?.description ?? data.title });
-
 		} else {
 			const uri = 'uri' in reference ? reference.uri : reference;
 			if (uri.scheme === 'https' && isEqualAuthority(uri.authority, 'github.com') && uri.path.includes('/tree/')) {

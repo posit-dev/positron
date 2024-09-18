@@ -426,7 +426,6 @@ export const enum ExtensionGalleryErrorCode {
 	Cancelled = 'Cancelled',
 	Failed = 'Failed',
 	DownloadFailedWriting = 'DownloadFailedWriting',
-	Offline = 'Offline',
 }
 
 export class ExtensionGalleryError extends Error {

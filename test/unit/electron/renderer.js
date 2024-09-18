@@ -66,7 +66,7 @@ const assert = require('assert');
 const path = require('path');
 const glob = require('glob');
 const util = require('util');
-const bootstrapNode = require('../../../src/bootstrap-node');
+const bootstrap = require('../../../src/bootstrap');
 const coverage = require('../coverage');
 const { takeSnapshotAndCountClasses } = require('../analyzeSnapshot');
 
@@ -102,6 +102,7 @@ function initNls(opts) {
 		// when running from `out-build`, ensure to load the default
 		// messages file, because all `nls.localize` calls have their
 		// english values removed and replaced by an index.
+		// VSCODE_GLOBALS: NLS
 		globalThis._VSCODE_NLS_MESSAGES = (require.__$__nodeRequire ?? require)(`../../../out-build/nls.messages.json`);
 	}
 }
@@ -115,7 +116,7 @@ function initLoader(opts) {
 	const loaderConfig = {
 		nodeRequire: require,
 		catchError: true,
-		baseUrl: bootstrapNode.fileUriFromPath(path.join(__dirname, '../../../src'), { isWindows: process.platform === 'win32' }),
+		baseUrl: bootstrap.fileUriFromPath(path.join(__dirname, '../../../src'), { isWindows: process.platform === 'win32' }),
 		paths: {
 			'vs': `../${outdir}/vs`,
 			'lib': `../${outdir}/lib`,
@@ -158,8 +159,9 @@ function loadTestModules(opts) {
 	if (opts.run) {
 		const files = Array.isArray(opts.run) ? opts.run : [opts.run];
 		const modules = files.map(file => {
-			file = file.replace(/^src[\\/]/, '');
-			return file.replace(/\.[jt]s$/, '');
+			file = file.replace(/^src/, 'out');
+			file = file.replace(/\.ts$/, '.js');
+			return path.relative(_out, file).replace(/\.js$/, '');
 		});
 		return loadModules(modules);
 	}

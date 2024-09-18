@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Codicon } from 'vs/base/common/codicons';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { localize, localize2 } from 'vs/nls';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
@@ -192,23 +191,22 @@ registerAction2(class SaveMimeTypeDisplayOrder extends Action2 {
 
 	run(accessor: ServicesAccessor) {
 		const service = accessor.get(INotebookService);
-		const disposables = new DisposableStore();
-		const qp = disposables.add(accessor.get(IQuickInputService).createQuickPick<IQuickPickItem & { target: ConfigurationTarget }>());
+		const qp = accessor.get(IQuickInputService).createQuickPick<IQuickPickItem & { target: ConfigurationTarget }>();
 		qp.placeholder = localize('notebook.placeholder', 'Settings file to save in');
 		qp.items = [
 			{ target: ConfigurationTarget.USER, label: localize('saveTarget.machine', 'User Settings') },
 			{ target: ConfigurationTarget.WORKSPACE, label: localize('saveTarget.workspace', 'Workspace Settings') },
 		];
 
-		disposables.add(qp.onDidAccept(() => {
+		qp.onDidAccept(() => {
 			const target = qp.selectedItems[0]?.target;
 			if (target !== undefined) {
 				service.saveMimeDisplayOrder(target);
 			}
 			qp.dispose();
-		}));
+		});
 
-		disposables.add(qp.onDidHide(() => disposables.dispose()));
+		qp.onDidHide(() => qp.dispose());
 
 		qp.show();
 	}

@@ -55,8 +55,8 @@
 		},
 		{
 			"name": "ms-vscode.js-debug",
-			"version": "1.93.0",
-			"sha256": "9339cb8e6b77f554df54d79e71f533279cb76b0f9b04c207f633bfd507442b6a",
+			"version": "1.92.0",
+			"sha256": "e5d0a74728292423631f79d076ecb2bc129f9637bcbc2529e48a0fd53baa69cc",
 			"repo": "https://github.com/microsoft/vscode-js-debug",
 			"metadata": {
 				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -219,16 +219,6 @@
 					"flags": "verified"
 				},
 				"publisherDisplayName": "Quarto"
-			}
-		},
-		{
-			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.7",
-			"s3Bucket": "rsw-vscode-extension",
-			"type": "reh-web",
-			"sha256": "9ac536b65c91fd86274fe2cbb2ea2c381e13ba309027044bc98438730c4fa66c",
-			"metadata": {
-				"publisherDisplayName": "Posit PBC"
 			}
 		}
 	],

@@ -5,7 +5,6 @@
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fromMarketplace = fromMarketplace;
-exports.fromS3Bucket = fromS3Bucket;
 exports.fromGithub = fromGithub;
 exports.packageLocalExtensionsStream = packageLocalExtensionsStream;
 exports.packageMarketplaceExtensionsStream = packageMarketplaceExtensionsStream;
@@ -254,29 +253,6 @@ function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, met
         .pipe(json({ __metadata: metadata }))
         .pipe(packageJsonFilter.restore);
 }
-// --- Start PWB: Bundle PWB extension ---
-function fromS3Bucket({ name: extensionName, version, sha256, s3Bucket, metadata }) {
-    const json = require('gulp-json-editor');
-    const [, name] = extensionName.split('.');
-    const url = `https://${s3Bucket}.s3.amazonaws.com/${name}-${version}.vsix`;
-    fancyLog('Downloading extension from S3:', ansiColors.yellow(`${extensionName}@${version}`), '...');
-    const packageJsonFilter = filter('package.json', { restore: true });
-    return (0, fetch_1.fetchUrls)('', {
-        base: url,
-        nodeFetchOptions: {
-            headers: baseHeaders
-        },
-        checksumSha256: sha256
-    })
-        .pipe(vzip.src())
-        .pipe(filter('extension/**'))
-        .pipe(rename(p => p.dirname = p.dirname.replace(/^extension\/?/, '')))
-        .pipe(packageJsonFilter)
-        .pipe(buffer())
-        .pipe(json({ __metadata: metadata }))
-        .pipe(packageJsonFilter.restore);
-}
-// --- End PWB: Bundle PWB extension ---
 function fromGithub({ name, version, repo, sha256, metadata }) {
     const json = require('gulp-json-editor');
     fancyLog('Downloading extension from GH:', ansiColors.yellow(`${name}@${version}`), '...');
@@ -546,6 +522,9 @@ async function esbuildExtensions(taskName, isWatch, scripts) {
                     return reject(error);
                 }
                 reporter(stderr, script);
+                if (stderr) {
+                    return reject();
+                }
                 return resolve();
             });
             proc.stdout.on('data', (data) => {

@@ -43,8 +43,6 @@ namespace IntellisenseState {
 	export type State = typeof None | Pending | Resolved | typeof SyntaxOnly;
 }
 
-type CreateOrOpenConfigCommandArgs = [root: vscode.Uri, projectType: ProjectType];
-
 export class IntellisenseStatus extends Disposable {
 
 	public readonly openOpenConfigCommandId = '_typescript.openConfig';
@@ -64,7 +62,7 @@ export class IntellisenseStatus extends Disposable {
 
 		commandManager.register({
 			id: this.openOpenConfigCommandId,
-			execute: async (...[root, projectType]: CreateOrOpenConfigCommandArgs) => {
+			execute: async (root: vscode.Uri, projectType: ProjectType) => {
 				if (this._state.type === IntellisenseState.Type.Resolved) {
 					await openProjectConfigOrPromptToCreate(projectType, this._client, root, this._state.configFile);
 				} else if (this._state.type === IntellisenseState.Type.Pending) {
@@ -74,7 +72,7 @@ export class IntellisenseStatus extends Disposable {
 		});
 		commandManager.register({
 			id: this.createOrOpenConfigCommandId,
-			execute: async (...[root, projectType]: CreateOrOpenConfigCommandArgs) => {
+			execute: async (root: vscode.Uri, projectType: ProjectType) => {
 				await openOrCreateConfig(this._client.apiVersion, projectType, root, this._client.configuration);
 			},
 		});
@@ -184,7 +182,7 @@ export class IntellisenseStatus extends Disposable {
 						title: this._state.projectType === ProjectType.TypeScript
 							? vscode.l10n.t("Configure tsconfig")
 							: vscode.l10n.t("Configure jsconfig"),
-						arguments: [rootPath, this._state.projectType] satisfies CreateOrOpenConfigCommandArgs,
+						arguments: [rootPath],
 					};
 				} else {
 					statusItem.text = vscode.workspace.asRelativePath(this._state.configFile);
@@ -192,7 +190,7 @@ export class IntellisenseStatus extends Disposable {
 					statusItem.command = {
 						command: this.openOpenConfigCommandId,
 						title: vscode.l10n.t("Open config file"),
-						arguments: [rootPath, this._state.projectType] satisfies CreateOrOpenConfigCommandArgs,
+						arguments: [rootPath],
 					};
 				}
 				break;

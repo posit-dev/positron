@@ -12,8 +12,6 @@ import { IChatAccessibilityService } from 'vs/workbench/contrib/chat/browser/cha
 import { IChatResponseViewModel } from 'vs/workbench/contrib/chat/common/chatViewModel';
 import { renderStringAsPlaintext } from 'vs/base/browser/markdownRenderer';
 import { MarkdownString } from 'vs/base/common/htmlContent';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { AccessibilityVoiceSettingId } from 'vs/workbench/contrib/accessibility/browser/accessibilityConfiguration';
 
 const CHAT_RESPONSE_PENDING_ALLOWANCE_MS = 4000;
 export class ChatAccessibilityService extends Disposable implements IChatAccessibilityService {
@@ -24,11 +22,7 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 
 	private _requestId: number = 0;
 
-	constructor(
-		@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
-	) {
+	constructor(@IAccessibilitySignalService private readonly _accessibilitySignalService: IAccessibilitySignalService, @IInstantiationService private readonly _instantiationService: IInstantiationService) {
 		super();
 	}
 	acceptRequest(): number {
@@ -47,8 +41,6 @@ export class ChatAccessibilityService extends Disposable implements IChatAccessi
 		}
 		const errorDetails = isPanelChat && response.errorDetails ? ` ${response.errorDetails.message}` : '';
 		const plainTextResponse = renderStringAsPlaintext(new MarkdownString(responseContent));
-		if (this._configurationService.getValue(AccessibilityVoiceSettingId.AutoSynthesize) !== 'on') {
-			status(plainTextResponse + errorDetails);
-		}
+		status(plainTextResponse + errorDetails);
 	}
 }

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { BroadcastDataChannel } from 'vs/base/browser/broadcast';
+import { isSafari } from 'vs/base/browser/browser';
 import { getActiveWindow } from 'vs/base/browser/dom';
 import { IndexedDB } from 'vs/base/browser/indexedDB';
 import { DeferredPromise, Promises } from 'vs/base/common/async';
@@ -207,42 +208,16 @@ export class BrowserStorageService extends AbstractStorageService {
 		//
 		// On all other browsers, we keep the databases opened because
 		// we expect data to be written when the unload happens.
-		// --- Start PWB: Remove isSafari check
-		this.applicationStorage?.close();
-		this.profileStorageDatabase?.close();
-		this.workspaceStorageDatabase?.close();
-		// --- End PWB
+		if (isSafari) {
+			this.applicationStorage?.close();
+			this.profileStorageDatabase?.close();
+			this.workspaceStorageDatabase?.close();
+		}
 
 		// Always dispose to ensure that no timeouts or callbacks
 		// get triggered in this phase.
 		this.dispose();
 	}
-
-	// --- Start PWB: Clear browser history
-	openConnections(): void {
-		if (this.applicationStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.applicationStorageDatabase.pwbOpen();
-		}
-		if (this.profileStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.profileStorageDatabase.pwbOpen();
-		}
-		if (this.workspaceStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.workspaceStorageDatabase.pwbOpen();
-		}
-	}
-
-	closeConnections(): void {
-		if (this.applicationStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.applicationStorageDatabase.pwbClose();
-		}
-		if (this.profileStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.profileStorageDatabase.pwbClose();
-		}
-		if (this.workspaceStorageDatabase instanceof IndexedDBStorageDatabase) {
-			this.workspaceStorageDatabase.pwbClose();
-		}
-	}
-	// --- End PWB: Clear browser history
 
 	async clear(): Promise<void> {
 
@@ -454,9 +429,6 @@ export class IndexedDBStorageDatabase extends Disposable implements IIndexedDBSt
 
 			return requests;
 		});
-		// --- Start PWB: Clear browser history
-		db.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-		// --- End PWB
 
 		return true;
 	}
@@ -464,19 +436,6 @@ export class IndexedDBStorageDatabase extends Disposable implements IIndexedDBSt
 	async optimize(): Promise<void> {
 		// not suported in IndexedDB
 	}
-
-	// --- Start PWB: Clear browser history
-	async pwbOpen(): Promise<void> {
-		const db = await this.whenConnected;
-		await db.pwbOpen([IndexedDBStorageDatabase.STORAGE_OBJECT_STORE]);
-	}
-
-	async pwbClose(): Promise<void> {
-		const db = await this.whenConnected;
-		await this.pendingUpdate;
-		db.pwbClose();
-	}
-	// --- End PWB
 
 	async close(): Promise<void> {
 		const db = await this.whenConnected;
@@ -492,8 +451,5 @@ export class IndexedDBStorageDatabase extends Disposable implements IIndexedDBSt
 		const db = await this.whenConnected;
 
 		await db.runInTransaction(IndexedDBStorageDatabase.STORAGE_OBJECT_STORE, 'readwrite', objectStore => objectStore.clear());
-		// --- Start PWB: Clear browser history
-		db.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-		// --- End PWB
 	}
 }

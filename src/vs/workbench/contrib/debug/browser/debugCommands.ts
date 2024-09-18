@@ -36,8 +36,6 @@ import { showLoadedScriptMenu } from 'vs/workbench/contrib/debug/common/loadedSc
 import { showDebugSessionMenu } from 'vs/workbench/contrib/debug/browser/debugSessionPicker';
 import { TEXT_FILE_EDITOR_ID } from 'vs/workbench/contrib/files/common/files';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { CONTEXT_IN_CHAT_SESSION } from 'vs/workbench/contrib/chat/common/chatContextKeys';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 
 export const ADD_CONFIGURATION_ID = 'debug.addConfiguration';
 export const TOGGLE_INLINE_BREAKPOINT_ID = 'editor.debug.action.toggleInlineBreakpoint';
@@ -570,12 +568,11 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 			target: DebugProtocol.StepInTarget;
 		}
 
-		const disposables = new DisposableStore();
-		const qp = disposables.add(quickInputService.createQuickPick<ITargetItem>());
+		const qp = quickInputService.createQuickPick<ITargetItem>();
 		qp.busy = true;
 		qp.show();
 
-		disposables.add(qp.onDidChangeActive(([item]) => {
+		qp.onDidChangeActive(([item]) => {
 			if (codeEditor && item && item.target.line !== undefined) {
 				codeEditor.revealLineInCenterIfOutsideViewport(item.target.line);
 				codeEditor.setSelection({
@@ -585,15 +582,15 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 					endColumn: item.target.endColumn || item.target.column || 1,
 				});
 			}
-		}));
+		});
 
-		disposables.add(qp.onDidAccept(() => {
+		qp.onDidAccept(() => {
 			if (qp.activeItems.length) {
 				session.stepIn(frame.thread.threadId, qp.activeItems[0].target.id);
 			}
-		}));
+		});
 
-		disposables.add(qp.onDidHide(() => disposables.dispose()));
+		qp.onDidHide(() => qp.dispose());
 
 		session.stepInTargets(frame.frameId).then(targets => {
 			qp.busy = false;
@@ -1012,11 +1009,7 @@ MenuRegistry.appendMenuItem(MenuId.EditorContext, {
 		title: nls.localize('addInlineBreakpoint', "Add Inline Breakpoint"),
 		category: DEBUG_COMMAND_CATEGORY
 	},
-	when: ContextKeyExpr.and(
-		CONTEXT_IN_DEBUG_MODE,
-		PanelFocusContext.toNegated(),
-		EditorContextKeys.editorTextFocus,
-		CONTEXT_IN_CHAT_SESSION.toNegated()),
+	when: ContextKeyExpr.and(CONTEXT_IN_DEBUG_MODE, PanelFocusContext.toNegated(), EditorContextKeys.editorTextFocus),
 	group: 'debug',
 	order: 1
 });

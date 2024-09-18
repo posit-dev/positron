@@ -10,7 +10,7 @@ import { IEnvironmentMainService } from 'vs/platform/environment/electron-main/e
 import { ILifecycleMainService } from 'vs/platform/lifecycle/electron-main/lifecycleMainService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStateService } from 'vs/platform/state/node/state';
-import { hasNativeTitlebar, TitlebarStyle } from 'vs/platform/window/common/window';
+import { hasNativeTitlebar } from 'vs/platform/window/common/window';
 import { IBaseWindow, WindowMode } from 'vs/platform/window/electron-main/window';
 import { BaseWindow } from 'vs/platform/windows/electron-main/windowImpl';
 
@@ -52,7 +52,7 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 			return; // already disposed
 		}
 
-		this.doTryClaimWindow(options);
+		this.doTryClaimWindow();
 
 		if (options && !this.stateApplied) {
 			this.stateApplied = true;
@@ -72,7 +72,7 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 		}
 	}
 
-	private doTryClaimWindow(options?: BrowserWindowConstructorOptions): void {
+	private doTryClaimWindow(): void {
 		if (this._win) {
 			return; // already claimed
 		}
@@ -82,11 +82,11 @@ export class AuxiliaryWindow extends BaseWindow implements IAuxiliaryWindow {
 			this.logService.trace('[aux window] Claimed browser window instance');
 
 			// Remember
-			this.setWin(window, options);
+			this.setWin(window);
 
 			// Disable Menu
 			window.setMenu(null);
-			if ((isWindows || isLinux) && hasNativeTitlebar(this.configurationService, options?.titleBarStyle === 'hidden' ? TitlebarStyle.CUSTOM : undefined /* unknown */)) {
+			if ((isWindows || isLinux) && hasNativeTitlebar(this.configurationService)) {
 				window.setAutoHideMenuBar(true); // Fix for https://github.com/microsoft/vscode/issues/200615
 			}
 

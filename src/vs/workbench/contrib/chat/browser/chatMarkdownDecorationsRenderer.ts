@@ -7,12 +7,10 @@ import * as dom from 'vs/base/browser/dom';
 import { Button } from 'vs/base/browser/ui/button/button';
 import { getDefaultHoverDelegate } from 'vs/base/browser/ui/hover/hoverDelegateFactory';
 import { toErrorMessage } from 'vs/base/common/errorMessage';
-import { Lazy } from 'vs/base/common/lazy';
 import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { revive } from 'vs/base/common/marshalling';
 import { URI } from 'vs/base/common/uri';
 import { Location } from 'vs/editor/common/languages';
-import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -23,11 +21,11 @@ import { IChatWidgetService } from 'vs/workbench/contrib/chat/browser/chat';
 import { ChatAgentHover, getChatAgentHoverOptions } from 'vs/workbench/contrib/chat/browser/chatAgentHover';
 import { getFullyQualifiedId, IChatAgentCommand, IChatAgentData, IChatAgentNameService, IChatAgentService } from 'vs/workbench/contrib/chat/common/chatAgents';
 import { chatSlashCommandBackground, chatSlashCommandForeground } from 'vs/workbench/contrib/chat/common/chatColors';
-import { chatAgentLeader, ChatRequestAgentPart, ChatRequestAgentSubcommandPart, ChatRequestDynamicVariablePart, ChatRequestSlashCommandPart, ChatRequestTextPart, ChatRequestToolPart, ChatRequestVariablePart, chatSubcommandLeader, IParsedChatRequest, IParsedChatRequestPart } from 'vs/workbench/contrib/chat/common/chatParserTypes';
+import { chatAgentLeader, ChatRequestAgentPart, ChatRequestDynamicVariablePart, ChatRequestTextPart, chatSubcommandLeader, IParsedChatRequest } from 'vs/workbench/contrib/chat/common/chatParserTypes';
 import { IChatService } from 'vs/workbench/contrib/chat/common/chatService';
 import { contentRefUrl } from '../common/annotations';
-import { IChatVariablesService } from 'vs/workbench/contrib/chat/common/chatVariables';
-import { ILanguageModelToolsService } from 'vs/workbench/contrib/chat/common/languageModelToolsService';
+import { Lazy } from 'vs/base/common/lazy';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 /** For rendering slash commands, variables */
 const decorationRefUrl = `http://_vscodedecoration_`;
@@ -70,10 +68,6 @@ interface ISlashCommandWidgetArgs {
 	command: string;
 }
 
-interface IDecorationWidgetArgs {
-	title?: string;
-}
-
 export class ChatMarkdownDecorationsRenderer {
 	constructor(
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
@@ -85,8 +79,6 @@ export class ChatMarkdownDecorationsRenderer {
 		@IChatService private readonly chatService: IChatService,
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IChatVariablesService private readonly chatVariablesService: IChatVariablesService,
-		@ILanguageModelToolsService private readonly toolsService: ILanguageModelToolsService,
 	) { }
 
 	convertParsedRequestToMarkdown(parsedRequest: IParsedChatRequest): string {
@@ -97,27 +89,19 @@ export class ChatMarkdownDecorationsRenderer {
 			} else if (part instanceof ChatRequestAgentPart) {
 				result += this.instantiationService.invokeFunction(accessor => agentToMarkdown(part.agent, false, accessor));
 			} else {
-				result += this.genericDecorationToMarkdown(part);
+				const uri = part instanceof ChatRequestDynamicVariablePart && part.data instanceof URI ?
+					part.data :
+					undefined;
+				const title = uri ? encodeURIComponent(this.labelService.getUriLabel(uri, { relative: true })) :
+					part instanceof ChatRequestAgentPart ? part.agent.id :
+						'';
+
+				const text = part.text;
+				result += `[${text}](${decorationRefUrl}?${title})`;
 			}
 		}
 
 		return result;
-	}
-
-	private genericDecorationToMarkdown(part: IParsedChatRequestPart): string {
-		const uri = part instanceof ChatRequestDynamicVariablePart && part.data instanceof URI ?
-			part.data :
-			undefined;
-		const title = uri ? this.labelService.getUriLabel(uri, { relative: true }) :
-			part instanceof ChatRequestSlashCommandPart ? part.slashCommand.detail :
-				part instanceof ChatRequestAgentSubcommandPart ? part.command.description :
-					part instanceof ChatRequestVariablePart ? (this.chatVariablesService.getVariable(part.variableName)?.description) :
-						part instanceof ChatRequestToolPart ? (this.toolsService.getTool(part.toolId)?.userDescription) :
-							'';
-
-		const args: IDecorationWidgetArgs = { title };
-		const text = part.text;
-		return `[${text}](${decorationRefUrl}?${encodeURIComponent(JSON.stringify(args))})`;
 	}
 
 	walkTreeAndAnnotateReferenceLinks(element: HTMLElement): IDisposable {
@@ -152,13 +136,9 @@ export class ChatMarkdownDecorationsRenderer {
 							a);
 					}
 				} else if (href.startsWith(decorationRefUrl)) {
-					let args: IDecorationWidgetArgs | undefined;
-					try {
-						args = JSON.parse(decodeURIComponent(href.slice(decorationRefUrl.length + 1)));
-					} catch (e) { }
-
+					const title = decodeURIComponent(href.slice(decorationRefUrl.length + 1));
 					a.parentElement!.replaceChild(
-						this.renderResourceWidget(a.textContent!, args, store),
+						this.renderResourceWidget(a.textContent!, title),
 						a);
 				} else if (href.startsWith(contentRefUrl)) {
 					this.renderFileWidget(href, a);
@@ -192,7 +172,7 @@ export class ChatMarkdownDecorationsRenderer {
 				this.chatService.sendRequest(widget.viewModel!.sessionId, agent.metadata.sampleRequest ?? '', { location: widget.location, agentId: agent.id });
 			}));
 		} else {
-			container = this.renderResourceWidget(nameWithLeader, undefined, store);
+			container = this.renderResourceWidget(nameWithLeader, undefined);
 		}
 
 		const agent = this.chatAgentService.getAgent(args.agentId);
@@ -252,11 +232,11 @@ export class ChatMarkdownDecorationsRenderer {
 	}
 
 
-	private renderResourceWidget(name: string, args: IDecorationWidgetArgs | undefined, store: DisposableStore): HTMLElement {
+	private renderResourceWidget(name: string, title: string | undefined): HTMLElement {
 		const container = dom.$('span.chat-resource-widget');
 		const alias = dom.$('span', undefined, name);
-		if (args?.title) {
-			store.add(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), container, args.title));
+		if (title) {
+			alias.title = title;
 		}
 
 		container.appendChild(alias);

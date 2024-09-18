@@ -35,14 +35,6 @@
     "@types/node": "20.x",
     "@types/which": "^3.0.0"
   },
-  "overrides": {
-    "micromatch": "^4.0.6",
-    "braces": "^3.0.3"
-  },
-  "resolutions": {
-    "micromatch": "^4.0.6",
-    "braces": "^3.0.3"
-  },
   "main": "./out/npmMain",
   "browser": "./dist/browser/npmBrowserMain",
   "activationEvents": [

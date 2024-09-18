@@ -123,10 +123,7 @@ function createCodeCellFromNotebookCell(cell: NotebookCellData, preferredLanguag
 
 	const codeCell: any = {
 		cell_type: 'code',
-		// Possible the metadata was edited as part of diff view
-		// In diff view we display execution_count as part of metadata, hence when execution count changes in metadata,
-		// We need to change that here as well, i.e. give preference to any execution_count value in metadata.
-		execution_count: cellMetadata.execution_count ?? cell.executionSummary?.executionOrder ?? null,
+		execution_count: cell.executionSummary?.executionOrder ?? null,
 		source: splitMultilineString(cell.value.replace(/\r\n/g, '\n')),
 		outputs: (cell.outputs || []).map(translateCellDisplayOutput),
 		metadata: cellMetadata.metadata

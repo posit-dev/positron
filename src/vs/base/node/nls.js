@@ -18,7 +18,6 @@
 // import * as fs from 'fs';
 // import * as perf from '../common/performance.js';
 //
-// /** @type any */
 // const module = { exports: {} };
 // ESM-uncomment-end
 
@@ -117,7 +116,7 @@
 				defaultMessagesFile: path.join(nlsMetadataPath, 'nls.messages.json'),
 
 				// NLS: below 2 are a relic from old times only used by vscode-nls and deprecated
-				locale: userLocale,
+				locale: 'en',
 				availableLanguages: {}
 			};
 		}

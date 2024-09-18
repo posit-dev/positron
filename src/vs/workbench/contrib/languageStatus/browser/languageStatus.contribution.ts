@@ -28,12 +28,12 @@ import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storag
 import { equals } from 'vs/base/common/arrays';
 import { URI } from 'vs/base/common/uri';
 import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
+import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { IAccessibilityInformation } from 'vs/platform/accessibility/common/accessibility';
-import { IEditorGroupsService, IEditorPart } from 'vs/workbench/services/editor/common/editorGroupsService';
+import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
+import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
 import { IHoverService, nativeHoverDelegate } from 'vs/platform/hover/browser/hover';
-import { Event } from 'vs/base/common/event';
 
 class LanguageStatusViewModel {
 
@@ -65,23 +65,22 @@ class StoredCounter {
 class LanguageStatusContribution extends Disposable implements IWorkbenchContribution {
 
 	constructor(
-		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
+		@IInstantiationService instantiationService: IInstantiationService,
+		@IEditorGroupsService editorGroupService: IEditorGroupsService,
+		@IEditorService editorService: IEditorService
 	) {
 		super();
 
-		for (const part of editorGroupService.parts) {
-			this.createLanguageStatus(part);
-		}
+		// --- main language status
+		const mainInstantiationService = this._register(instantiationService.createChild(new ServiceCollection(
+			[IEditorService, editorService.createScoped('main', this._store)]
+		)));
+		this._register(mainInstantiationService.createInstance(LanguageStatus));
 
-		this._register(editorGroupService.onDidCreateAuxiliaryEditorPart(part => this.createLanguageStatus(part)));
-	}
-
-	private createLanguageStatus(part: IEditorPart): void {
-		const disposables = new DisposableStore();
-		Event.once(part.onWillDispose)(() => disposables.dispose());
-
-		const scopedInstantiationService = this.editorGroupService.getScopedInstantiationService(part);
-		disposables.add(scopedInstantiationService.createInstance(LanguageStatus));
+		// --- auxiliary language status
+		this._register(editorGroupService.onDidCreateAuxiliaryEditorPart(({ instantiationService, disposables }) => {
+			disposables.add(instantiationService.createInstance(LanguageStatus));
+		}));
 	}
 }
 

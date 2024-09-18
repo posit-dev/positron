@@ -8,7 +8,6 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
-import { IStorageService } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
 import { BaseConfigurationResolverService } from 'vs/workbench/services/configurationResolver/browser/baseConfigurationResolverService';
 import { IConfigurationResolverService } from 'vs/workbench/services/configurationResolver/common/configurationResolver';
@@ -27,11 +26,10 @@ export class ConfigurationResolverService extends BaseConfigurationResolverServi
 		@ILabelService labelService: ILabelService,
 		@IPathService pathService: IPathService,
 		@IExtensionService extensionService: IExtensionService,
-		@IStorageService storageService: IStorageService,
 	) {
 		super({ getAppRoot: () => undefined, getExecPath: () => undefined },
 			Promise.resolve(Object.create(null)), editorService, configurationService,
-			commandService, workspaceContextService, quickInputService, labelService, pathService, extensionService, storageService);
+			commandService, workspaceContextService, quickInputService, labelService, pathService, extensionService);
 	}
 }
 

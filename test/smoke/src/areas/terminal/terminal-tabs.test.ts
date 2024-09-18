@@ -6,8 +6,8 @@
 import { Application, Terminal, TerminalCommandId, TerminalCommandIdWithValue, SettingsEditor } from '../../../../automation';
 import { setTerminalTestSettings } from './terminal-helpers';
 
-export function setup(options?: { skipSuite: boolean }) {
-	(options?.skipSuite ? describe.skip : describe)('Terminal Tabs', () => {
+export function setup() {
+	describe('Terminal Tabs', () => {
 		// Acquire automation API
 		let terminal: Terminal;
 		let settingsEditor: SettingsEditor;
@@ -36,7 +36,7 @@ export function setup(options?: { skipSuite: boolean }) {
 			await terminal.assertSingleTab({ name });
 		});
 
-		// DEBT: Flaky https://github.com/microsoft/vscode/issues/216564
+		// TODO: Flaky https://github.com/microsoft/vscode/issues/216564
 		it.skip('should reset the tab name to the default value when no name is provided', async () => {
 			await terminal.createTerminal();
 			const defaultName = await terminal.getSingleTabName();

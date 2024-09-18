@@ -57,7 +57,7 @@ export class PreferencesSearchService extends Disposable implements IPreferences
 		return workbenchSettings.enableNaturalLanguageSearch;
 	}
 
-	getRemoteSearchProvider(filter: string): IRemoteSearchProvider | undefined {
+	getRemoteSearchProvider(filter: string, newExtensionsOnly = false): IRemoteSearchProvider | undefined {
 		if (!this.remoteSearchAllowed) {
 			return undefined;
 		}
@@ -523,8 +523,9 @@ class RemoteSearchProvider implements IRemoteSearchProvider {
 	private initializeSearchProviders() {
 		if (this.aiRelatedInformationService.isEnabled()) {
 			this.adaSearchProvider ??= new AiRelatedInformationSearchProvider(this.aiRelatedInformationService);
+		} else {
+			this.tfIdfSearchProvider ??= new TfIdfSearchProvider();
 		}
-		this.tfIdfSearchProvider ??= new TfIdfSearchProvider();
 	}
 
 	setFilter(filter: string): void {
@@ -532,8 +533,9 @@ class RemoteSearchProvider implements IRemoteSearchProvider {
 		this.filter = filter;
 		if (this.adaSearchProvider) {
 			this.adaSearchProvider.setFilter(filter);
+		} else {
+			this.tfIdfSearchProvider!.setFilter(filter);
 		}
-		this.tfIdfSearchProvider!.setFilter(filter);
 	}
 
 	searchModel(preferencesModel: ISettingsEditorModel, token?: CancellationToken): Promise<ISearchResult | null> {
@@ -541,14 +543,11 @@ class RemoteSearchProvider implements IRemoteSearchProvider {
 			return Promise.resolve(null);
 		}
 
-		if (!this.adaSearchProvider) {
+		if (this.adaSearchProvider) {
+			return this.adaSearchProvider.searchModel(preferencesModel, token);
+		} else {
 			return this.tfIdfSearchProvider!.searchModel(preferencesModel, token);
 		}
-
-		// Use TF-IDF search as a fallback, ref https://github.com/microsoft/vscode/issues/224946
-		return this.adaSearchProvider.searchModel(preferencesModel, token).then((results) => {
-			return results?.filterMatches.length ? results : this.tfIdfSearchProvider!.searchModel(preferencesModel, token);
-		});
 	}
 }
 

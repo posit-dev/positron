@@ -14,7 +14,6 @@ import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { HoverWidget } from 'vs/base/browser/ui/hover/hoverWidget';
 import { IHoverWidget } from 'vs/editor/contrib/hover/browser/hoverTypes';
 import { IHoverMessage, LaneOrLineNumber, MarginHoverComputer } from 'vs/editor/contrib/hover/browser/marginHoverComputer';
-import { isMousePositionWithinElement } from 'vs/editor/contrib/hover/browser/hoverUtils';
 
 const $ = dom.$;
 
@@ -35,8 +34,8 @@ export class MarginHoverWidget extends Disposable implements IOverlayWidget, IHo
 
 	constructor(
 		editor: ICodeEditor,
-		@ILanguageService languageService: ILanguageService,
-		@IOpenerService openerService: IOpenerService,
+		languageService: ILanguageService,
+		openerService: IOpenerService,
 	) {
 		super();
 		this._editor = editor;
@@ -60,9 +59,7 @@ export class MarginHoverWidget extends Disposable implements IOverlayWidget, IHo
 				this._updateFont();
 			}
 		}));
-		this._register(dom.addStandardDisposableListener(this._hover.containerDomNode, 'mouseleave', (e) => {
-			this._onMouseLeave(e);
-		}));
+
 		this._editor.addOverlayWidget(this);
 	}
 
@@ -183,13 +180,5 @@ export class MarginHoverWidget extends Disposable implements IOverlayWidget, IHo
 		const left = editorLayout.glyphMarginLeft + editorLayout.glyphMarginWidth + (this._computer.lane === 'lineNo' ? editorLayout.lineNumbersWidth : 0);
 		this._hover.containerDomNode.style.left = `${left}px`;
 		this._hover.containerDomNode.style.top = `${Math.max(Math.round(top), 0)}px`;
-	}
-
-	private _onMouseLeave(e: MouseEvent): void {
-		const editorDomNode = this._editor.getDomNode();
-		const isMousePositionOutsideOfEditor = !editorDomNode || !isMousePositionWithinElement(editorDomNode, e.x, e.y);
-		if (isMousePositionOutsideOfEditor) {
-			this.hide();
-		}
 	}
 }

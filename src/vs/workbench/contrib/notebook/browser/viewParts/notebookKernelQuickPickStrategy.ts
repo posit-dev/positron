@@ -140,15 +140,11 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 			return true;
 		}
 
-
-		const localDisposableStore = new DisposableStore();
-		const quickPick = localDisposableStore.add(this._quickInputService.createQuickPick<KernelQuickPickItem>({ useSeparators: true }));
+		const quickPick = this._quickInputService.createQuickPick<KernelQuickPickItem>();
 		const quickPickItems = this._getKernelPickerQuickPickItems(notebook, matchResult, this._notebookKernelService, scopedContextKeyService);
 
 		if (quickPickItems.length === 1 && supportAutoRun(quickPickItems[0]) && !skipAutoRun) {
-			const picked = await this._handleQuickPick(editor, quickPickItems[0], quickPickItems as KernelQuickPickItem[]);
-			localDisposableStore.dispose();
-			return picked;
+			return await this._handleQuickPick(editor, quickPickItems[0], quickPickItems as KernelQuickPickItem[]);
 		}
 
 		quickPick.items = quickPickItems;
@@ -209,7 +205,7 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 		}, this);
 
 		const pick = await new Promise<{ selected: KernelQuickPickItem | undefined; items: KernelQuickPickItem[] }>((resolve, reject) => {
-			localDisposableStore.add(quickPick.onDidAccept(() => {
+			quickPick.onDidAccept(() => {
 				const item = quickPick.selectedItems[0];
 				if (item) {
 					resolve({ selected: item, items: quickPick.items as KernelQuickPickItem[] });
@@ -218,18 +214,16 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 				}
 
 				quickPick.hide();
-			}));
+			});
 
-			localDisposableStore.add(quickPick.onDidHide(() => {
+			quickPick.onDidHide(() => {
 				kernelDetectionTaskListener.dispose();
 				kernelChangeEventListener.dispose();
 				quickPick.dispose();
 				resolve({ selected: undefined, items: quickPick.items as KernelQuickPickItem[] });
-			}));
+			});
 			quickPick.show();
 		});
-
-		localDisposableStore.dispose();
 
 		if (pick.selected) {
 			return await this._handleQuickPick(editor, pick.selected, pick.items);
@@ -349,7 +343,7 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 
 	private async _showInstallKernelExtensionRecommendation(
 		notebookTextModel: NotebookTextModel,
-		quickPick: IQuickPick<KernelQuickPickItem, { useSeparators: true }>,
+		quickPick: IQuickPick<KernelQuickPickItem>,
 		extensionWorkbenchService: IExtensionsWorkbenchService,
 		token: CancellationToken
 	) {
@@ -529,7 +523,7 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 	private async displaySelectAnotherQuickPick(editor: IActiveNotebookEditor, kernelListEmpty: boolean): Promise<boolean> {
 		const notebook: NotebookTextModel = editor.textModel;
 		const disposables = new DisposableStore();
-		const quickPick = disposables.add(this._quickInputService.createQuickPick<KernelQuickPickItem>({ useSeparators: true }));
+		const quickPick = this._quickInputService.createQuickPick<KernelQuickPickItem>();
 		const quickPickItem = await new Promise<KernelQuickPickItem | IQuickInputButton | undefined>(resolve => {
 			// select from kernel sources
 			quickPick.title = kernelListEmpty ? localize('select', "Select Kernel") : localize('selectAnotherKernel', "Select Another Kernel");
@@ -543,12 +537,13 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 					resolve(button);
 				}
 			}));
-			disposables.add(quickPick.onDidTriggerItemButton(async (e) => {
+			quickPick.onDidTriggerItemButton(async (e) => {
+
 				if (isKernelSourceQuickPickItem(e.item) && e.item.documentation !== undefined) {
 					const uri = URI.isUri(e.item.documentation) ? URI.parse(e.item.documentation) : await this._commandService.executeCommand(e.item.documentation);
 					void this._openerService.open(uri, { openExternal: true });
 				}
-			}));
+			});
 			disposables.add(quickPick.onDidAccept(async () => {
 				resolve(quickPick.selectedItems[0]);
 			}));
@@ -716,8 +711,7 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 
 	private async _selectOneKernel(notebook: NotebookTextModel, source: string, kernels: INotebookKernel[]) {
 		const quickPickItems: QuickPickInput<KernelPick>[] = kernels.map(kernel => toKernelQuickPick(kernel, undefined));
-		const localDisposableStore = new DisposableStore();
-		const quickPick = localDisposableStore.add(this._quickInputService.createQuickPick<KernelQuickPickItem>({ useSeparators: true }));
+		const quickPick = this._quickInputService.createQuickPick<KernelQuickPickItem>();
 		quickPick.items = quickPickItems;
 		quickPick.canSelectMany = false;
 
@@ -729,7 +723,7 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		// since this function resolves before the kernel is selected via this.selecteKernel below.
 		const deferred = new DeferredPromise<void>();
 		// --- End Positron ---
-		localDisposableStore.add(quickPick.onDidAccept(async () => {
+		quickPick.onDidAccept(async () => {
 			if (quickPick.selectedItems && quickPick.selectedItems.length > 0 && isKernelPick(quickPick.selectedItems[0])) {
 				await this._selecteKernel(notebook, quickPick.selectedItems[0].kernel);
 			}
@@ -739,14 +733,14 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 			// --- Start Positron ---
 			deferred.complete();
 			// --- End Positron ---
-		}));
+		});
 
-		localDisposableStore.add(quickPick.onDidHide(() => {
-			localDisposableStore.dispose();
+		quickPick.onDidHide(() => {
+			quickPick.dispose();
 			// --- Start Positron ---
 			deferred.complete();
 			// --- End Positron ---
-		}));
+		});
 
 		quickPick.show();
 

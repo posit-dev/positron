@@ -7,6 +7,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as fileSchemes from '../configuration/fileSchemes';
 import { doesResourceLookLikeATypeScriptFile } from '../configuration/languageDescription';
+import { API } from '../tsServer/api';
 import type * as Proto from '../tsServer/protocol/protocol';
 import * as typeConverters from '../typeConverters';
 import { ClientCapability, ITypeScriptServiceClient } from '../typescriptService';
@@ -14,7 +15,7 @@ import { Delayer } from '../utils/async';
 import { nulToken } from '../utils/cancellation';
 import { Disposable } from '../utils/dispose';
 import FileConfigurationManager from './fileConfigurationManager';
-import { conditionalRegistration, requireSomeCapability } from './util/dependentRegistration';
+import { conditionalRegistration, requireMinVersion, requireSomeCapability } from './util/dependentRegistration';
 
 
 const updateImportsOnFileMoveName = 'updateImportsOnFileMove.enabled';
@@ -42,6 +43,7 @@ interface RenameAction {
 }
 
 class UpdateImportsOnFileRenameHandler extends Disposable {
+	public static readonly minVersion = API.v300;
 
 	private readonly _delayer = new Delayer(50);
 	private readonly _pendingRenames = new Set<RenameAction>();
@@ -287,6 +289,7 @@ export function register(
 	handles: (uri: vscode.Uri) => Promise<boolean>,
 ) {
 	return conditionalRegistration([
+		requireMinVersion(client, UpdateImportsOnFileRenameHandler.minVersion),
 		requireSomeCapability(client, ClientCapability.Semantic),
 	], () => {
 		return new UpdateImportsOnFileRenameHandler(client, fileConfigurationManager, handles);

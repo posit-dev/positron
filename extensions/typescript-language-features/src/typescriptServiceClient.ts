@@ -30,7 +30,6 @@ import { TypeScriptVersionManager } from './tsServer/versionManager';
 import { ITypeScriptVersionProvider, TypeScriptVersion } from './tsServer/versionProvider';
 import { ClientCapabilities, ClientCapability, ExecConfig, ITypeScriptServiceClient, ServerResponse, TypeScriptRequests } from './typescriptService';
 import { Disposable, DisposableStore, disposeAll } from './utils/dispose';
-import { hash } from './utils/hash';
 import { isWeb, isWebAndHasSharedArrayBuffers } from './utils/platform';
 
 
@@ -425,33 +424,22 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 		this.serverState = new ServerState.Running(handle, apiVersion, undefined, true);
 		this.lastStart = Date.now();
 
-
-		/* __GDPR__FRAGMENT__
-			"TypeScriptServerEnvCommonProperties" : {
-				"hasGlobalPlugins": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"globalPluginNameHashes": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
-			}
-		*/
-		const typeScriptServerEnvCommonProperties = {
-			hasGlobalPlugins: this.pluginManager.plugins.length > 0,
-			globalPluginNameHashes: JSON.stringify(this.pluginManager.plugins.map(plugin => hash(plugin.name))),
-		};
-
+		const hasGlobalPlugins = this.pluginManager.plugins.length > 0;
 		/* __GDPR__
 			"tsserver.spawned" : {
 				"owner": "mjbvz",
 				"${include}": [
-					"${TypeScriptCommonProperties}",
-					"${TypeScriptServerEnvCommonProperties}"
+					"${TypeScriptCommonProperties}"
 				],
 				"localTypeScriptVersion": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-				"typeScriptVersionSource": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
+				"typeScriptVersionSource": { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+				"hasGlobalPlugins": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 			}
 		*/
 		this.logTelemetry('tsserver.spawned', {
-			...typeScriptServerEnvCommonProperties,
 			localTypeScriptVersion: this.versionProvider.localVersion ? this.versionProvider.localVersion.displayName : '',
 			typeScriptVersionSource: version.source,
+			hasGlobalPlugins,
 		});
 
 		handle.onError((err: Error) => {
@@ -474,14 +462,12 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				"tsserver.error" : {
 					"owner": "mjbvz",
 					"${include}": [
-						"${TypeScriptCommonProperties}",
-						"${TypeScriptServerEnvCommonProperties}"
-					]
+						"${TypeScriptCommonProperties}"
+					],
+					"hasGlobalPlugins": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
-			this.logTelemetry('tsserver.error', {
-				...typeScriptServerEnvCommonProperties
-			});
+			this.logTelemetry('tsserver.error', { hasGlobalPlugins });
 			this.serviceExited(false, apiVersion);
 		});
 
@@ -495,17 +481,17 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				"tsserver.exitWithCode" : {
 					"owner": "mjbvz",
 					"${include}": [
-						"${TypeScriptCommonProperties}",
-						"${TypeScriptServerEnvCommonProperties}"
+						"${TypeScriptCommonProperties}"
 					],
 					"code" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
-					"signal" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" }
+					"signal" : { "classification": "SystemMetaData", "purpose": "PerformanceAndHealth" },
+					"hasGlobalPlugins": { "classification": "SystemMetaData", "purpose": "FeatureInsight" }
 				}
 			*/
 			this.logTelemetry('tsserver.exitWithCode', {
-				...typeScriptServerEnvCommonProperties,
 				code: code ?? undefined,
 				signal: signal ?? undefined,
+				hasGlobalPlugins,
 			});
 
 			if (this.token !== mytoken) {
@@ -986,16 +972,16 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 						spans: diagnosticEvent.body.spans,
 					});
 				}
-				return;
+				break;
 			}
 			case EventName.configFileDiag:
 				this._onConfigDiagnosticsReceived.fire(event as Proto.ConfigFileDiagnosticEvent);
-				return;
+				break;
 
 			case EventName.telemetry: {
 				const body = (event as Proto.TelemetryEvent).body;
 				this.dispatchTelemetryEvent(body);
-				return;
+				break;
 			}
 			case EventName.projectLanguageServiceState: {
 				const body = (event as Proto.ProjectLanguageServiceStateEvent).body!;
@@ -1003,7 +989,7 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 					this.serverState.updateLanguageServiceEnabled(body.languageServiceEnabled);
 				}
 				this._onProjectLanguageServiceStateChanged.fire(body);
-				return;
+				break;
 			}
 			case EventName.projectsUpdatedInBackground: {
 				this.loadingIndicator.reset();
@@ -1011,66 +997,56 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				const body = (event as Proto.ProjectsUpdatedInBackgroundEvent).body;
 				const resources = body.openFiles.map(file => this.toResource(file));
 				this.bufferSyncSupport.getErr(resources);
-				return;
+				break;
 			}
 			case EventName.beginInstallTypes:
 				this._onDidBeginInstallTypings.fire((event as Proto.BeginInstallTypesEvent).body);
-				return;
+				break;
 
 			case EventName.endInstallTypes:
 				this._onDidEndInstallTypings.fire((event as Proto.EndInstallTypesEvent).body);
-				return;
+				break;
 
 			case EventName.typesInstallerInitializationFailed:
 				this._onTypesInstallerInitializationFailed.fire((event as Proto.TypesInstallerInitializationFailedEvent).body);
-				return;
+				break;
 
 			case EventName.surveyReady:
 				this._onSurveyReady.fire((event as Proto.SurveyReadyEvent).body);
-				return;
+				break;
 
 			case EventName.projectLoadingStart:
 				this.loadingIndicator.startedLoadingProject((event as Proto.ProjectLoadingStartEvent).body.projectName);
-				return;
+				break;
 
 			case EventName.projectLoadingFinish:
 				this.loadingIndicator.finishedLoadingProject((event as Proto.ProjectLoadingFinishEvent).body.projectName);
-				return;
+				break;
 
-			case EventName.createDirectoryWatcher: {
-				const path = (event.body as Proto.CreateDirectoryWatcherEventBody).path;
-				if (path.startsWith(inMemoryResourcePrefix)) {
-					return;
-				}
-
+			case EventName.createDirectoryWatcher:
 				this.createFileSystemWatcher(
 					(event.body as Proto.CreateDirectoryWatcherEventBody).id,
 					new vscode.RelativePattern(
-						vscode.Uri.file(path),
+						vscode.Uri.file((event.body as Proto.CreateDirectoryWatcherEventBody).path),
 						(event.body as Proto.CreateDirectoryWatcherEventBody).recursive ? '**' : '*'
 					),
 					(event.body as Proto.CreateDirectoryWatcherEventBody).ignoreUpdate
 				);
-				return;
-			}
-			case EventName.createFileWatcher: {
-				const path = (event.body as Proto.CreateFileWatcherEventBody).path;
-				if (path.startsWith(inMemoryResourcePrefix)) {
-					return;
-				}
+				break;
 
+			case EventName.createFileWatcher:
 				this.createFileSystemWatcher(
 					(event.body as Proto.CreateFileWatcherEventBody).id,
 					new vscode.RelativePattern(
-						vscode.Uri.file(path),
+						vscode.Uri.file((event.body as Proto.CreateFileWatcherEventBody).path),
 						'*'
 					)
 				);
-				return;
-			}
+				break;
+
 			case EventName.closeFileWatcher:
 				this.closeFileSystemWatcher(event.body.id);
-				return;
+				break;
 
 			case EventName.requestCompleted: {
 				// @ts-expect-error until ts 5.6
@@ -1082,12 +1058,12 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 							const resource = this.toResource(fileData.file);
 							return {
 								...fileData,
-								fileLineCount: this.bufferSyncSupport.lineCount(resource),
+								lineCount: this.bufferSyncSupport.lineCount(resource),
 							};
 						})
 					);
 				}
-				return;
+				break;
 			}
 		}
 	}
@@ -1172,9 +1148,13 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 		this.watches.set(id, disposable);
 	}
 
-	private closeFileSystemWatcher(id: number) {
+	private closeFileSystemWatcher(
+		id: number,
+	) {
 		const existing = this.watches.get(id);
-		existing?.dispose();
+		if (existing) {
+			existing.dispose();
+		}
 	}
 
 	private dispatchTelemetryEvent(telemetryData: Proto.TelemetryEventBody): void {
@@ -1208,8 +1188,6 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 				break;
 			}
 		}
-
-		// Add plugin data here
 		if (telemetryData.telemetryEventName === 'projectInfo') {
 			if (this.serverState.type === ServerState.Type.Running) {
 				this.serverState.updateTsserverVersion(properties['version']);
@@ -1232,7 +1210,9 @@ export default class TypeScriptServiceClient extends Disposable implements IType
 	}
 
 	private configurePlugin(pluginName: string, configuration: {}): any {
-		this.executeWithoutWaitingForResponse('configurePlugin', { pluginName, configuration });
+		if (this.apiVersion.gte(API.v314)) {
+			this.executeWithoutWaitingForResponse('configurePlugin', { pluginName, configuration });
+		}
 	}
 }
 

@@ -219,7 +219,7 @@ class QuickChat extends Disposable {
 			scopedInstantiationService.createInstance(
 				ChatWidget,
 				ChatAgentLocation.Panel,
-				{ isQuickChat: true },
+				{ resource: true },
 				{ renderInputOnTop: true, renderStyle: 'compact', menus: { inputSideToolbar: MenuId.ChatInputSide } },
 				{
 					listForeground: quickInputForeground,

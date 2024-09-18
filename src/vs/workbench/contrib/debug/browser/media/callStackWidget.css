@@ -6,9 +6,8 @@
 .multiCallStackFrame {
 	.header {
 		display: flex;
-
 		align-items: center;
-		height: 24px;
+		height: 32px;
 		background: var(--vscode-multiDiffEditor-headerBackground);
 		border-top: 1px solid var(--vscode-multiDiffEditor-border);
 		color: var(--vscode-foreground);
@@ -24,10 +23,6 @@
 		&[role="link"] {
 			cursor: pointer;
 		}
-
-		.monaco-icon-label::before {
-			height: auto;
-		}
 	}
 
 	&.collapsed {
@@ -41,13 +36,7 @@
 	}
 
 	.collapse-button {
-		width: 16px;
-		min-height: 1px; /* show even if empty */
-		line-height: 0;
-
-		a {
-			cursor: pointer;
-		}
+		cursor: pointer;
 	}
 
 	.actions {
@@ -62,10 +51,4 @@
 	.multiCallStackFrameContainer {
 		background: none !important;
 	}
-}
-
-.monaco-editor .call-stack-go-to-file-link {
-	text-decoration: underline;
-	cursor: pointer;
-	color: var(--vscode-editorLink-activeForeground) !important;
 }

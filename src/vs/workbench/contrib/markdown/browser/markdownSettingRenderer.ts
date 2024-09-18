@@ -14,7 +14,6 @@ import { IAction } from 'vs/base/common/actions';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { Schemas } from 'vs/base/common/network';
-import { Tokens } from 'vs/base/common/marked/marked';
 
 export class SimpleSettingRenderer {
 	private readonly codeSettingRegex: RegExp;
@@ -41,17 +40,17 @@ export class SimpleSettingRenderer {
 		return result;
 	}
 
-	getHtmlRenderer(): (token: Tokens.HTML) => string {
-		return ({ raw }: Tokens.HTML): string => {
-			const match = this.codeSettingRegex.exec(raw);
+	getHtmlRenderer(): (html: string) => string {
+		return (html): string => {
+			const match = this.codeSettingRegex.exec(html);
 			if (match && match.length === 4) {
 				const settingId = match[2];
 				const rendered = this.render(settingId, match[3]);
 				if (rendered) {
-					raw = raw.replace(this.codeSettingRegex, rendered);
+					html = html.replace(this.codeSettingRegex, rendered);
 				}
 			}
-			return raw;
+			return html;
 		};
 	}
 

@@ -32,8 +32,7 @@
               extensionDisplayName: "",
               locations: [ "panel" ],
               metadata: {  },
-              slashCommands: [  ],
-              disambiguation: [  ]
+              slashCommands: [  ]
             },
             kind: "agent"
           },
@@ -60,7 +59,6 @@
       followups: undefined,
       isCanceled: false,
       vote: undefined,
-      voteDownReason: undefined,
       agent: {
         name: "ChatProviderWithUsedContext",
         id: "ChatProviderWithUsedContext",
@@ -73,8 +71,7 @@
         extensionDisplayName: "",
         locations: [ "panel" ],
         metadata: {  },
-        slashCommands: [  ],
-        disambiguation: [  ]
+        slashCommands: [  ]
       },
       slashCommand: undefined,
       usedContext: undefined,

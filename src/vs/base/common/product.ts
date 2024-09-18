@@ -94,10 +94,11 @@ export interface IProductConfiguration {
 	readonly target?: string;
 	readonly nlsCoreBaseUrl?: string;
 
-	// --- Start PWB: proxy port url ---
+	// --- Start Positron ---
+	// Adds support for serving at non-root paths.
+
 	readonly rootEndpoint?: string;
-	readonly proxyEndpointTemplate?: string;
-	// --- End PWB ---
+	// --- End Positron ---
 
 	readonly settingsSearchBuildId?: number;
 	readonly settingsSearchUrl?: string;
@@ -175,6 +176,7 @@ export interface IProductConfiguration {
 	readonly tunnelApplicationConfig?: ITunnelApplicationConfig;
 
 	readonly npsSurveyUrl?: string;
+	readonly cesSurveyUrl?: string;
 	readonly surveys?: readonly ISurveyData[];
 
 	readonly checksums?: { [path: string]: string };

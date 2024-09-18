@@ -5,6 +5,7 @@
 
 import { renderMarkdownAsPlaintext } from 'vs/base/browser/markdownRenderer';
 import { IMarkdownString, MarkdownString } from 'vs/base/common/htmlContent';
+import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
 import { AccessibleViewProviderId, AccessibleViewType, IAccessibleViewContentProvider } from 'vs/platform/accessibility/browser/accessibleView';
 import { IAccessibleViewImplentation } from 'vs/platform/accessibility/browser/accessibleViewRegistry';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -20,15 +21,23 @@ export class ChatResponseAccessibleView implements IAccessibleViewImplentation {
 	readonly name = 'panelChat';
 	readonly type = AccessibleViewType.View;
 	readonly when = CONTEXT_IN_CHAT_SESSION;
+	private _initialRender = true;
 	getProvider(accessor: ServicesAccessor) {
 		const widgetService = accessor.get(IChatWidgetService);
+		const codeEditorService = accessor.get(ICodeEditorService);
+
 		const widget = widgetService.lastFocusedWidget;
 		if (!widget) {
 			return;
 		}
-		const chatInputFocused = widget.hasInputFocus();
-		if (chatInputFocused) {
+		const chatInputFocused = this._initialRender && !!codeEditorService.getFocusedCodeEditor() || false;
+		if (this._initialRender && chatInputFocused) {
 			widget.focusLastMessage();
+			this._initialRender = false;
+		}
+
+		if (!widget) {
+			return;
 		}
 
 		const verifiedWidget: IChatWidget = widget;

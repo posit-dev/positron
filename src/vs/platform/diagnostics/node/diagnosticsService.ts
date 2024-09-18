@@ -28,10 +28,10 @@ interface ConfigFilePatterns {
 	relativePathPattern?: RegExp;
 }
 
-const workspaceStatsCache = new Map<string, Promise<WorkspaceStats>>();
+const worksapceStatsCache = new Map<string, Promise<WorkspaceStats>>();
 export async function collectWorkspaceStats(folder: string, filter: string[]): Promise<WorkspaceStats> {
 	const cacheKey = `${folder}::${filter.join(':')}`;
-	const cached = workspaceStatsCache.get(cacheKey);
+	const cached = worksapceStatsCache.get(cacheKey);
 	if (cached) {
 		return cached;
 	}
@@ -55,8 +55,7 @@ export async function collectWorkspaceStats(folder: string, filter: string[]): P
 		{ tag: 'cmake', filePattern: /^.+\.cmake$/i },
 		{ tag: 'github-actions', filePattern: /^.+\.ya?ml$/i, relativePathPattern: /^\.github(?:\/|\\)workflows$/i },
 		{ tag: 'devcontainer.json', filePattern: /^devcontainer\.json$/i },
-		{ tag: 'dockerfile', filePattern: /^(dockerfile|docker\-compose\.ya?ml)$/i },
-		{ tag: 'cursorrules', filePattern: /^\.cursorrules$/i },
+		{ tag: 'dockerfile', filePattern: /^(dockerfile|docker\-compose\.ya?ml)$/i }
 	];
 
 	const fileTypes = new Map<string, number>();
@@ -151,7 +150,7 @@ export async function collectWorkspaceStats(folder: string, filter: string[]): P
 		});
 	});
 
-	workspaceStatsCache.set(cacheKey, statsPromise);
+	worksapceStatsCache.set(cacheKey, statsPromise);
 	return statsPromise;
 }
 

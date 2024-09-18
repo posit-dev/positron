@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// AMD2ESM migration relevant
+// AMD2ESM mirgation relevant
 
 declare global {
 
 	/**
-	 * TODO@esm @deprecated node modules that are in used in a context that
+	 * @deprecated node modules that are in used in a context that
 	 * shouldn't have access to node_modules (node-free renderer or
 	 * shared process)
 	 */

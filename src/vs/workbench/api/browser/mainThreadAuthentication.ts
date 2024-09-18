@@ -19,7 +19,6 @@ import { IAuthenticationUsageService } from 'vs/workbench/services/authenticatio
 import { getAuthenticationProviderActivationEvent } from 'vs/workbench/services/authentication/browser/authenticationService';
 import { URI, UriComponents } from 'vs/base/common/uri';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { CancellationError } from 'vs/base/common/errors';
 
 interface AuthenticationForceNewSessionOptions {
 	detail?: string;
@@ -160,31 +159,6 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 		return result ?? false;
 	}
 
-	private async continueWithIncorrectAccountPrompt(chosenAccountLabel: string, requestedAccountLabel: string): Promise<boolean> {
-		const result = await this.dialogService.prompt({
-			message: nls.localize('incorrectAccount', "Incorrect account detected"),
-			detail: nls.localize('incorrectAccountDetail', "The chosen account, {0}, does not match the requested account, {1}.", chosenAccountLabel, requestedAccountLabel),
-			type: Severity.Warning,
-			cancelButton: true,
-			buttons: [
-				{
-					label: nls.localize('keep', 'Keep {0}', chosenAccountLabel),
-					run: () => chosenAccountLabel
-				},
-				{
-					label: nls.localize('loginWith', 'Login with {0}', requestedAccountLabel),
-					run: () => requestedAccountLabel
-				}
-			],
-		});
-
-		if (!result.result) {
-			throw new CancellationError();
-		}
-
-		return result.result === chosenAccountLabel;
-	}
-
 	private async doGetSession(providerId: string, scopes: string[], extensionId: string, extensionName: string, options: AuthenticationGetSessionOptions): Promise<AuthenticationSession | undefined> {
 		const sessions = await this.authenticationService.getSessions(providerId, scopes, options.account, true);
 		const provider = this.authenticationService.getProvider(providerId);
@@ -238,25 +212,18 @@ export class MainThreadAuthentication extends Disposable implements MainThreadAu
 				throw new Error('User did not consent to login.');
 			}
 
-			let session: AuthenticationSession;
+			let session;
 			if (sessions?.length && !options.forceNewSession) {
 				session = provider.supportsMultipleAccounts && !options.account
 					? await this.authenticationExtensionsService.selectSession(providerId, extensionId, extensionName, scopes, sessions)
 					: sessions[0];
 			} else {
-				let accountToCreate: AuthenticationSessionAccount | undefined = options.account;
-				if (!accountToCreate) {
+				let account: AuthenticationSessionAccount | undefined = options.account;
+				if (!account) {
 					const sessionIdToRecreate = this.authenticationExtensionsService.getSessionPreference(providerId, extensionId, scopes);
-					accountToCreate = sessionIdToRecreate ? sessions.find(session => session.id === sessionIdToRecreate)?.account : undefined;
+					account = sessionIdToRecreate ? sessions.find(session => session.id === sessionIdToRecreate)?.account : undefined;
 				}
-
-				do {
-					session = await this.authenticationService.createSession(providerId, scopes, { activateImmediate: true, account: accountToCreate });
-				} while (
-					accountToCreate
-					&& accountToCreate.label !== session.account.label
-					&& !await this.continueWithIncorrectAccountPrompt(session.account.label, accountToCreate.label)
-				);
+				session = await this.authenticationService.createSession(providerId, scopes, { activateImmediate: true, account });
 			}
 
 			this.authenticationAccessService.updateAllowedExtensions(providerId, session.account.label, [{ id: extensionId, name: extensionName, allowed: true }]);

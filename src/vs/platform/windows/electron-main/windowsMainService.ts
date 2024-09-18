@@ -22,7 +22,7 @@ import { cwd } from 'vs/base/common/process';
 import { extUriBiasedIgnorePathCase, isEqualAuthority, normalizePath, originalFSPath, removeTrailingPathSeparator } from 'vs/base/common/resources';
 import { assertIsDefined } from 'vs/base/common/types';
 import { URI } from 'vs/base/common/uri';
-import { getNLSLanguage, getNLSMessages, localize } from 'vs/nls';
+import { localize } from 'vs/nls';
 import { IBackupMainService } from 'vs/platform/backup/electron-main/backup';
 import { IEmptyWindowBackupInfo } from 'vs/platform/backup/node/backup';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -56,7 +56,6 @@ import { IUserDataProfilesMainService } from 'vs/platform/userDataProfile/electr
 import { ILoggerMainService } from 'vs/platform/log/electron-main/loggerService';
 import { IAuxiliaryWindowsMainService } from 'vs/platform/auxiliaryWindow/electron-main/auxiliaryWindows';
 import { IAuxiliaryWindow } from 'vs/platform/auxiliaryWindow/electron-main/auxiliaryWindow';
-import { ICSSDevelopmentService } from 'vs/platform/cssDev/node/cssDevService';
 
 //#region Helper Interfaces
 
@@ -230,8 +229,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		@IFileService private readonly fileService: IFileService,
 		@IProtocolMainService private readonly protocolMainService: IProtocolMainService,
 		@IThemeMainService private readonly themeMainService: IThemeMainService,
-		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService,
-		@ICSSDevelopmentService private readonly cssDevelopmentService: ICSSDevelopmentService
+		@IAuxiliaryWindowsMainService private readonly auxiliaryWindowsMainService: IAuxiliaryWindowsMainService
 	) {
 		super();
 
@@ -299,7 +297,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		const emptyWindowsWithBackupsToRestore: IEmptyWindowBackupInfo[] = [];
 
 		let filesToOpen: IFilesToOpen | undefined;
-		let openOneEmptyWindow = false;
+		let emptyToOpen = 0;
 
 		// Identify things to open from open config
 		const pathsToOpen = await this.getPathsToOpen(openConfig);
@@ -323,7 +321,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			} else if (path.backupPath) {
 				emptyWindowsWithBackupsToRestore.push({ backupFolder: basename(path.backupPath), remoteAuthority: path.remoteAuthority });
 			} else {
-				openOneEmptyWindow = true;
+				emptyToOpen++;
 			}
 		}
 
@@ -359,9 +357,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		}
 
 		// Open based on config
-		const { windows: usedWindows, filesOpenedInWindow } = await this.doOpen(openConfig, workspacesToOpen, foldersToOpen, emptyWindowsWithBackupsToRestore, openOneEmptyWindow, filesToOpen, foldersToAdd);
+		const { windows: usedWindows, filesOpenedInWindow } = await this.doOpen(openConfig, workspacesToOpen, foldersToOpen, emptyWindowsWithBackupsToRestore, emptyToOpen, filesToOpen, foldersToAdd);
 
-		this.logService.trace(`windowsManager#open used window count ${usedWindows.length} (workspacesToOpen: ${workspacesToOpen.length}, foldersToOpen: ${foldersToOpen.length}, emptyToRestore: ${emptyWindowsWithBackupsToRestore.length}, openOneEmptyWindow: ${openOneEmptyWindow})`);
+		this.logService.trace(`windowsManager#open used window count ${usedWindows.length} (workspacesToOpen: ${workspacesToOpen.length}, foldersToOpen: ${foldersToOpen.length}, emptyToRestore: ${emptyWindowsWithBackupsToRestore.length}, emptyToOpen: ${emptyToOpen})`);
 
 		// Make sure to pass focus to the most relevant of the windows if we open multiple
 		if (usedWindows.length > 1) {
@@ -460,7 +458,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		workspacesToOpen: IWorkspacePathToOpen[],
 		foldersToOpen: ISingleFolderWorkspacePathToOpen[],
 		emptyToRestore: IEmptyWindowBackupInfo[],
-		openOneEmptyWindow: boolean,
+		emptyToOpen: number,
 		filesToOpen: IFilesToOpen | undefined,
 		foldersToAdd: ISingleFolderWorkspacePathToOpen[]
 	): Promise<{ windows: ICodeWindow[]; filesOpenedInWindow: ICodeWindow | undefined }> {
@@ -508,7 +506,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			// this step.
 			let windowToUseForFiles: ICodeWindow | undefined = undefined;
 			if (fileToCheck?.fileUri && !openFilesInNewWindow) {
-				if (openConfig.context === OpenContext.DESKTOP || openConfig.context === OpenContext.CLI || openConfig.context === OpenContext.DOCK || openConfig.context === OpenContext.LINK) {
+				if (openConfig.context === OpenContext.DESKTOP || openConfig.context === OpenContext.CLI || openConfig.context === OpenContext.DOCK) {
 					windowToUseForFiles = await findWindowOnFile(windows, fileToCheck.fileUri, async workspace => workspace.configPath.scheme === Schemas.file ? this.workspacesManagementMainService.resolveLocalWorkspace(workspace.configPath) : undefined);
 				}
 
@@ -629,11 +627,20 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			}
 		}
 
-		// Open empty window either if enforced or when files still have to open
-		if (filesToOpen || openOneEmptyWindow) {
+		// Handle empty to open (only if no other window opened)
+		if (usedWindows.length === 0 || filesToOpen) {
+			if (filesToOpen && !emptyToOpen) {
+				emptyToOpen++;
+			}
+
 			const remoteAuthority = filesToOpen ? filesToOpen.remoteAuthority : openConfig.remoteAuthority;
 
-			addUsedWindow(await this.doOpenEmpty(openConfig, openFolderInNewWindow, remoteAuthority, filesToOpen), !!filesToOpen);
+			for (let i = 0; i < emptyToOpen; i++) {
+				addUsedWindow(await this.doOpenEmpty(openConfig, openFolderInNewWindow, remoteAuthority, filesToOpen), !!filesToOpen);
+
+				// any other window to open must open in new window then
+				openFolderInNewWindow = true;
+			}
 		}
 
 		return { windows: distinct(usedWindows), filesOpenedInWindow };
@@ -1438,8 +1445,9 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			userEnv: { ...this.initialUserEnv, ...options.userEnv },
 
 			nls: {
-				messages: getNLSMessages(),
-				language: getNLSLanguage()
+				// VSCODE_GLOBALS: NLS
+				messages: globalThis._VSCODE_NLS_MESSAGES,
+				language: globalThis._VSCODE_NLS_LANGUAGE
 			},
 
 			filesToOpenOrCreate: options.filesToOpen?.filesToOpenOrCreate,
@@ -1464,9 +1472,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			accessibilitySupport: app.accessibilitySupportEnabled,
 			colorScheme: this.themeMainService.getColorScheme(),
 			policiesData: this.policyService.serialize(),
-			continueOn: this.environmentMainService.continueOn,
-
-			cssModules: this.cssDevelopmentService.isEnabled ? await this.cssDevelopmentService.getCssModules() : undefined
+			continueOn: this.environmentMainService.continueOn
 		};
 
 		// New window

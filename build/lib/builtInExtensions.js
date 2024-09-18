@@ -46,13 +46,6 @@ function isUpToDate(extension) {
     }
 }
 function getExtensionDownloadStream(extension) {
-    // --- Start PWB: Bundle PWB extension ---
-    // the PWB extension is a special case because it's not availble from the marketplace or github
-    if (extension.name === 'rstudio.rstudio-workbench') {
-        return ext.fromS3Bucket(extension)
-            .pipe(rename(p => p.dirname = `${extension.name}/${p.dirname}`));
-    }
-    // --- End PWB: Bundle PWB extension ---
     // --- Start Positron ---
     const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
     return (url ? ext.fromMarketplace(url, extension) : ext.fromGithub(extension))
@@ -127,15 +120,6 @@ function getBuiltInExtensions() {
     for (const extension of [...builtInExtensions, ...webBuiltInExtensions]) {
         const controlState = control[extension.name] || 'marketplace';
         control[extension.name] = controlState;
-        // --- Start Positron ---
-        // Discard extensions intended for the web. The 'type' field isn't a
-        // formal part of the extension definition but a custom field we use to
-        // filter out web-only extensions (i.e. Posit Workbench)
-        // @ts-ignore
-        if (extension.type === 'reh-web') {
-            continue;
-        }
-        // --- End Positron ---
         streams.push(syncExtension(extension, controlState));
     }
     writeControlFile(control);

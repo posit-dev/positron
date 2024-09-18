@@ -90,73 +90,11 @@ export class IndexedDB {
 		});
 	}
 
-	// --- Start PWB: Clear browser history
-	static readonly PWB_CHANGED_CONNECTION_KEY = 'pwb-changed-connections';
-	private pwbConnectionOpen: boolean = true;
-	private static readonly PWB_OPEN_CONNECTION_KEY = 'pwb-connections';
-
-	pwbAddToSessionSet(key: string): void {
-		const connectionString = sessionStorage.getItem(key);
-		let connectionSet;
-		if (connectionString) {
-			connectionSet = new Set(JSON.parse(connectionString));
-			if (connectionSet.has(this.name)) {
-				return;
-			}
-		} else {
-			connectionSet = new Set();
-		}
-		connectionSet.add(this.name);
-		sessionStorage.setItem(key, JSON.stringify(Array.from(connectionSet)));
-	}
-
-	pwbRemoveFromSessionSet(key: string): void {
-		const connectionString = sessionStorage.getItem(key);
-		if (connectionString) {
-			const connectionSet = new Set(JSON.parse(connectionString));
-			if (connectionSet.delete(this.name)) {
-				sessionStorage.setItem(key, JSON.stringify(Array.from(connectionSet)));
-			}
-		}
-	}
-
-	pwbSaveDB(): void {
-		this.pwbConnectionOpen = true;
-		this.pwbAddToSessionSet(IndexedDB.PWB_OPEN_CONNECTION_KEY);
-	}
-
-	pwbRemoveDB(): void {
-		this.pwbConnectionOpen = false;
-		this.pwbRemoveFromSessionSet(IndexedDB.PWB_OPEN_CONNECTION_KEY);
-	}
-
-	async pwbOpen(stores: string[]): Promise<void> {
-		if (!this.database) {
-			throw new DBClosedError(this.name);
-		}
-		if (!this.pwbConnectionOpen) {
-			this.database = await IndexedDB.openDatabase(this.name, undefined, stores);
-			this.pwbSaveDB();
-		}
-	}
-
-	pwbClose(): void {
-		if (this.pendingTransactions.length) {
-			this.pendingTransactions.splice(0, this.pendingTransactions.length).forEach(transaction => transaction.abort());
-		}
-		this.database?.close();
-		this.pwbRemoveDB();
-	}
-	// --- End PWB
-
 	private database: IDBDatabase | null = null;
 	private readonly pendingTransactions: IDBTransaction[] = [];
 
 	constructor(database: IDBDatabase, private readonly name: string) {
 		this.database = database;
-		// --- Start PWB: Clear browser history
-		this.pwbSaveDB();
-		// --- End PWB
 	}
 
 	hasPendingTransactions(): boolean {
@@ -168,9 +106,6 @@ export class IndexedDB {
 			this.pendingTransactions.splice(0, this.pendingTransactions.length).forEach(transaction => transaction.abort());
 		}
 		this.database?.close();
-		// --- Start PWB: Clear browser history
-		this.pwbRemoveDB();
-		// --- End PWB
 		this.database = null;
 	}
 

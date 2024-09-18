@@ -6,7 +6,7 @@
 import * as DOM from 'vs/base/browser/dom';
 import * as nls from 'vs/nls';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { DiffElementCellViewModelBase, SideBySideDiffElementViewModel } from 'vs/workbench/contrib/notebook/browser/diff/diffElementViewModel';
+import { DiffElementViewModelBase, SideBySideDiffElementViewModel } from 'vs/workbench/contrib/notebook/browser/diff/diffElementViewModel';
 import { DiffSide, INotebookTextDiffEditor } from 'vs/workbench/contrib/notebook/browser/diff/notebookDiffEditorBrowser';
 import { ICellOutputViewModel, IInsetRenderOutput, RenderOutputType } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
@@ -33,7 +33,7 @@ export class OutputElement extends Disposable {
 		private _notebookTextModel: NotebookTextModel,
 		private _notebookService: INotebookService,
 		private _quickInputService: IQuickInputService,
-		private _diffElementViewModel: DiffElementCellViewModelBase,
+		private _diffElementViewModel: DiffElementViewModelBase,
 		private _diffSide: DiffSide,
 		private _nestedCell: DiffNestedCellViewModel,
 		private _outputContainer: HTMLElement,
@@ -155,8 +155,7 @@ export class OutputElement extends Disposable {
 			description: index === currIndex ? nls.localize('curruentActiveMimeType', "Currently Active") : undefined
 		}));
 
-		const disposables = new DisposableStore();
-		const picker = disposables.add(this._quickInputService.createQuickPick());
+		const picker = this._quickInputService.createQuickPick();
 		picker.items = items;
 		picker.activeItems = items.filter(item => !!item.picked);
 		picker.placeholder = items.length !== mimeTypes.length
@@ -164,10 +163,10 @@ export class OutputElement extends Disposable {
 			: nls.localize('promptChooseMimeType.placeHolder', "Select mimetype to render for current output");
 
 		const pick = await new Promise<number | undefined>(resolve => {
-			disposables.add(picker.onDidAccept(() => {
+			picker.onDidAccept(() => {
 				resolve(picker.selectedItems.length === 1 ? (picker.selectedItems[0] as IMimeTypeRenderer).index : undefined);
-				disposables.dispose();
-			}));
+				picker.dispose();
+			});
 			picker.show();
 		});
 
@@ -229,7 +228,7 @@ export class OutputContainer extends Disposable {
 	constructor(
 		private _editor: INotebookTextDiffEditor,
 		private _notebookTextModel: NotebookTextModel,
-		private _diffElementViewModel: DiffElementCellViewModelBase,
+		private _diffElementViewModel: DiffElementViewModelBase,
 		private _nestedCellViewModel: DiffNestedCellViewModel,
 		private _diffSide: DiffSide,
 		private _outputContainer: HTMLElement,

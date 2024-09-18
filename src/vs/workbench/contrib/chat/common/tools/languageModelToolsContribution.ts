@@ -9,7 +9,6 @@ import { DisposableMap } from 'vs/base/common/lifecycle';
 import { joinPath } from 'vs/base/common/resources';
 import { ThemeIcon } from 'vs/base/common/themables';
 import { localize } from 'vs/nls';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IWorkbenchContribution } from 'vs/workbench/common/contributions';
@@ -17,13 +16,10 @@ import { ILanguageModelToolsService, IToolData } from 'vs/workbench/contrib/chat
 import * as extensionsRegistry from 'vs/workbench/services/extensions/common/extensionsRegistry';
 
 interface IRawToolContribution {
-	id: string;
-	name?: string;
+	name: string;
 	icon?: string | { light: string; dark: string };
-	when?: string;
 	displayName?: string;
-	userDescription?: string;
-	modelDescription: string;
+	description: string;
 	parametersSchema?: IJSONSchema;
 	canBeInvokedManually?: boolean;
 }
@@ -32,7 +28,7 @@ const languageModelToolsExtensionPoint = extensionsRegistry.ExtensionsRegistry.r
 	extensionPoint: 'languageModelTools',
 	activationEventsGenerator: (contributions: IRawToolContribution[], result) => {
 		for (const contrib of contributions) {
-			result.push(`onLanguageModelTool:${contrib.id}`);
+			result.push(`onLanguageModelTool:${contrib.name}`);
 		}
 	},
 	jsonSchema: {
@@ -42,29 +38,18 @@ const languageModelToolsExtensionPoint = extensionsRegistry.ExtensionsRegistry.r
 			additionalProperties: false,
 			type: 'object',
 			defaultSnippets: [{ body: { name: '', description: '' } }],
-			required: ['id', 'modelDescription'],
+			required: ['name', 'description'],
 			properties: {
-				id: {
-					description: localize('toolId', "A unique id for this tool."),
-					type: 'string',
-					// Borrow OpenAI's requirement for tool names
-					pattern: '^[\\w-]+$'
-				},
 				name: {
-					description: localize('toolName', "If {0} is enabled for this tool, the user may use '#' with this name to invoke the tool in a query. Otherwise, the name is not required. Name must not contain whitespace.", '`canBeInvokedManually`'),
-					type: 'string',
-					pattern: '^[\\w-]+$'
+					description: localize('toolname', "A name for this tool which must be unique across all tools."),
+					type: 'string'
+				},
+				description: {
+					description: localize('toolDescription', "A description of this tool that may be passed to a language model."),
+					type: 'string'
 				},
 				displayName: {
 					description: localize('toolDisplayName', "A human-readable name for this tool that may be used to describe it in the UI."),
-					type: 'string'
-				},
-				userDescription: {
-					description: localize('toolUserDescription', "A description of this tool that may be shown to the user."),
-					type: 'string'
-				},
-				modelDescription: {
-					description: localize('toolModelDescription', "A description of this tool that may be passed to a language model."),
 					type: 'string'
 				},
 				parametersSchema: {
@@ -94,10 +79,6 @@ const languageModelToolsExtensionPoint = extensionsRegistry.ExtensionsRegistry.r
 							}
 						}
 					}]
-				},
-				when: {
-					markdownDescription: localize('condition', "Condition which must be true for this tool to be enabled. Note that a tool may still be invoked by another extension even when its `when` condition is false."),
-					type: 'string'
 				}
 			}
 		}
@@ -120,18 +101,8 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 		languageModelToolsExtensionPoint.setHandler((extensions, delta) => {
 			for (const extension of delta.added) {
 				for (const rawTool of extension.value) {
-					if (!rawTool.id || !rawTool.modelDescription) {
-						logService.error(`Extension '${extension.description.identifier.value}' CANNOT register tool without name and modelDescription: ${JSON.stringify(rawTool)}`);
-						continue;
-					}
-
-					if (!rawTool.id.match(/^[\w-]+$/)) {
-						logService.error(`Extension '${extension.description.identifier.value}' CANNOT register tool with invalid id: ${rawTool.id}. The id must match /^[\\w-]+$/.`);
-						continue;
-					}
-
-					if (rawTool.canBeInvokedManually && !rawTool.name) {
-						logService.error(`Extension '${extension.description.identifier.value}' CANNOT register tool with 'canBeInvokedManually' set without a name: ${JSON.stringify(rawTool)}`);
+					if (!rawTool.name || !rawTool.description) {
+						logService.warn(`Invalid tool contribution from ${extension.description.identifier.value}: ${JSON.stringify(rawTool)}`);
 						continue;
 					}
 
@@ -149,19 +120,18 @@ export class LanguageModelToolsExtensionPointHandler implements IWorkbenchContri
 						};
 					}
 
-					const tool: IToolData = {
+					const tool = {
 						...rawTool,
-						icon,
-						when: rawTool.when ? ContextKeyExpr.deserialize(rawTool.when) : undefined,
+						icon
 					};
 					const disposable = languageModelToolsService.registerToolData(tool);
-					this._registrationDisposables.set(toToolKey(extension.description.identifier, rawTool.id), disposable);
+					this._registrationDisposables.set(toToolKey(extension.description.identifier, rawTool.name), disposable);
 				}
 			}
 
 			for (const extension of delta.removed) {
 				for (const tool of extension.value) {
-					this._registrationDisposables.deleteAndDispose(toToolKey(extension.description.identifier, tool.id));
+					this._registrationDisposables.deleteAndDispose(toToolKey(extension.description.identifier, tool.name));
 				}
 			}
 		});

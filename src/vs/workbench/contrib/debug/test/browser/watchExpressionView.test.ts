@@ -97,7 +97,7 @@ suite('Debug - Watch Debug View', () => {
 			}
 		});
 		instantiationService.stub(IConfigurationService, configurationService);
-		watchExpressionsRenderer = instantiationService.createInstance(WatchExpressionsRenderer, null as any);
+		watchExpressionsRenderer = instantiationService.createInstance(WatchExpressionsRenderer);
 		assertWatchVariable(disposables, watchExpressionsRenderer, true);
 	});
 
@@ -108,7 +108,7 @@ suite('Debug - Watch Debug View', () => {
 			}
 		});
 		instantiationService.stub(IConfigurationService, configurationService);
-		watchExpressionsRenderer = instantiationService.createInstance(WatchExpressionsRenderer, null as any);
+		watchExpressionsRenderer = instantiationService.createInstance(WatchExpressionsRenderer);
 		assertWatchVariable(disposables, watchExpressionsRenderer, false);
 	});
 });

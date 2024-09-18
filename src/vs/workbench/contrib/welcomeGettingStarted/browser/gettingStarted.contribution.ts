@@ -30,7 +30,6 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { StartupPageEditorResolverContribution, StartupPageRunnerContribution } from 'vs/workbench/contrib/welcomeGettingStarted/browser/startupPage';
 import { ExtensionsInput } from 'vs/workbench/contrib/extensions/common/extensionsInput';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { DisposableStore } from 'vs/base/common/lifecycle';
 
 // --- Start Positron ---
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
@@ -254,22 +253,21 @@ registerAction2(class extends Action2 {
 		const gettingStartedService = accessor.get(IWalkthroughsService);
 		const extensionService = accessor.get(IExtensionService);
 
-		const disposables = new DisposableStore();
-		const quickPick = disposables.add(quickInputService.createQuickPick());
+		const quickPick = quickInputService.createQuickPick();
 		quickPick.canSelectMany = false;
 		quickPick.matchOnDescription = true;
 		quickPick.matchOnDetail = true;
 		quickPick.placeholder = localize('pickWalkthroughs', 'Select a walkthrough to open');
 		quickPick.items = await this.getQuickPickItems(contextService, gettingStartedService);
 		quickPick.busy = true;
-		disposables.add(quickPick.onDidAccept(() => {
+		quickPick.onDidAccept(() => {
 			const selection = quickPick.selectedItems[0];
 			if (selection) {
 				commandService.executeCommand('workbench.action.openWalkthrough', selection.id);
 			}
 			quickPick.hide();
-		}));
-		disposables.add(quickPick.onDidHide(() => disposables.dispose()));
+		});
+		quickPick.onDidHide(() => quickPick.dispose());
 		await extensionService.whenInstalledExtensionsRegistered();
 		gettingStartedService.onDidAddWalkthrough(async () => {
 			quickPick.items = await this.getQuickPickItems(contextService, gettingStartedService);

@@ -31,13 +31,12 @@ import { clamp } from 'vs/base/common/numbers';
 import { CopyPasteController } from 'vs/editor/contrib/dropOrPasteInto/browser/copyPasteController';
 import { CodeActionController } from 'vs/editor/contrib/codeAction/browser/codeActionController';
 import { DropIntoEditorController } from 'vs/editor/contrib/dropOrPasteInto/browser/dropIntoEditorController';
-import { InlineCompletionsController } from 'vs/editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController';
+import { InlineCompletionsController } from 'vs/editor/contrib/inlineCompletions/browser/inlineCompletionsController';
 import { LinkDetector } from 'vs/editor/contrib/links/browser/links';
 import { MessageController } from 'vs/editor/contrib/message/browser/messageController';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { MenuId } from 'vs/platform/actions/common/actions';
-import { ContentHoverController } from 'vs/editor/contrib/hover/browser/contentHoverController2';
-import { MarginHoverController } from 'vs/editor/contrib/hover/browser/marginHoverController';
+import { HoverController } from 'vs/editor/contrib/hover/browser/hoverController';
 
 export const ctxCommentEditorFocused = new RawContextKey<boolean>('commentEditorFocused', false);
 export const MIN_EDITOR_HEIGHT = 5 * 18;
@@ -79,8 +78,7 @@ export class SimpleCommentEditor extends CodeEditorWidget {
 					DropIntoEditorController.ID,
 					LinkDetector.ID,
 					MessageController.ID,
-					ContentHoverController.ID,
-					MarginHoverController.ID,
+					HoverController.ID,
 					SelectionClipboardContributionID,
 					InlineCompletionsController.ID,
 					CodeActionController.ID,

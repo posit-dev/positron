@@ -163,10 +163,9 @@ export class MarkerHoverParticipant implements IEditorHoverParticipant<MarkerHov
 					e.stopPropagation();
 					e.preventDefault();
 					if (this._openerService) {
-						const editorOptions: ITextEditorOptions = { selection: { startLineNumber, startColumn } };
 						this._openerService.open(resource, {
 							fromUserGesture: true,
-							editorOptions
+							editorOptions: <ITextEditorOptions>{ selection: { startLineNumber, startColumn } }
 						}).catch(onUnexpectedError);
 					}
 				}));

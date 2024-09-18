@@ -55,9 +55,6 @@ import { IWalkthroughsService } from 'vs/workbench/contrib/welcomeGettingStarted
 import { Schemas } from 'vs/base/common/network';
 import { mainWindow } from 'vs/base/browser/window';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
-// --- Start PWB: Clear browser history
-import { BrowserStorageService } from 'vs/workbench/services/storage/browser/storageService';
-// --- End PWB: Clear browser history
 
 interface IViewModel {
 	onDidChangeHelpInformation: Event<void>;
@@ -796,17 +793,14 @@ export class RemoteAgentConnectionStatusListener extends Disposable implements I
 		@IQuickInputService quickInputService: IQuickInputService,
 		@ILogService logService: ILogService,
 		@IWorkbenchEnvironmentService environmentService: IWorkbenchEnvironmentService,
-		// --- Start PWB: clear browser history
-		@ITelemetryService telemetryService: ITelemetryService,
-		@IStorageService storageService: IStorageService
-		// --- End PWB: clear browser history
+		@ITelemetryService telemetryService: ITelemetryService
 	) {
 		super();
 		const connection = remoteAgentService.getConnection();
 		if (connection) {
 			let quickInputVisible = false;
-			this._register(quickInputService.onShow(() => quickInputVisible = true));
-			this._register(quickInputService.onHide(() => quickInputVisible = false));
+			quickInputService.onShow(() => quickInputVisible = true);
+			quickInputService.onHide(() => quickInputVisible = false);
 
 			let visibleProgress: VisibleProgress | null = null;
 			let reconnectWaitEvent: ReconnectionWaitEvent | null = null;
@@ -926,11 +920,6 @@ export class RemoteAgentConnectionStatusListener extends Disposable implements I
 							}
 							visibleProgress.report(nls.localize('connectionLost', "Connection Lost"));
 						}
-						// --- Start PWB: clear browser history
-						if (storageService instanceof BrowserStorageService) {
-							storageService.closeConnections();
-						}
-						// --- End PWB: clear browser history
 						break;
 
 					case PersistentConnectionEventType.ReconnectionWait:
@@ -939,7 +928,6 @@ export class RemoteAgentConnectionStatusListener extends Disposable implements I
 							visibleProgress = showProgress(null, [reconnectButton, reloadButton]);
 							visibleProgress.startTimer(Date.now() + 1000 * e.durationSeconds);
 						}
-
 						break;
 
 					case PersistentConnectionEventType.ReconnectionRunning:
@@ -1035,13 +1023,6 @@ export class RemoteAgentConnectionStatusListener extends Disposable implements I
 						reconnectionToken = e.reconnectionToken;
 						lastIncomingDataTime = Date.now() - e.millisSinceLastIncomingData;
 						reconnectionAttempts = e.attempt;
-
-						// --- Start PWB: clear browser history
-						if (storageService instanceof BrowserStorageService) {
-							storageService.openConnections();
-						}
-						// --- End PWB: clear browser history
-
 
 						type RemoteConnectionGainClassification = {
 							owner: 'alexdima';

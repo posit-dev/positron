@@ -432,9 +432,6 @@ export class IndexedDBFileSystemProvider extends Disposable implements IFileSyst
 				await this.indexedDB.runInTransaction(this.store, 'readwrite', objectStore => fileBatch.map(entry => {
 					return objectStore.put(entry.content, entry.resource.path);
 				}));
-				// --- Start PWB: Clear browser history
-				this.indexedDB.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-				// -- End PWB
 			} catch (ex) {
 				if (ex instanceof DOMException && ex.name === 'QuotaExceededError') {
 					throw ERR_FILE_EXCEEDS_STORAGE_QUOTA;
@@ -448,17 +445,11 @@ export class IndexedDBFileSystemProvider extends Disposable implements IFileSyst
 	private async deleteKeys(keys: string[]): Promise<void> {
 		if (keys.length) {
 			await this.indexedDB.runInTransaction(this.store, 'readwrite', objectStore => keys.map(key => objectStore.delete(key)));
-			// --- Start PWB: Clear browser history
-			this.indexedDB.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-			// --- End PWB
 		}
 	}
 
 	async reset(): Promise<void> {
 		await this.indexedDB.runInTransaction(this.store, 'readwrite', objectStore => objectStore.clear());
-		// --- Start PWB: Clear browser history
-		this.indexedDB.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
-		// --- End PWB
 	}
 
 	private reportError(operation: string, error: Error): void {

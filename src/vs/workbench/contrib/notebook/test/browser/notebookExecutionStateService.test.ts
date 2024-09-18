@@ -25,7 +25,6 @@ import { CellEditType, CellKind, CellUri, IOutputDto, NotebookCellMetadata, Note
 import { CellExecutionUpdateType, INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService, NotebookExecutionType } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookKernel, INotebookKernelService, VariablesResult } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { INotebookLoggingService } from 'vs/workbench/contrib/notebook/common/notebookLoggingService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { setupInstantiationService, withTestNotebook as _withTestNotebook } from 'vs/workbench/contrib/notebook/test/browser/testNotebookEditor';
 
@@ -64,11 +63,6 @@ suite('NotebookExecutionStateService', () => {
 					override getActions() { return []; }
 					override dispose() { }
 				};
-			}
-		});
-		instantiationService.stub(INotebookLoggingService, new class extends mock<INotebookLoggingService>() {
-			override debug(category: string, output: string): void {
-				//
 			}
 		});
 

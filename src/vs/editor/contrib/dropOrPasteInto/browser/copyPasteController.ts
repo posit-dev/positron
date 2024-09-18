@@ -135,7 +135,8 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 	}
 
 	private isPasteAsEnabled(): boolean {
-		return this._editor.getOption(EditorOption.pasteAs).enabled;
+		return this._editor.getOption(EditorOption.pasteAs).enabled
+			&& !this._editor.getOption(EditorOption.readOnly);
 	}
 
 	public async finishedPaste(): Promise<void> {
@@ -147,10 +148,12 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 			return;
 		}
 
-		// Explicitly clear the clipboard internal state.
-		// This is needed because on web, the browser clipboard is faked out using an in-memory store.
-		// This means the resources clipboard is not properly updated when copying from the editor.
-		this._clipboardService.clearInternalState?.();
+		if (platform.isWeb) {
+			// Explicitly clear the web resources clipboard.
+			// This is needed because on web, the browser clipboard is faked out using an in-memory store.
+			// This means the resources clipboard is not properly updated when copying from the editor.
+			this._clipboardService.writeResources([]);
+		}
 
 		if (!e.clipboardData || !this.isPasteAsEnabled()) {
 			return;
@@ -245,8 +248,8 @@ export class CopyPasteController extends Disposable implements IEditorContributi
 		}
 
 		if (
-			this._editor.getOption(EditorOption.readOnly) // Never enabled if editor is readonly.
-			|| (!this.isPasteAsEnabled() && !this._pasteAsActionContext) // Or feature disabled (but still enable if paste was explicitly requested)
+			!this.isPasteAsEnabled()
+			&& !this._pasteAsActionContext // Still enable if paste as was explicitly requested
 		) {
 			return;
 		}

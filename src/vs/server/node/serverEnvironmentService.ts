@@ -13,13 +13,11 @@ import { memoize } from 'vs/base/common/decorators';
 import { URI } from 'vs/base/common/uri';
 
 export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
+
 	/* ----- server setup ----- */
+
 	'host': { type: 'string', cat: 'o', args: 'ip-address', description: nls.localize('host', "The host name or IP address the server should listen to. If not set, defaults to 'localhost'.") },
 	'port': { type: 'string', cat: 'o', args: 'port | port range', description: nls.localize('port', "The port the server should listen to. If 0 is passed a random free port is picked. If a range in the format num-num is passed, a free port from the range (end inclusive) is selected.") },
-	// --- Start PWB ---
-	'cert-key': { type: 'string', cat: 'o', args: 'path', description: nls.localize('cert-key', "The path to a private key.") },
-	'cert': { type: 'string', cat: 'o', args: 'path', description: nls.localize('cert', "The path to a certificate.") },
-	// --- End PWB ---
 	'socket-path': { type: 'string', cat: 'o', args: 'path', description: nls.localize('socket-path', "The path to a socket file for the server to listen to.") },
 	'server-base-path': { type: 'string', cat: 'o', args: 'path', description: nls.localize('server-base-path', "The path under which the web UI and the code server is provided. Defaults to '/'.`") },
 	'connection-token': { type: 'string', cat: 'o', args: 'token', deprecates: ['connectionToken'], description: nls.localize('connection-token', "A secret that must be included with all requests.") },
@@ -29,10 +27,6 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'print-startup-performance': { type: 'boolean' },
 	'print-ip-address': { type: 'boolean' },
 	'accept-server-license-terms': { type: 'boolean', cat: 'o', description: nls.localize('acceptLicenseTerms', "If set, the user accepts the server license terms and the server will be started without a user prompt.") },
-	// --- Start PWB: disable file downloads ---
-	'disable-file-downloads': { type: 'boolean', cat: 'o', description: nls.localize('disableFileDownloads', "Disables file downloads.") },
-	'disable-file-uploads': { type: 'boolean', cat: 'o', description: nls.localize('disableFileUploads', "Disables file uploads.") },
-	// --- End PWB ---
 	'server-data-dir': { type: 'string', cat: 'o', description: nls.localize('serverDataDir', "Specifies the directory that server data is kept in.") },
 	'telemetry-level': { type: 'string', cat: 'o', args: 'level', description: nls.localize('telemetry-level', "Sets the initial telemetry level. Valid levels are: 'off', 'crash', 'error' and 'all'. If not specified, the server will send telemetry until a client connects, it will then use the clients telemetry setting. Setting this to 'off' is equivalent to --disable-telemetry") },
 
@@ -78,6 +72,7 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'pre-release': OPTIONS['pre-release'],
 	'start-server': { type: 'boolean', cat: 'e', description: nls.localize('start-server', "Start the server when installing or uninstalling extensions. To be used in combination with 'install-extension', 'install-builtin-extension' and 'uninstall-extension'.") },
 
+
 	/* ----- remote development options ----- */
 
 	'enable-remote-auto-shutdown': { type: 'boolean' },
@@ -106,11 +101,6 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 
 export interface ServerParsedArgs {
 
-	// --- Start PWB: disable file downloads ---
-	'disable-file-downloads'?: boolean;
-	'disable-file-uploads'?: boolean;
-	// --- End PWB ---
-
 	/* ----- server setup ----- */
 
 	host?: string;
@@ -118,11 +108,8 @@ export interface ServerParsedArgs {
 	 * A port or a port range
 	 */
 	port?: string;
-	// --- Start PWB ---
-	'cert-key'?: string;
-	'cert'?: string;
-	// --- End PWB ---
 	'socket-path'?: string;
+
 	/**
 	 * The path under which the web UI and the code server is provided.
 	 * By defaults it is '/'.`

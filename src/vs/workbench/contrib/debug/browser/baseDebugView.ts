@@ -22,7 +22,7 @@ import { IContextViewService } from 'vs/platform/contextview/browser/contextView
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { defaultInputBoxStyles } from 'vs/platform/theme/browser/defaultStyles';
 import { COPY_EVALUATE_PATH_ID, COPY_VALUE_ID } from 'vs/workbench/contrib/debug/browser/debugCommands';
-import { DebugLinkHoverBehavior, DebugLinkHoverBehaviorTypeData, LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
+import { LinkDetector } from 'vs/workbench/contrib/debug/browser/linkDetector';
 import { IDebugService, IExpression, IExpressionValue } from 'vs/workbench/contrib/debug/common/debug';
 import { Expression, ExpressionContainer, Variable } from 'vs/workbench/contrib/debug/common/debugModel';
 import { IDebugVisualizerService } from 'vs/workbench/contrib/debug/common/debugVisualizers';
@@ -37,7 +37,8 @@ export interface IRenderValueOptions {
 	showChanged?: boolean;
 	maxValueLength?: number;
 	/** If set, a hover will be shown on the element. Requires a disposable store for usage. */
-	hover?: false | {
+	hover?: DisposableStore | {
+		store: DisposableStore;
 		commands: { id: string; args: unknown[] }[];
 		commandService: ICommandService;
 	};
@@ -61,7 +62,7 @@ export function renderViewTree(container: HTMLElement): HTMLElement {
 	return treeContainer;
 }
 
-export function renderExpressionValue(store: DisposableStore, expressionOrValue: IExpressionValue | string, container: HTMLElement, options: IRenderValueOptions, hoverService: IHoverService): void {
+export function renderExpressionValue(expressionOrValue: IExpressionValue | string, container: HTMLElement, options: IRenderValueOptions, hoverService: IHoverService): void {
 	let value = typeof expressionOrValue === 'string' ? expressionOrValue : expressionOrValue.value;
 
 	// remove stale classes
@@ -99,21 +100,16 @@ export function renderExpressionValue(store: DisposableStore, expressionOrValue:
 		value = '';
 	}
 
-	const session = (expressionOrValue instanceof ExpressionContainer) ? expressionOrValue.getSession() : undefined;
-	// Only use hovers for links if thre's not going to be a hover for the value.
-	const hoverBehavior: DebugLinkHoverBehaviorTypeData = options.hover === false ? { type: DebugLinkHoverBehavior.Rich, store } : { type: DebugLinkHoverBehavior.None };
-	if (expressionOrValue instanceof ExpressionContainer && expressionOrValue.valueLocationReference !== undefined && session && options.linkDetector) {
+	if (options.linkDetector) {
 		container.textContent = '';
-		container.appendChild(options.linkDetector.linkifyLocation(value, expressionOrValue.valueLocationReference, session, hoverBehavior));
-	} else if (options.linkDetector) {
-		container.textContent = '';
-		container.appendChild(options.linkDetector.linkify(value, false, session ? session.root : undefined, true, hoverBehavior));
+		const session = (expressionOrValue instanceof ExpressionContainer) ? expressionOrValue.getSession() : undefined;
+		container.appendChild(options.linkDetector.linkify(value, false, session ? session.root : undefined, true));
 	} else {
 		container.textContent = value;
 	}
 
-	if (options.hover !== false) {
-		const { commands = [], commandService } = options.hover || {};
+	if (options.hover) {
+		const { store, commands, commandService } = options.hover instanceof DisposableStore ? { store: options.hover, commands: [], commandService: undefined } : options.hover;
 		store.add(hoverService.setupManagedHover(getDefaultHoverDelegate('mouse'), container, () => {
 			const container = dom.$('div');
 			const markdownHoverElement = dom.$('div.hover-row');
@@ -163,10 +159,10 @@ export function renderVariable(store: DisposableStore, commandService: ICommandS
 		commands.push({ id: COPY_EVALUATE_PATH_ID, args: [{ variable }] });
 	}
 
-	renderExpressionValue(store, variable, data.value, {
+	renderExpressionValue(variable, data.value, {
 		showChanged,
 		maxValueLength: MAX_VALUE_RENDER_LENGTH_IN_VIEWLET,
-		hover: { commands, commandService },
+		hover: { store, commands, commandService },
 		colorize: true,
 		linkDetector
 	}, hoverService);

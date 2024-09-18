@@ -7,7 +7,6 @@ import * as playwright from '@playwright/test';
 import { assert } from 'chai';
 
 const PORT = 8563;
-const TIMEOUT = 20 * 1000;
 
 const APP = `http://127.0.0.1:${PORT}/dist/core.html`;
 
@@ -19,7 +18,7 @@ type BrowserType = 'chromium' | 'firefox' | 'webkit';
 const browserType: BrowserType = process.env.BROWSER as BrowserType || 'chromium';
 
 before(async function () {
-	this.timeout(TIMEOUT);
+	this.timeout(20 * 1000);
 	console.log(`Starting browser: ${browserType}`);
 	browser = await playwright[browserType].launch({
 		headless: process.argv.includes('--headless'),
@@ -27,13 +26,13 @@ before(async function () {
 });
 
 after(async function () {
-	this.timeout(TIMEOUT);
+	this.timeout(20 * 1000);
 	await browser.close();
 });
 
 const pageErrors: any[] = [];
 beforeEach(async function () {
-	this.timeout(TIMEOUT);
+	this.timeout(20 * 1000);
 	page = await browser.newPage({
 		viewport: {
 			width: 800,
@@ -60,7 +59,7 @@ afterEach(async () => {
 });
 
 describe('API Integration Tests', function (): void {
-	this.timeout(TIMEOUT);
+	this.timeout(20000);
 
 	beforeEach(async () => {
 		await page.goto(APP);

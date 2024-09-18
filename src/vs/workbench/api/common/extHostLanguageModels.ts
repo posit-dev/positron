@@ -37,13 +37,13 @@ type LanguageModelData = {
 
 class LanguageModelResponseStream {
 
-	readonly stream = new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseToolCallPart>();
+	readonly stream = new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseFunctionUsePart>();
 
 	constructor(
 		readonly option: number,
-		stream?: AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseToolCallPart>
+		stream?: AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseFunctionUsePart>
 	) {
-		this.stream = stream ?? new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseToolCallPart>();
+		this.stream = stream ?? new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseFunctionUsePart>();
 	}
 }
 
@@ -52,7 +52,7 @@ class LanguageModelResponse {
 	readonly apiObject: vscode.LanguageModelChatResponse;
 
 	private readonly _responseStreams = new Map<number, LanguageModelResponseStream>();
-	private readonly _defaultStream = new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseToolCallPart>();
+	private readonly _defaultStream = new AsyncIterableSource<vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseFunctionUsePart>();
 	private _isDone: boolean = false;
 
 	constructor() {
@@ -100,11 +100,11 @@ class LanguageModelResponse {
 			this._responseStreams.set(fragment.index, res);
 		}
 
-		let out: vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseToolCallPart;
+		let out: vscode.LanguageModelChatResponseTextPart | vscode.LanguageModelChatResponseFunctionUsePart;
 		if (fragment.part.type === 'text') {
 			out = new extHostTypes.LanguageModelTextPart(fragment.part.value);
 		} else {
-			out = new extHostTypes.LanguageModelToolCallPart(fragment.part.name, fragment.part.toolCallId, fragment.part.parameters);
+			out = new extHostTypes.LanguageModelFunctionUsePart(fragment.part.name, fragment.part.parameters);
 		}
 		res.stream.emitOne(out);
 	}
@@ -201,8 +201,8 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			}
 
 			let part: IChatResponsePart | undefined;
-			if (fragment.part instanceof extHostTypes.LanguageModelToolCallPart) {
-				part = { type: 'tool_use', name: fragment.part.name, parameters: fragment.part.parameters, toolCallId: fragment.part.toolCallId };
+			if (fragment.part instanceof extHostTypes.LanguageModelFunctionUsePart) {
+				part = { type: 'function_use', name: fragment.part.name, parameters: fragment.part.parameters };
 			} else if (fragment.part instanceof extHostTypes.LanguageModelTextPart) {
 				part = { type: 'text', value: fragment.part.value };
 			}
@@ -396,7 +396,7 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			if (message.role as number === extHostTypes.LanguageModelChatMessageRole.System) {
 				checkProposedApiEnabled(extension, 'languageModelSystem');
 			}
-			if (message.content2.some(part => part instanceof extHostTypes.LanguageModelToolResultPart)) {
+			if (message.content2 instanceof extHostTypes.LanguageModelFunctionResultPart) {
 				checkProposedApiEnabled(extension, 'lmTools');
 			}
 			internalMessages.push(typeConvert.LanguageModelChatMessage.from(message));

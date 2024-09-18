@@ -12,9 +12,6 @@ import { InlineChatController } from 'vs/workbench/contrib/inlineChat/browser/in
 import { IInlineChatSessionService } from './inlineChatSessionService';
 import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/services/notebookEditorService';
 import { CellUri } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { NotebookTextDiffEditor } from 'vs/workbench/contrib/notebook/browser/diff/notebookDiffEditor';
-import { NotebookMultiTextDiffEditor } from 'vs/workbench/contrib/notebook/browser/diff/notebookMultiDiffEditor';
 
 export class InlineChatNotebookContribution {
 
@@ -22,7 +19,6 @@ export class InlineChatNotebookContribution {
 
 	constructor(
 		@IInlineChatSessionService sessionService: IInlineChatSessionService,
-		@IEditorService editorService: IEditorService,
 		@INotebookEditorService notebookEditorService: INotebookEditorService,
 	) {
 
@@ -60,11 +56,6 @@ export class InlineChatNotebookContribution {
 
 				if (fallback) {
 					return fallback;
-				}
-
-				const activeEditor = editorService.activeEditorPane;
-				if (activeEditor && (activeEditor.getId() === NotebookTextDiffEditor.ID || activeEditor.getId() === NotebookMultiTextDiffEditor.ID)) {
-					return `<notebook>${editor.getId()}#${uri}`;
 				}
 
 				throw illegalState('Expected notebook editor');

@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-use std::{fmt, path::Path};
+use std::{ffi::OsStr, fmt, path::Path};
 
 use serde::{Deserialize, Serialize};
 
@@ -11,11 +11,10 @@ use crate::{
 	constants::VSCODE_CLI_UPDATE_ENDPOINT,
 	debug, log, options, spanf,
 	util::{
-		errors::{wrap, AnyError, CodeError, WrappedError},
+		errors::{AnyError, CodeError, WrappedError},
 		http::{BoxedHttp, SimpleResponse},
 		io::ReportCopyProgress,
-		tar::{self, has_gzip_header},
-		zipper,
+		tar, zipper,
 	},
 };
 
@@ -179,10 +178,10 @@ pub fn unzip_downloaded_release<T>(
 where
 	T: ReportCopyProgress,
 {
-	match has_gzip_header(compressed_file) {
-		Ok((f, true)) => tar::decompress_tarball(f, target_dir, reporter),
-		Ok((f, false)) => zipper::unzip_file(f, target_dir, reporter),
-		Err(e) => Err(wrap(e, "error checking for gzip header")),
+	if compressed_file.extension() == Some(OsStr::new("zip")) {
+		zipper::unzip_file(compressed_file, target_dir, reporter)
+	} else {
+		tar::decompress_tarball(compressed_file, target_dir, reporter)
 	}
 }
 
@@ -250,7 +249,7 @@ impl Platform {
 			Platform::DarwinARM64 => "server-darwin-arm64",
 			Platform::WindowsX64 => "server-win32-x64",
 			Platform::WindowsX86 => "server-win32",
-			Platform::WindowsARM64 => "server-win32-arm64",
+			Platform::WindowsARM64 => "server-win32-x64", // we don't publish an arm64 server build yet
 		}
 		.to_owned()
 	}

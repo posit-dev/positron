@@ -3,9 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { basename, dirname } from 'path';
 import * as vscode from 'vscode';
-import { Logger } from '../logging/logger';
+import { basename, dirname } from 'path';
 
 export class MemFs implements vscode.FileSystemProvider {
 
@@ -15,13 +14,8 @@ export class MemFs implements vscode.FileSystemProvider {
 		0,
 	);
 
-	constructor(
-		private readonly id: string,
-		private readonly logger: Logger,
-	) { }
-
 	stat(uri: vscode.Uri): vscode.FileStat {
-		this.logger.trace(`MemFs.stat ${this.id}. uri: ${uri}`);
+		// console.log('stat', uri.toString());
 		const entry = this.getEntry(uri);
 		if (!entry) {
 			throw vscode.FileSystemError.FileNotFound();
@@ -31,7 +25,7 @@ export class MemFs implements vscode.FileSystemProvider {
 	}
 
 	readDirectory(uri: vscode.Uri): [string, vscode.FileType][] {
-		this.logger.trace(`MemFs.readDirectory ${this.id}. uri: ${uri}`);
+		// console.log('readDirectory', uri.toString());
 
 		const entry = this.getEntry(uri);
 		if (!entry) {
@@ -45,7 +39,7 @@ export class MemFs implements vscode.FileSystemProvider {
 	}
 
 	readFile(uri: vscode.Uri): Uint8Array {
-		this.logger.trace(`MemFs.readFile ${this.id}. uri: ${uri}`);
+		// console.log('readFile', uri.toString());
 
 		const entry = this.getEntry(uri);
 		if (!entry) {
@@ -60,7 +54,7 @@ export class MemFs implements vscode.FileSystemProvider {
 	}
 
 	writeFile(uri: vscode.Uri, content: Uint8Array, { create, overwrite }: { create: boolean; overwrite: boolean }): void {
-		this.logger.trace(`MemFs.writeFile ${this.id}. uri: ${uri}`);
+		// console.log('writeFile', uri.toString());
 
 		const dir = this.getParent(uri);
 
@@ -104,8 +98,7 @@ export class MemFs implements vscode.FileSystemProvider {
 	}
 
 	createDirectory(uri: vscode.Uri): void {
-		this.logger.trace(`MemFs.createDirectory ${this.id}. uri: ${uri}`);
-
+		// console.log('createDirectory', uri.toString());
 		const dir = this.getParent(uri);
 		const now = Date.now() / 1000;
 		dir.contents.set(basename(uri.path), new FsDirectoryEntry(new Map(), now, now));

@@ -12,7 +12,7 @@ import { CachedListVirtualDelegate } from 'vs/base/browser/ui/list/list';
 import { IListAccessibilityProvider } from 'vs/base/browser/ui/list/listWidget';
 import { IAsyncDataSource, ITreeNode, ITreeRenderer } from 'vs/base/browser/ui/tree/tree';
 import { createMatches, FuzzyScore } from 'vs/base/common/filters';
-import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 import { basename } from 'vs/base/common/path';
 import severity from 'vs/base/common/severity';
 import { ThemeIcon } from 'vs/base/common/themables';
@@ -47,7 +47,6 @@ interface IReplGroupTemplateData {
 
 interface IReplEvaluationResultTemplateData {
 	value: HTMLElement;
-	elementStore: DisposableStore;
 }
 
 interface IOutputReplElementTemplateData {
@@ -66,7 +65,6 @@ interface IRawObjectReplTemplateData {
 	name: HTMLElement;
 	value: HTMLElement;
 	label: HighlightedLabel;
-	elementStore: DisposableStore;
 }
 
 export class ReplEvaluationInputsRenderer implements ITreeRenderer<ReplEvaluationInput, FuzzyScore, IReplEvaluationInputTemplateData> {
@@ -143,21 +141,19 @@ export class ReplEvaluationResultsRenderer implements ITreeRenderer<ReplEvaluati
 		const output = dom.append(container, $('.evaluation-result.expression'));
 		const value = dom.append(output, $('span.value'));
 
-		return { value, elementStore: new DisposableStore() };
+		return { value };
 	}
 
 	renderElement(element: ITreeNode<ReplEvaluationResult | Variable, FuzzyScore>, index: number, templateData: IReplEvaluationResultTemplateData): void {
-		templateData.elementStore.clear();
 		const expression = element.element;
-		renderExpressionValue(templateData.elementStore, expression, templateData.value, {
+		renderExpressionValue(expression, templateData.value, {
 			colorize: true,
-			hover: false,
-			linkDetector: this.linkDetector,
+			linkDetector: this.linkDetector
 		}, this.hoverService);
 	}
 
 	disposeTemplate(templateData: IReplEvaluationResultTemplateData): void {
-		templateData.elementStore.dispose();
+		// noop
 	}
 }
 
@@ -249,7 +245,7 @@ export class ReplVariablesRenderer extends AbstractExpressionsRenderer<IExpressi
 		const isReplVariable = expression instanceof ReplVariableElement;
 		if (isReplVariable || !expression.name) {
 			data.label.set('');
-			renderExpressionValue(data.elementDisposable, isReplVariable ? expression.expression : expression, data.value, { colorize: true, linkDetector: this.linkDetector, hover: false }, this.hoverService);
+			renderExpressionValue(isReplVariable ? expression.expression : expression, data.value, { colorize: true, linkDetector: this.linkDetector }, this.hoverService);
 			data.expression.classList.remove('nested-variable');
 		} else {
 			renderVariable(data.elementDisposable, this.commandService, this.hoverService, expression as Variable, data, true, highlights, this.linkDetector);
@@ -282,12 +278,10 @@ export class ReplRawObjectsRenderer implements ITreeRenderer<RawObjectReplElemen
 		const label = new HighlightedLabel(name);
 		const value = dom.append(expression, $('span.value'));
 
-		return { container, expression, name, label, value, elementStore: new DisposableStore() };
+		return { container, expression, name, label, value };
 	}
 
 	renderElement(node: ITreeNode<RawObjectReplElement, FuzzyScore>, index: number, templateData: IRawObjectReplTemplateData): void {
-		templateData.elementStore.clear();
-
 		// key
 		const element = node.element;
 		templateData.label.set(element.name ? `${element.name}:` : '', createMatches(node.filterData));
@@ -298,14 +292,12 @@ export class ReplRawObjectsRenderer implements ITreeRenderer<RawObjectReplElemen
 		}
 
 		// value
-		renderExpressionValue(templateData.elementStore, element.value, templateData.value, {
-			linkDetector: this.linkDetector,
-			hover: false,
+		renderExpressionValue(element.value, templateData.value, {
+			linkDetector: this.linkDetector
 		}, this.hoverService);
 	}
 
 	disposeTemplate(templateData: IRawObjectReplTemplateData): void {
-		templateData.elementStore.dispose();
 		templateData.label.dispose();
 	}
 }

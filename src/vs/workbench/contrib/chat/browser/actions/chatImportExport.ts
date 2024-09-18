@@ -96,8 +96,7 @@ export function registerChatExportActions() {
 					throw new Error('Invalid chat session data');
 				}
 
-				const options: IChatEditorOptions = { target: { data }, pinned: true };
-				await editorService.openEditor({ resource: ChatEditorInput.getNewEditorUri(), options });
+				await editorService.openEditor({ resource: ChatEditorInput.getNewEditorUri(), options: { target: { data }, pinned: true } as IChatEditorOptions });
 			} catch (err) {
 				throw err;
 			}

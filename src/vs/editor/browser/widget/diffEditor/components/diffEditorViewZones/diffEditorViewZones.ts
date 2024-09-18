@@ -633,10 +633,7 @@ export function allowsTrueInlineDiffRendering(mapping: DetailedLineRangeMapping)
 	if (!mapping.innerChanges) {
 		return false;
 	}
-	return mapping.innerChanges.every(c =>
-		(rangeIsSingleLine(c.modifiedRange) && rangeIsSingleLine(c.originalRange))
-		|| c.originalRange.equalsRange(new Range(1, 1, 1, 1))
-	);
+	return mapping.innerChanges.every(c => rangeIsSingleLine(c.modifiedRange) && rangeIsSingleLine(c.originalRange));
 }
 
 function rangeIsSingleLine(range: Range): boolean {

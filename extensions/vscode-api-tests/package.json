@@ -47,6 +47,7 @@
     "telemetry",
     "terminalDataWriteEvent",
     "terminalDimensions",
+    "terminalShellIntegration",
     "testObserver",
     "textSearchProvider",
     "timeline",

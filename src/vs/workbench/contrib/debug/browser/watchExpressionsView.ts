@@ -87,8 +87,8 @@ export class WatchExpressionsView extends ViewPane {
 		container.classList.add('debug-watch');
 		const treeContainer = renderViewTree(container);
 
+		const expressionsRenderer = this.instantiationService.createInstance(WatchExpressionsRenderer);
 		const linkDetector = this.instantiationService.createInstance(LinkDetector);
-		const expressionsRenderer = this.instantiationService.createInstance(WatchExpressionsRenderer, linkDetector);
 		this.tree = <WorkbenchAsyncDataTree<IDebugService | IExpression, IExpression, FuzzyScore>>this.instantiationService.createInstance(WorkbenchAsyncDataTree, 'WatchExpressions', treeContainer, new WatchExpressionsDelegate(),
 			[
 				expressionsRenderer,
@@ -279,7 +279,6 @@ export class WatchExpressionsRenderer extends AbstractExpressionsRenderer {
 	static readonly ID = 'watchexpression';
 
 	constructor(
-		private readonly linkDetector: LinkDetector,
 		@IMenuService private readonly menuService: IMenuService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IDebugService debugService: IDebugService,
@@ -330,10 +329,10 @@ export class WatchExpressionsRenderer extends AbstractExpressionsRenderer {
 		}
 
 		data.label.set(text, highlights, title);
-		renderExpressionValue(data.elementDisposable, expression, data.value, {
+		renderExpressionValue(expression, data.value, {
 			showChanged: true,
 			maxValueLength: MAX_VALUE_RENDER_LENGTH_IN_VIEWLET,
-			linkDetector: this.linkDetector,
+			hover: data.elementDisposable,
 			colorize: true
 		}, this.hoverService);
 	}

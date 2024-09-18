@@ -8,47 +8,31 @@ declare module 'vscode' {
 	// https://github.com/microsoft/vscode/issues/59921
 
 	/**
-	 * The parameters of a query for text search. All optional booleans default to `false`.
+	 * The parameters of a query for text search.
 	 */
 	export interface TextSearchQueryNew {
 		/**
 		 * The text pattern to search for.
-		 *
-		 * If explicitly contains a newline character (`\n`), the default search behavior
-		 * will automatically enable {@link isMultiline}.
 		 */
 		pattern: string;
 
 		/**
 		 * Whether or not `pattern` should match multiple lines of text.
-		 *
-		 * If using the default search provider, this will be interpreted as `true` if
-		 * `pattern` contains a newline character (`\n`).
 		 */
 		isMultiline?: boolean;
 
 		/**
 		 * Whether or not `pattern` should be interpreted as a regular expression.
-		 *
-		 * If using the default search provider, this will be interpreted case-insensitively
-		 * if {@link isCaseSensitive} is `false` or not set.
 		 */
 		isRegExp?: boolean;
 
 		/**
 		 * Whether or not the search should be case-sensitive.
-		 *
-		 * If using the default search provider, this can be affected by the `search.smartCase` setting.
-		 * See the setting description for more information.
 		 */
 		isCaseSensitive?: boolean;
 
 		/**
 		 * Whether or not to search for whole word matches only.
-		 *
-		 * If enabled, the default search provider will check for boundary characters
-		 * (regex pattern `\b`) surrounding the {@link pattern} to see whether something
-		 * is a word match.
 		 */
 		isWordMatch?: boolean;
 	}
@@ -56,7 +40,7 @@ declare module 'vscode' {
 	/**
 	 * Options that apply to text search.
 	 */
-	export interface TextSearchProviderOptions {
+	export interface TextSearchProviderOptionsNew {
 
 		folderOptions: {
 			/**
@@ -89,20 +73,14 @@ declare module 'vscode' {
 				 */
 				local: boolean;
 				/**
-				 * Use ignore files at the parent directory. If set, {@link TextSearchProviderOptions.useIgnoreFiles.local} should also be `true`.
+				 * Use ignore files at the parent directory. If set, {@link TextSearchProviderOptionsNew.useIgnoreFiles.local} should also be `true`.
 				 */
 				parent: boolean;
 				/**
-				 * Use global ignore files. If set, {@link TextSearchProviderOptions.useIgnoreFiles.local} should also be `true`.
+				 * Use global ignore files. If set, {@link TextSearchProviderOptionsNew.useIgnoreFiles.local} should also be `true`.
 				 */
 				global: boolean;
 			};
-
-			/**
-			 * Interpret files using this encoding.
-			 * See the vscode setting `"files.encoding"`
-			 */
-			encoding: string;
 		}[];
 
 		/**
@@ -131,7 +109,13 @@ declare module 'vscode' {
 		/**
 		 * Exclude files larger than `maxFileSize` in bytes.
 		 */
-		maxFileSize: number | undefined;
+		maxFileSize: number;
+
+		/**
+		 * Interpret files using this encoding.
+		 * See the vscode setting `"files.encoding"`
+		 */
+		encoding: string;
 
 		/**
 		 * Number of lines of context to include before and after each match.
@@ -145,7 +129,7 @@ declare module 'vscode' {
 	export interface TextSearchCompleteNew {
 		/**
 		 * Whether the search hit the limit on the maximum number of search results.
-		 * `maxResults` on {@linkcode TextSearchProviderOptions} specifies the max number of results.
+		 * `maxResults` on {@linkcode TextSearchProviderOptionsNew} specifies the max number of results.
 		 * - If exactly that number of matches exist, this should be false.
 		 * - If `maxResults` matches are returned and more exist, this should be true.
 		 * - If search hits an internal limit which is less than `maxResults`, this should be true.
@@ -154,17 +138,7 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * A query match instance in a file.
-	 *
-	 * For example, consider this excerpt:
-	 *
-	 * ```ts
-	 * const bar = 1;
-	 * console.log(bar);
-	 * const foo = bar;
-	 * ```
-	 *
-	 * If the query is `log`, then the line `console.log(bar);` should be represented using a {@link TextSearchMatchNew}.
+	 * The main match information for a {@link TextSearchResultNew}.
 	 */
 	export class TextSearchMatchNew {
 		/**
@@ -197,20 +171,7 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * The context lines of text that are not a part of a match,
-	 * but that surround a match line of type {@link TextSearchMatchNew}.
-	 *
-	 * For example, consider this excerpt:
-	 *
-	 * ```ts
-	 * const bar = 1;
-	 * console.log(bar);
-	 * const foo = bar;
-	 * ```
-	 *
-	 * If the query is `log`, then the lines `const bar = 1;` and `const foo = bar;`
-	 * should be represented using two separate {@link TextSearchContextNew} for the search instance.
-	 * This example assumes that the finder requests one line of surrounding context.
+	 * The potential context information for a {@link TextSearchResultNew}.
 	 */
 	export class TextSearchContextNew {
 		/**
@@ -238,8 +199,7 @@ declare module 'vscode' {
 	}
 
 	/**
-	 * A result payload for a text search, pertaining to {@link TextSearchMatchNew matches}
-	 * and its associated {@link TextSearchContextNew context} within a single file.
+	 * A result payload for a text search, pertaining to matches within a single file.
 	 */
 	export type TextSearchResultNew = TextSearchMatchNew | TextSearchContextNew;
 
@@ -253,11 +213,10 @@ declare module 'vscode' {
 		 * Provide results that match the given text pattern.
 		 * @param query The parameters for this query.
 		 * @param options A set of options to consider while searching.
-		 * @param progress A progress callback that must be invoked for all {@link TextSearchResultNew results}.
-		 * These results can be direct matches, or context that surrounds matches.
+		 * @param progress A progress callback that must be invoked for all results.
 		 * @param token A cancellation token.
 		 */
-		provideTextSearchResults(query: TextSearchQueryNew, options: TextSearchProviderOptions, progress: Progress<TextSearchResultNew>, token: CancellationToken): ProviderResult<TextSearchCompleteNew>;
+		provideTextSearchResults(query: TextSearchQueryNew, options: TextSearchProviderOptionsNew, progress: Progress<TextSearchResultNew>, token: CancellationToken): ProviderResult<TextSearchCompleteNew>;
 	}
 
 	export namespace workspace {

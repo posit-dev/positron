@@ -3,6 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IMirrorModel, IWorkerContext } from 'vs/editor/common/services/editorSimpleWorker';
 import { ILink } from 'vs/editor/common/languages';
 import { URI } from 'vs/base/common/uri';
 import * as extpath from 'vs/base/common/extpath';
@@ -11,33 +12,28 @@ import * as strings from 'vs/base/common/strings';
 import { Range } from 'vs/editor/common/core/range';
 import { isWindows } from 'vs/base/common/platform';
 import { Schemas } from 'vs/base/common/network';
-import { IRequestHandler, IWorkerServer } from 'vs/base/common/worker/simpleWorker';
-import { WorkerTextModelSyncServer, ICommonModel } from 'vs/editor/common/services/textModelSync/textModelSync.impl';
+
+export interface ICreateData {
+	workspaceFolders: string[];
+}
 
 export interface IResourceCreator {
 	toResource: (folderRelativePath: string) => URI | null;
 }
 
-export class OutputLinkComputer implements IRequestHandler {
-	_requestHandlerBrand: any;
-
-	private readonly workerTextModelSyncServer = new WorkerTextModelSyncServer();
+export class OutputLinkComputer {
 	private patterns = new Map<URI /* folder uri */, RegExp[]>();
 
-	constructor(workerServer: IWorkerServer) {
-		this.workerTextModelSyncServer.bindToServer(workerServer);
+	constructor(private ctx: IWorkerContext, createData: ICreateData) {
+		this.computePatterns(createData);
 	}
 
-	$setWorkspaceFolders(workspaceFolders: string[]) {
-		this.computePatterns(workspaceFolders);
-	}
-
-	private computePatterns(_workspaceFolders: string[]): void {
+	private computePatterns(createData: ICreateData): void {
 
 		// Produce patterns for each workspace root we are configured with
 		// This means that we will be able to detect links for paths that
 		// contain any of the workspace roots as segments.
-		const workspaceFolders = _workspaceFolders
+		const workspaceFolders = createData.workspaceFolders
 			.sort((resourceStrA, resourceStrB) => resourceStrB.length - resourceStrA.length) // longest paths first (for https://github.com/microsoft/vscode/issues/88121)
 			.map(resourceStr => URI.parse(resourceStr));
 
@@ -47,11 +43,13 @@ export class OutputLinkComputer implements IRequestHandler {
 		}
 	}
 
-	private getModel(uri: string): ICommonModel | undefined {
-		return this.workerTextModelSyncServer.getModel(uri);
+	private getModel(uri: string): IMirrorModel | undefined {
+		const models = this.ctx.getMirrorModels();
+
+		return models.find(model => model.uri.toString() === uri);
 	}
 
-	$computeLinks(uri: string): ILink[] {
+	computeLinks(uri: string): ILink[] {
 		const model = this.getModel(uri);
 		if (!model) {
 			return [];
@@ -181,10 +179,7 @@ export class OutputLinkComputer implements IRequestHandler {
 	}
 }
 
-/**
- * Defines the worker entry point. Must be exported and named `create`.
- * @skipMangle
- */
-export function create(workerServer: IWorkerServer): OutputLinkComputer {
-	return new OutputLinkComputer(workerServer);
+// Export this function because this will be called by the web worker for computing links
+export function create(ctx: IWorkerContext, createData: ICreateData): OutputLinkComputer {
+	return new OutputLinkComputer(ctx, createData);
 }

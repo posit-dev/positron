@@ -5,7 +5,7 @@
 
 import { Application, Task, Terminal, TerminalCommandId } from '../../../../automation/';
 
-export function setup(options?: { skipSuite: boolean }) {
+export function setup() {
 	describe('Task Quick Pick', () => {
 		let app: Application;
 		let task: Task;
@@ -39,17 +39,17 @@ export function setup(options?: { skipSuite: boolean }) {
 				await task.configureTask({ type, command, label });
 				await task.assertTasks(label, [{ label }], 'run');
 			});
-			(options?.skipSuite ? it.skip : it)('icon - icon only', async () => {
+			it('icon - icon only', async () => {
 				const config = { label, type, command, icon: { id: "lightbulb" } };
 				await task.configureTask(config);
 				await task.assertTasks(label, [config], 'run');
 			});
-			(options?.skipSuite ? it.skip : it)('icon - color only', async () => {
+			it('icon - color only', async () => {
 				const config = { label, type, command, icon: { color: "terminal.ansiRed" } };
 				await task.configureTask(config);
 				await task.assertTasks(label, [{ label, type, command, icon: { color: "Red" } }], 'run');
 			});
-			(options?.skipSuite ? it.skip : it)('icon - icon & color', async () => {
+			it('icon - icon & color', async () => {
 				const config = { label, type, command, icon: { id: "lightbulb", color: "terminal.ansiRed" } };
 				await task.configureTask(config);
 				await task.assertTasks(label, [{ label, type, command, icon: { id: "lightbulb", color: "Red" } }], 'run');

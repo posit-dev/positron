@@ -3,17 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IWorkerServer, IWorkerClient } from 'vs/base/common/worker/simpleWorker';
-
-export abstract class EditorWorkerHost {
-	public static CHANNEL_NAME = 'editorWorkerHost';
-	public static getChannel(workerServer: IWorkerServer): EditorWorkerHost {
-		return workerServer.getChannel<EditorWorkerHost>(EditorWorkerHost.CHANNEL_NAME);
-	}
-	public static setChannel(workerClient: IWorkerClient<any>, obj: EditorWorkerHost): void {
-		workerClient.setChannel<EditorWorkerHost>(EditorWorkerHost.CHANNEL_NAME, obj);
-	}
-
+export interface IEditorWorkerHost {
 	// foreign host request
-	abstract $fhr(method: string, args: any[]): Promise<any>;
+	fhr(method: string, args: any[]): Promise<any>;
 }

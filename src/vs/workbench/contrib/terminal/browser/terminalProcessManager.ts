@@ -293,7 +293,6 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 							nonce: this.shellIntegrationNonce
 						},
 						windowsEnableConpty: this._terminalConfigurationService.config.windowsEnableConpty,
-						windowsUseConptyDll: this._terminalConfigurationService.config.experimental?.windowsUseConptyDll ?? false,
 						environmentVariableCollections: this._extEnvironmentVariableCollection?.collections ? serializeEnvironmentVariableCollections(this._extEnvironmentVariableCollection.collections) : undefined,
 						workspaceFolder: this._cwdWorkspaceFolder,
 					};
@@ -494,7 +493,6 @@ export class TerminalProcessManager extends Disposable implements ITerminalProce
 				nonce: this.shellIntegrationNonce
 			},
 			windowsEnableConpty: this._terminalConfigurationService.config.windowsEnableConpty,
-			windowsUseConptyDll: this._terminalConfigurationService.config.experimental?.windowsUseConptyDll ?? false,
 			environmentVariableCollections: this._extEnvironmentVariableCollection ? serializeEnvironmentVariableCollections(this._extEnvironmentVariableCollection.collections) : undefined,
 			workspaceFolder: this._cwdWorkspaceFolder,
 		};

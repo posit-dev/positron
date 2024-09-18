@@ -3,8 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { SelectedLines } from 'vs/editor/contrib/folding/browser/folding';
-
 export interface ILineRange {
 	startLineNumber: number;
 	endLineNumber: number;
@@ -301,10 +299,7 @@ export class FoldingRegions {
 	public static sanitizeAndMerge(
 		rangesA: FoldingRegions | FoldRange[],
 		rangesB: FoldingRegions | FoldRange[],
-		maxLineNumber: number | undefined,
-		selection?: SelectedLines
-	): FoldRange[] {
-
+		maxLineNumber: number | undefined): FoldRange[] {
 		maxLineNumber = maxLineNumber ?? Number.MAX_VALUE;
 
 		const getIndexedFunction = (r: FoldingRegions | FoldRange[], limit: number) => {
@@ -335,8 +330,7 @@ export class FoldingRegions {
 					} else {
 						// a previously folded range or a (possibly unfolded) recovered range
 						useRange = nextA;
-						// stays collapsed if the range still has the same number of lines or the selection is not in the range or after it
-						useRange.isCollapsed = nextB.isCollapsed && (nextA.endLineNumber === nextB.endLineNumber || !selection?.startsInside(nextA.startLineNumber + 1, nextA.endLineNumber + 1));
+						useRange.isCollapsed = nextB.isCollapsed && nextA.endLineNumber === nextB.endLineNumber;
 						useRange.source = FoldSource.provider;
 					}
 					nextA = getA(++indexA); // not necessary, just for speed

@@ -26,11 +26,7 @@ async function testWSLFeatureInstalled(): Promise<boolean> {
 		const wslExePath = getWSLExecutablePath();
 		if (wslExePath) {
 			return new Promise<boolean>(s => {
-				try {
-					cp.execFile(wslExePath, ['--status'], err => s(!err));
-				} catch (e) {
-					s(false);
-				}
+				cp.execFile(wslExePath, ['--status'], err => s(!err));
 			});
 		}
 	} else {

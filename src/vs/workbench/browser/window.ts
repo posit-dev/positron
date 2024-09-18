@@ -133,19 +133,9 @@ export abstract class BaseWindow extends Disposable {
 					continue; // skip over hidden windows (but never over main window)
 				}
 
-				// we track didClear in case the browser does not properly clear the timeout
-				// this can happen for timeouts on unfocused windows
-				let didClear = false;
-
-				const handle = (window as any).vscodeOriginalSetTimeout.apply(this, [(...args: unknown[]) => {
-					if (didClear) {
-						return;
-					}
-					handlerFn(...args);
-				}, timeout, ...args]);
+				const handle = (window as any).vscodeOriginalSetTimeout.apply(this, [handlerFn, timeout, ...args]);
 
 				const timeoutDisposable = toDisposable(() => {
-					didClear = true;
 					(window as any).vscodeOriginalClearTimeout(handle);
 					timeoutDisposables.delete(timeoutDisposable);
 				});

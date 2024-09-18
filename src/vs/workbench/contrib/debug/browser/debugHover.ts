@@ -83,11 +83,7 @@ export class DebugHoverWidget implements IContentWidget {
 	// editor.IContentWidget.allowEditorOverflow
 	readonly allowEditorOverflow = true;
 
-	// todo@connor4312: move more properties that are only valid while a hover
-	// is happening into `_isVisible`
-	private _isVisible?: {
-		store: lifecycle.DisposableStore;
-	};
+	private _isVisible: boolean;
 	private safeTriangle?: dom.SafeTriangle;
 	private showCancellationSource?: CancellationTokenSource;
 	private domNode!: HTMLElement;
@@ -121,6 +117,7 @@ export class DebugHoverWidget implements IContentWidget {
 	) {
 		this.toDispose = [];
 
+		this._isVisible = false;
 		this.showAtPosition = null;
 		this.positionPreference = [ContentWidgetPositionPreference.ABOVE, ContentWidgetPositionPreference.BELOW];
 		this.debugHoverComputer = this.instantiationService.createInstance(DebugHoverComputer, this.editor);
@@ -218,7 +215,7 @@ export class DebugHoverWidget implements IContentWidget {
 	}
 
 	isVisible(): boolean {
-		return !!this._isVisible;
+		return this._isVisible;
 	}
 
 	willBeVisible(): boolean {
@@ -242,7 +239,7 @@ export class DebugHoverWidget implements IContentWidget {
 	}
 
 	async showAt(position: Position, focus: boolean, mouseEvent?: IMouseEvent): Promise<void | ShowDebugHoverResult> {
-		this.showCancellationSource?.dispose(true);
+		this.showCancellationSource?.cancel();
 		const cancellationSource = this.showCancellationSource = new CancellationTokenSource();
 		const session = this.debugService.getViewModel().focusedSession;
 
@@ -296,16 +293,14 @@ export class DebugHoverWidget implements IContentWidget {
 		}
 
 		this.showAtPosition = position;
-		const store = new lifecycle.DisposableStore();
-		this._isVisible = { store };
+		this._isVisible = true;
 
 		if (!expression.hasChildren) {
 			this.complexValueContainer.hidden = true;
 			this.valueContainer.hidden = false;
-			renderExpressionValue(store, expression, this.valueContainer, {
+			renderExpressionValue(expression, this.valueContainer, {
 				showChanged: false,
-				colorize: true,
-				hover: false,
+				colorize: true
 			}, this.hoverService);
 			this.valueContainer.title = '';
 			this.editor.layoutContentWidget(this);
@@ -386,7 +381,7 @@ export class DebugHoverWidget implements IContentWidget {
 
 	hide(): void {
 		if (this.showCancellationSource) {
-			this.showCancellationSource.dispose(true);
+			this.showCancellationSource.cancel();
 			this.showCancellationSource = undefined;
 		}
 
@@ -397,9 +392,7 @@ export class DebugHoverWidget implements IContentWidget {
 		if (dom.isAncestorOfActiveElement(this.domNode)) {
 			this.editor.focus();
 		}
-		this._isVisible.store.dispose();
-		this._isVisible = undefined;
-
+		this._isVisible = false;
 		this.highlightDecorations.clear();
 		this.editor.layoutContentWidget(this);
 		this.positionPreference = [ContentWidgetPositionPreference.ABOVE, ContentWidgetPositionPreference.BELOW];

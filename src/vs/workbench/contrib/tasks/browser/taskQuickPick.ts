@@ -11,7 +11,7 @@ import * as Types from 'vs/base/common/types';
 import { ITaskService, IWorkspaceFolderTaskResult } from 'vs/workbench/contrib/tasks/common/taskService';
 import { IQuickPickItem, QuickPickInput, IQuickPick, IQuickInputButton, IQuickInputService } from 'vs/platform/quickinput/common/quickInput';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 import { Event } from 'vs/base/common/event';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { Codicon } from 'vs/base/common/codicons';
@@ -229,12 +229,11 @@ export class TaskQuickPick extends Disposable {
 	}
 
 	public async show(placeHolder: string, defaultEntry?: ITaskQuickPickEntry, startAtType?: string, name?: string): Promise<Task | undefined | null> {
-		const disposables = new DisposableStore();
-		const picker = disposables.add(this._quickInputService.createQuickPick<ITaskTwoLevelQuickPickEntry>({ useSeparators: true }));
+		const picker: IQuickPick<ITaskTwoLevelQuickPickEntry> = this._quickInputService.createQuickPick();
 		picker.placeholder = placeHolder;
 		picker.matchOnDescription = true;
 		picker.ignoreFocusOut = false;
-		disposables.add(picker.onDidTriggerItemButton(async (context) => {
+		picker.onDidTriggerItemButton(async (context) => {
 			const task = context.item.task;
 			if (context.button.iconClass === ThemeIcon.asClassName(removeTaskIcon)) {
 				const key = (task && !Types.isString(task)) ? task.getKey() : undefined;
@@ -261,7 +260,7 @@ export class TaskQuickPick extends Disposable {
 					}
 				}
 			}
-		}));
+		});
 		if (name) {
 			picker.value = name;
 		}
@@ -270,37 +269,37 @@ export class TaskQuickPick extends Disposable {
 			// First show recent tasks configured tasks. Other tasks will be available at a second level
 			const topLevelEntriesResult = await this.getTopLevelEntries(defaultEntry);
 			if (topLevelEntriesResult.isSingleConfigured && this._configurationService.getValue<boolean>(QUICKOPEN_SKIP_CONFIG)) {
-				disposables.dispose();
+				picker.dispose();
 				return this._toTask(topLevelEntriesResult.isSingleConfigured);
 			}
 			const taskQuickPickEntries: QuickPickInput<ITaskTwoLevelQuickPickEntry>[] = topLevelEntriesResult.entries;
-			firstLevelTask = await this._doPickerFirstLevel(picker, taskQuickPickEntries, disposables);
+			firstLevelTask = await this._doPickerFirstLevel(picker, taskQuickPickEntries);
 		}
 		do {
 			if (Types.isString(firstLevelTask)) {
 				if (name) {
-					await this._doPickerFirstLevel(picker, (await this.getTopLevelEntries(defaultEntry)).entries, disposables);
-					disposables.dispose();
+					await this._doPickerFirstLevel(picker, (await this.getTopLevelEntries(defaultEntry)).entries);
+					picker.dispose();
 					return undefined;
 				}
-				const selectedEntry = await this.doPickerSecondLevel(picker, disposables, firstLevelTask);
+				const selectedEntry = await this.doPickerSecondLevel(picker, firstLevelTask);
 				// Proceed to second level of quick pick
 				if (selectedEntry && !selectedEntry.settingType && selectedEntry.task === null) {
 					// The user has chosen to go back to the first level
 					picker.value = '';
-					firstLevelTask = await this._doPickerFirstLevel(picker, (await this.getTopLevelEntries(defaultEntry)).entries, disposables);
+					firstLevelTask = await this._doPickerFirstLevel(picker, (await this.getTopLevelEntries(defaultEntry)).entries);
 				} else if (selectedEntry && Types.isString(selectedEntry.settingType)) {
-					disposables.dispose();
+					picker.dispose();
 					return this.handleSettingOption(selectedEntry.settingType);
 				} else {
-					disposables.dispose();
+					picker.dispose();
 					return (selectedEntry?.task && !Types.isString(selectedEntry?.task)) ? this._toTask(selectedEntry?.task) : undefined;
 				}
 			} else if (firstLevelTask) {
-				disposables.dispose();
+				picker.dispose();
 				return this._toTask(firstLevelTask);
 			} else {
-				disposables.dispose();
+				picker.dispose();
 				return firstLevelTask;
 			}
 		} while (1);
@@ -309,18 +308,18 @@ export class TaskQuickPick extends Disposable {
 
 
 
-	private async _doPickerFirstLevel(picker: IQuickPick<ITaskTwoLevelQuickPickEntry, { useSeparators: true }>, taskQuickPickEntries: QuickPickInput<ITaskTwoLevelQuickPickEntry>[], disposables: DisposableStore): Promise<Task | ConfiguringTask | string | null | undefined> {
+	private async _doPickerFirstLevel(picker: IQuickPick<ITaskTwoLevelQuickPickEntry>, taskQuickPickEntries: QuickPickInput<ITaskTwoLevelQuickPickEntry>[]): Promise<Task | ConfiguringTask | string | null | undefined> {
 		picker.items = taskQuickPickEntries;
-		disposables.add(showWithPinnedItems(this._storageService, runTaskStorageKey, picker, true));
+		showWithPinnedItems(this._storageService, runTaskStorageKey, picker, true);
 		const firstLevelPickerResult = await new Promise<ITaskTwoLevelQuickPickEntry | undefined | null>(resolve => {
-			disposables.add(Event.once(picker.onDidAccept)(async () => {
+			Event.once(picker.onDidAccept)(async () => {
 				resolve(picker.selectedItems ? picker.selectedItems[0] : undefined);
-			}));
+			});
 		});
 		return firstLevelPickerResult?.task;
 	}
 
-	public async doPickerSecondLevel(picker: IQuickPick<ITaskTwoLevelQuickPickEntry, { useSeparators: true }>, disposables: DisposableStore, type: string, name?: string) {
+	public async doPickerSecondLevel(picker: IQuickPick<ITaskTwoLevelQuickPickEntry>, type: string, name?: string) {
 		picker.busy = true;
 		if (type === SHOW_ALL) {
 			const items = (await this._taskService.tasks()).filter(t => !t.configurationProperties.hide).sort((a, b) => this._sorter.compare(a, b)).map(task => this._createTaskEntry(task));
@@ -333,9 +332,9 @@ export class TaskQuickPick extends Disposable {
 		await picker.show();
 		picker.busy = false;
 		const secondLevelPickerResult = await new Promise<ITaskTwoLevelQuickPickEntry | undefined | null>(resolve => {
-			disposables.add(Event.once(picker.onDidAccept)(async () => {
+			Event.once(picker.onDidAccept)(async () => {
 				resolve(picker.selectedItems ? picker.selectedItems[0] : undefined);
-			}));
+			});
 		});
 		return secondLevelPickerResult;
 	}

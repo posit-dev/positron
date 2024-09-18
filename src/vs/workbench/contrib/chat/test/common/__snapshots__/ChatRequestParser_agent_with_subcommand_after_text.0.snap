@@ -28,8 +28,7 @@
             name: "subCommand",
             description: ""
           }
-        ],
-        disambiguation: [  ]
+        ]
       },
       kind: "agent"
     },

@@ -82,11 +82,6 @@ export interface IPickOptions<T extends IQuickPickItem> {
 	title?: string;
 
 	/**
-	 * the value to prefill in the input box
-	 */
-	value?: string;
-
-	/**
 	 * an optional string to show as placeholder in the input box to guide the user what she picks on
 	 */
 	placeHolder?: string;
@@ -423,7 +418,7 @@ export enum QuickPickFocus {
 /**
  * Represents a quick pick control that allows the user to select an item from a list of options.
  */
-export interface IQuickPick<T extends IQuickPickItem, O extends { useSeparators: boolean } = { useSeparators: false }> extends IQuickInput {
+export interface IQuickPick<T extends IQuickPickItem> extends IQuickInput {
 
 	/**
 	 * The type of the quick input.
@@ -510,7 +505,7 @@ export interface IQuickPick<T extends IQuickPickItem, O extends { useSeparators:
 	/**
 	 * The items to be displayed in the quick pick.
 	 */
-	items: O extends { useSeparators: true } ? ReadonlyArray<T | IQuickPickSeparator> : ReadonlyArray<T>;
+	items: ReadonlyArray<T | IQuickPickSeparator>;
 
 	/**
 	 * Whether multiple items can be selected. If so, checkboxes will be rendered.
@@ -876,8 +871,7 @@ export interface IQuickInputService {
 	/**
 	 * Provides raw access to the quick pick controller.
 	 */
-	createQuickPick<T extends IQuickPickItem>(options: { useSeparators: true }): IQuickPick<T, { useSeparators: true }>;
-	createQuickPick<T extends IQuickPickItem>(options?: { useSeparators: boolean }): IQuickPick<T, { useSeparators: false }>;
+	createQuickPick<T extends IQuickPickItem>(): IQuickPick<T>;
 
 	/**
 	 * Provides raw access to the input box controller.

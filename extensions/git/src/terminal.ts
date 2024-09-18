@@ -54,8 +54,8 @@ export class TerminalEnvironmentManager {
 
 export class TerminalShellExecutionManager {
 	private readonly subcommands = new Set<string>([
-		'add', 'branch', 'checkout', 'cherry-pick', 'clean', 'commit', 'fetch', 'merge',
-		'mv', 'rebase', 'reset', 'restore', 'revert', 'rm', 'pull', 'push', 'stash', 'switch']);
+		'add', 'branch', 'checkout', 'clean', 'commit',
+		'fetch', 'reset', 'revert', 'pull', 'push', 'switch']);
 
 	private readonly disposables: IDisposable[] = [];
 

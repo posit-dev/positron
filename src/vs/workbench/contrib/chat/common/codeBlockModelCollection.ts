@@ -142,10 +142,6 @@ export class CodeBlockModelCollection extends Disposable {
 
 		return {
 			references: chat.contentReferences.map(ref => {
-				if (typeof ref.reference === 'string') {
-					return;
-				}
-
 				const uriOrLocation = 'variableName' in ref.reference ?
 					ref.reference.value :
 					ref.reference;

@@ -5,7 +5,7 @@
 
 import { CancellationToken } from 'vs/base/common/cancellation';
 import * as pfs from 'vs/base/node/pfs';
-import { IFileMatch, IProgressMessage, ITextQuery, ITextSearchMatch, ISerializedFileMatch, ISerializedSearchSuccess, resultIsMatch } from 'vs/workbench/services/search/common/search';
+import { IFileMatch, IProgressMessage, ITextQuery, ITextSearchMatch, ISerializedFileMatch, ISerializedSearchSuccess } from 'vs/workbench/services/search/common/search';
 import { RipgrepTextSearchEngine } from 'vs/workbench/services/search/node/ripgrepTextSearchEngine';
 import { NativeTextSearchManager } from 'vs/workbench/services/search/node/textSearchManager';
 
@@ -50,9 +50,9 @@ function fileMatchToSerialized(match: IFileMatch): ISerializedFileMatch {
 		path: match.resource && match.resource.fsPath,
 		results: match.results,
 		numMatches: (match.results || []).reduce((sum, r) => {
-			if (resultIsMatch(r)) {
+			if (!!(<ITextSearchMatch>r).ranges) {
 				const m = <ITextSearchMatch>r;
-				return sum + m.rangeLocations.length;
+				return sum + (Array.isArray(m.ranges) ? m.ranges.length : 1);
 			} else {
 				return sum + 1;
 			}

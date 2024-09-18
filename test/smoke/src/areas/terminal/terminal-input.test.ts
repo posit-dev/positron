@@ -6,8 +6,8 @@
 import { Application, Terminal, SettingsEditor } from '../../../../automation';
 import { setTerminalTestSettings } from './terminal-helpers';
 
-export function setup(options?: { skipSuite: boolean }) {
-	(options?.skipSuite ? describe.skip : describe)('Terminal Input', () => {
+export function setup() {
+	describe('Terminal Input', () => {
 		let terminal: Terminal;
 		let settingsEditor: SettingsEditor;
 

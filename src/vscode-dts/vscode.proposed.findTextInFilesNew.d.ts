@@ -9,38 +9,15 @@ declare module 'vscode' {
 
 	export interface FindTextInFilesOptionsNew {
 		/**
-		 * An array of {@link GlobPattern GlobPattern} that defines the files to search for.
-		 * The glob patterns will be matched against the file paths of files relative to their workspace or {@link baseUri GlobPattern.baseUri} if applicable.
-		 * Use a {@link RelativePattern RelativePattern} to restrict the search results to a {@link WorkspaceFolder workspace folder}.
-		 *
-		 * If more than one value is used, the values are combined with a logical OR.
-		 *
-		 * For example, consider the following code:
-		 *
-		 * ```ts
-		 * const ab = findTextInFilesNew('foo', {include: ['*.ts', '*.js']});
-		 * const a = findTextInFilesNew('foo', {include: ['*.ts']});
-		 * const b = findTextInFilesNew('foo', {include: ['*.js']});
-		 * ```
-		 *
-		 * In this, `ab` will be the union of results from `a` and `b`.
+		 * A {@link GlobPattern glob pattern} that defines the files to search for. The glob pattern
+		 * will be matched against the file paths of files relative to their workspace. Use a {@link RelativePattern relative pattern}
+		 * to restrict the search results to a {@link WorkspaceFolder workspace folder}.
 		 */
 		include?: GlobPattern[];
 
 		/**
-		 * An array of {@link GlobPattern GlobPattern} that defines files to exclude.
-		 * The glob patterns will be matched against the file paths of files relative to their workspace or {@link RelativePattern.baseUri} if applicable.
-		 *
-		 * If more than one value is used, the values are combined with a logical AND.
-		 * For example, consider the following code:
-		 *
-		 * ```ts
-		 * const ab = findTextInFilesNew('foo', {exclude: ['*.ts', '*.js']});
-		 * const a = findTextInFilesNew('foo', {exclude: ['*.ts']});
-		 * const b = findTextInFilesNew('foo', {exclude: ['*.js']});
-		 * ```
-		 *
-		 * In this, `ab` will be the intersection of results from `a` and `b`.
+		 * A {@link GlobPattern glob pattern} that defines files and folders to exclude. The glob pattern
+		 * will be matched against the file paths of resulting matches relative to their workspace.
 		 */
 		exclude?: GlobPattern[];
 
@@ -50,21 +27,20 @@ declare module 'vscode' {
 		useExcludeSettings?: ExcludeSettingOptions;
 
 		/**
-		 * The maximum number of results to search for. Defaults to 20000 results.
+		 * The maximum number of results to search for
 		 */
 		maxResults?: number;
 
+
 		/**
-		 * Which file locations have ignore (`.gitignore` or `.ignore`) files to follow.
+		 * Which file locations we should look for ignore (.gitignore or .ignore) files to respect.
 		 *
-		 * When any of these fields are `undefined`, the value will either be assumed (e.g. if only one is valid),
-		 * or it will follow settings based on the corresponding `search.use*IgnoreFiles` setting.
+		 * When any of these fields are `undefined`, we will:
+		 * - assume the value if possible (e.g. if only one is valid)
+		 * or
+		 * - follow settings using the value for the corresponding `search.use*IgnoreFiles` settting.
 		 *
 		 * Will log an error if an invalid combination is set.
-		 *
-		 * Although `.ignore` files are uncommon, they can be leveraged if there are patterns
-		 * that should not be known to git, but should be known to the search providers.
-		 * They should be in the same locations where `.gitignore` files are found, and they follow the same format.
 		 */
 		useIgnoreFiles?: {
 			/**
@@ -102,10 +78,10 @@ declare module 'vscode' {
 		 */
 		previewOptions?: {
 			/**
-			 * The maximum number of lines in the preview of the match itself (not including surrounding context lines).
+			 * The maximum number of lines in the preview.
 			 * Only search providers that support multiline search will ever return more than one line in the match.
 			 */
-			numMatchLines?: number;
+			matchLines?: number;
 
 			/**
 			 * The maximum number of characters included per line.
@@ -130,22 +106,25 @@ declare module 'vscode' {
 		complete: Thenable<TextSearchCompleteNew>;
 	}
 
-	/**
-	 * Options for following search.exclude and files.exclude settings.
-	 */
+	/*
+	* Options for following search.exclude and files.exclude settings.
+	*/
 	export enum ExcludeSettingOptions {
-		/**
+		/*
 		 * Don't use any exclude settings.
 		 */
-		None = 1,
-		/**
-		 * Use the `files.exclude` setting
+		none = 1,
+		/*
+		 * Use:
+		 * - files.exclude setting
 		 */
-		FilesExclude = 2,
-		/**
-		 * Use the `files.exclude` and `search.exclude` settings
+		filesExclude = 2,
+		/*
+		 * Use:
+		 * - files.exclude setting
+		 * - search.exclude setting
 		 */
-		SearchAndFilesExclude = 3
+		searchAndFilesExclude = 3
 	}
 
 	export namespace workspace {
@@ -154,8 +133,8 @@ declare module 'vscode' {
 		 *
 		 * Search text in files across all {@link workspace.workspaceFolders workspace folders} in the workspace.
 		 * @param query The query parameters for the search - the search string, whether it's case-sensitive, or a regex, or matches whole words.
-		 * @param options An optional set of query options.
-		 * @param callback A callback, called for each {@link TextSearchResultNew result}. This can be a direct match, or context that surrounds a match.
+		 * @param options An optional set of query options. Include and exclude patterns, maxResults, etc.
+		 * @param callback A callback, called for each result
 		 * @param token A token that can be used to signal cancellation to the underlying search engine.
 		 * @return A thenable that resolves when the search is complete.
 		 */

@@ -61,8 +61,7 @@ suite('debugConfigurationManager', () => {
 			new TestExtensionService(),
 			new TestHistoryService(),
 			new UriIdentityService(fileService),
-			new ContextKeyService(configurationService),
-			new NullLogService());
+			new ContextKeyService(configurationService));
 	});
 
 	teardown(() => disposables.dispose());

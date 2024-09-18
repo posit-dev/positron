@@ -20,7 +20,7 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 
-export type IButtonConfigProvider = (action: IAction, index: number) => {
+export type IButtonConfigProvider = (action: IAction) => {
 	showIcon?: boolean;
 	showLabel?: boolean;
 	isSecondary?: boolean;
@@ -90,7 +90,7 @@ export class WorkbenchButtonBar extends ButtonBar {
 				const [first, ...rest] = actionOrSubmenu.actions;
 				action = <MenuItemAction>first;
 				btn = this.addButtonWithDropdown({
-					secondary: conifgProvider(action, i)?.isSecondary ?? secondary,
+					secondary: conifgProvider(action)?.isSecondary ?? secondary,
 					actionRunner: this._actionRunner,
 					actions: rest,
 					contextMenuProvider: this._contextMenuService,
@@ -99,20 +99,19 @@ export class WorkbenchButtonBar extends ButtonBar {
 			} else {
 				action = actionOrSubmenu;
 				btn = this.addButton({
-					secondary: conifgProvider(action, i)?.isSecondary ?? secondary,
+					secondary: conifgProvider(action)?.isSecondary ?? secondary,
 					ariaLabel: action.label
 				});
 			}
 
 			btn.enabled = action.enabled;
-			btn.checked = action.checked ?? false;
 			btn.element.classList.add('default-colors');
-			if (conifgProvider(action, i)?.showLabel ?? true) {
+			if (conifgProvider(action)?.showLabel ?? true) {
 				btn.label = action.label;
 			} else {
 				btn.element.classList.add('monaco-text-button');
 			}
-			if (conifgProvider(action, i)?.showIcon) {
+			if (conifgProvider(action)?.showIcon) {
 				if (action instanceof MenuItemAction && ThemeIcon.isThemeIcon(action.item.icon)) {
 					btn.icon = action.item.icon;
 				} else if (action.class) {

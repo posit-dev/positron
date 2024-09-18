@@ -23,10 +23,11 @@ import { Context as SuggestContext } from 'vs/editor/contrib/suggest/browser/sug
 import { localize, localize2 } from 'vs/nls';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from 'vs/platform/configuration/common/configurationRegistry';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { EditorActivation, ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
+import { EditorActivation, IResourceEditorInput } from 'vs/platform/editor/common/editor';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
@@ -54,6 +55,9 @@ import { CellEditType, CellKind, CellUri, INTERACTIVE_WINDOW_EDITOR_ID, Notebook
 import { InteractiveWindowOpen } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
+import { executeReplInput } from 'vs/workbench/contrib/replNotebook/browser/repl.contribution';
+import { ReplEditor } from 'vs/workbench/contrib/replNotebook/browser/replEditor';
+import { ReplEditorInput } from 'vs/workbench/contrib/replNotebook/browser/replEditorInput';
 import { columnToEditorGroup } from 'vs/workbench/services/editor/common/editorGroupColumn';
 import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
@@ -95,7 +99,7 @@ export class InteractiveDocumentContribution extends Disposable implements IWork
 				providerDisplayName: 'Interactive Notebook',
 				displayName: 'Interactive',
 				filenamePattern: ['*.interactive'],
-				priority: RegisteredEditorPriority.builtin
+				priority: RegisteredEditorPriority.exclusive
 			}));
 		}
 
@@ -134,25 +138,17 @@ export class InteractiveDocumentContribution extends Disposable implements IWork
 			{
 				createEditorInput: ({ resource, options }) => {
 					const data = CellUri.parse(resource);
-					let cellOptions: ITextResourceEditorInput | undefined;
-					let iwResource = resource;
+					let cellOptions: IResourceEditorInput | undefined;
+					let IwResource = resource;
 
 					if (data) {
 						cellOptions = { resource, options };
-						iwResource = data.notebook;
+						IwResource = data.notebook;
 					}
 
-					const notebookOptions: INotebookEditorOptions | undefined = {
-						...options,
-						cellOptions,
-						cellRevealType: undefined,
-						cellSelections: undefined,
-						isReadOnly: undefined,
-						viewState: undefined,
-						indexedCellOptions: undefined
-					};
+					const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
 
-					const editorInput = createEditor(iwResource, this.instantiationService);
+					const editorInput = createEditor(IwResource, this.instantiationService);
 					return {
 						editor: editorInput,
 						options: notebookOptions
@@ -163,21 +159,13 @@ export class InteractiveDocumentContribution extends Disposable implements IWork
 						throw new Error('Interactive window editors must have a resource name');
 					}
 					const data = CellUri.parse(resource);
-					let cellOptions: ITextResourceEditorInput | undefined;
+					let cellOptions: IResourceEditorInput | undefined;
 
 					if (data) {
 						cellOptions = { resource, options };
 					}
 
-					const notebookOptions: INotebookEditorOptions = {
-						...options,
-						cellOptions,
-						cellRevealType: undefined,
-						cellSelections: undefined,
-						isReadOnly: undefined,
-						viewState: undefined,
-						indexedCellOptions: undefined
-					};
+					const notebookOptions = { ...options, cellOptions } as INotebookEditorOptions;
 
 					const editorInput = createEditor(resource, this.instantiationService);
 					return {
@@ -447,6 +435,25 @@ registerAction2(class extends Action2 {
 registerAction2(class extends Action2 {
 	constructor() {
 		super({
+			id: 'interactive.configure',
+			title: localize2('interactive.configExecute', 'Configure input box behavior'),
+			category: interactiveWindowCategory,
+			f1: false,
+			icon: icons.configIcon,
+			menu: {
+				id: MenuId.InteractiveInputConfig
+			}
+		});
+	}
+
+	override run(accessor: ServicesAccessor, ...args: any[]): void {
+		accessor.get(ICommandService).executeCommand('workbench.action.openSettings', '@tag:replExecute');
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
 			id: 'interactive.execute',
 			title: localize2('interactive.execute', 'Execute Code'),
 			category: interactiveWindowCategory,
@@ -474,6 +481,9 @@ registerAction2(class extends Action2 {
 				{
 					id: MenuId.InteractiveInputExecute
 				},
+				{
+					id: MenuId.ReplInputExecute
+				}
 			],
 			icon: icons.executeIcon,
 			f1: false,
@@ -496,21 +506,28 @@ registerAction2(class extends Action2 {
 		const historyService = accessor.get(IInteractiveHistoryService);
 		const notebookEditorService = accessor.get(INotebookEditorService);
 		let editorControl: { notebookEditor: NotebookEditorWidget | undefined; codeEditor: CodeEditorWidget } | undefined;
+		let isReplEditor = false;
 		if (context) {
 			const resourceUri = URI.revive(context);
 			const editors = editorService.findEditors(resourceUri);
 			for (const found of editors) {
-				if (found.editor.typeId === InteractiveEditorInput.ID) {
+				if (found.editor.typeId === ReplEditorInput.ID || found.editor.typeId === InteractiveEditorInput.ID) {
 					const editor = await editorService.openEditor(found.editor, found.groupId);
 					editorControl = editor?.getControl() as { notebookEditor: NotebookEditorWidget | undefined; codeEditor: CodeEditorWidget } | undefined;
+					isReplEditor = found.editor.typeId === ReplEditorInput.ID;
 					break;
 				}
 			}
 		}
 		else {
+			const editor = editorService.activeEditorPane;
+			isReplEditor = editor instanceof ReplEditor;
 			editorControl = editorService.activeEditorPane?.getControl() as { notebookEditor: NotebookEditorWidget | undefined; codeEditor: CodeEditorWidget } | undefined;
 		}
 
+		if (editorControl && isReplEditor) {
+			executeReplInput(accessor, editorControl);
+		}
 
 		if (editorControl && editorControl.notebookEditor && editorControl.codeEditor) {
 			const notebookDocument = editorControl.notebookEditor.textModel;
@@ -526,7 +543,6 @@ registerAction2(class extends Action2 {
 					return;
 				}
 
-				historyService.replaceLast(notebookDocument.uri, value);
 				historyService.addToHistory(notebookDocument.uri, '');
 				textModel.setValue('');
 
@@ -632,8 +648,6 @@ registerAction2(class extends Action2 {
 		const historyService = accessor.get(IInteractiveHistoryService);
 		const editorControl = editorService.activeEditorPane?.getControl() as { notebookEditor: NotebookEditorWidget | undefined; codeEditor: CodeEditorWidget } | undefined;
 
-
-
 		if (editorControl && editorControl.notebookEditor && editorControl.codeEditor) {
 			const notebookDocument = editorControl.notebookEditor.textModel;
 			const textModel = editorControl.codeEditor.getModel();
@@ -687,9 +701,9 @@ registerAction2(class extends Action2 {
 			const textModel = editorControl.codeEditor.getModel();
 
 			if (notebookDocument && textModel) {
-				const nextValue = historyService.getNextValue(notebookDocument.uri);
-				if (nextValue !== null) {
-					textModel.setValue(nextValue);
+				const previousValue = historyService.getNextValue(notebookDocument.uri);
+				if (previousValue) {
+					textModel.setValue(previousValue);
 				}
 			}
 		}

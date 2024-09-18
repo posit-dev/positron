@@ -420,9 +420,9 @@ export class NativeExtensionService extends AbstractExtensionService implements 
 		return new ResolvedExtensions(await this._scanAllLocalExtensions(), remoteExtensions, /*hasLocalProcess*/true, /*allowRemoteExtensionsInLocalWebWorker*/false);
 	}
 
-	protected async _onExtensionHostExit(code: number): Promise<void> {
+	protected _onExtensionHostExit(code: number): void {
 		// Dispose everything associated with the extension host
-		await this._doStopExtensionHosts();
+		this._doStopExtensionHosts();
 
 		// Dispose the management connection to avoid reconnecting after the extension host exits
 		const connection = this._remoteAgentService.getConnection();

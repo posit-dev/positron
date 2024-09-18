@@ -1,8 +1,3 @@
-/*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
- *--------------------------------------------------------------------------------------------*/
-
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
@@ -11,7 +6,6 @@ import { CURSOR, type, withFileEditor } from './editor-utils';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { delay, removeLeadingLines } from '../util';
 import { RSession } from '../session';
-import { env } from 'process';
 
 const snapshotsFolder = `${EXTENSION_ROOT_DIR}/src/test/snapshots`;
 const snippetsPath = `${snapshotsFolder}/indentation-cases.R`;
@@ -37,17 +31,6 @@ suite('Indentation', () => {
 	// run, a failure is emitted. You can either commit the new output or discard
 	// it if that's a bug to fix.
 	test('Regenerate and check', async () => {
-		// ** TODO **
-		//
-		// This test currently causes the entire test suite to be unexpectedly
-		// terminated. It's disabled on CI until we can figure out why.
-		//
-		// We use the `POSITRON_BUILD_NUMBER` environment variable to detect if
-		// we are running on CI; this is always set by the CI environment.
-		if (env['POSITRON_BUILD_NUMBER']) {
-			return;
-		}
-
 		await init();
 
 		// There doesn't seem to be a method that resolves when a language is
@@ -62,7 +45,7 @@ suite('Indentation', () => {
 			}
 		}
 
-		const ses = await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Snapshot tests') as RSession;
+		let ses = await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Snapshot tests') as RSession;
 		await ses.waitLsp();
 
 		const expected = fs.readFileSync(snapshotsPath, 'utf8');

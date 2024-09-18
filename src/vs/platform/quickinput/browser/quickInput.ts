@@ -25,12 +25,13 @@ import Severity from 'vs/base/common/severity';
 import { ThemeIcon } from 'vs/base/common/themables';
 import 'vs/css!./media/quickInput';
 import { localize } from 'vs/nls';
-import { IInputBox, IKeyMods, IQuickInput, IQuickInputButton, IQuickInputHideEvent, IQuickInputToggle, IQuickNavigateConfiguration, IQuickPick, IQuickPickDidAcceptEvent, IQuickPickItem, IQuickPickItemButtonEvent, IQuickPickSeparator, IQuickPickSeparatorButtonEvent, IQuickPickWillAcceptEvent, IQuickWidget, ItemActivation, NO_KEY_MODS, QuickInputButtonLocation, QuickInputHideReason, QuickInputType, QuickPickFocus } from 'vs/platform/quickinput/common/quickInput';
+import { IInputBox, IKeyMods, IQuickInput, IQuickInputButton, IQuickInputHideEvent, IQuickInputToggle, IQuickNavigateConfiguration, IQuickPick, IQuickPickDidAcceptEvent, IQuickPickItem, IQuickPickItemButtonEvent, IQuickPickSeparator, IQuickPickSeparatorButtonEvent, IQuickPickWillAcceptEvent, IQuickWidget, ItemActivation, NO_KEY_MODS, QuickInputButtonLocation, QuickInputHideReason, QuickInputType } from 'vs/platform/quickinput/common/quickInput';
 import { QuickInputBox } from './quickInputBox';
 import { quickInputButtonToAction, renderQuickInputDescription } from './quickInputUtils';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IHoverService, WorkbenchHoverDelegate } from 'vs/platform/hover/browser/hover';
 import { QuickInputTree } from 'vs/platform/quickinput/browser/quickInputTree';
+import { QuickPickFocus } from '../common/quickInput';
 import type { IHoverOptions } from 'vs/base/browser/ui/hover/hover';
 import { ContextKeyExpr, RawContextKey } from 'vs/platform/contextkey/common/contextkey';
 
@@ -527,7 +528,7 @@ abstract class QuickInput extends Disposable implements IQuickInput {
 	}
 }
 
-export class QuickPick<T extends IQuickPickItem, O extends { useSeparators: boolean } = { useSeparators: false }> extends QuickInput implements IQuickPick<T, O> {
+export class QuickPick<T extends IQuickPickItem> extends QuickInput implements IQuickPick<T> {
 
 	private static readonly DEFAULT_ARIA_LABEL = localize('quickInputBox.ariaLabel', "Type to narrow down results.");
 
@@ -538,7 +539,7 @@ export class QuickPick<T extends IQuickPickItem, O extends { useSeparators: bool
 	private readonly onWillAcceptEmitter = this._register(new Emitter<IQuickPickWillAcceptEvent>());
 	private readonly onDidAcceptEmitter = this._register(new Emitter<IQuickPickDidAcceptEvent>());
 	private readonly onDidCustomEmitter = this._register(new Emitter<void>());
-	private _items: O extends { useSeparators: true } ? Array<T | IQuickPickSeparator> : Array<T> = [];
+	private _items: Array<T | IQuickPickSeparator> = [];
 	private itemsUpdated = false;
 	private _canSelectMany = false;
 	private _canAcceptInBackground = false;
@@ -645,7 +646,7 @@ export class QuickPick<T extends IQuickPickItem, O extends { useSeparators: bool
 		this.ui.list.scrollTop = scrollTop;
 	}
 
-	set items(items: O extends { useSeparators: true } ? Array<T | IQuickPickSeparator> : Array<T>) {
+	set items(items: Array<T | IQuickPickSeparator>) {
 		this._items = items;
 		this.itemsUpdated = true;
 		this.update();

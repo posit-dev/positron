@@ -692,7 +692,7 @@ export class ConfigureEditorTabsAction extends Action2 {
 	constructor() {
 		super({
 			id: ConfigureEditorTabsAction.ID,
-			title: localize2('configureTabs', "Configure Tabs"),
+			title: localize2('configureTabs', "Configure Tabs ..."),
 			category: Categories.View,
 		});
 	}
@@ -713,7 +713,7 @@ export class ConfigureEditorAction extends Action2 {
 	constructor() {
 		super({
 			id: ConfigureEditorAction.ID,
-			title: localize2('configureEditors', "Configure Editors"),
+			title: localize2('configureEditor', "Configure Editor ..."),
 			category: Categories.View,
 		});
 	}
@@ -976,14 +976,13 @@ registerAction2(class extends Action2 {
 	}
 
 	private async getView(quickInputService: IQuickInputService, viewDescriptorService: IViewDescriptorService, paneCompositePartService: IPaneCompositePartService, viewId?: string): Promise<string> {
-		const disposables = new DisposableStore();
-		const quickPick = disposables.add(quickInputService.createQuickPick({ useSeparators: true }));
+		const quickPick = quickInputService.createQuickPick();
 		quickPick.placeholder = localize('moveFocusedView.selectView', "Select a View to Move");
 		quickPick.items = this.getViewItems(viewDescriptorService, paneCompositePartService);
 		quickPick.selectedItems = quickPick.items.filter(item => (item as IQuickPickItem).id === viewId) as IQuickPickItem[];
 
 		return new Promise((resolve, reject) => {
-			disposables.add(quickPick.onDidAccept(() => {
+			quickPick.onDidAccept(() => {
 				const viewId = quickPick.selectedItems[0];
 				if (viewId.id) {
 					resolve(viewId.id);
@@ -992,12 +991,9 @@ registerAction2(class extends Action2 {
 				}
 
 				quickPick.hide();
-			}));
+			});
 
-			disposables.add(quickPick.onDidHide(() => {
-				disposables.dispose();
-				reject();
-			}));
+			quickPick.onDidHide(() => reject());
 
 			quickPick.show();
 		});
@@ -1039,8 +1035,7 @@ class MoveFocusedViewAction extends Action2 {
 			return;
 		}
 
-		const disposables = new DisposableStore();
-		const quickPick = disposables.add(quickInputService.createQuickPick({ useSeparators: true }));
+		const quickPick = quickInputService.createQuickPick();
 		quickPick.placeholder = localize('moveFocusedView.selectDestination', "Select a Destination for the View");
 		quickPick.title = localize({ key: 'moveFocusedView.title', comment: ['{0} indicates the title of the view the user has selected to move.'] }, "View: Move {0}", viewDescriptor.name.value);
 
@@ -1135,7 +1130,7 @@ class MoveFocusedViewAction extends Action2 {
 
 		quickPick.items = items;
 
-		disposables.add(quickPick.onDidAccept(() => {
+		quickPick.onDidAccept(() => {
 			const destination = quickPick.selectedItems[0];
 
 			if (destination.id === '_.panel.newcontainer') {
@@ -1153,9 +1148,7 @@ class MoveFocusedViewAction extends Action2 {
 			}
 
 			quickPick.hide();
-		}));
-
-		disposables.add(quickPick.onDidHide(() => disposables.dispose()));
+		});
 
 		quickPick.show();
 	}
@@ -1431,7 +1424,7 @@ for (const { active } of [...ToggleVisibilityActions, ...MoveSideBarActions, ...
 
 registerAction2(class CustomizeLayoutAction extends Action2 {
 
-	private _currentQuickPick?: IQuickPick<IQuickPickItem, { useSeparators: true }>;
+	private _currentQuickPick?: IQuickPick<IQuickPickItem>;
 
 	constructor() {
 		super({
@@ -1531,10 +1524,7 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 		const commandService = accessor.get(ICommandService);
 		const quickInputService = accessor.get(IQuickInputService);
 		const keybindingService = accessor.get(IKeybindingService);
-
-		const disposables = new DisposableStore();
-
-		const quickPick = disposables.add(quickInputService.createQuickPick({ useSeparators: true }));
+		const quickPick = quickInputService.createQuickPick();
 
 		this._currentQuickPick = quickPick;
 		quickPick.items = this.getItems(contextKeyService, keybindingService);
@@ -1559,6 +1549,7 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 			closeButton
 		];
 
+		const disposables = new DisposableStore();
 		let selectedItem: CustomizeLayoutItem | undefined = undefined;
 		disposables.add(contextKeyService.onDidChangeContext(changeEvent => {
 			if (changeEvent.affectsSome(LayoutContextKeySet)) {
@@ -1571,7 +1562,7 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 			}
 		}));
 
-		disposables.add(quickPick.onDidAccept(event => {
+		quickPick.onDidAccept(event => {
 			if (quickPick.selectedItems.length) {
 				selectedItem = quickPick.selectedItems[0] as CustomizeLayoutItem;
 				commandService.executeCommand(selectedItem.id);
@@ -1583,16 +1574,16 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 				}
 				// --- End Positron ---
 			}
-		}));
+		});
 
-		disposables.add(quickPick.onDidTriggerItemButton(event => {
+		quickPick.onDidTriggerItemButton(event => {
 			if (event.item) {
 				selectedItem = event.item as CustomizeLayoutItem;
 				commandService.executeCommand(selectedItem.id);
 			}
-		}));
+		});
 
-		disposables.add(quickPick.onDidTriggerButton((button) => {
+		quickPick.onDidTriggerButton((button) => {
 			if (button === closeButton) {
 				quickPick.hide();
 			} else if (button === resetButton) {
@@ -1614,16 +1605,16 @@ registerAction2(class CustomizeLayoutAction extends Action2 {
 
 				commandService.executeCommand('workbench.action.alignPanelCenter');
 			}
-		}));
+		});
 
-		disposables.add(quickPick.onDidHide(() => {
+		quickPick.onDidHide(() => {
 			quickPick.dispose();
-		}));
+		});
 
-		disposables.add(quickPick.onDispose(() => {
+		quickPick.onDispose(() => {
 			this._currentQuickPick = undefined;
 			disposables.dispose();
-		}));
+		});
 
 		quickPick.show();
 	}

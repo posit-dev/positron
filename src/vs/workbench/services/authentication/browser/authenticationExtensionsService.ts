@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore, dispose, IDisposable, MutableDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, dispose, IDisposable, MutableDisposable } from 'vs/base/common/lifecycle';
 import * as nls from 'vs/nls';
 import { MenuId, MenuRegistry } from 'vs/platform/actions/common/actions';
 import { CommandsRegistry } from 'vs/platform/commands/common/commands';
@@ -143,7 +143,7 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 		// * Extension id: The extension that has a preference
 		// * Provider id: The provider that the preference is for
 		// * The scopes: The subset of sessions that the preference applies to
-		const key = `${extensionId}-${providerId}-${session.scopes.join(SCOPESLIST_SEPARATOR)}`;
+		const key = `${extensionId}-${providerId}-${session.scopes.join(' ')}`;
 
 		// Store the preference in the workspace and application storage. This allows new workspaces to
 		// have a preference set already to limit the number of prompts that are shown... but also allows
@@ -157,7 +157,7 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 		// * Extension id: The extension that has a preference
 		// * Provider id: The provider that the preference is for
 		// * The scopes: The subset of sessions that the preference applies to
-		const key = `${extensionId}-${providerId}-${scopes.join(SCOPESLIST_SEPARATOR)}`;
+		const key = `${extensionId}-${providerId}-${scopes.join(' ')}`;
 
 		// If a preference is set in the workspace, use that. Otherwise, use the global preference.
 		return this.storageService.get(key, StorageScope.WORKSPACE) ?? this.storageService.get(key, StorageScope.APPLICATION);
@@ -168,7 +168,7 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 		// * Extension id: The extension that has a preference
 		// * Provider id: The provider that the preference is for
 		// * The scopes: The subset of sessions that the preference applies to
-		const key = `${extensionId}-${providerId}-${scopes.join(SCOPESLIST_SEPARATOR)}`;
+		const key = `${extensionId}-${providerId}-${scopes.join(' ')}`;
 
 		// This won't affect any other workspaces that have a preference set, but it will remove the preference
 		// for this workspace and the global preference. This is only paired with a call to updateSessionPreference...
@@ -220,8 +220,7 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 		if (!allAccounts.length) {
 			throw new Error('No accounts available');
 		}
-		const disposables = new DisposableStore();
-		const quickPick = disposables.add(this.quickInputService.createQuickPick<{ label: string; session?: AuthenticationSession; account?: AuthenticationSessionAccount }>());
+		const quickPick = this.quickInputService.createQuickPick<{ label: string; session?: AuthenticationSession; account?: AuthenticationSessionAccount }>();
 		quickPick.ignoreFocusOut = true;
 		const items: { label: string; session?: AuthenticationSession; account?: AuthenticationSessionAccount }[] = availableSessions.map(session => {
 			return {
@@ -252,7 +251,7 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 		quickPick.placeholder = nls.localize('getSessionPlateholder', "Select an account for '{0}' to use or Esc to cancel", extensionName);
 
 		return await new Promise((resolve, reject) => {
-			disposables.add(quickPick.onDidAccept(async _ => {
+			quickPick.onDidAccept(async _ => {
 				quickPick.dispose();
 				let session = quickPick.selectedItems[0].session;
 				if (!session) {
@@ -271,14 +270,14 @@ export class AuthenticationExtensionsService extends Disposable implements IAuth
 				this.removeAccessRequest(providerId, extensionId);
 
 				resolve(session);
-			}));
+			});
 
-			disposables.add(quickPick.onDidHide(_ => {
+			quickPick.onDidHide(_ => {
+				quickPick.dispose();
 				if (!quickPick.selectedItems[0]) {
 					reject('User did not consent to account access');
 				}
-				disposables.dispose();
-			}));
+			});
 
 			quickPick.show();
 		});

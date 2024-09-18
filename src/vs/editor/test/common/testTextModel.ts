@@ -34,8 +34,6 @@ import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeat
 import { LanguageFeaturesService } from 'vs/editor/common/services/languageFeaturesService';
 import { IEnvironmentService } from 'vs/platform/environment/common/environment';
 import { mock } from 'vs/base/test/common/mock';
-import { ITreeSitterParserService } from 'vs/editor/common/services/treeSitterParserService';
-import { TestTreeSitterParserService } from 'vs/editor/test/common/services/testTreeSitterService';
 
 class TestTextModel extends TextModel {
 	public registerDisposable(disposable: IDisposable): void {
@@ -107,6 +105,5 @@ export function createModelServices(disposables: DisposableStore, services: Serv
 		[ILanguageFeatureDebounceService, LanguageFeatureDebounceService],
 		[ILanguageFeaturesService, LanguageFeaturesService],
 		[IModelService, ModelService],
-		[ITreeSitterParserService, TestTreeSitterParserService]
 	]));
 }

@@ -21,7 +21,6 @@ const vfs = require('vinyl-fs');
 const packageJson = require('../package.json');
 const { compileBuildTask } = require('./gulpfile.compile');
 const extensions = require('./lib/extensions');
-const { isESM } = require('./lib/esm');
 
 // --- Start Positron ---
 const child_process = require('child_process');
@@ -39,30 +38,7 @@ const version = (quality && quality !== 'stable') ? `${packageJson.version}-${qu
 const positronVersion = (quality && quality !== 'stable') ? `${product.positronVersion}-${quality}` : product.positronVersion;
 // --- End Positron ---
 
-const vscodeWebResourceIncludes = isESM() ? [
-
-	// NLS
-	'out-build/nls.messages.js',
-
-	// Accessibility Signals
-	'out-build/vs/platform/accessibilitySignal/browser/media/*.mp3',
-
-	// Welcome
-	'out-build/vs/workbench/contrib/welcomeGettingStarted/common/media/**/*.{svg,png}',
-
-	// Extensions
-	'out-build/vs/workbench/contrib/extensions/browser/media/{theme-icon.png,language-icon.svg}',
-	'out-build/vs/workbench/services/extensionManagement/common/media/*.{svg,png}',
-
-	// Webview
-	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
-
-	// Tree Sitter highlights
-	'out-build/vs/editor/common/languages/highlights/*.scm',
-
-	// Extension Host Worker
-	'out-build/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.esm.html',
-] : [
+const vscodeWebResourceIncludes = [
 
 	// Workbench
 	'out-build/vs/{base,platform,editor,workbench}/**/*.{svg,png,jpg,mp3}',
@@ -80,9 +56,6 @@ const vscodeWebResourceIncludes = isESM() ? [
 	// Extension Worker
 	'out-build/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html',
 
-	// Tree Sitter highlights
-	'out-build/vs/editor/common/languages/highlights/*.scm',
-
 	// Web node paths (needed for integration tests)
 	'out-build/vs/webPackagePaths.js',
 ];
@@ -97,24 +70,12 @@ const vscodeWebResources = [
 	'!out-build/vs/**/{node,electron-sandbox,electron-main}/**',
 	'!out-build/vs/editor/standalone/**',
 	'!out-build/vs/workbench/**/*-tb.png',
-	'!out-build/vs/code/**/*-dev.html',
-	'!out-build/vs/code/**/*-dev.esm.html',
 	'!**/test/**'
 ];
 
-const buildfile = require('./buildfile');
+const buildfile = require('../src/buildfile');
 
-const vscodeWebEntryPoints = isESM() ? [
-	buildfile.base,
-	buildfile.workerExtensionHost,
-	buildfile.workerNotebook,
-	buildfile.workerLanguageDetection,
-	buildfile.workerLocalFileSearch,
-	buildfile.workerOutputLinks,
-	buildfile.workerBackgroundTokenization,
-	buildfile.keyboardMaps,
-	buildfile.workbenchWeb()
-].flat() : [
+const vscodeWebEntryPoints = [
 	buildfile.entrypoint('vs/workbench/workbench.web.main'),
 	buildfile.base,
 	buildfile.workerExtensionHost,
@@ -122,8 +83,9 @@ const vscodeWebEntryPoints = isESM() ? [
 	buildfile.workerLanguageDetection,
 	buildfile.workerLocalFileSearch,
 	buildfile.keyboardMaps,
-	buildfile.workbenchWeb()
+	buildfile.workbenchWeb
 ].flat();
+exports.vscodeWebEntryPoints = vscodeWebEntryPoints;
 
 // --- Begin Positron ---
 // Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.

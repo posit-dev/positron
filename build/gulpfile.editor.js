@@ -79,9 +79,7 @@ const extractEditorSrcTask = task.define('extract-editor-src', () => {
 		shakeLevel: 2, // 0-Files, 1-InnerFile, 2-ClassMembers
 		importIgnorePattern: /(^vs\/css!)/,
 		destRoot: path.join(root, 'out-editor-src'),
-		redirects: {
-			'@vscode/tree-sitter-wasm': '../node_modules/@vscode/tree-sitter-wasm/wasm/tree-sitter-web',
-		}
+		redirects: []
 	});
 });
 
@@ -135,8 +133,7 @@ const compileEditorESMTask = task.define('compile-editor-esm', () => {
 	let result;
 	if (process.platform === 'win32') {
 		result = cp.spawnSync(`..\\node_modules\\.bin\\tsc.cmd`, {
-			cwd: path.join(__dirname, '../out-editor-esm'),
-			shell: true
+			cwd: path.join(__dirname, '../out-editor-esm')
 		});
 	} else {
 		result = cp.spawnSync(`node`, [`../node_modules/.bin/tsc`], {

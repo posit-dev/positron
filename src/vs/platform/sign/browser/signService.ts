@@ -3,10 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { importAMDNodeModule, resolveAmdNodeModulePath } from 'vs/amdX';
 import { WindowIntervalTimer } from 'vs/base/browser/dom';
 import { mainWindow } from 'vs/base/browser/window';
-import { isESM } from 'vs/base/common/amd';
 import { memoize } from 'vs/base/common/decorators';
 import { FileAccess } from 'vs/base/common/network';
 import { IProductService } from 'vs/platform/product/common/productService';
@@ -64,7 +62,7 @@ export class SignService extends AbstractSignService implements ISignService {
 		let [wasm] = await Promise.all([
 			this.getWasmBytes(),
 			new Promise<void>((resolve, reject) => {
-				importAMDNodeModule('vsda', 'rust/web/vsda.js').then(() => resolve(), reject);
+				require(['vsda'], resolve, reject);
 
 				// todo@connor4312: there seems to be a bug(?) in vscode-loader with
 				// require() not resolving in web once the script loads, so check manually
@@ -75,6 +73,7 @@ export class SignService extends AbstractSignService implements ISignService {
 				}, 50, mainWindow);
 			}).finally(() => checkInterval.dispose()),
 		]);
+
 
 		const keyBytes = new TextEncoder().encode(this.productService.serverLicense?.join('\n') || '');
 		for (let i = 0; i + STEP_SIZE < keyBytes.length; i += STEP_SIZE) {
@@ -88,10 +87,7 @@ export class SignService extends AbstractSignService implements ISignService {
 	}
 
 	private async getWasmBytes(): Promise<ArrayBuffer> {
-		const url = isESM
-			? resolveAmdNodeModulePath('vsda', 'rust/web/vsda_bg.wasm')
-			: FileAccess.asBrowserUri('vsda/../vsda_bg.wasm').toString(true);
-		const response = await fetch(url);
+		const response = await fetch(FileAccess.asBrowserUri('vsda/../vsda_bg.wasm').toString(true));
 		if (!response.ok) {
 			throw new Error('error loading vsda');
 		}

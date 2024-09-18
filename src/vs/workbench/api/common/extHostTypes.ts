@@ -4107,7 +4107,7 @@ export class TestMessageStackFrame {
 	 */
 	constructor(
 		public label: string,
-		public uri?: vscode.Uri,
+		public file?: vscode.Uri,
 		public position?: Position,
 	) { }
 }
@@ -4582,10 +4582,10 @@ export class ChatResponseCommandButtonPart {
 }
 
 export class ChatResponseReferencePart {
-	value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location } | string;
+	value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location };
 	iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri };
 	options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } };
-	constructor(value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location } | string, iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }, options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } }) {
+	constructor(value: vscode.Uri | vscode.Location | { variableName: string; value?: vscode.Uri | vscode.Location }, iconPath?: vscode.Uri | vscode.ThemeIcon | { light: vscode.Uri; dark: vscode.Uri }, options?: { status?: { description: string; kind: vscode.ChatResponseReferencePartStatusKind } }) {
 		this.value = value;
 		this.iconPath = iconPath;
 		this.options = options;
@@ -4603,14 +4603,6 @@ export class ChatResponseCodeCitationPart {
 	}
 }
 
-export class ChatResponseMovePart {
-	constructor(
-		public readonly uri: vscode.Uri,
-		public readonly range: vscode.Range,
-	) {
-	}
-}
-
 export class ChatResponseTextEditPart {
 	uri: vscode.Uri;
 	edits: vscode.TextEdit[];
@@ -4621,8 +4613,6 @@ export class ChatResponseTextEditPart {
 }
 
 export class ChatRequestTurn implements vscode.ChatRequestTurn {
-	toolReferences?: vscode.ChatLanguageModelToolReference[];
-
 	constructor(
 		readonly prompt: string,
 		readonly command: string | undefined,
@@ -4674,14 +4664,14 @@ export enum LanguageModelChatMessageRole {
 	System = 3
 }
 
-export class LanguageModelToolResultPart implements vscode.LanguageModelChatMessageToolResultPart {
+export class LanguageModelFunctionResultPart implements vscode.LanguageModelChatMessageFunctionResultPart {
 
-	toolCallId: string;
+	name: string;
 	content: string;
 	isError: boolean;
 
-	constructor(toolCallId: string, content: string, isError?: boolean) {
-		this.toolCallId = toolCallId;
+	constructor(name: string, content: string, isError?: boolean) {
+		this.name = name;
 		this.content = content;
 		this.isError = isError ?? false;
 	}
@@ -4689,9 +4679,9 @@ export class LanguageModelToolResultPart implements vscode.LanguageModelChatMess
 
 export class LanguageModelChatMessage implements vscode.LanguageModelChatMessage {
 
-	static User(content: string | LanguageModelToolResultPart, name?: string): LanguageModelChatMessage {
+	static User(content: string | LanguageModelFunctionResultPart, name?: string): LanguageModelChatMessage {
 		const value = new LanguageModelChatMessage(LanguageModelChatMessageRole.User, typeof content === 'string' ? content : '', name);
-		value.content2 = [content];
+		value.content2 = content;
 		return value;
 	}
 
@@ -4701,25 +4691,23 @@ export class LanguageModelChatMessage implements vscode.LanguageModelChatMessage
 
 	role: vscode.LanguageModelChatMessageRole;
 	content: string;
-	content2: (string | vscode.LanguageModelChatMessageToolResultPart | vscode.LanguageModelChatResponseToolCallPart)[];
+	content2: string | vscode.LanguageModelChatMessageFunctionResultPart;
 	name: string | undefined;
 
 	constructor(role: vscode.LanguageModelChatMessageRole, content: string, name?: string) {
 		this.role = role;
 		this.content = content;
-		this.content2 = [content];
+		this.content2 = content;
 		this.name = name;
 	}
 }
 
-export class LanguageModelToolCallPart implements vscode.LanguageModelChatResponseToolCallPart {
+export class LanguageModelFunctionUsePart implements vscode.LanguageModelChatResponseFunctionUsePart {
 	name: string;
-	toolCallId: string;
 	parameters: any;
 
-	constructor(name: string, toolCallId: string, parameters: any) {
+	constructor(name: string, parameters: any) {
 		this.name = name;
-		this.toolCallId = toolCallId;
 		this.parameters = parameters;
 	}
 }

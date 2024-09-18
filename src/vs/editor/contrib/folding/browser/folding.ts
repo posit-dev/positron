@@ -17,7 +17,6 @@ import { EditorAction, EditorContributionInstantiation, registerEditorAction, re
 import { ConfigurationChangedEvent, EditorOption } from 'vs/editor/common/config/editorOptions';
 import { IPosition } from 'vs/editor/common/core/position';
 import { IRange } from 'vs/editor/common/core/range';
-import { Selection } from 'vs/editor/common/core/selection';
 import { IEditorContribution, ScrollType } from 'vs/editor/common/editorCommon';
 import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
 import { ITextModel } from 'vs/editor/common/model';
@@ -329,7 +328,8 @@ export class FoldingController extends Disposable implements IEditorContribution
 
 						// some cursors might have moved into hidden regions, make sure they are in expanded regions
 						const selections = this.editor.getSelections();
-						foldingModel.update(foldingRanges, toSelectedLines(selections));
+						const selectionLineNumbers = selections ? selections.map(s => s.startLineNumber) : [];
+						foldingModel.update(foldingRanges, selectionLineNumbers);
 
 						scrollState?.restore(this.editor);
 
@@ -580,29 +580,6 @@ abstract class FoldingAction<T> extends EditorAction {
 
 	public run(_accessor: ServicesAccessor, _editor: ICodeEditor): void {
 	}
-}
-
-export interface SelectedLines {
-	startsInside(startLine: number, endLine: number): boolean;
-}
-
-export function toSelectedLines(selections: Selection[] | null): SelectedLines {
-	if (!selections || selections.length === 0) {
-		return {
-			startsInside: () => false
-		};
-	}
-	return {
-		startsInside(startLine: number, endLine: number): boolean {
-			for (const s of selections) {
-				const line = s.startLineNumber;
-				if (line >= startLine && line <= endLine) {
-					return true;
-				}
-			}
-			return false;
-		}
-	};
 }
 
 interface FoldingArguments {

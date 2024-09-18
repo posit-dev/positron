@@ -195,11 +195,7 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 			promises.push(this.uninstallInServer(server, extensions));
 		}
 
-		const result = await Promise.allSettled(promises);
-		const errors = result.filter(r => r.status === 'rejected').map(r => r.reason);
-		if (errors.length) {
-			throw new Error(errors.map(e => e.message).join('\n'));
-		}
+		await Promise.allSettled(promises);
 	}
 
 	private async uninstallInServer(server: IExtensionManagementServer, extensions: UninstallExtensionInfo[]): Promise<void> {

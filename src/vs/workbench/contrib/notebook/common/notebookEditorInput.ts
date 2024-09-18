@@ -90,15 +90,8 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 				return;
 			}
 
-			const reason = e.auto
-				? localize('vetoAutoExtHostRestart', "One of the opened editors is a notebook editor.")
-				: localize('vetoExtHostRestart', "Notebook '{0}' could not be saved.", this.resource.path);
-
 			e.veto((async () => {
 				const editors = editorService.findEditors(this);
-				if (e.auto) {
-					return true;
-				}
 				if (editors.length > 0) {
 					const result = await editorService.save(editors[0]);
 					if (result.success) {
@@ -106,7 +99,7 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 					}
 				}
 				return true; // Veto
-			})(), reason);
+			})(), localize('vetoExtHostRestart', "Notebook '{0}' could not be saved.", this.resource.path));
 		}));
 	}
 
@@ -356,7 +349,7 @@ export class NotebookEditorInput extends AbstractResourceEditorInput {
 			return true;
 		}
 		if (otherInput instanceof NotebookEditorInput) {
-			return this.editorId === otherInput.editorId && isEqual(this.resource, otherInput.resource);
+			return this.viewType === otherInput.viewType && isEqual(this.resource, otherInput.resource);
 		}
 		return false;
 	}
@@ -373,8 +366,8 @@ export function isCompositeNotebookEditorInput(thing: unknown): thing is ICompos
 		&& ((<ICompositeNotebookEditorInput>thing).editorInputs.every(input => input instanceof NotebookEditorInput));
 }
 
-export function isNotebookEditorInput(thing: EditorInput | undefined): thing is NotebookEditorInput {
+export function isNotebookEditorInput(thing: unknown): thing is NotebookEditorInput {
 	return !!thing
 		&& typeof thing === 'object'
-		&& thing.typeId === NotebookEditorInput.ID;
+		&& thing instanceof NotebookEditorInput;
 }

@@ -78,14 +78,24 @@ class BufferSynchronizer {
 	}
 
 	public open(resource: vscode.Uri, args: Proto.OpenRequestArgs) {
-		this.updatePending(resource, new OpenOperation(args, args.scriptKindName));
+		if (this.supportsBatching) {
+			this.updatePending(resource, new OpenOperation(args, args.scriptKindName));
+		} else {
+			this.client.executeWithoutWaitingForResponse('open', args);
+		}
 	}
 
 	/**
 	 * @return Was the buffer open?
 	 */
 	public close(resource: vscode.Uri, filepath: string, scriptKind: ScriptKind | undefined): boolean {
-		return this.updatePending(resource, new CloseOperation(filepath, scriptKind));
+		if (this.supportsBatching) {
+			return this.updatePending(resource, new CloseOperation(filepath, scriptKind));
+		} else {
+			const args: Proto.FileRequestArgs = { file: filepath };
+			this.client.executeWithoutWaitingForResponse('close', args);
+			return true;
+		}
 	}
 
 	public change(resource: vscode.Uri, filepath: string, events: readonly vscode.TextDocumentContentChangeEvent[]) {
@@ -93,14 +103,24 @@ class BufferSynchronizer {
 			return;
 		}
 
-		this.updatePending(resource, new ChangeOperation({
-			fileName: filepath,
-			textChanges: events.map((change): Proto.CodeEdit => ({
-				newText: change.text,
-				start: typeConverters.Position.toLocation(change.range.start),
-				end: typeConverters.Position.toLocation(change.range.end),
-			})).reverse(), // Send the edits end-of-document to start-of-document order
-		}));
+		if (this.supportsBatching) {
+			this.updatePending(resource, new ChangeOperation({
+				fileName: filepath,
+				textChanges: events.map((change): Proto.CodeEdit => ({
+					newText: change.text,
+					start: typeConverters.Position.toLocation(change.range.start),
+					end: typeConverters.Position.toLocation(change.range.end),
+				})).reverse(), // Send the edits end-of-document to start-of-document order
+			}));
+		} else {
+			for (const { range, text } of events) {
+				const args: Proto.ChangeRequestArgs = {
+					insertString: text,
+					...typeConverters.Range.toFormattingRequestArgs(filepath, range)
+				};
+				this.client.executeWithoutWaitingForResponse('change', args);
+			}
+		}
 	}
 
 	public reset(): void {
@@ -116,6 +136,12 @@ class BufferSynchronizer {
 	}
 
 	private flush() {
+		if (!this.supportsBatching) {
+			// We've already eagerly synchronized
+			this._pending.clear();
+			return;
+		}
+
 		if (this._pending.size > 0) {
 			const closedFiles: string[] = [];
 			const openFiles: Proto.OpenRequestArgs[] = [];
@@ -130,6 +156,10 @@ class BufferSynchronizer {
 			this.client.execute('updateOpen', { changedFiles, closedFiles, openFiles }, nulToken, { nonRecoverable: true });
 			this._pending.clear();
 		}
+	}
+
+	private get supportsBatching(): boolean {
+		return this.client.apiVersion.gte(API.v340);
 	}
 
 	private updatePending(resource: vscode.Uri, op: BufferOperation): boolean {

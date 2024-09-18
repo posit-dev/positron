@@ -111,7 +111,7 @@ export class StandaloneQuickInputService implements IQuickInputService {
 	) {
 	}
 
-	pick<T extends IQuickPickItem, O extends IPickOptions<T>>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options?: O, token: CancellationToken = CancellationToken.None): Promise<(O extends { canPickMany: true } ? T[] : T) | undefined> {
+	pick<T extends IQuickPickItem, O extends IPickOptions<T>>(picks: Promise<QuickPickInput<T>[]> | QuickPickInput<T>[], options: O = <O>{}, token: CancellationToken = CancellationToken.None): Promise<(O extends { canPickMany: true } ? T[] : T) | undefined> {
 		return (this.activeService as unknown as QuickInputController /* TS fail */).pick(picks, options, token);
 	}
 
@@ -119,10 +119,8 @@ export class StandaloneQuickInputService implements IQuickInputService {
 		return this.activeService.input(options, token);
 	}
 
-	createQuickPick<T extends IQuickPickItem>(options: { useSeparators: true }): IQuickPick<T, { useSeparators: true }>;
-	createQuickPick<T extends IQuickPickItem>(options?: { useSeparators: boolean }): IQuickPick<T, { useSeparators: false }>;
-	createQuickPick<T extends IQuickPickItem>(options: { useSeparators: boolean } = { useSeparators: false }): IQuickPick<T, { useSeparators: boolean }> {
-		return this.activeService.createQuickPick(options);
+	createQuickPick<T extends IQuickPickItem>(): IQuickPick<T> {
+		return this.activeService.createQuickPick();
 	}
 
 	createInputBox(): IInputBox {

@@ -13,7 +13,6 @@
 		): undefined | Pick<TrustedTypePolicy<Options>, 'name' | Extract<keyof Options, keyof TrustedTypePolicyOptions>>;
 	}
 	const monacoEnvironment: IMonacoEnvironment | undefined = (globalThis as any).MonacoEnvironment;
-
 	const monacoBaseUrl = monacoEnvironment && monacoEnvironment.baseUrl ? monacoEnvironment.baseUrl : '../../../';
 
 	function createTrustedTypesPolicy<Options extends TrustedTypePolicyOptions>(
@@ -112,43 +111,23 @@
 		});
 	}
 
-	function loadCode(moduleId: string): Promise<SimpleWorkerModule> {
-		// ESM-uncomment-begin
-		// if (typeof loadAMDLoader === 'function') { /* fixes unused import, remove me */}
-		// const moduleUrl = new URL(`${moduleId}.js`, globalThis._VSCODE_FILE_ROOT);
-		// return import(moduleUrl.href);
-		// ESM-uncomment-end
-
-		// ESM-comment-begin
-		return loadAMDLoader().then(() => {
+	function loadCode(moduleId: string) {
+		loadAMDLoader().then(() => {
 			configureAMDLoader();
-			return new Promise<SimpleWorkerModule>((resolve, reject) => {
-				require([moduleId], resolve, reject);
+			require([moduleId], function (ws) {
+				setTimeout(function () {
+					const messageHandler = ws.create((msg: any, transfer?: Transferable[]) => {
+						(<any>globalThis).postMessage(msg, transfer);
+					}, null);
+
+					globalThis.onmessage = (e: MessageEvent) => messageHandler.onmessage(e.data, e.ports);
+					while (beforeReadyMessages.length > 0) {
+						const e = beforeReadyMessages.shift()!;
+						messageHandler.onmessage(e.data, e.ports);
+					}
+				}, 0);
 			});
 		});
-		// ESM-comment-end
-	}
-
-	interface MessageHandler {
-		onmessage(msg: any, ports: readonly MessagePort[]): void;
-	}
-
-	// shape of vs/base/common/worker/simpleWorker.ts
-	interface SimpleWorkerModule {
-		create(postMessage: (msg: any, transfer?: Transferable[]) => void): MessageHandler;
-	}
-
-	function setupWorkerServer(ws: SimpleWorkerModule) {
-		setTimeout(function () {
-			const messageHandler = ws.create((msg: any, transfer?: Transferable[]) => {
-				(<any>globalThis).postMessage(msg, transfer);
-			});
-
-			self.onmessage = (e: MessageEvent) => messageHandler.onmessage(e.data, e.ports);
-			while (beforeReadyMessages.length > 0) {
-				self.onmessage(beforeReadyMessages.shift()!);
-			}
-		}, 0);
 	}
 
 	// If the loader is already defined, configure it immediately
@@ -167,10 +146,6 @@
 		}
 
 		isFirstMessage = false;
-		loadCode(message.data).then((ws) => {
-			setupWorkerServer(ws);
-		}, (err) => {
-			console.error(err);
-		});
+		loadCode(message.data);
 	};
 })();

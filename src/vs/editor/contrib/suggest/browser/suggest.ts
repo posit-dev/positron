@@ -178,13 +178,13 @@ export class CompletionOptions {
 	) { }
 }
 
-let _snippetSuggestSupport: languages.CompletionItemProvider | undefined;
+let _snippetSuggestSupport: languages.CompletionItemProvider;
 
-export function getSnippetSuggestSupport(): languages.CompletionItemProvider | undefined {
+export function getSnippetSuggestSupport(): languages.CompletionItemProvider {
 	return _snippetSuggestSupport;
 }
 
-export function setSnippetSuggestSupport(support: languages.CompletionItemProvider | undefined): languages.CompletionItemProvider | undefined {
+export function setSnippetSuggestSupport(support: languages.CompletionItemProvider): languages.CompletionItemProvider {
 	const old = _snippetSuggestSupport;
 	_snippetSuggestSupport = support;
 	return old;

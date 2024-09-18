@@ -6,20 +6,19 @@
 import * as cp from 'child_process';
 import { EventEmitter } from 'events';
 import { StringDecoder } from 'string_decoder';
-import { coalesce, mapArrayOrNot } from 'vs/base/common/arrays';
+import { coalesce } from 'vs/base/common/arrays';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { groupBy } from 'vs/base/common/collections';
 import { splitGlobAware } from 'vs/base/common/glob';
 import { createRegExp, escapeRegExpCharacters } from 'vs/base/common/strings';
 import { URI } from 'vs/base/common/uri';
 import { Progress } from 'vs/platform/progress/common/progress';
-import { DEFAULT_MAX_SEARCH_RESULTS, IExtendedExtensionSearchOptions, ITextSearchPreviewOptions, SearchError, SearchErrorCode, serializeSearchError, TextSearchMatch } from 'vs/workbench/services/search/common/search';
-import { Range, TextSearchCompleteNew, TextSearchContextNew, TextSearchMatchNew, TextSearchProviderOptions, TextSearchQueryNew, TextSearchResultNew } from 'vs/workbench/services/search/common/searchExtTypes';
+import { IExtendedExtensionSearchOptions, SearchError, SearchErrorCode, serializeSearchError } from 'vs/workbench/services/search/common/search';
+import { Range, TextSearchComplete, TextSearchContext, TextSearchMatch, TextSearchOptions, TextSearchPreviewOptions, TextSearchQuery, TextSearchResult } from 'vs/workbench/services/search/common/searchExtTypes';
 import { AST as ReAST, RegExpParser, RegExpVisitor } from 'vscode-regexpp';
 import { rgPath } from '@vscode/ripgrep';
-import { anchorGlob, IOutputChannel, Maybe, rangeToSearchRange, searchRangeToRange } from './ripgrepSearchUtils';
+import { anchorGlob, createTextSearchResult, IOutputChannel, Maybe } from './ripgrepSearchUtils';
 import type { RipgrepTextSearchOptions } from 'vs/workbench/services/search/common/searchExtTypesInternal';
-import { newToOldPreviewOptions } from 'vs/workbench/services/search/common/searchExtConversionTypes';
 
 // If @vscode/ripgrep is in an .asar file, then the binary is unpacked.
 const rgDiskPath = rgPath.replace(/\bnode_modules\.asar\b/, 'node_modules.asar.unpacked');
@@ -28,31 +27,11 @@ export class RipgrepTextSearchEngine {
 
 	constructor(private outputChannel: IOutputChannel, private readonly _numThreads?: number | undefined) { }
 
-	provideTextSearchResults(query: TextSearchQueryNew, options: TextSearchProviderOptions, progress: Progress<TextSearchResultNew>, token: CancellationToken): Promise<TextSearchCompleteNew> {
-		return Promise.all(options.folderOptions.map(folderOption => {
-			const extendedOptions: RipgrepTextSearchOptions = {
-				folderOptions: folderOption,
-				numThreads: this._numThreads,
-				maxResults: options.maxResults,
-				previewOptions: options.previewOptions,
-				maxFileSize: options.maxFileSize,
-				surroundingContext: options.surroundingContext
-			};
-			return this.provideTextSearchResultsWithRgOptions(query, extendedOptions, progress, token);
-		})).then((e => {
-			const complete: TextSearchCompleteNew = {
-				// todo: get this to actually check
-				limitHit: e.some(complete => !!complete && complete.limitHit)
-			};
-			return complete;
-		}));
-	}
-
-	provideTextSearchResultsWithRgOptions(query: TextSearchQueryNew, options: RipgrepTextSearchOptions, progress: Progress<TextSearchResultNew>, token: CancellationToken): Promise<TextSearchCompleteNew> {
+	provideTextSearchResults(query: TextSearchQuery, options: TextSearchOptions, progress: Progress<TextSearchResult>, token: CancellationToken): Promise<TextSearchComplete> {
 		this.outputChannel.appendLine(`provideTextSearchResults ${query.pattern}, ${JSON.stringify({
 			...options,
 			...{
-				folder: options.folderOptions.folder.toString()
+				folder: options.folder.toString()
 			}
 		})}`);
 
@@ -65,7 +44,7 @@ export class RipgrepTextSearchEngine {
 			};
 			const rgArgs = getRgArgs(query, extendedOptions);
 
-			const cwd = options.folderOptions.folder.fsPath;
+			const cwd = options.folder.fsPath;
 
 			const escapedArgs = rgArgs
 				.map(arg => arg.match(/^-/) ? arg : `'${arg}'`)
@@ -80,8 +59,8 @@ export class RipgrepTextSearchEngine {
 			});
 
 			let gotResult = false;
-			const ripgrepParser = new RipgrepParser(options.maxResults ?? DEFAULT_MAX_SEARCH_RESULTS, options.folderOptions.folder, newToOldPreviewOptions(options.previewOptions));
-			ripgrepParser.on('result', (match: TextSearchResultNew) => {
+			const ripgrepParser = new RipgrepParser(options.maxResults, options.folder, options.previewOptions);
+			ripgrepParser.on('result', (match: TextSearchResult) => {
 				gotResult = true;
 				dataWithoutResult = '';
 				progress.report(match);
@@ -209,7 +188,7 @@ export class RipgrepParser extends EventEmitter {
 
 	private numResults = 0;
 
-	constructor(private maxResults: number, private root: URI, private previewOptions: ITextSearchPreviewOptions) {
+	constructor(private maxResults: number, private root: URI, private previewOptions?: TextSearchPreviewOptions) {
 		super();
 		this.stringDecoder = new StringDecoder();
 	}
@@ -223,7 +202,7 @@ export class RipgrepParser extends EventEmitter {
 	}
 
 
-	override on(event: 'result', listener: (result: TextSearchResultNew) => void): this;
+	override on(event: 'result', listener: (result: TextSearchResult) => void): this;
 	override on(event: 'hitLimit', listener: () => void): this;
 	override on(event: string, listener: (...args: any[]) => void): this {
 		super.on(event, listener);
@@ -264,7 +243,6 @@ export class RipgrepParser extends EventEmitter {
 		this.remainder = dataStr.substring(prevIdx);
 	}
 
-
 	private handleLine(outputLine: string): void {
 		if (this.isDone || !outputLine) {
 			return;
@@ -290,12 +268,12 @@ export class RipgrepParser extends EventEmitter {
 		} else if (parsedLine.type === 'context') {
 			const contextPath = bytesOrTextToString(parsedLine.data.path);
 			const uri = URI.joinPath(this.root, contextPath);
-			const result = this.createTextSearchContexts(parsedLine.data, uri);
+			const result = this.createTextSearchContext(parsedLine.data, uri);
 			result.forEach(r => this.onResult(r));
 		}
 	}
 
-	private createTextSearchMatch(data: IRgMatch, uri: URI): TextSearchMatchNew {
+	private createTextSearchMatch(data: IRgMatch, uri: URI): TextSearchMatch {
 		const lineNumber = data.line_number - 1;
 		const fullText = bytesOrTextToString(data.lines);
 		const fullTextBytes = Buffer.from(fullText);
@@ -348,30 +326,25 @@ export class RipgrepParser extends EventEmitter {
 			return new Range(startLineNumber, startCol, endLineNumber, endCol);
 		}));
 
-		const searchRange = mapArrayOrNot(<Range[]>ranges, rangeToSearchRange);
-
-		const internalResult = new TextSearchMatch(fullText, searchRange, this.previewOptions);
-		return new TextSearchMatchNew(
-			uri,
-			internalResult.rangeLocations.map(e => (
-				{
-					sourceRange: searchRangeToRange(e.source),
-					previewRange: searchRangeToRange(e.preview),
-				}
-			)),
-			internalResult.previewText);
+		return createTextSearchResult(uri, fullText, <Range[]>ranges, this.previewOptions);
 	}
 
-	private createTextSearchContexts(data: IRgMatch, uri: URI): TextSearchContextNew[] {
+	private createTextSearchContext(data: IRgMatch, uri: URI): TextSearchContext[] {
 		const text = bytesOrTextToString(data.lines);
 		const startLine = data.line_number;
 		return text
 			.replace(/\r?\n$/, '')
 			.split('\n')
-			.map((line, i) => new TextSearchContextNew(uri, line, startLine + i));
+			.map((line, i) => {
+				return {
+					text: line,
+					uri,
+					lineNumber: startLine + i
+				};
+			});
 	}
 
-	private onResult(match: TextSearchResultNew): void {
+	private onResult(match: TextSearchResult): void {
 		this.emit('result', match);
 	}
 }
@@ -400,12 +373,12 @@ function getNumLinesAndLastNewlineLength(text: string): { numLines: number; last
 }
 
 // exported for testing
-export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchOptions): string[] {
+export function getRgArgs(query: TextSearchQuery, options: RipgrepTextSearchOptions): string[] {
 	const args = ['--hidden', '--no-require-git'];
 	args.push(query.isCaseSensitive ? '--case-sensitive' : '--ignore-case');
 
 	const { doubleStarIncludes, otherIncludes } = groupBy(
-		options.folderOptions.includes,
+		options.includes,
 		(include: string) => include.startsWith('**') ? 'doubleStarIncludes' : 'otherIncludes');
 
 	if (otherIncludes && otherIncludes.length) {
@@ -429,7 +402,7 @@ export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchO
 		});
 	}
 
-	options.folderOptions.excludes.map(e => typeof (e) === 'string' ? e : e.pattern)
+	options.excludes
 		.map(anchorGlob)
 		.forEach(rgGlob => args.push('-g', `!${rgGlob}`));
 
@@ -437,8 +410,8 @@ export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchO
 		args.push('--max-filesize', options.maxFileSize + '');
 	}
 
-	if (options.folderOptions.useIgnoreFiles.local) {
-		if (!options.folderOptions.useIgnoreFiles.parent) {
+	if (options.useIgnoreFiles) {
+		if (!options.useParentIgnoreFiles) {
 			args.push('--no-ignore-parent');
 		}
 	} else {
@@ -446,12 +419,12 @@ export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchO
 		args.push('--no-ignore');
 	}
 
-	if (options.folderOptions.followSymlinks) {
+	if (options.followSymlinks) {
 		args.push('--follow');
 	}
 
-	if (options.folderOptions.encoding && options.folderOptions.encoding !== 'utf8') {
-		args.push('--encoding', options.folderOptions.encoding);
+	if (options.encoding && options.encoding !== 'utf8') {
+		args.push('--encoding', options.encoding);
 	}
 
 	if (options.numThreads) {
@@ -497,7 +470,7 @@ export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchO
 	}
 
 	args.push('--no-config');
-	if (!options.folderOptions.useIgnoreFiles.global) {
+	if (!options.useGlobalIgnoreFiles) {
 		args.push('--no-ignore-global');
 	}
 
@@ -507,9 +480,12 @@ export function getRgArgs(query: TextSearchQueryNew, options: RipgrepTextSearchO
 		args.push('--multiline');
 	}
 
-	if (options.surroundingContext) {
-		args.push('--before-context', options.surroundingContext + '');
-		args.push('--after-context', options.surroundingContext + '');
+	if (options.beforeContext) {
+		args.push('--before-context', options.beforeContext + '');
+	}
+
+	if (options.afterContext) {
+		args.push('--after-context', options.afterContext + '');
 	}
 
 	// Folder to search

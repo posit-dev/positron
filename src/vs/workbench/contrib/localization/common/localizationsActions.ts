@@ -37,8 +37,7 @@ export class ConfigureDisplayLanguageAction extends Action2 {
 
 		const installedLanguages = await languagePackService.getInstalledLanguages();
 
-		const disposables = new DisposableStore();
-		const qp = disposables.add(quickInputService.createQuickPick<ILanguagePackItem>({ useSeparators: true }));
+		const qp = quickInputService.createQuickPick<ILanguagePackItem>();
 		qp.matchOnDescription = true;
 		qp.placeholder = localize('chooseLocale', "Select Display Language");
 
@@ -47,6 +46,7 @@ export class ConfigureDisplayLanguageAction extends Action2 {
 			qp.items = items.concat(this.withMoreInfoButton(installedLanguages));
 		}
 
+		const disposables = new DisposableStore();
 		const source = new CancellationTokenSource();
 		disposables.add(qp.onDispose(() => {
 			source.cancel();

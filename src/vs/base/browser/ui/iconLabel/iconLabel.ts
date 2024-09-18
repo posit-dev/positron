@@ -45,7 +45,7 @@ export interface IIconLabelValueOptions {
 class FastLabelNode {
 	private disposed: boolean | undefined;
 	private _textContent: string | undefined;
-	private _classNames: string[] | undefined;
+	private _className: string | undefined;
 	private _empty: boolean | undefined;
 
 	constructor(private _element: HTMLElement) {
@@ -64,14 +64,13 @@ class FastLabelNode {
 		this._element.textContent = content;
 	}
 
-	set classNames(classNames: string[]) {
-		if (this.disposed || equals(classNames, this._classNames)) {
+	set className(className: string) {
+		if (this.disposed || className === this._className) {
 			return;
 		}
 
-		this._classNames = classNames;
-		this._element.classList.value = '';
-		this._element.classList.add(...classNames);
+		this._className = className;
+		this._element.className = className;
 	}
 
 	set empty(empty: boolean) {
@@ -170,10 +169,9 @@ export class IconLabel extends Disposable {
 			existingIconNode.remove();
 		}
 
-		this.domNode.classNames = labelClasses;
+		this.domNode.className = labelClasses.join(' ');
 		this.domNode.element.setAttribute('aria-label', ariaLabel);
-		this.labelContainer.classList.value = '';
-		this.labelContainer.classList.add(...containerClasses);
+		this.labelContainer.className = containerClasses.join(' ');
 		this.setupHover(options?.descriptionTitle ? this.labelContainer : this.element, options?.title);
 
 		this.nameNode.setLabel(label, options);

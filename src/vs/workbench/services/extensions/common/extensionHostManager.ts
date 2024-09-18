@@ -161,14 +161,13 @@ export class ExtensionHostManager extends Disposable implements IExtensionHostMa
 		});
 	}
 
-	public async disconnect(): Promise<void> {
-		await this._extensionHost?.disconnect?.();
-	}
-
 	public override dispose(): void {
-		this._extensionHost?.dispose();
-		this._rpcProtocol?.dispose();
-
+		if (this._extensionHost) {
+			this._extensionHost.dispose();
+		}
+		if (this._rpcProtocol) {
+			this._rpcProtocol.dispose();
+		}
 		for (let i = 0, len = this._customers.length; i < len; i++) {
 			const customer = this._customers[i];
 			try {

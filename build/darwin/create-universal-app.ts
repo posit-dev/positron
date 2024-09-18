@@ -8,7 +8,6 @@ import * as fs from 'fs';
 import * as minimatch from 'minimatch';
 import { makeUniversalApp } from 'vscode-universal-bundler';
 import { spawn } from '@malept/cross-spawn-promise';
-import { isESM } from '../lib/esm';
 
 const root = path.dirname(path.dirname(__dirname));
 
@@ -211,15 +210,13 @@ async function origMain(
 ) {
 	// --- End Positron ---
 
-	const canAsar = !isESM('ASAR disabled in universal build'); // TODO@esm ASAR disabled in ESM
-
 	await makeUniversalApp({
 		x64AppPath,
 		arm64AppPath,
-		asarPath: canAsar ? asarRelativePath : undefined,
+		asarPath: asarRelativePath,
 		outAppPath,
 		force: true,
-		mergeASARs: canAsar,
+		mergeASARs: true,
 		x64ArchFiles: '*/kerberos.node',
 		filesToSkipComparison: (file: string) => {
 			for (const expected of filesToSkip) {

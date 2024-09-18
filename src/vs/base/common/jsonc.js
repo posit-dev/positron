@@ -9,7 +9,6 @@
 'use strict';
 
 // ESM-uncomment-begin
-// /** @type any */
 // const module = { exports: {} };
 // ESM-uncomment-end
 

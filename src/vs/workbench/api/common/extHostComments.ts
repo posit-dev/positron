@@ -641,11 +641,11 @@ export function createExtHostComments(mainContext: IMainContext, commands: ExtHo
 			return this._activeComment;
 		}
 
-		private _activeThread: ExtHostCommentThread | undefined;
+		private _activeThread: vscode.CommentThread2 | undefined;
 
 		get activeCommentThread(): vscode.CommentThread2 | undefined {
 			checkProposedApiEnabled(this._extension, 'activeComment');
-			return this._activeThread?.value;
+			return this._activeThread;
 		}
 
 		private _localDisposables: types.Disposable[];

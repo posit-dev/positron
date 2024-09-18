@@ -9,7 +9,7 @@ import { Event, Emitter } from 'vs/base/common/event';
 import { isCancellationError, getErrorMessage } from 'vs/base/common/errors';
 import { createErrorWithActions } from 'vs/base/common/errorMessage';
 import { PagedModel, IPagedModel, IPager, DelayedPagedModel } from 'vs/base/common/paging';
-import { SortOrder, IQueryOptions as IGalleryQueryOptions, SortBy as GallerySortBy, InstallExtensionInfo, ExtensionGalleryErrorCode, ExtensionGalleryError } from 'vs/platform/extensionManagement/common/extensionManagement';
+import { SortOrder, IQueryOptions as IGalleryQueryOptions, SortBy as GallerySortBy, InstallExtensionInfo } from 'vs/platform/extensionManagement/common/extensionManagement';
 import { IExtensionManagementServer, IExtensionManagementServerService, EnablementState, IWorkbenchExtensionManagementService, IWorkbenchExtensionEnablementService } from 'vs/workbench/services/extensionManagement/common/extensionManagement';
 import { IExtensionRecommendationsService } from 'vs/workbench/services/extensionRecommendations/common/extensionRecommendations';
 import { areSameExtensions, getExtensionDependencies } from 'vs/platform/extensionManagement/common/extensionManagementUtil';
@@ -897,16 +897,10 @@ export class ExtensionsListView extends ViewPane {
 				}
 			}
 			if (galleryExtensions.length) {
-				try {
-					const extensions = await this.extensionsWorkbenchService.getExtensions(galleryExtensions.map(id => ({ id })), { source: options.source }, token);
-					for (const extension of extensions) {
-						if (extension.gallery && !extension.deprecationInfo && (await this.extensionManagementService.canInstall(extension.gallery))) {
-							result.push(extension);
-						}
-					}
-				} catch (error) {
-					if (!resourceExtensions.length || !this.isOfflineError(error)) {
-						throw error;
+				const extensions = await this.extensionsWorkbenchService.getExtensions(galleryExtensions.map(id => ({ id })), { source: options.source }, token);
+				for (const extension of extensions) {
+					if (extension.gallery && !extension.deprecationInfo && (await this.extensionManagementService.canInstall(extension.gallery))) {
+						result.push(extension);
 					}
 				}
 			}
@@ -1073,7 +1067,7 @@ export class ExtensionsListView extends ViewPane {
 
 			if (count === 0 && this.isBodyVisible()) {
 				if (error) {
-					if (this.isOfflineError(error)) {
+					if (isOfflineError(error)) {
 						this.bodyTemplate.messageSeverityIcon.className = SeverityIcon.className(Severity.Warning);
 						this.bodyTemplate.messageBox.textContent = localize('offline error', "Unable to search the Marketplace when offline, please check your network connection.");
 					} else {
@@ -1089,13 +1083,6 @@ export class ExtensionsListView extends ViewPane {
 		}
 
 		this.updateSize();
-	}
-
-	private isOfflineError(error: Error): boolean {
-		if (error instanceof ExtensionGalleryError) {
-			return error.code === ExtensionGalleryErrorCode.Offline;
-		}
-		return isOfflineError(error);
 	}
 
 	protected updateSize() {

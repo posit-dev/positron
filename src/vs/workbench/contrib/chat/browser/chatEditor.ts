@@ -16,13 +16,13 @@ import { IThemeService } from 'vs/platform/theme/common/themeService';
 import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
 import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { Memento } from 'vs/workbench/common/memento';
-import { clearChatEditor } from 'vs/workbench/contrib/chat/browser/actions/chatClear';
 import { ChatEditorInput } from 'vs/workbench/contrib/chat/browser/chatEditorInput';
-import { ChatWidget, IChatViewState } from 'vs/workbench/contrib/chat/browser/chatWidget';
-import { ChatAgentLocation } from 'vs/workbench/contrib/chat/common/chatAgents';
+import { IChatViewState, ChatWidget } from 'vs/workbench/contrib/chat/browser/chatWidget';
 import { IChatModel, IExportableChatData, ISerializableChatData } from 'vs/workbench/contrib/chat/common/chatModel';
-import { CHAT_PROVIDER_ID } from 'vs/workbench/contrib/chat/common/chatParticipantContribTypes';
+import { clearChatEditor } from 'vs/workbench/contrib/chat/browser/actions/chatClear';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
+import { ChatAgentLocation } from 'vs/workbench/contrib/chat/common/chatAgents';
+import { CHAT_PROVIDER_ID } from 'vs/workbench/contrib/chat/common/chatParticipantContribTypes';
 
 export interface IChatEditorOptions extends IEditorOptions {
 	target?: { sessionId: string } | { data: IExportableChatData | ISerializableChatData };
@@ -64,7 +64,7 @@ export class ChatEditor extends EditorPane {
 			scopedInstantiationService.createInstance(
 				ChatWidget,
 				ChatAgentLocation.Panel,
-				undefined,
+				{ resource: true },
 				{ supportsFileReferences: true },
 				{
 					listForeground: editorForeground,

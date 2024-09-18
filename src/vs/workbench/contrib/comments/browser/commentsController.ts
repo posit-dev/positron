@@ -46,7 +46,6 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { URI } from 'vs/base/common/uri';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
-import { threadHasMeaningfulComments } from 'vs/workbench/contrib/comments/browser/commentsModel';
 
 export const ID = 'editor.contrib.review';
 
@@ -1016,7 +1015,7 @@ export class CommentController implements IEditorContribution {
 	}
 
 	private async openCommentsView(thread: languages.CommentThread) {
-		if (thread.comments && (thread.comments.length > 0) && threadHasMeaningfulComments(thread)) {
+		if (thread.comments && (thread.comments.length > 0)) {
 			const openViewState = this.configurationService.getValue<ICommentsConfiguration>(COMMENTS_SECTION).openView;
 			if (openViewState === 'file') {
 				return this.viewsService.openView(COMMENTS_VIEW_ID);

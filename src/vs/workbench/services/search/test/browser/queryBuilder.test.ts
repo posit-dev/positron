@@ -211,14 +211,12 @@ suite('QueryBuilder', () => {
 				contentPattern: PATTERN_INFO,
 				folderQueries: [{
 					folder: ROOT_1_URI,
-					excludePattern: [{
-						pattern: {
-							'bar/**': true,
-							'foo/**': {
-								'when': '$(basename).ts'
-							}
+					excludePattern: {
+						'bar/**': true,
+						'foo/**': {
+							'when': '$(basename).ts'
 						}
-					}]
+					}
 				}],
 				type: QueryType.Text
 			});
@@ -339,14 +337,12 @@ suite('QueryBuilder', () => {
 						'foo': true,
 						'foo/**': true
 					},
-					excludePattern: [{
-						pattern: {
-							'foo/**/*.js': true,
-							'bar/**': {
-								'when': '$(basename).ts'
-							}
+					excludePattern: {
+						'foo/**/*.js': true,
+						'bar/**': {
+							'when': '$(basename).ts'
 						}
-					}]
+					}
 				}],
 				type: QueryType.Text
 			});
@@ -379,8 +375,8 @@ suite('QueryBuilder', () => {
 			{
 				contentPattern: PATTERN_INFO,
 				folderQueries: [
-					{ folder: ROOT_1_URI, excludePattern: makeExcludePatternFromPatterns('foo/**/*.js') },
-					{ folder: ROOT_2_URI, excludePattern: makeExcludePatternFromPatterns('bar') },
+					{ folder: ROOT_1_URI, excludePattern: patternsToIExpression('foo/**/*.js') },
+					{ folder: ROOT_2_URI, excludePattern: patternsToIExpression('bar') },
 					{ folder: ROOT_3_URI }
 				],
 				type: QueryType.Text
@@ -406,9 +402,9 @@ suite('QueryBuilder', () => {
 							'src': true,
 							'src/**': true
 						},
-						excludePattern: [{
-							pattern: { 'bar': true }
-						}],
+						excludePattern: {
+							'bar': true
+						},
 					}
 				],
 				type: QueryType.Text
@@ -422,7 +418,7 @@ suite('QueryBuilder', () => {
 				PATTERN_INFO,
 				[ROOT_1_URI],
 				{
-					excludePattern: [{ pattern: 'foo' }],
+					excludePattern: 'foo',
 					expandPatterns: true
 				}
 			),
@@ -456,7 +452,7 @@ suite('QueryBuilder', () => {
 				PATTERN_INFO,
 				[ROOT_1_URI],
 				{
-					excludePattern: [{ pattern: './bar' }],
+					excludePattern: './bar',
 					expandPatterns: true
 				}
 			),
@@ -464,7 +460,7 @@ suite('QueryBuilder', () => {
 				contentPattern: PATTERN_INFO,
 				folderQueries: [{
 					folder: ROOT_1_URI,
-					excludePattern: makeExcludePatternFromPatterns('bar', 'bar/**'),
+					excludePattern: patternsToIExpression('bar', 'bar/**'),
 				}],
 				type: QueryType.Text
 			});
@@ -474,7 +470,7 @@ suite('QueryBuilder', () => {
 				PATTERN_INFO,
 				[ROOT_1_URI],
 				{
-					excludePattern: [{ pattern: './bar/**/*.ts' }],
+					excludePattern: './bar/**/*.ts',
 					expandPatterns: true
 				}
 			),
@@ -482,7 +478,7 @@ suite('QueryBuilder', () => {
 				contentPattern: PATTERN_INFO,
 				folderQueries: [{
 					folder: ROOT_1_URI,
-					excludePattern: makeExcludePatternFromPatterns('bar/**/*.ts', 'bar/**/*.ts/**'),
+					excludePattern: patternsToIExpression('bar/**/*.ts', 'bar/**/*.ts/**'),
 				}],
 				type: QueryType.Text
 			});
@@ -492,7 +488,7 @@ suite('QueryBuilder', () => {
 				PATTERN_INFO,
 				[ROOT_1_URI],
 				{
-					excludePattern: [{ pattern: '.\\bar\\**\\*.ts' }],
+					excludePattern: '.\\bar\\**\\*.ts',
 					expandPatterns: true
 				}
 			),
@@ -500,7 +496,7 @@ suite('QueryBuilder', () => {
 				contentPattern: PATTERN_INFO,
 				folderQueries: [{
 					folder: ROOT_1_URI,
-					excludePattern: makeExcludePatternFromPatterns('bar/**/*.ts', 'bar/**/*.ts/**'),
+					excludePattern: patternsToIExpression('bar/**/*.ts', 'bar/**/*.ts/**'),
 				}],
 				type: QueryType.Text
 			});
@@ -528,7 +524,7 @@ suite('QueryBuilder', () => {
 				[ROOT_1_URI],
 				{
 					extraFileResources: [getUri('/foo/bar.js')],
-					excludePattern: [{ pattern: '*.js' }],
+					excludePattern: '*.js',
 					expandPatterns: true
 				}
 			),
@@ -1083,12 +1079,6 @@ suite('QueryBuilder', () => {
 		});
 	});
 });
-function makeExcludePatternFromPatterns(...patterns: string[]): {
-	pattern: IExpression;
-}[] | undefined {
-	const pattern = patternsToIExpression(...patterns);
-	return pattern ? [{ pattern }] : undefined;
-}
 
 function assertEqualTextQueries(actual: ITextQuery, expected: ITextQuery): void {
 	expected = {
@@ -1106,10 +1096,9 @@ export function assertEqualQueries(actual: ITextQuery | IFileQuery, expected: IT
 	};
 
 	const folderQueryToCompareObject = (fq: IFolderQuery) => {
-		const excludePattern = fq.excludePattern?.map(e => normalizeExpression(e.pattern));
 		return {
 			path: fq.folder.fsPath,
-			excludePattern: excludePattern?.length ? excludePattern : undefined,
+			excludePattern: normalizeExpression(fq.excludePattern),
 			includePattern: normalizeExpression(fq.includePattern),
 			fileEncoding: fq.fileEncoding
 		};

@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { createWebWorker } from 'vs/base/browser/defaultWorkerFactory';
+import { DefaultWorkerFactory } from 'vs/base/browser/defaultWorkerFactory';
 import { URI } from 'vs/base/common/uri';
-import { Proxied } from 'vs/base/common/worker/simpleWorker';
+import { SimpleWorkerClient } from 'vs/base/common/worker/simpleWorker';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -14,6 +14,7 @@ import { IV8Profile } from 'vs/platform/profiling/common/profiling';
 import { BottomUpSample } from 'vs/platform/profiling/common/profilingModel';
 import { reportSample } from 'vs/platform/profiling/common/profilingTelemetrySpec';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
+
 
 export const enum ProfilingOutput {
 	Failure,
@@ -40,6 +41,8 @@ class ProfileAnalysisWorkerService implements IProfileAnalysisWorkerService {
 
 	declare _serviceBrand: undefined;
 
+	private readonly _workerFactory = new DefaultWorkerFactory('CpuProfileAnalysis');
+
 	constructor(
 		@ITelemetryService private readonly _telemetryService: ITelemetryService,
 		@ILogService private readonly _logService: ILogService,
@@ -47,13 +50,14 @@ class ProfileAnalysisWorkerService implements IProfileAnalysisWorkerService {
 
 	private async _withWorker<R>(callback: (worker: Proxied<IProfileAnalysisWorker>) => Promise<R>): Promise<R> {
 
-		const worker = createWebWorker<IProfileAnalysisWorker>(
+		const worker = new SimpleWorkerClient<Proxied<IProfileAnalysisWorker>, {}>(
+			this._workerFactory,
 			'vs/platform/profiling/electron-sandbox/profileAnalysisWorker',
-			'CpuProfileAnalysisWorker'
+			{ /* host */ }
 		);
 
 		try {
-			const r = await callback(worker.proxy);
+			const r = await callback(await worker.getProxyObject());
 			return r;
 		} finally {
 			worker.dispose();
@@ -62,7 +66,7 @@ class ProfileAnalysisWorkerService implements IProfileAnalysisWorkerService {
 
 	async analyseBottomUp(profile: IV8Profile, callFrameClassifier: IScriptUrlClassifier, perfBaseline: number, sendAsErrorTelemtry: boolean): Promise<ProfilingOutput> {
 		return this._withWorker(async worker => {
-			const result = await worker.$analyseBottomUp(profile);
+			const result = await worker.analyseBottomUp(profile);
 			if (result.kind === ProfilingOutput.Interesting) {
 				for (const sample of result.samples) {
 					reportSample({
@@ -78,7 +82,7 @@ class ProfileAnalysisWorkerService implements IProfileAnalysisWorkerService {
 
 	async analyseByLocation(profile: IV8Profile, locations: [location: URI, id: string][]): Promise<[category: string, aggregated: number][]> {
 		return this._withWorker(async worker => {
-			const result = await worker.$analyseByUrlCategory(profile, locations);
+			const result = await worker.analyseByUrlCategory(profile, locations);
 			return result;
 		});
 	}
@@ -99,8 +103,15 @@ export interface CategoryAnalysis {
 }
 
 export interface IProfileAnalysisWorker {
-	$analyseBottomUp(profile: IV8Profile): BottomUpAnalysis;
-	$analyseByUrlCategory(profile: IV8Profile, categories: [url: URI, category: string][]): [category: string, aggregated: number][];
+	analyseBottomUp(profile: IV8Profile): BottomUpAnalysis;
+	analyseByUrlCategory(profile: IV8Profile, categories: [url: URI, category: string][]): [category: string, aggregated: number][];
 }
+
+// TODO@jrieken move into worker logic
+type Proxied<T> = { [K in keyof T]: T[K] extends (...args: infer A) => infer R
+	? (...args: A) => Promise<Awaited<R>>
+	: never
+};
+
 
 registerSingleton(IProfileAnalysisWorkerService, ProfileAnalysisWorkerService, InstantiationType.Delayed);

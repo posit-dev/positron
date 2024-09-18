@@ -57,11 +57,6 @@ declare module 'vscode' {
 		readonly enableCommandDetection: boolean;
 
 		/**
-		 * If the chat participant or command was automatically assigned.
-		 */
-		readonly isParticipantDetected: boolean;
-
-		/**
 		 * The location at which the chat is happening. This will always be one of the supported values
 		 *
 		 * @deprecated

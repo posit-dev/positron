@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 import { Queue } from 'vs/base/common/async';
 import { IStringDictionary } from 'vs/base/common/collections';
-import { LRUCache } from 'vs/base/common/map';
 import { Schemas } from 'vs/base/common/network';
 import { IProcessEnvironment } from 'vs/base/common/platform';
 import * as Types from 'vs/base/common/types';
@@ -15,7 +14,6 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ConfigurationTarget, IConfigurationOverrides, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ILabelService } from 'vs/platform/label/common/label';
 import { IInputOptions, IPickOptions, IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { IWorkspaceContextService, IWorkspaceFolder, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 import { EditorResourceAccessor, SideBySideEditor } from 'vs/workbench/common/editor';
 import { ConfiguredInput } from 'vs/workbench/services/configurationResolver/common/configurationResolver';
@@ -23,9 +21,6 @@ import { AbstractVariableResolverService } from 'vs/workbench/services/configura
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
-
-const LAST_INPUT_STORAGE_KEY = 'configResolveInputLru';
-const LAST_INPUT_CACHE_SIZE = 5;
 
 export abstract class BaseConfigurationResolverService extends AbstractVariableResolverService {
 
@@ -47,7 +42,6 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 		private readonly labelService: ILabelService,
 		private readonly pathService: IPathService,
 		extensionService: IExtensionService,
-		private readonly storageService: IStorageService,
 	) {
 		super({
 			getFolderUri: (folderName: string): uri | undefined => {
@@ -220,7 +214,7 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 			switch (type) {
 
 				case 'input':
-					result = await this.showUserInput(section, name, inputs);
+					result = await this.showUserInput(name, inputs);
 					break;
 
 				case 'command': {
@@ -288,7 +282,7 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 	 * @param variable Name of the input variable.
 	 * @param inputInfos Information about each possible input variable.
 	 */
-	private showUserInput(section: string | undefined, variable: string, inputInfos: ConfiguredInput[]): Promise<string | undefined> {
+	private showUserInput(variable: string, inputInfos: ConfiguredInput[]): Promise<string | undefined> {
 
 		if (!inputInfos) {
 			return Promise.reject(new Error(nls.localize('inputVariable.noInputSection', "Variable '{0}' must be defined in an '{1}' section of the debug or task configuration.", variable, 'inputs')));
@@ -302,17 +296,13 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 				throw new Error(nls.localize('inputVariable.missingAttribute', "Input variable '{0}' is of type '{1}' and must include '{2}'.", variable, info.type, attrName));
 			};
 
-			const defaultValueMap = this.readInputLru();
-			const defaultValueKey = `${section}.${variable}`;
-			const previousPickedValue = defaultValueMap.get(defaultValueKey);
-
 			switch (info.type) {
 
 				case 'promptString': {
 					if (!Types.isString(info.description)) {
 						missingAttribute('description');
 					}
-					const inputOptions: IInputOptions = { prompt: info.description, ignoreFocusLost: true, value: previousPickedValue };
+					const inputOptions: IInputOptions = { prompt: info.description, ignoreFocusLost: true };
 					if (info.default) {
 						inputOptions.value = info.default;
 					}
@@ -320,9 +310,6 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 						inputOptions.password = info.password;
 					}
 					return this.userInputAccessQueue.queue(() => this.quickInputService.input(inputOptions)).then(resolvedInput => {
-						if (typeof resolvedInput === 'string') {
-							this.storeInputLru(defaultValueMap.set(defaultValueKey, resolvedInput));
-						}
 						return resolvedInput as string;
 					});
 				}
@@ -357,8 +344,6 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 						if (value === info.default) {
 							item.description = nls.localize('inputVariable.defaultInputValue', "(Default)");
 							picks.unshift(item);
-						} else if (!info.default && value === previousPickedValue) {
-							picks.unshift(item);
 						} else {
 							picks.push(item);
 						}
@@ -366,9 +351,7 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 					const pickOptions: IPickOptions<PickStringItem> = { placeHolder: info.description, matchOnDetail: true, ignoreFocusLost: true };
 					return this.userInputAccessQueue.queue(() => this.quickInputService.pick(picks, pickOptions, undefined)).then(resolvedInput => {
 						if (resolvedInput) {
-							const value = (resolvedInput as PickStringItem).value;
-							this.storeInputLru(defaultValueMap.set(defaultValueKey, value));
-							return value;
+							return (resolvedInput as PickStringItem).value;
 						}
 						return undefined;
 					});
@@ -391,23 +374,5 @@ export abstract class BaseConfigurationResolverService extends AbstractVariableR
 			}
 		}
 		return Promise.reject(new Error(nls.localize('inputVariable.undefinedVariable', "Undefined input variable '{0}' encountered. Remove or define '{0}' to continue.", variable)));
-	}
-
-	private storeInputLru(lru: LRUCache<string, string>): void {
-		this.storageService.store(LAST_INPUT_STORAGE_KEY, JSON.stringify(lru.toJSON()), StorageScope.WORKSPACE, StorageTarget.MACHINE);
-	}
-
-	private readInputLru(): LRUCache<string, string> {
-		const contents = this.storageService.get(LAST_INPUT_STORAGE_KEY, StorageScope.WORKSPACE);
-		const lru = new LRUCache<string, string>(LAST_INPUT_CACHE_SIZE);
-		try {
-			if (contents) {
-				lru.fromJSON(JSON.parse(contents));
-			}
-		} catch {
-			// ignored
-		}
-
-		return lru;
 	}
 }

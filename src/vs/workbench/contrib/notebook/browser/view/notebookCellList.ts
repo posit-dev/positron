@@ -1152,6 +1152,9 @@ export class NotebookCellList extends WorkbenchList<CellViewModel> implements ID
 			// Scrolled into view from above
 			this.view.setScrollTop(positionTop - 30);
 		}
+
+
+		element.revealRangeInCenter(range);
 	}
 	//#endregion
 

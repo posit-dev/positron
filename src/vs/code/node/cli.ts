@@ -117,7 +117,8 @@ export async function main(argv: string[]): Promise<any> {
 
 	// Extensions Management
 	else if (shouldSpawnCliProcess(args)) {
-		const cli = await import(['vs', 'code', 'node', 'cliProcessMain'].join('/') /* TODO@esm workaround to prevent esbuild from inlining this */);
+
+		const cli = await import('vs/code/node/cliProcessMain');
 		await cli.main(args);
 
 		return;
@@ -397,10 +398,7 @@ export async function main(argv: string[]): Promise<any> {
 									return false;
 								}
 								if (target.type === 'page') {
-									return target.url.indexOf('workbench/workbench.html') > 0 ||
-										target.url.indexOf('workbench/workbench-dev.html') > 0 ||
-										target.url.indexOf('workbench/workbench.esm.html') > 0 ||
-										target.url.indexOf('workbench/workbench-dev.esm.html') > 0;
+									return target.url.indexOf('workbench/workbench.html') > 0 || target.url.indexOf('workbench/workbench-dev.html') > 0;
 								} else {
 									return true;
 								}

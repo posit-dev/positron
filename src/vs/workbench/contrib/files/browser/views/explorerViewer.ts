@@ -65,9 +65,6 @@ import { timeout } from 'vs/base/common/async';
 import { IFilesConfigurationService } from 'vs/workbench/services/filesConfiguration/common/filesConfigurationService';
 import { mainWindow } from 'vs/base/browser/window';
 import { IExplorerFileContribution, explorerFileContribRegistry } from 'vs/workbench/contrib/files/browser/explorerFileContrib';
-// --- Start PWB: disable file downloads ---
-import { IBrowserWorkbenchEnvironmentService } from 'vs/workbench/services/environment/browser/environmentService';
-// --- End PWB ---
 
 export class ExplorerDelegate implements IListVirtualDelegate<ExplorerItem> {
 
@@ -883,10 +880,6 @@ export class FileSorter implements ITreeSorter<ExplorerItem> {
 
 		const sortOrder = this.explorerService.sortOrderConfiguration.sortOrder;
 		const lexicographicOptions = this.explorerService.sortOrderConfiguration.lexicographicOptions;
-		const reverse = this.explorerService.sortOrderConfiguration.reverse;
-		if (reverse) {
-			[statA, statB] = [statB, statA];
-		}
 
 		let compareFileNames;
 		let compareFileExtensions;
@@ -1008,10 +1001,7 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 		@IConfigurationService private configurationService: IConfigurationService,
 		@IInstantiationService private instantiationService: IInstantiationService,
 		@IWorkspaceEditingService private workspaceEditingService: IWorkspaceEditingService,
-		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService,
-		// --- Start PWB: disable file downloads ---
-		@IBrowserWorkbenchEnvironmentService protected readonly environmentService: IBrowserWorkbenchEnvironmentService
-		// --- End PWB ---
+		@IUriIdentityService private readonly uriIdentityService: IUriIdentityService
 	) {
 		const updateDropEnablement = (e: IConfigurationChangeEvent | undefined) => {
 			if (!e || e.affectsConfiguration('explorer.enableDragAndDrop')) {
@@ -1236,19 +1226,15 @@ export class FileDragAndDrop implements ITreeDragAndDrop<ExplorerItem> {
 
 			// External file DND (Import/Upload file)
 			if (data instanceof NativeDragAndDropData) {
-				// --- Start PWB: disable file downloads ---
-				if (this.environmentService.isEnabledFileUploads) {
-					// Use local file import when supported
-					if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
-						const fileImport = this.instantiationService.createInstance(ExternalFileImport);
-						await fileImport.import(resolvedTarget, originalEvent, mainWindow);
-					}
-					// Otherwise fallback to browser based file upload
-					else {
-						const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
-						await browserUpload.upload(target, originalEvent);
-					}
-					// --- End PWB ---
+				// Use local file import when supported
+				if (!isWeb || (isTemporaryWorkspace(this.contextService.getWorkspace()) && WebFileSystemAccess.supported(mainWindow))) {
+					const fileImport = this.instantiationService.createInstance(ExternalFileImport);
+					await fileImport.import(resolvedTarget, originalEvent, mainWindow);
+				}
+				// Otherwise fallback to browser based file upload
+				else {
+					const browserUpload = this.instantiationService.createInstance(BrowserFileUpload);
+					await browserUpload.upload(target, originalEvent);
 				}
 			}
 

@@ -15,6 +15,11 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 export const OUTPUT_MIME = 'text/x-code-output';
 
 /**
+ * Output resource scheme.
+ */
+export const OUTPUT_SCHEME = 'output';
+
+/**
  * Id used by the output editor.
  */
 export const OUTPUT_MODE_ID = 'Log';
