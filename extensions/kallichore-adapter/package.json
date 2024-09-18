@@ -1,0 +1,25 @@
+{
+  "name": "kallichore-adapter",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "vscode",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.61.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "gulp compile-extension:kallichore-adapter",
+    "watch": "gulp watch-extension:kallichore-adapter"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}

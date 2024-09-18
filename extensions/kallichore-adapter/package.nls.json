@@ -1,0 +1,4 @@
+{
+	"displayName": "Positron Kallichore Adapter",
+	"description": "Runs Jupyter Kernels in the Kallichore Jupyter Kernel Supervisor"
+}
