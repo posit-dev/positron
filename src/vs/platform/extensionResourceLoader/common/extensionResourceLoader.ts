@@ -15,7 +15,6 @@ import { getServiceMachineId } from 'vs/platform/externalServices/common/service
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { TelemetryLevel } from 'vs/platform/telemetry/common/telemetry';
 import { getTelemetryLevel, supportsTelemetry } from 'vs/platform/telemetry/common/telemetryUtils';
-import { RemoteAuthorities } from 'vs/base/common/network';
 import { TargetPlatform } from 'vs/platform/extensions/common/extensions';
 
 const WEB_EXTENSION_RESOURCE_END_POINT_SEGMENT = '/web-extension-resource/';
@@ -98,7 +97,9 @@ export abstract class AbstractExtensionResourceLoaderService implements IExtensi
 					: version,
 				path: 'extension'
 			}));
+			// --- Start PWB ---
 			return this._isWebExtensionResourceEndPoint(uri) ? URI.joinPath(URI.parse(window.location.href), uri.path) : uri;
+			// --- End PWB ---
 		}
 		return undefined;
 	}
@@ -140,9 +141,11 @@ export abstract class AbstractExtensionResourceLoaderService implements IExtensi
 	}
 
 	protected _isWebExtensionResourceEndPoint(uri: URI): boolean {
-		const uriPath = uri.path, serverRootPath = RemoteAuthorities.getServerRootPath();
+		// --- Start PWB: Custom extensions gallery ---
+		const uriPath = uri.path;
 		// test if the path starts with the server root path followed by the web extension resource end point segment
-		return uriPath.startsWith(serverRootPath) && uriPath.startsWith(WEB_EXTENSION_RESOURCE_END_POINT_SEGMENT, serverRootPath.length);
+		return uriPath.startsWith(WEB_EXTENSION_RESOURCE_END_POINT_SEGMENT);
+		// --- End PWB: Custom extensions gallery ---
 	}
 
 }

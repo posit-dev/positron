@@ -127,6 +127,7 @@ export interface IExtensionHost {
 	start(): Promise<IMessagePassingProtocol>;
 	getInspectPort(): { port: number; host: string } | undefined;
 	enableInspectPort(): Promise<boolean>;
+	disconnect?(): Promise<void>;
 	dispose(): void;
 }
 
@@ -312,16 +313,9 @@ function extensionDescriptionArrayToMap(extensions: IExtensionDescription[]): Ex
 }
 
 export function isProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): boolean {
-	// --- Start Positron ---
-	// Enable all proposed APIs for builtin extensions.
-	if (extension.isBuiltin) {
-		return true;
-	}
-	// --- End Positron ---
-	if (!extension.enabledApiProposals) {
-		return false;
-	}
-	return extension.enabledApiProposals.includes(proposal);
+	// --- Start PWB: Always allow proposed API
+	return true;
+	// --- End PWB
 }
 
 export function checkProposedApiEnabled(extension: IExtensionDescription, proposal: ApiProposalName): void {
@@ -389,6 +383,11 @@ export interface WillStopExtensionHostsEvent {
 	 * user.
 	 */
 	readonly reason: string;
+
+	/**
+	 * A flag to indicate if the operation was triggered automatically
+	 */
+	readonly auto: boolean;
 
 	/**
 	 * Allows to veto the stopping of extension hosts. The veto can be a long running

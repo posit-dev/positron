@@ -12,6 +12,9 @@
  */
 
 // ESM-comment-begin
+// Keep bootstrap-amd.js from redefining 'fs'.
+delete process.env['ELECTRON_RUN_AS_NODE'];
+
 const path = require('path');
 const http = require('http');
 const os = require('os');
@@ -25,18 +28,19 @@ const perf = require(`./vs/base/common/performance`);
 const minimist = require('minimist');
 // ESM-comment-end
 // ESM-uncomment-begin
+// import './bootstrap-server.js'; // this MUST come before other imports as it changes global state
 // import * as path from 'path';
 // import * as http from 'http';
 // import * as os from 'os';
 // import * as readline from 'readline';
 // import { performance }from 'perf_hooks';
 // import { fileURLToPath } from 'url';
+// import minimist from 'minimist';
 // import * as bootstrapNode from './bootstrap-node.js';
 // import * as bootstrapAmd from './bootstrap-amd.js';
 // import { resolveNLSConfiguration } from './vs/base/node/nls.js';
 // import { product } from './bootstrap-meta.js';
 // import * as perf from './vs/base/common/performance.js';
-// import minimist from 'minimist';
 //
 // const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // ESM-uncomment-end
@@ -50,7 +54,9 @@ async function start() {
 	// Do a quick parse to determine if a server or the cli needs to be started
 	const parsedArgs = minimist(process.argv.slice(2), {
 		boolean: ['start-server', 'list-extensions', 'print-ip-address', 'help', 'version', 'accept-server-license-terms', 'update-extensions'],
-		string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility'],
+		// Start PWB:cert - adding cert and cert-key options to string arg list
+		string: ['install-extension', 'install-builtin-extension', 'uninstall-extension', 'locate-extension', 'socket-path', 'host', 'port', 'compatibility', 'cert-key', 'cert'],
+		// End PWB:cert
 		alias: { help: 'h', version: 'v' }
 	});
 	['host', 'port', 'accept-server-license-terms'].forEach(e => {
@@ -92,6 +98,13 @@ async function start() {
 		return _remoteExtensionHostAgentServerPromise;
 	};
 
+	// --- Start PWB ---
+	const fs = require('fs');
+	const http = require('http');
+	const https = require('https');
+	const os = require('os');
+	// --- End PWB ---
+
 	if (Array.isArray(product.serverLicense) && product.serverLicense.length) {
 		console.log(product.serverLicense.join('\n'));
 		if (product.serverLicensePrompt && parsedArgs['accept-server-license-terms'] !== true) {
@@ -116,7 +129,12 @@ async function start() {
 
 	/** @type {string | import('net').AddressInfo | null} */
 	let address = null;
-	const server = http.createServer(async (req, res) => {
+
+	const useSSL = (parsedArgs['cert-key'] && parsedArgs['cert']) ? true : false;
+	const server = (useSSL ? https : http).createServer(useSSL ? {
+		key: fs.readFileSync(parsedArgs['cert-key']),
+		cert: fs.readFileSync(parsedArgs['cert']),
+	} : {}, async (req, res) => {
 		if (firstRequest) {
 			firstRequest = false;
 			perf.mark('code/server/firstRequest');
@@ -124,14 +142,18 @@ async function start() {
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
 		return remoteExtensionHostAgentServer.handleRequest(req, res);
 	});
-	server.on('upgrade', async (req, socket) => {
+	// PWB Modify Start: Add upgradedHead parameter to handleUpgrade for server proxy support
+	server.on('upgrade', async (req, socket, upgradeHead) => {
+		// PWB Modify End
 		if (firstWebSocket) {
 			firstWebSocket = false;
 			perf.mark('code/server/firstWebSocket');
 		}
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
+		// PWB Modify Start: Add upgradedHead parameter to handleUpgrade for server proxy support
 		// @ts-ignore
-		return remoteExtensionHostAgentServer.handleUpgrade(req, socket);
+		return remoteExtensionHostAgentServer.handleUpgrade(req, socket, upgradeHead);
+		// PWB Modify End
 	});
 	server.on('error', async (err) => {
 		const remoteExtensionHostAgentServer = await getRemoteExtensionHostAgentServer();
@@ -279,13 +301,12 @@ async function findFreePort(host, start, end) {
  */
 function loadCode(nlsConfiguration) {
 	return new Promise((resolve, reject) => {
-		delete process.env['ELECTRON_RUN_AS_NODE']; // Keep bootstrap-amd.js from redefining 'fs'.
 
 		/** @type {INLSConfiguration} */
 		process.env['VSCODE_NLS_CONFIG'] = JSON.stringify(nlsConfiguration); // required for `bootstrap-amd` to pick up NLS messages
 
 		// See https://github.com/microsoft/vscode-remote-release/issues/6543
-		// We would normally install a SIGPIPE listener in bootstrap.js
+		// We would normally install a SIGPIPE listener in bootstrap-node.js
 		// But in certain situations, the console itself can be in a broken pipe state
 		// so logging SIGPIPE to the console will cause an infinite async loop
 		process.env['VSCODE_HANDLES_SIGPIPE'] = 'true';
@@ -293,10 +314,10 @@ function loadCode(nlsConfiguration) {
 		if (process.env['VSCODE_DEV']) {
 			// When running out of sources, we need to load node modules from remote/node_modules,
 			// which are compiled against nodejs, not electron
-			process.env['VSCODE_INJECT_NODE_MODULE_LOOKUP_PATH'] = process.env['VSCODE_INJECT_NODE_MODULE_LOOKUP_PATH'] || path.join(__dirname, '..', 'remote', 'node_modules');
-			bootstrapNode.injectNodeModuleLookupPath(process.env['VSCODE_INJECT_NODE_MODULE_LOOKUP_PATH']);
+			process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] = process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'] || path.join(__dirname, '..', 'remote', 'node_modules');
+			bootstrapNode.devInjectNodeModuleLookupPath(process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH']);
 		} else {
-			delete process.env['VSCODE_INJECT_NODE_MODULE_LOOKUP_PATH'];
+			delete process.env['VSCODE_DEV_INJECT_NODE_MODULE_LOOKUP_PATH'];
 		}
 		bootstrapAmd.load('vs/server/node/server.main', resolve, reject);
 	});

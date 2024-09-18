@@ -34,7 +34,7 @@ if [ "$VSCODE_INJECTION" == "1" ]; then
 
 		# Apply any explicit path prefix (see #99878)
 		if [ -n "${VSCODE_PATH_PREFIX:-}" ]; then
-			export PATH=$VSCODE_PATH_PREFIX$PATH
+			export PATH="$VSCODE_PATH_PREFIX$PATH"
 			builtin unset VSCODE_PATH_PREFIX
 		fi
 	fi
@@ -328,10 +328,10 @@ __vsc_restore_exit_code() {
 
 __vsc_prompt_cmd_original() {
 	__vsc_status="$?"
+	builtin local cmd
 	__vsc_restore_exit_code "${__vsc_status}"
 	# Evaluate the original PROMPT_COMMAND similarly to how bash would normally
 	# See https://unix.stackexchange.com/a/672843 for technique
-	builtin local cmd
 	for cmd in "${__vsc_original_prompt_command[@]}"; do
 		eval "${cmd:-}"
 	done

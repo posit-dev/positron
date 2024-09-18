@@ -28,6 +28,13 @@ import { IProductConfiguration } from 'vs/base/common/product';
 import { isString } from 'vs/base/common/types';
 import { CharCode } from 'vs/base/common/charCode';
 import { IExtensionManifest } from 'vs/platform/extensions/common/extensions';
+import { isESM } from 'vs/base/common/amd';
+import { ICSSDevelopmentService } from 'vs/platform/cssDev/node/cssDevService';
+
+// --- Start PWB: Server proxy support ---
+const proxyServer = <typeof import('http-proxy')>require.__$__nodeRequire('http-proxy');
+import { kProxyRegex } from 'vs/server/node/pwbConstants';
+// --- End PWB ---
 
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
@@ -98,7 +105,10 @@ export class WebClientServer {
 
 	private readonly _staticRoute: string;
 	private readonly _callbackRoute: string;
+	// --- Start PWB ---
 	private readonly _webExtensionRoute: string;
+	private readonly _proxyServer;
+	// --- End PWB ---
 
 	constructor(
 		private readonly _connectionToken: ServerConnectionToken,
@@ -108,12 +118,29 @@ export class WebClientServer {
 		@ILogService private readonly _logService: ILogService,
 		@IRequestService private readonly _requestService: IRequestService,
 		@IProductService private readonly _productService: IProductService,
+		@ICSSDevelopmentService private readonly _cssDevService: ICSSDevelopmentService
 	) {
 		this._webExtensionResourceUrlTemplate = this._productService.extensionsGallery?.resourceUrlTemplate ? URI.parse(this._productService.extensionsGallery.resourceUrlTemplate) : undefined;
 
 		this._staticRoute = `${serverRootPath}/static`;
 		this._callbackRoute = `${serverRootPath}/callback`;
-		this._webExtensionRoute = `${serverRootPath}/web-extension-resource`;
+		this._webExtensionRoute = `/web-extension-resource`;
+
+		// --- Start PWB: Server proxy support
+		this._proxyServer = proxyServer.createProxyServer({});
+		this._proxyServer.on('proxyRes', (res: http.IncomingMessage, req: http.IncomingMessage) => {
+			const base = req.url?.split('/').slice(0, 3).join('/');
+			if (res.headers.location && res.headers.location.startsWith('/') && base) {
+				res.headers.location = base + res.headers.location;
+			}
+		});
+
+		this._proxyServer.on('error', (err, req, res) => {
+			const message = `Could not proxy ${req.method} request to ${req.url}: ${err.message}`;
+			console.error(message);
+			res.end(message);
+		});
+		// --- End PWB ---
 	}
 
 	/**
@@ -124,7 +151,6 @@ export class WebClientServer {
 	async handle(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: url.UrlWithParsedQuery): Promise<void> {
 		try {
 			const pathname = parsedUrl.pathname!;
-
 			if (pathname.startsWith(this._staticRoute) && pathname.charCodeAt(this._staticRoute.length) === CharCode.Slash) {
 				return this._handleStatic(req, res, parsedUrl);
 			}
@@ -135,6 +161,16 @@ export class WebClientServer {
 				// callback support
 				return this._handleCallback(res);
 			}
+			// --- PWB Start: Server proxy support ---
+			if (kProxyRegex.test(pathname)) {
+				const path: string = pathname.replace('/proxy/', 'http://0.0.0.0:');
+
+				return this._proxyServer.web(req, res, {
+					ignorePath: true,
+					target: path
+				});
+			}
+			// --- PWB End ---
 			if (pathname.startsWith(this._webExtensionRoute) && pathname.charCodeAt(this._webExtensionRoute.length) === CharCode.Slash) {
 				// extension resource support
 				return this._handleWebExtensionResource(req, res, parsedUrl);
@@ -148,6 +184,20 @@ export class WebClientServer {
 			return serveError(req, res, 500, 'Internal Server Error.');
 		}
 	}
+
+	// PWB Start: Proxy server websocket support
+	/**
+	 * Handle proxy requests for websockets
+	 */
+	async handleUpgrade(req: http.IncomingMessage, socket: any, upgradeHead: any, parsedUrl: string): Promise<void> {
+		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+		return this._proxyServer.ws(req, socket, upgradeHead, {
+			ignorePath: true,
+			target: path
+		});
+	}
+	// PWB End
+
 	/**
 	 * Handle HTTP requests for /static/*
 	 */
@@ -269,20 +319,10 @@ export class WebClientServer {
 			return void res.end();
 		}
 
-		const getFirstHeader = (headerName: string) => {
-			const val = req.headers[headerName];
-			return Array.isArray(val) ? val[0] : val;
-		};
-
+		// Start PWB: support use as web app (removed code to retrieve removeAuthority from a header)
+		const remoteAuthority = 'remote';
+		// End PWB
 		const useTestResolver = (!this._environmentService.isBuilt && this._environmentService.args['use-test-resolver']);
-		const remoteAuthority = (
-			useTestResolver
-				? 'test+test'
-				: (getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host)
-		);
-		if (!remoteAuthority) {
-			return serveError(req, res, 400, `Bad request.`);
-		}
 
 		function asJSON(value: unknown): string {
 			return JSON.stringify(value).replace(/"/g, '&quot;');
@@ -297,7 +337,7 @@ export class WebClientServer {
 
 		const resolveWorkspaceURI = (defaultLocation?: string) => defaultLocation && URI.file(path.resolve(defaultLocation)).with({ scheme: Schemas.vscodeRemote, authority: remoteAuthority });
 
-		const filePath = FileAccess.asFileUri(this._environmentService.isBuilt ? 'vs/code/browser/workbench/workbench.html' : 'vs/code/browser/workbench/workbench-dev.html').fsPath;
+		const filePath = FileAccess.asFileUri(`vs/code/browser/workbench/workbench${this._environmentService.isBuilt ? '' : '-dev'}.${isESM ? 'esm.' : ''}html`).fsPath;
 		const authSessionInfo = !this._environmentService.isBuilt && this._environmentService.args['github-auth'] ? {
 			id: generateUuid(),
 			providerId: 'github',
@@ -305,25 +345,18 @@ export class WebClientServer {
 			scopes: [['user:email'], ['repo']]
 		} : undefined;
 
-		// --- Start Positron ---
-		// Adds support for serving at non-root paths.
+		// --- Start PWB: add base web prefix ---
 		const base = relativeRoot(req.url!);
-		// --- End Positron ---
-		//
+		const vscodeBase = relativePath(req.url!);
+		// --- End PWB ---
+
 		const productConfiguration = {
 			embedderIdentifier: 'server-distro',
-			// --- Start Positron ---
-			// Adds support for serving at non-root paths.
+			// --- Start PWB: web prefix, proxy port url, custom extensions gallery ---
 			rootEndpoint: base,
-			// --- End Positron ---
-			extensionsGallery: this._webExtensionResourceUrlTemplate && this._productService.extensionsGallery ? {
-				...this._productService.extensionsGallery,
-				resourceUrlTemplate: this._webExtensionResourceUrlTemplate.with({
-					scheme: 'http',
-					authority: remoteAuthority,
-					path: `${this._webExtensionRoute}/${this._webExtensionResourceUrlTemplate.authority}${this._webExtensionResourceUrlTemplate.path}`
-				}).toString(true)
-			} : undefined
+			proxyEndpointTemplate: base + `/p/{{port}}/${process.env.RS_PORT_TOKEN}`,
+			extensionsGallery: this._productService.extensionsGallery,
+			// --- End PWB ---
 		} satisfies Partial<IProductConfiguration>;
 
 		if (!this._environmentService.isBuilt) {
@@ -336,6 +369,16 @@ export class WebClientServer {
 		const workbenchWebConfiguration = {
 			remoteAuthority,
 			serverBasePath: this._basePath,
+			// --- Start PWB: Local storage ---
+			userDataPath: this._environmentService.userDataPath,
+			// --- End PWB ---
+			// --- Start PWB: disable file downloads ---
+			isEnabledFileDownloads: !this._environmentService.args['disable-file-downloads'],
+			isEnabledFileUploads: !this._environmentService.args['disable-file-uploads'],
+			// --- End PWB ---
+			// --- Start PWB: serve same origin ---
+			webviewEndpoint: vscodeBase + this._staticRoute + '/out/vs/workbench/contrib/webview/browser/pre',
+			// --- End PWB: serve same origin ---
 			_wrapWebWorkerExtHostInIframe,
 			developmentOptions: { enableSmokeTestDriver: this._environmentService.args['enable-smoke-test-driver'] ? true : undefined, logLevel: this._logService.getLevel() },
 			settingsSyncOptions: !this._environmentService.isBuilt && this._environmentService.args['enable-sync'] ? { enabled: true } : undefined,
@@ -360,10 +403,26 @@ export class WebClientServer {
 		const values: { [key: string]: string } = {
 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
 			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
-			WORKBENCH_WEB_BASE_URL: this._staticRoute,
+			// --- Start PWB ---
+			// WORKBENCH_WEB_BASE_URL: this._staticRoute,
+			WORKBENCH_WEB_BASE_URL: vscodeBase + this._staticRoute,
+			WORKBENCH_NLS_BASE_URL: WORKBENCH_NLS_BASE_URL ?? '',
 			WORKBENCH_NLS_URL,
-			WORKBENCH_NLS_FALLBACK_URL: `${this._staticRoute}/out/nls.messages.js`
+			WORKBENCH_NLS_FALLBACK_URL: `${vscodeBase}${this._staticRoute}/out/nls.messages.js`,
+			BASE: base,
+			VS_BASE: vscodeBase,
+			// --- End PWB ---
 		};
+
+		// DEV ---------------------------------------------------------------------------------------
+		// DEV: This is for development and enables loading CSS via import-statements via import-maps.
+		// DEV: The server needs to send along all CSS modules so that the client can construct the
+		// DEV: import-map.
+		// DEV ---------------------------------------------------------------------------------------
+		if (this._cssDevService.isEnabled) {
+			const cssModules = await this._cssDevService.getCssModules();
+			values['WORKBENCH_DEV_CSS_MODULES'] = JSON.stringify(cssModules);
+		}
 
 		if (useTestResolver) {
 			const bundledExtensions: { extensionPath: string; packageJSON: IExtensionManifest }[] = [];
@@ -383,13 +442,15 @@ export class WebClientServer {
 			return void res.end('Not found');
 		}
 
-		const webWorkerExtensionHostIframeScriptSHA = 'sha256-V28GQnL3aYxbwgpV3yW1oJ+VKKe/PBSzWntNyH8zVXA=';
+		const webWorkerExtensionHostIframeScriptSHA = isESM ? 'sha256-2Q+j4hfT09+1+imS46J2YlkCtHWQt0/BE79PXjJ0ZJ8=' : 'sha256-V28GQnL3aYxbwgpV3yW1oJ+VKKe/PBSzWntNyH8zVXA=';
 
 		const cspDirectives = [
 			'default-src \'self\';',
 			'img-src \'self\' https: data: blob:;',
 			'media-src \'self\';',
-			`script-src 'self' 'unsafe-eval' ${WORKBENCH_NLS_BASE_URL ?? ''} ${this._getScriptCspHashes(data).join(' ')} '${webWorkerExtensionHostIframeScriptSHA}' ${useTestResolver ? '' : `http://${remoteAuthority}`};`, // the sha is the same as in src/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html
+			isESM ?
+				`script-src 'self' 'unsafe-eval' ${WORKBENCH_NLS_BASE_URL ?? ''} blob: 'nonce-1nline-m4p' ${this._getScriptCspHashes(data).join(' ')} '${webWorkerExtensionHostIframeScriptSHA}' 'sha256-/r7rqQ+yrxt57sxLuQ6AMYcy/lUpvAIzHjIJt/OeLWU=' ${useTestResolver ? '' : `http://${remoteAuthority}`};` : // the sha is the same as in src/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.esm.html
+				`script-src 'self' 'unsafe-eval' ${WORKBENCH_NLS_BASE_URL ?? ''} ${this._getScriptCspHashes(data).join(' ')} '${webWorkerExtensionHostIframeScriptSHA}' ${useTestResolver ? '' : `http://${remoteAuthority}`};`, // the sha is the same as in src/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html
 			'child-src \'self\';',
 			`frame-src 'self' https://*.vscode-cdn.net data:;`,
 			'worker-src \'self\' data: blob:;',
