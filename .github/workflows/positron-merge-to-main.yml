@@ -56,15 +56,8 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Restore cache for node_modules
-        id: cache-node-modules
-        uses: actions/cache/restore@v4
-        with:
-          path: ./node_modules
-          key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
-
       - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/restore-cache-multi-paths
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Debug node_modules cache hit
         run: echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"

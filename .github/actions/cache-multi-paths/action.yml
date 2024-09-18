@@ -1,26 +1,23 @@
-name: "Restore Cache: Multiple Directories"
-description: "Restores cache for node_modules, build, extensions, and remote directories"
+name: "Cache Multiple Directories"
+description: "Restores/Saves cache for node_modules, build, extensions, and remote"
 runs:
   using: "composite"
   steps:
-    # Restore cache for node_modules
-    - name: Restore cache for node_modules
+    - name: Cache node_modules
       id: cache-node-modules
       uses: actions/cache@v4
       with:
         path: ./node_modules
         key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
-    # Restore cache for build
-    - name: Restore cache for build
+    - name: Cache build
       id: cache-build
       uses: actions/cache@v4
       with:
         path: ./build/node_modules
         key: build-node-modules-v6-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
-    # Restore cache for extensions
-    - name: Restore cache for extensions
+    - name: Cache extensions
       id: cache-extensions
       uses: actions/cache@v4
       with:
@@ -29,8 +26,7 @@ runs:
           ./extensions/**/node_modules
         key: extensions-v6-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
-    # Restore cache for remote
-    - name: Restore cache for remote
+    - name: Cache remote
       id: cache-remote
       uses: actions/cache@v4
       with:
