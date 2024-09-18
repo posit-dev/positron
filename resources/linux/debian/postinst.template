@@ -22,6 +22,12 @@ if hash update-mime-database 2>/dev/null; then
 	update-mime-database /usr/share/mime
 fi
 
+# --- Start Positron ---
+# Skip the rest of this file; it attempts to register Microsoft repositories
+# which aren't needed for Positron.
+exit 0
+# --- End Positron ---
+
 if [ "@@NAME@@" != "code-oss" ]; then
 	# Remove the legacy bin command if this is the stable build
 	if [ "@@NAME@@" = "code" ]; then
