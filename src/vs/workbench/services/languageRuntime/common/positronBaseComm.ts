@@ -235,7 +235,9 @@ export class PositronBaseComm extends Disposable {
 		let response = {} as any;
 		try {
 			const timeout = this.options?.[rpcName]?.timeout ?? 5000;
-			response = await this.clientInstance.performRpc(request, timeout);
+			// Wait for a response to this message that includes a 'result' or
+			// 'error' field.
+			response = await this.clientInstance.performRpc(request, timeout, ['result', 'error']);
 		} catch (err) {
 			// Convert the error to a runtime method error. This handles errors
 			// that occur while performing the RPC; if the RPC is successfully

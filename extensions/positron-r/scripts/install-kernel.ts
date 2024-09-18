@@ -188,7 +188,7 @@ async function downloadAndReplaceArk(version: string,
 			switch (platform()) {
 				case 'win32': os = 'windows-x64'; break;
 				case 'darwin': os = 'darwin-universal'; break;
-				case 'linux': os = (arch()  === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
+				case 'linux': os = (arch() === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
 				default: {
 					console.error(`Unsupported platform ${platform()}.`);
 					return;

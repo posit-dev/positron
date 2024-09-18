@@ -163,6 +163,7 @@ export class NotebookCellTextModel extends Disposable implements ICell {
 					this._versionId = this._textModel.getVersionId();
 					this._alternativeId = this._textModel.getAlternativeVersionId();
 				}
+				this._textBufferHash = null;
 				this._onDidChangeContent.fire('content');
 			}));
 
@@ -415,6 +416,10 @@ export class NotebookCellTextModel extends Disposable implements ICell {
 
 	equal(b: NotebookCellTextModel): boolean {
 		if (this.language !== b.language) {
+			return false;
+		}
+
+		if (this.outputs.length !== b.outputs.length) {
 			return false;
 		}
 
