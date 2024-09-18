@@ -218,7 +218,7 @@ jobs:
     if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-merge-to-main' }}
     steps:
       - name: 'Send Slack notification'
-        uses: automattic/action-test-results-to-slack@v0.3.1
+        uses: testlabauto/action-test-results-to-slack@v0.0.1
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
