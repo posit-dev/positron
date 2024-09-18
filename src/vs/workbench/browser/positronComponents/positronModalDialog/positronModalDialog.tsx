@@ -42,8 +42,6 @@ export interface PositronModalDialogProps {
 	title: string;
 	width: number;
 	height: number;
-	enterAccepts?: boolean;
-	onAccept: () => void;
 	onCancel?: () => void;
 }
 
@@ -112,11 +110,14 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 			// Handle the event.
 			switch (e.key) {
-				// Enter accepts dialog, if configured to.
+				// Enter clicks the first default button that is not disabled, if there is one.
 				case 'Enter': {
-					consumeEvent();
-					if (props.enterAccepts && props.onAccept) {
-						props.onAccept();
+					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
+						'button.default:not([disabled])'
+					);
+					if (defaultButton) {
+						consumeEvent();
+						defaultButton.click();
 					}
 					break;
 				}

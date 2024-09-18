@@ -58,7 +58,6 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 			renderer={props.renderer}
 			width={375}
 			height={175}
-			enterAccepts={true}
 			title={(() => localize(
 				'positron.deleteAllVariablesModalDialogTitle',
 				"Delete All Variables"
@@ -66,7 +65,6 @@ export const DeleteAllVariablesModalDialog = (props: DeleteAllVariablesModalDial
 			secondaryActionTitle={(() => localize('positron.delete', "Delete"))()}
 			secondaryActionDestructive={true}
 			primaryActionTitle={(() => localize('positron.cancel', "Cancel"))()}
-			onAccept={cancelHandler}
 			onCancel={cancelHandler}
 			onSecondaryAction={acceptHandler}
 			onPrimaryAction={cancelHandler}
