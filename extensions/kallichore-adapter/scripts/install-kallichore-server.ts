@@ -112,7 +112,7 @@ async function downloadAndReplaceKallichore(version: string,
 	try {
 		const headers: Record<string, string> = {
 			'Accept': 'application/vnd.github.v3.raw', // eslint-disable-line
-			'User-Agent': 'positron-ark-downloader' // eslint-disable-line
+			'User-Agent': 'positron-kallichore-downloader' // eslint-disable-line
 		};
 		// If we have a githubPat, set it for better rate limiting.
 		if (githubPat) {
@@ -206,7 +206,7 @@ async function downloadAndReplaceKallichore(version: string,
 				}
 			}
 
-			const assetName = `ark-${version}-${os}.zip`;
+			const assetName = `kallichore-${version}-${os}.zip`;
 			const asset = release.assets.find((asset: any) => asset.name === assetName);
 			if (!asset) {
 				console.error(`Could not find Kallichore with asset name ${assetName} in the release.`);
@@ -235,18 +235,18 @@ async function downloadAndReplaceKallichore(version: string,
 				binaryData = Buffer.concat([binaryData, chunk]);
 			});
 			dlResponse.on('end', async () => {
-				const arkDir = path.join('resources', 'ark');
+				const kallichoreDir = path.join('resources', 'kallichore');
 
-				// Create the resources/ark directory if it doesn't exist.
-				if (!await existsAsync(arkDir)) {
-					await fs.promises.mkdir(arkDir);
+				// Create the resources/kallichore directory if it doesn't exist.
+				if (!await existsAsync(kallichoreDir)) {
+					await fs.promises.mkdir(kallichoreDir);
 				}
 
 				console.log(`Successfully downloaded Kallichore ${version} (${binaryData.length} bytes).`);
-				const zipFileDest = path.join(arkDir, 'ark.zip');
+				const zipFileDest = path.join(kallichoreDir, 'kallichore.zip');
 				await writeFileAsync(zipFileDest, binaryData);
 
-				await decompress(zipFileDest, arkDir).then(files => {
+				await decompress(zipFileDest, kallichoreDir).then(_files => {
 					console.log(`Successfully unzipped Kallichore ${version}.`);
 				});
 
@@ -254,7 +254,7 @@ async function downloadAndReplaceKallichore(version: string,
 				await fs.promises.unlink(zipFileDest);
 
 				// Write a VERSION file with the version number.
-				await writeFileAsync(path.join('resources', 'ark', 'VERSION'), version);
+				await writeFileAsync(path.join('resources', 'kallichore', 'VERSION'), version);
 
 			});
 		});
@@ -271,8 +271,8 @@ async function main() {
 	// that the user is a Kallichore developer and skip the download; this
 	// version will take precedence over any downloaded version.
 	const positronParent = path.dirname(path.dirname(path.dirname(path.dirname(__dirname))));
-	const arkFolder = path.join(positronParent, 'kallichore');
-	const targetFolder = path.join(arkFolder, 'target');
+	const kallichoreFolder = path.join(positronParent, 'kallichore');
+	const targetFolder = path.join(kallichoreFolder, 'target');
 	const debugBinary = path.join(targetFolder, 'debug', serverName);
 	const releaseBinary = path.join(targetFolder, 'release', serverName);
 	if (fs.existsSync(debugBinary) || fs.existsSync(releaseBinary)) {
@@ -284,7 +284,7 @@ async function main() {
 		// need to put it here so that `yarn gulp vscode` will package it up
 		// (the packaging step doesn't look for a sideloaded Kallichore from an
 		// adjacent `Kallichore` directory).
-		fs.mkdirSync(path.join('resources', 'ark'), { recursive: true });
+		fs.mkdirSync(path.join('resources', 'kallichore'), { recursive: true });
 		fs.copyFileSync(binary, path.join('resources', 'kallichore', serverName));
 		return;
 	} else {
@@ -296,7 +296,7 @@ async function main() {
 	const localKallichoreVersion = await getLocalKallichoreVersion();
 
 	if (!packageJsonVersion) {
-		console.error('Could not determine Ark version from package.json.');
+		console.error('Could not determine Kallichore version from package.json.');
 		return;
 	}
 
@@ -339,6 +339,8 @@ async function main() {
 			if (githubPat) {
 				console.log(`Using Github PAT from git config setting ` +
 					`'credential.https://api.github.com.token'.`);
+			} else {
+				console.error(stderr);
 			}
 		} catch (error) {
 			// We don't care if this fails; we'll try `git credential` next.
@@ -373,6 +375,8 @@ async function main() {
 		if (passwordLine) {
 			githubPat = passwordLine.split('=')[1];
 			console.log(`Using Github PAT returned from 'git credential'.`);
+		} else {
+			console.error(stderr);
 		}
 	}
 
