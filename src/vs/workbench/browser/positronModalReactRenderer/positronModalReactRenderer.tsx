@@ -121,9 +121,17 @@ export class PositronModalReactRenderer extends Disposable {
 		// Call the base class's constructor.
 		super();
 
-		// Set the last focused element.
-		const activeElement = DOM.getWindow(options.parent).document.activeElement;
-		if (activeElement instanceof HTMLElement) {
+		// Get the active element.
+		let activeElement: Element | null = null;
+		if (options.parent) {
+			activeElement = DOM.getWindow(options.parent).document.activeElement;
+		}
+		if (!activeElement) {
+			activeElement = DOM.getActiveWindow().document.activeElement;
+		}
+
+		// If the active element is an HTML element, set it as the last focused element.
+		if (DOM.isHTMLElement(activeElement)) {
 			this._lastFocusedElement = activeElement;
 		}
 

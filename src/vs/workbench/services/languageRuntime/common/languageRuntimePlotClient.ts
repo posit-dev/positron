@@ -143,13 +143,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
-		this._commProxy.onDidClose((state) => {
+		this._register(this._commProxy.onDidClose((state) => {
 			this._closeEmitter.fire();
 
 			// Silently cancel any pending render requests
 			this._currentRender?.cancel();
 			this._stateEmitter.fire(PlotClientState.Closed);
-		});
+		}));
 
 		// Connect the state emitter event
 		this.onDidChangeState = this._stateEmitter.event;
@@ -167,20 +167,20 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this.onDidSetIntrinsicSize = this._didSetIntrinsicSizeEmitter.event;
 
 		// Listen to our own state changes
-		this.onDidChangeState((state) => {
+		this._register(this.onDidChangeState((state) => {
 			this._state = state;
-		});
+		}));
 
 		// Listen for plot updates
-		this._commProxy.onDidRenderUpdate(async () => {
+		this._register(this._commProxy.onDidRenderUpdate(async () => {
 			const rendered = await this.queuePlotUpdateRequest();
 			this._renderUpdateEmitter.fire(rendered);
-		});
+		}));
 
 		// Listn for plot show events
-		this._commProxy.onDidShowPlot(async (_evt) => {
+		this._register(this._commProxy.onDidShowPlot(async (_evt) => {
 			this._didShowPlotEmitter.fire();
-		});
+		}));
 	}
 
 	/**

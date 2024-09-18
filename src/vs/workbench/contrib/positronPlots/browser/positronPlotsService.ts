@@ -191,7 +191,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// When the storage service is about to save state, store the current history policy
 		// and storage policy in the workspace storage.
-		this._storageService.onWillSaveState(() => {
+		this._register(this._storageService.onWillSaveState(() => {
 
 			this._storageService.store(
 				HistoryPolicyStorageKey,
@@ -220,7 +220,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
 			}
-		});
+		}));
 
 		// When the extension service is about to stop, remove any HTML plots
 		// from the plots list. These plots are backed by a proxy that runs in
@@ -770,10 +770,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	removePlot(id: string): void {
 		// Find the plot with the given ID and dispose it
-		// It will be automatically removed from the list during onDidClose
 		this._plots.forEach((plot, index) => {
 			if (plot.id === id) {
 				this.unregisterPlotClient(plot);
+				this._plots.splice(index, 1);
 			}
 		});
 
@@ -1094,6 +1094,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			}
 			this._plotClientsByComm.delete(metadata.id);
 		}));
+
+		this._register(commProxy);
 
 		return commProxy;
 	}

@@ -8,7 +8,7 @@ import 'vs/css!./consoleInput';
 
 // React.
 import * as React from 'react';
-import { FocusEvent, useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
@@ -89,6 +89,40 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
+
+	/**
+	 * Determines whether it is OK to take focus.
+	 * @returns true if it is OK to take focus; otherwise, false.
+	 */
+	const okToTakeFocus = () => {
+		// https://github.com/posit-dev/positron/issues/2802
+		// It's only OK to take focus if there is no focused editor. This avoids stealing focus when
+		// the user could be actively working in an editor.
+
+		// Get the context key service context.
+		const contextKeyContext = positronConsoleContext.contextKeyService.getContext(
+			DOM.getActiveElement()
+		);
+
+		// Sensitive to all editor contexts, simple (e.g. git commit textbox) or not (e.g. code
+		// editor).
+		if (contextKeyContext.getValue(EditorContextKeys.textInputFocus.key)) {
+			return false;
+		}
+
+		// Sensitive to all quick pick contexts, e.g. the commande palette or the file picker.
+		if (contextKeyContext.getValue(InQuickPickContextKey.key)) {
+			return false;
+		}
+
+		// Sensitive to terminal focus.
+		if (contextKeyContext.getValue(TerminalContextKeys.focus.key)) {
+			return false;
+		}
+
+		// It's OK to take focus.
+		return true;
+	};
 
 	/**
 	 * Updates the code editor widget position.
@@ -556,8 +590,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
-	// Main useEffect hook.
-	useEffect(() => {
+	// Main useLayoutEffect hook.
+	useLayoutEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
@@ -758,20 +792,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 				positronConsoleInstance => {
 					if (positronConsoleInstance === props.positronConsoleInstance) {
-						// https://github.com/posit-dev/positron/issues/2802
-						// Only take focus if there is no focused editor to avoid stealing
-						// focus when the user could be actively working in an editor
-
-						const ctxt = positronConsoleContext.contextKeyService.getContext(DOM.getActiveElement());
-
-						// Sensitive to all editor contexts, simple (e.g. git commit textbox) or not (e.g. code editor)
-						const inTextInput = ctxt.getValue(EditorContextKeys.textInputFocus.key);
-						// Sensitive to all quick pick contexts, e.g. the commande palette or the file picker						const inQuickPick = positronConsoleContext.contextKeyService.getContextKeyValue(InQuickPickContextKey.key);
-						const inQuickPick = ctxt.getValue(InQuickPickContextKey.key);
-						// Sensitive to terminal focus
-						const inTerminal = ctxt.getValue(TerminalContextKeys.focus.key);
-
-						if (!inTextInput && !inQuickPick && !inTerminal) {
+						// If it's OK to take focus, drive focus into the code editor widget.
+						if (okToTakeFocus()) {
 							codeEditorWidget.focus();
 						}
 					}
@@ -879,6 +901,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				codeEditorWidget.render(true);
 			})
 		);
+
+		// If it's OK to take focus, drive focus into the code editor widget.
+		if (okToTakeFocus()) {
+			codeEditorWidget.focus();
+		}
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();

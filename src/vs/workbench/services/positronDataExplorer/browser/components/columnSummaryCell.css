@@ -15,19 +15,28 @@
 	grid-template-rows: [basic-info] 34px [profile-info] 1fr [end-rows];
 }
 
-.data-grid-row-cell .content .column-summary .cursor {
+.data-grid-row-cell .content .column-summary .cursor-indicator {
 	top: 2px;
 	right: 2px;
 	bottom: 2px;
 	left: 2px;
 	z-index: -1;
+	opacity: 50%;
 	position: absolute;
 	border-radius: 4px;
+}
+
+.data-grid-row-cell .content .column-summary:hover .cursor-indicator {
 	background-color: var(--vscode-positronDataGrid-selectionBackground);
 }
 
-.data-grid-row-cell .content .column-summary .cursor:not(.focused) {
-	opacity: 50%;
+.data-grid-row-cell .content .column-summary .cursor-indicator.cursor {
+	background-color: var(--vscode-positronDataGrid-selectionBackground);
+}
+
+.data-grid-row-cell .content .column-summary .cursor-indicator.cursor.focused {
+	opacity: 100%;
+	border: 1px solid var(--vscode-positronDataGrid-selectionBorder);
 }
 
 /* basic-info */
@@ -85,6 +94,7 @@
 /* column-sparkline */
 
 .data-grid-row-cell .content .column-summary .basic-info .column-sparkline {
+	pointer-events: none;
 	grid-column: sparkline / missing-values;
 }
 
@@ -94,6 +104,7 @@
 	display: grid;
 	grid-gap: 5px;
 	align-items: center;
+	pointer-events: none;
 	grid-column: missing-values / right-gutter;
 	grid-template-columns: [percent] 35px [graph] 25px [end];
 }
@@ -132,6 +143,7 @@
 .data-grid-row-cell .content .column-summary .column-profile-info {
 	display: grid;
 	margin: 0 auto;
+	pointer-events: none;
 	grid-row: profile-info / end-rows;
 	grid-template-rows: [sparkline] min-content [tabular-info] min-content [end-rows];
 	grid-template-columns: [left-gutter] 55px [sparkline-tabular-info] 1fr [right-gutter] 30px [end-column];
