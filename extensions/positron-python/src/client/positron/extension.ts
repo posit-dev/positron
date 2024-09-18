@@ -16,8 +16,12 @@ import { EnvironmentType } from '../pythonEnvironments/info';
 import { isProblematicCondaEnvironment } from '../interpreter/configuration/environmentTypeComparer';
 import { Interpreters } from '../common/utils/localize';
 import { IApplicationShell } from '../common/application/types';
+import { activateAppDetection } from './webAppContexts';
 
-export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
+export async function activatePositron(
+    serviceContainer: IServiceContainer,
+    context: vscode.ExtensionContext,
+): Promise<void> {
     try {
         const disposables = serviceContainer.get<IDisposableRegistry>(IDisposableRegistry);
         // Register a command to check if ipykernel is installed for a given interpreter.
@@ -71,6 +75,10 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         disposables.push(
             vscode.commands.registerCommand('python.getMinimumPythonVersion', (): string => MINIMUM_PYTHON_VERSION.raw),
         );
+
+        // Activate detection for web applications
+        activateAppDetection(context.subscriptions);
+
         traceInfo('activatePositron: done!');
     } catch (ex) {
         traceError('activatePositron() failed.', ex);

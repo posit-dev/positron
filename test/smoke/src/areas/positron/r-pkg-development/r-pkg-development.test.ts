@@ -54,20 +54,23 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 50000 });
 
 				logger.log('Test R Package');
+				await app.workbench.quickaccess.runCommand('r.packageTest');
 				await expect(async () => {
-					await app.workbench.quickaccess.runCommand('r.packageTest');
 					await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]')));
+					await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
 				}).toPass({ timeout: 50000 });
 
 				logger.log('Check R Package');
+				await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
+				await app.workbench.quickaccess.runCommand('r.packageCheck');
 				await expect(async () => {
-					await app.workbench.quickaccess.runCommand('r.packageCheck');
 					await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Error: R CMD check found ERRORs')));
+					await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
 				}).toPass({ timeout: 50000 });
 
 				logger.log('Install R Package and Restart R');
+				await app.workbench.quickaccess.runCommand('r.packageInstall');
 				await expect(async () => {
-					await app.workbench.quickaccess.runCommand('r.packageInstall');
 					await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
 					await app.workbench.positronConsole.waitForReady('>');
 					await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
