@@ -239,7 +239,7 @@ jobs:
     if: ${{ failure() }}
     steps:
       - name: 'Send Slack notification'
-        uses: testlabauto/action-test-results-to-slack@v0.0.1
+        uses: testlabauto/action-test-results-to-slack@v0.0.2
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
