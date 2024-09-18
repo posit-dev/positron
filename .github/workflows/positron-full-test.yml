@@ -54,8 +54,8 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Restore cache for node_modules, build, extensions, and remote
-        uses: ./.github/actions/restore-cache-multi-paths
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -75,9 +75,6 @@ jobs:
           yarn --immutable --network-timeout 120000
           yarn --cwd test/automation add install --frozen-lockfile
           yarn --cwd test/smoke add install --frozen-lockfile
-
-      - name: Save cache for node_modules, build, extensions, and remote
-        uses: ./.github/actions/save-cache-multi-paths
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
@@ -163,16 +160,15 @@ jobs:
           path: .build/logs/smoke-tests-electron/
 
   slack-notification:
-    name: 'Send Slack notification'
+    name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: linux
     if: ${{ failure() }}
     steps:
-      - name: 'Send Slack notification'
+      - name: "Send Slack notification"
         uses: automattic/action-test-results-to-slack@v0.3.1
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           slack_channel: C07FR1JNZNJ #positron-test-results channel
           suite_name: Positron Full Test Suite
-
