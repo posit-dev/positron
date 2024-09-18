@@ -10,6 +10,8 @@ runs:
       with:
         path: ./node_modules
         key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+      env:
+        ACTIONS_STEP_DEBUG: true
 
     # Cache build node_modules if cache miss
     - name: Cache build node_modules
