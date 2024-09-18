@@ -305,42 +305,42 @@
                 "command": "python.execDashInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execDashInTerminal.title%",
-                "enablement": "pythonAppFramework == dash && enableApplications"
+                "enablement": "pythonAppFramework == dash && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.execFastAPIInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execFastAPIInTerminal.title%",
-                "enablement": "pythonAppFramework == fastapi && enableApplications"
+                "enablement": "pythonAppFramework == fastapi && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.execFlaskInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execFlaskInTerminal.title%",
-                "enablement": "pythonAppFramework == flask && enableApplications"
+                "enablement": "pythonAppFramework == flask && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.execGradioInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execGradioInTerminal.title%",
-                "enablement": "pythonAppFramework == gradio && enableApplications"
+                "enablement": "pythonAppFramework == gradio && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.execShinyInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny && enableApplications"
+                "enablement": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
-                "enablement": "pythonAppFramework == streamlit && enableApplications"
+                "enablement": "pythonAppFramework == streamlit && config.python.enableWebAppSupport"
             },
             {
                 "category": "Python",
@@ -482,9 +482,9 @@
                     "scope": "application",
                     "type": "boolean"
                 },
-                "python.enableApplications": {
+                "python.enableWebAppSupport": {
                     "defaut": false,
-                    "description": "%python.enableApplicationSupport.description%",
+                    "description": "%python.enableWebAppSupport.description%",
                     "scope": "application",
                     "type": "boolean"
                 },
@@ -1537,37 +1537,37 @@
                     "command": "python.execDashInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execDashInTerminal.title%",
-                    "when": "pythonAppFramework == dash && enableApplications"
+                    "when": "pythonAppFramework == dash && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execGradioInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execGradioInTerminal.title%",
-                    "when": "pythonAppFramework == gradio && enableApplications"
+                    "when": "pythonAppFramework == gradio && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execFastAPIInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execFastAPIInTerminal.title%",
-                    "when": "pythonAppFramework == fastapi && enableApplications"
+                    "when": "pythonAppFramework == fastapi && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execFlaskInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
-                    "when": "pythonAppFramework == flask && enableApplications"
+                    "when": "pythonAppFramework == flask && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execShinyInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny && enableApplications"
+                    "when": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
                     "group": "navigation@1",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
-                    "when": "pythonAppFramework == streamlit && enableApplications"
+                    "when": "pythonAppFramework == streamlit && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execInTerminal-icon",
