@@ -21,6 +21,8 @@ on:
 
 env:
   SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
+  ACTIONS_RUNNER_DEBUG: true # Enables verbose logging for the runner
+  ACTIONS_STEP_DEBUG: true # Enables verbose logging for each step
 
 permissions:
   id-token: write
