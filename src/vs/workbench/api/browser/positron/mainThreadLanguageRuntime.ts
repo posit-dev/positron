@@ -900,6 +900,19 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 }
 
 /**
+ * Represents a pending RPC call that has been sent to the server side of a
+ * comm.
+ */
+class PendingRpc<T> {
+	public readonly promise: DeferredPromise<IRuntimeClientOutput<T>>;
+	constructor(
+		public readonly responseKeys: Array<string>
+	) {
+		this.promise = new DeferredPromise<IRuntimeClientOutput<T>>();
+	}
+}
+
+/**
  * Represents the front-end instance of a client widget inside a language runtime.
  *
  * Its lifetime is tied to the lifetime of the client widget and associated server
@@ -913,7 +926,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	private readonly _dataEmitter = new Emitter<IRuntimeClientOutput<Output>>();
 
-	private readonly _pendingRpcs = new Map<string, DeferredPromise<any>>();
+	private readonly _pendingRpcs = new Map<string, PendingRpc<any>>();
 
 	/**
 	 * An observable value that tracks the number of messages sent and received
@@ -945,16 +958,20 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * Performs an RPC call to the server side of the comm.
 	 *
 	 * @param request The request to send to the server.
-	 * @param timeout Timeout in milliseconds after which to error if the server does not respond.
+	 * @param timeout Timeout in milliseconds after which to error if the server
+	 *   does not respond.
+	 * @param responseKeys Optional list of keys; if specified, at least one
+	 *   must be present in the response. This helps distinguish RPC responses
+	 *   from other messages that have the request as the parent ID.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpcWithBuffers<T>(request: Input, timeout: number): Promise<IRuntimeClientOutput<T>> {
+	performRpcWithBuffers<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
 		// Add the promise to the list of pending RPCs.
-		const promise = new DeferredPromise<IRuntimeClientOutput<T>>();
-		this._pendingRpcs.set(messageId, promise);
+		const pending = new PendingRpc<T>(responseKeys);
+		this._pendingRpcs.set(messageId, pending);
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
@@ -965,18 +982,18 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		// Start a timeout to reject the promise if the server doesn't respond.
 		setTimeout(() => {
 			// If the promise has already been resolved, do nothing.
-			if (promise.isSettled) {
+			if (pending.promise.isSettled) {
 				return;
 			}
 
 			// Otherwise, reject the promise and remove it from the list of pending RPCs.
 			const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-			promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+			pending.promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
 			this._pendingRpcs.delete(messageId);
 		}, timeout);
 
 		// Return a promise that will be resolved when the server responds.
-		return promise.p;
+		return pending.promise.p;
 	}
 
 	/**
@@ -985,8 +1002,8 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
 	 * only the data portion of the RPC response.
 	 */
-	async performRpc<T>(request: Input, timeout: number): Promise<T> {
-		return (await this.performRpcWithBuffers<T>(request, timeout)).data;
+	async performRpc<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<T> {
+		return (await this.performRpcWithBuffers<T>(request, timeout, responseKeys)).data;
 	}
 
 	/**
@@ -1017,10 +1034,22 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		if (message.parent_id && this._pendingRpcs.has(message.parent_id)) {
-			// This is a response to an RPC call; resolve the deferred promise.
-			const promise = this._pendingRpcs.get(message.parent_id);
-			promise?.complete(message);
-			this._pendingRpcs.delete(message.parent_id);
+			// This may be a response to an RPC call.
+			const pending = this._pendingRpcs.get(message.parent_id)!;
+
+			// Read the keys from the response and the pending RPC.
+			const responseKeys = Object.keys(message.data);
+
+
+			// Are any of the response keys present in the message?
+			if (pending.responseKeys.length === 0 || pending.responseKeys.some((key: string) => responseKeys.includes(key))) {
+				// This is a response to an RPC call; resolve the promise.
+				pending.promise.complete(message);
+				this._pendingRpcs.delete(message.parent_id);
+			} else {
+				// This is a regular message or event; emit it to the client as-is
+				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
+			}
 		} else {
 			// This is a regular message; emit it to the client as an event.
 			this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
@@ -1048,8 +1077,8 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	public override dispose(): void {
 		// Cancel any pending RPCs
-		for (const promise of this._pendingRpcs.values()) {
-			promise.error('The language runtime exited before the RPC completed.');
+		for (const pending of this._pendingRpcs.values()) {
+			pending.promise.error('The language runtime exited before the RPC completed.');
 		}
 
 		// If we aren't currently closed, clean up before completing disposal.
