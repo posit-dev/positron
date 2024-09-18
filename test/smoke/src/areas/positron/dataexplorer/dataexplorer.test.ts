@@ -203,7 +203,7 @@ df2 = pd.DataFrame(data)`;
 
 		// There is a known issue with the data explorer tests causing them to intermittently fail:
 		// https://github.com/posit-dev/positron/issues/4663
-		describe.skip('Python Polars Data Explorer', () => {
+		describe('Python Polars Data Explorer', () => {
 			before(async function () {
 
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
