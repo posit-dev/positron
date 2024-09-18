@@ -328,6 +328,9 @@ export class HTMLFileSystemProvider implements IFileSystemProviderWithFileReadWr
 		// Remember in IndexDB for future lookup
 		try {
 			await this.indexedDB?.runInTransaction(this.store, 'readwrite', objectStore => objectStore.put(handle, handleId));
+			// --- Start PWB: Clear browser history
+			this.indexedDB?.pwbAddToSessionSet(IndexedDB.PWB_CHANGED_CONNECTION_KEY);
+			// --- End PWB
 		} catch (error) {
 			this.logService.error(error);
 		}

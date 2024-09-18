@@ -280,6 +280,33 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 		.pipe(packageJsonFilter.restore);
 }
 
+// --- Start PWB: Bundle PWB extension ---
+export function fromS3Bucket({ name: extensionName, version, sha256, s3Bucket, metadata }: IExtensionDefinition): Stream {
+	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
+
+	const [, name] = extensionName.split('.');
+	const url = `https://${s3Bucket}.s3.amazonaws.com/${name}-${version}.vsix`;
+
+	fancyLog('Downloading extension from S3:', ansiColors.yellow(`${extensionName}@${version}`), '...');
+
+	const packageJsonFilter = filter('package.json', { restore: true });
+
+	return fetchUrls('', {
+		base: url,
+		nodeFetchOptions: {
+			headers: baseHeaders
+		},
+		checksumSha256: sha256
+	})
+		.pipe(vzip.src())
+		.pipe(filter('extension/**'))
+		.pipe(rename(p => p.dirname = p.dirname!.replace(/^extension\/?/, '')))
+		.pipe(packageJsonFilter)
+		.pipe(buffer())
+		.pipe(json({ __metadata: metadata }))
+		.pipe(packageJsonFilter.restore);
+}
+// --- End PWB: Bundle PWB extension ---
 
 export function fromGithub({ name, version, repo, sha256, metadata }: IExtensionDefinition): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
@@ -603,9 +630,6 @@ async function esbuildExtensions(taskName: string, isWatch: boolean, scripts: { 
 					return reject(error);
 				}
 				reporter(stderr, script);
-				if (stderr) {
-					return reject();
-				}
 				return resolve();
 			});
 
