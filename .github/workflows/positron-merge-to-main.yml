@@ -79,16 +79,16 @@ jobs:
           yarn --cwd test/smoke install --frozen-lockfile
 
       - name: Debug build node_modules cache hit
-        run: echo ${{ steps.cache-build.outputs.cache-hit }}
+        run: echo "Node_modules cache hit ${{ steps.cache-build.outputs.cache-hit }}"
 
       - name: Debug extensions cache hit
-        run: echo ${{ steps.cache-extensions.outputs.cache-hit }}
+        run: echo "Extensions cache hit ${{ steps.cache-extensions.outputs.cache-hit }}"
 
       - name: Debug remote cache hit
-        run: echo ${{ steps.cache-remote.outputs.cache-hit }}
+        run: echo "Remote cache hit ${{ steps.cache-remote.outputs.cache-hit }}"
 
       - name: Debug node_modules cache hit
-        run: echo ${{ steps.cache-node-modules.outputs.cache-hit }}
+        run: echo "Debug cache hit ${{ steps.cache-node-modules.outputs.cache-hit }}"
 
       - name: Save cache for node_modules, build, extensions, and remote
         uses: ./.github/actions/save-cache-multi-paths
