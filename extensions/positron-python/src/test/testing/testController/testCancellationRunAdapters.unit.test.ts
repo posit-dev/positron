@@ -72,7 +72,7 @@ suite('Execution Flow Run Adapters', () => {
                 .returns(() => {
                     cancellationToken.cancel();
                     return {
-                        proc: mockProc,
+                        proc: mockProc!, // Positron: Add ! to appease nightly TS
                         out: typeMoq.Mock.ofType<Observable<Output<string>>>().object,
                         dispose: () => {
                             /* no-body */
@@ -150,7 +150,7 @@ suite('Execution Flow Run Adapters', () => {
                 .returns(() => {
                     cancellationToken.cancel();
                     return {
-                        proc: mockProc,
+                        proc: mockProc!, // Positron: Add ! to appease nightly TS
                         out: typeMoq.Mock.ofType<Observable<Output<string>>>().object,
                         dispose: () => {
                             /* no-body */

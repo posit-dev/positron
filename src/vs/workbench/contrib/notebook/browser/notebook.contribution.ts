@@ -29,7 +29,7 @@ import { NotebookEditor } from 'vs/workbench/contrib/notebook/browser/notebookEd
 import { NotebookEditorInput, NotebookEditorInputOptions } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookService } from 'vs/workbench/contrib/notebook/browser/services/notebookServiceImpl';
-import { CellKind, CellUri, IResolvedNotebookEditorModel, NotebookWorkingCopyTypeIdentifier, NotebookSetting, ICellOutput, ICell } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellKind, CellUri, IResolvedNotebookEditorModel, NotebookWorkingCopyTypeIdentifier, NotebookSetting, ICellOutput, ICell, NotebookCellsChangeType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IUndoRedoService } from 'vs/platform/undoRedo/common/undoRedo';
 import { INotebookEditorModelResolverService } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverService';
@@ -44,7 +44,7 @@ import { NotebookEditorWidgetService } from 'vs/workbench/contrib/notebook/brows
 import { IJSONContributionRegistry, Extensions as JSONExtensions } from 'vs/platform/jsonschemas/common/jsonContributionRegistry';
 import { IJSONSchema, IJSONSchemaMap } from 'vs/base/common/jsonSchema';
 import { Event } from 'vs/base/common/event';
-import { getFormattedMetadataJSON, getStreamOutputData } from 'vs/workbench/contrib/notebook/browser/diff/diffElementViewModel';
+import { getFormattedMetadataJSON, getFormattedOutputJSON, getStreamOutputData } from 'vs/workbench/contrib/notebook/browser/diff/diffElementViewModel';
 import { NotebookModelResolverServiceImpl } from 'vs/workbench/contrib/notebook/common/notebookEditorModelResolverServiceImpl';
 import { INotebookKernelHistoryService, INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
 import { NotebookKernelService } from 'vs/workbench/contrib/notebook/browser/services/notebookKernelServiceImpl';
@@ -97,6 +97,7 @@ import 'vs/workbench/contrib/notebook/browser/contrib/debug/notebookDebugDecorat
 import 'vs/workbench/contrib/notebook/browser/contrib/execute/executionEditorProgress';
 import 'vs/workbench/contrib/notebook/browser/contrib/kernelDetection/notebookKernelDetection';
 import 'vs/workbench/contrib/notebook/browser/contrib/cellDiagnostics/cellDiagnostics';
+import 'vs/workbench/contrib/notebook/browser/contrib/multicursor/notebookMulticursor';
 
 // Diff Editor Contribution
 import 'vs/workbench/contrib/notebook/browser/diff/notebookDiffActions';
@@ -123,6 +124,8 @@ import { AccessibleViewRegistry } from 'vs/platform/accessibility/browser/access
 import { NotebookAccessibilityHelp } from 'vs/workbench/contrib/notebook/browser/notebookAccessibilityHelp';
 import { NotebookAccessibleView } from 'vs/workbench/contrib/notebook/browser/notebookAccessibleView';
 import { DefaultFormatter } from 'vs/workbench/contrib/format/browser/formatActionsMultiple';
+import { NotebookMultiTextDiffEditor } from 'vs/workbench/contrib/notebook/browser/diff/notebookMultiDiffEditor';
+import { NotebookMultiDiffEditorInput } from 'vs/workbench/contrib/notebook/browser/diff/notebookMultiDiffEditorInput';
 
 // --- Start Positron ---
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
@@ -153,7 +156,19 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 	]
 );
 
+Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
+	EditorPaneDescriptor.create(
+		NotebookMultiTextDiffEditor,
+		NotebookMultiTextDiffEditor.ID,
+		'Notebook Diff Editor'
+	),
+	[
+		new SyncDescriptor(NotebookMultiDiffEditorInput)
+	]
+);
+
 class NotebookDiffEditorSerializer implements IEditorSerializer {
+	constructor(@IConfigurationService private readonly _configurationService: IConfigurationService) { }
 	canSerialize(): boolean {
 		return true;
 	}
@@ -181,8 +196,11 @@ class NotebookDiffEditorSerializer implements IEditorSerializer {
 			return undefined;
 		}
 
-		const input = NotebookDiffEditorInput.create(instantiationService, resource, name, undefined, originalResource, viewType);
-		return input;
+		if (this._configurationService.getValue('notebook.experimental.enableNewDiffEditor')) {
+			return NotebookMultiDiffEditorInput.create(instantiationService, resource, name, undefined, originalResource, viewType);
+		} else {
+			return NotebookDiffEditorInput.create(instantiationService, resource, name, undefined, originalResource, viewType);
+		}
 	}
 
 	static canResolveBackup(editorInput: EditorInput, backupResource: URI): boolean {
@@ -425,15 +443,24 @@ class CellInfoContentProvider {
 		let result: ITextModel | null = null;
 
 		const mode = this._languageService.createById('json');
-
+		const disposables = new DisposableStore();
 		for (const cell of ref.object.notebook.cells) {
 			if (cell.handle === data.handle) {
+				const cellIndex = ref.object.notebook.cells.indexOf(cell);
 				const metadataSource = getFormattedMetadataJSON(ref.object.notebook, cell.metadata, cell.language);
 				result = this._modelService.createModel(
 					metadataSource,
 					mode,
 					resource
 				);
+				this._disposables.push(disposables.add(ref.object.notebook.onDidChangeContent(e => {
+					if (result && e.rawEvents.some(event => (event.kind === NotebookCellsChangeType.ChangeCellMetadata || event.kind === NotebookCellsChangeType.ChangeCellLanguage) && event.index === cellIndex)) {
+						const value = getFormattedMetadataJSON(ref.object.notebook, cell.metadata, cell.language);
+						if (result.getValue() !== value) {
+							result.setValue(getFormattedMetadataJSON(ref.object.notebook, cell.metadata, cell.language));
+						}
+					}
+				})));
 				break;
 			}
 		}
@@ -444,6 +471,7 @@ class CellInfoContentProvider {
 		}
 
 		const once = result.onWillDispose(() => {
+			disposables.dispose();
 			once.dispose();
 			ref.dispose();
 		});
@@ -498,6 +526,40 @@ class CellInfoContentProvider {
 		return result;
 	}
 
+	async provideOutputsTextContent(resource: URI): Promise<ITextModel | null> {
+		const existing = this._modelService.getModel(resource);
+		if (existing) {
+			return existing;
+		}
+
+		const data = CellUri.parseCellPropertyUri(resource, Schemas.vscodeNotebookCellOutput);
+		if (!data) {
+			return null;
+		}
+
+		const ref = await this._notebookModelResolverService.resolve(data.notebook);
+		const cell = ref.object.notebook.cells.find(cell => cell.handle === data.handle);
+
+		if (!cell) {
+			ref.dispose();
+			return null;
+		}
+
+		const mode = this._languageService.createById('json');
+		const model = this._modelService.createModel(getFormattedOutputJSON(cell.outputs || []), mode, resource, true);
+		const cellModelListener = Event.any(cell.onDidChangeOutputs ?? Event.None, cell.onDidChangeOutputItems ?? Event.None)(() => {
+			model.setValue(getFormattedOutputJSON(cell.outputs || []));
+		});
+
+		const once = model.onWillDispose(() => {
+			once.dispose();
+			cellModelListener.dispose();
+			ref.dispose();
+		});
+
+		return model;
+	}
+
 	async provideOutputTextContent(resource: URI): Promise<ITextModel | null> {
 		const existing = this._modelService.getModel(resource);
 		if (existing) {
@@ -506,7 +568,7 @@ class CellInfoContentProvider {
 
 		const data = CellUri.parseCellOutputUri(resource);
 		if (!data) {
-			return null;
+			return this.provideOutputsTextContent(resource);
 		}
 
 		const ref = await this._notebookModelResolverService.resolve(data.notebook);
@@ -1090,11 +1152,6 @@ configurationRegistry.registerConfiguration({
 				nls.localize('notebook.scrolling.revealNextCellOnExecute.none.description', 'Do not scroll.'),
 			],
 			default: 'fullCell'
-		},
-		[NotebookSetting.cellChat]: {
-			markdownDescription: nls.localize('notebook.cellChat', "Enable experimental floating chat widget in notebooks."),
-			type: 'boolean',
-			default: false
 		},
 		[NotebookSetting.cellGenerate]: {
 			markdownDescription: nls.localize('notebook.cellGenerate', "Enable experimental generate action to create code cell with inline chat enabled."),

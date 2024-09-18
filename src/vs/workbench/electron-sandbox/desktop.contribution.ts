@@ -235,6 +235,12 @@ import { MAX_ZOOM_LEVEL, MIN_ZOOM_LEVEL } from 'vs/platform/window/electron-sand
 				'scope': ConfigurationScope.APPLICATION,
 				'description': localize('titleBarStyle', "Adjust the appearance of the window title bar to be native by the OS or custom. On Linux and Windows, this setting also affects the application and context menu appearances. Changes require a full restart to apply."),
 			},
+			'window.experimentalControlOverlay': {
+				'type': 'boolean',
+				'included': isLinux,
+				'markdownDescription': localize('window.experimentalControlOverlay', "Show the native window controls when {0} is set to `custom` (Linux only).", '`#window.titleBarStyle#`'),
+				'default': true
+			},
 			'window.customTitleBarVisibility': {
 				'type': 'string',
 				'enum': ['auto', 'windowed', 'never'],

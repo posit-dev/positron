@@ -92,6 +92,9 @@ export abstract class AbstractDiskFileSystemProviderChannel<T> extends Disposabl
 
 	private async readFile(uriTransformer: IURITransformer, _resource: UriComponents, opts?: IFileAtomicReadOptions): Promise<VSBuffer> {
 		const resource = this.transformIncoming(uriTransformer, _resource, true);
+		// --- Start PWB: disable file downloads ---
+		this.logService.trace(`File action: readFile ${resource.path}`);
+		// --- End PWB ---
 		const buffer = await this.provider.readFile(resource, opts);
 
 		return VSBuffer.wrap(buffer);
@@ -110,6 +113,9 @@ export abstract class AbstractDiskFileSystemProviderChannel<T> extends Disposabl
 			}
 		});
 
+		// --- Start PWB: disable file downloads ---
+		this.logService.trace(`File action: readFileStream ${resource.path}`);
+		// --- End PWB ---
 		const fileStream = this.provider.readFileStream(resource, opts, cts.token);
 		listenStream(fileStream, {
 			onData: chunk => emitter.fire(VSBuffer.wrap(chunk)),
@@ -131,6 +137,9 @@ export abstract class AbstractDiskFileSystemProviderChannel<T> extends Disposabl
 	private writeFile(uriTransformer: IURITransformer, _resource: UriComponents, content: VSBuffer, opts: IFileWriteOptions): Promise<void> {
 		const resource = this.transformIncoming(uriTransformer, _resource);
 
+		// --- Start PWB: disable file downloads ---
+		this.logService.trace(`File action: writeFile ${resource.path}`);
+		// --- End PWB ---
 		return this.provider.writeFile(resource, content.buffer, opts);
 	}
 
