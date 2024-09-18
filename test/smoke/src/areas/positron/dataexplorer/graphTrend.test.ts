@@ -12,12 +12,24 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		describe('Graph Trend #pr', () => {
+		describe('Graph Trend', () => {
 
 			beforeEach(async function () {
 				await this.app.workbench.positronLayouts.enterLayout('stacked');
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
+
+			// Helper function to verify the height of graph bars
+			async function verifyGraphBarHeights(app: Application, expectedHeights = ['50', '40', '30', '20', '10']) {
+				// Get all graph graph bars/rectangles
+				const rects = app.code.driver.getLocator('rect.count');
+
+				// Iterate over each rect and verify the height
+				for (let i = 0; i < expectedHeights.length; i++) {
+					const height = await rects.nth(i).getAttribute('height');
+					expect(height).toBe(expectedHeights[i]);
+				}
+			}
 
 			it('Python Pandas - Verifies downward trending graph', async function () {
 				const app = this.app as Application;
@@ -51,18 +63,11 @@ plt.show()`;
 					await app.code.driver.getLocator('.label-name:has-text("Data: graphData")').innerText();
 				}).toPass();
 
+				logger.log('Expand column profile');
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 				await app.workbench.positronDataExplorer.expandColumnProfile(0);
 
-				// Get all graph graph bars/rectangles
-				const rects = app.code.driver.getLocator('rect.count');
-				const expectedHeights = ['50', '40', '30', '20', '10'];
-
-				// Iterate over each rect and verify the height
-				for (let i = 0; i < expectedHeights.length; i++) {
-					const height = await rects.nth(i).getAttribute('height');
-					expect(height).toBe(expectedHeights[i]);
-				}
+				verifyGraphBarHeights(app);
 			});
 
 
@@ -100,18 +105,11 @@ theme_minimal()`;
 					await app.code.driver.getLocator('.label-name:has-text("Data: graphData")').innerText();
 				}).toPass();
 
+				logger.log('Expand column profile');
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 				await app.workbench.positronDataExplorer.expandColumnProfile(0);
 
-				// Get all graph graph bars/rectangles
-				const rects = app.code.driver.getLocator('rect.count');
-				const expectedHeights = ['50', '40', '30', '20', '10'];
-
-				// Iterate over each rect and verify the height
-				for (let i = 0; i < expectedHeights.length; i++) {
-					const height = await rects.nth(i).getAttribute('height');
-					expect(height).toBe(expectedHeights[i]);
-				}
+				verifyGraphBarHeights(app);
 			});
 		});
 	});
