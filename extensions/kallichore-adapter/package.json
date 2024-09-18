@@ -16,10 +16,25 @@
   "main": "./out/extension.js",
   "scripts": {
     "compile": "gulp compile-extension:kallichore-adapter",
+    "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
+    "lint": "eslint src --ext ts",
+    "postinstall": "ts-node scripts/post-install.ts",
+    "pretest": "yarn run compile && yarn run lint",
+    "test": "node ./out/test/runTest.js",
+    "vscode:prepublish": "yarn run compile",
     "watch": "gulp watch-extension:kallichore-adapter"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/positron"
+  },
+  "devDependencies": {
+    "decompress": "^4.2.1",
+    "@types/decompress": "^4.2.7"
+  },
+  "positron": {
+    "binaryDependencies": {
+      "kallichore": "0.1.0"
+    }
   }
 }
