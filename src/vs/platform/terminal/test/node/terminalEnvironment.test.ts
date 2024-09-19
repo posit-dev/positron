@@ -59,7 +59,7 @@ suite('platform - terminalEnvironment', () => {
 						POSITRON: '1',
 						POSITRON_VERSION: productService.positronVersion,
 						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
-						POSITRON_MODE: isWeb ? 'web' : 'desktop',
+						POSITRON_MODE: isWeb ? 'server' : 'desktop',
 						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
@@ -96,7 +96,7 @@ suite('platform - terminalEnvironment', () => {
 						POSITRON: '1',
 						POSITRON_VERSION: productService.positronVersion,
 						POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
-						POSITRON_MODE: isWeb ? 'web' : 'desktop',
+						POSITRON_MODE: isWeb ? 'server' : 'desktop',
 						// --- End Positron ---
 						VSCODE_INJECTION: '1'
 					}
@@ -213,7 +213,7 @@ suite('platform - terminalEnvironment', () => {
 								POSITRON: '1',
 								POSITRON_VERSION: productService.positronVersion,
 								POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
-								POSITRON_MODE: isWeb ? 'web' : 'desktop',
+								POSITRON_MODE: isWeb ? 'server' : 'desktop',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
 								VSCODE_STABLE: '0'
@@ -234,7 +234,7 @@ suite('platform - terminalEnvironment', () => {
 								POSITRON: '1',
 								POSITRON_VERSION: productService.positronVersion,
 								POSITRON_LONG_VERSION: `${productService.positronVersion}+${productService.positronBuildNumber}`,
-								POSITRON_MODE: isWeb ? 'web' : 'desktop',
+								POSITRON_MODE: isWeb ? 'server' : 'desktop',
 								// --- End Positron ---
 								VSCODE_INJECTION: '1',
 								VSCODE_SHELL_LOGIN: '1',
