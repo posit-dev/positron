@@ -10,13 +10,13 @@ import * as os from 'os';
 import path = require('path');
 import { DefaultApi } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
+import { KallichoreAdapterApi } from './kallichore-adapter';
+import { KCApi } from './api';
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi {
 	const log = vscode.window.createOutputChannel('Kallichore Adapter', { log: true });
 	log.debug('Kallichore Adapter activated');
-	startKallichore(context, log).then(() => {
-		log.debug('Kallichore started');
-	});
+	return new KCApi(context, log);
 }
 
 async function startKallichore(context: vscode.ExtensionContext,

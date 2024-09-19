@@ -23,6 +23,19 @@
     "vscode:prepublish": "yarn run compile",
     "watch": "gulp watch-extension:kallichore-adapter"
   },
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Kallichore Configuration",
+      "properties": {
+        "kallichoreSupervisor.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run Jupyter kernels under the Kallichore supervisor."
+        }
+      }
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/posit-dev/positron"
