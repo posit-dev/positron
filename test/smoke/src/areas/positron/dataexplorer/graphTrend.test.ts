@@ -96,7 +96,6 @@ labs(x = "Category", y = "Total Values", title = "Bar Graph with Summed Values")
 theme_minimal()`;
 
 				logger.log('Sending code to console');
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 				await app.workbench.positronConsole.executeCode('R', script, '>');
 
 				logger.log('Opening data grid');
