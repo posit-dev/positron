@@ -730,7 +730,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			POSITRON: '1',
 			POSITRON_VERSION: positron.version,
 			POSITRON_LONG_VERSION: `${positron.version}+${positron.buildNumber}`,
-			POSITRON_MODE: vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'web',
+			POSITRON_MODE: vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server',
 		};
 		Object.assign(env, process.env, this._spec.env);
 
