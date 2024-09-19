@@ -59,7 +59,7 @@ import { setup as setupTestExplorerTest } from './areas/positron/test-explorer/t
 import { setup as setupRPKgDevelopment } from './areas/positron/r-pkg-development/r-pkg-development.test';
 import { setup as setupViewersTest } from './areas/positron/viewer/viewer.test';
 import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplorer/veryLargeDataFrame.test';
-import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/graphTrend.test';
+import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');

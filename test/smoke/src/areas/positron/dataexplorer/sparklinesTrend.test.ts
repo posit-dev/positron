@@ -12,7 +12,7 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		describe('Graph Trend', () => {
+		describe('Sparklines', () => {
 
 			beforeEach(async function () {
 				await this.app.workbench.positronLayouts.enterLayout('stacked');
@@ -45,7 +45,7 @@ export function setup(logger: Logger) {
 				}).toPass({ timeout: 10000 });
 			}
 
-			it('Python Pandas - Verifies downward trending graph', async function () {
+			it('Python Pandas - Verifies downward trending graph [C830552]', async function () {
 				const app = this.app as Application;
 
 				logger.log('[Python] Sending code to console');
@@ -56,7 +56,7 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('R - Verifies downward trending graph', async function () {
+			it('R - Verifies downward trending graph [C830553]', async function () {
 				const app = this.app as Application;
 
 				logger.log('[R] Sending code to console');
