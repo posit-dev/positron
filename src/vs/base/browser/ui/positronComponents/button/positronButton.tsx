@@ -52,7 +52,8 @@ export const PositronButton = forwardRef<HTMLDivElement, PropsWithChildren<Props
 	const keyDownHandler = (e: KeyboardEvent<HTMLDivElement>) => {
 		// Process the key down event.
 		switch (e.code) {
-			// Space triggers the onPressed event.
+			// Space triggers the onPressed event. Note: Do not add 'Enter' here. Enter is reserved
+			// for clicking the default button in modal popups and modal dialogs.
 			case 'Space':
 				// Consume the event.
 				e.preventDefault();
