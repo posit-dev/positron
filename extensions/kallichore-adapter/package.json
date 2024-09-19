@@ -18,7 +18,6 @@
     "compile": "gulp compile-extension:kallichore-adapter",
     "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
     "lint": "eslint src --ext ts",
-    "postinstall": "ts-node scripts/post-install.ts",
     "pretest": "yarn run compile && yarn run lint",
     "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "yarn run compile",
