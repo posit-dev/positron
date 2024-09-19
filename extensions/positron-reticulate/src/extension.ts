@@ -11,15 +11,70 @@ import { JupyterKernelSpec, JupyterSession, JupyterKernel } from './jupyter-adap
 
 export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager {
 
-	_session: positron.LanguageRuntimeSession | undefined = undefined;
+	// The reticulate runtime manager can only have a single reticulate runtime session
+	// that's currently running. This `_session` field contains this session.
+	_session?: positron.LanguageRuntimeSession;
+
+	// This field contains the reticulate runtime metadata. It's only set once the
+	// runtime has been registered.
+	_metadata?: positron.LanguageRuntimeMetadata;
+
+	// This is returned by positron when we register a listener to the onDidDiscoverRuntime
+	// event. We wait until R runtimes are registered to register the reticulate runtime,
+	// but once the reticulate runtime is registered, we need to dispose of this.
+	_registrationHook?: vscode.Disposable;
+
+	// Positron listens to this event and will update its UI once it's fired with
+	// a new runtime.
+	onDidDiscoverRuntime?: vscode.Event<positron.LanguageRuntimeMetadata>;
+	onDidDiscoverRuntimeEmmiter?: vscode.EventEmitter<positron.LanguageRuntimeMetadata>;
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 	) {
+		this.onDidDiscoverRuntimeEmmiter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>;
+		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmmiter.event;
+		this.maybeRegisterReticulateRuntime();
+	}
+
+	async maybeRegisterReticulateRuntime() {
+		// Get a fixed list of all current runtimes.
+		const runtimes = await positron.runtime.getRegisteredRuntimes();
+
+		// Hook that will register the reticulate runtime if an R
+		// runtime is found.
+		this._registrationHook = positron.runtime.onDidRegisterRuntime((metadata) => {
+			if (!this._metadata && metadata.languageId === 'r') {
+				this.registerReticulateRuntime();
+			}
+		});
+
+		this._context.subscriptions.push(this._registrationHook);
+
+		// Walk trough the list of runtimes looking for an R runtime,
+		// if one exists we register the reticulate runtime.
+		for (const runtime of runtimes) {
+			if (!this._metadata && runtime.languageId === 'r') {
+				this.registerReticulateRuntime();
+				return;
+			}
+		}
+	}
+
+	registerReticulateRuntime() {
+		this._metadata = new ReticulateRuntimeMetadata();
+		this.onDidDiscoverRuntimeEmmiter?.fire(this._metadata);
+
+		if (this._registrationHook) {
+			this._registrationHook.dispose();
+			this._registrationHook = undefined;
+		}
 	}
 
 	discoverRuntimes(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
-		return reticulateRuntimesDiscoverer();
+		// We never discover a runtime directly. We'll always check if R is available
+		// and then fire the onDidDiscoverRuntime event.
+		return (async function* () { })();
 	}
 
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
@@ -82,6 +137,30 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
 		const rSession = await getRSession();
+
+		// Check that we have a minimum version of reticulate.
+		if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
+			// Offer to install reticulate
+			const install_reticulate = await positron.window.showSimpleModalDialogPrompt(
+				'Missing reticulate',
+				'Reticulate >= 1.39 is required. Do you want to install reticulate?',
+				'Yes',
+				'No'
+			);
+
+			if (install_reticulate) {
+				if (!await rSession.callMethod?.('install_reticulate')) {
+					throw new Error('Failed to install/update the reticulate package.');
+				}
+			}
+
+			// Make a new check for reticulate
+			if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
+				throw new Error('Reticulate >= 1.39 is required');
+			}
+		}
+
+
 		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(rSession, runtimeMetadata);
 
 		return new ReticulateRuntimeSession(
@@ -351,11 +430,6 @@ async function getRSession(): Promise<positron.LanguageRuntimeSession> {
 		throw new Error(`Could not initialize an R session to launch reticulate. ${error}`);
 	}
 
-	// Check that we have a minimum version of reticulate.
-	if (!await session.callMethod?.('is_installed', 'reticulate', '1.39')) {
-		throw new Error('Reticulate >= 1.39 is required');
-	}
-
 	return session;
 }
 
@@ -372,11 +446,6 @@ async function getRSession_(): Promise<positron.LanguageRuntimeSession> {
 	}
 
 	return session;
-}
-
-async function* reticulateRuntimesDiscoverer() {
-	const runtimeMetadata = new ReticulateRuntimeMetadata();
-	yield runtimeMetadata;
 }
 
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
@@ -406,15 +475,21 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 
 export class ReticulateProvider {
 	_client: positron.RuntimeClientInstance | undefined = undefined;
-	constructor(readonly manager: ReticulateRuntimeManager) { }
+	manager: ReticulateRuntimeManager;
+	registrationHook: vscode.Disposable | undefined;
+
+	constructor(readonly context: vscode.ExtensionContext) {
+		this.manager = new ReticulateRuntimeManager(this.context);
+		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(this.manager));
+	}
 
 	async registerClient(client: positron.RuntimeClientInstance) {
 		if (this._client) {
 			this._client.dispose();
 		}
+
 		this._client = client;
 
-		await this.manager.discoverRuntimes();
 		await positron.runtime.selectLanguageRuntime('reticulate');
 
 		this.manager._session?.onDidEndSession(() => {
@@ -462,11 +537,7 @@ let CONTEXT: vscode.ExtensionContext;
  */
 export function activate(context: vscode.ExtensionContext) {
 	CONTEXT = context;
-
-	const manager = new ReticulateRuntimeManager(context);
-	context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(manager));
-
-	const reticulateProvider = new ReticulateProvider(manager);
+	const reticulateProvider = new ReticulateProvider(context);
 
 	context.subscriptions.push(
 		positron.runtime.registerClientHandler({
@@ -479,6 +550,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(reticulateProvider);
 
-	return manager;
+	return reticulateProvider;
 }
 
