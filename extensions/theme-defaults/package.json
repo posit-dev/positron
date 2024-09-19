@@ -26,6 +26,12 @@
         "path": "./themes/dark_modern.json"
       },
       {
+        "id": "Positron Dark",
+        "label": "%positronDarkThemeLabel%",
+        "uiTheme": "vs-dark",
+        "path": "./themes/positron_dark.json"
+      },
+      {
         "id": "Default Light+",
         "label": "%lightPlusColorThemeLabel%",
         "uiTheme": "vs",
@@ -36,6 +42,12 @@
         "label": "%lightModernThemeLabel%",
         "uiTheme": "vs",
         "path": "./themes/light_modern.json"
+      },
+      {
+        "id": "Positron Light",
+        "label": "%positronLightThemeLabel%",
+        "uiTheme": "vs",
+        "path": "./themes/positron_light.json"
       },
       {
         "id": "Visual Studio Dark",
