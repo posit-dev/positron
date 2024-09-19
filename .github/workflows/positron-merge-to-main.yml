@@ -59,14 +59,14 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-  #     - name: Execute yarn
-  #       env:
-  #         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-  #         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-  #         POSITRON_GITHUB_PAT: ${{ github.token }}
-  #       run: |
-  #         # Enable corepack (for yarn)
-  #         corepack enable
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          # Enable corepack (for yarn)
+          corepack enable
 
           # Install node-gyp; this is required by some packages, and yarn
           # sometimes fails to automatically install it.
@@ -144,7 +144,7 @@ jobs:
     needs: linux
     if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-merge-to-main' }}
     steps:
-      - name: 'Send Slack notification'
+      - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.2
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
