@@ -8,7 +8,7 @@ import { Application, Logger, PositronPythonFixtures } from '../../../../../auto
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Data Explorer', () => {
+	describe('Data Explorer #pr', () => {
 
 		installAllHandlers(logger);
 
@@ -33,14 +33,16 @@ export function setup(logger: Logger) {
 
 			async function verifyGraphBarHeights(app: Application) {
 				// Get all graph graph bars/rectangles
-				const rects = app.code.driver.getLocator('rect.count');
+				await expect(async () => {
+					const rects = app.code.driver.getLocator('rect.count');
 
-				// Iterate over each rect and verify the height
-				const expectedHeights = ['50', '40', '30', '20', '10'];
-				for (let i = 0; i < expectedHeights.length; i++) {
-					const height = await rects.nth(i).getAttribute('height');
-					expect(height).toBe(expectedHeights[i]);
-				}
+					// Iterate over each rect and verify the height
+					const expectedHeights = ['50', '40', '30', '20', '10'];
+					for (let i = 0; i < expectedHeights.length; i++) {
+						const height = await rects.nth(i).getAttribute('height');
+						expect(height).toBe(expectedHeights[i]);
+					}
+				}).toPass({ timeout: 10000 });
 			}
 
 			it('Python Pandas - Verifies downward trending graph', async function () {
