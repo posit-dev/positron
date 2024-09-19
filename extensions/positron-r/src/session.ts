@@ -469,14 +469,28 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
-		if (!ext) {
-			throw new Error('Jupyter Adapter extension not found');
+		// Check the configuration setting 'kallichoreSupervisor.enable'
+		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const useKallichore = config.get<boolean>('enable', false);
+		if (useKallichore) {
+			const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+			if (!ext) {
+				throw new Error('Kallichore Adapter extension not found');
+			}
+			if (!ext.isActive) {
+				await ext.activate();
+			}
+			this.adapterApi = ext?.exports as JupyterAdapterApi;
+		} else {
+			const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+			if (!ext) {
+				throw new Error('Jupyter Adapter extension not found');
+			}
+			if (!ext.isActive) {
+				await ext.activate();
+			}
+			this.adapterApi = ext?.exports as JupyterAdapterApi;
 		}
-		if (!ext.isActive) {
-			await ext.activate();
-		}
-		this.adapterApi = ext?.exports as JupyterAdapterApi;
 
 		// Create the Jupyter session
 		const kernel = this.kernelSpec ?

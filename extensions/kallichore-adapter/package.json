@@ -30,7 +30,7 @@
       "properties": {
         "kallichoreSupervisor.enable": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Run Jupyter kernels under the Kallichore supervisor."
         }
       }

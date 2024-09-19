@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
-import { JupyterAdapterApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 
 
 /**
@@ -33,7 +33,7 @@ export interface KallichoreAdapterApi extends JupyterAdapterApi {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra | undefined,
-	): JupyterLanguageRuntimeSession;
+	): KallichoreLanguageRuntimeSession;
 
 	/**
 	 * Restore a session for a Jupyter-compatible kernel.
@@ -47,5 +47,5 @@ export interface KallichoreAdapterApi extends JupyterAdapterApi {
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
-	): JupyterLanguageRuntimeSession;
+	): KallichoreLanguageRuntimeSession;
 }

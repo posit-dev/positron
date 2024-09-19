@@ -8,9 +8,10 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { JupyterKernelExtra, JupyterKernelSpec, KallichoreAdapterApi, KallichoreLanguageRuntimeSession } from './kallichore-adapter';
 import { DefaultApi } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
+import { KallichoreAdapterApi } from './kallichore-adapter';
+import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 
 export class KCApi implements KallichoreAdapterApi {
 	private readonly _api: DefaultApi;
@@ -55,13 +56,19 @@ export class KCApi implements KallichoreAdapterApi {
 		}, 1000);
 	}
 
-	createSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata, _kernel: JupyterKernelSpec, _dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): KallichoreLanguageRuntimeSession {
+	createSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata, _kernel: JupyterKernelSpec, _dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
+		this._log.info(`Creating session: ${JSON.stringify(_sessionMetadata)}`);
 		throw new Error('Method not implemented.');
 	}
-	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): KallichoreLanguageRuntimeSession {
+	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
+		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);
 		throw new Error('Method not implemented.');
 	}
 	dispose() {
+		throw new Error('Method not implemented.');
+	}
+
+	findAvailablePort(_excluding: Array<number>, _maxTries: number): Promise<number> {
 		throw new Error('Method not implemented.');
 	}
 }
