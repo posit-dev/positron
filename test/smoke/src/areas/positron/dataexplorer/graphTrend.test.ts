@@ -8,7 +8,7 @@ import { Application, Logger, PositronPythonFixtures } from '../../../../../auto
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Data Explorer #pr', () => {
+	describe('Data Explorer', () => {
 
 		installAllHandlers(logger);
 
