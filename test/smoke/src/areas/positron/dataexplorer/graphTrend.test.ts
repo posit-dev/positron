@@ -19,44 +19,7 @@ export function setup(logger: Logger) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			// Helper function to verify the height of graph bars
-			async function verifyGraphBarHeights(app: Application, expectedHeights = ['50', '40', '30', '20', '10']) {
-				// Get all graph graph bars/rectangles
-				const rects = app.code.driver.getLocator('rect.count');
-
-				// Iterate over each rect and verify the height
-				for (let i = 0; i < expectedHeights.length; i++) {
-					const height = await rects.nth(i).getAttribute('height');
-					expect(height).toBe(expectedHeights[i]);
-				}
-			}
-
-			it('Python Pandas - Verifies downward trending graph', async function () {
-				const app = this.app as Application;
-
-				// Script to create a trending downward bar graph with summarized data
-				const script = `import pandas as pd
-import matplotlib.pyplot as plt
-
-# Example data with multiple values for the same category
-graphData = pd.DataFrame({
-'category': ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'D', 'E', 'A', 'B', 'C', 'D'],
-'values': [1, 2, 3, 4, 5, 9, 10, 11, 13, 25, 7, 15, 20, 5, 6]
-})
-
-# Summarize data by summing values per category
-summarized_data = graphData.groupby('category', as_index=False).sum()
-
-# Create a bar graph
-plt.bar(summarized_data['category'], summarized_data['values'], color='steelblue')
-plt.xlabel('Category')
-plt.ylabel('Total Values')
-plt.title('Bar Graph with Summed Values')
-plt.show()`;
-
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
-
+			async function openDataExplorerColumnProfile(app: Application) {
 				logger.log('Opening data grid');
 				await expect(async () => {
 					await app.workbench.positronVariables.doubleClickVariableRow('graphData');
@@ -66,16 +29,45 @@ plt.show()`;
 				logger.log('Expand column profile');
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 				await app.workbench.positronDataExplorer.expandColumnProfile(0);
+			}
 
-				verifyGraphBarHeights(app);
+			async function verifyGraphBarHeights(app: Application) {
+				// Get all graph graph bars/rectangles
+				const rects = app.code.driver.getLocator('rect.count');
+
+				// Iterate over each rect and verify the height
+				const expectedHeights = ['50', '40', '30', '20', '10'];
+				for (let i = 0; i < expectedHeights.length; i++) {
+					const height = await rects.nth(i).getAttribute('height');
+					expect(height).toBe(expectedHeights[i]);
+				}
+			}
+
+			it('Python Pandas - Verifies downward trending graph', async function () {
+				const app = this.app as Application;
+
+				logger.log('[Python] Sending code to console');
+				await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
+
+				await openDataExplorerColumnProfile(app);
+				await verifyGraphBarHeights(app);
 			});
 
 
 			it('R - Verifies downward trending graph', async function () {
 				const app = this.app as Application;
 
-				// Script to create a trending downward bar graph with summarized data
-				const script = `library(ggplot2)
+				logger.log('[R] Sending code to console');
+				await app.workbench.positronConsole.executeCode('R', rScript, '>');
+
+				await openDataExplorerColumnProfile(app);
+				await verifyGraphBarHeights(app);
+			});
+		});
+	});
+}
+
+const rScript = `library(ggplot2)
 library(dplyr)
 
 # Example data with multiple values for the same category
@@ -95,21 +87,22 @@ geom_bar(stat = "identity", fill = "steelblue") +
 labs(x = "Category", y = "Total Values", title = "Bar Graph with Summed Values") +
 theme_minimal()`;
 
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('R', script, '>');
 
-				logger.log('Opening data grid');
-				await expect(async () => {
-					await app.workbench.positronVariables.doubleClickVariableRow('graphData');
-					await app.code.driver.getLocator('.label-name:has-text("Data: graphData")').innerText();
-				}).toPass();
+const pythonScript = `import pandas as pd
+import matplotlib.pyplot as plt
 
-				logger.log('Expand column profile');
-				await app.workbench.positronSideBar.closeSecondarySideBar();
-				await app.workbench.positronDataExplorer.expandColumnProfile(0);
+# Example data with multiple values for the same category
+graphData = pd.DataFrame({
+'category': ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'D', 'E', 'A', 'B', 'C', 'D'],
+'values': [1, 2, 3, 4, 5, 9, 10, 11, 13, 25, 7, 15, 20, 5, 6]
+})
 
-				verifyGraphBarHeights(app);
-			});
-		});
-	});
-}
+# Summarize data by summing values per category
+summarized_data = graphData.groupby('category', as_index=False).sum()
+
+# Create a bar graph
+plt.bar(summarized_data['category'], summarized_data['values'], color='steelblue')
+plt.xlabel('Category')
+plt.ylabel('Total Values')
+plt.title('Bar Graph with Summed Values')
+plt.show()`;
