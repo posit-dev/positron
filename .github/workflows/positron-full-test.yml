@@ -54,6 +54,13 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Install Quarto CLI
+        run: |
+          TEMP_DEB="$(mktemp)" &&
+          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
+          sudo dpkg -i "$TEMP_DEB"
+          rm -f "$TEMP_DEB"
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
