@@ -12,6 +12,7 @@ import { DefaultApi } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
+import { KallichoreSession } from './session';
 
 export class KCApi implements KallichoreAdapterApi {
 	private readonly _api: DefaultApi;
@@ -58,7 +59,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 	createSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata, _kernel: JupyterKernelSpec, _dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
 		this._log.info(`Creating session: ${JSON.stringify(_sessionMetadata)}`);
-		throw new Error('Method not implemented.');
+		return new KallichoreSession(_sessionMetadata, _runtimeMetadata, _dynState, this._log, this._api);
 	}
 	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
 		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);
