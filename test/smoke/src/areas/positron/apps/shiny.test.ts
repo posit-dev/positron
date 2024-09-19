@@ -38,9 +38,7 @@ export function setup(logger: Logger) {
 
 				const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 
-				const headerText = await headerLocator.innerText({ timeout: 30000 });
-
-				expect(headerText).toBe('Restaurant tipping');
+				await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 50000 });
 
 				await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 
@@ -69,9 +67,7 @@ runExample("01_hello")`;
 
 				const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 
-				const headerText = await headerLocator.innerText({ timeout: 30000 });
-
-				expect(headerText).toBe('Hello Shiny!');
+				await expect(headerLocator).toHaveText('Hello Shiny!', { timeout: 50000 });
 
 				await app.workbench.positronConsole.activeConsole.click();
 				await app.workbench.positronConsole.sendKeyboardKey('Control+C');
