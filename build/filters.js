@@ -28,9 +28,10 @@ module.exports.all = [
 	'!**/node_modules/**',
 
 	// --- Start Positron ---
+	'!extensions/kallichore-adapter/src/kcclient/**/*',
 	'!extensions/positron-python/**/*',
 	'!extensions/open-remote-ssh/**/*',
-	'!test/smoke/test-repo/**/*'
+	'!test/smoke/test-repo/**/*',
 	// --- End Positron ---
 ];
 

@@ -28,12 +28,16 @@
     "url": "https://github.com/posit-dev/positron"
   },
   "devDependencies": {
-    "decompress": "^4.2.1",
-    "@types/decompress": "^4.2.7"
+    "@types/decompress": "^4.2.7",
+    "@types/request": "^2.48.12",
+    "decompress": "^4.2.1"
   },
   "positron": {
     "binaryDependencies": {
       "kallichore": "0.1.2"
     }
+  },
+  "dependencies": {
+    "request": "^2.88.2"
   }
 }

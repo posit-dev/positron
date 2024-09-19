@@ -3,6 +3,8 @@
 	"compilerOptions": {
 		"outDir": "./out",
 		"types": ["node"],
+		"esModuleInterop": true,
+		"noUnusedLocals": false,
 	},
 	"include": [
 		"src/**/*",

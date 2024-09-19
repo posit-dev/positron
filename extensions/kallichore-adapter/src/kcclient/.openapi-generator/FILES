@@ -1,0 +1,15 @@
+.gitignore
+.openapi-generator-ignore
+api.ts
+api/apis.ts
+api/defaultApi.ts
+git_push.sh
+model/executionQueue.ts
+model/interruptMode.ts
+model/modelError.ts
+model/models.ts
+model/newSession200Response.ts
+model/session.ts
+model/sessionList.ts
+model/sessionListSessionsInner.ts
+model/status.ts
