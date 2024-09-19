@@ -298,6 +298,25 @@ export interface IWorkbenchConstructionOptions {
 	 */
 	readonly configurationDefaults?: Record<string, any>;
 
+	// --- Start PWB: Local storage ---
+	/**
+	 * Path to the user data directory.
+	 */
+	readonly userDataPath?: string;
+	// --- End PWB ---
+  
+	// --- Start PWB: disable file downloads ---
+	/**
+	 * Whether the "Download..." option is enabled for files.
+	 */
+	readonly isEnabledFileDownloads?: boolean;
+
+	/**
+	 * Whether the "Upload..." button is enabled.
+	 */
+	readonly isEnabledFileUploads?: boolean;
+	// --- End PWB ---
+
 	//#endregion
 
 	//#region Profile options

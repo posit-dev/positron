@@ -5,7 +5,7 @@
 
 import { IStringDictionary } from 'vs/base/common/collections';
 import { PerformanceMark } from 'vs/base/common/performance';
-import { isLinux, isMacintosh, isNative, isWeb, isWindows } from 'vs/base/common/platform';
+import { isLinux, isMacintosh, isNative, isWeb } from 'vs/base/common/platform';
 import { URI, UriComponents, UriDto } from 'vs/base/common/uri';
 import { ISandboxConfiguration } from 'vs/base/parts/sandbox/common/sandboxTypes';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -160,6 +160,7 @@ export interface IWindowSettings {
 	readonly clickThroughInactive: boolean;
 	readonly newWindowProfile: string;
 	readonly density: IDensitySettings;
+	readonly experimentalControlOverlay?: boolean;
 }
 
 export interface IDensitySettings {
@@ -225,12 +226,19 @@ export function getTitleBarStyle(configurationService: IConfigurationService): T
 export const DEFAULT_CUSTOM_TITLEBAR_HEIGHT = 35; // includes space for command center
 
 export function useWindowControlsOverlay(configurationService: IConfigurationService): boolean {
-	if (!isWindows || isWeb) {
-		return false; // only supported on a desktop Windows instance
+	if (isMacintosh || isWeb) {
+		return false; // only supported on a Windows/Linux desktop instances
 	}
 
 	if (hasNativeTitlebar(configurationService)) {
 		return false; // only supported when title bar is custom
+	}
+
+	if (isLinux) {
+		const setting = configurationService.getValue('window.experimentalControlOverlay');
+		if (typeof setting === 'boolean') {
+			return setting;
+		}
 	}
 
 	// Default to true.

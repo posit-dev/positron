@@ -590,7 +590,7 @@ suite('ExtHostWorkspace', function () {
 				mainThreadCalled = true;
 				assert.strictEqual(options.includePattern, 'foo');
 				assert.strictEqual(_includeFolder, null);
-				assert.strictEqual(options.excludePattern, '');
+				assert.strictEqual(options.excludePattern, undefined);
 				assert.strictEqual(options.disregardExcludeSettings, false);
 				assert.strictEqual(options.maxResults, 10);
 				return Promise.resolve(null);
@@ -613,7 +613,7 @@ suite('ExtHostWorkspace', function () {
 				mainThreadCalled = true;
 				assert.strictEqual(options.includePattern, 'glob/**');
 				assert.deepStrictEqual(_includeFolder ? URI.from(_includeFolder).toJSON() : null, URI.file('/other/folder').toJSON());
-				assert.strictEqual(options.excludePattern, '');
+				assert.strictEqual(options.excludePattern, undefined);
 				assert.strictEqual(options.disregardExcludeSettings, false);
 				return Promise.resolve(null);
 			}
@@ -643,7 +643,7 @@ suite('ExtHostWorkspace', function () {
 				mainThreadCalled = true;
 				assert.strictEqual(options.includePattern, 'glob/**');
 				assert.deepStrictEqual(URI.revive(_includeFolder!).toString(), URI.file('/other/folder').toString());
-				assert.strictEqual(options.excludePattern, '');
+				assert.strictEqual(options.excludePattern, undefined);
 				assert.strictEqual(options.disregardExcludeSettings, true);
 				return Promise.resolve(null);
 			}
@@ -684,7 +684,8 @@ suite('ExtHostWorkspace', function () {
 			override $startFileSearch(_includeFolder: UriComponents | null, options: IFileQueryBuilderOptions, token: CancellationToken): Promise<URI[] | null> {
 				mainThreadCalled = true;
 				assert.strictEqual(options.disregardExcludeSettings, false);
-				assert.strictEqual(options.excludePattern, 'glob/**'); // Note that the base portion is ignored, see #52651
+				assert.strictEqual(options.excludePattern?.length, 1);
+				assert.strictEqual(options.excludePattern[0].pattern, 'glob/**'); // Note that the base portion is ignored, see #52651
 				return Promise.resolve(null);
 			}
 		});
@@ -801,7 +802,8 @@ suite('ExtHostWorkspace', function () {
 			override $startFileSearch(_includeFolder: UriComponents | null, options: IFileQueryBuilderOptions, token: CancellationToken): Promise<URI[] | null> {
 				mainThreadCalled = true;
 				assert.strictEqual(options.disregardExcludeSettings, false);
-				assert.strictEqual(options.excludePattern, 'glob/**'); // Note that the base portion is ignored, see #52651
+				assert.strictEqual(options.excludePattern?.length, 1);
+				assert.strictEqual(options.excludePattern[0].pattern, 'glob/**'); // Note that the base portion is ignored, see #52651
 				return Promise.resolve(null);
 			}
 		});
@@ -944,7 +946,8 @@ suite('ExtHostWorkspace', function () {
 				assert.strictEqual(query.pattern, 'foo');
 				assert.deepStrictEqual(folder, null);
 				assert.strictEqual(options.includePattern, undefined);
-				assert.strictEqual(options.excludePattern, 'glob/**'); // exclude folder is ignored...
+				assert.strictEqual(options.excludePattern?.length, 1);
+				assert.strictEqual(options.excludePattern[0].pattern, 'glob/**'); // exclude folder is ignored...
 				return null;
 			}
 		});

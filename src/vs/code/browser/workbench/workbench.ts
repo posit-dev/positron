@@ -21,6 +21,10 @@ import type { IWorkbenchConstructionOptions, IWorkspace, IWorkspaceProvider } fr
 import { AuthenticationSessionInfo } from 'vs/workbench/services/authentication/browser/authenticationService';
 import type { IURLCallbackProvider } from 'vs/workbench/services/url/browser/urlService';
 import { create } from 'vs/workbench/workbench.web.main';
+// --- Start PWB: proxy port url ---
+import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from 'vs/platform/tunnel/common/tunnel';
+import { transformPort } from './urlPorts';
+// --- End PWB ---
 
 interface ISecretStorageCrypto {
 	seal(data: string): Promise<string>;
@@ -566,11 +570,12 @@ function readCookie(name: string): string | undefined {
 	// Find config by checking for DOM
 	const configElement = mainWindow.document.getElementById('vscode-workbench-web-configuration');
 	const configElementAttribute = configElement ? configElement.getAttribute('data-settings') : undefined;
-
 	if (!configElement || !configElementAttribute) {
 		throw new Error('Missing web configuration element');
 	}
-	const config: IWorkbenchConstructionOptions & { folderUri?: UriComponents; workspaceUri?: UriComponents; callbackRoute: string } = JSON.parse(configElementAttribute);
+	// --- Start PWB ---
+	const config: IWorkbenchConstructionOptions & { folderUri?: UriComponents; workspaceUri?: UriComponents; callbackRoute: string } = { ...JSON.parse(configElementAttribute), remoteAuthority: location.host };
+	// --- End PWB ---
 	const secretStorageKeyPath = readCookie('vscode-secret-key-path');
 	const secretStorageCrypto = secretStorageKeyPath && ServerKeyedAESCrypto.supported()
 		? new ServerKeyedAESCrypto(secretStorageKeyPath) : new TransparentCrypto();
@@ -582,6 +587,58 @@ function readCookie(name: string): string | undefined {
 		settingsSyncOptions: config.settingsSyncOptions ? { enabled: config.settingsSyncOptions.enabled, } : undefined,
 		workspaceProvider: WorkspaceProvider.create(config),
 		urlCallbackProvider: new LocalStorageURLCallbackProvider(config.callbackRoute),
+		// --- PWB Start: proxy port url ---
+		resolveExternalUri: (uri: URI): Promise<URI> => {
+			let resolvedUri = uri;
+			const localhostMatch = extractLocalHostUriMetaDataForPortMapping(resolvedUri);
+			if (localhostMatch && resolvedUri.authority !== location.host) {
+				if (config.productConfiguration && config.productConfiguration.proxyEndpointTemplate) {
+					let template = config.productConfiguration.proxyEndpointTemplate;
+
+					// The proxyEndpointTemplate contains the port token after the last slash.
+					// We extract the port token and remove it from the template.
+					const portToken = template.split('/').pop();
+					template = template.slice(0, template.lastIndexOf('/') + 1);
+
+					let securePort, renderedTemplate;
+					if (portToken !== undefined) {
+						securePort = transformPort(portToken, localhostMatch.port);
+						if (securePort) {
+							renderedTemplate = template.replace('{{port}}', securePort);
+						}
+					}
+					if (!renderedTemplate) {
+						// Fallback to /proxy/{{port}}/ when port token is not available. This only occurs when running
+						// outside of Workbench and is useful for testing.
+						renderedTemplate = template
+							.replace('/p/', '/proxy/')
+							.replace('{{port}}', localhostMatch.port.toString());
+					}
+					resolvedUri = URI.parse(new URL(renderedTemplate, mainWindow.location.href).toString());
+				} else {
+					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
+				}
+			}
+			return Promise.resolve(resolvedUri);
+		},
+		tunnelProvider: {
+			tunnelFactory: (tunnelOptions: TunnelOptions, tunnelCreationOptions: TunnelCreationOptions) => {
+				const onDidDispose: Emitter<void> = new Emitter();
+				let isDisposed = false;
+				return Promise.resolve({
+					remoteAddress: tunnelOptions.remoteAddress,
+					localAddress: `localhost:${tunnelOptions.remoteAddress.port}`,
+					onDidDispose: onDidDispose.event,
+					dispose: () => {
+						if (!isDisposed) {
+							isDisposed = true;
+							onDidDispose.fire();
+						}
+					}
+				});
+			}
+		},
+		// --- End PWB ---
 		secretStorageProvider: config.remoteAuthority && !secretStorageKeyPath
 			? undefined /* with a remote without embedder-preferred storage, store on the remote */
 			: new LocalStorageSecretStorageProvider(secretStorageCrypto),

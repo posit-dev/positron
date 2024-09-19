@@ -75,6 +75,14 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 	private _gutterState: LightBulbState.State = LightBulbState.Hidden;
 	private _iconClasses: string[] = [];
 
+	private readonly lightbulbClasses = [
+		'codicon-' + GUTTER_LIGHTBULB_ICON.id,
+		'codicon-' + GUTTER_LIGHTBULB_AIFIX_AUTO_FIX_ICON.id,
+		'codicon-' + GUTTER_LIGHTBULB_AUTO_FIX_ICON.id,
+		'codicon-' + GUTTER_LIGHTBULB_AIFIX_ICON.id,
+		'codicon-' + GUTTER_SPARKLE_FILLED_ICON.id
+	];
+
 	private _preferredKbLabel?: string;
 	private _quickFixKbLabel?: string;
 
@@ -148,15 +156,8 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 		}));
 
 		this._register(this._editor.onMouseDown(async (e: IEditorMouseEvent) => {
-			const lightbulbClasses = [
-				'codicon-' + GUTTER_LIGHTBULB_ICON.id,
-				'codicon-' + GUTTER_LIGHTBULB_AIFIX_AUTO_FIX_ICON.id,
-				'codicon-' + GUTTER_LIGHTBULB_AUTO_FIX_ICON.id,
-				'codicon-' + GUTTER_LIGHTBULB_AIFIX_ICON.id,
-				'codicon-' + GUTTER_SPARKLE_FILLED_ICON.id
-			];
 
-			if (!e.target.element || !lightbulbClasses.some(cls => e.target.element && e.target.element.classList.contains(cls))) {
+			if (!e.target.element || !this.lightbulbClasses.some(cls => e.target.element && e.target.element.classList.contains(cls))) {
 				return;
 			}
 
@@ -212,6 +213,12 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 			return this.hide();
 		}
 
+		const hasTextFocus = this._editor.hasTextFocus();
+		if (!hasTextFocus) {
+			this.gutterHide();
+			return this.hide();
+		}
+
 		const options = this._editor.getOptions();
 		if (!options.get(EditorOption.lightbulb).enabled) {
 			this.gutterHide();
@@ -236,6 +243,20 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 			return lineNumber > 2 && this._editor.getTopForLineNumber(lineNumber) === this._editor.getTopForLineNumber(lineNumber - 1);
 		};
 
+		// Check for glyph margin decorations of any kind
+		const currLineDecorations = this._editor.getLineDecorations(lineNumber);
+		let hasDecoration = false;
+		if (currLineDecorations) {
+			for (const decoration of currLineDecorations) {
+				const glyphClass = decoration.options.glyphMarginClassName;
+
+				if (glyphClass && !this.lightbulbClasses.some(className => glyphClass.includes(className))) {
+					hasDecoration = true;
+					break;
+				}
+			}
+		}
+
 		let effectiveLineNumber = lineNumber;
 		let effectiveColumnNumber = 1;
 		if (!lineHasSpace) {
@@ -253,16 +274,6 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 				const currLineEmptyOrIndented = isLineEmptyOrIndented(lineNumber);
 				const notEmpty = !nextLineEmptyOrIndented && !prevLineEmptyOrIndented;
 
-				let hasDecoration = false;
-				const currLineDecorations = this._editor.getLineDecorations(lineNumber);
-				if (currLineDecorations) {
-					for (const decoration of currLineDecorations) {
-						if (decoration.options.glyphMarginClassName?.includes(Codicon.debugBreakpoint.id)) {
-							hasDecoration = true;
-						}
-					}
-				}
-
 				// check above and below. if both are blocked, display lightbulb in the gutter.
 				if (!nextLineEmptyOrIndented && !prevLineEmptyOrIndented && !hasDecoration) {
 					this.gutterState = new LightBulbState.Showing(actions, trigger, atPosition, {
@@ -271,7 +282,7 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 					});
 					this.renderGutterLightbub();
 					return this.hide();
-				} else if (prevLineEmptyOrIndented || endLine || (notEmpty && !currLineEmptyOrIndented)) {
+				} else if (prevLineEmptyOrIndented || endLine || (prevLineEmptyOrIndented && !currLineEmptyOrIndented)) {
 					effectiveLineNumber -= 1;
 				} else if (nextLineEmptyOrIndented || (notEmpty && currLineEmptyOrIndented)) {
 					effectiveLineNumber += 1;
@@ -282,8 +293,13 @@ export class LightBulbWidget extends Disposable implements IContentWidget {
 					position: { lineNumber: effectiveLineNumber, column: effectiveColumnNumber },
 					preference: LightBulbWidget._posPref
 				});
-				this.renderGutterLightbub();
-				return this.hide();
+
+				if (hasDecoration) {
+					this.gutterHide();
+				} else {
+					this.renderGutterLightbub();
+					return this.hide();
+				}
 			} else if ((lineNumber < model.getLineCount()) && !isFolded(lineNumber + 1)) {
 				effectiveLineNumber += 1;
 			} else if (column * fontInfo.spaceWidth < 22) {
