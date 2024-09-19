@@ -26,7 +26,7 @@
         "path": "./themes/dark_modern.json"
       },
       {
-        "id": "Positron Dark",
+        "id": "Default Positron Dark",
         "label": "%positronDarkThemeLabel%",
         "uiTheme": "vs-dark",
         "path": "./themes/positron_dark.json"
@@ -44,7 +44,7 @@
         "path": "./themes/light_modern.json"
       },
       {
-        "id": "Positron Light",
+        "id": "Default Positron Light",
         "label": "%positronLightThemeLabel%",
         "uiTheme": "vs",
         "path": "./themes/positron_light.json"

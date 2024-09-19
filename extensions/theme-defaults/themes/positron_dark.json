@@ -1,6 +1,6 @@
 {
 	"$schema": "vscode://schemas/color-theme",
-	"name": "Positron Dark",
+	"name": "Default Positron Dark",
 	"include": "./dark_modern.json",
 	"colors": {
 		"activityBar.activeBorder": "#C1D6E8",
