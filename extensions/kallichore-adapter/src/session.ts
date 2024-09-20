@@ -9,12 +9,15 @@ import * as os from 'os';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
 import { Barrier } from './barrier';
+import { WebSocket } from 'ws';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 	private readonly _created: Barrier = new Barrier();
+	private readonly _connected: Barrier = new Barrier();
+	private _ws: WebSocket | undefined;
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -125,12 +128,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Connect to the session's websocket
 		const uri = vscode.Uri.parse(this._api.basePath);
-		const ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
-		ws.onopen = () => {
+		this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
+		this._ws.onopen = () => {
 			this._log.info(`Kallichore session ${this.metadata.sessionId} connected`);
+			this._connected.open();
 		};
-		ws.onerror = (err) => {
+		this._ws.onerror = (err) => {
 			this._log.error(`Kallichore session ${this.metadata.sessionId} error: ${err}`);
+		};
+		this._ws.onmessage = (msg) => {
+			this._log.debug(`Kallichore session ${this.metadata.sessionId} message: ${msg.data}`);
 		};
 
 		const info: positron.LanguageRuntimeInfo = {
