@@ -14,13 +14,16 @@ export function setup(logger: Logger) {
 
 		describe('Sparklines', () => {
 
+			beforeEach(async function () {
+				await this.app.workbench.positronLayouts.enterLayout('stacked');
+			});
+
 			afterEach(async function () {
 				await this.app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 			});
 
 			it('Python Pandas - Verifies downward trending graph [C830552]', async function () {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-				await this.app.workbench.positronLayouts.enterLayout('stacked');
 				const app = this.app as Application;
 
 				await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
@@ -31,7 +34,6 @@ export function setup(logger: Logger) {
 
 			it('R - Verifies downward trending graph [C830553]', async function () {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
-				await this.app.workbench.positronLayouts.enterLayout('stacked');
 				const app = this.app as Application;
 
 				await app.workbench.positronConsole.executeCode('R', rScript, '>');
