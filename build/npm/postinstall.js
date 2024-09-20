@@ -78,11 +78,14 @@ function generateRehWebPackageJson() {
 	// `build` a while before `remote/reh-web` due to the array order of `dirs`).
 	const mergeJson = require('gulp-merge-json');
 
+	const remoteDir = path.join(__dirname, '..', '..', 'remote');
+	const packageJsonDirPath = path.join(remoteDir, 'reh-web');
+
 	// If both package.json files contain the same dependency, the one from remote/web will be used
 	// because it is the last one in the stream.
 	gulp.src([
-		path.join(__dirname, '..', '..', 'remote', 'package.json'),
-		path.join(__dirname, '..', '..', 'remote', 'web', 'package.json'),
+		path.join(remoteDir, 'package.json'),
+		path.join(remoteDir, 'web', 'package.json'),
 	])
 		// Merge the package.json files
 		.pipe(
@@ -109,7 +112,12 @@ function generateRehWebPackageJson() {
 			})
 		)
 		// Write the merged package.json file to remote/reh-web
-		.pipe(gulp.dest(path.join(__dirname, '..', '..', 'remote', 'reh-web')));
+		.pipe(gulp.dest(packageJsonDirPath))
+		// `git add` the files in remote/reh-web so that line normalization is handled on Windows
+		.on('end', () => {
+			const packageJsonPath = path.join(packageJsonDirPath, 'package.json');
+			cp.execSync(`git add --renormalize ${packageJsonPath}`);
+		});
 }
 // --- End Positron ---
 
@@ -147,7 +155,7 @@ for (let dir of dirs) {
 	const isRehWebDir = /^(.build\/distro\/npm\/)?remote\/reh-web$/.test(dir);
 
 	if (/^(.build\/distro\/npm\/)?remote$/.test(dir) || isRehWebDir) {
-	// --- End Positron ---
+		// --- End Positron ---
 		// node modules used by vscode server
 		const env = { ...process.env };
 		if (process.env['VSCODE_REMOTE_CC']) {
