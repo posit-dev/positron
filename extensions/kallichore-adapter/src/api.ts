@@ -59,7 +59,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 	createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
-		return new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, kernel, this._log, this._api);
+		return new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, kernel, this._context, this._log, this._api);
 	}
 	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
 		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);

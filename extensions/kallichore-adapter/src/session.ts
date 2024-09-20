@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import * as os from 'os';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { DefaultApi, InterruptMode, Session } from './kcclient/api';
+import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
 import { Barrier } from './barrier';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
@@ -19,6 +20,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
 		readonly kernelSpec: JupyterKernelSpec,
+		private readonly _context: vscode.ExtensionContext,
 		private readonly _log: vscode.LogOutputChannel,
 		private readonly _api: DefaultApi,
 	) {
@@ -36,12 +38,22 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			Object.assign(env, this.kernelSpec.env);
 		}
 
+		// Prepare the working directory; use the workspace root if available,
+		// otherwise the home directory
+		let workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+
+		// If we have a notebook URI, use its directory as the working directory
+		// instead
+		if (this.metadata.notebookUri?.fsPath) {
+			workingDir = this.metadata.notebookUri.fsPath;
+		}
+
 		// Create the session in the underlying API
 		const session: Session = {
 			argv: this.kernelSpec.argv,
 			sessionId: metadata.sessionId,
 			env,
-			workingDirectory: '',
+			workingDirectory: workingDir,
 			username: '',
 			interruptMode: InterruptMode.Message
 		};
@@ -100,7 +112,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this._created.wait();
 
 		// Wait for the session to start
-		await this._api.startSession(this.metadata.sessionId);
+		try {
+			await this._api.startSession(this.metadata.sessionId);
+		} catch (err) {
+			if (err instanceof HttpError) {
+				throw new Error(err.body.message);
+			} else {
+				// Rethrow the error as-is if it's not an HTTP error
+				throw err;
+			}
+		}
 
 		// Connect to the session's websocket
 		const uri = vscode.Uri.parse(this._api.basePath);
