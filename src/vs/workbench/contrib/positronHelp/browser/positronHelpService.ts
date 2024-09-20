@@ -23,6 +23,8 @@ import { IInstantiationService, createDecorator } from 'vs/platform/instantiatio
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { URI } from 'vs/base/common/uri';
+import * as path from 'vs/base/common/path';
 
 /**
  * The help HTML file path.
@@ -644,7 +646,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		}
 
 		// Create the source URL.
-		const sourceUrl = new URL(targetUrl);
+		let sourceUrl = new URL(targetUrl);
 		const proxyServerOriginUrl = new URL(proxyServerOrigin);
 		sourceUrl.protocol = proxyServerOriginUrl.protocol;
 		sourceUrl.hostname = proxyServerOriginUrl.hostname;
@@ -659,6 +661,19 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		console.debug('\ttargetUrl:', targetUrl);
 		console.debug('\tproxyServerOrigin:', proxyServerOrigin);
 		console.debug('\tproxyServerOriginUrl:', proxyServerOriginUrl);
+
+		// NOTE: This newly added code doesn't work in workbench and on server-web, the resolved URL is the same as the original.
+		// Parse the URL and resolve it if necessary. The resolution step is
+		// necessary when URI is hosted on a remote server.
+		try {
+			const sourceUri = URI.parse(sourceUrl.toString());
+			const resolvedUri = await this._openerService.resolveExternalUri(sourceUri);
+			sourceUrl = new URL(resolvedUri.resolved.toString());
+			console.debug('\tresolved sourceUrl:', sourceUrl);
+		} catch {
+			// Noop; use the original URI
+			console.error('failed to resolve uri');
+		}
 
 		// Basically this can't happen.
 		if (!session) {
