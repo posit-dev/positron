@@ -282,7 +282,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			width={SAVE_PLOT_MODAL_DIALOG_WIDTH}
 			height={SAVE_PLOT_MODAL_DIALOG_HEIGHT}
 			title={(() => localize('positron.savePlotModalDialog.title', "Save Plot"))()}
-			onAccept={acceptHandler}
 			onCancel={cancelHandler}
 			renderer={props.renderer}>
 			<ContentArea>

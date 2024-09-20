@@ -117,7 +117,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		};
 
 		renderer.render(
-			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onAccept={acceptHandler} onCancel={cancelHandler}>
+			<PositronModalDialog renderer={renderer} title={title} width={400} height={200} onCancel={cancelHandler}>
 				<ContentArea>
 					{renderHtml(
 						message,
@@ -188,7 +188,6 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 				title={title}
 				width={400}
 				height={200}
-				onAccept={acceptHandler}
 				onCancel={cancelHandler}
 			>
 				<ContentArea>
