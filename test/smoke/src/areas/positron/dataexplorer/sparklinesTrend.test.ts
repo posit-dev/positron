@@ -50,8 +50,6 @@ export function setup(logger: Logger) {
 			}).toPass();
 
 			await app.workbench.positronDataExplorer.getDataExplorerTableData();
-
-			logger.log('Expand column profile');
 			await app.workbench.positronSideBar.closeSecondarySideBar();
 			await app.workbench.positronDataExplorer.expandColumnProfile(0);
 		}
@@ -72,10 +70,8 @@ export function setup(logger: Logger) {
 	});
 }
 
-const rScript = `library(ggplot2)
-library(dplyr)
+const rScript = `library(dplyr)
 
-# Example data with multiple values for the same category
 rData <- tibble(
 category = c("A", "A", "A", "A", "B", "B", "B", "C", "C", "D", "E", "A", "B", "C", "D"),
 values = c(1, 2, 3, 4, 5, 9, 10, 11, 13, 25, 7, 15, 20, 5, 6)
@@ -85,7 +81,6 @@ values = c(1, 2, 3, 4, 5, 9, 10, 11, 13, 25, 7, 15, 20, 5, 6)
 const pythonScript = `import pandas as pd
 import matplotlib.pyplot as plt
 
-# Example data with multiple values for the same category
 pythonData = pd.DataFrame({
 'category': ['A', 'A', 'A', 'A', 'B', 'B', 'B', 'C', 'C', 'D', 'E', 'A', 'B', 'C', 'D'],
 'values': [1, 2, 3, 4, 5, 9, 10, 11, 13, 25, 7, 15, 20, 5, 6]
