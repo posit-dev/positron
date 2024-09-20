@@ -25,6 +25,7 @@
 		"statusBarItem.remoteBackground": "#3A78B1",
 		"tab.activeBorderTop": "#3A78B1",
 		"terminalCursor.foreground": "#3A78B1",
+		"terminal.background": "#FFFFFF",
 		"terminal.tab.activeBorder": "#3A78B1",
 		"textLink.activeForeground": "#3A78B1",
 		"textLink.foreground": "#3A78B1",
