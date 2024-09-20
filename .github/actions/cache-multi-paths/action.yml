@@ -8,29 +8,25 @@ runs:
       uses: actions/cache@v4
       with:
         path: ./node_modules
-        key: root-node-modules-v6-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        key: root-node-modules-v7-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
 
     - name: Cache build
       id: cache-build
       uses: actions/cache@v4
       with:
         path: ./build/node_modules
-        key: build-node-modules-v6-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+        key: build-node-modules-v7-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
     - name: Cache extensions
       id: cache-extensions
       uses: actions/cache@v4
       with:
-        path: |
-          ./extensions
-          ./extensions/**/node_modules
-        key: extensions-v6-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+        path: ./extensions/node_modules
+        key: extensions-v7-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
     - name: Cache remote
       id: cache-remote
       uses: actions/cache@v4
       with:
-        path: |
-          ./remote/node_modules
-          ./remote/**/node_modules
-        key: remote-node-modules-v6-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+        path: ./remote/node_modules
+        key: remote-node-modules-v7-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
