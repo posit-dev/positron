@@ -63,8 +63,14 @@ jobs:
           sudo dpkg -i "$TEMP_DEB"
           rm -f "$TEMP_DEB"
 
+      - name: Debug - cat positron-python file with TS compile error
+        run: cat extensions/positron-python/src/client/common/types.ts
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
+
+      - name: Debug - cat positron-python file with TS compile error
+        run: cat extensions/positron-python/src/client/common/types.ts
 
       - name: Execute yarn
         env:
