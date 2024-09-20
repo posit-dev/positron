@@ -19,17 +19,19 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             await runAppApi.runApplication({
                 name: 'Dash',
                 getTerminalOptions(runtime, document, port, urlPrefix) {
-                    const env: RunAppTerminalOptions['env'] = {};
-                    if (port) {
-                        env.DASH_PORT = port;
-                    }
-                    if (urlPrefix) {
-                        env.DASH_URL_PREFIX = urlPrefix;
-                    }
-                    return {
+                    const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
-                        env,
                     };
+                    if (port || urlPrefix) {
+                        terminalOptions.env = {};
+                        if (port) {
+                            terminalOptions.env.DASH_PORT = port;
+                        }
+                        if (urlPrefix) {
+                            terminalOptions.env.DASH_URL_PREFIX = urlPrefix;
+                        }
+                    }
+                    return terminalOptions;
                 },
             });
         }),
@@ -86,16 +88,15 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             await runAppApi.runApplication({
                 name: 'Flask',
                 async getTerminalOptions(runtime, document, port, urlPrefix) {
-                    const env: RunAppTerminalOptions['env'] = {};
+                    const args = [runtime.runtimePath, '-m', 'flask', '--app', document.uri.fsPath, 'run'];
                     if (port) {
-                        env.SCRIPT_NAME = urlPrefix;
+                        args.push('--port', port);
                     }
-                    return {
-                        commandLine: [runtime.runtimePath, '-m', 'flask', '--app', document.uri.fsPath, 'run'].join(
-                            ' ',
-                        ),
-                        env,
-                    };
+                    const terminalOptions: RunAppTerminalOptions = { commandLine: args.join(' ') };
+                    if (urlPrefix) {
+                        terminalOptions.env = { SCRIPT_NAME: urlPrefix };
+                    }
+                    return terminalOptions;
                 },
             });
         }),
@@ -105,32 +106,19 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             await runAppApi.runApplication({
                 name: 'Gradio',
                 getTerminalOptions(runtime, document, port, urlPrefix) {
-                    const env: RunAppTerminalOptions['env'] = {};
-                    if (port) {
-                        env.GRADIO_SERVER_PORT = port;
-                    }
-                    if (urlPrefix) {
-                        env.GRADIO_ROOT_PATH = urlPrefix;
-                    }
-                    return {
+                    const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
-                        env,
                     };
-                },
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_Shiny_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Shiny',
-                getTerminalOptions(runtime, document, port, _urlPrefix) {
-                    const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload'];
-                    if (port) {
-                        args.push('--port', port);
+                    if (port || urlPrefix) {
+                        terminalOptions.env = {};
+                        if (port) {
+                            terminalOptions.env.GRADIO_SERVER_PORT = port;
+                        }
+                        if (urlPrefix) {
+                            terminalOptions.env.GRADIO_ROOT_PATH = urlPrefix;
+                        }
                     }
-                    args.push(document.uri.fsPath);
-                    return { commandLine: args.join(' ') };
+                    return terminalOptions;
                 },
             });
         }),

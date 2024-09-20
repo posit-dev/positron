@@ -21,19 +21,19 @@ import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Web app commands', () => {
     const runtimePath = '/path/to/python';
-    const documentPath = '/path/to/file.py';
+    const workspacePath = '/path/to';
+    const documentPath = path.join(workspacePath, 'file.py');
     const port = '8080';
     const urlPrefix = 'http://new-url-prefix';
 
     const disposables: IDisposableRegistry = [];
     let runAppOptions: RunAppOptions | undefined;
-    let commands: Map<string, () => Promise<void>>;
+    const commands = new Map<string, () => Promise<void>>();
     let isFastAPICliInstalled: boolean;
-    let serviceContainer: IServiceContainer;
 
     setup(() => {
-        // Stub `vscode.extensions.getExtension('vscode.positron-run-app')` to return an extension API
-        // that records the last `options` passed to `runApplication`.
+        // Stub `vscode.extensions.getExtension('vscode.positron-run-app')` to return an extension
+        // with a `runApplication` that records the last `options` that it was called with.
         runAppOptions = undefined;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
@@ -58,12 +58,20 @@ suite('Web app commands', () => {
         });
 
         // Stub `vscode.commands.registerCommand` to record registered command callbacks.
-        commands = new Map<string, () => Promise<void>>();
         vscode.commands.registerCommand = (command, callback) => {
             assert(!commands.has(command), `Command registered more than once: ${command}`);
             commands.set(command, callback);
             return { dispose: () => undefined };
         };
+
+        // Stub `vscode.workspace.workspaceFolders` to return a single workspace folder.
+        sinon.stub(vscode, 'workspace').get(() => ({
+            workspaceFolders: [{ uri: { fsPath: workspacePath } }],
+        }));
+
+        // Stub the interpreter service and installer services.
+        // Tests can set `isFastAPICliInstalled` to control whether the FastAPI CLI is installed.
+        isFastAPICliInstalled = true;
 
         const interpreter = {} as PythonEnvironment;
 
@@ -73,14 +81,13 @@ suite('Web app commands', () => {
             },
         } as IInterpreterService;
 
-        isFastAPICliInstalled = true;
         const installer = {
             isInstalled(_product, _interpreter) {
                 return Promise.resolve(isFastAPICliInstalled);
             },
         } as IInstaller;
 
-        serviceContainer = {
+        const serviceContainer = {
             get(serviceIdentifier) {
                 switch (serviceIdentifier) {
                     case IInstaller:
@@ -92,9 +99,13 @@ suite('Web app commands', () => {
                 }
             },
         } as IServiceContainer;
+
+        // Activate web app commands.
+        activateWebAppCommands(serviceContainer, disposables);
     });
 
     teardown(() => {
+        commands.clear();
         disposables.forEach((d) => d.dispose());
         disposables.splice(0, disposables.length);
         sinon.restore();
@@ -102,17 +113,14 @@ suite('Web app commands', () => {
 
     async function verifyRunAppCommand(
         command: string,
-        expectedTerminalOptions: RunAppTerminalOptions,
+        expectedTerminalOptions: RunAppTerminalOptions | undefined,
         options?: { documentText?: string; port?: string; urlPrefix?: string },
     ) {
-        // Activate web app commands.
-        activateWebAppCommands(serviceContainer, disposables);
-
-        // Call the command callback and ensure that the RunAppOptions are set.
+        // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
         assert(callback, `Command not registered for: ${command}`);
         await callback();
-        assert(runAppOptions, `RunAppOptions not set for command: ${command}`);
+        assert(runAppOptions, `runAppOptions not set for command: ${command}`);
 
         // Test `getTerminalOptions`.
         const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
@@ -134,7 +142,6 @@ suite('Web app commands', () => {
     test('Exec Dash in terminal - without port and urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Dash_In_Terminal, {
             commandLine: `${runtimePath} ${documentPath}`,
-            env: {},
         });
     });
 
@@ -158,36 +165,81 @@ suite('Web app commands', () => {
         });
     });
 
-    test('Exec FastAPI in terminal - fastapi-cli not installed', async () => {
+    test('Exec FastAPI in terminal - fastapi-cli not installed, inferred app name', async () => {
+        isFastAPICliInstalled = false;
+
+        await verifyRunAppCommand(
+            Commands.Exec_FastAPI_In_Terminal,
+            { commandLine: `${runtimePath} -m uvicorn --reload ${path.parse(documentPath).name}:app` },
+            { documentText: 'app = FastAPI()' },
+        );
+    });
+
+    test('Exec FastAPI in terminal - fastapi-cli not installed, could not infer app name', async () => {
         isFastAPICliInstalled = false;
 
         sinon.stub(vscode, 'workspace').get(() => ({
             workspaceFolders: [{ uri: { fsPath: '/path/to' } }],
         }));
 
-        await verifyRunAppCommand(
-            Commands.Exec_FastAPI_In_Terminal,
-            {
-                commandLine: `${runtimePath} -m uvicorn --reload ${path.parse(documentPath).name}:app`,
-            },
-            { documentText: 'app = FastAPI()' },
-        );
+        await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
 
     test('Exec FastAPI in terminal - with port and urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_FastAPI_In_Terminal,
+            { commandLine: `${runtimePath} -m fastapi dev ${documentPath} --port ${port} --root-path ${urlPrefix}` },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Exec Flask in terminal - without port and urlPrefix', async () => {
+        await verifyRunAppCommand(Commands.Exec_Flask_In_Terminal, {
+            commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
+        });
+    });
+
+    test('Exec Flask in terminal - with port and urlPrefix', async () => {
+        await verifyRunAppCommand(
+            Commands.Exec_Flask_In_Terminal,
             {
-                commandLine: `${runtimePath} -m fastapi dev ${documentPath} --port ${port} --root-path ${urlPrefix}`,
+                commandLine: `${runtimePath} -m flask --app ${documentPath} run --port ${port}`,
+                env: { SCRIPT_NAME: urlPrefix },
             },
             { port, urlPrefix },
         );
     });
 
-    // TODO: Test Flask
-    // TODO: Test Gradio
-    // TODO: Test Shiny
-    // TODO: Test Streamlit
-});
+    test('Exec Gradio in terminal - without port and urlPrefix', async () => {
+        await verifyRunAppCommand(Commands.Exec_Gradio_In_Terminal, {
+            commandLine: `${runtimePath} ${documentPath}`,
+        });
+    });
 
-// TODO: Unit tests for pathToModule? And getAppName?
+    test('Exec Gradio in terminal - with port and urlPrefix', async () => {
+        await verifyRunAppCommand(
+            Commands.Exec_Gradio_In_Terminal,
+            {
+                commandLine: `${runtimePath} ${documentPath}`,
+                env: { GRADIO_SERVER_PORT: port, GRADIO_ROOT_PATH: urlPrefix },
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Exec Streamlit in terminal - without port and urlPrefix', async () => {
+        await verifyRunAppCommand(Commands.Exec_Streamlit_In_Terminal, {
+            commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
+        });
+    });
+
+    test('Exec Streamlit in terminal - with port and urlPrefix', async () => {
+        await verifyRunAppCommand(
+            Commands.Exec_Streamlit_In_Terminal,
+            {
+                commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true --port ${port}`,
+            },
+            { port, urlPrefix },
+        );
+    });
+});
