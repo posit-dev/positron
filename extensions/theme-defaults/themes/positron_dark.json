@@ -17,6 +17,7 @@
 		"editorGutter.modifiedBackground": "#32485B",
 		"focusBorder": "#32485B",
 		"menu.selectionBackground": "#32485B",
+		"panel.background": "#181818",
 		"panelTitle.activeBorder": "#32485B",
 		"progressBar.background": "#32485B",
 		"statusBar.debuggingBackground": "#32485B",
