@@ -3,11 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Logger, Workbench } from '../../../../../automation';
+import { Application, Logger, TerminalCommandId, Workbench } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 const path = require('path');
+const fs = require('fs-extra');
 
+const verifyFileExists = (app: Application, file: String) => {
+	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
+	return fs.pathExists(filePath);
+};
 
 export function setup(logger: Logger) {
 	describe('Quarto #pr', () => {
@@ -21,6 +26,13 @@ export function setup(logger: Logger) {
 			app = this.app as Application;
 			wb = app.workbench;
 
+			// ensure tinytex is installed (needed for LaTeX rendering)
+			await wb.positronTerminal.clickTerminalTab();
+			await wb.terminal.runCommandInTerminal('quarto install tinytex');
+			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Installation successful') || line.includes('tinytex is already installed')));
+			await app.workbench.terminal.runCommand(TerminalCommandId.KillAll);
+
+			// open quarto_basic file
 			await wb.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
@@ -28,26 +40,27 @@ export function setup(logger: Logger) {
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('html');
 			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.html')));
+
+			expect(await verifyFileExists(app, 'quarto_basic.html')).toBe(true);
 		});
 
 		it('should be able to render docx ', async function () {
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('docx');
 			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.docx')));
+
+			expect(await verifyFileExists(app, 'quarto_basic.docx')).toBe(true);
 		});
 
 		it('should be able to render pdf (LaTeX)', async function () {
-			// ensure tinytex is installed
-			// await wb.positronTerminal.clickTerminalTab();
-			// await wb.terminal.runCommandInTerminal('quarto install tinytex');
-			// await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Installation successful') || line.includes('tinytex is already installed')));
-			// await app.code.dispatchKeybinding(process.platform === 'darwin' ? 'cmd+k' : 'ctrl+k');
+			await wb.quickaccess.runCommand('workbench.action.toggleDevTools');
 
 			// render pdf
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('pdf');
-
 			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.pdf')));
+
+			expect(await verifyFileExists(app, 'quarto_basic.pdf')).toBe(true);
 		});
 
 		it('should be able to generate preview', async function () {
