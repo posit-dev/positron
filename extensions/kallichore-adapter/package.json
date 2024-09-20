@@ -43,6 +43,7 @@
   "devDependencies": {
     "@types/decompress": "^4.2.7",
     "@types/request": "^2.48.12",
+    "@types/ws": "^8.5.12",
     "decompress": "^4.2.1"
   },
   "positron": {
@@ -51,6 +52,7 @@
     }
   },
   "dependencies": {
-    "request": "^2.88.2"
+    "request": "^2.88.2",
+    "ws": "^8.18.0"
   }
 }

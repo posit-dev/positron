@@ -5,17 +5,20 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { JupyterLanguageRuntimeSession } from './jupyter-adapter';
+import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { DefaultApi, InterruptMode, Session } from './kcclient/api';
+import { Barrier } from './barrier';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
+	private readonly _created: Barrier = new Barrier();
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
+		readonly kernelSpec: JupyterKernelSpec,
 		private readonly _log: vscode.LogOutputChannel,
 		private readonly _api: DefaultApi,
 	) {
@@ -27,17 +30,24 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidChangeRuntimeState = this._state.event;
 		this.onDidEndSession = this._exit.event;
 
+		// Forward the environment variables from the kernel spec
+		const env = {};
+		if (this.kernelSpec.env) {
+			Object.assign(env, this.kernelSpec.env);
+		}
+
 		// Create the session in the underlying API
 		const session: Session = {
-			argv: [runtimeMetadata.runtimePath],
+			argv: this.kernelSpec.argv,
 			sessionId: metadata.sessionId,
-			env: {},
+			env,
 			workingDirectory: '',
 			username: '',
 			interruptMode: InterruptMode.Message
 		};
 		this._api.newSession(session).then(() => {
 			this._log.info(`Kallichore session created: ${JSON.stringify(session)}`);
+			this._created.open();
 		});
 	}
 	startPositronLsp(_clientAddress: string): Thenable<void> {
@@ -85,9 +95,31 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	replyToPrompt(_id: string, _reply: string): void {
 		throw new Error('Method not implemented.');
 	}
-	start(): Thenable<positron.LanguageRuntimeInfo> {
-		throw new Error('Method not implemented.');
+	async start(): Promise<positron.LanguageRuntimeInfo> {
+		// Wait for the session to be created
+		await this._created.wait();
+
+		// Wait for the session to start
+		await this._api.startSession(this.metadata.sessionId);
+
+		// Connect to the session's websocket
+		const uri = vscode.Uri.parse(this._api.basePath);
+		const ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
+		ws.onopen = () => {
+			this._log.info(`Kallichore session ${this.metadata.sessionId} connected`);
+		};
+		ws.onerror = (err) => {
+			this._log.error(`Kallichore session ${this.metadata.sessionId} error: ${err}`);
+		};
+
+		const info: positron.LanguageRuntimeInfo = {
+			banner: 'Kallichore session',
+			implementation_version: '1.0',
+			language_version: this.runtimeMetadata.runtimeVersion,
+		};
+		return info;
 	}
+
 	interrupt(): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
