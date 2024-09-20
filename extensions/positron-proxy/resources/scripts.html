@@ -84,6 +84,9 @@
 						addKeyboardListeners();
 						addContextMenuListener();
 
+						// Rewrite root-relative urls.
+						rewriteRootRelativeUrls();
+
 						// Hijack links.
 						hijackLinks();
 
@@ -321,6 +324,27 @@
 					// Consume the event.
 					return false;
 				});
+			};
+
+			// Rewrites root-relative urls by removing the leading slash.
+			const rewriteRootRelativeUrls = () => {
+				// Get all the elements with a src or href attribute.
+				const elements = document.querySelectorAll("[src], [href]");
+				for (let i = 0; i < elements.length; i++) {
+					// Get the element.
+					const element = elements[i];
+
+					// Get the src or href attribute.
+					const attribute = element.src ? "src" : "href";
+
+					// Get the value.
+					const value = element.getAttribute(attribute);
+
+					// If the value is root-relative, rewrite it.
+					if (value.startsWith("/")) {
+						element.setAttribute(attribute, value.substring(1));
+					}
+				}
 			};
 
 			// Hijacks all the links in the document. When a link is clicked, post a message to
