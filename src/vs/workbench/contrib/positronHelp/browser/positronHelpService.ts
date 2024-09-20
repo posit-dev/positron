@@ -580,7 +580,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	private async handleShowHelpEvent(
 		session: ILanguageRuntimeSession,
 		showHelpEvent: ShowHelpEvent) {
-
+		console.debug('showHelpEvent:', showHelpEvent);
 		// Only url help events are supported.
 		if (showHelpEvent.kind !== 'url') {
 			this._logService.error(`PositronHelpService does not support help event kind ${showHelpEvent.kind}.`);
@@ -654,6 +654,12 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// this prepends /proxy/<PORT> to the rest of the path which is something like /path/to/iris.html
 		sourceUrl.pathname = path.join(proxyServerOriginUrl.pathname, sourceUrl.pathname);
 
+		console.debug('urls:');
+		console.debug('\tsourceUrl:', sourceUrl);
+		console.debug('\ttargetUrl:', targetUrl);
+		console.debug('\tproxyServerOrigin:', proxyServerOrigin);
+		console.debug('\tproxyServerOriginUrl:', proxyServerOriginUrl);
+
 		// Basically this can't happen.
 		if (!session) {
 			this._notificationService.error(localize(
@@ -665,6 +671,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Open the help view.
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
+
+		console.debug('creating the help entry with:');
+		console.debug('\tsession.runtimeMetadata.languageId', session.runtimeMetadata.languageId);
+		console.debug('\tsession.runtimeMetadata.runtimeId', session.runtimeMetadata.runtimeId);
+		console.debug('\tsession.runtimeMetadata.languageName', session.runtimeMetadata.languageName);
+		console.debug('\tsourceUrl.toString()', sourceUrl.toString());
+		console.debug('\ttargetUrl.toString()', targetUrl.toString());
 
 		// Create the help entry.
 		const helpEntry = this._instantiationService.createInstance(HelpEntry,
@@ -678,6 +691,8 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 		// Add the onDidNavigate event handler.
 		helpEntry.onDidNavigate(url => {
+			console.debug('helpEntry.onDidNavigate url:', url);
+			console.debug('helpEntry.onDidNavigate helpEntry.sourceUrl:', helpEntry.sourceUrl);
 			this.navigate(helpEntry.sourceUrl, url);
 		});
 

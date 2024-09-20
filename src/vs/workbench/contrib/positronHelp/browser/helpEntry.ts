@@ -23,6 +23,7 @@ import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webvie
 import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * Constants.
@@ -474,8 +475,25 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 						// help service. This obviously isn't an exact science. At the moment, we
 						// open PDFs externally.
 						const url = new URL(message.url);
+
+						console.debug('positron-help-navigate message.url:' + message.url);
+						console.debug('positron-help-navigate isLocalhost(url.hostname):' + isLocalhost(url.hostname));
+						try {
+							// This doesn't actually do anything -- this is just for debugging. We don't
+							// use the resolved URIs.
+							let uri = URI.parse(url.href);
+							uri = (await this._openerService.resolveExternalUri(uri)).resolved;
+							console.debug('url resolved:' + uri);
+							uri = URI.parse(message.url);
+							uri = (await this._openerService.resolveExternalUri(uri)).resolved;
+							console.debug('message.url resolved:' + uri);
+						} catch (error) {
+							console.error('failed to resolve uri')
+						}
+
 						if (!isLocalhost(url.hostname) || url.pathname.toLowerCase().endsWith('.pdf')) {
 							try {
+								console.debug('positron-help-navigate opening url externally');
 								await this._openerService.open(message.url, {
 									openExternal: true
 								} satisfies OpenExternalOptions);
@@ -558,6 +576,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 					.replaceAll('__scrollX__', `${this._scrollX}`)
 					.replaceAll('__scrollY__', `${this._scrollY}`)
 			);
+
+			console.debug('helpEntry.sourceUrl: ', this.sourceUrl);
 
 			// Start the set title timeout. This timeout sets the title of the help entry to a
 			// shortened version of the source URL. We do this because there's no guarantee that the
