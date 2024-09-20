@@ -188,6 +188,7 @@ export class PositronProxy implements Disposable {
 		return this.startProxyServer(
 			targetOrigin,
 			async (serverOrigin, url, contentType, responseBuffer) => {
+				console.log(`Rewriting content for ${url}: ${serverOrigin}`);
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -207,12 +208,15 @@ export class PositronProxy implements Disposable {
 
 				// Get the response.
 				let response = responseBuffer.toString('utf8');
+				const serverPort = serverOrigin.split(':')[2];
+				console.log(`Server port: ${serverPort}`);
 
 				// Inject the help style defaults for unstyled help documents and the help vars.
 				response = response.replace(
 					'<head>',
 					`<head>\n
 					${helpVars}\n
+					<base href="http://localhost:8080/proxy/${serverPort}/">\n
 					${this._helpStyleDefaults}`
 				);
 
@@ -285,6 +289,7 @@ export class PositronProxy implements Disposable {
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
 		// Return a promise.
 		return new Promise((resolve, reject) => {
+			console.log(`Starting proxy server for ${targetOrigin}`);
 			// See if we have an existing proxy server for target origin. If there is, return the
 			// server origin.
 			const proxyServer = this._proxyServers.get(targetOrigin);
@@ -342,7 +347,10 @@ export class PositronProxy implements Disposable {
 
 				// Resolve the server origin as an external URI.
 				const originUri = vscode.Uri.parse(serverOrigin);
+				console.log('Origin URI:', originUri);
+				console.log('Server Origin:', serverOrigin);
 				vscode.env.asExternalUri(originUri).then((externalUri) => {
+					console.log(`Proxy server started for ${targetOrigin} at ${externalUri.toString()}`);
 					resolve(externalUri.toString());
 				});
 			});
