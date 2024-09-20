@@ -26,12 +26,12 @@ export class KCApi implements KallichoreAdapterApi {
 	async start() {
 		// TODO: re-use existing terminal instead of opening a new one every time;
 		// can do this by attempting a network reconnect
-		const kcExeName = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
-		const shellPath = path.join(this._context.extensionPath, 'resources', 'kallichore', kcExeName);
+
+		const shellPath = this.getKallichorePath();
 		const env = {
-			POSITRON: '1',
-			POSITRON_VERSION: positron.version,
-			RUST_LOG: 'debug'
+			'POSITRON': '1',
+			'POSITRON_VERSION': positron.version,
+			'RUST_LOG': 'debug'
 		};
 
 
@@ -44,7 +44,7 @@ export class KCApi implements KallichoreAdapterApi {
 			shellPath: shellPath,
 			shellArgs: ['--port', port.toString()],
 			env,
-			message: '',
+			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: false,
 			isTransient: false
 		});
@@ -71,5 +71,48 @@ export class KCApi implements KallichoreAdapterApi {
 
 	findAvailablePort(_excluding: Array<number>, _maxTries: number): Promise<number> {
 		throw new Error('Method not implemented.');
+	}
+
+
+	/**
+	 * Attempts to locate a copy of the Kallichore server binary.
+	 *
+	 * @returns A path to the Kallichore server binary.
+	 * @throws An error if the server binary cannot be found.
+	 */
+	getKallichorePath(): string {
+
+		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
+		const path = require('path');
+		const fs = require('fs');
+
+		// Look for locally built Debug or Release server binaries. If both exist, we'll use
+		// whichever is newest. This is the location where the kernel is typically built
+		// by developers, who have `positron` and `kallichore` directories side-by-side.
+		let devBinary = undefined;
+		const positronParent = path.dirname(path.dirname(path.dirname(this._context.extensionPath)));
+		const devDebugBinary = path.join(positronParent, 'kallichore', 'target', 'debug', serverBin);
+		const devReleaseBinary = path.join(positronParent, 'kallichore', 'target', 'release', serverBin);
+		const debugModified = fs.statSync(devDebugBinary, { throwIfNoEntry: false })?.mtime;
+		const releaseModified = fs.statSync(devReleaseBinary, { throwIfNoEntry: false })?.mtime;
+
+		if (debugModified) {
+			devBinary = (releaseModified && releaseModified > debugModified) ? devReleaseBinary : devDebugBinary;
+		} else if (releaseModified) {
+			devBinary = devReleaseBinary;
+		}
+		if (devBinary) {
+			this._log.info(`Loading Kallichore from disk in adjacent repository (${devBinary}). Make sure it's up-to-date.`);
+			return devBinary;
+		}
+
+		// Now try the default (embedded) kernel. This is where the kernel is placed in
+		// development and release builds.
+		const embeddedBinary = path.join(this._context.extensionPath, 'resources', 'ark', serverBin);
+		if (fs.existsSync(embeddedBinary)) {
+			return embeddedBinary;
+		}
+
+		throw new Error(`Kallichore server not found (expected at ${embeddedBinary})`);
 	}
 }
