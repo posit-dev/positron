@@ -2,12 +2,14 @@
 	"displayName": "Default Themes",
 	"description": "The default Visual Studio light and dark themes",
 	"darkPlusColorThemeLabel": "Dark+",
-	"darkModernThemeLabel": "Positron Dark",
+	"darkModernThemeLabel": "Dark Modern",
 	"lightPlusColorThemeLabel": "Light+",
-	"lightModernThemeLabel": "Positron Light",
+	"lightModernThemeLabel": "Light Modern",
 	"darkColorThemeLabel": "Dark (Visual Studio)",
 	"lightColorThemeLabel": "Light (Visual Studio)",
 	"hcColorThemeLabel": "Dark High Contrast",
 	"lightHcColorThemeLabel": "Light High Contrast",
-	"minimalIconThemeLabel": "Minimal (Visual Studio Code)"
+	"minimalIconThemeLabel": "Minimal (Visual Studio Code)",
+	"positronDarkThemeLabel": "Positron Dark",
+	"positronLightThemeLabel": "Positron Light"
 }
