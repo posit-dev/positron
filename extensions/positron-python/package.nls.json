@@ -10,7 +10,6 @@
     "python.command.python.execFastAPIInTerminal.title": "Run FastAPI in Terminal",
     "python.command.python.execFlaskInTerminal.title": "Run Flask App in Terminal",
     "python.command.python.execGradioInTerminal.title": "Run Gradio App in Terminal",
-    "python.command.python.execShinyInTerminal.title": "Run Shiny App in Terminal",
     "python.command.python.execStreamlitInTerminal.title": "Run Streamlit App in Terminal",
     "python.command.python.execInConsole.title": "Run Python File in Console",
     "python.command.python.debugInTerminal.title": "Debug Python File in Terminal",

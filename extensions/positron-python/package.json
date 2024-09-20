@@ -330,13 +330,6 @@
             },
             {
                 "category": "Python",
-                "command": "python.execShinyInTerminal",
-                "icon": "$(play)",
-                "title": "%python.command.python.execShinyInTerminal.title%",
-                "enablement": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
-            },
-            {
-                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1550,12 +1543,6 @@
                     "group": "navigation@1",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
                     "when": "pythonAppFramework == flask && config.python.enableWebAppSupport"
-                },
-                {
-                    "command": "python.execShinyInTerminal",
-                    "group": "navigation@1",
-                    "title": "%python.command.python.execShinyInTerminal.title%",
-                    "when": "pythonAppFramework == shiny && config.python.enableWebAppSupport"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
