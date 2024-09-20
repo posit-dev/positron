@@ -1480,6 +1480,31 @@
                     "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported && !pythonAppFramework"
                 },
                 {
+                    "command": "python.execDashInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == dash"
+                },
+                {
+                    "command": "python.execGradioInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == gradio"
+                },
+                {
+                    "command": "python.execFastAPIInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == fastapi"
+                },
+                {
+                    "command": "python.execFlaskInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == flask"
+                },
+                {
+                    "command": "python.execStreamlitInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == streamlit"
+                },
+                {
                     "command": "python.execInTerminal",
                     "group": "Python",
                     "when": "resourceLangId == python && !virtualWorkspace && shellExecutionSupported"
