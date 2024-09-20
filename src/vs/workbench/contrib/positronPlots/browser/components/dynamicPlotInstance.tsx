@@ -119,6 +119,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 			// If we're rendering, show a progress bar.
 			if (state === PlotClientState.Rendering) {
+				// Before starting a new render, remove any existing progress bars. This prevents
+				// a buildup of progress bars when rendering multiple times and ensures the progress bar
+				// is removed when a new render is requested before the previous one completes.
+				progressRef.current.replaceChildren();
+
 				// Create the progress bar.
 				progressBar = new ProgressBar(progressRef.current);
 
