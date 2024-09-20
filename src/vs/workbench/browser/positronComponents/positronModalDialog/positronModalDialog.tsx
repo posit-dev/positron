@@ -112,6 +112,13 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 			switch (e.key) {
 				// Enter clicks the first default button that is not disabled, if there is one.
 				case 'Enter': {
+					// If the active element is a text area, return.
+					const activeElement = DOM.getDocument(dialogBoxRef.current).activeElement;
+					if (DOM.isHTMLTextAreaElement(activeElement)) {
+						return;
+					}
+
+					// Get the first default button that is not disabled. If there is one, click it.
 					const defaultButton = dialogBoxRef.current.querySelector<HTMLElement>(
 						'button.default:not([disabled])'
 					);
