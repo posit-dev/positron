@@ -90,12 +90,6 @@ suite('Terminal - Code Execution Manager', () => {
             [
                 // --- Start Positron ---
                 // Add the Positron execute in console command and execute selection in console command.
-                Commands.Exec_Dash_In_Terminal,
-                Commands.Exec_FastAPI_In_Terminal,
-                Commands.Exec_Flask_In_Terminal,
-                Commands.Exec_Gradio_In_Terminal,
-                Commands.Exec_Shiny_In_Terminal,
-                Commands.Exec_Streamlit_In_Terminal,
                 Commands.Exec_In_Console,
                 Commands.Exec_Selection_In_Console,
                 // --- End Positron ---
