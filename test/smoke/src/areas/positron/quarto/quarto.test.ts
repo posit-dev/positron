@@ -9,11 +9,6 @@ import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
-const verifyFileExists = (app: Application, file: String) => {
-	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
-	return fs.pathExists(filePath);
-};
-
 export function setup(logger: Logger) {
 	describe('Quarto #pr', () => {
 
@@ -37,38 +32,52 @@ export function setup(logger: Logger) {
 		});
 
 		it('should be able to render html', async function () {
+			// render html
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('html');
-			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.html')));
 
+			// verify file exists
+			await verifyTextInTerminal(app, 'html');
 			expect(await verifyFileExists(app, 'quarto_basic.html')).toBe(true);
 		});
 
 		it('should be able to render docx ', async function () {
+			// render docx
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('docx');
-			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.docx')));
 
+			// verify file exists
+			await verifyTextInTerminal(app, 'docx');
 			expect(await verifyFileExists(app, 'quarto_basic.docx')).toBe(true);
 		});
 
 		it('should be able to render pdf (LaTeX)', async function () {
-			await wb.quickaccess.runCommand('workbench.action.toggleDevTools');
-
 			// render pdf
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('pdf');
-			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Output created: quarto_basic.pdf')));
 
+			// verify file exists
+			await verifyTextInTerminal(app, 'pdf');
 			expect(await verifyFileExists(app, 'quarto_basic.pdf')).toBe(true);
 		});
 
 		it('should be able to generate preview', async function () {
+			// generate preview
 			await wb.quickaccess.runCommand('quarto.preview', { keepOpen: true });
 			const viewerFrame = wb.positronViewer.getViewerFrame('//iframe');
+
+			// verify preview displays
 			expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
 		});
 	});
 }
 
 
+const verifyFileExists = (app: Application, file: String) => {
+	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
+	return fs.pathExists(filePath);
+};
+
+const verifyTextInTerminal = async (app: Application, fileExtension: string) => {
+	await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
+};
