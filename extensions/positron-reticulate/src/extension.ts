@@ -84,10 +84,9 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		} catch (err: any) {
 			// When an error happens trying to create a session, we'll create a notification
 			// to show the error to the user.
-			vscode.window.showErrorMessage(vscode.l10n.t(
-				'Failed to initialize the Reticulate Python session: {0}',
-				err.message
-			));
+			// Initialization only requires a message.
+			const error = err as InitializationError;
+			error.showAsNotification();
 			throw err;
 		}
 	}
@@ -97,10 +96,8 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			this._session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata);
 			return this._session;
 		} catch (err: any) {
-			vscode.window.showErrorMessage(vscode.l10n.t(
-				'Failed to restore the Reticulate Python session: {0}',
-				err.message
-			));
+			const error = err as InitializationError;
+			error.showAsNotification();
 			throw err;
 		}
 	}
@@ -109,6 +106,35 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 enum ReticulateRuntimeSessionType {
 	Create,
 	Restore
+}
+
+class ReticulateConfig {
+	python?: string;
+	venv?: string;
+	ipykernel?: boolean;
+	error?: string;
+}
+
+class InitializationError extends Error {
+	constructor(readonly message: string, readonly actions: Array<{
+		title: string; execute: () => void;
+	}> = []) {
+		super(message);
+	}
+
+	showAsNotification() {
+		const display_error = async () => {
+			const selection = await vscode.window.showErrorMessage(vscode.l10n.t(
+				'Failed to initialize the Reticulate Python session: {0}',
+				this.message
+			), ...this.actions);
+
+			if (selection && selection.execute) {
+				selection.execute();
+			}
+		};
+		display_error();
+	}
 }
 
 class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
@@ -137,31 +163,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
 		const rSession = await getRSession();
-
-		// Check that we have a minimum version of reticulate.
-		if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
-			// Offer to install reticulate
-			const install_reticulate = await positron.window.showSimpleModalDialogPrompt(
-				'Missing reticulate',
-				'Reticulate >= 1.39 is required. Do you want to install reticulate?',
-				'Yes',
-				'No'
-			);
-
-			if (install_reticulate) {
-				if (!await rSession.callMethod?.('install_reticulate')) {
-					throw new Error('Failed to install/update the reticulate package.');
-				}
-			}
-
-			// Make a new check for reticulate
-			if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
-				throw new Error('Reticulate >= 1.39 is required');
-			}
-		}
-
-
-		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(rSession, runtimeMetadata);
+		const config = await ReticulateRuntimeSession.checkRSession(rSession);
+		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
 
 		return new ReticulateRuntimeSession(
 			rSession,
@@ -176,7 +179,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		sessionMetadata: positron.RuntimeSessionMetadata,
 	): Promise<ReticulateRuntimeSession> {
 		const rSession = await getRSession();
-		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(rSession, runtimeMetadata);
+		const config = await ReticulateRuntimeSession.checkRSession(rSession);
+		const metadata = await ReticulateRuntimeSession.fixInterpreterPath(runtimeMetadata, config.python);
 		return new ReticulateRuntimeSession(
 			rSession,
 			metadata,
@@ -185,19 +189,71 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		);
 	}
 
+	static async checkRSession(rSession: positron.LanguageRuntimeSession): Promise<{ python: string }> {
+		// Check that we have a minimum version of reticulate.
+		if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
+			// Offer to install reticulate
+			const install_reticulate = await positron.window.showSimpleModalDialogPrompt(
+				'Missing reticulate',
+				'Reticulate >= 1.39 is required. Do you want to install reticulate?',
+				'Yes',
+				'No'
+			);
+
+			if (install_reticulate) {
+				if (!await rSession.callMethod?.('install_reticulate')) {
+					throw new InitializationError('Failed to install/update the reticulate package.');
+				}
+			}
+
+			// Make a new check for reticulate
+			if (!await rSession.callMethod?.('is_installed', 'reticulate', '1.39')) {
+				throw new InitializationError('Reticulate >= 1.39 is required');
+			}
+		}
+
+		const config: ReticulateConfig = await rSession.callMethod?.('reticulate_check_prerequisites');
+
+		// An error happened, raise it
+		if (config.error) {
+			throw new InitializationError(`Failed checking for a suitable Python: ${config.error}`);
+		}
+
+		// No error, but also no Python:
+		if (!config.python) {
+			throw new InitializationError(
+				vscode.l10n.t('A Python installation is required to execute reticulate.'),
+				[
+					{
+						title: vscode.l10n.t('Open Docs'),
+						execute: () => {
+							const docsUrl = 'https://rstudio.github.io/reticulate/articles/versions.html';
+							vscode.env.openExternal(vscode.Uri.parse(docsUrl));
+						}
+					}
+				]
+			);
+		}
+
+		// Not a venv
+		if (!config.venv) {
+			// Reticulate strongly recommends a venv, so we gently inform the user that they
+			// are not using a venv, and that they should.
+
+			// TODO: what more can we say here? And what actions can we suggest the use to take?
+			vscode.window.showInformationMessage(vscode.l10n.t(`
+				Reticulate strongly recommends using a virtualenv.
+				`
+			));
+		}
+
+		return { python: config.python };
+	}
+
 	static async fixInterpreterPath(
-		rSession: positron.LanguageRuntimeSession,
-		runtimeMetadata: positron.LanguageRuntimeMetadata
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		interpreterPath: string
 	): Promise<positron.LanguageRuntimeMetadata> {
-		// Try to find the path of the reticulate interpreter that's going to be
-		// executed.
-		let interpreterPath = '';
-		if (rSession.callMethod) {
-			interpreterPath = await rSession.callMethod('reticulate_interpreter_path') as string;
-		}
-		if (interpreterPath === '') {
-			throw new Error(`No path found for python.`);
-		}
 
 		const output = runtimeMetadata;
 		output.runtimePath = interpreterPath;
