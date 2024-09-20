@@ -12,19 +12,20 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		describe('Sparklines', () => {
+		describe('Sparklines', function () {
+			let app: Application;
 
 			beforeEach(async function () {
-				await this.app.workbench.positronLayouts.enterLayout('stacked');
+				app = this.app;
+				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
 			afterEach(async function () {
-				await this.app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 			});
 
 			it('Python Pandas - Verifies downward trending graph [C830552]', async function () {
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-				const app = this.app as Application;
+				await PositronPythonFixtures.SetupFixtures(app);
 
 				await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
 				await openDataExplorerColumnProfile(app, 'pythonData');
@@ -33,8 +34,7 @@ export function setup(logger: Logger) {
 
 
 			it('R - Verifies downward trending graph [C830553]', async function () {
-				await PositronRFixtures.SetupFixtures(this.app as Application);
-				const app = this.app as Application;
+				await PositronRFixtures.SetupFixtures(app);
 
 				await app.workbench.positronConsole.executeCode('R', rScript, '>');
 				await openDataExplorerColumnProfile(app, 'rData');
