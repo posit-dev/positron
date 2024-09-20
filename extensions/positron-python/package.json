@@ -1516,31 +1516,31 @@
                 },
                 {
                     "command": "python.execDashInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execDashInTerminal.title%",
                     "when": "pythonAppFramework == dash"
                 },
                 {
                     "command": "python.execGradioInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execGradioInTerminal.title%",
                     "when": "pythonAppFramework == gradio"
                 },
                 {
                     "command": "python.execFastAPIInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execFastAPIInTerminal.title%",
                     "when": "pythonAppFramework == fastapi"
                 },
                 {
                     "command": "python.execFlaskInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
                     "when": "pythonAppFramework == flask"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
-                    "group": "navigation@1",
+                    "group": "navigation@0",
                     "title": "%python.command.python.execStreamlitInTerminal.title%",
                     "when": "pythonAppFramework == streamlit"
                 },
