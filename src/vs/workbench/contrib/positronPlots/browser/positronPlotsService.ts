@@ -912,28 +912,41 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		});
 	}
 
-	async copyPlotToClipboard(plotId?: string): Promise<void> {
-		const isEditorPlot = plotId?.startsWith(Schemas.positronPlotsEditor);
-		const plotToCopy = plotId?.replace(`${Schemas.positronPlotsEditor}:`, '').trim() ?? this.selectedPlotId;
-		const plot = isEditorPlot && plotToCopy ?
-			this._editorPlots.get(plotToCopy)
-			: this._plots.find(plot => plot.id === plotToCopy);
-
-		if (plot instanceof StaticPlotClient) {
+	private async copyPlotToClipboard(plotClient: IPositronPlotClient): Promise<void> {
+		let plotUri = undefined;
+		if (plotClient instanceof StaticPlotClient) {
+			plotUri = plotClient.uri;
+		} else if (plotClient instanceof PlotClientInstance) {
+			plotUri = plotClient.lastRender?.uri;
+		}
+		if (plotUri) {
 			try {
-				await this._clipboardService.writeImage(plot.uri);
+				await this._clipboardService.writeImage(plotUri);
 			} catch (error) {
 				throw new Error(error.message);
 			}
-		} else if (plot instanceof PlotClientInstance) {
-			if (plot.lastRender?.uri) {
-				try {
-					await this._clipboardService.writeImage(plot.lastRender.uri);
-				} catch (error) {
-					throw new Error(error.message);
-				}
-			}
+		} else {
+			throw new Error('Plot not found');
 		}
+	}
+
+	async copyViewPlotToClipboard(): Promise<void> {
+		const plotClient = this._plots.find(plot => plot.id === this.selectedPlotId);
+		if (plotClient) {
+			this.copyPlotToClipboard(plotClient);
+		} else {
+			throw new Error('Plot not found');
+		}
+	}
+
+	async copyEditorPlotToClipboard(plotId: string): Promise<void> {
+		const plotClient = this._editorPlots.get(plotId);
+		if (plotClient) {
+			this.copyPlotToClipboard(plotClient);
+		} else {
+			throw new Error('Plot not found');
+		}
+
 	}
 
 	/**

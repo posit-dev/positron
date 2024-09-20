@@ -164,9 +164,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
-		const code = this._plotClient.metadata.code.trim();
-
-		input.setName(`Plot: ${code.length === 0 ? this._plotClient.id : code}`);
+		input.setName(`Plot: ${this._plotClient.id}`);
 
 		this.renderContainer(this._plotClient);
 		this.onSizeChanged((event: ISize) => {

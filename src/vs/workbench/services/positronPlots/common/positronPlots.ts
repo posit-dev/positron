@@ -152,12 +152,19 @@ export interface IPositronPlotsService {
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
-	 * Copies a plot to the clipboard.
+	 * Copies the current plot from the Plots View to the clipboard.
 	 *
-	 * @param plotId The id of the plot to copy. If not specified, the currently selected plot is copied.
 	 * @throws An error if the plot cannot be copied.
 	 */
-	copyPlotToClipboard(plotId?: string): Promise<void>;
+	copyViewPlotToClipboard(): Promise<void>;
+
+	/**
+	 * Copies the plot from the editor tab to the clipboard.
+	 *
+	 * @param plotId The id of the plot to copy.
+	 * @throws An error if the plot cannot be copied.
+	 */
+	copyEditorPlotToClipboard(plotId: string): Promise<void>;
 
 	/**
 	 * Opens the selected plot in a new window.

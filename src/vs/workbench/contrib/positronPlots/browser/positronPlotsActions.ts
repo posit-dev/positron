@@ -9,7 +9,8 @@ import { localize, localize2 } from 'vs/nls';
 import { ILocalizedString } from 'vs/platform/action/common/action';
 import { Action2, MenuId } from 'vs/platform/actions/common/actions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ContextKeyExpr, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { IsDevelopmentContext } from 'vs/platform/contextkey/common/contextkeys';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -101,15 +102,15 @@ export class PlotsCopyAction extends Action2 {
 			{
 				type: 'item',
 				id: CopyPlotTarget.VIEW,
-				label: localize('positronPlots.copyPlotsView', 'Plots View'),
-				ariaLabel: localize('positronPlots.copyPlotsView', 'Plots View'),
+				label: localize('positronPlots.copyPlotsView', 'From Plots View'),
+				ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
 			}
 		];
 
 		editorService.editors.forEach(input => {
 			if (input.editorId === PositronPlotsEditorInput.EditorID) {
 				const name = input.getName();
-				const plotId = input.resource?.toString();
+				const plotId = input.resource?.path.toString();
 				if (plotId) {
 					items.push({
 						type: 'item',
@@ -124,8 +125,22 @@ export class PlotsCopyAction extends Action2 {
 		return items;
 	}
 
-	private copyPlotToClipboard(plotsService: IPositronPlotsService, notificationService: INotificationService, plotId: string) {
-		plotsService.copyPlotToClipboard(plotId)
+	private copyViewPlotToClipboard(plotsService: IPositronPlotsService, notificationService: INotificationService) {
+		if (plotsService.selectedPlotId) {
+			plotsService.copyViewPlotToClipboard()
+				.then(() => {
+					notificationService.info(localize('positronPlots.plotCopied', 'Plot copied to clipboard.'));
+				})
+				.catch((error) => {
+					notificationService.error(localize('positronPlotsServiceCopyToClipboardError', 'Failed to copy plot to clipboard: {0}', error.message));
+				});
+		} else {
+			notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
+		}
+	}
+
+	private copyEditorPlotToClipboard(plotsService: IPositronPlotsService, notificationService: INotificationService, editorService: IEditorService, plotId: string) {
+		plotsService.copyEditorPlotToClipboard(plotId)
 			.then(() => {
 				notificationService.info(localize('positronPlots.plotCopied', 'Plot copied to clipboard.'));
 			})
@@ -145,10 +160,10 @@ export class PlotsCopyAction extends Action2 {
 		const notificationService = accessor.get(INotificationService);
 		const editorService = accessor.get(IEditorService);
 		const quickPick = accessor.get(IQuickInputService);
-		const contextKeyService = accessor.get(IContextKeyService);
+		const configurationService = accessor.get(IConfigurationService);
 
-		const context = ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, false);
-		if (contextKeyService.contextMatchesRules(context)) {
+		const editorPlotsEnabled = Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
+		if (!editorPlotsEnabled) {
 			target = CopyPlotTarget.VIEW;
 		}
 
@@ -159,13 +174,12 @@ export class PlotsCopyAction extends Action2 {
 		}
 
 		if (target === CopyPlotTarget.VIEW) {
-			if (plotsService.selectedPlotId) {
-				this.copyPlotToClipboard(plotsService, notificationService, plotsService.selectedPlotId);
-			}
+			this.copyViewPlotToClipboard(plotsService, notificationService);
 		} else if (target === CopyPlotTarget.ACTIVE_EDITOR) {
 			if (editorService.activeEditorPane?.getId() === PositronPlotsEditorInput.EditorID) {
-				if (editorService.activeEditorPane.input.resource) {
-					this.copyPlotToClipboard(plotsService, notificationService, editorService.activeEditorPane.input.resource?.toString());
+				const plotId = editorService.activeEditorPane?.input?.resource?.path.toString();
+				if (plotId) {
+					this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, plotId);
 				}
 			} else {
 				notificationService.error(localize('positronPlots.editorCopyNotActive', 'Active editor is not a plot.'));
@@ -179,16 +193,14 @@ export class PlotsCopyAction extends Action2 {
 			this._currentQuickPick.title = localize('positronPlots.copyQuickPickTitle', 'Select the plot to copy to clipboard');
 
 			this._currentQuickPick.onDidAccept((_event) => {
-				if (this._currentQuickPick?.selectedItems.length) {
-					const selectedItem = this._currentQuickPick.selectedItems[0];
-					let plotId = plotsService.selectedPlotId;
-					if (selectedItem.id !== CopyPlotTarget.VIEW && selectedItem.id) {
-						plotId = selectedItem.id;
+				const selectedItem = this._currentQuickPick?.selectedItems[0];
+				if (selectedItem?.id) {
+					if (selectedItem.id === CopyPlotTarget.VIEW) {
+						this.copyViewPlotToClipboard(plotsService, notificationService);
+					} else {
+						this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, selectedItem.id);
 					}
 
-					if (plotId) {
-						this.copyPlotToClipboard(plotsService, notificationService, plotId);
-					}
 				}
 
 				this._currentQuickPick?.hide();
@@ -314,7 +326,7 @@ export class PlotsEditorAction extends Action2 {
 	constructor() {
 		super({
 			id: PlotsEditorAction.ID,
-			title: localize2('positronPlots.openEditor', 'Open Plot in Editor tab'),
+			title: localize2('positronPlots.openEditor', 'Open Plot in Editor Tab'),
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
@@ -346,11 +358,11 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 	constructor() {
 		super({
 			id: PlotsActiveEditorCopyAction.ID,
-			title: localize2('positronPlots.editorCopyPlot', 'Copy Plot from active editor to clipboard'),
+			title: localize2('positronPlots.editorCopyPlot', 'Copy Plot From Active Editor to Clipboard'),
 			category,
 			f1: false, // do not show in the command palette
 			icon: Codicon.copy,
-			precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
+			precondition: ContextKeyExpr.and(ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true), PLOT_IS_ACTIVE_EDITOR),
 			menu: [
 				{
 					id: MenuId.EditorTitle,
