@@ -18,10 +18,10 @@
   "contributes": {
     "configuration": {
       "properties": {
-        "positron.runApplication.showShellIntegrationPrompt": {
+        "positron.runApplication.showEnableShellIntegrationPrompt": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.positron.runApplication.showShellIntegrationPrompt%"
+          "description": "%configuration.positron.runApplication.showEnableShellIntegrationPrompt%"
         },
         "positron.runApplication.useShellIntegration": {
           "type": "boolean",

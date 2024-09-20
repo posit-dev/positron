@@ -18,13 +18,19 @@ export function raceTimeout<T>(promise: Promise<T>, timeout: number, onTimeout?:
 	]);
 }
 
+// Copied from src/vs/base/common/async.ts
 export interface ITask<T> {
 	(): T;
 }
 
+// Copied from src/vs/base/common/async.ts
 export class SequencerByKey<TKey> {
 
 	private promiseMap = new Map<TKey, Promise<unknown>>();
+
+	has(key: TKey): boolean {
+		return this.promiseMap.has(key);
+	}
 
 	queue<T>(key: TKey, promiseTask: ITask<Promise<T>>): Promise<T> {
 		const runningPromise = this.promiseMap.get(key) ?? Promise.resolve();

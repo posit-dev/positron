@@ -37,7 +37,7 @@ suite('Web app commands', () => {
         runAppOptions = undefined;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
-                assert(runAppOptions === undefined, 'runApplication called more than once');
+                assert(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
             },
         };
