@@ -1,5 +1,6 @@
 {
 	"displayName": "Positron Run App",
 	"description": "Generic 'Run App' Framework for Positron",
-	"configuration.positron.runApplication.showEnableShellIntegrationPrompt": "Show a prompt when shell integration is disabled."
+	"configuration.positron.runApplication.showEnableShellIntegrationMessage": "Show a prompt when shell integration is disabled.",
+	"configuration.positron.runApplication.showShellIntegrationNotSupportedMessage": "Show a warning when shell integration is not supported by the active terminal."
 }

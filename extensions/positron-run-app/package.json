@@ -11,22 +11,19 @@
   "activationEvents": [
     "onStartupFinished"
   ],
-  "enabledApiProposals": [
-    "terminalShellIntegration"
-  ],
   "main": "./out/extension.js",
   "contributes": {
     "configuration": {
       "properties": {
-        "positron.runApplication.showEnableShellIntegrationPrompt": {
+        "positron.runApplication.showEnableShellIntegrationMessage": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.positron.runApplication.showEnableShellIntegrationPrompt%"
+          "description": "%configuration.positron.runApplication.showEnableShellIntegrationMessage%"
         },
-        "positron.runApplication.useShellIntegration": {
+        "positron.runApplication.showShellIntegrationNotSupportedMessage": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.positron.runApplication.useShellIntegration%"
+          "description": "%configuration.positron.runApplication.showShellIntegrationNotSupportedMessage%"
         }
       }
     }

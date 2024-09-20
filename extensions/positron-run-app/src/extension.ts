@@ -134,35 +134,57 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 
 		const shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
 		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
+
 		let shellIntegration: vscode.TerminalShellIntegration | undefined;
 		if (shellIntegrationConfig.get('enabled')) {
 			// Shell integration may have already been injected into the terminal.
 			shellIntegration = terminal.shellIntegration;
 
-			// If shell integration has not yet been injected, and we have not detected that it was
-			// unsupported in a previous run, wait for it to be injected, or a timeout.
-			if (!shellIntegration && this.isShellIntegrationSupported()) {
-				progress.report({ message: vscode.l10n.t('Activating terminal shell integration...') });
-				shellIntegration = await raceTimeout(
-					// Create a promise that resolves with the terminal's shell integration once it's injected.
-					new Promise<vscode.TerminalShellIntegration>((resolve) => {
-						const disposable = vscode.window.onDidChangeTerminalShellIntegration((e) => {
-							if (e.terminal === terminal) {
-								disposable.dispose();
-								resolve(e.shellIntegration);
+			// If it hasn't yet been injected...
+			if (!shellIntegration) {
+				if (this.isShellIntegrationSupported()) {
+					// Shell integration was detected as supported in a previous run.
+					// Wait for it to be injected, or a timeout.
+					progress.report({ message: vscode.l10n.t('Activating terminal shell integration...') });
+
+					shellIntegration = await raceTimeout(
+						// Create a promise that resolves with the terminal's shell integration once it's injected.
+						new Promise<vscode.TerminalShellIntegration>((resolve) => {
+							const disposable = vscode.window.onDidChangeTerminalShellIntegration(async (e) => {
+								if (e.terminal === terminal) {
+									disposable.dispose();
+									resolve(e.shellIntegration);
+
+									// Remember that shell integration is supported in this terminal.
+									await this.setShellIntegrationSupported(true);
+								}
+							});
+						}), 5000, () => {
+							log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
+
+							// Remember that shell integration is not supported in this terminal,
+							// so that we don't wait for it to be injected next time.
+							this.setShellIntegrationSupported(false);
+
+							// Show the shell integration not supported message, if enabled.
+							if (runAppConfig.get('showShellIntegrationNotSupportedMessage')) {
+								showShellIntegrationNotSupportedMessage()
+									.catch(error => log.error(`Error showing shell integration not supported message: ${error}`));
 							}
 						});
-					}), 5000, async () => {
-						log.warn('Timed out waiting for terminal shell integration. Proceeding without shell integration');
-						this.setShellIntegrationSupported(false);
+				} else {
+					// Shell integration was detected as not supported in a previous run.
+					log.warn('Shell integration is not supported in this terminal');
+					if (runAppConfig.get('showShellIntegrationNotSupportedMessage')) {
 						showShellIntegrationNotSupportedMessage()
 							.catch(error => log.error(`Error showing shell integration not supported message: ${error}`));
-					});
+					}
+				}
 			}
-		} else if (runAppConfig.get('showEnableShellIntegrationPrompt')) {
-			// If shell integration is disabled, proceed without it, but give the user the option to
+		} else if (runAppConfig.get('showEnableShellIntegrationMessage')) {
+			// Shell integration is disabled. Proceed without it, but give the user the option to
 			// enable it and to rerun the application.
-			showEnableShellIntegrationPrompt()
+			showEnableShellIntegrationMessage()
 				.catch(error => {
 					log.error(`Error during shell integration prompt: ${error}`);
 					return { rerunApplication: false };
@@ -222,7 +244,7 @@ interface IShellIntegrationPromptResult {
 	rerunApplication: boolean;
 }
 
-async function showEnableShellIntegrationPrompt(): Promise<IShellIntegrationPromptResult> {
+async function showEnableShellIntegrationMessage(): Promise<IShellIntegrationPromptResult> {
 	// Prompt the user to enable shell integration.
 	const enableShellIntegration = vscode.l10n.t('Enable Shell Integration');
 	const notNow = vscode.l10n.t('Not Now');
@@ -262,6 +284,8 @@ async function showEnableShellIntegrationPrompt(): Promise<IShellIntegrationProm
 
 async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 	const learnMore = vscode.l10n.t('Learn More');
+	const dismiss = vscode.l10n.t('Dismiss');
+	const dontShowAgain = vscode.l10n.t('Don\'t Show Again');
 	const selection = await vscode.window.showWarningMessage(
 		vscode.l10n.t(
 			'Shell integration isn\'t supported in this terminal, ' +
@@ -269,8 +293,15 @@ async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 			'To use this feature, please switch to a terminal that supports shell integration.'
 		),
 		learnMore,
+		dismiss,
+		dontShowAgain,
 	);
+
 	if (selection === learnMore) {
 		await vscode.env.openExternal(vscode.Uri.parse('https://code.visualstudio.com/docs/terminal/shell-integration'));
+	} else if (selection === dontShowAgain) {
+		// Disable the prompt for future runs.
+		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
+		await runAppConfig.update('showShellIntegrationNotSupportedMessage', false, vscode.ConfigurationTarget.Global);
 	}
 }
