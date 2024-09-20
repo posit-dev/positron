@@ -11,6 +11,10 @@ import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
 import { Barrier } from './barrier';
 import { WebSocket } from 'ws';
 import { SocketMessage } from './ws/SocketMessage';
+import { JupyterMessage } from './jupyter/JupyterMessage';
+import { JupyterMessageSpec } from './jupyter/JupyterMessageSpec';
+import { JupyterMessageHeader } from './jupyter/JupyterMessageHeader';
+import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -36,7 +40,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 		this.onDidChangeRuntimeState = this._state.event;
 		this.onDidEndSession = this._exit.event;
+	}
 
+	public async create() {
 		// Forward the environment variables from the kernel spec
 		const env = {};
 		if (this.kernelSpec.env) {
@@ -56,7 +62,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create the session in the underlying API
 		const session: Session = {
 			argv: this.kernelSpec.argv,
-			sessionId: metadata.sessionId,
+			sessionId: this.metadata.sessionId,
 			env,
 			workingDirectory: workingDir,
 			username: '',
@@ -73,8 +79,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	startPositronDap(_serverPort: number, _debugType: string, _debugName: string): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
-	emitJupyterLog(_message: string): void {
-		throw new Error('Method not implemented.');
+	emitJupyterLog(message: string): void {
+		this._log.info(message);
 	}
 	showOutput(): void {
 		throw new Error('Method not implemented.');
@@ -149,6 +155,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		};
 
+		await this.getKernelInfo();
+
 		const info: positron.LanguageRuntimeInfo = {
 			banner: 'Kallichore session',
 			implementation_version: '1.0',
@@ -204,8 +212,39 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	handleJupyterMessage(_data: any) {
-		// TODO
+	async getKernelInfo() {
+		await this._connected.wait();
+		const request = new KernelInfoRequest();
+		await this.sendJupyterMessage(request);
+	}
+
+	async sendJupyterMessage(msg: JupyterMessageSpec<any>) {
+		await this._connected.wait();
+
+		// Generate 10 random characters for the message ID
+		const msgId = Math.random().toString(36).substring(2, 12);
+		const header: JupyterMessageHeader = {
+			msg_id: msgId,
+			session: this.metadata.sessionId,
+			username: '',
+			date: new Date().toISOString(),
+			msg_type: msg.msgType,
+			version: '5.3'
+		};
+		const payload = {
+			header,
+			parent_header: null,
+			metadata: {},
+			content: msg.content(),
+			channel: msg.channel,
+			buffers: []
+		};
+		this._ws?.send(JSON.stringify(payload));
+	}
+
+	handleJupyterMessage(data: any) {
+		const msg = data as JupyterMessage;
+
 	}
 
 	logDebug(what: string) {

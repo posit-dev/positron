@@ -3,13 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JupyterChannel } from './JupyterChannel';
-
-/**
- * Base type for Jupyter messages; contains no data and exists only to provide
- * typing hints.
- */
-export abstract class JupyterMessageSpec<T> {
-	constructor(public readonly msgType: string, public readonly channel: JupyterChannel) { }
-	abstract content(): T;
+export enum JupyterChannel {
+	Shell = 'shell',
+	Control = 'control',
+	Stdin = 'stdin',
+	IOPub = 'iopub',
+	Heartbeat = 'heartbeat'
 }

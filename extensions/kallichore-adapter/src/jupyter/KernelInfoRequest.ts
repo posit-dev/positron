@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageSpec } from './JupyterMessageSpec';
 
 /**
@@ -10,6 +11,11 @@ import { JupyterMessageSpec } from './JupyterMessageSpec';
  *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#execute
  */
-export interface KernelInfoRequest extends JupyterMessageSpec {
-	msg_type: 'kernel_info_request';
+export class KernelInfoRequest extends JupyterMessageSpec<Object> {
+	constructor() {
+		super('kernel_info_request', JupyterChannel.Shell);
+	}
+	override content() {
+		return {};
+	}
 }

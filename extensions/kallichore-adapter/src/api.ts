@@ -13,9 +13,11 @@ import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './session';
+import { Barrier } from './barrier';
 
 export class KCApi implements KallichoreAdapterApi {
 	private readonly _api: DefaultApi;
+	private readonly _started: Barrier = new Barrier();
 	constructor(private readonly _context: vscode.ExtensionContext, private readonly _log: vscode.LogOutputChannel) {
 		this._api = new DefaultApi();
 		this.start().then(() => {
@@ -52,6 +54,7 @@ export class KCApi implements KallichoreAdapterApi {
 		setTimeout(() => {
 			this._api.basePath = `http://localhost:${port}`;
 			this._api.listSessions().then(sessions => {
+				this._started.open();
 				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
 			});
 		}, 1000);
@@ -59,7 +62,16 @@ export class KCApi implements KallichoreAdapterApi {
 
 	createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
-		return new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, kernel, this._context, this._log, this._api);
+
+		// Create the session object
+		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, kernel, this._context, this._log, this._api);
+
+		// Wait for the server to start before creating the session on the backend
+		this._started.wait().then(async () => {
+			await session.create();
+		});
+
+		return session;
 	}
 	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
 		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);
