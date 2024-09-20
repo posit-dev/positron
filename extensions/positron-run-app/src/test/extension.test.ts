@@ -72,7 +72,7 @@ suite('PositronRunApp', () => {
 
 		// Enable shell integration.
 		shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
-		await shellIntegrationConfig.update('enabled', true);
+		await shellIntegrationConfig.update('enabled', true, vscode.ConfigurationTarget.Global);
 
 		// Capture executions in the app's terminal while shell integration enabled.
 		executedCommandLine = undefined;
@@ -131,7 +131,7 @@ suite('PositronRunApp', () => {
 
 	test('runApplication: shell integration disabled, user enables and reruns', async () => {
 		// Disable shell integration.
-		await shellIntegrationConfig.update('enabled', false);
+		await shellIntegrationConfig.update('enabled', false, vscode.ConfigurationTarget.Global);
 
 		// Stub `vscode.window.showInformationMessage` to simulate the user:
 		// 1. Enabling shell integration.
