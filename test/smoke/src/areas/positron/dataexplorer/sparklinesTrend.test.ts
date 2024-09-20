@@ -8,7 +8,7 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Data Explorer', () => {
+	describe('Data Explorer #pr', () => {
 
 		installAllHandlers(logger);
 
