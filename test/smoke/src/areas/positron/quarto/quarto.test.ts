@@ -3,8 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Logger, QuickAccess, QuickInput, Terminal } from '../../../../../automation';
+import { Application, Code, Logger, PositronViewer, QuickAccess, QuickInput, Terminal, Workbench } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { expect } from '@playwright/test';
 const path = require('path');
 
 
@@ -13,28 +14,32 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		let terminal: Terminal;
-		let quickAccess: QuickAccess;
-		let quickInput: QuickInput;
+		let wb: Workbench;
 
 		before(async function () {
 			const app = this.app as Application;
-			terminal = app.workbench.terminal;
-			quickAccess = app.workbench.quickaccess;
-			quickInput = app.workbench.quickinput;
-			await quickAccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+			wb = app.workbench;
+
+			await wb.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
-		it('should render qmd to html', async function () {
-			await quickAccess.runCommand('quarto.render.document', { keepOpen: true });
-			await quickInput.selectQuickInputElementContaining('html');
-			await terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('Output created: quarto_basic.html')));
+		it('should be able to render html', async function () {
+			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+			await wb.quickinput.selectQuickInputElementContaining('html');
+			await wb.terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('Output created: quarto_basic.html')));
+
 		});
 
-		it('should render qmd to docx', async function () {
-			await quickAccess.runCommand('quarto.render.document', { keepOpen: true });
-			await quickInput.selectQuickInputElementContaining('docx');
-			await terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('Output created: quarto_basic.docx')));
+		it('should be able to render docx ', async function () {
+			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+			await wb.quickinput.selectQuickInputElementContaining('docx');
+			await wb.terminal.waitForTerminalText(buffer => buffer.some(e => e.includes('Output created: quarto_basic.docx')));
+		});
+
+		it('should be able to generate preview', async function () {
+			await wb.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+			const viewerFrame = wb.positronViewer.getViewerFrame('//iframe');
+			expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
 		});
 	});
 }
