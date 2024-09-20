@@ -10,6 +10,7 @@ import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adap
 import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
 import { Barrier } from './barrier';
 import { WebSocket } from 'ws';
+import { SocketMessage } from './ws/SocketMessage';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -18,6 +19,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _created: Barrier = new Barrier();
 	private readonly _connected: Barrier = new Barrier();
 	private _ws: WebSocket | undefined;
+	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -130,14 +132,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const uri = vscode.Uri.parse(this._api.basePath);
 		this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
 		this._ws.onopen = () => {
-			this._log.info(`Kallichore session ${this.metadata.sessionId} connected`);
+			this.logInfo(`Connected to websocket.`);
 			this._connected.open();
 		};
 		this._ws.onerror = (err) => {
-			this._log.error(`Kallichore session ${this.metadata.sessionId} error: ${err}`);
+			this.logInfo(`Error connecting to socket: ${err}`);
+			// TODO: Needs to take kernel down
 		};
 		this._ws.onmessage = (msg) => {
-			this._log.debug(`Kallichore session ${this.metadata.sessionId} message: ${msg.data}`);
+			this.logDebug(`RECV message: ${msg.data}`);
+			try {
+				const data = JSON.parse(msg.data.toString());
+				this.handleMessage(data);
+			} catch (err) {
+				this.logError(`Could not parse message: ${err}`);
+			}
 		};
 
 		const info: positron.LanguageRuntimeInfo = {
@@ -165,5 +174,53 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 	dispose() {
 		throw new Error('Method not implemented.');
+	}
+
+	handleMessage(data: any) {
+		if (!data.kind) {
+			this.logError(`Kallichore session ${this.metadata.sessionId} message has no kind: ${data}`);
+			return;
+		}
+		switch (data.kind) {
+			case 'kernel':
+				this.handleKernelMessage(data);
+				break;
+			case 'jupyter':
+				this.handleJupyterMessage(data);
+				break;
+		}
+	}
+
+	handleKernelMessage(data: any) {
+		if (data.status) {
+			// Check to see if the status is a valid runtime state
+			if (Object.values(positron.RuntimeState).includes(data.status)) {
+				this.logInfo(`State: ${this._runtimeState} => ${data.status}`);
+				this._runtimeState = data.status;
+				this._state.fire(data.status);
+			} else {
+				this.logError(`Unknown state: ${data.status}`);
+			}
+		}
+	}
+
+	handleJupyterMessage(_data: any) {
+		// TODO
+	}
+
+	logDebug(what: string) {
+		this._log.debug(`${this.logPrefix()} ${what}`);
+	}
+
+	logInfo(what: string) {
+		this._log.info(`${this.logPrefix()} ${what}`);
+	}
+
+	logError(err: string) {
+		this._log.error(`${this.logPrefix()} ${err}`);
+	}
+
+	logPrefix(): string {
+		return `[${this.metadata.sessionId}]`;
 	}
 }
