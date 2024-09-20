@@ -11,11 +11,9 @@ import * as vscode from 'vscode';
 import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
-import * as winreg from 'winreg';
 
 import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { LOGGER } from './extension';
-import { readLines } from './util';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 
 // We don't give this a type so it's compatible with both the VS Code
@@ -364,15 +362,15 @@ async function findRBinaryFromPATHNotWindows(whichR: string): Promise<string | u
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	let userPath = await getRegistryInstallPath(winreg.HKCU);
+	let userPath = await getRegistryInstallPath('HKEY_CURRENT_USER');
 	if (!userPath) {
 		// If we didn't find R in the default user location, check WOW64
-		userPath = await getRegistryInstallPath(winreg.HKCU, 'WOW6432Node');
+		userPath = await getRegistryInstallPath('HKEY_CURRENT_USER', 'WOW6432Node');
 	}
-	let machinePath = await getRegistryInstallPath(winreg.HKLM);
+	let machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE');
 	if (!machinePath) {
 		// If we didn't find R in the default machine location, check WOW64
-		machinePath = await getRegistryInstallPath(winreg.HKLM, 'WOW6432Node');
+		machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE', 'WOW6432Node');
 	}
 	if (!userPath && !machinePath) {
 		return undefined;
@@ -399,35 +397,18 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
  * @returns The install path for R, or undefined if an R installation file could
  * not be found at the install path.
  */
-async function getRegistryInstallPath(hive: string, wow?: string | undefined): Promise<string | undefined> {
+async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MACHINE', wow?: string | undefined): Promise<string | undefined> {
+	// 'R64' here is another place where we explicitly ignore 32-bit R
+	// Amend a WOW path after "Software" if requested
+	const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64`;
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	const Registry = await import('@vscode/windows-registry');
+
 	try {
-		const key = new winreg({
-			hive: hive as keyof typeof winreg,
-			// 'R64' here is another place where we explicitly ignore 32-bit R
-			// Amend a WOW path after "Software" if requested
-			key: `\\Software\\${wow ? wow + '\\' : ''}R-Core\\R64`,
-		});
-
-		LOGGER.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
-
-		const result = await new Promise<{ value: string }>((resolve, reject) => {
-			key.get('InstallPath', (error, result) => {
-				if (error) {
-					reject(error);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-
-		if (!result || typeof result.value !== 'string') {
-			LOGGER.info(`Invalid value of 'InstallPath'`);
-			return undefined;
-		}
-
-		return result.value;
-	} catch (error: any) {
-		LOGGER.info(`Unable to get value of 'InstallPath': ${error.message}`);
+		LOGGER.info(`Checking for 'InstallPath' in registry key ${hive}\\${R64_KEY}`);
+		return Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
+	} catch (err) {
+		LOGGER.info(err as string);
 		return undefined;
 	}
 }
