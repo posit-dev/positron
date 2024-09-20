@@ -12,7 +12,7 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		describe('Sparklines', function () {
+		describe('Sparklines', () => {
 			let app: Application;
 
 			beforeEach(async function () {
