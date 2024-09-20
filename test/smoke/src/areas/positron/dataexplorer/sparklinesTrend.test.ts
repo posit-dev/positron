@@ -20,11 +20,11 @@ export function setup(logger: Logger) {
 				await app.workbench.positronLayouts.enterLayout('stacked');
 			});
 
-			afterEach(async function () {
+			afterEach(async () => {
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 			});
 
-			it('Python Pandas - Verifies downward trending graph [C830552]', async function () {
+			it('Python Pandas - Verifies downward trending graph [C830552]', async () => {
 				await PositronPythonFixtures.SetupFixtures(app);
 
 				await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
@@ -33,7 +33,7 @@ export function setup(logger: Logger) {
 			});
 
 
-			it('R - Verifies downward trending graph [C830553]', async function () {
+			it('R - Verifies downward trending graph [C830553]', async () => {
 				await PositronRFixtures.SetupFixtures(app);
 
 				await app.workbench.positronConsole.executeCode('R', rScript, '>');
