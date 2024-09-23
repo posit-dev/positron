@@ -30,11 +30,17 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
 
+      - name: Install Rust latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
 
-      - name: debug
+      - name: Build licensing tool
         run: |
           cd ..
-          ls -R
+          cd positron-license/pdol
+          cargo build
 
       - name: Setup Build Environment
         run: |
