@@ -392,11 +392,13 @@ export class WorkbenchThemeService extends Disposable implements IWorkbenchTheme
 			// Filter themes.
 			switch (theme.id) {
 				// Exclude older Visual Studio Code themes.
+				case 'vs vscode-theme-defaults-themes-light_modern-json':
 				case 'vs vscode-theme-defaults-themes-light_plus-json':
 				case 'vs vscode-theme-defaults-themes-light_vs-json':
 				case 'vs vscode-theme-quietlight-themes-quietlight-color-theme-json':
 				case 'vs vscode-theme-solarized-light-themes-solarized-light-color-theme-json':
 				case 'vs-dark vscode-theme-abyss-themes-abyss-color-theme-json':
+				case 'vs-dark vscode-theme-defaults-themes-dark_modern-json':
 				case 'vs-dark vscode-theme-defaults-themes-dark_plus-json':
 				case 'vs-dark vscode-theme-defaults-themes-dark_vs-json':
 				case 'vs-dark vscode-theme-kimbie-dark-themes-kimbie-dark-color-theme-json':

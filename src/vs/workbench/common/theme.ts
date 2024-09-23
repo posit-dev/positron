@@ -1090,10 +1090,10 @@ export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideAction
 
 // Positron side action bar background color.
 export const POSITRON_SIDE_ACTION_BAR_BACKGROUND = registerColor('positronSideActionBar.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronSideActionBar.background', "Positron side action bar background color."));
 
 // Positron side action bar foreground color.
@@ -1558,10 +1558,10 @@ export const POSITRON_DROP_DOWN_SEPARATOR_BACKGROUND = registerColor('positronDr
 
 // Positron console background color.
 export const POSITRON_CONSOLE_BACKGROUND_COLOR = registerColor('positronConsole.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronConsole.background', "Positron console background color."));
 
 // Positron console foreground color.
@@ -1576,8 +1576,8 @@ export const POSITRON_CONSOLE_FOREGROUND_COLOR = registerColor('positronConsole.
 export const POSITRON_CONSOLE_ERROR_BACKGROUND_COLOR = registerColor('positronConsole.errorBackground', {
 	dark: transparent('terminal.ansiRed', 0.1),
 	light: transparent('terminal.ansiRed', 0.05),
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronConsole.errorBackground', "Positron console error background color."));
 
 // Positron console error foreground color.
@@ -1916,10 +1916,10 @@ export const POSITRON_DATA_EXPLORER_SPARKLINE_STROKE_COLOR = registerColor('posi
 
 // Positron variables background color.
 export const POSITRON_VARIABLES_BACKGROUND_COLOR = registerColor('positronVariables.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronVariables.background', "Positron variables background color."));
 
 // Positron variables foreground color.
@@ -1998,10 +1998,10 @@ export const POSITRON_VARIABLES_INACTIVE_SELECTION_FOREGROUND_COLOR = registerCo
 
 // Positron plots background color.
 export const POSITRON_PLOTS_BACKGROUND_COLOR = registerColor('positronPlots.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronPlots.background', "Positron plots background color."));
 
 // Positron Welcome page foreground color.
@@ -2022,10 +2022,10 @@ export const POSITRON_WELCOME_SECONDARY_FOREGROUND_COLOR = registerColor('positr
 
 // Positron plots background color.
 export const POSITRON_WELCOME_BACKGROUND_COLOR = registerColor('positronWelcome.background', {
-	dark: 'terminal.background',
-	light: 'terminal.background',
-	hcDark: 'terminal.background',
-	hcLight: 'terminal.background'
+	dark: 'panel.background',
+	light: 'panel.background',
+	hcDark: 'panel.background',
+	hcLight: 'panel.background'
 }, localize('positronWelcome.background', "Positron Welcome page background color."));
 
 // Positron Welcome page hover background.

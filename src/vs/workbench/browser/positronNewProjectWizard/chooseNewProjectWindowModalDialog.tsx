@@ -111,7 +111,6 @@ const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowModalDia
 					'positron.chooseNewProjectWindowModalDialog.title',
 					'Create New Project'
 				))()}
-			onAccept={accept}
 		>
 			<div className='choose-new-project-window-modal-dialog'>
 				<VerticalStack>
