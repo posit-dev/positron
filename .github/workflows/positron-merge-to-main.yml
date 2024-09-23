@@ -63,6 +63,9 @@ jobs:
           sudo dpkg -i "$TEMP_DEB"
           rm -f "$TEMP_DEB"
 
+      - name: Install Tinytex
+        run: quarto install tinytex
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -151,7 +154,7 @@ jobs:
     needs: linux
     if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-merge-to-main' }}
     steps:
-      - name: 'Send Slack notification'
+      - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
