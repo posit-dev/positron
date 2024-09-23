@@ -97,15 +97,18 @@ export class PlotsCopyAction extends Action2 {
 		});
 	}
 
-	private getItems(editorService: IEditorService): IQuickPickItem[] {
-		const items: IQuickPickItem[] = [
-			{
-				type: 'item',
-				id: CopyPlotTarget.VIEW,
-				label: localize('positronPlots.copyPlotsView', 'From Plots View'),
-				ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
-			}
-		];
+	private getItems(plotsService: IPositronPlotsService, editorService: IEditorService): IQuickPickItem[] {
+		const items: IQuickPickItem[] = [];
+
+		if (plotsService.selectedPlotId) {
+			items.push(
+				{
+					id: CopyPlotTarget.VIEW,
+					label: localize('positronPlots.copyPlotsView', 'From Plots View'),
+					ariaLabel: localize('positronPlots.copyPlotsView', 'From Plots View'),
+				}
+			);
+		}
 
 		editorService.editors.forEach(input => {
 			if (input.editorId === PositronPlotsEditorInput.EditorID) {
@@ -113,7 +116,6 @@ export class PlotsCopyAction extends Action2 {
 				const plotId = input.resource?.path.toString();
 				if (plotId) {
 					items.push({
-						type: 'item',
 						id: plotId,
 						label: localize('positronPlots.copyEditor', 'Editor: {0}', name),
 						ariaLabel: localize('positronPlots.copyEditor', 'Editor: {0}', name),
@@ -167,10 +169,16 @@ export class PlotsCopyAction extends Action2 {
 			target = CopyPlotTarget.VIEW;
 		}
 
-		const quickPickItems = this.getItems(editorService);
-		// no need to show the quick pick if the only option is the Plots View
+		const quickPickItems = this.getItems(plotsService, editorService);
+		// no need to show the quick pick if there is only one option
 		if (quickPickItems.length === 1) {
-			target = CopyPlotTarget.VIEW;
+			this.executeCopyPlot(quickPickItems[0], plotsService, notificationService, editorService);
+			return;
+		}
+
+		if (quickPickItems.length === 0) {
+			notificationService.error(localize('positronPlots.noPlotsFound', 'No plots to copy.'));
+			return;
 		}
 
 		if (target === CopyPlotTarget.VIEW) {
@@ -194,15 +202,11 @@ export class PlotsCopyAction extends Action2 {
 
 			this._currentQuickPick.onDidAccept((_event) => {
 				const selectedItem = this._currentQuickPick?.selectedItems[0];
-				if (selectedItem?.id) {
-					if (selectedItem.id === CopyPlotTarget.VIEW) {
-						this.copyViewPlotToClipboard(plotsService, notificationService);
-					} else {
-						this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, selectedItem.id);
-					}
-
+				if (selectedItem) {
+					this.executeCopyPlot(selectedItem, plotsService, notificationService, editorService);
+				} else {
+					notificationService.info(localize('positronPlots.noPlotSelected', 'No plot selected.'));
 				}
-
 				this._currentQuickPick?.hide();
 			});
 
@@ -215,6 +219,16 @@ export class PlotsCopyAction extends Action2 {
 			});
 
 			this._currentQuickPick.show();
+		}
+	}
+
+	private executeCopyPlot(selectedItem: IQuickPickItem, plotsService: IPositronPlotsService, notificationService: INotificationService, editorService: IEditorService) {
+		if (selectedItem?.id) {
+			if (selectedItem.id === CopyPlotTarget.VIEW) {
+				this.copyViewPlotToClipboard(plotsService, notificationService);
+			} else {
+				this.copyEditorPlotToClipboard(plotsService, notificationService, editorService, selectedItem.id);
+			}
 		}
 	}
 }
