@@ -4,9 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as fs from 'fs/promises';
-import * as os from 'os';
-import * as path from 'path';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
@@ -21,9 +18,6 @@ suite('PositronRunApp', () => {
 		runtimePath: 'cat',
 	} as positron.LanguageRuntimeMetadata;
 
-	// The app server URL.
-	const url = 'http://localhost:8000';
-
 	// Options for running the test application.
 	const options: RunAppOptions = {
 		name: 'Test App',
@@ -34,9 +28,12 @@ suite('PositronRunApp', () => {
 		},
 	};
 
+	// Matches a server URL on localhost.
+	const localhostUriMatch = sinon.match((uri: vscode.Uri) =>
+		uri.scheme === 'http' && /localhost:\d+/.test(uri.authority));
+
 	const disposables = new Array<vscode.Disposable>();
 
-	let tempDir: string;
 	let uri: vscode.Uri;
 	let previewUrlStub: sinon.SinonStub;
 	let sendTextSpy: sinon.SinonSpy | undefined;
@@ -45,13 +42,10 @@ suite('PositronRunApp', () => {
 	let runAppApi: PositronRunAppApiImpl;
 
 	setup(async () => {
-		// Make a temporary folder.
-		tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'positron-'));
-
-		// Create and open a temporary file with the contents of the app server URL.
-		const content = Buffer.from(`Server started: ${url}`);
-		uri = vscode.Uri.parse(path.join(tempDir, 'test.txt'));
-		await vscode.workspace.fs.writeFile(uri, content);
+		// Open the test app. Assumes that the tests are run in the ../test-workspace workspace.
+		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+		assert(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
+		uri = vscode.Uri.joinPath(workspaceFolder.uri, 'app.sh');
 		await vscode.window.showTextDocument(uri);
 
 		// Stub the runtime API to return the test runtime.
@@ -72,7 +66,7 @@ suite('PositronRunApp', () => {
 
 		// Enable shell integration.
 		shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
-		await shellIntegrationConfig.update('enabled', true, vscode.ConfigurationTarget.Global);
+		await shellIntegrationConfig.update('enabled', true);
 
 		// Capture executions in the app's terminal while shell integration enabled.
 		executedCommandLine = undefined;
@@ -84,14 +78,12 @@ suite('PositronRunApp', () => {
 		}));
 
 		runAppApi = await getRunAppApi();
-
 		runAppApi.setShellIntegrationSupported(true);
 	});
 
 	teardown(async () => {
 		sinon.restore();
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		await fs.rm(tempDir, { recursive: true, force: true });
 		disposables.forEach(d => d.dispose());
 		disposables.splice(0, disposables.length);
 	});
@@ -126,12 +118,12 @@ suite('PositronRunApp', () => {
 
 		// Check that the expected URL was previewed.
 		sinon.assert.calledTwice(previewUrlStub);
-		sinon.assert.calledWith(previewUrlStub.getCall(1), vscode.Uri.parse(url));
+		sinon.assert.calledWith(previewUrlStub.getCall(1), localhostUriMatch);
 	});
 
 	test('runApplication: shell integration disabled, user enables and reruns', async () => {
 		// Disable shell integration.
-		await shellIntegrationConfig.update('enabled', false, vscode.ConfigurationTarget.Global);
+		await shellIntegrationConfig.update('enabled', false);
 
 		// Stub `vscode.window.showInformationMessage` to simulate the user:
 		// 1. Enabling shell integration.
@@ -143,7 +135,7 @@ suite('PositronRunApp', () => {
 		// Stub positron.window.previewUrl and create a promise that resolves when its called with
 		// the expected URL.
 		const didPreviewExpectedUrlPromise = new Promise<boolean>(resolve => {
-			previewUrlStub.withArgs(vscode.Uri.parse(url)).callsFake(() => {
+			previewUrlStub.withArgs(localhostUriMatch).callsFake(() => {
 				resolve(true);
 			});
 		});
@@ -172,6 +164,6 @@ suite('PositronRunApp', () => {
 		// Check that the viewer pane was cleared again, and the expected URL was previewed.
 		sinon.assert.calledThrice(previewUrlStub);
 		sinon.assert.calledWith(previewUrlStub.getCall(1), vscode.Uri.parse('about:blank'));
-		sinon.assert.calledWith(previewUrlStub.getCall(2), vscode.Uri.parse(url));
+		sinon.assert.calledWith(previewUrlStub.getCall(2), localhostUriMatch);
 	});
 });

@@ -64,7 +64,7 @@ const extensions = [
 	},
 	{
 		label: 'positron-run-app',
-		workspaceFolder: path.join(os.tmpdir(), `positron-run-app-${Math.floor(Math.random() * 100000)}`),
+		workspaceFolder: 'extensions/positron-run-app/test-workspace',
 		mocha: { timeout: 60_000 }
 	},
 	// --- End Positron ---
