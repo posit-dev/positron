@@ -271,8 +271,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			};
 			// We don't need to await for that, just let they know what we recommend.
 			informCreateVirtualEenv();
-
 		}
+
 		return { python: config.python };
 	}
 
