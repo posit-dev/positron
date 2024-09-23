@@ -10,7 +10,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 export function setup(logger: Logger) {
-	describe('Quarto #pr', () => {
+	describe('Quarto', () => {
 
 		installAllHandlers(logger);
 
