@@ -224,6 +224,15 @@ export class PositronProxy implements Disposable {
 					</head>`
 				);
 
+				// Prepend root-relative URLs with the proxy path.
+				const serverOriginUrl = new URL(serverOrigin);
+				const proxyPath = `/proxy/${serverOriginUrl.port}`;
+				response = response.replace(
+					// Look for src="/ or href="/
+					/(src|href)="\/([^"]+)"/g,
+					`$1="${proxyPath}/$2"`
+				);
+
 				// Return the response.
 				return response;
 			});
