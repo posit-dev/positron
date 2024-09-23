@@ -13,8 +13,9 @@ import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
 import { Barrier } from './async';
-import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
+import { ExecuteRequest, JupyterExecuteRequest, JupyterExecuteResult } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
+import { JupyterDisplayData } from './jupyter/JupyterDisplayData';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -207,7 +208,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		throw new Error('Method not implemented.');
 	}
 	dispose() {
-		throw new Error('Method not implemented.');
+		// Close the websocket if it's open
+		this._ws?.close();
 	}
 
 	handleMessage(data: any) {
@@ -260,15 +262,59 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				if (request.replyType === msg.header.msg_type) {
 					request.resolve(msg.content);
 					this._pendingRequests.delete(msg.parent_header.msg_id);
-					return;
 				}
 			}
+		}
+
+		switch (msg.header.msg_type) {
+			case 'execute_result':
+				this.onExecuteResult(msg, msg.content as JupyterExecuteResult);
+				break;
+			case 'display_data':
+				this.onDisplayData(msg, msg.content as JupyterDisplayData);
+				break;
 		}
 	}
 
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
 		this._pendingRequests.set(request.msgId, request);
 		return request.send(this.metadata.sessionId, this._ws!);
+	}
+
+	/**
+	 * Converts a Jupyter execute_result message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The execute_result message
+	 */
+	onExecuteResult(message: JupyterMessage, data: JupyterExecuteResult) {
+		this._messages.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.Result,
+			data: data.data as any,
+			metadata: message.metadata,
+		} as positron.LanguageRuntimeResult);
+	}
+
+	/**
+	 * Converts a Jupyter display_data message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The display_data message
+	 */
+	onDisplayData(message: JupyterMessage, data: JupyterDisplayData) {
+		this._messages.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.Output,
+			data: data.data as any,
+			metadata: message.metadata,
+		} as positron.LanguageRuntimeOutput);
 	}
 
 	logDebug(what: string) {
