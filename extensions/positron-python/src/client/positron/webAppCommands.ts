@@ -123,6 +123,27 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             });
         }),
 
+        vscode.commands.registerCommand(Commands.Exec_Shiny_In_Terminal, async () => {
+            const runAppApi = await getPositronRunAppApi();
+            await runAppApi.runApplication({
+                name: 'Shiny',
+                getTerminalOptions(runtime, document, port, _urlPrefix) {
+                    const args = [
+                        runtime.runtimePath,
+                        '-m',
+                        'shiny',
+                        'run',
+                        '--reload',
+                        document.uri.fsPath,
+                    ];
+                    if (port) {
+                        args.push('--port', port);
+                    }
+                    return { commandLine: args.join(' ') };
+                },
+            });
+        }),
+
         vscode.commands.registerCommand(Commands.Exec_Streamlit_In_Terminal, async () => {
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({

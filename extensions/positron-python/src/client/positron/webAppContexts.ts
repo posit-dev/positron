@@ -6,7 +6,20 @@
 import * as vscode from 'vscode';
 import { executeCommand } from '../common/vscodeApis/commandApis';
 
-const libraries: string[] = ['streamlit', 'shiny', 'dash', 'gradio', 'flask', 'fastapi'];
+function getSupportedLibraries(): string[] {
+    const libraries: string[] = ['streamlit', 'dash', 'gradio', 'flask', 'fastapi'];
+
+    const shinyExtensionId = 'Posit.shiny';
+    const shinyExtension = vscode.extensions.getExtension(shinyExtensionId);
+
+    // if shiny extension is installed, we don't need to handle it
+    if (shinyExtension && shinyExtension.isActive) {
+        return libraries
+    } else {
+        return libraries.concat('shiny')
+    }
+}
+
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
@@ -15,6 +28,7 @@ export function detectWebApp(document: vscode.TextDocument): void {
 }
 
 export function getFramework(text: string): string | undefined {
+    const libraries = getSupportedLibraries();
     const importPattern = new RegExp(`import\\s+(${libraries.join('|')})`, 'g');
     const fromImportPattern = new RegExp(`from\\s+(${libraries.join('|')})\\S*\\simport`, 'g');
     const importMatch = importPattern.exec(text);

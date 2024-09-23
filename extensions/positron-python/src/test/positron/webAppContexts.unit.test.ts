@@ -10,7 +10,7 @@ import * as cmdApis from '../../client/common/vscodeApis/commandApis';
 import { detectWebApp, getFramework } from '../../client/positron/webAppContexts';
 import { IDisposableRegistry } from '../../client/common/types';
 
-suite('Discover webapp frameworks', () => {
+suite('Discover Web app frameworks', () => {
     let document: vscode.TextDocument;
     let executeCommandStub: sinon.SinonStub;
     const disposables: IDisposableRegistry = [];
