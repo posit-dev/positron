@@ -233,7 +233,11 @@ export class PositronProxy implements Disposable {
 					// Prepend root-relative URLs with the proxy path.
 					const proxyPath = `/proxy/${serverPort}`;
 					response = response.replace(
-						// Look for src="/ or href="/
+						// This is icky and we should use a proper HTML parser, but it works for now.
+						// Possible sources of error are: whitespace differences, single vs. double
+						// quotes, etc., which are not covered in this regex.
+						// Regex translation: look for src="/ or href="/ and replace it with
+						// src="/proxy/PORT/ or href="/proxy/PORT/ respectively.
 						/(src|href)="\/([^"]+)"/g,
 						`$1="${proxyPath}/$2"`
 					);
