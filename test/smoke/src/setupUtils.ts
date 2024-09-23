@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as path from 'path';
-// import * as os from 'os';
+import * as os from 'os';
 import * as rimraf from 'rimraf';
 import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
@@ -15,9 +15,7 @@ import fetch from 'node-fetch';
 import { retry } from './utils';
 import minimist = require('minimist');
 
-// const rootPath = path.join(__dirname, '..', '..', '..');
-
-export function parseOptions(): {
+export type ParseOptions = {
 	verbose?: boolean;
 	remote?: boolean;
 	headless?: boolean;
@@ -27,7 +25,25 @@ export function parseOptions(): {
 	'stable-build'?: string;
 	browser?: string;
 	electronArgs?: string;
-} {
+};
+
+let quality: Quality;
+let version: string | undefined;
+const rootPath = path.join(__dirname, '..', '..', '..');
+const crashesRootPath = path.join(rootPath, '.build', 'crashes', 'smoke-tests-electron');
+const testDataPath = path.join(os.tmpdir(), `vscsmoke_shared`);
+const workspacePath = path.join(testDataPath, 'qa-example-content');
+const extensionsPath = path.join(testDataPath, 'extensions-dir');
+const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron');
+export const opts = parseOptions();
+export const logger = createLogger(opts);
+
+mkdirp.sync(logsRootPath);
+mkdirp.sync(testDataPath);
+
+
+export function parseOptions(): ParseOptions {
+
 	// Parsing command-line arguments
 	const [, , ...args] = process.argv;
 	return minimist(args, {
@@ -62,7 +78,7 @@ export function parseOptions(): {
 	};
 }
 
-export function createLogger(opts: any, logsRootPath: string): Logger {
+export function createLogger(opts: any): Logger {
 	const loggers: Logger[] = [];
 
 	if (opts.verbose) {
@@ -131,7 +147,7 @@ export async function setupRepository(workspacePath: string, logger: Logger, opt
 	}
 }
 
-export async function ensureStableCode(testDataPath: string, version: string | undefined, logger: Logger, opts: any): Promise<void> {
+export async function ensureStableCode(testDataPath: string, logger: Logger, opts: any): Promise<void> {
 	let stableCodePath = opts['stable-build'];
 
 	if (!stableCodePath) {
@@ -174,11 +190,11 @@ export async function ensureStableCode(testDataPath: string, version: string | u
 }
 
 
-export function runSmokeTests(logger: Logger, opts: any, rootPath: string, version: string | undefined) {
+export function setupSmokeTestEnvironment() {
 	//
 	// #### Electron Smoke Tests ####
 	//
-	let quality: Quality;
+
 	if (!opts.web) {
 		let testCodePath = opts.build;
 		let electronPath: string;
@@ -234,5 +250,34 @@ export function runSmokeTests(logger: Logger, opts: any, rootPath: string, versi
 		quality = parseQuality();
 		logger.log(`VS Code product quality: ${quality}.`);
 	}
-	return quality;
+}
+
+export async function setupBeforeHook(): Promise<void> {
+	before(async function () {
+		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
+
+		if (!opts.web && !opts.remote && opts.build) {
+			// Only enabled when running with --build and not in web or remote
+			await measureAndLog(() => ensureStableCode(testDataPath, logger, opts), 'ensureStableCode', logger);
+		}
+
+		// Set default options
+		this.defaultOptions = {
+			quality,
+			codePath: opts.build,
+			workspacePath,
+			userDataDir: path.join(testDataPath, 'd'),
+			extensionsPath,
+			logger,
+			logsPath: path.join(logsRootPath, 'suite_unknown'),
+			crashesPath: path.join(crashesRootPath, 'suite_unknown'),
+			verbose: opts.verbose,
+			remote: opts.remote,
+			web: opts.web,
+			tracing: opts.tracing,
+			headless: opts.headless,
+			browser: opts.browser,
+			extraArgs: (opts.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
+		};
+	});
 }

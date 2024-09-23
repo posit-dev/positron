@@ -17,7 +17,9 @@ const { setupRepository } = require('../out/setupUtils');
 // Parse command-line options
 const [, , ...args] = process.argv;
 const opts = minimist(args, {
-	boolean: ['web'],
+	// --- Start Positron ---
+	boolean: ['web', 'parallel'],
+	// --- End Positron ---
 	string: ['f', 'g']
 });
 
@@ -29,7 +31,9 @@ const options = {
 	timeout: 2 * 60 * 1000,
 	slow: 30 * 1000,
 	grep: opts['f'] || opts['g'],
-	parallel: false,
+	// --- Start Positron ---
+	parallel: opts['parallel'],
+	// --- End Positron ---
 };
 
 if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
@@ -43,9 +47,9 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 	};
 }
 
-// Initialize Mocha instance here
 const mocha = new Mocha(options);
 
+// --- Start Positron ---
 // Define paths for repository setup and logs
 const testDataPath = join(require('os').tmpdir(), 'vscsmoke_shared');
 const workspacePath = join(testDataPath, 'qa-example-content');
@@ -65,7 +69,6 @@ if (!fs.existsSync(workspacePath)) {
 }
 
 async function runMochaTests() {
-	// Add test files to the Mocha instance
 	mocha.addFile('out/main1.js');
 	mocha.addFile('out/main2.js');
 
@@ -74,7 +77,37 @@ async function runMochaTests() {
 		const runner = mocha.run(failures => {
 			// Log failures, if any
 			if (failures) {
-				console.log(`${failures} tests failed.`);
+				// Indicate location of log files for further diagnosis
+				if (failures) {
+					const rootPath = join(__dirname, '..', '..', '..');
+					const logPath = join(rootPath, '.build', 'logs');
+
+					if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
+						console.log(`
+###################################################################
+#                                                                 #
+# Logs are attached as build artefact and can be downloaded       #
+# from the build Summary page (Summary -> Related -> N published) #
+#                                                                 #
+# Show playwright traces on: https://trace.playwright.dev/        #
+#                                                                 #
+###################################################################
+		`);
+					} else {
+						console.log(`
+#############################################
+#
+# Log files of client & server are stored into
+# '${logPath}'.
+#
+# Logs of the smoke test runner are stored into
+# 'smoke-test-runner.log' in respective folder.
+#
+#############################################
+		`);
+					}
+				}
+
 			} else {
 				console.log('All tests passed.');
 			}
@@ -114,3 +147,4 @@ async function cleanupTestData(testDataPath) {
 		throw error;
 	}
 }
+// --- End Positron ---
