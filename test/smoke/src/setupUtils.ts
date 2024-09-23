@@ -41,7 +41,6 @@ export const logger = createLogger(opts);
 mkdirp.sync(logsRootPath);
 mkdirp.sync(testDataPath);
 
-
 export function parseOptions(): ParseOptions {
 
 	// Parsing command-line arguments
