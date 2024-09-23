@@ -26,6 +26,8 @@ import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previe
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { basename } from 'vs/base/common/path';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { Schemas } from 'vs/base/common/network';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -45,6 +47,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
+	//private _editorPreview = new Map<string, IPositronPreviewService>();
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
@@ -53,7 +57,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
-		@IExtensionService private readonly _extensionService: IExtensionService
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -495,5 +500,21 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// It's a localhost http or https URL; we can handle it in the viewer.
 		return true;
+	}
+
+	public async openEditor(): Promise<void> {
+		const previewId = this.activePreviewWebviewId
+
+		const editorPane = await this._editorService.openEditor({
+			resource: URI.from({
+				scheme: Schemas.positronPreviewEditor,
+				path: previewId
+			})
+		})
+
+		if (!editorPane) {
+			throw new Error('Failed to open editor');
+		}
+
 	}
 }

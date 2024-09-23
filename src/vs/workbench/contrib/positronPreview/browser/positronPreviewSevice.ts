@@ -116,4 +116,6 @@ export interface IPositronPreviewService {
 	get activePreviewWebviewId(): string;
 
 	set activePreviewWebviewId(id: string);
+
+	openEditor(): Promise<void>;
 }

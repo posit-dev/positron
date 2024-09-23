@@ -73,3 +73,32 @@ export class PositronOpenUrlInViewerAction extends Action2 {
 		previewService.openUri(previewId, undefined, uri);
 	}
 }
+
+export class PreviewEditorAction extends Action2 {
+	static ID = 'workbench.action.positronPreview.openEditor';
+
+	constructor() {
+		super({
+			id: PreviewEditorAction.ID,
+			title: nls.localize2('positronPreview.openEditor', 'Open Preview in Editor Tab'),
+			category,
+			f1: true,
+			// set a context key
+			//precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
+		})
+	}
+	/**
+	 * Runs the action and opens the selected plot in the editor.
+	 *
+	 * @param accessor The service accessor.
+	 */
+	async run(accessor: ServicesAccessor) {
+		const previewService = accessor.get(IPositronPreviewService);
+		if (previewService.activePreviewWebviewId) {
+			previewService.openEditor();
+		} else {
+			console.log("no preview service")
+		}
+	}
+
+}
