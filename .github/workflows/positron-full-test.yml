@@ -61,6 +61,9 @@ jobs:
           sudo dpkg -i "$TEMP_DEB"
           rm -f "$TEMP_DEB"
 
+      - name: Install Tinytex
+        run: quarto install tinytex
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
