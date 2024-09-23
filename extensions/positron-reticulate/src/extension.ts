@@ -225,6 +225,17 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 				vscode.l10n.t('A Python installation is required to execute reticulate.'),
 				[
 					{
+						title: 'reticulate::install_python()',
+						execute: () => {
+							positron.runtime.executeCode(
+								'r',
+								'reticulate::install_python()',
+								true,
+								false
+							);
+						}
+					},
+					{
 						title: vscode.l10n.t('Open Docs'),
 						execute: () => {
 							const docsUrl = 'https://rstudio.github.io/reticulate/articles/versions.html';
