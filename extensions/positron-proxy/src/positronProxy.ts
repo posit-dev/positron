@@ -351,9 +351,6 @@ export class PositronProxy implements Disposable {
 						}
 
 						// Rewrite the content.
-						console.log(`Server origin: ${serverOrigin}, URL: ${url}, Content type: ${contentType}`);
-						console.log(`Target origin: ${targetOrigin}`);
-
 						return contentRewriter(serverOrigin, address.port, url, contentType, responseBuffer);
 					})
 				}));
