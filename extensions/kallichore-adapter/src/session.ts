@@ -96,6 +96,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	openResource?(_resource: vscode.Uri | string): Thenable<boolean> {
 		throw new Error('Method not implemented.');
 	}
+
 	execute(_code: string, _id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior): void {
 		throw new Error('Method not implemented.');
 	}
@@ -140,11 +141,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.logInfo(`Connected to websocket.`);
 			this._connected.open();
 		};
-		this._ws.onerror = (err) => {
+		this._ws.onerror = (err: any) => {
 			this.logInfo(`Error connecting to socket: ${err}`);
 			// TODO: Needs to take kernel down
 		};
-		this._ws.onmessage = (msg) => {
+		this._ws.onmessage = (msg: any) => {
 			this.logDebug(`RECV message: ${msg.data}`);
 			try {
 				const data = JSON.parse(msg.data.toString());
@@ -154,14 +155,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		};
 
-		await this.getKernelInfo();
-
-		const info: positron.LanguageRuntimeInfo = {
-			banner: 'Kallichore session',
-			implementation_version: '1.0',
-			language_version: this.runtimeMetadata.runtimeVersion,
-		};
-		return info;
+		return this.getKernelInfo();
 	}
 
 	interrupt(): Thenable<void> {
@@ -214,7 +208,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
 		await this._connected.wait();
 		const request = new KernelInfoRequest();
-		const reply = await request.send(this.metadata.sessionId, this._ws!);
+		const reply = await this.sendRequest(request);
 		const info: positron.LanguageRuntimeInfo = {
 			banner: reply.banner,
 			implementation_version: reply.implementation_version,
@@ -239,9 +233,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	sendRequest(request: JupyterRequest<any, any>): void {
+	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
 		this._pendingRequests.set(request.msgId, request);
-		request.send(this.metadata.sessionId, this._ws!);
+		return request.send(this.metadata.sessionId, this._ws!);
 	}
 
 	logDebug(what: string) {
