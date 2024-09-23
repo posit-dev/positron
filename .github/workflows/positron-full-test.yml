@@ -22,16 +22,19 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Checkout test licensing tool
-        uses: actions/checkout@v4
-        with:
-          repository: posit-dev/positron-license
-          token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          path: ../positron-license
+        run: |
+          cd ..
+          mkdir positron-license
+          cd positron-license
+          git clone https://github.com/posit-dev/positron-license.git .
+        env:
+          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+
 
       - name: debug
         run: |
           cd ..
-          ls -la
+          ls -R
 
       - name: Setup Build Environment
         run: |
