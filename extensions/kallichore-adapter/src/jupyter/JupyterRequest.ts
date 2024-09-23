@@ -10,13 +10,12 @@ import { PromiseHandles } from '../async';
 
 export abstract class JupyterRequest<T, U> {
 	private _promise: PromiseHandles<U> = new PromiseHandles<U>();
-	private _msgId: string;
+	private _msgId: string = '';
 	constructor(
 		public readonly requestType: string,
 		public readonly requestPayload: T,
 		public readonly replyType: string,
 		public readonly channel: JupyterChannel) {
-		this._msgId = this.createMsgId();
 	}
 
 	public resolve(response: U): void {
@@ -28,12 +27,15 @@ export abstract class JupyterRequest<T, U> {
 	}
 
 	get msgId(): string {
+		if (!this._msgId) {
+			this._msgId = this.createMsgId();
+		}
 		return this._msgId;
 	}
 
 	public send(sessionId: string, socket: WebSocket): Promise<U> {
 		const header: JupyterMessageHeader = {
-			msg_id: this._msgId,
+			msg_id: this.msgId,
 			session: sessionId,
 			username: '',
 			date: new Date().toISOString(),

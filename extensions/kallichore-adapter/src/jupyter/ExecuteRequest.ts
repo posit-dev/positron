@@ -9,8 +9,11 @@ import { JupyterRequest } from './JupyterRequest';
 
 
 export class ExecuteRequest extends JupyterRequest<JupyterExecuteRequest, JupyterExecuteResult> {
-	constructor(req: JupyterExecuteRequest) {
+	constructor(readonly requestId: string, req: JupyterExecuteRequest) {
 		super('execute_request', req, 'execute_result', JupyterChannel.Shell);
+	}
+	protected override createMsgId(): string {
+		return this.requestId;
 	}
 }
 

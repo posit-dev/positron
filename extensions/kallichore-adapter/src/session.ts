@@ -13,6 +13,8 @@ import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
 import { Barrier } from './async';
+import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
+import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -97,12 +99,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		throw new Error('Method not implemented.');
 	}
 
-	execute(_code: string, _id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior): void {
-		throw new Error('Method not implemented.');
+	execute(code: string,
+		id: string,
+		mode: positron.RuntimeCodeExecutionMode,
+		errorBehavior: positron.RuntimeErrorBehavior): void {
+
+		const request: JupyterExecuteRequest = {
+			code,
+			silent: mode === positron.RuntimeCodeExecutionMode.Silent,
+			store_history: mode === positron.RuntimeCodeExecutionMode.Interactive,
+			user_expressions: new Map(),
+			allow_stdin: true,
+			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
+		};
+		const execute = new ExecuteRequest(id, request);
+		this.sendRequest(execute).then((reply) => {
+			this.logDebug(`Execution result: ${JSON.stringify(reply)}`);
+		});
 	}
-	isCodeFragmentComplete(_code: string): Thenable<positron.RuntimeCodeFragmentStatus> {
-		throw new Error('Method not implemented.');
+
+	async isCodeFragmentComplete(code: string): Promise<positron.RuntimeCodeFragmentStatus> {
+		const request: JupyterIsCompleteRequest = {
+			code
+		};
+		const isComplete = new IsCompleteRequest(request);
+		const reply = await this.sendRequest(isComplete);
+		switch (reply.status) {
+			case 'complete':
+				return positron.RuntimeCodeFragmentStatus.Complete;
+			case 'incomplete':
+				return positron.RuntimeCodeFragmentStatus.Incomplete;
+			case 'invalid':
+				return positron.RuntimeCodeFragmentStatus.Invalid;
+			case 'unknown':
+				return positron.RuntimeCodeFragmentStatus.Unknown;
+		}
 	}
+
 	createClient(_id: string, _type: positron.RuntimeClientType, _params: any, _metadata?: any): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
