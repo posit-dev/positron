@@ -57,6 +57,11 @@ const vscodeWebResourceIncludes = isESM() ? [
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.{js,html}',
 
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
+
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
 
@@ -76,6 +81,11 @@ const vscodeWebResourceIncludes = isESM() ? [
 	// Webview
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.js',
 	'out-build/vs/workbench/contrib/webview/browser/pre/*.html',
+
+	// --- Start Positron ---
+	// Positron Help
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	// --- End Positron ---
 
 	// Extension Worker
 	'out-build/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html',

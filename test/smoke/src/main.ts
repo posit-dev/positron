@@ -59,6 +59,8 @@ import { setup as setupTestExplorerTest } from './areas/positron/test-explorer/t
 import { setup as setupRPKgDevelopment } from './areas/positron/r-pkg-development/r-pkg-development.test';
 import { setup as setupViewersTest } from './areas/positron/viewer/viewer.test';
 import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplorer/veryLargeDataFrame.test';
+import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
+import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 // --- End Positron ---
 
 const rootPath = path.join(__dirname, '..', '..', '..');
@@ -474,5 +476,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupInterpreterDropdownTest(logger);
 	setupViewersTest(logger);
 	setupVeryLargeDataFrameTest(logger);
+	setupGraphTrendTest(logger);
+	setupQuartoTest(logger);
 	// --- End Positron ---
 });

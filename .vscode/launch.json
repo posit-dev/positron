@@ -538,6 +538,33 @@
 			}
 		},
 		{
+			"type": "node",
+			"request": "launch",
+			"name": "Launch Web Smoke Test",
+			"program": "${workspaceFolder}/test/smoke/test/index.js",
+			"cwd": "${workspaceFolder}/test/smoke",
+			"timeout": 240000,
+			"args": [
+				"--tracing",
+				"--web"
+			],
+			"outFiles": [
+				"${cwd}/out/**/*.js"
+			],
+			//---- Start Positron
+			"sourceMaps": true,
+			"resolveSourceMapLocations": [
+				"${workspaceFolder}/**",
+				"!**/node_modules/**"
+			],
+			//--- End Positron
+			"env": {
+				"NODE_ENV": "development",
+				"VSCODE_DEV": "1",
+				"VSCODE_CLI": "1"
+			}
+		},
+		{
 			"name": "Launch Built-in Extension",
 			"type": "extensionHost",
 			"request": "launch",

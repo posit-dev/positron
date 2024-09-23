@@ -50,7 +50,11 @@ async function launchServer(options: LaunchOptions) {
 		`--extensions-dir=${extensionsPath}`,
 		`--server-data-dir=${agentFolder}`,
 		'--accept-server-license-terms',
-		`--logsPath=${serverLogsPath}`
+		`--logsPath=${serverLogsPath}`,
+		// --- Start Positron ---
+		`--connection-token`,
+		`dev-token`
+		// --- End Positron ---
 	];
 
 	if (options.verbose) {
