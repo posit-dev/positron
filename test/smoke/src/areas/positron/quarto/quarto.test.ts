@@ -14,21 +14,13 @@ export function setup(logger: Logger) {
 
 		installAllHandlers(logger);
 
-		let wb: Workbench;
 		let app: Application;
 
 		before(async function () {
 			app = this.app as Application;
-			wb = app.workbench;
 
-			// ensure tinytex is installed (needed for LaTeX rendering)
-			await wb.positronTerminal.clickTerminalTab();
-			await wb.terminal.runCommandInTerminal('quarto install tinytex');
-			await wb.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Installation successful') || line.includes('tinytex is already installed')));
-			await app.workbench.terminal.runCommand(TerminalCommandId.KillAll);
-
-			// open quarto_basic file
-			await wb.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+			await installTinyTex(app);
+			await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
 		afterEach(async function () {
@@ -56,8 +48,8 @@ export function setup(logger: Logger) {
 		});
 
 		it('should be able to generate preview', async function () {
-			await wb.quickaccess.runCommand('quarto.preview', { keepOpen: true });
-			const viewerFrame = wb.positronViewer.getViewerFrame('//iframe');
+			await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+			const viewerFrame = app.workbench.positronViewer.getViewerFrame('//iframe');
 
 			// verify preview displays
 			expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
@@ -89,4 +81,12 @@ const deleteGeneratedFiles = async (app: Application) => {
 const fileExists = (app: Application, file: String) => {
 	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
 	return fs.pathExists(filePath);
+};
+
+const installTinyTex = async (app: Application) => {
+	// ensure tinytex is installed (needed for LaTeX rendering)
+	await app.workbench.quickaccess.runCommand('terminal.focus.view');
+	await app.workbench.terminal.runCommandInTerminal('quarto install tinytex');
+	await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Installation successful') || line.includes('tinytex is already installed')));
+	await app.workbench.terminal.runCommand(TerminalCommandId.KillAll);
 };
