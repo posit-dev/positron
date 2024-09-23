@@ -18,8 +18,8 @@
 	position: fixed;
 	align-items: center;
 	justify-content: center;
+	background-color: rgba(0, 0, 0, 0.2);
 	animation: positronModalDialog-fadeIn 0.25s;
-	background: rgba(0, 0, 0, 0.2);
 }
 
 .positron-modal-dialog-container {
@@ -30,9 +30,9 @@
 	height: 100%;
 	position: absolute;
 	outline: none !important;
-	animation: positronModalDialog-fadeIn 0.25s;
 	/* Makes some devices run their hardware acceleration. */
 	transform: translate3d(0px, 0px, 0px);
+	animation: positronModalDialog-fadeIn 0.25s;
 }
 
 .positron-modal-dialog-box {
@@ -41,8 +41,8 @@
 	position: absolute;
 	border-radius: 5px;
 	color: var(--vscode-positronModalDialog-foreground);
-	background: var(--vscode-positronModalDialog-background);
 	border: 1px solid var(--vscode-positronModalDialog-border);
+	background-color: var(--vscode-positronModalDialog-background);
 	box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.1), 0 6px 20px 0 rgba(0, 0, 0, 0.1);
 }
 
@@ -52,26 +52,27 @@
 	border-radius: 5px;
 	align-items: center;
 	justify-content: center;
-	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
 	color: var(--vscode-positronModalDialog-buttonForeground);
-	background: var(--vscode-positronModalDialog-buttonBackground);
+	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
+	background-color: var(--vscode-positronModalDialog-buttonBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button:hover {
-	background: var(--vscode-positronModalDialog-buttonHoverBackground);
+	background-color: var(--vscode-positronModalDialog-buttonHoverBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button.default {
 	color: var(--vscode-positronModalDialog-defaultButtonForeground);
-	background: var(--vscode-positronModalDialog-defaultButtonBackground);
+	background-color: var(--vscode-positronModalDialog-defaultButtonBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button.default:hover {
-	background: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
+	background-color: var(--vscode-positronModalDialog-defaultButtonHoverBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button.destructive {
 	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
+	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button:focus {
@@ -90,13 +91,13 @@
 	padding: 4px;
 	border-radius: 4px;
 	box-sizing: border-box;
-	background: var(--vscode-positronModalDialog-textInputBackground);
 	border: 1px solid var(--vscode-positronModalDialog-textInputBorder);
+	background-color: var(--vscode-positronModalDialog-textInputBackground);
 }
 
 .positron-modal-dialog-box .text-input::selection {
 	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
-	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
+	background-color: var(--vscode-positronModalDialog-textInputSelectionBackground);
 }
 
 .positron-modal-dialog-box .error-msg {
