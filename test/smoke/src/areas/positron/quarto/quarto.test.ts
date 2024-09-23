@@ -31,6 +31,10 @@ export function setup(logger: Logger) {
 			await wb.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
+		afterEach(async function () {
+			await deleteGeneratedFiles(app);
+		});
+
 		it('should be able to render html', async function () {
 			// render html
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
@@ -52,9 +56,19 @@ export function setup(logger: Logger) {
 		});
 
 		it('should be able to render pdf (LaTeX)', async function () {
-			// render pdf
+			// render LaTeX pdf
 			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
 			await wb.quickinput.selectQuickInputElementContaining('pdf');
+
+			// verify file exists
+			await verifyTextInTerminal(app, 'pdf');
+			expect(await verifyFileExists(app, 'quarto_basic.pdf')).toBe(true);
+		});
+
+		it('should be able to render pdf (typst)', async function () {
+			// render typst pdf
+			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+			await wb.quickinput.selectQuickInputElementContaining('typst');
 
 			// verify file exists
 			await verifyTextInTerminal(app, 'pdf');
@@ -80,4 +94,16 @@ const verifyFileExists = (app: Application, file: String) => {
 
 const verifyTextInTerminal = async (app: Application, fileExtension: string) => {
 	await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
+};
+
+const deleteGeneratedFiles = async (app: Application) => {
+	if (await verifyFileExists(app, 'quarto_basic.pdf')) {
+		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.pdf'));
+	}
+	if (await verifyFileExists(app, 'quarto_basic.html')) {
+		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.html'));
+	}
+	if (await verifyFileExists(app, 'quarto_basic.docx')) {
+		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.docx'));
+	}
 };
