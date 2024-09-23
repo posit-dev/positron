@@ -8,13 +8,11 @@ import * as positron from 'positron';
 import * as os from 'os';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
-import { Barrier } from './barrier';
 import { WebSocket } from 'ws';
-import { SocketMessage } from './ws/SocketMessage';
 import { JupyterMessage } from './jupyter/JupyterMessage';
-import { JupyterMessageSpec } from './jupyter/JupyterMessageSpec';
-import { JupyterMessageHeader } from './jupyter/JupyterMessageHeader';
+import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
+import { Barrier } from './async';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -24,6 +22,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _connected: Barrier = new Barrier();
 	private _ws: WebSocket | undefined;
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -212,39 +211,37 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	async getKernelInfo() {
+	async getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
 		await this._connected.wait();
 		const request = new KernelInfoRequest();
-		await this.sendJupyterMessage(request);
-	}
-
-	async sendJupyterMessage(msg: JupyterMessageSpec<any>) {
-		await this._connected.wait();
-
-		// Generate 10 random characters for the message ID
-		const msgId = Math.random().toString(36).substring(2, 12);
-		const header: JupyterMessageHeader = {
-			msg_id: msgId,
-			session: this.metadata.sessionId,
-			username: '',
-			date: new Date().toISOString(),
-			msg_type: msg.msgType,
-			version: '5.3'
+		const reply = await request.send(this.metadata.sessionId, this._ws!);
+		const info: positron.LanguageRuntimeInfo = {
+			banner: reply.banner,
+			implementation_version: reply.implementation_version,
+			language_version: reply.language_info.version,
 		};
-		const payload = {
-			header,
-			parent_header: null,
-			metadata: {},
-			content: msg.content(),
-			channel: msg.channel,
-			buffers: []
-		};
-		this._ws?.send(JSON.stringify(payload));
+		return info;
 	}
 
 	handleJupyterMessage(data: any) {
 		const msg = data as JupyterMessage;
 
+		// Check to see if the message is a reply to a request
+		if (msg.parent_header && msg.parent_header.msg_id) {
+			const request = this._pendingRequests.get(msg.parent_header.msg_id);
+			if (request) {
+				if (request.replyType === msg.header.msg_type) {
+					request.resolve(msg.content);
+					this._pendingRequests.delete(msg.parent_header.msg_id);
+					return;
+				}
+			}
+		}
+	}
+
+	sendRequest(request: JupyterRequest<any, any>): void {
+		this._pendingRequests.set(request.msgId, request);
+		request.send(this.metadata.sessionId, this._ws!);
 	}
 
 	logDebug(what: string) {

@@ -13,7 +13,7 @@ import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './session';
-import { Barrier } from './barrier';
+import { Barrier } from './async';
 
 export class KCApi implements KallichoreAdapterApi {
 	private readonly _api: DefaultApi;

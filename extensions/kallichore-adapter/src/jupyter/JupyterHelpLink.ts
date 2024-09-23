@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { JupyterChannel } from './JupyterChannel';
-
 /**
- * Base type for Jupyter messages; contains no data and exists only to provide
- * typing hints.
+ * Represents a help link given from the Jupyter kernel
+ *
+ * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-info
  */
-export abstract class JupyterMessageSpec<T> {
-	constructor(public readonly msgType: string, public readonly channel: JupyterChannel) { }
-	abstract content(): T;
+export interface JupyterHelpLink {
+	/** The name to display for the help link */
+	text: string;
+
+	/** The location (URL) of the help link */
+	url: string;
 }
