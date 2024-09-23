@@ -128,14 +128,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             await runAppApi.runApplication({
                 name: 'Shiny',
                 getTerminalOptions(runtime, document, port, _urlPrefix) {
-                    const args = [
-                        runtime.runtimePath,
-                        '-m',
-                        'shiny',
-                        'run',
-                        '--reload',
-                        document.uri.fsPath,
-                    ];
+                    const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload', document.uri.fsPath];
                     if (port) {
                         args.push('--port', port);
                     }

@@ -230,12 +230,9 @@ suite('Web app commands', () => {
     });
 
     test('Exec Shiny in terminal - without port and urlPrefix', async () => {
-        await verifyRunAppCommand(
-            Commands.Exec_Shiny_In_Terminal,
-            {
-                commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
-            },
-        );
+        await verifyRunAppCommand(Commands.Exec_Shiny_In_Terminal, {
+            commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
+        });
     });
 
     test('Exec Shiny in terminal - with port and urlPrefix', async () => {

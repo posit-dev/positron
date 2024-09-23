@@ -14,12 +14,10 @@ function getSupportedLibraries(): string[] {
 
     // if shiny extension is installed, we don't need to handle it
     if (shinyExtension && shinyExtension.isActive) {
-        return libraries
-    } else {
-        return libraries.concat('shiny')
+        return libraries;
     }
+    return libraries.concat('shiny');
 }
-
 
 export function detectWebApp(document: vscode.TextDocument): void {
     const text = document.getText();
