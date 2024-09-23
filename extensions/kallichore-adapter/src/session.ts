@@ -16,6 +16,8 @@ import { Barrier } from './async';
 import { ExecuteRequest, JupyterExecuteRequest, JupyterExecuteResult } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { JupyterDisplayData } from './jupyter/JupyterDisplayData';
+import { JupyterExecuteInput } from './jupyter/JupyterExecuteInput';
+import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -270,6 +272,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			case 'execute_result':
 				this.onExecuteResult(msg, msg.content as JupyterExecuteResult);
 				break;
+			case 'execute_input':
+				this.onExecuteInput(msg, msg.content as JupyterExecuteInput);
+				break;
+			case 'status':
+				this.onKernelStatus(msg, msg.content as JupyterKernelStatus);
+				break;
 			case 'display_data':
 				this.onDisplayData(msg, msg.content as JupyterDisplayData);
 				break;
@@ -315,6 +323,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			data: data.data as any,
 			metadata: message.metadata,
 		} as positron.LanguageRuntimeOutput);
+	}
+
+	/**
+	 * Converts a Jupyter execute_input message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The execute_input message
+	 */
+	onExecuteInput(message: JupyterMessage, data: JupyterExecuteInput) {
+		this._messages.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.Input,
+			code: data.code,
+			execution_count: data.execution_count,
+			metadata: message.metadata,
+		} as positron.LanguageRuntimeInput);
+	}
+
+	/**
+	 * Converts a Jupyter status message to a LanguageRuntimeMessage and emits
+	 * it.
+	 *
+	 * @param message The message packet
+	 * @param data The kernel status message
+	 */
+	onKernelStatus(message: JupyterMessage, data: JupyterKernelStatus) {
+		this._messages.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.State,
+			state: data.execution_state,
+			metadata: message.metadata,
+		} as positron.LanguageRuntimeState);
 	}
 
 	logDebug(what: string) {
