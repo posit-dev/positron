@@ -47,6 +47,7 @@ const getScriptElement = (script: string, id: string) =>
  */
 type ContentRewriter = (
 	serverOrigin: string,
+	port: number,
 	url: string,
 	contentType: string,
 	responseBuffer: Buffer
@@ -187,7 +188,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, url, contentType, responseBuffer) => {
+			async (serverOrigin, serverPort, url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -224,14 +225,19 @@ export class PositronProxy implements Disposable {
 					</head>`
 				);
 
-				// Prepend root-relative URLs with the proxy path.
-				const serverOriginUrl = new URL(serverOrigin);
-				const proxyPath = `/proxy/${serverOriginUrl.port}`;
-				response = response.replace(
-					// Look for src="/ or href="/
-					/(src|href)="\/([^"]+)"/g,
-					`$1="${proxyPath}/$2"`
-				);
+				// When running on Web, we need to prepend root-relative URLs with the proxy path,
+				// because the help proxy server is running at a different origin than the target origin.
+				// When running on Desktop, we don't need to do this, because the help proxy server is
+				// running at the same origin as the target origin (localhost).
+				if (vscode.env.uiKind === vscode.UIKind.Web) {
+					// Prepend root-relative URLs with the proxy path.
+					const proxyPath = `/proxy/${serverPort}`;
+					response = response.replace(
+						// Look for src="/ or href="/
+						/(src|href)="\/([^"]+)"/g,
+						`$1="${proxyPath}/$2"`
+					);
+				}
 
 				// Return the response.
 				return response;
@@ -345,7 +351,10 @@ export class PositronProxy implements Disposable {
 						}
 
 						// Rewrite the content.
-						return contentRewriter(serverOrigin, url, contentType, responseBuffer);
+						console.log(`Server origin: ${serverOrigin}, URL: ${url}, Content type: ${contentType}`);
+						console.log(`Target origin: ${targetOrigin}`);
+
+						return contentRewriter(serverOrigin, address.port, url, contentType, responseBuffer);
 					})
 				}));
 
