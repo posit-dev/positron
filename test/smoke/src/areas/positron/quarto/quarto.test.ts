@@ -18,7 +18,6 @@ export function setup(logger: Logger) {
 
 		before(async function () {
 			app = this.app as Application;
-
 			await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		});
 
