@@ -35,6 +35,7 @@ const options = {
 	parallel: opts['parallel'],
 	// --- End Positron ---
 };
+console.log('parallel?', opts['parallel']);
 
 if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 	options.reporter = 'mocha-multi-reporters';
