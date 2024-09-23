@@ -21,6 +21,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout test licensing tool
+        uses: actions/checkout@v4
+        with:
+          repository: posit-dev/positron-license
+          token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          path: ../positron-license
+
+      - name: debug
+        run: |
+          cd ..
+          ls -la
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
