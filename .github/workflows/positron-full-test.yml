@@ -26,7 +26,7 @@ jobs:
           cd ..
           mkdir positron-license
           cd positron-license
-          git clone https://github.com/posit-dev/positron-license.git .
+          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/posit-dev/positron-license.git .
         env:
           GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
 
@@ -184,16 +184,3 @@ jobs:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
 
-  slack-notification:
-    name: "Send Slack notification"
-    runs-on: ubuntu-latest
-    needs: linux
-    if: ${{ failure() }}
-    steps:
-      - name: "Send Slack notification"
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Full Test Suite
