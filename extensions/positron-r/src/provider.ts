@@ -401,6 +401,12 @@ async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MA
 	// 'R64' here is another place where we explicitly ignore 32-bit R
 	// Amend a WOW path after "Software" if requested
 	const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64`;
+
+	if (os.platform() !== 'win32') {
+		LOGGER.info('Skipping registry check on non-Windows platform');
+		return undefined;
+	}
+
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	const Registry = await import('@vscode/windows-registry');
 
