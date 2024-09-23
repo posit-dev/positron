@@ -22,7 +22,8 @@ const options = {
 	color: true,
 	timeout: 2 * 60 * 1000,
 	slow: 30 * 1000,
-	grep: opts['f'] || opts['g']
+	grep: opts['f'] || opts['g'],
+	parallel: true,
 };
 
 if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
@@ -37,7 +38,9 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 }
 
 const mocha = new Mocha(options);
-mocha.addFile('out/main.js');
+mocha.addFile('out/main1.js');
+mocha.addFile('out/main2.js');
+
 // --- Start Positron ---
 if (process.env.TEST_FILTER) {
 	mocha.grep(process.env.TEST_FILTER);
