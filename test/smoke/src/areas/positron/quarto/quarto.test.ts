@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Logger, TerminalCommandId, Workbench } from '../../../../../automation';
+import { Application, Logger, TerminalCommandId } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 const path = require('path');
