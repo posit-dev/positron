@@ -81,8 +81,8 @@ export class KCApi implements KallichoreAdapterApi {
 		throw new Error('Method not implemented.');
 	}
 
-	findAvailablePort(_excluding: Array<number>, _maxTries: number): Promise<number> {
-		throw new Error('Method not implemented.');
+	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
+		return findAvailablePort(excluding, maxTries);
 	}
 
 

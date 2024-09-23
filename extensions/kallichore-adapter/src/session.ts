@@ -18,6 +18,7 @@ import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsComplet
 import { JupyterDisplayData } from './jupyter/JupyterDisplayData';
 import { JupyterExecuteInput } from './jupyter/JupyterExecuteInput';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus';
+import { CommInfoRequest } from './jupyter/CommInfoRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -142,8 +143,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	createClient(_id: string, _type: positron.RuntimeClientType, _params: any, _metadata?: any): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
-	listClients(_type?: positron.RuntimeClientType): Thenable<Record<string, string>> {
-		throw new Error('Method not implemented.');
+
+	async listClients(type?: positron.RuntimeClientType): Promise<Record<string, string>> {
+		const request = new CommInfoRequest(type || '');
+		const reply = await this.sendRequest(request);
+		const result: Record<string, string> = {};
+		const comms = reply.comms;
+		// Unwrap the comm info and add it to the result
+		for (const key in comms) {
+			if (comms.hasOwnProperty(key)) {
+				result[key] = comms[key].target_name;
+			}
+		}
+		return result;
 	}
 	removeClient(_id: string): void {
 		throw new Error('Method not implemented.');
