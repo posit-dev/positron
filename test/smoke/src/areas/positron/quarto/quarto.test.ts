@@ -36,47 +36,26 @@ export function setup(logger: Logger) {
 		});
 
 		it('should be able to render html', async function () {
-			// render html
-			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-			await wb.quickinput.selectQuickInputElementContaining('html');
-
-			// verify file exists
-			await verifyTextInTerminal(app, 'html');
-			expect(await verifyFileExists(app, 'quarto_basic.html')).toBe(true);
+			await renderQuartoDocument(app, 'html');
+			await verifyDocumentExists(app, 'html');
 		});
 
 		it('should be able to render docx ', async function () {
-			// render docx
-			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-			await wb.quickinput.selectQuickInputElementContaining('docx');
-
-			// verify file exists
-			await verifyTextInTerminal(app, 'docx');
-			expect(await verifyFileExists(app, 'quarto_basic.docx')).toBe(true);
+			await renderQuartoDocument(app, 'docx');
+			await verifyDocumentExists(app, 'docx');
 		});
 
 		it('should be able to render pdf (LaTeX)', async function () {
-			// render LaTeX pdf
-			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-			await wb.quickinput.selectQuickInputElementContaining('pdf');
-
-			// verify file exists
-			await verifyTextInTerminal(app, 'pdf');
-			expect(await verifyFileExists(app, 'quarto_basic.pdf')).toBe(true);
+			await renderQuartoDocument(app, 'pdf');
+			await verifyDocumentExists(app, 'pdf');
 		});
 
 		it('should be able to render pdf (typst)', async function () {
-			// render typst pdf
-			await wb.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-			await wb.quickinput.selectQuickInputElementContaining('typst');
-
-			// verify file exists
-			await verifyTextInTerminal(app, 'pdf');
-			expect(await verifyFileExists(app, 'quarto_basic.pdf')).toBe(true);
+			await renderQuartoDocument(app, 'typst');
+			await verifyDocumentExists(app, 'pdf');
 		});
 
 		it('should be able to generate preview', async function () {
-			// generate preview
 			await wb.quickaccess.runCommand('quarto.preview', { keepOpen: true });
 			const viewerFrame = wb.positronViewer.getViewerFrame('//iframe');
 
@@ -86,24 +65,28 @@ export function setup(logger: Logger) {
 	});
 }
 
-
-const verifyFileExists = (app: Application, file: String) => {
-	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
-	return fs.pathExists(filePath);
+const renderQuartoDocument = async (app: Application, fileExtension: string) => {
+	await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+	await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
 };
 
-const verifyTextInTerminal = async (app: Application, fileExtension: string) => {
+const verifyDocumentExists = async (app: Application, fileExtension: string) => {
 	await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
+	expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
 };
 
 const deleteGeneratedFiles = async (app: Application) => {
-	if (await verifyFileExists(app, 'quarto_basic.pdf')) {
-		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.pdf'));
+	const files = ['quarto_basic.pdf', 'quarto_basic.html', 'quarto_basic.docx'];
+
+	for (const file of files) {
+		const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
+		if (await fs.pathExists(filePath)) {
+			await fs.remove(filePath);
+		}
 	}
-	if (await verifyFileExists(app, 'quarto_basic.html')) {
-		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.html'));
-	}
-	if (await verifyFileExists(app, 'quarto_basic.docx')) {
-		await fs.remove(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.docx'));
-	}
+};
+
+const fileExists = (app: Application, file: String) => {
+	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
+	return fs.pathExists(filePath);
 };
