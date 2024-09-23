@@ -229,7 +229,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 						execute: () => {
 							positron.runtime.executeCode(
 								'r',
-								'reticulate::install_python()',
+								'reticulate::install_python() # This may take a few minutes',
 								true,
 								false
 							);
@@ -252,12 +252,27 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			// are not using a venv, and that they should.
 
 			// TODO: what more can we say here? And what actions can we suggest the use to take?
-			vscode.window.showInformationMessage(vscode.l10n.t(`
+			const informCreateVirtualEenv = async function () {
+				const selection = await vscode.window.showInformationMessage(vscode.l10n.t(`
 				Reticulate strongly recommends using a virtualenv.
-				`
-			));
-		}
+				`,
+					{
+						title: 'reticulate::virtualenv_create()',
+						execute: () => {
+							positron.runtime.executeCode(
+								'r',
+								'reticulate::virtualenv_create("r-reticulate", packages = c("numpy", "ipykernel"))',
+								true,
+								false
+							);
+						}
+					}
+				));
+			};
+			// We don't need to await for that, just let they know what we recommend.
+			informCreateVirtualEenv();
 
+		}
 		return { python: config.python };
 	}
 
