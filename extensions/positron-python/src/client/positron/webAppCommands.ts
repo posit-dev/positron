@@ -155,11 +155,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
  */
 function pathToModule(p: string): string {
     // Get the path's directory relative to the workspace root.
-    const workspacePath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-    if (!workspacePath) {
-        throw new Error('No workspace path');
-    }
-    const relativePath = path.relative(workspacePath, p);
+    const relativePath = vscode.workspace.asRelativePath(p);
     let relativeDir = path.dirname(relativePath);
 
     // Get the name of the module.

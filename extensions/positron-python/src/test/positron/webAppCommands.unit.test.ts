@@ -64,9 +64,11 @@ suite('Web app commands', () => {
             return { dispose: () => undefined };
         };
 
-        // Stub `vscode.workspace.workspaceFolders` to return a single workspace folder.
+        // Stub `vscode.workspace.asRelativePath`.
         sinon.stub(vscode, 'workspace').get(() => ({
-            workspaceFolders: [{ uri: { fsPath: workspacePath } }],
+            asRelativePath(fsPath: string) {
+                return path.relative(workspacePath, fsPath);
+            },
         }));
 
         // Stub the interpreter service and installer services.
