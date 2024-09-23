@@ -26,7 +26,7 @@ jobs:
           cd ..
           mkdir positron-license
           cd positron-license
-          git clone https://${{ secrets.GITHUB_TOKEN }}@github.com/posit-dev/positron-license.git .
+          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
         env:
           GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
 
