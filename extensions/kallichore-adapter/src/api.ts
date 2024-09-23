@@ -15,6 +15,15 @@ import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } 
 import { KallichoreSession } from './session';
 import { Barrier } from './async';
 
+const KALLICHORE_STATE_KEY = 'kallichore-adapter.v1';
+
+interface KallichoreServerState {
+	port: number;
+	base_path: string;
+	server_path: string;
+	server_pid: number;
+}
+
 export class KCApi implements KallichoreAdapterApi {
 	private readonly _api: DefaultApi;
 	private readonly _started: Barrier = new Barrier();
@@ -26,8 +35,21 @@ export class KCApi implements KallichoreAdapterApi {
 	}
 
 	async start() {
-		// TODO: re-use existing terminal instead of opening a new one every time;
-		// can do this by attempting a network reconnect
+		// Check to see if there's a server already running for this workspace
+		const serverState = this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+
+		// If there is, and we can reconnect to it, do so
+		if (serverState) {
+			try {
+				if (await this.reconnect(serverState)) {
+					return;
+				} else {
+					this._log.warn(`Could not reconnect to Kallichore server at ${serverState.base_path}. Starting a new server`);
+				}
+			} catch (err) {
+				this._log.error(`Failed to reconnect to Kallichore server at ${serverState.base_path}: ${err}. Starting a new server.`);
+			}
+		}
 
 		const shellPath = this.getKallichorePath();
 		const env = {
@@ -36,12 +58,11 @@ export class KCApi implements KallichoreAdapterApi {
 			'RUST_LOG': 'debug'
 		};
 
-
 		// Find a port for the server to listen on
 		const port = await findAvailablePort([], 10);
 
 		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
-		vscode.window.createTerminal(<vscode.TerminalOptions>{
+		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: 'Kallichore',
 			shellPath: shellPath,
 			shellArgs: ['--port', port.toString()],
@@ -50,14 +71,40 @@ export class KCApi implements KallichoreAdapterApi {
 			hideFromUser: false,
 			isTransient: false
 		});
-		// wait 1s for the server to start up
+		// wait 1s for the server to start up (TODO: there has to be faster way to do this)
 		setTimeout(() => {
 			this._api.basePath = `http://localhost:${port}`;
-			this._api.listSessions().then(sessions => {
+			this._api.listSessions().then(async sessions => {
 				this._started.open();
+				const state: KallichoreServerState = {
+					base_path: this._api.basePath,
+					port,
+					server_path: shellPath,
+					server_pid: await terminal.processId || 0
+				};
+				this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
 			});
 		}, 1000);
+	}
+
+	async reconnect(serverState: KallichoreServerState): Promise<boolean> {
+		// Check to see if the pid is still running
+		const pid = serverState.server_pid;
+		this._log.info(`Reconnecting to Kallichore server at ${serverState.base_path} (PID ${pid})`);
+		if (pid) {
+			try {
+				process.kill(pid, 0);
+			} catch (err) {
+				this._log.warn(`Kallichore server PID ${pid} is not running`);
+				return false;
+			}
+		}
+		this._api.basePath = serverState.base_path;
+		const sessions = await this._api.listSessions();
+		this._started.open();
+		this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
+		return true;
 	}
 
 	createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
