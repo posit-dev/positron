@@ -99,6 +99,9 @@ export enum Product {
     pip = 27,
     ensurepip = 28,
     python = 29,
+    // --- Start Positron ---
+    fastapiCli = 101,
+    // --- End Positron ---
 }
 
 export const IInstaller = Symbol('IInstaller');

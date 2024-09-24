@@ -21,6 +21,9 @@ export class ProductService implements IProductService {
         this.ProductTypes.set(Product.pip, ProductType.DataScience);
         this.ProductTypes.set(Product.ensurepip, ProductType.DataScience);
         this.ProductTypes.set(Product.python, ProductType.Python);
+        // --- Start Positron ---
+        this.ProductTypes.set(Product.fastapiCli, ProductType.DataScience);
+        // --- End Positron ---
     }
     public getProductType(product: Product): ProductType {
         return this.ProductTypes.get(product)!;
