@@ -33,6 +33,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _ws: WebSocket | undefined;
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
+	private _disposables: vscode.Disposable[] = [];
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -97,12 +98,72 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._created.open();
 	}
 
-	startPositronLsp(_clientAddress: string): Thenable<void> {
-		throw new Error('Method not implemented.');
+	/**
+	 * Requests that the kernel start a Language Server Protocol server, and
+	 * connect it to the client with the given TCP address.
+	 *
+	 * Note: This is only useful if the kernel hasn't already started an LSP
+	 * server.
+	 *
+	 * @param clientAddress The client's TCP address, e.g. '127.0.0.1:1234'
+	 */
+	async startPositronLsp(clientAddress: string) {
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${uniqueId}`;
+		this.logInfo(`Starting LSP server ${clientId} for ${clientAddress}`);
+
+		// Notify Positron that we're handling messages from this client
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
+
+		await this.createClient(
+			clientId,
+			positron.RuntimeClientType.Lsp,
+			{ client_address: clientAddress }
+		);
 	}
-	startPositronDap(_serverPort: number, _debugType: string, _debugName: string): Thenable<void> {
-		throw new Error('Method not implemented.');
+
+	/**
+	 * Requests that the kernel start a Debug Adapter Protocol server, and
+	 * connect it to the client locally on the given TCP port.
+	 *
+	 * @param serverPort The port on which to bind locally.
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 */
+	async startPositronDap(
+		serverPort: number,
+		_debugType: string,
+		_debugName: string,
+	) {
+		// NOTE: Ideally we'd connect to any address but the
+		// `debugServer` property passed in the configuration below
+		// needs to be a port for localhost.
+		const serverAddress = `127.0.0.1:${serverPort}`;
+
+		// TODO: Should we query the kernel to see if it can create a DAP
+		// (QueryInterface style) instead of just demanding it?
+		//
+		// The Jupyter kernel spec does not provide a way to query for
+		// supported comms; the only way to know is to try to create one.
+
+		// Create a unique client ID for this instance
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${uniqueId}`;
+		this.logInfo(`Starting DAP server ${clientId} for ${serverAddress}`);
+
+		// Notify Positron that we're handling messages from this client
+		this._disposables.push(positron.runtime.registerClientInstance(clientId));
+
+		await this.createClient(
+			clientId,
+			positron.RuntimeClientType.Dap,
+			{ client_address: serverAddress }
+		);
+
+		// TODO: Handle events from the DAP (see LanguageRuntimeSessionAdapter)
 	}
+
 	emitJupyterLog(message: string): void {
 		this._log.info(message);
 	}
@@ -233,6 +294,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Connect to the session's websocket
 		await this.connect();
 
+		// If it's not a new session, enter the ready state immediately
+		// TODO: this should actually wait for the kernel to be ready
+		if (!this._new) {
+			this._state.fire(positron.RuntimeState.Ready);
+		}
+
 		return this.getKernelInfo();
 	}
 
@@ -282,6 +349,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		throw new Error('Method not implemented.');
 	}
 	dispose() {
+		this._disposables.forEach(d => d.dispose());
+
 		// Close the websocket if it's open
 		this._ws?.close();
 	}
