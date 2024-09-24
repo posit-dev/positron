@@ -24,7 +24,6 @@ import { CommOpenCommand } from './jupyter/CommOpenCommand';
 import { JupyterCommand } from './jupyter/JupyterCommand';
 import { CommCloseCommand } from './jupyter/CommCloseCommand';
 import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
-import { Runtime } from 'inspector/promises';
 import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
 import { CommMsgCommand } from './jupyter/CommMsgCommand';
 import { ShutdownRequest } from './jupyter/ShutdownRequest';
@@ -35,6 +34,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 	private readonly _created: Barrier = new Barrier();
 	private readonly _connected: Barrier = new Barrier();
+	private readonly _ready: Barrier = new Barrier();
 	private _ws: WebSocket | undefined;
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
@@ -304,9 +304,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Connect to the session's websocket
 		await this.connect();
 
-		// If it's not a new session, enter the ready state immediately
-		// TODO: this should actually wait for the kernel to be ready
-		if (!this._new) {
+		if (this._new) {
+			// If this is a new session, wait for it to be ready before
+			// returning
+			await this._ready.wait();
+		} else {
+			// If it's not a new session, enter the ready state immediately.
+			// TODO: this should actually wait for the kernel to be ready; what
+			// if it's busy?
+			this._ready.open();
 			this._state.fire(positron.RuntimeState.Ready);
 		}
 
@@ -406,6 +412,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (data.status) {
 			// Check to see if the status is a valid runtime state
 			if (Object.values(positron.RuntimeState).includes(data.status)) {
+				// If the kernel is ready, open the ready barrier
+				if (data.status === positron.RuntimeState.Ready) {
+					this.logInfo(`Received initial heartbeat; kernel is ready.`);
+					this._ready.open();
+				}
 				this.logInfo(`State: ${this._runtimeState} => ${data.status}`);
 				this._runtimeState = data.status;
 				this._state.fire(data.status);
