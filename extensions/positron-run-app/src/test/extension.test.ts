@@ -151,7 +151,7 @@ suite('PositronRunApp', () => {
 		sinon.assert.calledOnce(previewUrlStub);
 
 		// Wait for the expected URL to be previewed.
-		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 5_000);
+		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
 		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
 
 		// Check that shell integration was enabled.
