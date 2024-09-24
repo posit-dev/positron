@@ -15,4 +15,8 @@ module.exports = withDefaults({
 	entry: {
 		extension: './src/extension.ts',
 	},
+	externals: {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'@vscode/windows-registry': 'commonjs @vscode/windows-registry'
+	}
 });
