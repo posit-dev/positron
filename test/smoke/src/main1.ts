@@ -10,13 +10,12 @@ import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/x
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
 import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
-import { setupSmokeTestEnvironment, setupBeforeHook, opts, logger, } from './setupUtils';
+import { opts, setup } from './setupUtils';
 
-setupSmokeTestEnvironment();
-setupBeforeHook();
+const suite = 'Main 1';
+const logger = setup(suite);
 
-describe(`[Main 1] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
-
+describe(`${suite} Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);

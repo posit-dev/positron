@@ -65,7 +65,7 @@ const workspacePath = join(testDataPath, 'qa-example-content');
 
 // Check if the repository already exists to avoid re-cloning
 if (!fs.existsSync(workspacePath)) {
-	setupRepository(workspacePath, console, opts).then(() => {
+	setupRepository(workspacePath, opts).then(() => {
 		runMochaTests();  // Run Mocha tests after the repository is set up
 	}).catch((err) => {
 		console.error('Failed to set up repository:', err);

@@ -29,16 +29,12 @@ export type ParseOptions = {
 
 let quality: Quality;
 let version: string | undefined;
-const rootPath = path.join(__dirname, '..', '..', '..');
-const crashesRootPath = path.join(rootPath, '.build', 'crashes', 'smoke-tests-electron');
+export const rootPath = path.join(__dirname, '..', '..', '..');
 const testDataPath = path.join(os.tmpdir(), `vscsmoke_shared`);
 const workspacePath = path.join(testDataPath, 'qa-example-content');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
-const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron');
 export const opts = parseOptions();
-export const logger = createLogger(opts);
 
-mkdirp.sync(logsRootPath);
 mkdirp.sync(testDataPath);
 
 export function parseOptions(): ParseOptions {
@@ -77,7 +73,8 @@ export function parseOptions(): ParseOptions {
 	};
 }
 
-export function createLogger(opts: any): Logger {
+
+export function createLogger(logsRootPath: string): Logger {
 	const loggers: Logger[] = [];
 
 	if (opts.verbose) {
@@ -87,7 +84,7 @@ export function createLogger(opts: any): Logger {
 	fs.rmSync(logsRootPath, { recursive: true, force: true, maxRetries: 3 });
 	mkdirp.sync(logsRootPath);
 
-	loggers.push(new FileLogger(path.join(logsRootPath, 'smoke-test-runner.log')));
+	loggers.push(new FileLogger(path.join(logsRootPath, `smoke-test-runner.log`)));
 
 	return new MultiLogger(loggers);
 }
@@ -118,11 +115,11 @@ function parseQuality(): Quality {
 	}
 }
 
-export async function setupRepository(workspacePath: string, logger: Logger, opts: any): Promise<void> {
+export async function setupRepository(workspacePath: string, opts: any): Promise<void> {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (opts['test-repo']) {
-		logger.log('Copying test project repository:', opts['test-repo']);
+		console.log('Copying test project repository:', opts['test-repo']);
 		rimraf.sync(workspacePath);
 
 		if (process.platform === 'win32') {
@@ -132,13 +129,13 @@ export async function setupRepository(workspacePath: string, logger: Logger, opt
 		}
 	} else {
 		if (!fs.existsSync(workspacePath)) {
-			logger.log('Cloning test project repository...');
+			console.log('Cloning test project repository...');
 			const res = cp.spawnSync('git', ['clone', testRepoUrl, workspacePath], { stdio: 'inherit' });
 			if (!fs.existsSync(workspacePath)) {
 				throw new Error(`Clone operation failed: ${res.stderr.toString()}`);
 			}
 		} else {
-			logger.log('Cleaning test project repository...');
+			console.log('Cleaning test project repository...');
 			cp.spawnSync('git', ['fetch'], { cwd: workspacePath, stdio: 'inherit' });
 			cp.spawnSync('git', ['reset', '--hard', 'FETCH_HEAD'], { cwd: workspacePath, stdio: 'inherit' });
 			cp.spawnSync('git', ['clean', '-xdf'], { cwd: workspacePath, stdio: 'inherit' });
@@ -188,8 +185,17 @@ export async function ensureStableCode(testDataPath: string, logger: Logger, opt
 	opts['stable-build'] = stableCodePath;
 }
 
+export function setup(suiteName: string): Logger {
+	const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron', suiteName);
+	const logger = createLogger(logsRootPath);
 
-export function setupSmokeTestEnvironment() {
+	setupSmokeTestEnvironment(logger);
+	setupBeforeHook(logger, suiteName);
+
+	return logger;
+}
+
+export function setupSmokeTestEnvironment(logger: Logger) {
 	//
 	// #### Electron Smoke Tests ####
 	//
@@ -251,7 +257,9 @@ export function setupSmokeTestEnvironment() {
 	}
 }
 
-export async function setupBeforeHook(): Promise<void> {
+export async function setupBeforeHook(logger: Logger, suiteName: string): Promise<void> {
+	// to do: create logger here and return it
+
 	before(async function () {
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
 
@@ -261,6 +269,8 @@ export async function setupBeforeHook(): Promise<void> {
 		}
 
 		// Set default options
+		const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron', suiteName);
+		const crashesRootPath = path.join(rootPath, '.build', 'crashes', 'smoke-tests-electron', suiteName);
 		this.defaultOptions = {
 			quality,
 			codePath: opts.build,

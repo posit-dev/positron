@@ -9,13 +9,12 @@ import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/da
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
-import { setupSmokeTestEnvironment, setupBeforeHook, opts, logger, } from './setupUtils';
+import { opts, setup } from './setupUtils';
 
+const suite = 'Main 0';
+const logger = setup(suite);
 
-setupSmokeTestEnvironment();
-setupBeforeHook();
-
-describe(`[Main 0] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
+describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
 	setupDataExplorer100x100Test(logger);

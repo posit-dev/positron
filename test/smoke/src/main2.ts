@@ -20,13 +20,13 @@ import { setup as setupViewersTest } from './areas/positron/viewer/viewer.test';
 import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplorer/veryLargeDataFrame.test';
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
-import { setupSmokeTestEnvironment, setupBeforeHook, logger, opts, } from './setupUtils';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
+import { opts, setup } from './setupUtils';
 
-setupSmokeTestEnvironment();
-setupBeforeHook();
+const suite = 'Main 2';
+const logger = setup(suite);
 
-describe(`[Main 2] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
+describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupLayoutTest(logger);
 	setupNotebookVariablesTest(logger);
 	setupConsoleInputTest(logger);
