@@ -30,12 +30,12 @@ export type ParseOptions = {
 let quality: Quality;
 let version: string | undefined;
 export const rootPath = path.join(__dirname, '..', '..', '..');
-const testDataPath = path.join(os.tmpdir(), `vscsmoke_shared`);
+export const testDataPath = path.join(os.tmpdir(), 'vscsmoke');
 const workspacePath = path.join(testDataPath, 'qa-example-content');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 export const opts = parseOptions();
 
-mkdirp.sync(testDataPath);
+// mkdirp.sync(testDataPath);
 
 export function parseOptions(): ParseOptions {
 

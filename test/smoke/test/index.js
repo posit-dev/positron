@@ -1,6 +1,6 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 //@ts-check
@@ -9,36 +9,31 @@
 const { join } = require('path');
 const Mocha = require('mocha');
 const minimist = require('minimist');
-
-// --- Start Positron ---
 const rimraf = require('rimraf');
 const fs = require('fs');
-const { setupRepository } = require('../out/setupUtils');
-// --- End Positron ---
+const { setupRepository, testDataPath } = require('../out/setupUtils');
+const mkdirp = require('mkdirp');
 
 const [, , ...args] = process.argv;
 const opts = minimist(args, {
-	// --- Start Positron ---
 	boolean: ['web', 'parallel'],
-	// --- End Positron ---
 	string: ['f', 'g']
 });
 
 const suite = opts['web'] ? 'Browser Smoke Tests' : 'Desktop Smoke Tests';
 
+// Mocha options
 const options = {
 	color: true,
 	timeout: 2 * 60 * 1000,
 	slow: 30 * 1000,
-	// --- Start Positron ---
 	grep: opts['f'] || opts['g'],
 	parallel: opts['parallel'],
 
 };
-
 console.log('parallel: ', opts['parallel']);
-// --- End Positron ---
 
+// Add reporter options for CI
 if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 	options.reporter = 'mocha-multi-reporters';
 	options.reporterOptions = {
@@ -51,19 +46,24 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 }
 
 const mocha = new Mocha(options);
-// --- Start Positron ---
+// mocha.dryRun(); // debugging filters
+
+// Filter tests based on environment variables
 if (process.env.TEST_FILTER) {
 	mocha.grep(process.env.TEST_FILTER);
 } else if (process.env.INVERSE_FILTER) {
 	mocha.grep(process.env.INVERSE_FILTER);
 	mocha.invert();
 }
-// mocha.dryRun(); // debugging filters
-// Define paths for repository setup and logs
-const testDataPath = join(require('os').tmpdir(), 'vscsmoke_shared');
-const workspacePath = join(testDataPath, 'qa-example-content');
 
-// Check if the repository already exists to avoid re-cloning
+// Clean up test data directory before running tests
+if (fs.existsSync(testDataPath)) {
+	rimraf.sync(testDataPath);
+}
+mkdirp.sync(testDataPath);
+
+// Clone the repository and run tests
+const workspacePath = join(testDataPath, 'qa-example-content');
 if (!fs.existsSync(workspacePath)) {
 	setupRepository(workspacePath, opts).then(() => {
 		runMochaTests();  // Run Mocha tests after the repository is set up
