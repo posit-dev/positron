@@ -21,10 +21,12 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { opts, setup } from './setupUtils';
+import { opts, setup, setupBeforeHook } from './setupUtils';
 
 const suite = 'Main 2';
 const logger = setup(suite);
+
+setupBeforeHook(logger, suite);
 
 describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupLayoutTest(logger);

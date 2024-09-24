@@ -9,10 +9,12 @@ import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/da
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
-import { opts, setup } from './setupUtils';
+import { opts, setup, setupBeforeHook } from './setupUtils';
 
 const suite = 'Main 0';
 const logger = setup(suite);
+
+setupBeforeHook(logger, suite);
 
 describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupVariablesTest(logger);

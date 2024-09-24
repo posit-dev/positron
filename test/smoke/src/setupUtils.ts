@@ -190,7 +190,7 @@ export function setup(suiteName: string): Logger {
 	const logger = createLogger(logsRootPath);
 
 	setupSmokeTestEnvironment(logger);
-	setupBeforeHook(logger, suiteName);
+	// setupBeforeHook(logger, suiteName);
 
 	return logger;
 }
@@ -257,8 +257,7 @@ export function setupSmokeTestEnvironment(logger: Logger) {
 	}
 }
 
-export async function setupBeforeHook(logger: Logger, suiteName: string): Promise<void> {
-	// to do: create logger here and return it
+export function setupBeforeHook(logger: Logger, suiteName: string) {
 
 	before(async function () {
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
