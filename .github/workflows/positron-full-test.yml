@@ -109,7 +109,7 @@ jobs:
 
       # - name: Run Integration Tests (Electron)
       #   id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
+      # run: DISPLAY=:10 ./scripts/test-integration.sh
 
       #      Remote integration tests currently disabled since licensing is required.
       #      See https://github.com/posit-dev/positron/issues/3514 for details.
