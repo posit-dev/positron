@@ -21,6 +21,7 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setupSmokeTestEnvironment, setupBeforeHook, logger, opts, } from './setupUtils';
+import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
 
 setupSmokeTestEnvironment();
 setupBeforeHook();
@@ -43,4 +44,5 @@ describe(`[Main 2] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupVeryLargeDataFrameTest(logger);
 	setupGraphTrendTest(logger);
 	setupQuartoTest(logger);
+	setupNewProjectWizardTest(logger);
 });

@@ -7,7 +7,7 @@
 'use strict';
 
 const { join } = require('path');
-const Mocha = require('mocha');  // Ensure Mocha is properly imported
+const Mocha = require('mocha');
 const minimist = require('minimist');
 const rimraf = require('rimraf');
 
@@ -49,15 +49,21 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 }
 
 const mocha = new Mocha(options);
-
 // --- Start Positron ---
+// filter tests
+if (process.env.TEST_FILTER) {
+	mocha.grep(process.env.TEST_FILTER);
+} else if (process.env.INVERSE_FILTER) {
+	mocha.grep(process.env.INVERSE_FILTER);
+	mocha.invert();
+}
+// mocha.dryRun(); // debugging filters
 // Define paths for repository setup and logs
 const testDataPath = join(require('os').tmpdir(), 'vscsmoke_shared');
 const workspacePath = join(testDataPath, 'qa-example-content');
 
 // Check if the repository already exists to avoid re-cloning
 if (!fs.existsSync(workspacePath)) {
-	console.log('Cloning test repository...');
 	setupRepository(workspacePath, console, opts).then(() => {
 		runMochaTests();  // Run Mocha tests after the repository is set up
 	}).catch((err) => {
@@ -70,6 +76,7 @@ if (!fs.existsSync(workspacePath)) {
 }
 
 async function runMochaTests() {
+	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
 	mocha.addFile('out/main2.js');
 
