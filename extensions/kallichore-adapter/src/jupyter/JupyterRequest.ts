@@ -5,52 +5,25 @@
 
 import { WebSocket } from 'ws';
 import { JupyterChannel } from './JupyterChannel';
-import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { PromiseHandles } from '../async';
+import { JupyterCommand } from './JupyterCommand';
 
-export abstract class JupyterRequest<T, U> {
+export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 	private _promise: PromiseHandles<U> = new PromiseHandles<U>();
-	private _msgId: string = '';
 	constructor(
-		public readonly requestType: string,
-		public readonly requestPayload: T,
+		requestType: string,
+		requestPayload: T,
 		public readonly replyType: string,
-		public readonly channel: JupyterChannel) {
+		channel: JupyterChannel) {
+		super(requestType, requestPayload, channel);
 	}
 
 	public resolve(response: U): void {
 		this._promise.resolve(response);
 	}
 
-	protected createMsgId() {
-		return Math.random().toString(16).substring(2, 12);
-	}
-
-	get msgId(): string {
-		if (!this._msgId) {
-			this._msgId = this.createMsgId();
-		}
-		return this._msgId;
-	}
-
-	public send(sessionId: string, socket: WebSocket): Promise<U> {
-		const header: JupyterMessageHeader = {
-			msg_id: this.msgId,
-			session: sessionId,
-			username: '',
-			date: new Date().toISOString(),
-			msg_type: this.requestType,
-			version: '5.3'
-		};
-		const payload = {
-			header,
-			parent_header: null,
-			metadata: {},
-			content: this.requestPayload,
-			channel: this.channel,
-			buffers: []
-		};
-		socket.send(JSON.stringify(payload));
+	public sendRpc(sessionId: string, socket: WebSocket): Promise<U> {
+		super.sendCommand(sessionId, socket);
 		return this._promise.promise;
 	}
 }

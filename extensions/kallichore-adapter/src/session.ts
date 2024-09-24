@@ -19,6 +19,9 @@ import { JupyterDisplayData } from './jupyter/JupyterDisplayData';
 import { JupyterExecuteInput } from './jupyter/JupyterExecuteInput';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
+import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
+import { CommOpenCommand } from './jupyter/CommOpenCommand';
+import { JupyterCommand } from './jupyter/JupyterCommand';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -155,8 +158,29 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	createClient(_id: string, _type: positron.RuntimeClientType, _params: any, _metadata?: any): Thenable<void> {
-		throw new Error('Method not implemented.');
+	async createClient(id: string, type: positron.RuntimeClientType, params: any, _metadata?: any): Promise<void> {
+
+		// TODO: handle metadata
+
+		// Ensure the type of client we're being asked to create is a known type that supports
+		// client-initiated creation
+		if (type === positron.RuntimeClientType.Variables ||
+			type === positron.RuntimeClientType.Lsp ||
+			type === positron.RuntimeClientType.Dap ||
+			type === positron.RuntimeClientType.Ui ||
+			type === positron.RuntimeClientType.Help ||
+			type === positron.RuntimeClientType.IPyWidgetControl) {
+
+			const msg: JupyterCommOpen = {
+				target_name: type,  // eslint-disable-line
+				comm_id: id,  // eslint-disable-line
+				data: params
+			};
+			const commOpen = new CommOpenCommand(msg);
+			await this.sendCommand(commOpen);
+		} else {
+			this.logError(`Can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`);
+		}
 	}
 
 	async listClients(type?: positron.RuntimeClientType): Promise<Record<string, string>> {
@@ -330,7 +354,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
 		await this._connected.wait();
 		this._pendingRequests.set(request.msgId, request);
-		return request.send(this.metadata.sessionId, this._ws!);
+		return request.sendRpc(this.metadata.sessionId, this._ws!);
+	}
+
+	async sendCommand<T>(command: JupyterCommand<T>) {
+		await this._connected.wait();
+		return command.sendCommand(this.metadata.sessionId, this._ws!);
 	}
 
 	/**
