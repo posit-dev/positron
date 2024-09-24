@@ -115,7 +115,7 @@ function parseQuality(): Quality {
 	}
 }
 
-export async function setupRepository(workspacePath: string, opts: any): Promise<void> {
+export async function cloneRepository(workspacePath: string, opts: any): Promise<void> {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (opts['test-repo']) {
