@@ -33,10 +33,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
-		readonly kernelSpec: JupyterKernelSpec,
-		private readonly _context: vscode.ExtensionContext,
 		private readonly _log: vscode.LogOutputChannel,
 		private readonly _api: DefaultApi,
+		private _new: boolean
 	) {
 		// Create emitter for LanguageRuntime messages and state changes
 		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
@@ -45,13 +44,27 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 		this.onDidChangeRuntimeState = this._state.event;
 		this.onDidEndSession = this._exit.event;
+
+		// If this is an existing session, release the create barrier
+		if (!this._new) {
+			this._created.open();
+		}
 	}
 
-	public async create() {
+	/**
+	 * Create the session in on the Kallichore server.
+	 *
+	 * @param kernelSpec The Jupyter kernel spec to use for the session
+	 */
+	public async create(kernelSpec: JupyterKernelSpec) {
+		if (!this._new) {
+			throw new Error(`Session ${this.metadata.sessionId} already exists`);
+		}
+
 		// Forward the environment variables from the kernel spec
 		const env = {};
-		if (this.kernelSpec.env) {
-			Object.assign(env, this.kernelSpec.env);
+		if (kernelSpec.env) {
+			Object.assign(env, kernelSpec.env);
 		}
 
 		// Prepare the working directory; use the workspace root if available,
@@ -66,20 +79,20 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create the session in the underlying API
 		const session: NewSession = {
-			argv: this.kernelSpec.argv,
+			argv: kernelSpec.argv,
 			sessionId: this.metadata.sessionId,
-			language: this.kernelSpec.language,
+			language: kernelSpec.language,
 			displayName: this.metadata.sessionName,
 			env,
 			workingDirectory: workingDir,
 			username: '',
 			interruptMode: InterruptMode.Message
 		};
-		this._api.newSession(session).then(() => {
-			this._log.info(`Kallichore session created: ${JSON.stringify(session)}`);
-			this._created.open();
-		});
+		await this._api.newSession(session);
+		this._log.info(`Kallichore session created: ${JSON.stringify(session)}`);
+		this._created.open();
 	}
+
 	startPositronLsp(_clientAddress: string): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
@@ -168,44 +181,61 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	replyToPrompt(_id: string, _reply: string): void {
 		throw new Error('Method not implemented.');
 	}
-	async start(): Promise<positron.LanguageRuntimeInfo> {
-		// Wait for the session to be created
-		await this._created.wait();
 
-		// Wait for the session to start
-		try {
-			await this._api.startSession(this.metadata.sessionId);
-		} catch (err) {
-			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
-			} else {
-				// Rethrow the error as-is if it's not an HTTP error
-				throw err;
+	async start(): Promise<positron.LanguageRuntimeInfo> {
+		// If it's a new session, wait for it to be created before connecting
+		if (this._new) {
+
+			// Wait for the session to be created
+			await this._created.wait();
+
+			// Wait for the session to start
+			try {
+				await this._api.startSession(this.metadata.sessionId);
+			} catch (err) {
+				if (err instanceof HttpError) {
+					throw new Error(err.body.message);
+				} else {
+					// Rethrow the error as-is if it's not an HTTP error
+					throw err;
+				}
 			}
 		}
 
 		// Connect to the session's websocket
-		const uri = vscode.Uri.parse(this._api.basePath);
-		this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
-		this._ws.onopen = () => {
-			this.logInfo(`Connected to websocket.`);
-			this._connected.open();
-		};
-		this._ws.onerror = (err: any) => {
-			this.logInfo(`Error connecting to socket: ${err}`);
-			// TODO: Needs to take kernel down
-		};
-		this._ws.onmessage = (msg: any) => {
-			this.logDebug(`RECV message: ${msg.data}`);
-			try {
-				const data = JSON.parse(msg.data.toString());
-				this.handleMessage(data);
-			} catch (err) {
-				this.logError(`Could not parse message: ${err}`);
-			}
-		};
+		await this.connect();
 
 		return this.getKernelInfo();
+	}
+
+	connect(): Promise<void> {
+		return new Promise((resolve, reject) => {
+			// Connect to the session's websocket
+			const uri = vscode.Uri.parse(this._api.basePath);
+			this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
+			this._ws.onopen = () => {
+				this.logInfo(`Connected to websocket.`);
+				// Open the connected barrier so that we can start sending messages
+				this._connected.open();
+				resolve();
+			};
+			this._ws.onerror = (err: any) => {
+				this.logInfo(`Error connecting to socket: ${err}`);
+				reject(err);
+
+				// TODO: Needs to take kernel down if this happens due to the
+				// connection getting closed from the server
+			};
+			this._ws.onmessage = (msg: any) => {
+				this.logDebug(`RECV message: ${msg.data}`);
+				try {
+					const data = JSON.parse(msg.data.toString());
+					this.handleMessage(data);
+				} catch (err) {
+					this.logError(`Could not parse message: ${err}`);
+				}
+			};
+		});
 	}
 
 	interrupt(): Thenable<void> {
@@ -257,7 +287,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	async getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
-		await this._connected.wait();
 		const request = new KernelInfoRequest();
 		const reply = await this.sendRequest(request);
 		const info: positron.LanguageRuntimeInfo = {
@@ -299,6 +328,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
+		await this._connected.wait();
 		this._pendingRequests.set(request.msgId, request);
 		return request.send(this.metadata.sessionId, this._ws!);
 	}

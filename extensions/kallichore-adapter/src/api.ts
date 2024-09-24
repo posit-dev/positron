@@ -111,19 +111,25 @@ export class KCApi implements KallichoreAdapterApi {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session object
-		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, kernel, this._context, this._log, this._api);
+		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, this._log, this._api, true);
 
 		// Wait for the server to start before creating the session on the backend
 		this._started.wait().then(async () => {
-			await session.create();
+			await session.create(kernel);
 		});
 
 		return session;
 	}
 
-	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
-		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);
-		throw new Error('Method not implemented.');
+	restoreSession(
+		runtimeMetadata: LanguageRuntimeMetadata,
+		sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
+		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
+			// TODO: Store these in session state
+			continuationPrompt: '+',
+			inputPrompt: '>',
+		}, this._log, this._api, false);
+		return session;
 	}
 
 	dispose() {
