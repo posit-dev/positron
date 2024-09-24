@@ -21,6 +21,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Checkout test licensing tool
+        run: |
+          cd ..
+          mkdir positron-license
+          cd positron-license
+          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
+        env:
+          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+
+      - name: Install Rust latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+            toolchain: nightly
+            override: true
+
+      - name: Build licensing tool
+        run: |
+          cd ..
+          cd positron-license/pdol
+          cargo build
+
+      - name: Echo license
+        run: |
+          cd ..
+          cd positron-license/pdol/target/debug
+          echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
+          chmod 600 pdol_rsa
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
@@ -145,6 +173,19 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
+
+      - name: Run Web Smoke Tests
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-web-smoke-tests
+        run: DISPLAY=:10 yarn smoketest-web --tracing
+
+      - name: Clean up license files
+        if: always()
+        run: |
+          cd ..
+          rm -rf positron-license
 
       - name: Publish Test Report
         uses: mikepenz/action-junit-report@v4
