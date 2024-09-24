@@ -7,9 +7,13 @@ import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { WebSocket } from 'ws';
 
-
+/**
+ * Base class for Jupyter commands; commands are messages to the kernel that do
+ * not expect a reply
+ */
 export abstract class JupyterCommand<T> {
 	private _msgId: string = '';
+
 	constructor(
 		public readonly commandType: string,
 		public readonly commandPayload: T,

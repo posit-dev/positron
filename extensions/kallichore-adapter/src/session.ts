@@ -22,6 +22,7 @@ import { CommInfoRequest } from './jupyter/CommInfoRequest';
 import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
 import { CommOpenCommand } from './jupyter/CommOpenCommand';
 import { JupyterCommand } from './jupyter/JupyterCommand';
+import { CommCloseCommand } from './jupyter/CommCloseCommand';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -196,9 +197,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		return result;
 	}
-	removeClient(_id: string): void {
-		throw new Error('Method not implemented.');
+
+	removeClient(id: string): void {
+		const commOpen = new CommCloseCommand(id);
+		this.sendCommand(commOpen);
 	}
+
 	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
 		throw new Error('Method not implemented.');
 	}
