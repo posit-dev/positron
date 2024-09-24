@@ -33,8 +33,8 @@ jobs:
       - name: Install Rust latest nightly
         uses: actions-rs/toolchain@v1
         with:
-            toolchain: nightly
-            override: true
+          toolchain: nightly
+          override: true
 
       - name: Build licensing tool
         run: |
@@ -172,14 +172,14 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-no-compile --tracing
+        run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel
 
       - name: Run Web Smoke Tests
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-web-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-web --tracing
+        run: DISPLAY=:10 yarn smoketest-web --tracing --parallel
 
       - name: Clean up license files
         if: always()
