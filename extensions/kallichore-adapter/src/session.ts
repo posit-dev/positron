@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { DefaultApi, HttpError, InterruptMode, Session } from './kcclient/api';
+import { DefaultApi, HttpError, InterruptMode, NewSession } from './kcclient/api';
 import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -65,9 +65,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Create the session in the underlying API
-		const session: Session = {
+		const session: NewSession = {
 			argv: this.kernelSpec.argv,
 			sessionId: this.metadata.sessionId,
+			language: this.kernelSpec.language,
+			displayName: this.metadata.sessionName,
 			env,
 			workingDirectory: workingDir,
 			username: '',

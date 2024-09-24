@@ -16,11 +16,11 @@ import { RequestFile } from './models';
 * The status of the session
 */
 export enum Status {
-	Uninitialized = <any>'uninitialized',
-	Starting = <any>'starting',
-	Ready = <any>'ready',
-	Idle = <any>'idle',
-	Busy = <any>'busy',
-	Offline = <any>'offline',
-	Exited = <any>'exited'
+    Uninitialized = <any> 'uninitialized',
+    Starting = <any> 'starting',
+    Ready = <any> 'ready',
+    Idle = <any> 'idle',
+    Busy = <any> 'busy',
+    Offline = <any> 'offline',
+    Exited = <any> 'exited'
 }

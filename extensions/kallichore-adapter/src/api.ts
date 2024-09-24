@@ -120,10 +120,12 @@ export class KCApi implements KallichoreAdapterApi {
 
 		return session;
 	}
+
 	restoreSession(_runtimeMetadata: LanguageRuntimeMetadata, _sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
 		this._log.info(`Restoring session: ${JSON.stringify(_sessionMetadata)}`);
 		throw new Error('Method not implemented.');
 	}
+
 	dispose() {
 		throw new Error('Method not implemented.');
 	}

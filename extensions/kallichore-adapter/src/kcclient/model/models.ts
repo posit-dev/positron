@@ -1,12 +1,12 @@
 import localVarRequest from 'request';
 
+export * from './activeSession';
 export * from './executionQueue';
 export * from './interruptMode';
 export * from './modelError';
+export * from './newSession';
 export * from './newSession200Response';
-export * from './session';
 export * from './sessionList';
-export * from './sessionListSessionsInner';
 export * from './status';
 
 import * as fs from 'fs';
@@ -22,13 +22,13 @@ export interface RequestDetailedFile {
 export type RequestFile = string | Buffer | fs.ReadStream | RequestDetailedFile;
 
 
+import { ActiveSession } from './activeSession';
 import { ExecutionQueue } from './executionQueue';
 import { InterruptMode } from './interruptMode';
 import { ModelError } from './modelError';
+import { NewSession } from './newSession';
 import { NewSession200Response } from './newSession200Response';
-import { Session } from './session';
 import { SessionList } from './sessionList';
-import { SessionListSessionsInner } from './sessionListSessionsInner';
 import { Status } from './status';
 
 /* tslint:disable:no-unused-variable */
@@ -49,12 +49,12 @@ let enumsMap: {[index: string]: any} = {
 }
 
 let typeMap: {[index: string]: any} = {
+    "ActiveSession": ActiveSession,
     "ExecutionQueue": ExecutionQueue,
     "ModelError": ModelError,
+    "NewSession": NewSession,
     "NewSession200Response": NewSession200Response,
-    "Session": Session,
     "SessionList": SessionList,
-    "SessionListSessionsInner": SessionListSessionsInner,
 }
 
 export class ObjectSerializer {

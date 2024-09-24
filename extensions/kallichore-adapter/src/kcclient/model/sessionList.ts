@@ -11,11 +11,11 @@
  */
 
 import { RequestFile } from './models';
-import { SessionListSessionsInner } from './sessionListSessionsInner';
+import { ActiveSession } from './activeSession';
 
 export class SessionList {
     'total': number;
-    'sessions': Array<SessionListSessionsInner>;
+    'sessions': Array<ActiveSession>;
 
     static discriminator: string | undefined = undefined;
 
@@ -28,7 +28,7 @@ export class SessionList {
         {
             "name": "sessions",
             "baseName": "sessions",
-            "type": "Array<SessionListSessionsInner>"
+            "type": "Array<ActiveSession>"
         }    ];
 
     static getAttributeTypeMap() {
