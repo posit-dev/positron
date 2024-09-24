@@ -9,10 +9,12 @@
 const { join } = require('path');
 const Mocha = require('mocha');
 const minimist = require('minimist');
-const rimraf = require('rimraf');
 
+// --- Start Positron ---
+const rimraf = require('rimraf');
 const fs = require('fs');
 const { setupRepository } = require('../out/setupUtils');
+// --- End Positron ---
 
 // Parse command-line options
 const [, , ...args] = process.argv;
@@ -30,12 +32,14 @@ const options = {
 	color: true,
 	timeout: 2 * 60 * 1000,
 	slow: 30 * 1000,
-	grep: opts['f'] || opts['g'],
 	// --- Start Positron ---
+	grep: opts['f'] || opts['g'],
 	parallel: opts['parallel'],
-	// --- End Positron ---
+
 };
-console.log('parallel?', opts['parallel']);
+
+console.log('parallel: ', opts['parallel']);
+// --- End Positron ---
 
 if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 	options.reporter = 'mocha-multi-reporters';
