@@ -27,6 +27,7 @@ import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
 import { Runtime } from 'inspector/promises';
 import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
 import { CommMsgCommand } from './jupyter/CommMsgCommand';
+import { ShutdownRequest } from './jupyter/ShutdownRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -342,21 +343,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		});
 	}
 
-	interrupt(): Thenable<void> {
-		throw new Error('Method not implemented.');
+	async interrupt(): Promise<void> {
+		try {
+			await this._api.interruptSession(this.metadata.sessionId);
+		} catch (err) {
+			if (err instanceof HttpError) {
+				throw new Error(err.body.message);
+			} else {
+				throw err;
+			}
+		}
 	}
+
 	restart(): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
-	shutdown(_exitReason: positron.RuntimeExitReason): Thenable<void> {
-		throw new Error('Method not implemented.');
+
+	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
+		const shutdownRequest = new ShutdownRequest(exitReason === positron.RuntimeExitReason.Restart);
+		await this.sendRequest(shutdownRequest);
 	}
-	forceQuit(): Thenable<void> {
-		throw new Error('Method not implemented.');
+
+	async forceQuit(): Promise<void> {
+		try {
+			await this._api.killSession(this.metadata.sessionId);
+		} catch (err) {
+			if (err instanceof HttpError) {
+				throw new Error(err.body.message);
+			} else {
+				throw err;
+			}
+		}
 	}
+
 	showProfile?(): Thenable<void> {
 		throw new Error('Method not implemented.');
 	}
+
 	dispose() {
 		this._disposables.forEach(d => d.dispose());
 
