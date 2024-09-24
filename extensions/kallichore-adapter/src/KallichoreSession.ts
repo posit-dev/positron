@@ -26,6 +26,7 @@ import { CommCloseCommand } from './jupyter/CommCloseCommand';
 import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
 import { Runtime } from 'inspector/promises';
 import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
+import { CommMsgCommand } from './jupyter/CommMsgCommand';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -266,9 +267,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.sendCommand(commOpen);
 	}
 
-	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
-		throw new Error('Method not implemented.');
+	sendClientMessage(client_id: string, message_id: string, message: any): void {
+		const msg: JupyterCommMsg = {
+			comm_id: client_id,
+			data: message
+		};
+		const commMsg = new CommMsgCommand(message_id, msg);
+		this.sendCommand(commMsg);
 	}
+
 	replyToPrompt(_id: string, _reply: string): void {
 		throw new Error('Method not implemented.');
 	}
