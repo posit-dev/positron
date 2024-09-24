@@ -8,14 +8,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
-// import { ICommandService } from 'vs/platform/commands/common/commands';
-// import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-// import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-// import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IEditorOptions } from 'vs/platform/editor/common/editor';
-// import { IHoverService } from 'vs/platform/hover/browser/hover';
-// import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-// import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IStorageService } from 'vs/platform/storage/common/storage';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IThemeService } from 'vs/platform/theme/common/themeService';
@@ -24,8 +17,8 @@ import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
 import { PositronPreviewEditorInput } from 'vs/workbench/contrib/positronPreviewEditor/browser/positronPreviewEditorInput';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-// import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview'
+import { EditorPreviewContainer } from 'vs/workbench/contrib/positronPreviewEditor/browser/editorPreviewContainer';
 
 export interface IPositronPreviewEditorOptions extends IEditorOptions {
 }
@@ -34,10 +27,10 @@ export interface IPositronPreviewEditor {
 	get identifier(): string | undefined;
 }
 
-export class PositronPreviewEditor extends EditorPane implements IPositronPreviewEditor, IReactComponentContainer {
+export class PositronPreviewEditor extends EditorPane implements IReactComponentContainer {
 	private readonly _container: HTMLElement;
 
-	private _reactRenderer?: PositronReactRenderer;
+	private _positronReactRenderer?: PositronReactRenderer;
 
 	private _width = 0;
 
@@ -54,8 +47,6 @@ export class PositronPreviewEditor extends EditorPane implements IPositronPrevie
 	private readonly _onRestoreScrollPositionEmitter = this._register(new Emitter<void>());
 
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
-
-	//private _previewClient: IPositronPreviewClient | undefined;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -90,14 +81,6 @@ export class PositronPreviewEditor extends EditorPane implements IPositronPrevie
 	constructor(
 		readonly _group: IEditorGroup,
 		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService,
-		// @ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		// @INotificationService private readonly _notificationService: INotificationService,
-		// @ICommandService private readonly _commandService: ICommandService,
-		// @IHoverService private readonly _hoverService: IHoverService,
-		// @IKeybindingService private readonly _keybindingService: IKeybindingService,
-		// @IConfigurationService private readonly _configurationService: IConfigurationService,
-		// @IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		// @IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
@@ -114,23 +97,28 @@ export class PositronPreviewEditor extends EditorPane implements IPositronPrevie
 	}
 
 	private renderContainer(): void {
-		if (!this._reactRenderer) {
-			this._reactRenderer = new PositronReactRenderer(this._container);
+
+
+		if (!this._positronReactRenderer) {
+			this._positronReactRenderer = new PositronReactRenderer(this._container);
 		}
 
-		this._reactRenderer.render(
+		this._positronReactRenderer.render(
 			<PositronPreviewContextProvider
-				positronPreviewService={this._positronPreviewService}
-			>
+				positronPreviewService={this._positronPreviewService}>
+				<EditorPreviewContainer
+					preview={this._positronPreviewService.activePreviewWebview}
+					visible={this.containerVisible}
+					width={this._width}
+					height={this._height}
+				/>
 			</PositronPreviewContextProvider>
-			// TODO: do we need a preview container?
-			// TODO: other services?
 		);
 	}
 
 	private disposeReactRenderer(): void {
-		this._reactRenderer?.dispose();
-		this._reactRenderer = undefined;
+		this._positronReactRenderer?.dispose();
+		this._positronReactRenderer = undefined;
 	}
 
 	protected override createEditor(parent: HTMLElement): void {
@@ -143,23 +131,11 @@ export class PositronPreviewEditor extends EditorPane implements IPositronPrevie
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		// this._previewClient?.dispose();
-		// this._previewClient = this._positronPreviewService.activePreviewWebview;
-		// if (!this._previewClient) {
-		// 	throw new Error('Preview client not found');
-		// }
-
-		// input.setName(this._previewClient.id);
-
 		this.renderContainer();
-		// this.onSizeChanged((event: ISize) => {
-		// 	this._height = event.height;
-		// 	this._width = event.width;
-
-		// 	if (this._previewClient) {
-		// 		this.renderContainer(this._previewClient);
-		// 	}
-		// });
+		this.onSizeChanged((event: ISize) => {
+			this._height = event.height;
+			this._width = event.width;
+		});
 
 		await super.setInput(input, options, context, token);
 	}

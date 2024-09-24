@@ -55,7 +55,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	// Handler for open in editor button
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor(props.preview.uri)
+		props.positronPreviewService.openEditor()
 	}
 
 	// Main use effect.
