@@ -28,6 +28,7 @@ import { basename } from 'vs/base/common/path';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { Schemas } from 'vs/base/common/network';
+import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -503,14 +504,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public async openEditor(): Promise<void> {
-		const previewId = this.activePreviewWebviewId
+		const previewId = this.activePreviewWebviewId;
 
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPreviewEditor,
 				path: previewId
 			})
-		})
+		});
 
 		if (!editorPane) {
 			throw new Error('Failed to open editor');

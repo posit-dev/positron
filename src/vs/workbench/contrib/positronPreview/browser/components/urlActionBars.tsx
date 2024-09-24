@@ -199,7 +199,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
-							iconId='positron-open-in-editor'
+							iconId='go-to-file'
 							align='right'
 							tooltip={openInEditor}
 							ariaLabel={openInEditor}

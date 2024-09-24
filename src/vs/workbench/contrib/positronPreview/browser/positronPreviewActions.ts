@@ -83,9 +83,7 @@ export class PreviewEditorAction extends Action2 {
 			title: nls.localize2('positronPreview.openEditor', 'Open Preview in Editor Tab'),
 			category,
 			f1: true,
-			// set a context key
-			//precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
-		})
+		});
 	}
 	/**
 	 * Runs the action and opens the selected plot in the editor.
@@ -97,7 +95,7 @@ export class PreviewEditorAction extends Action2 {
 		if (previewService.activePreviewWebviewId) {
 			previewService.openEditor();
 		} else {
-			console.log("no preview service")
+			console.log('no preview service');
 		}
 	}
 
