@@ -37,7 +37,7 @@ const clear = localize('positron.preview.clear', "Clear the current URL");
 const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
 // TODO: do these just get copied between html/url action bars?
-const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.")
+const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.");
 
 /**
  * UrlActionBars component.
@@ -75,8 +75,8 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	};
 
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor()
-	}
+		props.positronPreviewService.openEditor();
+	};
 
 	// Handler for the clear button.
 	const clearHandler = () => {

@@ -17,7 +17,7 @@ import { IEditorOpenContext } from 'vs/workbench/common/editor';
 import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
 import { PositronPreviewEditorInput } from 'vs/workbench/contrib/positronPreviewEditor/browser/positronPreviewEditorInput';
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview'
+import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { EditorPreviewContainer } from 'vs/workbench/contrib/positronPreviewEditor/browser/editorPreviewContainer';
 
 export interface IPositronPreviewEditorOptions extends IEditorOptions {

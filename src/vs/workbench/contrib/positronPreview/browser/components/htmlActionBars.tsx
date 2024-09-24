@@ -19,7 +19,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
 const openInBrowser = localize('positron.preview.html.openInBrowser', "Open the content in the default browser");
-const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.")
+const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.");
 
 /**
  * HtmlActionBarsProps interface.
@@ -55,8 +55,8 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	// Handler for open in editor button
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor()
-	}
+		props.positronPreviewService.openEditor();
+	};
 
 	// Main use effect.
 	useEffect(() => {
