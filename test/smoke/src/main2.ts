@@ -23,7 +23,7 @@ import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
 import { opts, setup, setupBeforeHook } from './setupUtils';
 
-const suite = 'Main 2';
+const suite = 'Main-2';
 const logger = setup(suite);
 
 setupBeforeHook(logger, suite);

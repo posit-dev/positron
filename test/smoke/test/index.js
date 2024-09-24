@@ -20,6 +20,16 @@ const opts = minimist(process.argv.slice(2), {
 	string: ['f', 'g']
 });
 
+// During parallel runs, need to globally set environment variables for each process. See
+// parseOptions() in test/smoke/setupUtils.ts for usage. Must define here and not in setupUtils.ts.
+process.env.BUILD = opts['build'] || '';
+process.env.HEADLESS = opts['headless'] || '';
+process.env.PARALLEL = opts['parallel'] || '';
+process.env.REMOTE = opts['remote'] || '';
+process.env.TRACING = opts['tracing'] || '';
+process.env.VERBOSE = opts['verbose'] || '';
+process.env.WEB = opts['web'] || '';
+
 const suite = opts['web'] ? 'Browser Smoke Tests' : 'Desktop Smoke Tests';
 const mochaOptions = getMochaOptions(opts);
 const mocha = new Mocha(mochaOptions);
@@ -89,7 +99,9 @@ function runTests() {
  * Run the Mocha tests and handle results.
  */
 async function runMochaTests() {
-	addMochaTestFiles(mocha);
+	mocha.addFile('out/main0.js');
+	mocha.addFile('out/main1.js');
+	mocha.addFile('out/main2.js');
 
 	try {
 		const failures = await runMocha();
@@ -97,15 +109,6 @@ async function runMochaTests() {
 	} catch (error) {
 		handleError('Error running Mocha tests', error);
 	}
-}
-
-/**
- * Add test files to Mocha.
- */
-function addMochaTestFiles(mocha) {
-	mocha.addFile('out/main0.js');
-	mocha.addFile('out/main1.js');
-	mocha.addFile('out/main2.js');
 }
 
 /**

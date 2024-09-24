@@ -11,7 +11,7 @@ import { setup as setupPythonConsoleTest } from './areas/positron/console/python
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
 import { opts, setup, setupBeforeHook } from './setupUtils';
 
-const suite = 'Main 0';
+const suite = 'Main-0';
 const logger = setup(suite);
 
 setupBeforeHook(logger, suite);

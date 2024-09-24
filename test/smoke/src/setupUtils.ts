@@ -21,6 +21,7 @@ export type ParseOptions = {
 	headless?: boolean;
 	web?: boolean;
 	tracing?: boolean;
+	parallel?: boolean;
 	build?: string;
 	'stable-build'?: string;
 	browser?: string;
@@ -39,8 +40,17 @@ export const opts = parseOptions();
 
 export function parseOptions(): ParseOptions {
 
-	// Parsing command-line arguments
-	const [, , ...args] = process.argv;
+	const args = process.argv.slice(2);
+
+	// Parallel-mode: not all workers are inheriting the args, so passing through via env vars
+	if (process.env.BUILD) { args.push('--build', process.env.BUILD); }
+	if (process.env.HEADLESS) { args.push('--headless'); }
+	if (process.env.PARALLEL) { args.push('--parallel'); }
+	if (process.env.REMOTE) { args.push('--remote'); }
+	if (process.env.TRACING) { args.push('--tracing'); }
+	if (process.env.VERBOSE) { args.push('--verbose'); }
+	if (process.env.WEB) { args.push('--web'); }
+
 	return minimist(args, {
 		string: [
 			'browser',

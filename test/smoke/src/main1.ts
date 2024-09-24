@@ -12,12 +12,12 @@ import { setup as setupClipboardTest } from './areas/positron/console/consoleCli
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
 import { opts, setup, setupBeforeHook } from './setupUtils';
 
-const suite = 'Main 1';
+const suite = 'Main-1';
 const logger = setup(suite);
 
 setupBeforeHook(logger, suite);
 
-describe(`${suite} Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
+describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);
