@@ -651,12 +651,9 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		sourceUrl.protocol = proxyServerOriginUrl.protocol;
 		sourceUrl.hostname = proxyServerOriginUrl.hostname;
 		sourceUrl.port = proxyServerOriginUrl.port;
-		// NOTE: This line allows us to successfully load the html help pages, but we are still
-		// unable to load images, css, etc. referenced in the html pages.
-		// this prepends /proxy/<PORT> to the rest of the path which is something like /path/to/iris.html
+		// Prepends /proxy/<PORT> to the rest of the path which is something like /path/to/iris.html
 		sourceUrl.pathname = path.join(proxyServerOriginUrl.pathname, sourceUrl.pathname);
 
-		// NOTE: This newly added code doesn't work in workbench and on server-web, the resolved URL is the same as the original.
 		// Parse the URL and resolve it if necessary. The resolution step is
 		// necessary when URI is hosted on a remote server.
 		try {
