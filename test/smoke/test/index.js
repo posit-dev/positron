@@ -16,7 +16,6 @@ const fs = require('fs');
 const { setupRepository } = require('../out/setupUtils');
 // --- End Positron ---
 
-// Parse command-line options
 const [, , ...args] = process.argv;
 const opts = minimist(args, {
 	// --- Start Positron ---
@@ -27,7 +26,6 @@ const opts = minimist(args, {
 
 const suite = opts['web'] ? 'Browser Smoke Tests' : 'Desktop Smoke Tests';
 
-// Set up Mocha options
 const options = {
 	color: true,
 	timeout: 2 * 60 * 1000,
@@ -54,7 +52,6 @@ if (process.env.BUILD_ARTIFACTSTAGINGDIRECTORY) {
 
 const mocha = new Mocha(options);
 // --- Start Positron ---
-// filter tests
 if (process.env.TEST_FILTER) {
 	mocha.grep(process.env.TEST_FILTER);
 } else if (process.env.INVERSE_FILTER) {
