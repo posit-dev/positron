@@ -8,10 +8,8 @@ import * as positron from 'positron';
 import * as os from 'os';
 
 import path = require('path');
-import { DefaultApi } from './kcclient/api';
-import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
-import { KCApi } from './api';
+import { KCApi } from './KallichoreAdapterApi';
 
 export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi {
 	const log = vscode.window.createOutputChannel('Kallichore Adapter', { log: true });

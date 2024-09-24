@@ -23,9 +23,12 @@ import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
 import { CommOpenCommand } from './jupyter/CommOpenCommand';
 import { JupyterCommand } from './jupyter/JupyterCommand';
 import { CommCloseCommand } from './jupyter/CommCloseCommand';
+import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
+import { Runtime } from 'inspector/promises';
+import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
-	private readonly _messages: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
+	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 	private readonly _created: Barrier = new Barrier();
@@ -43,7 +46,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		private _new: boolean
 	) {
 		// Create emitter for LanguageRuntime messages and state changes
-		this._messages = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 		this.onDidReceiveRuntimeMessage = this._messages.event;
@@ -408,20 +410,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		switch (msg.header.msg_type) {
-			case 'execute_result':
-				this.onExecuteResult(msg, msg.content as JupyterExecuteResult);
-				break;
-			case 'execute_input':
-				this.onExecuteInput(msg, msg.content as JupyterExecuteInput);
-				break;
-			case 'status':
-				this.onKernelStatus(msg, msg.content as JupyterKernelStatus);
-				break;
-			case 'display_data':
-				this.onDisplayData(msg, msg.content as JupyterDisplayData);
-				break;
-		}
+		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
+		this._messages.emitJupyter(msg);
 	}
 
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
@@ -433,79 +423,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async sendCommand<T>(command: JupyterCommand<T>) {
 		await this._connected.wait();
 		return command.sendCommand(this.metadata.sessionId, this._ws!);
-	}
-
-	/**
-	 * Converts a Jupyter execute_result message to a LanguageRuntimeMessage and
-	 * emits it.
-	 *
-	 * @param message The message packet
-	 * @param data The execute_result message
-	 */
-	onExecuteResult(message: JupyterMessage, data: JupyterExecuteResult) {
-		this._messages.fire({
-			id: message.header.msg_id,
-			parent_id: message.parent_header?.msg_id,
-			when: message.header.date,
-			type: positron.LanguageRuntimeMessageType.Result,
-			data: data.data as any,
-			metadata: message.metadata,
-		} as positron.LanguageRuntimeResult);
-	}
-
-	/**
-	 * Converts a Jupyter display_data message to a LanguageRuntimeMessage and
-	 * emits it.
-	 *
-	 * @param message The message packet
-	 * @param data The display_data message
-	 */
-	onDisplayData(message: JupyterMessage, data: JupyterDisplayData) {
-		this._messages.fire({
-			id: message.header.msg_id,
-			parent_id: message.parent_header?.msg_id,
-			when: message.header.date,
-			type: positron.LanguageRuntimeMessageType.Output,
-			data: data.data as any,
-			metadata: message.metadata,
-		} as positron.LanguageRuntimeOutput);
-	}
-
-	/**
-	 * Converts a Jupyter execute_input message to a LanguageRuntimeMessage and
-	 * emits it.
-	 *
-	 * @param message The message packet
-	 * @param data The execute_input message
-	 */
-	onExecuteInput(message: JupyterMessage, data: JupyterExecuteInput) {
-		this._messages.fire({
-			id: message.header.msg_id,
-			parent_id: message.parent_header?.msg_id,
-			when: message.header.date,
-			type: positron.LanguageRuntimeMessageType.Input,
-			code: data.code,
-			execution_count: data.execution_count,
-			metadata: message.metadata,
-		} as positron.LanguageRuntimeInput);
-	}
-
-	/**
-	 * Converts a Jupyter status message to a LanguageRuntimeMessage and emits
-	 * it.
-	 *
-	 * @param message The message packet
-	 * @param data The kernel status message
-	 */
-	onKernelStatus(message: JupyterMessage, data: JupyterKernelStatus) {
-		this._messages.fire({
-			id: message.header.msg_id,
-			parent_id: message.parent_header?.msg_id,
-			when: message.header.date,
-			type: positron.LanguageRuntimeMessageType.State,
-			state: data.execution_state,
-			metadata: message.metadata,
-		} as positron.LanguageRuntimeState);
 	}
 
 	logDebug(what: string) {

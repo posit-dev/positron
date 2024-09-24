@@ -6,13 +6,12 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
-import * as path from 'path';
 import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
 import { DefaultApi } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { KallichoreSession } from './session';
+import { KallichoreSession } from './KallichoreSession';
 import { Barrier } from './async';
 
 const KALLICHORE_STATE_KEY = 'kallichore-adapter.v1';
