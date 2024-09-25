@@ -21,12 +21,19 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { DESCRIBE_TITLE, opts, setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
+import { opts, setup, setupBeforeAfterHooks } from './setupUtils';
 
-const logger = setup(TEST_SUITES.MAIN_2);
-setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
+const suite = 'Main-2';
+const logger = setup(suite);
 
-describe(DESCRIBE_TITLE, () => {
+setupBeforeAfterHooks(logger, suite);
+
+describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
+
+	// const logger = setup(TEST_SUITES.MAIN_2);
+	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
+
+	// describe(DESCRIBE_TITLE, () => {
 	if (!opts.web) { setupLayoutTest(logger); }
 	if (!opts.web) { setupNotebookVariablesTest(logger); }
 	if (!opts.web) { setupConsoleInputTest(logger); }
