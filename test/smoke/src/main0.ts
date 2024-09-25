@@ -17,10 +17,8 @@ setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_0);
 describe(DESCRIBE_TITLE, () => {
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
-	if (!opts.web) {
-		setupDataExplorer100x100Test(logger);
-		setupPlotsTest(logger);
-		setupPythonConsoleTest(logger);
-		setupRConsoleTest(logger);
-	}
+	if (!opts.web) { setupDataExplorer100x100Test(logger); }
+	if (!opts.web) { setupPlotsTest(logger); }
+	if (!opts.web) { setupPythonConsoleTest(logger); }
+	if (!opts.web) { setupRConsoleTest(logger); }
 });

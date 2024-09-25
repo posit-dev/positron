@@ -16,13 +16,11 @@ const logger = setup(TEST_SUITES.MAIN_1);
 setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_1);
 
 describe(DESCRIBE_TITLE, () => {
-	if (!opts.web) {
-		setupLargeDataFrameTest(logger);
-		setupNotebookCreateTest(logger);
-		setupConnectionsTest(logger);
-		setupXLSXDataFrameTest(logger);
-		setupHelpTest(logger);
-		setupClipboardTest(logger);
-		setupTopActionBarTest(logger);
-	}
+	if (!opts.web) { setupLargeDataFrameTest(logger); }
+	if (!opts.web) { setupNotebookCreateTest(logger); }
+	if (!opts.web) { setupConnectionsTest(logger); }
+	if (!opts.web) { setupXLSXDataFrameTest(logger); }
+	if (!opts.web) { setupHelpTest(logger); }
+	if (!opts.web) { setupClipboardTest(logger); }
+	if (!opts.web) { setupTopActionBarTest(logger); }
 });

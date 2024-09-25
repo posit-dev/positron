@@ -27,24 +27,22 @@ const logger = setup(TEST_SUITES.MAIN_2);
 setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
 
 describe(DESCRIBE_TITLE, () => {
-	if (!opts.web) {
-		setupLayoutTest(logger);
-		setupNotebookVariablesTest(logger);
-		setupConsoleInputTest(logger);
-		setupConsoleANSITest(logger);
-		setupConsoleOutputLogTest(logger);
-		setupBasicRMarkdownTest(logger);
-		setupWelcomeTest(logger);
-		setupConsoleHistoryTest(logger);
-		setupShinyTest(logger);
-		setupFastExecutionTest(logger);
-		setupTestExplorerTest(logger);
-		setupRPKgDevelopment(logger);
-		setupInterpreterDropdownTest(logger);
-		setupViewersTest(logger);
-		setupVeryLargeDataFrameTest(logger);
-		setupGraphTrendTest(logger);
-		setupQuartoTest(logger);
-		setupNewProjectWizardTest(logger);
-	}
+	if (!opts.web) { setupLayoutTest(logger); }
+	if (!opts.web) { setupNotebookVariablesTest(logger); }
+	if (!opts.web) { setupConsoleInputTest(logger); }
+	if (!opts.web) { setupConsoleANSITest(logger); }
+	if (!opts.web) { setupConsoleOutputLogTest(logger); }
+	if (!opts.web) { setupBasicRMarkdownTest(logger); }
+	if (!opts.web) { setupWelcomeTest(logger); }
+	if (!opts.web) { setupConsoleHistoryTest(logger); }
+	if (!opts.web) { setupShinyTest(logger); }
+	if (!opts.web) { setupFastExecutionTest(logger); }
+	if (!opts.web) { setupTestExplorerTest(logger); }
+	if (!opts.web) { setupRPKgDevelopment(logger); }
+	if (!opts.web) { setupInterpreterDropdownTest(logger); }
+	if (!opts.web) { setupViewersTest(logger); }
+	if (!opts.web) { setupVeryLargeDataFrameTest(logger); }
+	if (!opts.web) { setupGraphTrendTest(logger); }
+	if (!opts.web) { setupQuartoTest(logger); }
+	if (!opts.web) { setupNewProjectWizardTest(logger); }
 });
