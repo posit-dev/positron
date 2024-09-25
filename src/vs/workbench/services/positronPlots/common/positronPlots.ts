@@ -152,11 +152,19 @@ export interface IPositronPlotsService {
 	selectHistoryPolicy(policy: HistoryPolicy): void;
 
 	/**
-	 * Copies the selected plot to the clipboard.
+	 * Copies the current plot from the Plots View to the clipboard.
 	 *
 	 * @throws An error if the plot cannot be copied.
 	 */
-	copyPlotToClipboard(): Promise<void>;
+	copyViewPlotToClipboard(): Promise<void>;
+
+	/**
+	 * Copies the plot from the editor tab to the clipboard.
+	 *
+	 * @param plotId The id of the plot to copy.
+	 * @throws An error if the plot cannot be copied.
+	 */
+	copyEditorPlotToClipboard(plotId: string): Promise<void>;
 
 	/**
 	 * Opens the selected plot in a new window.
@@ -168,10 +176,24 @@ export interface IPositronPlotsService {
 	 */
 	savePlot(): void;
 
+	/**
+	 * Opens the currently selected plot in an editor.
+	 */
 	openEditor(): Promise<void>;
 
+	/**
+	 * Gets the plot client that is connected to an editor for the specified id.
+	 *
+	 * @param id The id of the plot client to get.
+	 * @returns The plot client, or undefined if the plot client does not exist.
+	 */
 	getEditorInstance(id: string): IPositronPlotClient | undefined;
 
+	/**
+	 * Removes the plot client and if no other clients are connected to the plot comm, disposes it.
+	 *
+	 * @param plotClient the plot client to unregister
+	 */
 	unregisterPlotClient(plotClient: IPositronPlotClient): void;
 
 	/**

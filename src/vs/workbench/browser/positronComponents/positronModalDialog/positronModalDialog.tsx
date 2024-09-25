@@ -293,12 +293,10 @@ export const PositronModalDialog = (props: PropsWithChildren<PositronModalDialog
 
 	// Render.
 	return (
-		<div className='positron-modal-dialog-overlay'>
-			<div ref={dialogContainerRef} className='positron-modal-dialog-container' role='dialog'>
-				<div ref={dialogBoxRef} className='positron-modal-dialog-box' style={{ left: dialogBoxState.left, top: dialogBoxState.top, width: props.width, height: props.height }}>
-					<DraggableTitleBar {...props} onStartDrag={startDragHandler} onDrag={dragHandler} onStopDrag={stopDragHandler} />
-					{props.children}
-				</div>
+		<div ref={dialogContainerRef} className='positron-modal-dialog-container' role='dialog'>
+			<div ref={dialogBoxRef} className='positron-modal-dialog-box' style={{ left: dialogBoxState.left, top: dialogBoxState.top, width: props.width, height: props.height }}>
+				<DraggableTitleBar {...props} onStartDrag={startDragHandler} onDrag={dragHandler} onStopDrag={stopDragHandler} />
+				{props.children}
 			</div>
 		</div>
 	);

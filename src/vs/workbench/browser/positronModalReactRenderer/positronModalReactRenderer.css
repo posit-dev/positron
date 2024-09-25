@@ -3,20 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes positronModalReactRenderer-fadeIn {
-	0% { opacity: 0; }
-	100% { opacity: 1; }
+@keyframes positron-modal-overlay-fade-in {
+	0% {
+		opacity: 0;
+	}
+
+	100% {
+		opacity: 1;
+	}
 }
 
 .positron-modal-overlay {
-	top: 0;
-	left: 0;
-	width: 0;
-	height: 0;
+	inset: 0;
 	z-index: 20000;
-	display: flex;
-	position: fixed;
-	align-items: center;
-	justify-content: center;
-	animation: positronModalReactRenderer-fadeIn 0.25s;
+	position: absolute;
+	/* Makes some devices run their hardware acceleration. */
+	transform: translate3d(0px, 0px, 0px);
+	animation: positron-modal-overlay-fade-in 0.1s ease-out;
 }
