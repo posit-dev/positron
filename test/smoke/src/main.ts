@@ -449,12 +449,12 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	// if (!opts.web && !opts.remote) { setupLaunchTests(logger); }
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
-	if (!opts.web) { setupDataExplorer100x100Test(logger); }
-	if (!opts.web) { setupPlotsTest(logger); }
-	if (!opts.web) { setupPythonConsoleTest(logger); }
-	if (!opts.web) { setupRConsoleTest(logger); }
-	if (!opts.web) { setupLargeDataFrameTest(logger); }
-	if (!opts.web) { setupNotebookCreateTest(logger); }
+	if (!opts.web) { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
+	if (!opts.web) { setupPlotsTest(logger); } // bugs 4800 & 4804
+	setupPythonConsoleTest(logger);
+	setupRConsoleTest(logger);
+	setupLargeDataFrameTest(logger);
+	setupNotebookCreateTest(logger);
 	if (!opts.web) { setupConnectionsTest(logger); }
 	if (!opts.web) { setupNewProjectWizardTest(logger); }
 	if (!opts.web) { setupXLSXDataFrameTest(logger); }
