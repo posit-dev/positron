@@ -10,19 +10,18 @@ import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/x
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
 import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
-import { opts, setup, setupBeforeHook } from './setupUtils';
+import { DESCRIBE_TITLE, opts, setup, TEST_SUITES } from './setupUtils';
 
-const suite = 'Main-1';
-const logger = setup(suite);
+const logger = setup(TEST_SUITES.MAIN_1);
 
-setupBeforeHook(logger, suite);
-
-describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
-	setupLargeDataFrameTest(logger);
-	setupNotebookCreateTest(logger);
-	setupConnectionsTest(logger);
-	setupXLSXDataFrameTest(logger);
-	setupHelpTest(logger);
-	setupClipboardTest(logger);
-	setupTopActionBarTest(logger);
+describe(DESCRIBE_TITLE, () => {
+	if (!opts.web) {
+		setupLargeDataFrameTest(logger);
+		setupNotebookCreateTest(logger);
+		setupConnectionsTest(logger);
+		setupXLSXDataFrameTest(logger);
+		setupHelpTest(logger);
+		setupClipboardTest(logger);
+		setupTopActionBarTest(logger);
+	}
 });

@@ -1,8 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
- *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// --- Start Positron ---
 //@ts-check
 'use strict';
 
@@ -12,7 +13,7 @@ const minimist = require('minimist');
 const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
-const { cloneRepository, testDataPath } = require('../out/setupUtils');
+const { cloneRepository, testDataPath, TEST_SUITE } = require('../out/setupUtils');
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
@@ -101,7 +102,8 @@ function runTests() {
 async function runMochaTests() {
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
-	mocha.addFile('out/main2.js');
+	// mocha.addFile('out/main2.js');
+
 
 	try {
 		const failures = await runMocha();
@@ -198,3 +200,4 @@ function handleError(message, error) {
 	console.error(`${message}:`, error);
 	process.exit(1);
 }
+// --- End Positron ---

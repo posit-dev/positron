@@ -21,30 +21,29 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { opts, setup, setupBeforeHook } from './setupUtils';
+import { DESCRIBE_TITLE, opts, setup, TEST_SUITES } from './setupUtils';
 
-const suite = 'Main-2';
-const logger = setup(suite);
+const logger = setup(TEST_SUITES.MAIN_2);
 
-setupBeforeHook(logger, suite);
-
-describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
-	setupLayoutTest(logger);
-	setupNotebookVariablesTest(logger);
-	setupConsoleInputTest(logger);
-	setupConsoleANSITest(logger);
-	setupConsoleOutputLogTest(logger);
-	setupBasicRMarkdownTest(logger);
-	setupWelcomeTest(logger);
-	setupConsoleHistoryTest(logger);
-	setupShinyTest(logger);
-	setupFastExecutionTest(logger);
-	setupTestExplorerTest(logger);
-	setupRPKgDevelopment(logger);
-	setupInterpreterDropdownTest(logger);
-	setupViewersTest(logger);
-	setupVeryLargeDataFrameTest(logger);
-	setupGraphTrendTest(logger);
-	setupQuartoTest(logger);
-	setupNewProjectWizardTest(logger);
+describe(DESCRIBE_TITLE, () => {
+	if (!opts.web) {
+		setupLayoutTest(logger);
+		setupNotebookVariablesTest(logger);
+		setupConsoleInputTest(logger);
+		setupConsoleANSITest(logger);
+		setupConsoleOutputLogTest(logger);
+		setupBasicRMarkdownTest(logger);
+		setupWelcomeTest(logger);
+		setupConsoleHistoryTest(logger);
+		setupShinyTest(logger);
+		setupFastExecutionTest(logger);
+		setupTestExplorerTest(logger);
+		setupRPKgDevelopment(logger);
+		setupInterpreterDropdownTest(logger);
+		setupViewersTest(logger);
+		setupVeryLargeDataFrameTest(logger);
+		setupGraphTrendTest(logger);
+		setupQuartoTest(logger);
+		setupNewProjectWizardTest(logger);
+	}
 });

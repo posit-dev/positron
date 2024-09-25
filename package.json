@@ -48,6 +48,7 @@
     "smoketest-no-compile": "BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/index.js",
     "smoketest-pr": "BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && TEST_FILTER=/#pr/ node test/index.js",
     "smoketest-merge-to-main": "BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/index.js",
+    "smoketest-web": "BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/index.js --web",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
     "download-builtin-extensions-cg": "node build/lib/builtInExtensionsCG.js",
     "download-quarto": "node build/lib/quarto.js",

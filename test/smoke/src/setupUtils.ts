@@ -35,11 +35,15 @@ export const testDataPath = path.join(os.tmpdir(), 'vscsmoke');
 const workspacePath = path.join(testDataPath, 'qa-example-content');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 export const opts = parseOptions();
+export const DESCRIBE_TITLE = `Smoke Tests (${opts.web ? 'Web' : 'Electron'})`;
+export const TEST_SUITES = {
+	MAIN_0: 'Main-0',
+	MAIN_1: 'Main-1',
+	MAIN_2: 'Main-2',
+};
 
-// mkdirp.sync(testDataPath);
 
 export function parseOptions(): ParseOptions {
-
 	const args = process.argv.slice(2);
 
 	// Parallel-mode: not all workers are inheriting the args, so passing through via env vars
@@ -139,7 +143,6 @@ export async function cloneRepository(workspacePath: string, opts: any): Promise
 		}
 	} else {
 		if (!fs.existsSync(workspacePath)) {
-			console.log('Cloning test project repository...');
 			const res = cp.spawnSync('git', ['clone', testRepoUrl, workspacePath], { stdio: 'inherit' });
 			if (!fs.existsSync(workspacePath)) {
 				throw new Error(`Clone operation failed: ${res.stderr.toString()}`);
@@ -200,7 +203,7 @@ export function setup(suiteName: string): Logger {
 	const logger = createLogger(logsRootPath);
 
 	setupSmokeTestEnvironment(logger);
-	// setupBeforeHook(logger, suiteName);
+	setupBeforeAfterHooks(logger, suiteName);
 
 	return logger;
 }
@@ -267,9 +270,11 @@ export function setupSmokeTestEnvironment(logger: Logger) {
 	}
 }
 
-export function setupBeforeHook(logger: Logger, suiteName: string) {
+export function setupBeforeAfterHooks(logger: Logger, suiteName: string) {
+	let startTime, endTime;
 
 	before(async function () {
+		startTime = Date.now();
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
 
 		if (!opts.web && !opts.remote && opts.build) {
@@ -297,5 +302,17 @@ export function setupBeforeHook(logger: Logger, suiteName: string) {
 			browser: opts.browser,
 			extraArgs: (opts.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
 		};
+	});
+
+	after(() => {
+		endTime = Date.now();
+		const durationMs = endTime - startTime;
+
+		// Convert milliseconds to minutes and seconds
+		const minutes = Math.floor(durationMs / 60000);  // 1 minute = 60,000 ms
+		const seconds = Math.floor((durationMs % 60000) / 1000);  // remainder in seconds
+
+		// Display result in minute and second format
+		console.log(`[${suiteName}] ran in ${minutes} min ${seconds} secs`);
 	});
 }
