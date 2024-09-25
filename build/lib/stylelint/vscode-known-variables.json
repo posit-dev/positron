@@ -595,6 +595,7 @@
 		"--vscode-positronModalDialog-buttonDisabledBackground",
 		"--vscode-positronModalDialog-buttonDisabledBorder",
 		"--vscode-positronModalDialog-buttonDisabledForeground",
+		"--vscode-positronModalDialog-buttonDestructiveBackground",
 		"--vscode-positronModalDialog-buttonDestructiveForeground",
 		"--vscode-positronModalDialog-buttonForeground",
 		"--vscode-positronModalDialog-buttonHoverBackground",
