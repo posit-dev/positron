@@ -10,12 +10,12 @@ import { ConnectionItemsProvider } from '../connection';
 import * as mocha from 'mocha';
 import { randomUUID } from 'crypto';
 
-suite.skip('Connections pane works for R', () => {
+suite('Connections pane works for R', () => {
 	suiteTeardown(() => {
 		vscode.window.showInformationMessage('All tests done!');
 	});
 
-	test.skip('Can list tables and fields from R connections', async () => {
+	test('Can list tables and fields from R connections', async () => {
 
 		// Waits until positron is ready to start a runtime
 		const info = await assert_or_timeout(async () => {
