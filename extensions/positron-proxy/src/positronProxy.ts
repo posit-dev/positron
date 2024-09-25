@@ -47,7 +47,7 @@ const getScriptElement = (script: string, id: string) =>
  */
 type ContentRewriter = (
 	serverOrigin: string,
-	port: number,
+	proxyPath: string,
 	url: string,
 	contentType: string,
 	responseBuffer: Buffer
@@ -188,7 +188,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, serverPort, url, contentType, responseBuffer) => {
+			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -230,14 +230,14 @@ export class PositronProxy implements Disposable {
 				// When running on Desktop, we don't need to do this, because the help proxy server is
 				// running at the same origin as the target origin (localhost).
 				if (vscode.env.uiKind === vscode.UIKind.Web) {
-					// Prepend root-relative URLs with the proxy path.
-					const proxyPath = `/proxy/${serverPort}`;
+					// Prepend root-relative URLs with the proxy path. The proxy path make look like
+					// /proxy/<PORT> or resolve to a different path if an external uri is used.
 					response = response.replace(
 						// This is icky and we should use a proper HTML parser, but it works for now.
 						// Possible sources of error are: whitespace differences, single vs. double
 						// quotes, etc., which are not covered in this regex.
 						// Regex translation: look for src="/ or href="/ and replace it with
-						// src="/proxy/PORT/ or href="/proxy/PORT/ respectively.
+						// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
 						/(src|href)="\/([^"]+)"/g,
 						`$1="${proxyPath}/$2"`
 					);
@@ -314,7 +314,7 @@ export class PositronProxy implements Disposable {
 
 			// Create the app and start listening on a random port.
 			const app = express();
-			const server = app.listen(0, HOST, () => {
+			const server = app.listen(0, HOST, async () => {
 				// Get the server address.
 				const address = server.address();
 
@@ -334,6 +334,10 @@ export class PositronProxy implements Disposable {
 					targetOrigin,
 					server
 				));
+
+				// Convert the server origin to an external URI.
+				const originUri = vscode.Uri.parse(serverOrigin);
+				const externalUri = await vscode.env.asExternalUri(originUri);
 
 				// Add the proxy midleware.
 				app.use('*', createProxyMiddleware({
@@ -355,15 +359,12 @@ export class PositronProxy implements Disposable {
 						}
 
 						// Rewrite the content.
-						return contentRewriter(serverOrigin, address.port, url, contentType, responseBuffer);
+						return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
 					})
 				}));
 
-				// Resolve the server origin as an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				vscode.env.asExternalUri(originUri).then((externalUri) => {
-					resolve(externalUri.toString());
-				});
+				// Resolve the server origin external URI.
+				resolve(externalUri.toString());
 			});
 		});
 	}
