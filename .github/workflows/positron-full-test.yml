@@ -11,9 +11,209 @@ permissions:
   contents: read
 
 jobs:
-  linux:
-    name: Tests on Linux
-    runs-on: ubuntu-latest-4x
+  # linux:
+  #   name: Tests on Linux
+  #   runs-on: ubuntu-latest-4x
+  #   timeout-minutes: 60
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Checkout test licensing tool
+  #       run: |
+  #         cd ..
+  #         mkdir positron-license
+  #         cd positron-license
+  #         git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
+  #       env:
+  #         GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+
+  #     - name: Install Rust latest nightly
+  #       uses: actions-rs/toolchain@v1
+  #       with:
+  #           toolchain: nightly
+  #           override: true
+
+  #     - name: Build licensing tool
+  #       run: |
+  #         cd ..
+  #         cd positron-license/pdol
+  #         cargo build
+
+  #     - name: Echo license
+  #       run: |
+  #         cd ..
+  #         cd positron-license/pdol/target/debug
+  #         echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
+  #         chmod 600 pdol_rsa
+
+  #     - name: Setup Build Environment
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+  #         sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+  #         sudo chmod +x /etc/init.d/xvfb
+  #         sudo update-rc.d xvfb defaults
+  #         sudo service xvfb start
+
+  #     - name: Install rig, R, and R packages
+  #       run: |
+  #         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+  #         rig add 4.4.0
+  #         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+  #         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+  #     # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
+  #     - name: Install Conda (Miniforge3)
+  #       run: |
+  #         wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+  #         sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+  #         source "${HOME}/conda/etc/profile.d/conda.sh"
+
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: .nvmrc
+
+  #     - name: AWS S3 Access Setup
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+  #         aws-region: ${{ secrets.QA_AWS_REGION }}
+
+  #     - name: Install Quarto CLI
+  #       run: |
+  #         TEMP_DEB="$(mktemp)" &&
+  #         wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
+  #         sudo dpkg -i "$TEMP_DEB"
+  #         rm -f "$TEMP_DEB"
+
+  #     - name: Install Tinytex
+  #       run: quarto install tinytex
+
+  #     - name: Cache node_modules, build, extensions, and remote
+  #       uses: ./.github/actions/cache-multi-paths
+
+  #     - name: Execute yarn
+  #       env:
+  #         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+  #         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+  #         POSITRON_GITHUB_PAT: ${{ github.token }}
+  #       run: |
+  #         # Enable corepack (for yarn)
+  #         corepack enable
+
+  #         # Install node-gyp; this is required by some packages, and yarn
+  #         # sometimes fails to automatically install it.
+  #         yarn global add node-gyp
+
+  #         # Perform the main yarn command; this installs all Node packages and
+  #         # dependencies
+  #         yarn --immutable --network-timeout 120000
+  #         yarn --cwd test/automation install --frozen-lockfile
+  #         yarn --cwd test/smoke install --frozen-lockfile
+
+  #     - name: Compile and Download
+  #       run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+  #     - name: Compile Integration Tests
+  #       run: yarn --cwd test/integration/browser compile
+
+  #     - name: Compile Smoke Tests
+  #       run: yarn --cwd test/smoke compile
+
+  #     - name: Run Unit Tests (Electron)
+  #       id: electron-unit-tests
+  #       run: DISPLAY=:10 ./scripts/test.sh
+
+  #     - name: Run Unit Tests (node.js)
+  #       id: nodejs-unit-tests
+  #       run: yarn test-node
+
+  #     - name: Run Unit Tests (Browser, Chromium)
+  #       id: browser-unit-tests
+  #       run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+
+  #     - name: Run Integration Tests (Electron)
+  #       id: electron-integration-tests
+  #       run: DISPLAY=:10 ./scripts/test-integration.sh
+
+  #     #      Remote integration tests currently disabled since licensing is required.
+  #     #      See https://github.com/posit-dev/positron/issues/3514 for details.
+  #     #
+  #     #      - name: Run Integration Tests (Remote)
+  #     #        id: electron-remote-integration-tests
+  #     #        timeout-minutes: 15
+  #     #        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+  #     #
+  #     #      - name: Run Integration Tests (Browser, Chromium)
+  #     #        id: browser-integration-tests
+  #     #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
+  #     - name: Check Python version
+  #       run: |
+  #         python --version
+  #         which python
+  #         python -m pip --version
+
+  #     - name: Setup Graphviz
+  #       uses: ts-graphviz/setup-graphviz@v2.0.2
+
+  #     - name: Install python dependencies
+  #       run: |
+  #         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+  #         python -m pip install --upgrade pip
+  #         python -m pip install -r requirements.txt
+  #         python -m pip install ipykernel trcli
+
+  #     - name: Run Smoke Tests (Electron)
+  #       env:
+  #         POSITRON_PY_VER_SEL: 3.10.12
+  #         POSITRON_R_VER_SEL: 4.4.0
+  #       id: electron-smoke-tests
+  #       run: DISPLAY=:10 yarn smoketest-no-compile --tracing
+
+  #     - name: Run Web Smoke Tests
+  #       env:
+  #         POSITRON_PY_VER_SEL: 3.10.12
+  #         POSITRON_R_VER_SEL: 4.4.0
+  #       id: electron-web-smoke-tests
+  #       run: DISPLAY=:10 yarn smoketest-web --tracing
+
+  #     - name: Clean up license files
+  #       if: always()
+  #       run: |
+  #         cd ..
+  #         rm -rf positron-license
+
+  #     - name: Publish Test Report
+  #       uses: mikepenz/action-junit-report@v4
+  #       if: success() || failure() # always run even if the previous step fails
+  #       with:
+  #         report_paths: "**/.build/logs/smoke-tests-electron/test-results/*results.xml"
+
+  #     - name: Set TestRail Run Title
+  #       id: set-testrail-run-title
+  #       if: always()
+  #       run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+  #     - name: Upload Test Results to TestRail
+  #       id: testrail-upload
+  #       if: always()
+  #       run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+
+  #     - name: Upload run artifacts
+  #       if: always()
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: run-artifacts
+  #         path: .build/logs/smoke-tests-electron/
+
+  windows:
+    name: Tests on Windows
+    runs-on:
+      labels: [windows-latest-8x]
     timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -21,205 +221,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout test licensing tool
-        run: |
-          cd ..
-          mkdir positron-license
-          cd positron-license
-          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-        env:
-          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+      # - name: Setup Build Environment
+      #   run: |
 
-      - name: Install Rust latest nightly
-        uses: actions-rs/toolchain@v1
-        with:
-            toolchain: nightly
-            override: true
-
-      - name: Build licensing tool
-        run: |
-          cd ..
-          cd positron-license/pdol
-          cargo build
-
-      - name: Echo license
-        run: |
-          cd ..
-          cd positron-license/pdol/target/debug
-          echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-          chmod 600 pdol_rsa
-
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
-
-      - name: Install rig, R, and R packages
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
-
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
+      - uses: actions/setup-python@v5
         with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
+          python-version: "3.10"
 
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
-
-      - name: Execute yarn
+      - name: Install node dependencies with yarn
         env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          npm_config_arch: ${{ matrix.arch }}
+          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
+        shell: pwsh
+        # nvm on windows does not see .nvmrc
+        #
+        # the installation of the npm package windows-process-tree is known to fail
+        # intermittently in the Github Actions build environment, so we retry
+        # this step a few times if necessary.
+        #
+        # see https://github.com/posit-dev/positron/issues/3481
         run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
+          pwd
+          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
 
       - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+        run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
-
-      - name: Compile Smoke Tests
-        run: yarn --cwd test/smoke compile
-
-      - name: Run Unit Tests (Electron)
-        id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
-
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
-
-      - name: Run Unit Tests (Browser, Chromium)
-        id: browser-unit-tests
-        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
-
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
-
-      #      Remote integration tests currently disabled since licensing is required.
-      #      See https://github.com/posit-dev/positron/issues/3514 for details.
-      #
-      #      - name: Run Integration Tests (Remote)
-      #        id: electron-remote-integration-tests
-      #        timeout-minutes: 15
-      #        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-      #
-      #      - name: Run Integration Tests (Browser, Chromium)
-      #        id: browser-integration-tests
-      #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
-
-      - name: Check Python version
-        run: |
-          python --version
-          which python
-          python -m pip --version
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
-
-      - name: Run Smoke Tests (Electron)
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-no-compile --tracing
-
-      - name: Run Web Smoke Tests
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-        id: electron-web-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-web --tracing
-
-      - name: Clean up license files
-        if: always()
-        run: |
-          cd ..
-          rm -rf positron-license
-
-      - name: Publish Test Report
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure() # always run even if the previous step fails
-        with:
-          report_paths: "**/.build/logs/smoke-tests-electron/test-results/*results.xml"
-
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: always()
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Upload Test Results to TestRail
-        id: testrail-upload
-        if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-      - name: Upload run artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-artifacts
-          path: .build/logs/smoke-tests-electron/
-
-  slack-notification:
-    name: "Send Slack notification"
-    runs-on: ubuntu-latest
-    needs: linux
-    if: ${{ failure() }}
-    steps:
-      - name: "Send Slack notification"
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Full Test Suite
+  # slack-notification:
+  #   name: "Send Slack notification"
+  #   runs-on: ubuntu-latest
+  #   needs: linux
+  #   if: ${{ failure() }}
+  #   steps:
+  #     - name: "Send Slack notification"
+  #       uses: testlabauto/action-test-results-to-slack@v0.0.6
+  #       with:
+  #         github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+  #         slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+  #         slack_channel: C07FR1JNZNJ #positron-test-results channel
+  #         suite_name: Positron Full Test Suite
