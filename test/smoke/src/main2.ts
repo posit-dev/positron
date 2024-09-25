@@ -21,9 +21,10 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { DESCRIBE_TITLE, opts, setup, TEST_SUITES } from './setupUtils';
+import { DESCRIBE_TITLE, opts, setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
 const logger = setup(TEST_SUITES.MAIN_2);
+setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
 
 describe(DESCRIBE_TITLE, () => {
 	if (!opts.web) {

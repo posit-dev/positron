@@ -203,7 +203,7 @@ export function setup(suiteName: string): Logger {
 	const logger = createLogger(logsRootPath);
 
 	setupSmokeTestEnvironment(logger);
-	setupBeforeAfterHooks(logger, suiteName);
+	// setupBeforeAfterHooks(logger, suiteName);
 
 	return logger;
 }

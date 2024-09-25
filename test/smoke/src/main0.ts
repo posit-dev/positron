@@ -9,9 +9,10 @@ import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/da
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
-import { DESCRIBE_TITLE, opts, setup, TEST_SUITES } from './setupUtils';
+import { DESCRIBE_TITLE, opts, setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
 const logger = setup(TEST_SUITES.MAIN_0);
+setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_0);
 
 describe(DESCRIBE_TITLE, () => {
 	setupVariablesTest(logger);
