@@ -220,7 +220,7 @@ jobs:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: linux
-    if: ${{ failure() }}
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
