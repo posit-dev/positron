@@ -454,7 +454,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
 	setupLargeDataFrameTest(logger);
-	if (!opts.web) { setupNotebookCreateTest(logger); }
+	setupNotebookCreateTest(logger);
 	if (!opts.web) { setupConnectionsTest(logger); }
 	if (!opts.web) { setupNewProjectWizardTest(logger); }
 	if (!opts.web) { setupXLSXDataFrameTest(logger); }
