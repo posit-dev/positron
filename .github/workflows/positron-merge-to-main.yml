@@ -131,6 +131,7 @@ jobs:
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel
 
       - name: Convert Test Results to JUnit
+        if: always()
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils

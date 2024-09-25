@@ -182,6 +182,13 @@ jobs:
         id: electron-web-smoke-tests
         run: DISPLAY=:10 yarn smoketest-web --tracing --parallel
 
+      - name: Convert Test Results to JUnit
+        if: always()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          yarn xunit-to-junit
+
       - name: Clean up license files
         if: always()
         run: |
