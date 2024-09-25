@@ -13,7 +13,7 @@ const minimist = require('minimist');
 const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
-const { cloneRepository, testDataPath, TEST_SUITE } = require('../out/setupUtils');
+const { cloneRepository, testDataPath } = require('../out/setupUtils');
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
@@ -34,6 +34,7 @@ process.env.WEB = opts['web'] || '';
 const suite = opts['web'] ? 'Browser Smoke Tests' : 'Desktop Smoke Tests';
 const mochaOptions = getMochaOptions(opts);
 const mocha = new Mocha(mochaOptions);
+// mocha.dryRun();
 
 applyTestFilters(mocha);
 prepareTestDataDirectory(testDataPath);
@@ -102,7 +103,7 @@ function runTests() {
 async function runMochaTests() {
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
-	// mocha.addFile('out/main2.js');
+	mocha.addFile('out/main2.js');
 
 
 	try {
