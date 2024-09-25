@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
+import * as fs from 'fs';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { DefaultApi, HttpError, InterruptMode, NewSession } from './kcclient/api';
 import { WebSocket } from 'ws';
@@ -25,6 +26,7 @@ import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
 import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
 import { CommMsgCommand } from './jupyter/CommMsgCommand';
 import { ShutdownRequest } from './jupyter/ShutdownRequest';
+import { LogStreamer } from './LogStreamer';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -94,9 +96,37 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			workingDir = this.metadata.notebookUri.fsPath;
 		}
 
+		// Form the command-line arguments to the kernel process
+		const tempdir = os.tmpdir();
+		const sep = path.sep;
+		const kerneldir = fs.mkdtempSync(`${tempdir}${sep}kernel-`);
+		const logFile = path.join(kerneldir, 'kernel.log');
+		const profileFile = path.join(kerneldir, 'kernel-profile.log');
+		const args = kernelSpec.argv.map((arg, _idx) => {
+
+			// Replace {log_file} with the log file path. Not all kernels
+			// have this argument.
+			if (arg === '{log_file}') {
+				fs.writeFile(logFile, '', () => {
+					this.streamLogFile(logFile);
+				});
+				return logFile;
+			}
+
+			// Same as `log_file` but for profiling logs
+			if (profileFile && arg === '{profile_file}') {
+				fs.writeFile(profileFile, '', () => {
+					this.streamProfileFile(profileFile);
+				});
+				return profileFile;
+			}
+
+			return arg;
+		}) as Array<string>;
+
 		// Create the session in the underlying API
 		const session: NewSession = {
-			argv: kernelSpec.argv,
+			argv: args,
 			sessionId: this.metadata.sessionId,
 			language: kernelSpec.language,
 			displayName: this.metadata.sessionName,
@@ -482,6 +512,27 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return command.sendCommand(this.metadata.sessionId, this._ws!);
 	}
 
+	private streamLogFile(logFile: string) {
+		const logStreamer = new LogStreamer(this._log, logFile, this.runtimeMetadata.languageName);
+		this._disposables.push(logStreamer);
+		logStreamer.watch();
+	}
+
+	private streamProfileFile(profileFilePath: string) {
+
+		const profileChannel = positron.window.createRawLogOutputChannel(
+			this.metadata.notebookUri ?
+				`Notebook: Profiler ${path.basename(this.metadata.notebookUri.path)} (${this.runtimeMetadata.runtimeName})` :
+				`Positron ${this.runtimeMetadata.languageName} Profiler`);
+
+		this.log('Streaming profile file: ' + profileFilePath);
+
+		const profileStreamer = new LogStreamer(profileChannel, profileFilePath);
+		this._disposables.push(profileStreamer);
+
+		profileStreamer.watch();
+	}
+
 	public log(msg: string) {
 		// Ensure message isn't over the maximum length
 		if (msg.length > 2048) {
@@ -489,4 +540,5 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		this._log.appendLine(`[Positron] ${msg}`);
 	}
+
 }
