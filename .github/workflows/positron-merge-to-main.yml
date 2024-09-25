@@ -130,6 +130,9 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel
 
+      - name: Convert Test Results to JUnit
+        run: yarn xunit-to-junit
+
       - name: Set TestRail Run Title
         id: set-testrail-run-title
         if: always()

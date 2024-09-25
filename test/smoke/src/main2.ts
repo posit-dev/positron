@@ -27,7 +27,8 @@ const suite = TEST_SUITES.MAIN_2;
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
-describe(`[${suite}] ${process.env.SUITE}`, () => {
+
+describe(`${process.env.SUITE}`, () => {
 	setupLayoutTest(logger);
 	setupNotebookVariablesTest(logger);
 	setupConsoleInputTest(logger);

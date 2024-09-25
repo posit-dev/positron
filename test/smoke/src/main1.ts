@@ -17,7 +17,7 @@ const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`[${suite}] ${process.env.SUITE}`, () => {
+describe(`${process.env.SUITE}`, () => {
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);

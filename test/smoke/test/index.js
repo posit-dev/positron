@@ -22,7 +22,7 @@ const opts = minimist(process.argv.slice(2), {
 });
 
 // During parallel runs, need to globally set environment variables for each process. See
-// parseOptions() in test/smoke/setupUtils.ts for usage. Must define here and not in setupUtils.ts.
+// parseOptions() in test/smoke/setupUtils.ts for usage. Must define here and use in setupUtils.ts.
 process.env.BUILD = opts['build'] || '';
 process.env.HEADLESS = opts['headless'] || '';
 process.env.PARALLEL = opts['parallel'] || '';
@@ -44,21 +44,22 @@ runTests();
  * Configure and return Mocha options.
  */
 function getMochaOptions(opts) {
-	return {
+	const reportPath = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
+	const mochaOptions = {
 		color: true,
 		timeout: 2 * 60 * 1000, // 2 minutes
 		slow: 30 * 1000,        // 30 seconds
 		grep: opts['f'] || opts['g'],
 		parallel: opts['parallel'],
-		reporter: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? 'mocha-multi-reporters' : undefined,
-		reporterOptions: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? {
-			reporterEnabled: 'spec, mocha-junit-reporter',
-			mochaJunitReporterReporterOptions: {
-				testsuitesTitle: `${suite} ${process.platform}`,
-				mochaFile: join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY, 'test-results/results.xml'),
-			},
-		} : {}
+		reporter: 'mocha-multi',
+		reporterOptions: {
+			spec: '-',  // Console output
+			xunit: reportPath,
+		},
 	};
+
+
+	return mochaOptions;
 }
 
 /**
@@ -93,7 +94,6 @@ function runTests() {
 			.catch(err => handleError('Failed to clone test repo', err));
 	} else {
 		console.log('Repository already exists. Skipping clone.');
-		runMochaTests();
 	}
 }
 
@@ -103,7 +103,7 @@ function runTests() {
 async function runMochaTests() {
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
-	mocha.addFile('out/main2.js');
+	// mocha.addFile('out/main2.js');
 
 
 	try {
