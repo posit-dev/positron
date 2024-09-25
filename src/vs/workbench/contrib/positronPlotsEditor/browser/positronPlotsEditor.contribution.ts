@@ -8,6 +8,7 @@ import { Schemas } from 'vs/base/common/network';
 import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from 'vs/platform/configuration/common/configurationRegistry';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Registry } from 'vs/platform/registry/common/platform';
@@ -95,3 +96,5 @@ configurationRegistry.registerConfiguration({
 export function positronPlotsEditorEnabled(configurationService: IConfigurationService) {
 	return Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
 }
+
+export const PLOT_IS_ACTIVE_EDITOR = ContextKeyExpr.equals('activeEditor', PositronPlotsEditorInput.EditorID);

@@ -25,7 +25,7 @@ import { ZoomPlotMenuButton } from 'vs/workbench/contrib/positronPlots/browser/c
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
 import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
 import { INotificationService } from 'vs/platform/notification/common/notification';
-import { PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
+import { CopyPlotTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsActions';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { HtmlPlotClient } from 'vs/workbench/contrib/positronPlots/browser/htmlPlotClient';
 import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution';
@@ -129,7 +129,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	};
 
 	const copyPlotHandler = () => {
-		props.commandService.executeCommand(PlotsCopyAction.ID);
+		props.commandService.executeCommand(PlotsCopyAction.ID, CopyPlotTarget.VIEW);
 	};
 
 	const popoutPlotHandler = () => {
