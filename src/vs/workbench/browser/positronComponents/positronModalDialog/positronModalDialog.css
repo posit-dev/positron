@@ -3,36 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-@keyframes positronModalDialog-fadeIn {
-	0% { opacity: 0; }
-	100% { opacity: 1; }
-}
-
-.positron-modal-dialog-overlay {
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
-	z-index: 20000;
-	display: flex;
-	position: fixed;
-	align-items: center;
-	justify-content: center;
-	animation: positronModalDialog-fadeIn 0.25s;
-	background: rgba(0, 0, 0, 0.2);
-}
-
 .positron-modal-dialog-container {
-	animation: positronModalDialog-fadeIn 0.25s;
-	top: 0;
-	left: 0;
-	width: 100%;
-	height: 100%;
+	inset: 0;
 	position: absolute;
 	outline: none !important;
-	animation: positronModalDialog-fadeIn 0.25s;
-	/* Makes some devices run their hardware acceleration. */
-	transform: translate3d(0px, 0px, 0px);
+	background: rgba(0, 0, 0, 0.2);
 }
 
 .positron-modal-dialog-box {
