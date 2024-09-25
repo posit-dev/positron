@@ -197,7 +197,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             if os.name == "nt":
                 url = urlparse(url).netloc or urlparse(url).path
 
-            self._comm.send_event(
+            return self._comm.send_event(
                 name=UiFrontendEvent.ShowHtmlFile,
                 payload=ShowHtmlFileParams(
                     path=url,
@@ -208,7 +208,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                     height=0,
                 ).dict(),
             )
-            return True
 
         for addr in _localhosts:
             if addr in url:
@@ -240,6 +239,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
 
 
     def _send_show_html_event(self, url, is_plot):
+        if self._comm is None:
+            return False
         self._comm.send_event(
             name=UiFrontendEvent.ShowHtmlFile,
             payload=ShowHtmlFileParams(
@@ -251,3 +252,4 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 height=0,
             ).dict(),
         )
+        return True
