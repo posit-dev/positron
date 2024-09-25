@@ -279,6 +279,7 @@ jobs:
       - name: Install R packages
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
   # slack-notification:
