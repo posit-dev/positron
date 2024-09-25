@@ -153,15 +153,18 @@ jobs:
       #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Check Python version
+        if: always()
         run: |
           python --version
           which python
           python -m pip --version
 
       - name: Setup Graphviz
+        if: always()
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
       - name: Install python dependencies
+        if: always()
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
@@ -169,6 +172,7 @@ jobs:
           python -m pip install ipykernel trcli
 
       - name: Run Smoke Tests (Electron)
+        if: always()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
@@ -176,6 +180,7 @@ jobs:
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel
 
       - name: Run Web Smoke Tests
+        if: always()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0

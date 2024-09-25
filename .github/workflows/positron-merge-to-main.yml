@@ -132,6 +132,7 @@ jobs:
       #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
+        if: always()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0

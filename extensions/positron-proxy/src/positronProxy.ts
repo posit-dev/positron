@@ -47,6 +47,7 @@ const getScriptElement = (script: string, id: string) =>
  */
 type ContentRewriter = (
 	serverOrigin: string,
+	proxyPath: string,
 	url: string,
 	contentType: string,
 	responseBuffer: Buffer
@@ -187,7 +188,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, url, contentType, responseBuffer) => {
+			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -223,6 +224,24 @@ export class PositronProxy implements Disposable {
 					${this._helpScript}\n
 					</head>`
 				);
+
+				// When running on Web, we need to prepend root-relative URLs with the proxy path,
+				// because the help proxy server is running at a different origin than the target origin.
+				// When running on Desktop, we don't need to do this, because the help proxy server is
+				// running at the same origin as the target origin (localhost).
+				if (vscode.env.uiKind === vscode.UIKind.Web) {
+					// Prepend root-relative URLs with the proxy path. The proxy path may look like
+					// /proxy/<PORT> or a different proxy path if an external uri is used.
+					response = response.replace(
+						// This is icky and we should use a proper HTML parser, but it works for now.
+						// Possible sources of error are: whitespace differences, single vs. double
+						// quotes, etc., which are not covered in this regex.
+						// Regex translation: look for src="/ or href="/ and replace it with
+						// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
+						/(src|href)="\/([^"]+)"/g,
+						`$1="${proxyPath}/$2"`
+					);
+				}
 
 				// Return the response.
 				return response;
@@ -279,7 +298,7 @@ export class PositronProxy implements Disposable {
 	/**
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
-	 * @param contentRewriter The content rewriter/
+	 * @param contentRewriter The content rewriter.
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
@@ -295,7 +314,7 @@ export class PositronProxy implements Disposable {
 
 			// Create the app and start listening on a random port.
 			const app = express();
-			const server = app.listen(0, HOST, () => {
+			const server = app.listen(0, HOST, async () => {
 				// Get the server address.
 				const address = server.address();
 
@@ -316,7 +335,11 @@ export class PositronProxy implements Disposable {
 					server
 				));
 
-				// Add the proxy midleware.
+				// Convert the server origin to an external URI.
+				const originUri = vscode.Uri.parse(serverOrigin);
+				const externalUri = await vscode.env.asExternalUri(originUri);
+
+				// Add the proxy middleware.
 				app.use('*', createProxyMiddleware({
 					target: targetOrigin,
 					changeOrigin: true,
@@ -336,15 +359,12 @@ export class PositronProxy implements Disposable {
 						}
 
 						// Rewrite the content.
-						return contentRewriter(serverOrigin, url, contentType, responseBuffer);
+						return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
 					})
 				}));
 
-				// Resolve the server origin as an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				vscode.env.asExternalUri(originUri).then((externalUri) => {
-					resolve(externalUri.toString());
-				});
+				// Resolve the server origin external URI.
+				resolve(externalUri.toString());
 			});
 		});
 	}
