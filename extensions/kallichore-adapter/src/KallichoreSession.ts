@@ -33,13 +33,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 	private readonly _established: Barrier = new Barrier();
-	private readonly _connected: Barrier = new Barrier();
-	private readonly _ready: Barrier = new Barrier();
+	private _connected: Barrier = new Barrier();
+	private _ready: Barrier = new Barrier();
+	private _exitReason: positron.RuntimeExitReason = positron.RuntimeExitReason.Unknown;
 	private _ws: WebSocket | undefined;
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
 	private _disposables: vscode.Disposable[] = [];
 	private readonly _log: vscode.OutputChannel;
+	private _restarting = false;
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -389,6 +391,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	connect(): Promise<void> {
 		return new Promise((resolve, reject) => {
+			// Ensure websocket is closed if it's open
+			if (this._ws) {
+				this._ws.close();
+			}
+
 			// Connect to the session's websocket
 			const uri = vscode.Uri.parse(this._api.basePath);
 			this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
@@ -429,19 +436,28 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	restart(): Thenable<void> {
-		throw new Error('Method not implemented.');
+	async restart(): Promise<void> {
+		this._exitReason = positron.RuntimeExitReason.Restart;
+		this.performShutdown(true);
 	}
 
 	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
-		const shutdownRequest = new ShutdownRequest(exitReason === positron.RuntimeExitReason.Restart);
+		this._exitReason = exitReason;
+		this.performShutdown(exitReason === positron.RuntimeExitReason.Restart);
+	}
+
+	async performShutdown(restart: boolean) {
+		const shutdownRequest = new ShutdownRequest(restart);
 		await this.sendRequest(shutdownRequest);
+		this._restarting = true;
 	}
 
 	async forceQuit(): Promise<void> {
 		try {
+			this._exitReason = positron.RuntimeExitReason.ForcedQuit;
 			await this._api.killSession(this.metadata.sessionId);
 		} catch (err) {
+			this._exitReason = positron.RuntimeExitReason.Unknown;
 			if (err instanceof HttpError) {
 				throw new Error(err.body.message);
 			} else {
@@ -477,20 +493,82 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	handleKernelMessage(data: any) {
-		if (data.status) {
+		if (data.hasOwnProperty('status')) {
 			// Check to see if the status is a valid runtime state
 			if (Object.values(positron.RuntimeState).includes(data.status)) {
-				// If the kernel is ready, open the ready barrier
-				if (data.status === positron.RuntimeState.Ready) {
-					this.log(`Received initial heartbeat; kernel is ready.`);
-					this._ready.open();
-				}
-				this.log(`State: ${this._runtimeState} => ${data.status}`);
-				this._runtimeState = data.status;
-				this._state.fire(data.status);
+				this.onStateChange(data.status);
 			} else {
 				this.log(`Unknown state: ${data.status}`);
 			}
+		} else if (data.hasOwnProperty('exited')) {
+			this.onExited(data.exited);
+		}
+	}
+
+	private onStateChange(newState: positron.RuntimeState) {
+		// If the kernel is ready, open the ready barrier
+		if (newState === positron.RuntimeState.Ready) {
+			this.log(`Received initial heartbeat; kernel is ready.`);
+			this._ready.open();
+		}
+		this.log(`State: ${this._runtimeState} => ${newState}`);
+		if (newState === positron.RuntimeState.Offline) {
+			// Close the connected barrier if the kernel is offline
+			this._connected = new Barrier();
+		}
+		if (this._runtimeState === positron.RuntimeState.Offline &&
+			newState !== positron.RuntimeState.Exited &&
+			newState === positron.RuntimeState.Offline) {
+			// The kernel was offline but is back online; open the connected
+			// barrier
+			this.log(`The kernel is back online.`);
+			this._connected.open();
+		}
+		this._runtimeState = newState;
+		this._state.fire(newState);
+	}
+
+	private onExited(exitCode: number) {
+		// Clean up the websocket connection
+		this._ws?.close();
+		this._ws = undefined;
+
+		// No longer connected or ready
+		this._connected = new Barrier();
+		this._ready = new Barrier();
+
+		// If we don't know the exit reason and there's a nonzero exit code,
+		// consider this exit to be due to an error.
+		if (this._exitReason === positron.RuntimeExitReason.Unknown && exitCode !== 0) {
+			this._exitReason = positron.RuntimeExitReason.Error;
+		}
+
+		// Create and fire the exit event.
+		const event: positron.LanguageRuntimeExit = {
+			runtime_name: this.runtimeMetadata.runtimeName,
+			exit_code: exitCode,
+			reason: this._exitReason,
+			message: ''
+		};
+		this._exit.fire(event);
+
+		// We have now consumed the exit reason; restore it to its default
+		this._exitReason = positron.RuntimeExitReason.Unknown;
+
+		// If the kernel was restarting, now's the time to bring it back up
+		if (this._restarting) {
+			this._restarting = false;
+			// Defer the start by 500ms to ensure the kernel has processed its
+			// own exit before we ask it to restart. This also ensures that the
+			// kernel's status events as it starts up don't overlap with the
+			// status events emitted during shutdown (which can happen on the
+			// Positron side due to internal buffering in the extension host
+			// interface)
+			setTimeout(() => {
+				// Set the new session flag so we'll start the session again
+				this._new = true;
+				this.start();
+			}, 500);
 		}
 	}
 
