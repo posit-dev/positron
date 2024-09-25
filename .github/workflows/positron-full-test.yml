@@ -247,7 +247,7 @@ jobs:
         #
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
-          corpack enable
+          corepack enable
           pwd
           .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
 
