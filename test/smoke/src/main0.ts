@@ -13,14 +13,15 @@ import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
 const suite = TEST_SUITES.MAIN_0;
 const logger = setup(suite);
+const web = process.env.WEB;
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`${process.env.SUITE}`, () => {
-	setupDataExplorer100x100Test(logger);
+describe(`${process.env.SUITE_TITLE}`, () => {
+	if (!web) { setupDataExplorer100x100Test(logger); }
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
-	setupPlotsTest(logger);
+	if (!web) { setupPlotsTest(logger); }
 	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
 });

@@ -31,7 +31,7 @@ process.env.REMOTE = opts['remote'] || '';
 process.env.TRACING = opts['tracing'] || '';
 process.env.VERBOSE = opts['verbose'] || '';
 process.env.WEB = opts['web'] || '';
-process.env.SUITE = opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)';
+process.env.SUITE_TITLE = opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)';
 
 const mochaOptions = getMochaOptions(opts);
 const mocha = new Mocha(mochaOptions);

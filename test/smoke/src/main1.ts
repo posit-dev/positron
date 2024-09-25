@@ -14,15 +14,16 @@ import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
 const suite = TEST_SUITES.MAIN_1;
 const logger = setup(suite);
+const web = process.env.WEB;
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`${process.env.SUITE}`, () => {
+describe(`${process.env.SUITE_TITLE}`, () => {
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
-	setupConnectionsTest(logger);
-	setupXLSXDataFrameTest(logger);
-	setupHelpTest(logger);
-	setupClipboardTest(logger);
-	setupTopActionBarTest(logger);
+	if (!web) { setupConnectionsTest(logger); }
+	if (!web) { setupXLSXDataFrameTest(logger); }
+	if (!web) { setupHelpTest(logger); }
+	if (!web) { setupClipboardTest(logger); }
+	if (!web) { setupTopActionBarTest(logger); }
 });

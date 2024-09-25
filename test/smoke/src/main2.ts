@@ -25,26 +25,27 @@ import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
 const suite = TEST_SUITES.MAIN_2;
 const logger = setup(suite);
+const web = process.env.WEB;
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`${process.env.SUITE}`, () => {
-	setupLayoutTest(logger);
-	setupNotebookVariablesTest(logger);
-	setupConsoleInputTest(logger);
-	setupConsoleANSITest(logger);
-	setupConsoleOutputLogTest(logger);
-	setupBasicRMarkdownTest(logger);
-	setupWelcomeTest(logger);
-	setupConsoleHistoryTest(logger);
-	setupShinyTest(logger);
-	setupFastExecutionTest(logger);
-	setupTestExplorerTest(logger);
-	setupRPKgDevelopment(logger);
-	setupInterpreterDropdownTest(logger);
-	setupViewersTest(logger);
-	setupVeryLargeDataFrameTest(logger);
-	setupGraphTrendTest(logger);
-	setupQuartoTest(logger);
-	setupNewProjectWizardTest(logger);
+describe(`${process.env.SUITE_TITLE}`, () => {
+	if (!web) { setupLayoutTest(logger); }
+	if (!web) { setupNotebookVariablesTest(logger); }
+	if (!web) { setupConsoleInputTest(logger); }
+	if (!web) { setupConsoleANSITest(logger); }
+	if (!web) { setupConsoleOutputLogTest(logger); }
+	if (!web) { setupBasicRMarkdownTest(logger); }
+	if (!web) { setupWelcomeTest(logger); }
+	if (!web) { setupConsoleHistoryTest(logger); }
+	if (!web) { setupShinyTest(logger); }
+	if (!web) { setupFastExecutionTest(logger); }
+	if (!web) { setupTestExplorerTest(logger); }
+	if (!web) { setupRPKgDevelopment(logger); }
+	if (!web) { setupInterpreterDropdownTest(logger); }
+	if (!web) { setupViewersTest(logger); }
+	if (!web) { setupVeryLargeDataFrameTest(logger); }
+	if (!web) { setupGraphTrendTest(logger); }
+	if (!web) { setupQuartoTest(logger); }
+	if (!web) { setupNewProjectWizardTest(logger); }
 });
