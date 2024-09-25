@@ -10,8 +10,8 @@ mkdir -p "$OUTPUT_DIR"
 
 # Check if xUnit XML file exists
 if [ ! -f "$XUNIT_FILE" ]; then
-    echo "xUnit file $XUNIT_FILE not found!"
-    exit 1
+	echo "xUnit file $XUNIT_FILE not found!"
+	exit 1
 fi
 
 # Debugging: Print xUnit file contents (optional)
@@ -24,14 +24,14 @@ echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 # Extract the <testsuite> attributes and transform them to JUnit format
 /usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" | awk '
 {
-    gsub(/<testsuite/, "<testsuite");
-    gsub(/name=/, "name=");
-    gsub(/tests=/, "tests=");
-    gsub(/failures=/, "failures=");
-    gsub(/errors=/, "errors=");
-    gsub(/time=/, "time=");
-    gsub(/timestamp=/, "timestamp=");
-    print $0;
+	gsub(/<testsuite/, "<testsuite");
+	gsub(/name=/, "name=");
+	gsub(/tests=/, "tests=");
+	gsub(/failures=/, "failures=");
+	gsub(/errors=/, "errors=");
+	gsub(/time=/, "time=");
+	gsub(/timestamp=/, "timestamp=");
+	print $0;
 }' >> "$JUNIT_FILE"
 
 # Add the <properties> section manually (optional)
@@ -40,11 +40,11 @@ echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 # Loop through each <testcase> in the xUnit XML and write to JUnit format
 /usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | awk '
 {
-    gsub(/<testcase/, "<testcase");
-    gsub(/classname=/, "classname=");
-    gsub(/name=/, "name=");
-    gsub(/time=/, "time=");
-    print $0;
+	gsub(/<testcase/, "<testcase");
+	gsub(/classname=/, "classname=");
+	gsub(/name=/, "name=");
+	gsub(/time=/, "time=");
+	print $0;
 }' >> "$JUNIT_FILE"
 
 # Close the JUnit XML structure
