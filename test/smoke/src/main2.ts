@@ -21,35 +21,34 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { opts, setup, setupBeforeAfterHooks } from './setupUtils';
+import { setup, setupBeforeAfterHooks } from './setupUtils';
 
 const suite = 'Main-2';
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
-
+describe(`[${suite}] Smoke Tests`, () => {
 	// const logger = setup(TEST_SUITES.MAIN_2);
 	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
 
 	// describe(DESCRIBE_TITLE, () => {
-	if (!opts.web) { setupLayoutTest(logger); }
-	if (!opts.web) { setupNotebookVariablesTest(logger); }
-	if (!opts.web) { setupConsoleInputTest(logger); }
-	if (!opts.web) { setupConsoleANSITest(logger); }
-	if (!opts.web) { setupConsoleOutputLogTest(logger); }
-	if (!opts.web) { setupBasicRMarkdownTest(logger); }
-	if (!opts.web) { setupWelcomeTest(logger); }
-	if (!opts.web) { setupConsoleHistoryTest(logger); }
-	if (!opts.web) { setupShinyTest(logger); }
-	if (!opts.web) { setupFastExecutionTest(logger); }
-	if (!opts.web) { setupTestExplorerTest(logger); }
-	if (!opts.web) { setupRPKgDevelopment(logger); }
-	if (!opts.web) { setupInterpreterDropdownTest(logger); }
-	if (!opts.web) { setupViewersTest(logger); }
-	if (!opts.web) { setupVeryLargeDataFrameTest(logger); }
-	if (!opts.web) { setupGraphTrendTest(logger); }
-	if (!opts.web) { setupQuartoTest(logger); }
-	if (!opts.web) { setupNewProjectWizardTest(logger); }
+	setupLayoutTest(logger);
+	setupNotebookVariablesTest(logger);
+	setupConsoleInputTest(logger);
+	setupConsoleANSITest(logger);
+	setupConsoleOutputLogTest(logger);
+	setupBasicRMarkdownTest(logger);
+	setupWelcomeTest(logger);
+	setupConsoleHistoryTest(logger);
+	setupShinyTest(logger);
+	setupFastExecutionTest(logger);
+	setupTestExplorerTest(logger);
+	setupRPKgDevelopment(logger);
+	setupInterpreterDropdownTest(logger);
+	setupViewersTest(logger);
+	setupVeryLargeDataFrameTest(logger);
+	setupGraphTrendTest(logger);
+	setupQuartoTest(logger);
+	setupNewProjectWizardTest(logger);
 });

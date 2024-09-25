@@ -9,24 +9,22 @@ import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/da
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
-import { opts, setup, setupBeforeAfterHooks } from './setupUtils';
+import { setup, setupBeforeAfterHooks } from './setupUtils';
 
 const suite = 'Main-0';
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`[${suite}] Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
+describe(`[${suite}] Smoke Tests`, () => {
 
 	// const logger = setup(TEST_SUITES.MAIN_0);
 	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_0);
 	// describe(DESCRIBE_TITLE, () => {
-	console.log('&&&&', opts.web);
+	setupDataExplorer100x100Test(logger);
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
-
-	if (!opts.web) { setupDataExplorer100x100Test(logger); }
-	if (!opts.web) { setupPlotsTest(logger); }
-	if (!opts.web) { setupPythonConsoleTest(logger); }
-	if (!opts.web) { setupRConsoleTest(logger); }
+	setupPlotsTest(logger);
+	setupPythonConsoleTest(logger);
+	setupRConsoleTest(logger);
 });
