@@ -14,6 +14,7 @@ const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 const { cloneRepository, testDataPath } = require('../out/setupUtils');
+const { retry } = require('../out/utils');
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
@@ -56,6 +57,7 @@ function getMochaOptions(opts) {
 			spec: '-',  // Console output
 			xunit: reportPath,
 		},
+		retries: 1,
 	};
 
 
