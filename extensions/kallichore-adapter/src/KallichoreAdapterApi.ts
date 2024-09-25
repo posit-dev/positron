@@ -110,7 +110,7 @@ export class KCApi implements KallichoreAdapterApi {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session object
-		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, this._log, this._api, true);
+		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, this._api, true);
 
 		// Wait for the server to start before creating the session on the backend
 		this._started.wait().then(async () => {
@@ -127,7 +127,7 @@ export class KCApi implements KallichoreAdapterApi {
 			// TODO: Store these in session state
 			continuationPrompt: '+',
 			inputPrompt: '>',
-		}, this._log, this._api, false);
+		}, this._api, false);
 		return session;
 	}
 
