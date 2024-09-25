@@ -10,19 +10,14 @@ import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/x
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
 import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
-import { setup, setupBeforeAfterHooks } from './setupUtils';
+import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
-const suite = 'Main-1';
+const suite = TEST_SUITES.MAIN_1;
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
 describe(`[${suite}] ${process.env.SUITE}`, () => {
-
-	// const logger = setup(TEST_SUITES.MAIN_1);
-	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_1);
-
-	// describe(DESCRIBE_TITLE, () => {
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);

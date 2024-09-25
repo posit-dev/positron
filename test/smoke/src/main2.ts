@@ -21,18 +21,13 @@ import { setup as setupVeryLargeDataFrameTest } from './areas/positron/dataexplo
 import { setup as setupGraphTrendTest } from './areas/positron/dataexplorer/sparklinesTrend.test';
 import { setup as setupQuartoTest } from './areas/positron/quarto/quarto.test';
 import { setup as setupNewProjectWizardTest } from './areas/positron/new-project-wizard/new-project.test';
-import { setup, setupBeforeAfterHooks } from './setupUtils';
+import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
-const suite = 'Main-2';
+const suite = TEST_SUITES.MAIN_2;
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
-
 describe(`[${suite}] ${process.env.SUITE}`, () => {
-	// const logger = setup(TEST_SUITES.MAIN_2);
-	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_2);
-
-	// describe(DESCRIBE_TITLE, () => {
 	setupLayoutTest(logger);
 	setupNotebookVariablesTest(logger);
 	setupConsoleInputTest(logger);

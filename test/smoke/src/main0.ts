@@ -9,18 +9,14 @@ import { setup as setupDataExplorerTest } from './areas/positron/dataexplorer/da
 import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
 import { setup as setupPythonConsoleTest } from './areas/positron/console/python-console.test';
 import { setup as setupRConsoleTest } from './areas/positron/console/r-console.test';
-import { setup, setupBeforeAfterHooks } from './setupUtils';
+import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
-const suite = 'Main-0';
+const suite = TEST_SUITES.MAIN_0;
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
 describe(`[${suite}] ${process.env.SUITE}`, () => {
-
-	// const logger = setup(TEST_SUITES.MAIN_0);
-	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_0);
-	// describe(DESCRIBE_TITLE, () => {
 	setupDataExplorer100x100Test(logger);
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
