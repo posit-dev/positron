@@ -10,17 +10,14 @@ import { setup as setupXLSXDataFrameTest } from './areas/positron/dataexplorer/x
 import { setup as setupHelpTest } from './areas/positron/help/help.test';
 import { setup as setupClipboardTest } from './areas/positron/console/consoleClipboard.test';
 import { setup as setupTopActionBarTest } from './areas/positron/top-action-bar/top-action-bar.test';
-import { setup, setupBeforeAfterHooks, WORKERS } from './setupUtils';
-import { setupDataExplorer100x100Test } from './areas/positron/dataexplorer/data-explorer-100x100.test';
-import { setup as setupPlotsTest } from './areas/positron/plots/plots.test';
+import { setup, setupBeforeAfterHooks, TEST_SUITES } from './setupUtils';
 
-const suite = WORKERS.MAIN_1;
+const suite = TEST_SUITES.MAIN_1;
 const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
 describe(`${process.env.SUITE}`, () => {
-	setupDataExplorer100x100Test(logger);
 	setupLargeDataFrameTest(logger);
 	setupNotebookCreateTest(logger);
 	setupConnectionsTest(logger);
@@ -28,5 +25,4 @@ describe(`${process.env.SUITE}`, () => {
 	setupHelpTest(logger);
 	setupClipboardTest(logger);
 	setupTopActionBarTest(logger);
-	setupPlotsTest(logger);
 });
