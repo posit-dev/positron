@@ -23,8 +23,6 @@ import { IInstantiationService, createDecorator } from 'vs/platform/instantiatio
 import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
 import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { URI } from 'vs/base/common/uri';
-import * as path from 'vs/base/common/path';
 
 /**
  * The help HTML file path.
@@ -646,24 +644,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		}
 
 		// Create the source URL.
-		let sourceUrl = new URL(targetUrl);
+		const sourceUrl = new URL(targetUrl);
 		const proxyServerOriginUrl = new URL(proxyServerOrigin);
 		sourceUrl.protocol = proxyServerOriginUrl.protocol;
 		sourceUrl.hostname = proxyServerOriginUrl.hostname;
 		sourceUrl.port = proxyServerOriginUrl.port;
-		// Prepends /proxy/<PORT> to the rest of the path which is something like /path/to/iris.html
-		sourceUrl.pathname = path.join(proxyServerOriginUrl.pathname, sourceUrl.pathname);
-
-		// Parse the URL and resolve it if necessary. The resolution step is
-		// necessary when URI is hosted on a remote server.
-		try {
-			const sourceUri = URI.parse(sourceUrl.toString());
-			const resolvedUri = await this._openerService.resolveExternalUri(sourceUri);
-			sourceUrl = new URL(resolvedUri.resolved.toString());
-			this._logService.info(`Resolved external help source URL: ${sourceUrl.toString()}`);
-		} catch {
-			// Noop; use the original URI
-		}
 
 		// Basically this can't happen.
 		if (!session) {
