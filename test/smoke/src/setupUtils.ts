@@ -36,10 +36,11 @@ const workspacePath = path.join(testDataPath, 'qa-example-content');
 const extensionsPath = path.join(testDataPath, 'extensions-dir');
 export const opts = parseOptions();
 export const DESCRIBE_TITLE = `Smoke Tests (${opts.web ? 'Web' : 'Electron'})`;
-export const TEST_SUITES = {
+export const WORKERS = {
 	MAIN_0: 'Main-0',
 	MAIN_1: 'Main-1',
 	MAIN_2: 'Main-2',
+	MAIN_3: 'Main-3',
 };
 
 

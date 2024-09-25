@@ -14,7 +14,6 @@ const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 const { cloneRepository, testDataPath } = require('../out/setupUtils');
-const { retry } = require('../out/utils');
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
@@ -106,7 +105,7 @@ async function runMochaTests() {
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
 	mocha.addFile('out/main2.js');
-
+	mocha.addFile('out/main3.js');
 
 	try {
 		const failures = await runMocha();
