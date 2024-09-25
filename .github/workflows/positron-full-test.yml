@@ -234,7 +234,7 @@ jobs:
 
       - name: Install node dependencies with yarn
         env:
-          npm_config_arch: ${{ matrix.arch }}
+          npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ github.token }}
