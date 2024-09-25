@@ -9,7 +9,7 @@ OUTPUT_DIR=$(dirname "$JUNIT_FILE")
 mkdir -p "$OUTPUT_DIR"
 
 # Check if xmllint is installed
-if ! command -v xmllint &> /dev/null
+if ! command -v /usr/bin/xmllint &> /dev/null
 then
 	echo "xmllint could not be found. Please install it (libxml2-utils) and try again."
 	exit
@@ -26,7 +26,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
 echo '<testsuites>' >> "$JUNIT_FILE"
 
 # Extract the <testsuite> attributes and transform them to JUnit
-xmllint --xpath '//testsuite' "$XUNIT_FILE" | awk '
+/usr/bin/xmllint --xpath '//testsuite' "$XUNIT_FILE" | awk '
 {
 	# Replace the opening tag
 	gsub(/<testsuite/, "<testsuite");
@@ -41,7 +41,7 @@ xmllint --xpath '//testsuite' "$XUNIT_FILE" | awk '
 }' >> "$JUNIT_FILE"
 
 # Loop through each <testcase> in the xUnit XML and write to JUnit format
-xmllint --xpath '//testcase' "$XUNIT_FILE" | awk '
+/usr/bin/xmllint --xpath '//testcase' "$XUNIT_FILE" | awk '
 {
 	# Transform each <testcase> tag and its attributes
 	gsub(/<testcase/, "<testcase");
