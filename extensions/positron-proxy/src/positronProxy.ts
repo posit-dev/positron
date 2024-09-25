@@ -230,8 +230,8 @@ export class PositronProxy implements Disposable {
 				// When running on Desktop, we don't need to do this, because the help proxy server is
 				// running at the same origin as the target origin (localhost).
 				if (vscode.env.uiKind === vscode.UIKind.Web) {
-					// Prepend root-relative URLs with the proxy path. The proxy path make look like
-					// /proxy/<PORT> or resolve to a different path if an external uri is used.
+					// Prepend root-relative URLs with the proxy path. The proxy path may look like
+					// /proxy/<PORT> or a different proxy path if an external uri is used.
 					response = response.replace(
 						// This is icky and we should use a proper HTML parser, but it works for now.
 						// Possible sources of error are: whitespace differences, single vs. double
@@ -298,7 +298,7 @@ export class PositronProxy implements Disposable {
 	/**
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
-	 * @param contentRewriter The content rewriter/
+	 * @param contentRewriter The content rewriter.
 	 * @returns The server origin.
 	 */
 	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
@@ -339,7 +339,7 @@ export class PositronProxy implements Disposable {
 				const originUri = vscode.Uri.parse(serverOrigin);
 				const externalUri = await vscode.env.asExternalUri(originUri);
 
-				// Add the proxy midleware.
+				// Add the proxy middleware.
 				app.use('*', createProxyMiddleware({
 					target: targetOrigin,
 					changeOrigin: true,
