@@ -50,14 +50,14 @@ function getMochaOptions(opts) {
 		slow: 30 * 1000,        // 30 seconds
 		grep: opts['f'] || opts['g'],
 		parallel: opts['parallel'],
-		// reporter: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? 'mocha-multi-reporters' : 'spec',
-		// reporterOptions: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? {
-		// 	reporterEnabled: 'spec, mocha-junit-reporter',
-		// 	mochaJunitReporterReporterOptions: {
-		// 		testsuitesTitle: `${suite} ${process.platform}`,
-		// 		mochaFile: join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY, 'test-results/results.xml'),
-		// 	},
-		// } : {}
+		reporter: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? 'mocha-multi-reporters' : undefined,
+		reporterOptions: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY ? {
+			reporterEnabled: 'spec, mocha-junit-reporter',
+			mochaJunitReporterReporterOptions: {
+				testsuitesTitle: `${suite} ${process.platform}`,
+				mochaFile: join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY, 'test-results/results.xml'),
+			},
+		} : {}
 	};
 }
 
