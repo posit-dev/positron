@@ -37,7 +37,6 @@ suite('PositronRunApp', () => {
 	let uri: vscode.Uri;
 	let previewUrlStub: sinon.SinonStub;
 	let sendTextSpy: sinon.SinonSpy | undefined;
-	let shellIntegrationConfig: vscode.WorkspaceConfiguration;
 	let executedCommandLine: string | undefined;
 	let runAppApi: PositronRunAppApiImpl;
 
@@ -65,8 +64,7 @@ suite('PositronRunApp', () => {
 			});
 
 		// Enable shell integration.
-		shellIntegrationConfig = vscode.workspace.getConfiguration('terminal.integrated.shellIntegration');
-		await shellIntegrationConfig.update('enabled', true);
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', true);
 
 		// Capture executions in the app's terminal while shell integration enabled.
 		executedCommandLine = undefined;
@@ -83,6 +81,7 @@ suite('PositronRunApp', () => {
 
 	teardown(async () => {
 		sinon.restore();
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', undefined);
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 		disposables.forEach(d => d.dispose());
 		disposables.splice(0, disposables.length);
@@ -123,7 +122,7 @@ suite('PositronRunApp', () => {
 
 	test('runApplication: shell integration disabled, user enables and reruns', async () => {
 		// Disable shell integration.
-		await shellIntegrationConfig.update('enabled', false);
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', false);
 
 		// Stub `vscode.window.showInformationMessage` to simulate the user:
 		// 1. Enabling shell integration.
@@ -155,7 +154,10 @@ suite('PositronRunApp', () => {
 		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
 
 		// Check that shell integration was enabled.
-		assert(shellIntegrationConfig.get('enabled'), 'Shell integration not enabled');
+		assert(
+			vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled'),
+			'Shell integration not enabled',
+		);
 
 		// Check that the expected command line was executed in the terminal i.e. the app was rerun with shell integration.
 		assert(executedCommandLine, 'No terminal shell execution started');
