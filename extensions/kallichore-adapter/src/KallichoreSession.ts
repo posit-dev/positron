@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { DefaultApi, HttpError, InterruptMode, NewSession } from './kcclient/api';
+import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession } from './kcclient/api';
 import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -32,7 +32,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
-	private readonly _created: Barrier = new Barrier();
+	private readonly _established: Barrier = new Barrier();
 	private readonly _connected: Barrier = new Barrier();
 	private readonly _ready: Barrier = new Barrier();
 	private _ws: WebSocket | undefined;
@@ -62,12 +62,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			metadata.notebookUri ?
 				`Notebook: ${path.basename(metadata.notebookUri.path)} (${runtimeMetadata.runtimeName})` :
 				`Console: ${runtimeMetadata.runtimeName}`);
-
-		// If this is an existing session, release the create barrier since we
-		// don't need to wait for the session to be created.
-		if (!this._new) {
-			this._created.open();
-		}
 	}
 
 	/**
@@ -138,7 +132,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		await this._api.newSession(session);
 		this.log(`Session created: ${JSON.stringify(session)}`);
-		this._created.open();
+		this._established.open();
 	}
 
 	/**
@@ -327,12 +321,40 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		throw new Error('Method not implemented.');
 	}
 
+	async restore(session: ActiveSession) {
+		// Re-establish the log stream by looking for the `--log` argument.
+		//
+		// CONSIDER: This is a convention used by the R kernel. We could handle it more
+		// generically by storing this information in the session metadata.
+		const logFileIndex = session.argv.indexOf('--log');
+		if (logFileIndex > 0 && logFileIndex < session.argv.length - 1) {
+			const logFile = session.argv[logFileIndex + 1];
+			if (fs.existsSync(logFile)) {
+				this.streamLogFile(logFile);
+			}
+		}
+
+		// Do the same for the profile file
+		const profileFileIndex = session.argv.indexOf('--profile');
+		if (profileFileIndex > 0 && profileFileIndex < session.argv.length - 1) {
+			const profileFile = session.argv[profileFileIndex + 1];
+			if (fs.existsSync(profileFile)) {
+				this.streamProfileFile(profileFile);
+			}
+		}
+
+		// Open the established barrier so that we can start sending messages
+		this._established.open();
+	}
+
 	async start(): Promise<positron.LanguageRuntimeInfo> {
+		// Wait for the session to be established before connecting. This
+		// ensures either that we've created the session (if it's new) or that
+		// we've restored it (if it's not new).
+		await this._established.wait();
+
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
-
-			// Wait for the session to be created
-			await this._created.wait();
 
 			// Wait for the session to start
 			try {

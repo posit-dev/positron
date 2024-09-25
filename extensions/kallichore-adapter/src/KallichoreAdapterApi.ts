@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
 import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { DefaultApi } from './kcclient/api';
+import { DefaultApi, HttpError } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
@@ -124,10 +124,23 @@ export class KCApi implements KallichoreAdapterApi {
 		runtimeMetadata: LanguageRuntimeMetadata,
 		sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
 		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
-			// TODO: Store these in session state
+			// TODO: Store these in session state or something
 			continuationPrompt: '+',
 			inputPrompt: '>',
 		}, this._api, false);
+
+		// TODO: the restore should be async so we can wait for the server to
+		// confirm the session exists
+		this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
+			session.restore(response.body);
+		}).catch((err) => {
+			if (err instanceof HttpError) {
+				this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
+			} else {
+				this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+			}
+		});
+
 		return session;
 	}
 
