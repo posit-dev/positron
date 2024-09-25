@@ -17,7 +17,7 @@ const logger = setup(suite);
 
 setupBeforeAfterHooks(logger, suite);
 
-describe(`[${suite}] Smoke Tests`, () => {
+describe(`[${suite}] ${process.env.SUITE}`, () => {
 
 	// const logger = setup(TEST_SUITES.MAIN_1);
 	// setupBeforeAfterHooks(logger, TEST_SUITES.MAIN_1);

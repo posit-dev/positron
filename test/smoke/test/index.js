@@ -31,7 +31,7 @@ process.env.TRACING = opts['tracing'] || '';
 process.env.VERBOSE = opts['verbose'] || '';
 process.env.WEB = opts['web'] || '';
 
-const suite = opts['web'] ? 'Browser Smoke Tests' : 'Desktop Smoke Tests';
+process.env.SUITE = opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)';
 const mochaOptions = getMochaOptions(opts);
 const mocha = new Mocha(mochaOptions);
 // mocha.dryRun();
