@@ -40,6 +40,9 @@ suite('Web app commands', () => {
                 assert(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
             },
+            async debugApplication(_options) {
+                throw new Error('Not implemented');
+            },
         };
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
             if (extensionId === 'vscode.positron-run-app') {
@@ -144,6 +147,7 @@ suite('Web app commands', () => {
     test('Exec Dash in terminal - without port and urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Dash_In_Terminal, {
             commandLine: `${runtimePath} ${documentPath}`,
+            env: { PYTHONPATH: workspacePath },
         });
     });
 
@@ -153,6 +157,7 @@ suite('Web app commands', () => {
             {
                 commandLine: `${runtimePath} ${documentPath}`,
                 env: {
+                    PYTHONPATH: workspacePath,
                     DASH_PORT: port,
                     DASH_URL_PREFIX: urlPrefix,
                 },
