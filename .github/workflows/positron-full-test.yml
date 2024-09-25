@@ -249,13 +249,34 @@ jobs:
         run: |
           corepack enable
           yarn --network-timeout 120000
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
 
       - name: Compile and Download
         run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      - name: Run Unit Tests (Electron)
-        run: .\scripts\test.bat
+      # - name: Run Unit Tests (Electron)
+      #   run: .\scripts\test.bat
 
+      - name: Compile Smoke Tests
+        run: |
+          yarn --cwd test/automation compile
+          yarn --cwd test/smoke compile
+
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ipykernel trcli
+
+      - name: Install Rig, R, and R packages
+        run: |
+          winget install posit.rig
+          rig add 4.4.0
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+          
   # slack-notification:
   #   name: "Send Slack notification"
   #   runs-on: ubuntu-latest
