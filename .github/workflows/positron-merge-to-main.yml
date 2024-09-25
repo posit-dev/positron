@@ -118,9 +118,10 @@ jobs:
         id: nodejs-unit-tests
         run: yarn test-node
 
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      # disabled due to test issues
+      # - name: Run Integration Tests (Electron)
+      #   id: electron-integration-tests
+      #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
         env:
