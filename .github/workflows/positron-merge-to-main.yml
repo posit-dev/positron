@@ -135,7 +135,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils
-          hash -r  # Refresh shell environment to recognize newly installed tools
+          source /etc/environment  # Reload environment variables
           which xmllint
           yarn xunit-to-junit
 
