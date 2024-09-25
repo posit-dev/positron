@@ -8,47 +8,43 @@ JUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/results.xml"
 OUTPUT_DIR=$(dirname "$JUNIT_FILE")
 mkdir -p "$OUTPUT_DIR"
 
-# Check if xmllint is installed
-if ! command -v /usr/bin/xmllint &> /dev/null
-then
-	echo "xmllint could not be found. Please install it (libxml2-utils) and try again."
-	exit
-fi
-
 # Check if xUnit XML file exists
 if [ ! -f "$XUNIT_FILE" ]; then
-	echo "xUnit file $XUNIT_FILE not found!"
-	exit 1
+    echo "xUnit file $XUNIT_FILE not found!"
+    exit 1
 fi
+
+# Debugging: Print xUnit file contents (optional)
+# cat "$XUNIT_FILE"
 
 # Create a JUnit XML structure from xUnit
 echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
-echo '<testsuites>' >> "$JUNIT_FILE"
+echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 
-# Extract the <testsuite> attributes and transform them to JUnit
-/usr/bin/xmllint --xpath '//testsuite' "$XUNIT_FILE" | awk '
+# Extract the <testsuite> attributes and transform them to JUnit format
+/usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" | awk '
 {
-	# Replace the opening tag
-	gsub(/<testsuite/, "<testsuite");
-	gsub(/name=/, "name=");
-	gsub(/tests=/, "tests=");
-	gsub(/failures=/, "failures=");
-	gsub(/errors=/, "errors=");
-	gsub(/time=/, "time=");
-	gsub(/timestamp=/, "timestamp=");
-
-	print $0;
+    gsub(/<testsuite/, "<testsuite");
+    gsub(/name=/, "name=");
+    gsub(/tests=/, "tests=");
+    gsub(/failures=/, "failures=");
+    gsub(/errors=/, "errors=");
+    gsub(/time=/, "time=");
+    gsub(/timestamp=/, "timestamp=");
+    print $0;
 }' >> "$JUNIT_FILE"
 
+# Add the <properties> section manually (optional)
+/usr/bin/xmllint --xpath '//*[local-name()="properties"]' "$XUNIT_FILE" >> "$JUNIT_FILE"
+
 # Loop through each <testcase> in the xUnit XML and write to JUnit format
-/usr/bin/xmllint --xpath '//testcase' "$XUNIT_FILE" | awk '
+/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | awk '
 {
-	# Transform each <testcase> tag and its attributes
-	gsub(/<testcase/, "<testcase");
-	gsub(/classname=/, "classname=");
-	gsub(/name=/, "name=");
-	gsub(/time=/, "time=");
-	print $0;
+    gsub(/<testcase/, "<testcase");
+    gsub(/classname=/, "classname=");
+    gsub(/name=/, "name=");
+    gsub(/time=/, "time=");
+    print $0;
 }' >> "$JUNIT_FILE"
 
 # Close the JUnit XML structure
