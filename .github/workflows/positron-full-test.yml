@@ -235,7 +235,9 @@ jobs:
       - name: Install node dependencies with yarn
         env:
           npm_config_arch: ${{ matrix.arch }}
-          POSITRON_GITHUB_PAT: ${{ steps.app-token.outputs.token }}
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #
@@ -245,6 +247,7 @@ jobs:
         #
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
+          corpack enable
           pwd
           .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
 
