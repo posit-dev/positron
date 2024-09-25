@@ -292,8 +292,8 @@ export class PositronInterpreterDropdown {
 				'Start the interpreter',
 				{
 					// Because 'Start the interpreter` is a substring of `Restart the interpreter`,
-					// and, by default, getByTtitle performs a case-insensitive match, specify that
-					// an exact match is required.
+					// and, by default, getByTitle performs a case-insensitive / partial match,
+					// specify that an exact match is required so we don't return multiple buttons.
 					exact: true
 				}
 			);
