@@ -103,7 +103,7 @@ function runTests() {
 async function runMochaTests() {
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
-	// mocha.addFile('out/main2.js');
+	mocha.addFile('out/main2.js');
 
 
 	try {
