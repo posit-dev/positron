@@ -102,6 +102,9 @@ export function setup(logger: Logger) {
 					interpreterInfo!.path
 				)
 			).toBe(true);
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 		});
 
 		it('Python interpreter restarts and shows running [C707213]', async function () {
@@ -109,6 +112,9 @@ export function setup(logger: Logger) {
 
 			// Restart the active Python interpreter
 			await interpreterDropdown.restartPrimaryInterpreter('Python');
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 
 			// The console should indicate that the interpreter is restarting
 			await positronConsole.waitForConsoleContents((contents) => {
@@ -125,6 +131,9 @@ export function setup(logger: Logger) {
 			expect(
 				await interpreterDropdown.primaryInterpreterShowsRunning('Python')
 			).toBe(true);
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 		});
 
 		it('R interpreter starts and shows running [C707214]', async function () {
@@ -132,6 +141,9 @@ export function setup(logger: Logger) {
 			await expect(
 				async () => await interpreterDropdown.selectInterpreter('R', desiredR)
 			).toPass({ timeout: 30_000 });
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 
 			// Wait for the console to be ready
 			await positronConsole.waitForReady('>', 10_000);
@@ -143,12 +155,18 @@ export function setup(logger: Logger) {
 			expect(interpreterInfo!.version).toContain(desiredR);
 			expect(interpreterInfo!.path).toBeDefined();
 
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
+
 			// The interpreter dropdown should show the expected running indicators
 			expect(
 				await interpreterDropdown.primaryInterpreterShowsRunning(
 					interpreterInfo!.path
 				)
 			).toBe(true);
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 		});
 
 		it('R interpreter stops and shows inactive [C707215]', async function () {
@@ -159,6 +177,9 @@ export function setup(logger: Logger) {
 				await interpreterDropdown.stopPrimaryInterpreter('R');
 			}).toPass({ timeout: 15_000 });
 
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
+
 			// The console should indicate that the interpreter is shutting down
 			await positronConsole.waitForInterpreterShutdown();
 
@@ -166,6 +187,9 @@ export function setup(logger: Logger) {
 			expect(
 				await interpreterDropdown.primaryInterpreterShowsInactive('R')
 			).toBe(true);
+
+			// Close the interpreter dropdown.
+			await interpreterDropdown.closeInterpreterDropdown();
 		});
 	});
 }
