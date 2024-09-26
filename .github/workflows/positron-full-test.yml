@@ -289,7 +289,7 @@ jobs:
         id: electron-smoke-tests
         run: |
           cd test\smoke
-          node test/indes.js --tracing
+          node test/index.js --tracing
 
 
   # slack-notification:
