@@ -257,12 +257,12 @@ class ProjectWizardPythonConfigurationStep {
 				.getLocator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 				)
-				.getByText(interpreterPath)
+				.getByText(interpreterPath, { exact: true })
 				.click();
 			return;
 		} catch (error) {
 			throw new Error(
-				`Could not find interpreter path in project wizard dropdown: ${error}`
+				`Could not find interpreter path (${interpreterPath}) in project wizard dropdown: ${error}`
 			);
 		}
 	}
