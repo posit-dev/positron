@@ -590,6 +590,7 @@ function readCookie(name: string): string | undefined {
 		// --- PWB Start: proxy port url ---
 		resolveExternalUri: (uri: URI): Promise<URI> => {
 			let resolvedUri = uri;
+			console.log('[workbench resolveExternalUri] Resolving external URI:', uri);
 			const localhostMatch = extractLocalHostUriMetaDataForPortMapping(resolvedUri);
 			if (localhostMatch && resolvedUri.authority !== location.host) {
 				if (config.productConfiguration && config.productConfiguration.proxyEndpointTemplate) {
@@ -615,6 +616,7 @@ function readCookie(name: string): string | undefined {
 							.replace('{{port}}', localhostMatch.port.toString());
 					}
 					resolvedUri = URI.parse(new URL(renderedTemplate, mainWindow.location.href).toString());
+					console.log('[workbench resolveExternalUri] Resolved external URI:', uri.toString(), 'to:', resolvedUri.toString());
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
 				}

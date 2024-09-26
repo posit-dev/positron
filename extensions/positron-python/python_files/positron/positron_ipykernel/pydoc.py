@@ -614,7 +614,10 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         obj = locate(url, forceload=False)
         # --- End Positron ---
         if obj is None and url != "None":
-            raise ValueError("could not find object")
+            # we are looking for the python help at the wrong url
+            # the proxy server was created successfully, but the python help
+            # is being sent to localhost:proxyPort/path/to/doc instead of localhost:port/proxy/proxyPort/path/to/doc
+            raise ValueError("could not find object. Url: " + url)
         title = describe(obj)
         content = self.document(obj, url)
         return title, content
@@ -966,6 +969,8 @@ def _url_handler(url, content_type="text/html"):
     # moved subclass _HTMLDoc and functions to _PositronHTMLDoc
 
     html = _PositronHTMLDoc()
+
+    print(f"[pydoc _url_handler] Generating HTML page for url: {url}")
 
     # --- End Positron ---
 

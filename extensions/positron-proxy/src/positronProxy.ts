@@ -339,24 +339,54 @@ export class PositronProxy implements Disposable {
 				const originUri = vscode.Uri.parse(serverOrigin);
 				const externalUri = await vscode.env.asExternalUri(originUri);
 
+				console.log('[positronProxy] serverOrigin:', serverOrigin);
+				console.log('[positronProxy] originUri:', originUri);
+				console.log('[positronProxy] originUri.path:', originUri.path);
+				console.log('[positronProxy] uri resolved to externalUri:', externalUri.toString());
+
 				// Add the proxy middleware.
 				app.use('*', createProxyMiddleware({
 					target: targetOrigin,
 					changeOrigin: true,
 					selfHandleResponse: true,
 					// Logging for development work.
-					// onProxyReq: (proxyReq, req, res, options) => {
-					// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-					// },
+					onProxyReq: (proxyReq, req, res, options) => {
+						// on desktop, the req.url contains the query params e.g. ?key=print
+						// on web, there are no query params. what happened to the query params???????
+						// options.query === null in both web and desktop
+						// DESKTOP
+						//  proxyReq
+						//    - host: localhost
+						//    - path: /get?key=print
+						//    - protocol: http:
+						//  req
+						//    - baseUrl: /get
+						//    - originalUrl: /get?key=print
+						//    - url: /get?key=print
+						// NEXT: where is req provided from and why is the .url different on desktop vs web?
+						console.log('[positron proxy req]:', req.url);
+						console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
+						console.log('  proxyReq', proxyReq.protocol, proxyReq.host, proxyReq.path);
+						console.log('  req', req.baseUrl, req.originalUrl, req.url);
+
+						// if the proxyReq.path does not contain a query string, add it
+						// if (!proxyReq.path.includes('?')) {
+						// 	proxyReq.path = `${proxyReq.path}?key=pprint`;
+						// }
+					},
 					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
 						// Get the URL and the content type. These must be present to call the
 						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
+						console.log(`Proxy response ${targetOrigin}${url} -> ${serverOrigin}${url}`);
 						const contentType = proxyRes.headers['content-type'];
 						if (!url || !contentType || !this._scriptsFileLoaded) {
 							// Don't process the response.
 							return responseBuffer;
 						}
+
+						console.log('[positronProxy] onProxyRes req:', req);
+						console.log('[positronProxy] onProxyRes url:', url);
 
 						// Rewrite the content.
 						return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
