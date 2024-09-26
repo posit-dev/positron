@@ -52,8 +52,8 @@ echo '</testsuites>' >> "$JUNIT_FILE"
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
 else
-    # Linux/GNU sed: use -i without ''
-    sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+	# Linux/GNU sed: use -i without ''
+	sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
 fi
 
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
