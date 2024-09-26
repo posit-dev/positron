@@ -276,9 +276,7 @@ class ProjectWizardPythonConfigurationStep {
 
 		// Find the dropdown item with the interpreterPath.
 		const dropdownItem = this.code.driver
-			.getLocator(
-				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
-			)
+			.getLocator(`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`)
 			.getByText(interpreterPath);
 
 		// There should be one dropdown item with the interpreterPath.
