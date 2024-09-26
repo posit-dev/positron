@@ -230,7 +230,7 @@ jobs:
           node-version-file: .nvmrc
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.10.12"
 
       - name: Install node dependencies with yarn
         env:
@@ -281,6 +281,17 @@ jobs:
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Set up Quarto
+        uses: quarto-dev/quarto-actions/setup@v2
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: 'latest'
+          tinytex: true
 
       - name: Run Smoke Tests (Electron)
         env:
