@@ -9,5 +9,6 @@ import { setup as setupConsoleInputTest } from '../areas/positron/console/consol
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupConsoleInputTest(logger);
+if (!web) { setupConsoleInputTest(logger); }

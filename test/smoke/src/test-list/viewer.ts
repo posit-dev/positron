@@ -9,5 +9,6 @@ import { setup as setupViewersTest } from '../areas/positron/viewer/viewer.test'
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupViewersTest(logger);
+if (!web) { setupViewersTest(logger); }

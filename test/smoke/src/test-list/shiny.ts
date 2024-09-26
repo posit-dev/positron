@@ -9,5 +9,6 @@ import { setup as setupShinyTest } from '../areas/positron/apps/shiny.test';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupShinyTest(logger);
+if (!web) { setupShinyTest(logger); }

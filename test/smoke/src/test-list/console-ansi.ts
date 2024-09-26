@@ -9,5 +9,6 @@ import { setup as setupConsoleANSITest } from '../areas/positron/console/console
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupConsoleANSITest(logger);
+if (!web) { setupConsoleANSITest(logger); }

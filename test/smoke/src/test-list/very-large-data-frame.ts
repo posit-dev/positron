@@ -9,5 +9,6 @@ import { setup as setupVeryLargeDataFrameTest } from '../areas/positron/dataexpl
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupVeryLargeDataFrameTest(logger);
+if (!web) { setupVeryLargeDataFrameTest(logger); }

@@ -9,5 +9,6 @@ import { setup as setupBasicRMarkdownTest } from '../areas/positron/rmarkdown/rm
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupBasicRMarkdownTest(logger);
+if (!web) { setupBasicRMarkdownTest(logger); }

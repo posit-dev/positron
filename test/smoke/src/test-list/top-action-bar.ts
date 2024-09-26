@@ -9,5 +9,6 @@ import { setup as setupTopActionBarTest } from '../areas/positron/top-action-bar
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupTopActionBarTest(logger);
+if (!web) { setupTopActionBarTest(logger); }

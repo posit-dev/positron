@@ -9,5 +9,6 @@ import { setup as setupPlotsTest } from '../areas/positron/plots/plots.test';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupPlotsTest(logger);
+if (!web) { setupPlotsTest(logger); }

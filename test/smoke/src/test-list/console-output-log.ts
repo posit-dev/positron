@@ -9,5 +9,6 @@ import { setup as setupConsoleOutputLogTest } from '../areas/positron/output/con
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupConsoleOutputLogTest(logger);
+if (!web) { setupConsoleOutputLogTest(logger); }

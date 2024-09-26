@@ -9,5 +9,6 @@ import { setup as setupNotebookVariablesTest } from '../areas/positron/variables
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupNotebookVariablesTest(logger);
+if (!web) { setupNotebookVariablesTest(logger); }

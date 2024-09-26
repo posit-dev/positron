@@ -9,5 +9,6 @@ import { setup as setupWelcomeTest } from '../areas/positron/welcome/welcome.tes
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupWelcomeTest(logger);
+if (!web) { setupWelcomeTest(logger); }

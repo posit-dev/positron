@@ -9,5 +9,6 @@ import { setup as setupQuartoTest } from '../areas/positron/quarto/quarto.test';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupQuartoTest(logger);
+if (!web) { setupQuartoTest(logger); }

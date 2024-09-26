@@ -9,5 +9,6 @@ import { setup as setupGraphTrendTest } from '../areas/positron/dataexplorer/spa
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupGraphTrendTest(logger);
+if (!web) { setupGraphTrendTest(logger); }

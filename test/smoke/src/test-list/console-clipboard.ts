@@ -9,5 +9,6 @@ import { setup as setupClipboardTest } from '../areas/positron/console/consoleCl
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupClipboardTest(logger);
+if (!web) { setupClipboardTest(logger); }

@@ -9,5 +9,6 @@ import { setup as setupTestExplorerTest } from '../areas/positron/test-explorer/
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupTestExplorerTest(logger);
+if (!web) { setupTestExplorerTest(logger); }

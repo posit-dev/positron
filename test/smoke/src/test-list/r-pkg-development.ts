@@ -9,5 +9,6 @@ import { setup as setupRPKgDevelopment } from '../areas/positron/r-pkg-developme
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupRPKgDevelopment(logger);
+if (!web) { setupRPKgDevelopment(logger); }

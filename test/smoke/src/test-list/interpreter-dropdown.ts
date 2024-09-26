@@ -9,5 +9,6 @@ import { setup as setupInterpreterDropdownTest } from '../areas/positron/top-act
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupInterpreterDropdownTest(logger);
+if (!web) { setupInterpreterDropdownTest(logger); }

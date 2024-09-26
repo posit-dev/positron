@@ -9,5 +9,6 @@ import { setup as setupFastExecutionTest } from '../areas/positron/editor/fast-e
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupFastExecutionTest(logger);
+if (!web) { setupFastExecutionTest(logger); }

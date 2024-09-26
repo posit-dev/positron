@@ -9,5 +9,6 @@ import { setup as setupConsoleHistoryTest } from '../areas/positron/console/cons
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupConsoleHistoryTest(logger);
+if (!web) { setupConsoleHistoryTest(logger); }

@@ -10,4 +10,6 @@ import { setup as setupConnectionsTest } from '../areas/positron/connections/dbC
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
 
-setupConnectionsTest(logger);
+const web = process.env.WEB;
+
+if (!web) { setupConnectionsTest(logger); }

@@ -9,5 +9,6 @@ import { setup as setupNewProjectWizardTest } from '../areas/positron/new-projec
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupNewProjectWizardTest(logger);
+if (!web) { setupNewProjectWizardTest(logger); }

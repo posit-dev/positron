@@ -9,5 +9,6 @@ import { setup as setupLayoutTest } from '../areas/positron/layouts/layouts.test
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupLayoutTest(logger);
+if (!web) { setupLayoutTest(logger); }

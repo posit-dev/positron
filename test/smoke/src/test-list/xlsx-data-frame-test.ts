@@ -9,5 +9,6 @@ import { setup as setupXLSXDataFrameTest } from '../areas/positron/dataexplorer/
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupXLSXDataFrameTest(logger);
+if (!web) { setupXLSXDataFrameTest(logger); }

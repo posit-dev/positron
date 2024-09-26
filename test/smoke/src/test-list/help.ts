@@ -9,5 +9,6 @@ import { setup as setupHelpTest } from '../areas/positron/help/help.test';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-setupHelpTest(logger);
+if (!web) { setupHelpTest(logger); }
