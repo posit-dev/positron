@@ -18,26 +18,31 @@ fi
 echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
 echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 
-# Extract each <testsuite> and handle it individually
+# Extract each <testsuite> element and its content
 /usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" | while read -r testsuite; do
-	# Extract the <testsuite> and its content
-	echo "$testsuite" | awk '
-	{
-		gsub(/<testsuite/, "<testsuite");
-		gsub(/name=/, "name=");
-		gsub(/tests=/, "tests=");
-		gsub(/failures=/, "failures=");
-		gsub(/errors=/, "errors=");
-		gsub(/time=/, "time=");
-		gsub(/timestamp=/, "timestamp=");
-		print $0;
-	}' >> "$JUNIT_FILE"
+	# Check if the current line is an opening <testsuite> tag
+	if echo "$testsuite" | grep -q "<testsuite"; then
+		# Extract and format the <testsuite> attributes
+		echo "$testsuite" | awk '
+		{
+			gsub(/<testsuite/, "<testsuite");
+			gsub(/name=/, "name=");
+			gsub(/tests=/, "tests=");
+			gsub(/failures=/, "failures=");
+			gsub(/errors=/, "errors=");
+			gsub(/time=/, "time=");
+			gsub(/timestamp=/, "timestamp=");
+			print $0;
+		}' >> "$JUNIT_FILE"
+	fi
 
 	# Extract and add the <testcase> elements for this <testsuite>
 	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | sed 's/<testcase \(.*\)\/>/<testcase \1><\/testcase>/' >> "$JUNIT_FILE"
 
-	# Close the current <testsuite>
-	echo '</testsuite>' >> "$JUNIT_FILE"
+	# Close the <testsuite> tag only if there was an opening <testsuite> tag
+	if echo "$testsuite" | grep -q "</testsuite>"; then
+		echo '</testsuite>' >> "$JUNIT_FILE"
+	fi
 done
 
 # Close the <testsuites> block
