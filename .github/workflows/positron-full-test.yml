@@ -282,6 +282,13 @@ jobs:
           Rscript -e "install.packages('pak')"
           Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
+      - name: Run Smoke Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-smoke-tests
+        run: yarn smoketest-no-compile --tracing
+
   # slack-notification:
   #   name: "Send Slack notification"
   #   runs-on: ubuntu-latest
