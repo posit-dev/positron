@@ -118,4 +118,6 @@ export interface IPositronPreviewService {
 	set activePreviewWebviewId(id: string);
 
 	openEditor(): Promise<void>;
+
+	disposePreview(previewId: string): void;
 }

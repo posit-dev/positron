@@ -28,7 +28,6 @@ import { basename } from 'vs/base/common/path';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { Schemas } from 'vs/base/common/network';
-import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -38,7 +37,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	declare readonly _serviceBrand: undefined;
 
-	private _items: Map<string, PreviewWebview> = new Map();
+	private _items: Map<string, { preview: PreviewWebview; isEditor: boolean }> = new Map();
 
 	private static _previewIdCounter = 0;
 
@@ -101,9 +100,9 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// use HTML proxies, since these proxies live in the extension host.
 		this._register(this._extensionService.onWillStop((e) => {
 			for (const preview of this._items.values()) {
-				if (preview instanceof PreviewHtml) {
-					preview.webview.dispose();
-					this._items.delete(preview.previewId);
+				if (preview.preview instanceof PreviewHtml) {
+					preview.preview.webview.dispose();
+					this._items.delete(preview.preview.previewId);
 				}
 			}
 		}));
@@ -117,7 +116,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	get previewWebviews(): PreviewWebview[] {
-		return Array.from(this._items.values());
+		return Array.from(this._items.values()).map(item => item.preview);
 	}
 
 	get activePreviewWebviewId(): string {
@@ -128,7 +127,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		if (!this._selectedItemId) {
 			return undefined;
 		}
-		return this._items.get(this._selectedItemId);
+		return this._items.get(this._selectedItemId)?.preview;
 	}
 
 	clearAllPreviews(): void {
@@ -138,7 +137,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// Dispose all active webviews
 		for (const item of this._items.values()) {
-			item.webview.dispose();
+			item.preview.webview.dispose();
 		}
 
 		// Clear the map
@@ -164,7 +163,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// Notify previous preview that it is no longer active
 		if (this._items.has(this._selectedItemId)) {
-			this._items.get(this._selectedItemId)!.active = false;
+			this._items.get(this._selectedItemId)!.preview.active = false;
 		}
 
 		// Swap to new preview
@@ -173,7 +172,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// Notify new preview that it is active
 		if (id) {
-			this._items.get(id)!.active = true;
+			this._items.get(id)!.preview.active = true;
 		}
 	}
 
@@ -190,7 +189,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
 		const overlay = this.createOverlayWebview(webview);
 		const preview = new PreviewWebview(viewType, previewId, title, overlay);
-		this._items.set(previewId, preview);
+		this._items.set(previewId, { preview, isEditor: false });
 
 		this.openPreviewWebview(preview, preserveFocus);
 
@@ -277,11 +276,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private makeActivePreview(preview: PreviewWebview) {
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
-		this._items.forEach((value) => {
-			value.dispose();
+		this._items.forEach((value, key) => {
+			if (!value.isEditor) {
+				value.preview.dispose();
+				this._items.delete(key);
+			}
 		});
-		this._items.clear();
-		this._items.set(preview.previewId, preview);
+
+		this._items.set(preview.previewId, { preview, isEditor: false });
 
 		// Open the preview
 		this.openPreviewWebview(preview);
@@ -355,7 +357,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	openPreviewWebview(
 		preview: PreviewWebview,
-		preserveFocus?: boolean | undefined
+		preserveFocus?: boolean | undefined,
 	) {
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
 		this.activePreviewWebviewId = preview.previewId;
@@ -365,14 +367,18 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 			const wasActive = this.activePreviewWebviewId === preview.previewId;
 
-			this._items.delete(preview.previewId);
+			if (!this._items.get(preview.previewId)?.isEditor) {
+
+				this._items.delete(preview.previewId);
+
+			}
 
 			// Select a new preview webview if the closed one was active
 			if (wasActive) {
 				const items = this._items.values().next();
 				if (items.value) {
 					// If we have other items to show, select one
-					this.activePreviewWebviewId = items.value.previewId;
+					this.activePreviewWebviewId = items.value.preview.previewId;
 				} else {
 					// Nothing else to show; set the the active preview to undefined
 					this.activePreviewWebviewId = '';
@@ -408,7 +414,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 						'notebookRenderer',
 						e.id, session.metadata.sessionName,
 						overlay);
-					this._items.set(e.id, preview);
+					this._items.set(e.id, { preview, isEditor: false });
 					this.openPreviewWebview(preview, false);
 				}
 			}
@@ -504,7 +510,30 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public async openEditor(): Promise<void> {
-		const previewId = this.activePreviewWebviewId;
+		// Create a unique ID for this preview.
+		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
+		const oldPreviewId = this.activePreviewWebviewId;
+
+		if (!this.activePreviewWebview) {
+			return;
+		}
+
+		// if (this.activePreviewWebview.viewType === 'positron.previewHtml') {
+		// 	preview = this.createPreviewHtml('sessionId', previewId, extension, 'uri', );
+		// }
+
+		const oldPreview = this._items.get(oldPreviewId);
+		if (!oldPreview) {
+			return;
+		}
+
+		const overlay = this.createOverlayWebview(this.activePreviewWebview.webview.webview);
+		const preview = new PreviewWebview(this.activePreviewWebview.viewType, previewId, '', overlay);
+
+		this._items.set(previewId, { preview: preview, isEditor: true });
+
+		// this._onDidCreatePreviewWebviewEmitter.fire(preview);
+		this.activePreviewWebviewId = previewId;
 
 		const editorPane = await this._editorService.openEditor({
 			resource: URI.from({
@@ -518,4 +547,11 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		}
 
 	}
+
+	public disposePreview(previewId: string): void {
+		this._items.get(previewId)?.preview.webview.dispose();
+		// Remove the preview
+		this._items.delete(previewId);
+	}
+
 }

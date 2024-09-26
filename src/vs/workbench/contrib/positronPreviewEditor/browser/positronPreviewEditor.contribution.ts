@@ -6,13 +6,10 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Schemas } from 'vs/base/common/network';
 import { localize } from 'vs/nls';
-//import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-//import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from 'vs/platform/configuration/common/configurationRegistry';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { Registry } from 'vs/platform/registry/common/platform';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
-//import { applicationConfigurationNodeBase } from 'vs/workbench/common/configuration';
 import { registerWorkbenchContribution2, WorkbenchPhase } from 'vs/workbench/common/contributions';
 import { EditorExtensions } from 'vs/workbench/common/editor';
 import { PositronPreviewEditor } from 'vs/workbench/contrib/positronPreviewEditor/browser/positronPreviewEditor';
@@ -78,21 +75,3 @@ registerWorkbenchContribution2(
 	WorkbenchPhase.AfterRestored
 );
 
-// const configurationRegistry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
-// configurationRegistry.registerConfiguration({
-// 	...applicationConfigurationNodeBase,
-// 	properties: {
-// 		[POSITRON_EDITOR_PREVIEW]: {
-// 			scope: ConfigurationScope.APPLICATION,
-// 			type: 'boolean',
-// 			default: false,
-// 			tags: ['experimental'],
-// 			description: localize('workbench.positronPreviewEditor.description', 'When enabled, preview pane can be opened in an editor tab.')
-// 		}
-// 	}
-// });
-
-// TODO: feature flag?
-// export function positronPlotsEditorEnabled(configurationService: IConfigurationService) {
-// 	return Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
-// }
