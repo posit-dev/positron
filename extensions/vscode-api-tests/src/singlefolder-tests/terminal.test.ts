@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { deepStrictEqual, doesNotThrow, equal, ok, strictEqual, throws } from 'assert';
+// --- Start Positron ---
 import { commands, ConfigurationTarget, Disposable, EnvironmentVariableMutator, EnvironmentVariableMutatorOptions, EnvironmentVariableMutatorType, EventEmitter, ExtensionContext, extensions, ExtensionTerminalOptions, Pseudoterminal, Terminal, TerminalDimensions, TerminalExitReason, TerminalOptions, TerminalState, Uri, window, workspace } from 'vscode';
+// --- End Positron ---
 import { assertNoRpc, poll } from '../utils';
 
 // Disable terminal tests:
