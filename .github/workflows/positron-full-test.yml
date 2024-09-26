@@ -137,7 +137,7 @@ jobs:
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-       run: DISPLAY=:10 ./scripts/test-integration.sh
+        run: DISPLAY=:10 ./scripts/test-integration.sh
 
       - name: Run Integration Tests (Remote)
         id: electron-remote-integration-tests
