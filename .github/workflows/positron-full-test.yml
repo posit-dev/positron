@@ -290,7 +290,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          version: 'latest'
           tinytex: true
 
       - name: Run Smoke Tests (Electron)
