@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupFastExecutionTest } from '../areas/positron/editor/fast-execution.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupFastExecutionTest(logger);

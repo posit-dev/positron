@@ -5,11 +5,10 @@
 
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupDataExplorerTest } from '../areas/positron/dataexplorer/dataexplorer.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupDataExplorerTest(logger);

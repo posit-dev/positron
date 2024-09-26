@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupTopActionBarTest } from '../areas/positron/top-action-bar/top-action-bar.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupTopActionBarTest(logger);

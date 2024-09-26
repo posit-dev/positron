@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupRPKgDevelopment } from '../areas/positron/r-pkg-development/r-pkg-development.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupRPKgDevelopment(logger);

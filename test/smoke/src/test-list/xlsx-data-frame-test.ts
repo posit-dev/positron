@@ -5,11 +5,10 @@
 
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupXLSXDataFrameTest } from '../areas/positron/dataexplorer/xlsxDataFrame.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupXLSXDataFrameTest(logger);

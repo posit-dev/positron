@@ -3,12 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { basename } from 'path';
-import { setup as setupClipboardTest } from '../areas/positron/console/consoleClipboard.test'; import { setup, setupBeforeAfterHooks, } from '../setupUtils';
+import { setupEnvAndHooks, } from './setupUtils';
+import { setup as setupClipboardTest } from '../areas/positron/console/consoleClipboard.test';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupClipboardTest(logger);

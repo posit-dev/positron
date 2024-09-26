@@ -5,12 +5,11 @@
 
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setupDataExplorer100x100Test } from '../areas/positron/dataexplorer/data-explorer-100x100.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 const web = process.env.WEB;
 
-setupBeforeAfterHooks(logger, fileName);
 if (!web) { setupDataExplorer100x100Test(logger); }

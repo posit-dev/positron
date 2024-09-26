@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupInterpreterDropdownTest } from '../areas/positron/top-action-bar/interpreter-dropdown.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupInterpreterDropdownTest(logger);

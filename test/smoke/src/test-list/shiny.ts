@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupShinyTest } from '../areas/positron/apps/shiny.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupShinyTest(logger);

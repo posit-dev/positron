@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setup as setupConsoleInputTest } from '../areas/positron/console/consoleInput.test'; import { setup, setupBeforeAfterHooks, } from '../setupUtils';
+import { setupEnvAndHooks } from './setupUtils';
+import { setup as setupConsoleInputTest } from '../areas/positron/console/consoleInput.test';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupConsoleInputTest(logger);

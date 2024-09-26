@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
+import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupWelcomeTest } from '../areas/positron/welcome/welcome.test';
-import { setup, setupBeforeAfterHooks, } from '../setupUtils';
 
 const fileName = basename(__filename);
-const logger = setup(fileName);
+const logger = setupEnvAndHooks(fileName);
 
-setupBeforeAfterHooks(logger, fileName);
 setupWelcomeTest(logger);
