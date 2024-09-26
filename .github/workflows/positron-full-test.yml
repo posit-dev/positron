@@ -230,7 +230,7 @@ jobs:
           node-version-file: .nvmrc
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.10.12"
+          python-version: "3.10.10"
 
       - name: Install node dependencies with yarn
         env:
@@ -295,7 +295,7 @@ jobs:
 
       - name: Run Smoke Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: |
