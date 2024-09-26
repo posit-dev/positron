@@ -47,6 +47,7 @@
 
 .positron-modal-dialog-box .action-bar-button.destructive {
 	color: var(--vscode-positronModalDialog-buttonDestructiveForeground);
+	background-color: var(--vscode-positronModalDialog-buttonDestructiveBackground);
 }
 
 .positron-modal-dialog-box .action-bar-button:focus {
