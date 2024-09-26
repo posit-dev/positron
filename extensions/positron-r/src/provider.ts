@@ -28,6 +28,18 @@ export const R_DOCUMENT_SELECTORS = [
 ];
 
 /**
+ * Enum represents the source from which an R binary was discovered.
+ */
+enum BinarySource {
+	/* eslint-disable-next-line @typescript-eslint/naming-convention */
+	HQ = 'HQ',
+	adHoc = 'ad hoc locations',
+	registry = 'Windows registry',
+	/* eslint-disable-next-line @typescript-eslint/naming-convention */
+	PATH = 'PATH'
+}
+
+/**
  * Discovers R language runtimes for Positron; implements
  * positron.LanguageRuntimeDiscoverer.
  *
