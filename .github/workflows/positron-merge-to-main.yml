@@ -46,14 +46,6 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Convert Test Results to JUnit
-        if: always()
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-          which xmllint
-          /usr/bin/xmllint --version
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
@@ -139,7 +131,7 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel
 
-      - name: Convert XUnit XML to JUnit
+      - name: Convert XUnit to JUnit
         if: always()
         run: |
           sudo apt-get update

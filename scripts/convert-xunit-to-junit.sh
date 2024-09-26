@@ -34,14 +34,7 @@ echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 	}' >> "$JUNIT_FILE"
 
 	# Extract and add the <testcase> elements for this <testsuite>
-	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | awk '
-	{
-		gsub(/<testcase/, "<testcase");
-		gsub(/classname=/, "classname=");
-		gsub(/name=/, "name=");
-		gsub(/time=/, "time=");
-		print $0;
-	}' >> "$JUNIT_FILE"
+	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | sed 's/<testcase \(.*\)\/>/<testcase \1><\/testcase>/' >> "$JUNIT_FILE"
 
 	# Close the current <testsuite>
 	echo '</testsuite>' >> "$JUNIT_FILE"
