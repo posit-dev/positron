@@ -235,7 +235,7 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 			}
 		} else {
 			// No shell integration support, just run the command.
-			terminal.sendText(terminalOptions.commandLine);
+			terminal.sendText(terminalOptions.commandLine, true);
 
 			// TODO: If a port was provided, we could poll the server until it responds,
 			//       then open the URL in the viewer pane.

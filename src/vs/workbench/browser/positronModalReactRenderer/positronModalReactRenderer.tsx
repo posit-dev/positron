@@ -237,11 +237,16 @@ export class PositronModalReactRenderer extends Disposable {
 
 			// Create the overlay element in the container and the root element in the overlay
 			// element.
-			this._overlay = this._options.container.appendChild(DOM.$('.positron-modal-overlay'));
+			this._overlay = this._options.container.appendChild(
+				DOM.$('.positron-modal-overlay', { tabIndex: 0 })
+			);
 			this._root = createRoot(this._overlay);
 
 			// Render the ReactElement that was supplied.
 			this._root.render(reactElement);
+
+			// Drive focus into the overlay element.
+			this._overlay.focus();
 
 			// Push this renderer onto the renderers stack and bind event listeners.
 			PositronModalReactRenderer._renderersStack.add(this);

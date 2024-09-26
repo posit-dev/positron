@@ -139,28 +139,28 @@ jobs:
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
-      #      Remote integration tests currently disabled since licensing is required.
-      #      See https://github.com/posit-dev/positron/issues/3514 for details.
-      #
-      #      - name: Run Integration Tests (Remote)
-      #        id: electron-remote-integration-tests
-      #        timeout-minutes: 15
-      #        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-      #
-      #      - name: Run Integration Tests (Browser, Chromium)
-      #        id: browser-integration-tests
-      #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+      - name: Run Integration Tests (Remote)
+        id: electron-remote-integration-tests
+        timeout-minutes: 15
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+
+      - name: Run Integration Tests (Browser, Chromium)
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Check Python version
+        if: always()
         run: |
           python --version
           which python
           python -m pip --version
 
       - name: Setup Graphviz
+        if: always()
         uses: ts-graphviz/setup-graphviz@v2.0.2
 
       - name: Install python dependencies
+        if: always()
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
           python -m pip install --upgrade pip
@@ -168,6 +168,7 @@ jobs:
           python -m pip install ipykernel trcli
 
       - name: Run Smoke Tests (Electron)
+        if: always()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
@@ -175,6 +176,7 @@ jobs:
         run: DISPLAY=:10 yarn smoketest-no-compile --tracing
 
       - name: Run Web Smoke Tests
+        if: always()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
@@ -203,19 +205,25 @@ jobs:
         if: always()
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload run artifacts
+      - name: Upload run artifacts - electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
 
+      - name: Upload run artifacts - browser
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts
+          path: .build/logs/smoke-tests-browser/
 
   slack-notification:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: linux
-    if: ${{ failure() }}
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6

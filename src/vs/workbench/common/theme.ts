@@ -1294,12 +1294,20 @@ export const POSITRON_MODAL_DIALOG_DEFAULT_BUTTON_FOREGROUND = registerColor('po
 	hcLight: buttonForeground
 }, localize('positronModalDialog.defaultButtonForeground', "Positron modal dialog default button foreground color."));
 
+// Positron modal dialog button destructive background color.
+export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_BACKGROUND = registerColor('positronModalDialog.buttonDestructiveBackground', {
+	dark: buttonSecondaryBackground,
+	light: buttonSecondaryBackground,
+	hcDark: buttonSecondaryBackground,
+	hcLight: buttonSecondaryBackground
+}, localize('positronModalDialog.buttonDestructiveBackground', "Positron modal dialog button destructive background color."));
+
 // Positron modal dialog button destructive foreground color.
 export const POSITRON_MODAL_DIALOG_BUTTON_DESTRUCTIVE_FOREGROUND = registerColor('positronModalDialog.buttonDestructiveForeground', {
-	dark: errorForeground,
-	light: '#B30600',
-	hcDark: errorForeground,
-	hcLight: errorForeground
+	dark: buttonSecondaryForeground,
+	light: buttonSecondaryForeground,
+	hcDark: buttonSecondaryForeground,
+	hcLight: buttonSecondaryForeground
 }, localize('positronModalDialog.buttonDestructiveForeground', "Positron modal dialog button destructive foreground color."));
 
 // Positron modal dialog button disabled foreground color.

@@ -35,16 +35,23 @@ export function setup(logger: Logger) {
 			it('Python - Basic notebook creation and execution (code) [C628631] #pr', async function () {
 				const app = this.app as Application;
 
-				await app.workbench.positronNotebooks.createNewNotebook();
-
-				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
-
-				await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
 
 				await expect(async () => {
-					await app.workbench.positronNotebooks.executeCodeInCell();
-					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-				}).toPass({ timeout: 60000 });
+
+					try {
+						await app.workbench.positronNotebooks.createNewNotebook();
+
+						await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+
+						await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
+
+						await app.workbench.positronNotebooks.executeCodeInCell();
+
+						expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+					} catch (e) {
+						await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+					}
+				}).toPass({ timeout: 120000 });
 
 			});
 

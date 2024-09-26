@@ -226,6 +226,30 @@ def test_list_1000(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert variables[999].get("display_name") == "var999"
 
 
+def test_list_falls_back_on_variable_error(
+    shell: PositronShell, variables_comm: DummyComm, monkeypatch
+) -> None:
+    """
+    Should fall back to a basic variable summary if the inspector encounters an error (#4777).
+    """
+    shell.user_ns["x"] = 1
+
+    # Temporarily break the NumberInspector.
+    def NumberInspector(*args, **kwargs):
+        raise Exception()
+
+    from positron_ipykernel.inspectors import INSPECTOR_CLASSES
+
+    monkeypatch.setitem(INSPECTOR_CLASSES, "number", NumberInspector)
+
+    # Request the list of variables.
+    list_result = _do_list(variables_comm)
+
+    # Spot check the listed fallback variable.
+    assert list_result["length"] == len(list_result["variables"]) == 1
+    assert list_result["variables"][0].display_name == "x"
+
+
 def test_update_max_children_plus_one(
     shell: PositronShell, variables_comm: DummyComm, monkeypatch
 ) -> None:

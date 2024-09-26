@@ -792,6 +792,7 @@ def _summarize_variable(
             has_children=False,
             has_viewer=False,
             is_truncated=False,
+            updated_time=timestamp(),
         )
 
 
