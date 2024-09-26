@@ -194,8 +194,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
             # This is not great but currently the only information we have.
             is_plot = self._is_module_function("bokeh.io.showing", "show")
-            if os.name == "nt":
-                url = urlparse(url).netloc or urlparse(url).path
 
             return self._send_show_html_event(url, is_plot)
 
@@ -203,8 +201,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             if addr in url:
                 is_plot = self._is_module_function("plotly.basedatatypes", "show")
                 if is_plot:
-                    if os.name == "nt":
-                        url = urlparse(url).netloc or urlparse(url).path
                     return self._send_show_html_event(url, is_plot)
                 else:
                     event = ShowUrlParams(url=url)
@@ -215,7 +211,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
 
-    def _is_module_function(self, module_name: str, function_name: str) -> bool:
+    @staticmethod
+    def _is_module_function(module_name: str, function_name: str) -> bool:
         module = sys.modules.get(module_name)
         if module:
             for frame_info in inspect.stack():
@@ -231,6 +228,8 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False
+        if os.name == "nt":
+            url = urlparse(url).netloc or urlparse(url).path
         self._comm.send_event(
             name=UiFrontendEvent.ShowHtmlFile,
             payload=ShowHtmlFileParams(
