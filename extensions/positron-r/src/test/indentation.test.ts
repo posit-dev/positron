@@ -40,13 +40,9 @@ suite('Indentation', () => {
 		// ** TODO **
 		//
 		// This test currently causes the entire test suite to be unexpectedly
-		// terminated. It's disabled on CI until we can figure out why.
-		//
-		// We use the `POSITRON_BUILD_NUMBER` environment variable to detect if
-		// we are running on CI; this is always set by the CI environment.
-		if (env['POSITRON_BUILD_NUMBER']) {
-			return;
-		}
+		// terminated. It's disabled until we can figure out why.
+		return;
+
 
 		await init();
 

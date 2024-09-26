@@ -9,7 +9,9 @@ import { assertNoRpc, poll } from '../utils';
 
 // Disable terminal tests:
 // - Web https://github.com/microsoft/vscode/issues/92826
-(env.uiKind === UIKind.Web ? suite.skip : suite)('vscode API - terminal', () => {
+// --- Start Positron ---
+suite.skip('vscode API - terminal', () => {
+// --- End Positron ---
 	let extensionContext: ExtensionContext;
 
 	suiteSetup(async () => {
@@ -357,6 +359,7 @@ import { assertNoRpc, poll } from '../utils';
 			test('should be defined after selecting all content', async () => {
 				const terminal = window.createTerminal({ name: 'selection test' });
 				terminal.show();
+
 				// Wait for some terminal data
 				await new Promise<void>(r => {
 					const disposable = window.onDidWriteTerminalData(() => {

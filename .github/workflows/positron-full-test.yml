@@ -135,22 +135,18 @@ jobs:
         id: browser-unit-tests
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
-      # disabled due to test issues
-      # - name: Run Integration Tests (Electron)
-      #   id: electron-integration-tests
-      #  run: DISPLAY=:10 ./scripts/test-integration.sh
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+       run: DISPLAY=:10 ./scripts/test-integration.sh
 
-      #      Remote integration tests currently disabled since licensing is required.
-      #      See https://github.com/posit-dev/positron/issues/3514 for details.
-      #
-      #      - name: Run Integration Tests (Remote)
-      #        id: electron-remote-integration-tests
-      #        timeout-minutes: 15
-      #        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-      #
-      #      - name: Run Integration Tests (Browser, Chromium)
-      #        id: browser-integration-tests
-      #        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+      - name: Run Integration Tests (Remote)
+        id: electron-remote-integration-tests
+        timeout-minutes: 15
+        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+
+      - name: Run Integration Tests (Browser, Chromium)
+        id: browser-integration-tests
+        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
       - name: Check Python version
         if: always()
