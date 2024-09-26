@@ -42,7 +42,6 @@ export const TEST_SUITES = {
 	MAIN_2: 'Main-2',
 };
 
-
 export function parseOptions(): ParseOptions {
 	const args = process.argv.slice(2);
 
@@ -129,7 +128,7 @@ function parseQuality(): Quality {
 	}
 }
 
-export async function cloneRepository(workspacePath: string, opts: any): Promise<void> {
+export async function cloneTestRepository(workspacePath: string, opts: any): Promise<void> {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (opts['test-repo']) {

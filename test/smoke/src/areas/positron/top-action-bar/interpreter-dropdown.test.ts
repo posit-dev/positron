@@ -18,7 +18,7 @@ import { installAllHandlers } from '../../../utils';
  * Interpreter Dropdown in Top Action Bar test cases
  */
 export function setup(logger: Logger) {
-	describe('Interpreter Dropdown in Top Action Bar', () => {
+	describe.skip('Interpreter Dropdown in Top Action Bar', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 

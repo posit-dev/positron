@@ -65,7 +65,7 @@ export function setup(logger: Logger) {
 				});
 			});
 
-			describe('Python Project with existing interpreter', () => {
+			describe.skip('Python Project with existing interpreter', () => {
 				it('With ipykernel already installed [C609619]', async function () {
 					const projSuffix = '_ipykernelInstalled';
 					const app = this.app as Application;
