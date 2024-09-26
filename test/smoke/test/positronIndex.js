@@ -1,9 +1,8 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// --- Start Positron ---
 //@ts-check
 'use strict';
 
@@ -26,7 +25,6 @@ const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 
-
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
 	boolean: ['web', 'parallel',],
@@ -44,21 +42,22 @@ runMochaTests();
 /**
  * Configures environment variables based on parsed options.
  */
-function configureEnvVarsFromOptions(options) {
+function configureEnvVarsFromOptions(opts) {
+	// Set environment variables based on options
 	const envVars = {
-		BUILD: options['build'] || '',
-		HEADLESS: options['headless'] || '',
-		PARALLEL: options['parallel'] || '',
-		REMOTE: options['remote'] || '',
-		TRACING: options['tracing'] || '',
-		VERBOSE: options['verbose'] || '',
-		WEB: options['web'] || '',
-		SUITE_TITLE: options['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)',
+		BUILD: opts['build'] || '',
+		HEADLESS: opts['headless'] || '',
+		PARALLEL: opts['parallel'] || '',
+		REMOTE: opts['remote'] || '',
+		TRACING: opts['tracing'] || '',
+		VERBOSE: opts['verbose'] || '',
+		WEB: opts['web'] || '',
+		SUITE_TITLE: opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)',
 		EXTENSIONS_PATH: EXTENSIONS_PATH,
 		WORKSPACE_PATH: WORKSPACE_PATH,
 		TEST_DATA_PATH: TEST_DATA_PATH,
+		REPORT_PATH: REPORT_PATH,
 	};
-
 	Object.assign(process.env, envVars);
 }
 
@@ -107,36 +106,35 @@ function prepareTestDataDirectory() {
  * Clones or copies the test repository based on options.
  */
 function cloneTestRepo() {
-	const workspacePath = join(TEST_DATA_PATH, 'qa-example-content');
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (opts['test-repo']) {
 		console.log('Copying test project repository from:', opts['test-repo']);
 		// Remove the existing workspace path if the option is provided
-		rimraf.sync(workspacePath);
+		rimraf.sync(WORKSPACE_PATH);
 
 		// Copy the repository based on the platform (Windows vs. non-Windows)
 		if (process.platform === 'win32') {
-			cp.execSync(`xcopy /E "${opts['test-repo']}" "${workspacePath}\\*"`);
+			cp.execSync(`xcopy /E "${opts['test-repo']}" "${WORKSPACE_PATH}\\*"`);
 		} else {
-			cp.execSync(`cp -R "${opts['test-repo']}" "${workspacePath}"`);
+			cp.execSync(`cp -R "${opts['test-repo']}" "${WORKSPACE_PATH}"`);
 		}
 	} else {
 		// If no test-repo is specified, clone the repository if it doesn't exist
-		if (!fs.existsSync(workspacePath)) {
+		if (!fs.existsSync(WORKSPACE_PATH)) {
 			console.log('Cloning test project repository from:', testRepoUrl);
-			const res = cp.spawnSync('git', ['clone', testRepoUrl, workspacePath], { stdio: 'inherit' });
+			const res = cp.spawnSync('git', ['clone', testRepoUrl, WORKSPACE_PATH], { stdio: 'inherit' });
 
 			// Check if cloning failed by verifying if the workspacePath was created
-			if (!fs.existsSync(workspacePath)) {
+			if (!fs.existsSync(WORKSPACE_PATH)) {
 				throw new Error(`Clone operation failed: ${res.stderr?.toString()}`);
 			}
 		} else {
 			console.log('Cleaning and updating test project repository...');
 			// Fetch the latest changes, reset to the latest commit, and clean the repo
-			cp.spawnSync('git', ['fetch'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['reset', '--hard', 'FETCH_HEAD'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['clean', '-xdf'], { cwd: workspacePath, stdio: 'inherit' });
+			cp.spawnSync('git', ['fetch'], { cwd: WORKSPACE_PATH, stdio: 'inherit' });
+			cp.spawnSync('git', ['reset', '--hard', 'FETCH_HEAD'], { cwd: WORKSPACE_PATH, stdio: 'inherit' });
+			cp.spawnSync('git', ['clean', '-xdf'], { cwd: WORKSPACE_PATH, stdio: 'inherit' });
 		}
 	}
 }
@@ -146,8 +144,8 @@ function cloneTestRepo() {
  */
 async function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
-	// mocha.dryRun();
 	applyTestFilters(mocha);
+	// mocha.dryRun();
 
 	// Add test files to Mocha
 	const testDirPath = path.resolve('out/test-list');
@@ -157,7 +155,6 @@ async function runMochaTests() {
 			mocha.addFile(filePath);
 		}
 	});
-	mocha.addFile(path.join(testDirPath, 'welcome.js'));
 
 	try {
 		// Run Mocha tests and await completion
@@ -243,4 +240,3 @@ function handleError(message, error) {
 	console.error(`${message}:`, error);
 	process.exit(1);
 }
-// --- End Positron ---

@@ -59,13 +59,5 @@ case "$OSTYPE" in
 		sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
 		;;
 esac
-# if [ "$OSTYPE" = "darwin"* ]; then
-#     # macOS/BSD sed: use -i '' for in-place edits
-# 	echo "macOS"
-# 	sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
-# else
-#     # Linux/GNU sed: use -i without ''
-#     sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
-# fi
 
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
