@@ -506,7 +506,6 @@
           "title": "%r.command.executeSelectionInConsole.title%",
           "when": "editorLangId == r"
         },
-
         {
           "command": "r.rmarkdownRender",
           "group": "R",
@@ -625,8 +624,10 @@
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
     "web-tree-sitter": "^0.20.8",
-    "which": "^3.0.0",
-    "winreg": "^1.2.5"
+    "which": "^3.0.0"
+  },
+  "peerDependencies": {
+    "@vscode/windows-registry": "^1.0.0"
   },
   "repository": {
     "type": "git",
