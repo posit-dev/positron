@@ -182,7 +182,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         self.name = name
         self._comm = comm
 
-    def open(self, url, new=0, autoraise=True):
+    def open(self, url, new=0, autoraise=True) -> bool:
         if not self._comm:
             return False
 
@@ -197,17 +197,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
             if os.name == "nt":
                 url = urlparse(url).netloc or urlparse(url).path
 
-            return self._comm.send_event(
-                name=UiFrontendEvent.ShowHtmlFile,
-                payload=ShowHtmlFileParams(
-                    path=url,
-                    # Use the HTML file's title.
-                    title="",
-                    is_plot=is_plot,
-                    # No particular height is required.
-                    height=0,
-                ).dict(),
-            )
+            return self._send_show_html_event(url, is_plot)
 
         for addr in _localhosts:
             if addr in url:
@@ -215,8 +205,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 if is_plot:
                     if os.name == "nt":
                         url = urlparse(url).netloc or urlparse(url).path
-                    event = ShowUrlParams(url=url)
-                    self._send_show_html_event(url, is_plot)
+                    return self._send_show_html_event(url, is_plot)
                 else:
                     event = ShowUrlParams(url=url)
                     self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
@@ -226,7 +215,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
 
-    def _is_module_function(self, module_name, function_name):
+    def _is_module_function(self, module_name: str, function_name: str) -> bool:
         module = sys.modules.get(module_name)
         if module:
             for frame_info in inspect.stack():
@@ -238,8 +227,9 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
 
-    def _send_show_html_event(self, url, is_plot):
+    def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
         if self._comm is None:
+            logger.warning("No comm available to send ShowHtmlFile event")
             return False
         self._comm.send_event(
             name=UiFrontendEvent.ShowHtmlFile,

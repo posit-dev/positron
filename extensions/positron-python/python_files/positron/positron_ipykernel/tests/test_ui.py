@@ -240,3 +240,33 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 
     assert len(ui_comm.messages) == 1
     assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
+
+
+def test_plotly_show_sends_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
+    """
+    Test that showing a Plotly plot sends the expected UI events.
+    """
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+# override default renderer as is done in manager.ts with setting PLOTLY_RENDERER
+import plotly.io as pio
+pio.renderers.default = "browser"
+
+import plotly.express as px
+
+fig = px.bar(x=["a", "b", "c"], y=[1, 3, 2])
+fig.show()
+"""
+    )
+    assert len(ui_comm.messages) == 1
+    params = ui_comm.messages[0]["data"]["params"]
+    assert params["title"] == ""
+    assert params["is_plot"]
+    assert params["height"] == 0
