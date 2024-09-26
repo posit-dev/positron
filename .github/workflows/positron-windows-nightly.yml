@@ -27,7 +27,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10.10"
@@ -102,10 +102,14 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: |
-          cd test\smoke
-          node test/index.js --tracing
+        run: yarn smoketest-web --tracing
 
+      - name: Upload run artifacts - electron
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts-electron
+          path: .build/logs/smoke-tests-electron/
 
   # slack-notification:
   #   name: "Send Slack notification"
