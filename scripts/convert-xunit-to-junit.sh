@@ -1,8 +1,17 @@
 #!/bin/bash
 
-# Input and output file paths
-XUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
-JUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/results.xml"
+# Check if a directory name was passed as a parameter
+if [ -z "$1" ]; then
+	echo "No directory specified. Usage: sh ./scripts/convert-xunit-to-junit.sh <directory>"
+	exit 1
+fi
+
+# Assign the directory parameter
+DIR_NAME="$1"
+
+# Input and output file paths, dynamically using the specified directory
+XUNIT_FILE="./.build/logs/$DIR_NAME/test-results/xunit-results.xml"
+JUNIT_FILE="./.build/logs/$DIR_NAME/test-results/results.xml"
 
 # Create the output directory if it doesn't exist
 OUTPUT_DIR=$(dirname "$JUNIT_FILE")
