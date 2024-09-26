@@ -47,12 +47,12 @@ enum BinarySource {
  */
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	let rInstallations: Array<RInstallation> = [];
-	const binaries = new Set<string>();
+	const binaries = new Map<string, BinarySource>();
 
 	// look for R executables in the well-known place(s) for R installations on this OS
 	const hqBinaries = discoverHQBinaries();
 	for (const b of hqBinaries) {
-		binaries.add(b);
+		binaries.set(b, BinarySource.HQ);
 	}
 
 	// other places we might find an R binary
@@ -66,12 +66,14 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b));
 	for (const b of moreBinaries) {
-		binaries.add(b);
+		if (!binaries.has(b)) {
+			binaries.set(b, BinarySource.adHoc);
+		}
 	}
 
 	const pathBinary = await findRBinaryFromPATH();
-	if (pathBinary) {
-		binaries.add(pathBinary);
+	if (pathBinary && !binaries.has(pathBinary)) {
+		binaries.set(pathBinary, BinarySource.PATH);
 	}
 
 	// make sure we include the "current" version of R, for some definition of "current"
@@ -83,8 +85,8 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		binaries.delete(curBin);
 	}
 
-	binaries.forEach((b: string) => {
-		rInstallations.push(new RInstallation(b));
+	binaries.forEach((source, bin) => {
+		rInstallations.push(new RInstallation(bin));
 	});
 
 	// TODO: possible location to tell the user why certain R installations are being omitted from
