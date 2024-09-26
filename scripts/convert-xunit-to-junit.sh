@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Input and output file paths
-XUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
+XUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/xunit-results-failed-skipped.xml"
 JUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/results.xml"
 
 # Create the output directory if it doesn't exist
@@ -48,7 +48,12 @@ done
 # Close the <testsuites> block
 echo '</testsuites>' >> "$JUNIT_FILE"
 
-# Find and replace <skipped></testcase> with <skipped />
-sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
+# Slightly hacky: find and replace <skipped></testcase> with <skipped />
+if [[ "$OSTYPE" == "darwin"* ]]; then
+	sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
+else
+    # Linux/GNU sed: use -i without ''
+    sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+fi
 
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
