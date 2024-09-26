@@ -275,16 +275,15 @@ class ProjectWizardPythonConfigurationStep {
 		}
 
 		// Find the dropdown item with the interpreterPath.
-		const dropdownItem = await this.code.driver
+		const dropdownItem = this.code.driver
 			.getLocator(
 				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 			)
 			.getByText(interpreterPath);
 
 		// There should be one dropdown item with the interpreterPath.
-		const count = await dropdownItem.count();
-		if (count !== 1) {
-			// Close the interpreter dropdown,
+		if ((await dropdownItem.count()) !== 1) {
+			// Close the interpreter dropdown.
 			await this.code.driver.getKeyboard().press('Escape');
 
 			// Fail the test.
