@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setupDataExplorer100x100Test } from '../areas/positron/dataexplorer/data-explorer-100x100.test';
 
 const fileName = basename(__filename);

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupConnectionsTest } from '../areas/positron/connections/dbConnections.test';
 
 const fileName = basename(__filename);

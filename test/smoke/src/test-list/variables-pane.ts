@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupVariablesTest } from '../areas/positron/variables/variablespane.test';
 
 const fileName = basename(__filename);

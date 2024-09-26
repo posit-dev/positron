@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupRConsoleTest } from '../areas/positron/console/r-console.test';
 
 const fileName = basename(__filename);

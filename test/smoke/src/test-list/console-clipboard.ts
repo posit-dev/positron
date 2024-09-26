@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks, } from './setupUtils';
+import { setupEnvAndHooks, } from './_setup-utils';
 import { setup as setupClipboardTest } from '../areas/positron/console/consoleClipboard.test';
 
 const fileName = basename(__filename);

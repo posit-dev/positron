@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupTopActionBarTest } from '../areas/positron/top-action-bar/top-action-bar.test';
 
 const fileName = basename(__filename);

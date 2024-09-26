@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupConsoleOutputLogTest } from '../areas/positron/output/consoleOutputLog.test';
 
 const fileName = basename(__filename);

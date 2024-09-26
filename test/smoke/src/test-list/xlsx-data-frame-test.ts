@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupXLSXDataFrameTest } from '../areas/positron/dataexplorer/xlsxDataFrame.test';
 
 const fileName = basename(__filename);

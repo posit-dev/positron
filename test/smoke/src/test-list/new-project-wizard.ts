@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupNewProjectWizardTest } from '../areas/positron/new-project-wizard/new-project.test';
 
 const fileName = basename(__filename);

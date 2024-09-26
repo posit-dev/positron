@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupFastExecutionTest } from '../areas/positron/editor/fast-execution.test';
 
 const fileName = basename(__filename);

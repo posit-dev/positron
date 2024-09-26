@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupBasicRMarkdownTest } from '../areas/positron/rmarkdown/rmarkdown.test';
 
 const fileName = basename(__filename);

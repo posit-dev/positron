@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-import { setupEnvAndHooks } from './setupUtils';
+import { setupEnvAndHooks } from './_setup-utils';
 import { setup as setupRPKgDevelopment } from '../areas/positron/r-pkg-development/r-pkg-development.test';
 
 const fileName = basename(__filename);
