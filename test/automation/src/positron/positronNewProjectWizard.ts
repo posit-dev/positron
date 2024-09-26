@@ -253,6 +253,14 @@ class ProjectWizardPythonConfigurationStep {
 		// Try to find the interpreterPath in the dropdown and click the entry if found
 		try {
 			await this.code.waitForElement(PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS);
+		} catch (error) {
+			throw new Error(
+				`Wait for element ${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} failed: ${error}`
+			);
+		}
+
+		// Try to find the interpreterPath in the dropdown and click the entry if found
+		try {
 			await this.code.driver
 				.getLocator(
 					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
