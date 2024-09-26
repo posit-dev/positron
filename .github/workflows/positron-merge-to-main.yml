@@ -132,6 +132,7 @@ jobs:
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 2
 
       - name: Convert XUnit to JUnit
+        id: xunit-to-junit
         if: always()
         run: |
           sudo apt-get update

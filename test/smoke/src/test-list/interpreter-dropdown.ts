@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { basename } from 'path';
-
 import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupInterpreterDropdownTest } from '../areas/positron/top-action-bar/interpreter-dropdown.test';
 

@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { basename } from 'path';
 import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupLargeDataFrameTest } from '../areas/positron/dataexplorer/largeDataFrame.test';

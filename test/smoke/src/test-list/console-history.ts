@@ -7,7 +7,6 @@ import { basename } from 'path';
 import { setupEnvAndHooks } from './setupUtils';
 import { setup as setupConsoleHistoryTest } from '../areas/positron/console/consoleHistory.test';
 
-
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
 

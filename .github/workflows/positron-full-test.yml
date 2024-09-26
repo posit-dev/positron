@@ -188,6 +188,7 @@ jobs:
         run: DISPLAY=:10 yarn smoketest-web --tracing --parallel --jobs 2
 
       - name: Convert XUnit to JUnit
+        id: xunit-to-junit
         if: always()
         run: |
           sudo apt-get update
