@@ -266,13 +266,9 @@ class ProjectWizardPythonConfigurationStep {
 			.getLocator(
 				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 			).all();
-		let subtitles = '';
-		for (let i = 0; i < dropdownEntrySubtitleLocators.length; i++) {
-			if (i) {
-				subtitles += ',';
-			}
-			subtitles += await dropdownEntrySubtitleLocators[i].innerText();
-		}
+		const dropdownEntrySubtitles = dropdownEntrySubtitleLocators.map
+			(async (locator) => await locator.innerText());
+		const subtitles = (await Promise.all(dropdownEntrySubtitles)).join(', ');
 
 		// Find the dropdown item with the interpreterPath.
 		const dropdownItem = this.code.driver
