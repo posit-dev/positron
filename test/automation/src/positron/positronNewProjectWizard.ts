@@ -259,6 +259,19 @@ class ProjectWizardPythonConfigurationStep {
 			);
 		}
 
+		const subtitleLocators = await this.code.driver
+			.getLocator(
+				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
+			).all();
+
+		let subtitles = '';
+		for (let i = 0; i < subtitleLocators.length; i++) {
+			if (i) {
+				subtitles += ',';
+			}
+			subtitles += await subtitleLocators[i].innerText();
+		}
+
 		// Try to find the interpreterPath in the dropdown and click the entry if found
 		try {
 			await this.code.driver
@@ -270,7 +283,7 @@ class ProjectWizardPythonConfigurationStep {
 			return;
 		} catch (error) {
 			throw new Error(
-				`Could not find interpreter path (${interpreterPath}) in project wizard dropdown: ${error}`
+				`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown: ${error}`
 			);
 		}
 	}
