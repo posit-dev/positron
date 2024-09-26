@@ -177,7 +177,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel
+        run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel --jobs 2
 
       - name: Run Web Smoke Tests
         if: always()
@@ -185,7 +185,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-web-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-web --tracing --parallel
+        run: DISPLAY=:10 yarn smoketest-web --tracing --parallel --jobs 2
 
       - name: Convert XUnit to JUnit
         if: always()

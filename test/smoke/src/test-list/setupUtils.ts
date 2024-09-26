@@ -6,17 +6,14 @@
 import * as fs from 'fs';
 import * as cp from 'child_process';
 import * as path from 'path';
-import * as os from 'os';
 import * as rimraf from 'rimraf';
 import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
-// console.log('@@@', require('path').resolve(__dirname, '../../automation/out'));
+
 import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation';
 import fetch from 'node-fetch';
-
 import minimist = require('minimist');
 import { retry } from '../utils';
-// console.log('****', require('path').resolve(__dirname, '../../automation/out'));
 
 export type ParseOptions = {
 	verbose?: boolean;
@@ -33,17 +30,13 @@ export type ParseOptions = {
 
 let quality: Quality;
 let version: string | undefined;
-export const rootPath = path.join(__dirname, '..', '..', '..');
-export const testDataPath = path.join(os.tmpdir(), 'vscsmoke');
-const workspacePath = path.join(testDataPath, 'qa-example-content');
-const extensionsPath = path.join(testDataPath, 'extensions-dir');
+
+export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
+const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
+const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
+const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
+
 export const opts = parseOptions();
-export const DESCRIBE_TITLE = `Smoke Tests (${opts.web ? 'Web' : 'Electron'})`;
-export const TEST_SUITES = {
-	MAIN_0: 'Main-0',
-	MAIN_1: 'Main-1',
-	MAIN_2: 'Main-2',
-};
 
 export function parseOptions(): ParseOptions {
 	const args = process.argv.slice(2);
@@ -201,7 +194,7 @@ export async function ensureStableCode(testDataPath: string, logger: Logger, opt
 }
 
 export function setupEnvAndHooks(suiteName: string): Logger {
-	const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron', suiteName);
+	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
 	const logger = createLogger(logsRootPath);
 
 	setupSmokeTestEnvironment(logger);
@@ -225,7 +218,7 @@ export function setupSmokeTestEnvironment(logger: Logger) {
 		} else {
 			testCodePath = getDevElectronPath();
 			electronPath = testCodePath;
-			process.env.VSCODE_REPOSITORY = rootPath;
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
 			process.env.VSCODE_DEV = '1';
 			process.env.VSCODE_CLI = '1';
 		}
@@ -260,7 +253,7 @@ export function setupSmokeTestEnvironment(logger: Logger) {
 		}
 
 		if (!testCodeServerPath) {
-			process.env.VSCODE_REPOSITORY = rootPath;
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
 			process.env.VSCODE_DEV = '1';
 			process.env.VSCODE_CLI = '1';
 
@@ -279,18 +272,18 @@ export function setupBeforeHooks(logger: Logger, suiteName: string) {
 
 		if (!opts.web && !opts.remote && opts.build) {
 			// Only enabled when running with --build and not in web or remote
-			await measureAndLog(() => ensureStableCode(testDataPath, logger, opts), 'ensureStableCode', logger);
+			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, opts), 'ensureStableCode', logger);
 		}
 
 		// Set default options
-		const logsRootPath = path.join(rootPath, '.build', 'logs', 'smoke-tests-electron', suiteName);
-		const crashesRootPath = path.join(rootPath, '.build', 'crashes', 'smoke-tests-electron', suiteName);
+		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
+		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', 'smoke-tests-electron', suiteName);
 		this.defaultOptions = {
 			quality,
 			codePath: opts.build,
-			workspacePath,
-			userDataDir: path.join(testDataPath, 'd'),
-			extensionsPath,
+			workspacePath: WORKSPACE_PATH,
+			userDataDir: path.join(TEST_DATA_PATH, 'd'),
+			extensionsPath: EXTENSIONS_PATH,
 			logger,
 			logsPath: path.join(logsRootPath, 'suite_unknown'),
 			crashesPath: path.join(crashesRootPath, 'suite_unknown'),
