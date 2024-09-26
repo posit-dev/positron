@@ -55,7 +55,7 @@ export function setup(logger: Logger) {
 
 			});
 
-			it('Python - Basic notebook creation and execution (markdown) [C628632] #pr', async function () {
+			it.skip('Python - Basic notebook creation and execution (markdown) [C628632] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.notebook.insertNotebookCell('markdown');

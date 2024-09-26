@@ -48,4 +48,7 @@ done
 # Close the <testsuites> block
 echo '</testsuites>' >> "$JUNIT_FILE"
 
+# Find and replace <skipped></testcase> with <skipped />
+sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
+
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
