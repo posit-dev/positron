@@ -14,7 +14,11 @@ const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
 const { cloneTestRepository, testDataPath } = require('../out/setupUtils');
-const { retry } = require('../out/utils');
+
+// Constants
+const REPORT_PATH = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
+const TIMEOUT_MS = 2 * 60 * 1000;  // 2 minutes
+const SLOW_MS = 30 * 1000;         // 30 seconds
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
@@ -22,50 +26,53 @@ const opts = minimist(process.argv.slice(2), {
 	string: ['f', 'g']
 });
 
-// During parallel runs, need to globally set environment variables for each process. See
-// parseOptions() in test/smoke/setupUtils.ts for usage. Must define here and use in setupUtils.ts.
-process.env.BUILD = opts['build'] || '';
-process.env.HEADLESS = opts['headless'] || '';
-process.env.PARALLEL = opts['parallel'] || '';
-process.env.REMOTE = opts['remote'] || '';
-process.env.TRACING = opts['tracing'] || '';
-process.env.VERBOSE = opts['verbose'] || '';
-process.env.WEB = opts['web'] || '';
-process.env.SUITE_TITLE = opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)';
+// Set environment variables based on options
+configureEnvVarsFromOptions(opts);
 
-const mochaOptions = getMochaOptions(opts);
-const mocha = new Mocha(mochaOptions);
-// mocha.dryRun();
-
-applyTestFilters(mocha);
-prepareTestDataDirectory(testDataPath);
-runTests();
+// Main execution flow
+prepareTestDataDirectory();
+cloneTestRepo();
+runMochaTests();
 
 /**
- * Configure and return Mocha options.
+ * Configures environment variables based on parsed options.
+ */
+function configureEnvVarsFromOptions(options) {
+	const envVars = {
+		BUILD: options['build'] || '',
+		HEADLESS: options['headless'] || '',
+		PARALLEL: options['parallel'] || '',
+		REMOTE: options['remote'] || '',
+		TRACING: options['tracing'] || '',
+		VERBOSE: options['verbose'] || '',
+		WEB: options['web'] || '',
+		SUITE_TITLE: options['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)',
+	};
+
+	Object.assign(process.env, envVars);
+}
+
+/**
+ * Returns the Mocha options based on the parsed arguments.
  */
 function getMochaOptions(opts) {
-	const reportPath = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
-	const mochaOptions = {
+	return {
 		color: true,
-		timeout: 2 * 60 * 1000, // 2 minutes
-		slow: 30 * 1000,        // 30 seconds
+		timeout: TIMEOUT_MS,
+		slow: SLOW_MS,
 		grep: opts['f'] || opts['g'],
 		parallel: opts['parallel'],
 		reporter: 'mocha-multi',
 		reporterOptions: {
 			spec: '-',  // Console output
-			xunit: reportPath,
+			xunit: REPORT_PATH,
 		},
 		retries: 1,
 	};
-
-
-	return mochaOptions;
 }
 
 /**
- * Apply test filtering based on environment variables after Mocha initialization.
+ * Applies test filters based on environment variables.
  */
 function applyTestFilters(mocha) {
 	if (process.env.TEST_FILTER) {
@@ -76,9 +83,9 @@ function applyTestFilters(mocha) {
 }
 
 /**
- * Clean up and recreate the test data directory.
+ * Cleans and prepares the test data directory.
  */
-function prepareTestDataDirectory(testDataPath) {
+function prepareTestDataDirectory() {
 	if (fs.existsSync(testDataPath)) {
 		rimraf.sync(testDataPath);
 	}
@@ -86,13 +93,13 @@ function prepareTestDataDirectory(testDataPath) {
 }
 
 /**
- * Clone the test repo and run Mocha tests.
+ * Clones the test repository if it does not exist.
  */
-function runTests() {
+function cloneTestRepo() {
 	const workspacePath = join(testDataPath, 'qa-example-content');
+
 	if (!fs.existsSync(workspacePath)) {
 		cloneTestRepository(workspacePath, opts)
-			.then(() => runMochaTests())
 			.catch(err => handleError('Failed to clone test repo', err));
 	} else {
 		console.log('Repository already exists. Skipping clone.');
@@ -100,45 +107,50 @@ function runTests() {
 }
 
 /**
- * Run the Mocha tests and handle results.
+ * Runs the Mocha tests with the provided options and performs cleanup.
  */
 async function runMochaTests() {
+	const mocha = new Mocha(getMochaOptions(opts));
+	applyTestFilters(mocha);
+
+	// Add test files
 	mocha.addFile('out/main0.js');
 	mocha.addFile('out/main1.js');
 	mocha.addFile('out/main2.js');
 
-
 	try {
-		const failures = await runMocha();
-		handleTestResults(failures);
+		// Run Mocha tests and await completion
+		const failures = await new Promise((resolve, reject) => {
+			const runner = mocha.run(failures => resolve(failures));
+
+			// Cleanup after tests finish
+			runner.on('end', async () => {
+				try {
+					await cleanupTestData(testDataPath);
+					console.log('Test data cleaned up successfully.');
+				} catch (error) {
+					handleError('Error during cleanup', error);
+				}
+			});
+		});
+
+		// Handle test results
+		if (failures) {
+			console.log(getFailureLogs());
+			process.exit(1);
+		} else {
+			console.log('All tests passed.');
+			process.exit(0);
+		}
 	} catch (error) {
 		handleError('Error running Mocha tests', error);
 	}
 }
 
 /**
- * Run Mocha tests wrapped in a Promise for async support.
+ * Cleans up the test data directory after tests are complete.
  */
-function runMocha() {
-	return new Promise((resolve, reject) => {
-		const runner = mocha.run(failures => resolve(failures));
-
-		// Cleanup after tests finish
-		runner.on('end', async () => {
-			try {
-				await cleanupTestData(testDataPath);
-				process.exit(0);
-			} catch (error) {
-				handleError('Error during cleanup', error);
-			}
-		});
-	});
-}
-
-/**
- * Clean up the test data directory after tests complete.
- */
-async function cleanupTestData(testDataPath) {
+function cleanupTestData(testDataPath) {
 	return new Promise((resolve, reject) => {
 		rimraf(testDataPath, { maxBusyTries: 10 }, error => {
 			if (error) {
@@ -151,20 +163,7 @@ async function cleanupTestData(testDataPath) {
 }
 
 /**
- * Handle test results and exit appropriately.
- */
-function handleTestResults(failures) {
-	if (failures) {
-		console.log(getFailureLogs());
-		process.exit(1);
-	} else {
-		console.log('All tests passed.');
-		process.exit(0);
-	}
-}
-
-/**
- * Return formatted log messages in case of failures.
+ * Returns formatted failure log messages.
  */
 function getFailureLogs() {
 	const rootPath = join(__dirname, '..', '..', '..');
