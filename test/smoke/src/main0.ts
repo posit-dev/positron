@@ -18,10 +18,10 @@ const web = process.env.WEB;
 setupBeforeAfterHooks(logger, suite);
 
 describe(`${process.env.SUITE_TITLE}`, () => {
-	if (!web) { setupDataExplorer100x100Test(logger); }
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
-	if (!web) { setupPlotsTest(logger); }
 	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
+	if (!web) { setupDataExplorer100x100Test(logger); }
+	if (!web) { setupPlotsTest(logger); }
 });
