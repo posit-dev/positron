@@ -123,17 +123,14 @@ class HelpService:
         except ImportError:
             pass
 
-        print(f"[help.py show_help()] result: {result}")
-
         if result is None:
             # We could not resolve to an object, try to get help for the request as a string.
             key = request
-            print(f"[help.py show_help()] key: {key}")
         else:
             # We resolved to an object.
             obj = result[0]
             key = get_qualname(obj)
-            print(f"[help.py show_help()] result exists. key: {key}")
+
             # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
             # names that are known to work.
             for old, new in self._QUALNAME_OVERRIDES.items():
@@ -143,7 +140,6 @@ class HelpService:
 
         url = f"{self._pydoc_thread.url}get?key={key}"
 
-        print(f"[help.py show_help()] url: {url}")
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:

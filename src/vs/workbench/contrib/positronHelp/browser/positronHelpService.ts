@@ -664,9 +664,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Open the help view.
 		await this._viewsService.openView(POSITRON_HELP_VIEW_ID, false);
 
-		console.log(`[positronHelpService] sourceUrl`, sourceUrl);
-		console.log(`[positronHelpService] targetUrl`, targetUrl);
-
 		// Create the help entry.
 		const helpEntry = this._instantiationService.createInstance(HelpEntry,
 			this._helpHTML,

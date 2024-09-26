@@ -44,7 +44,6 @@ export class MainThreadWindow implements MainThreadWindowShape {
 
 	async $openUri(uriComponents: UriComponents, uriString: string | undefined, options: IOpenUriOptions): Promise<boolean> {
 		const uri = URI.from(uriComponents);
-		console.log('MainThreadWindow#$openUri', uri, uriString, options);
 		let target: URI | string;
 		if (uriString && URI.parse(uriString).toString() === uri.toString()) {
 			// called with string and no transformation happened -> keep string
@@ -61,7 +60,6 @@ export class MainThreadWindow implements MainThreadWindowShape {
 	}
 
 	async $asExternalUri(uriComponents: UriComponents, options: IOpenUriOptions): Promise<UriComponents> {
-		console.log('MainThreadWindow#$asExternalUri', uriComponents, options);
 		const result = await this.openerService.resolveExternalUri(URI.revive(uriComponents), options);
 		return result.resolved;
 	}
