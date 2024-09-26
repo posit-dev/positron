@@ -209,14 +209,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: run-artifacts
+          name: run-artifacts-electron
           path: .build/logs/smoke-tests-electron/
 
       - name: Upload run artifacts - browser
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: run-artifacts
+          name: run-artifacts-browser
           path: .build/logs/smoke-tests-browser/
 
   slack-notification:
