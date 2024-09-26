@@ -118,10 +118,9 @@ jobs:
         id: nodejs-unit-tests
         run: yarn test-node
 
-      # disabled due to test issues
-      # - name: Run Integration Tests (Electron)
-      #   id: electron-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      - name: Run Integration Tests (Electron)
+        id: electron-integration-tests
+        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
         if: always()
