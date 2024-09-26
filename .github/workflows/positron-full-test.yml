@@ -217,23 +217,30 @@ jobs:
         if: always()
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload run artifacts
+      - name: Upload run artifacts - electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: run-artifacts
           path: .build/logs/smoke-tests-electron/
 
-  # slack-notification:
-  #   name: "Send Slack notification"
-  #   runs-on: ubuntu-latest
-  #   needs: linux
-  #   if: ${{ failure() && github.ref == 'refs/heads/main' }}
-  #   steps:
-  #     - name: "Send Slack notification"
-  #       uses: testlabauto/action-test-results-to-slack@v0.0.6
-  #       with:
-  #         github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-  #         slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-  #         slack_channel: C07FR1JNZNJ #positron-test-results channel
-  #         suite_name: Positron Full Test Suite
+      - name: Upload run artifacts - browser
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts
+          path: .build/logs/smoke-tests-browser/
+
+  slack-notification:
+    name: "Send Slack notification"
+    runs-on: ubuntu-latest
+    needs: linux
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: "Send Slack notification"
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: C07FR1JNZNJ #positron-test-results channel
+          suite_name: Positron Full Test Suite
