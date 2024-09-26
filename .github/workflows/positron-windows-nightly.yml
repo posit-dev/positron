@@ -102,7 +102,9 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: yarn smoketest-web --tracing
+        run: |
+          cd test\smoke
+          node test/index.js --tracing
 
       - name: Upload run artifacts - electron
         if: always()
