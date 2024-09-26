@@ -13,7 +13,7 @@ const minimist = require('minimist');
 const rimraf = require('rimraf');
 const fs = require('fs');
 const mkdirp = require('mkdirp');
-const { cloneRepository, testDataPath } = require('../out/setupUtils');
+const { cloneTestRepository, testDataPath } = require('../out/setupUtils');
 const { retry } = require('../out/utils');
 
 // Parse command-line arguments
@@ -91,7 +91,7 @@ function prepareTestDataDirectory(testDataPath) {
 function runTests() {
 	const workspacePath = join(testDataPath, 'qa-example-content');
 	if (!fs.existsSync(workspacePath)) {
-		cloneRepository(workspacePath, opts)
+		cloneTestRepository(workspacePath, opts)
 			.then(() => runMochaTests())
 			.catch(err => handleError('Failed to clone test repo', err));
 	} else {
