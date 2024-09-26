@@ -248,7 +248,7 @@ jobs:
         # see https://github.com/posit-dev/positron/issues/3481
         run: |
           corepack enable
-          yarn --network-timeout 120000
+          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
