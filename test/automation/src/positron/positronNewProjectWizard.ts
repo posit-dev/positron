@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { expect } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
@@ -247,7 +248,7 @@ class ProjectWizardPythonConfigurationStep {
 			);
 		}
 
-		// Open the dropdowns
+		// Open the interpreter dropdown.
 		await this.interpreterDropdown.click();
 
 		// Try to find the interpreterPath in the dropdown and click the entry if found
@@ -259,33 +260,39 @@ class ProjectWizardPythonConfigurationStep {
 			);
 		}
 
-		const subtitleLocators = await this.code.driver
+		// Get all the dropdown entry subtitles and build a comma-separated string of them for
+		// logging purposes.
+		const dropdownEntrySubtitleLocators = await this.code.driver
 			.getLocator(
 				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
 			).all();
-
 		let subtitles = '';
-		for (let i = 0; i < subtitleLocators.length; i++) {
+		for (let i = 0; i < dropdownEntrySubtitleLocators.length; i++) {
 			if (i) {
 				subtitles += ',';
 			}
-			subtitles += await subtitleLocators[i].innerText();
+			subtitles += await dropdownEntrySubtitleLocators[i].innerText();
 		}
 
-		// Try to find the interpreterPath in the dropdown and click the entry if found
-		try {
-			await this.code.driver
-				.getLocator(
-					`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
-				)
-				.getByText(interpreterPath, { exact: true })
-				.click();
-			return;
-		} catch (error) {
-			throw new Error(
-				`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown: ${error}`
-			);
+		// Find the dropdown item with the interpreterPath.
+		const dropdownItem = await this.code.driver
+			.getLocator(
+				`${PROJECT_WIZARD_DROPDOWN_POPUP_ITEMS} div.dropdown-entry-subtitle`
+			)
+			.getByText(interpreterPath);
+
+		// There should be one dropdown item with the interpreterPath.
+		const count = await dropdownItem.count();
+		if (count !== 1) {
+			// Close the interpreter dropdown,
+			await this.code.driver.getKeyboard().press('Escape');
+
+			// Fail the test.
+			fail(`Could not find interpreter path ("${interpreterPath}") in ("${subtitles}") project wizard dropdown`);
 		}
+
+		// Click the interpreter.
+		await dropdownItem.click();
 	}
 }
 
