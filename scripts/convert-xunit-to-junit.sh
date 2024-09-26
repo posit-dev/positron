@@ -37,7 +37,7 @@ echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 	fi
 
 	# Extract and add the <testcase> elements for this <testsuite>
-	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | sed 's/<testcase \(.*\)\/>/<testcase \1><\/testcase>/' >> "$JUNIT_FILE"
+	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | sed 's#<testcase \(.*\)\/>#<testcase \1></testcase>#' >> "$JUNIT_FILE"
 
 	# Close the <testsuite> tag only if there was an opening <testsuite> tag
 	if echo "$testsuite" | grep -q "</testsuite>"; then
@@ -48,12 +48,24 @@ done
 # Close the <testsuites> block
 echo '</testsuites>' >> "$JUNIT_FILE"
 
-# Slightly hacky: find and replace <skipped></testcase> with <skipped />
-if [[ "$OSTYPE" == "darwin"* ]]; then
-	sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
-else
-	# Linux/GNU sed: use -i without ''
-	sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
-fi
+# Detect if running on macOS (BSD) or Linux and adjust sed accordingly
+case "$OSTYPE" in
+    darwin*)
+        # macOS/BSD sed: use -i '' for in-place edits
+        sed -i '' -e 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+        ;;
+    *)
+        # Linux/GNU sed: use -i without ''
+        sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+        ;;
+esac
+# if [ "$OSTYPE" = "darwin"* ]; then
+#     # macOS/BSD sed: use -i '' for in-place edits
+# 	echo "macOS"
+# 	sed -i '' 's/<skipped><\/testcase>/<skipped \/>/g' "$JUNIT_FILE"
+# else
+#     # Linux/GNU sed: use -i without ''
+#     sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+# fi
 
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
