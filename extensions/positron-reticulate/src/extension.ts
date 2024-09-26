@@ -85,7 +85,10 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 			// When an error happens trying to create a session, we'll create a notification
 			// to show the error to the user.
 			// Initialization only requires a message.
-			const error = err as InitializationError;
+			let error = err;
+			if (!(err instanceof InitializationError)) {
+				error = new InitializationError(err.message);
+			}
 			error.showAsNotification();
 			throw err;
 		}
@@ -201,8 +204,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			);
 
 			if (install_reticulate) {
-				if (!await rSession.callMethod?.('install_reticulate')) {
-					throw new InitializationError('Failed to install/update the reticulate package.');
+				try {
+					await rSession.callMethod?.('install_packages', 'reticulate');
+				} catch (err: any) {
+					throw new InitializationError(`Failed to install/update the reticulate package: ${err}`);
 				}
 			}
 
@@ -502,9 +507,13 @@ async function getRSession(): Promise<positron.LanguageRuntimeSession> {
 		try {
 			session = await getRSession_();
 		}
-		catch (err) {
-			console.warn(`Could not find an R session .Retrying(${i} / ${maxRetries}): ${err} `);
+		catch (err: any) {
 			error = err; // Keep the last error so we can display it
+			if (err.user_cancelled) {
+				console.info(`User requested to cancel R initialization`);
+				break;
+			}
+			console.warn(`Could not find an R session .Retrying(${i} / ${maxRetries}): ${err} `);
 		}
 	}
 
@@ -515,16 +524,50 @@ async function getRSession(): Promise<positron.LanguageRuntimeSession> {
 	return session;
 }
 
+class RSessionError extends Error {
+	constructor(readonly message: string, readonly user_cancelled: boolean = false) {
+		super(message);
+	}
+}
+
 async function getRSession_(): Promise<positron.LanguageRuntimeSession> {
 	let session = await positron.runtime.getForegroundSession();
+
+	if (session) {
+		// Get foreground session will return a runtime session even if it has
+		// already exitted. We check that it's still there before proceeding.
+		// TODO: it would be nice to have an API to check for the session state.
+		try {
+			await session.callMethod?.('is_installed', 'reticulate', '1.39');
+		} catch (err) {
+			session = undefined;
+		}
+	}
+
 	if (!session || session.runtimeMetadata.languageId !== 'r') {
-		const runtime = await positron.runtime.getPreferredRuntime('r');
-		await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
-		session = await positron.runtime.getForegroundSession();
+		session = await vscode.window.withProgress({
+			location: vscode.ProgressLocation.Notification,
+			title: 'Starting R session for reticulate',
+			cancellable: true
+		}, async (progress, token) => {
+			token.onCancellationRequested(() => {
+				throw new RSessionError('User requested cancellation', true);
+			});
+			progress.report({ increment: 0, message: 'Looking for prefered runtime...' });
+			const runtime = await positron.runtime.getPreferredRuntime('r');
+
+			progress.report({ increment: 20, message: 'Starting R runtime...' });
+			await positron.runtime.selectLanguageRuntime(runtime.runtimeId);
+
+			progress.report({ increment: 70, message: 'Getting R session...' });
+			session = await positron.runtime.getForegroundSession();
+
+			return session;
+		});
 	}
 
 	if (!session) {
-		throw new Error(`No available R session to execute reticulate`);
+		throw new RSessionError(`No available R session to execute reticulate`);
 	}
 
 	return session;
