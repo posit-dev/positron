@@ -287,7 +287,10 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: yarn smoketest-no-compile --tracing
+        run: |
+          cd test\smoke
+          node test/indes.js --tracing
+
 
   # slack-notification:
   #   name: "Send Slack notification"
