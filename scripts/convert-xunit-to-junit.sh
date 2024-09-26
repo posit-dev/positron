@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Input and output file paths
-XUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/xunit-results-failed-skipped.xml"
+XUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
 JUNIT_FILE="./.build/logs/smoke-tests-electron/test-results/results.xml"
 
 # Create the output directory if it doesn't exist
@@ -50,14 +50,14 @@ echo '</testsuites>' >> "$JUNIT_FILE"
 
 # Detect if running on macOS (BSD) or Linux and adjust sed accordingly
 case "$OSTYPE" in
-    darwin*)
-        # macOS/BSD sed: use -i '' for in-place edits
-        sed -i '' -e 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
-        ;;
-    *)
-        # Linux/GNU sed: use -i without ''
-        sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
-        ;;
+	darwin*)
+		# macOS/BSD sed: use -i '' for in-place edits
+		sed -i '' -e 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+		;;
+	*)
+		# Linux/GNU sed: use -i without ''
+		sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+		;;
 esac
 # if [ "$OSTYPE" = "darwin"* ]; then
 #     # macOS/BSD sed: use -i '' for in-place edits
