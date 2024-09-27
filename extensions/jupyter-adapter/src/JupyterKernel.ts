@@ -95,8 +95,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private _terminal?: vscode.Terminal;
 
-	/** The channel to which output for this specific terminal is logged, if any */
+	/** The channel to which output for this specific kernel is logged, if any */
 	private _logChannel?: vscode.OutputChannel;
+
+	/** The channel to which output for the Positron console is logged */
+	private _consoleChannel?: vscode.LogOutputChannel;
 
 	/** An optional profiler channel */
 	private _profileChannel?: vscode.OutputChannel;
@@ -170,11 +173,11 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			if (closedTerminal === this._terminal) {
 				if (this._status === positron.RuntimeState.Starting) {
 					// If we were starting the kernel, then we failed to start
-					this.log(
+					this._consoleChannel?.warn(
 						`${this._spec.display_name} failed to start; exit code: ${closedTerminal.exitStatus?.code}`);
 				} else {
 					// Otherwise, we exited normally (but print the exit code anyway)
-					this.log(
+					this._consoleChannel?.info(
 						`${this._spec.display_name} exited with code ${closedTerminal.exitStatus?.code}`);
 				}
 
@@ -204,7 +207,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (this.isRunning(pid)) {
 
 			// It's running! Try to connect.
-			this.log(`Detected running ${this._spec.language} kernel with PID ${pid}, attempting to reconnect...`);
+			this._consoleChannel?.info(`Detected running ${this._spec.language} kernel with PID ${pid}, attempting to reconnect...`);
 
 			// Create the new session wrapper; this will throw if the session state is invalid
 			// or can't be loaded from disk.
@@ -222,14 +225,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					// Connect to the running kernel in the terminal
 					this.connectToSession(session).then(
 						() => {
-							this.log(`Connected to ${this._spec.language} kernel with PID ${pid}.`);
+							this._consoleChannel?.info(`Connected to ${this._spec.language} kernel with PID ${pid}.`);
 
 							// We're connected! Resolve the promise.
 							resolve();
 						}
 					).catch((err) => {
 						// If we failed to connect, then we need to remove the stale session state
-						this.log(`Failed to connect to kernel with PID ${pid}.`);
+						this._consoleChannel?.error(`Failed to connect to kernel with PID ${pid}.`);
 
 						// Reject the promise
 						reject(err);
@@ -318,9 +321,15 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// We use `.path` here because we discovered sometimes `fspath` does not exist on a `Uri`.
 		if (!this._logChannel) {
 			this._logChannel = positron.window.createRawLogOutputChannel(
+				`Kernel: ${this._spec.display_name}`);
+		}
+
+		if (!this._consoleChannel) {
+			this._consoleChannel = vscode.window.createOutputChannel(
 				this._notebookUri ?
 					`Notebook: ${path.basename(this._notebookUri.path)} (${this._spec.display_name})` :
-					`Console: ${this._spec.display_name}`);
+					`Console: ${this._spec.display_name}`,
+				{ log: true });
 		}
 
 		// Bind to the Jupyter session
@@ -1320,7 +1329,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		seconds = seconds === 0 ? 30 : seconds;
 
 		this._lastHeartbeat = new Date().getUTCMilliseconds();
-		this.log(`SEND heartbeat with timeout of ${seconds} seconds`);
+		this._consoleChannel?.info(`SEND heartbeat with timeout of ${seconds} seconds`);
 		this._heartbeat?.send([HEARTBEAT_MESSAGE]);
 		this._heartbeatTimer = setTimeout(() => {
 			this.enterOfflineState();
@@ -1540,12 +1549,12 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			msg = msg.substring(0, 2048) + '... (truncated)';
 		}
 
-		if (this._logChannel) {
+		if (this._consoleChannel) {
 			// If we have a kernel-specific log channel, log to that. The kernel
 			// log channel primarily streams the kernel's log, so prefix our
 			// output with "Positron" to distinguish it from the output from the
 			// language runtime.
-			this._logChannel.appendLine(`[Positron] ${msg}`);
+			this._consoleChannel.appendLine(`[Positron] ${msg}`);
 		} else {
 			// Otherwise, log to the main Jupyter Adapter channel. This is
 			// useful to send logs before the kernel is fully initialized; we
