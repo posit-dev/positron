@@ -31,6 +31,7 @@ from .utils import (
     json_rpc_response,
     preserve_working_directory,
 )
+from unittest.mock import Mock
 
 TARGET_NAME = "target_name"
 
@@ -245,6 +246,7 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 def test_plotly_show_sends_events(
     shell: PositronShell,
     ui_comm: DummyComm,
+    mock_handle_request: Mock,
 ) -> None:
     """
     Test that showing a Plotly plot sends the expected UI events.
@@ -265,6 +267,7 @@ fig = px.bar(x=["a", "b", "c"], y=[1, 3, 2])
 fig.show()
 """
     )
+    mock_handle_request.assert_called()
     assert len(ui_comm.messages) == 1
     params = ui_comm.messages[0]["data"]["params"]
     assert params["title"] == ""
