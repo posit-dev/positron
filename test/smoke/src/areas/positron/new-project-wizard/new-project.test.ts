@@ -12,14 +12,9 @@ import { installAllHandlers } from '../../../utils';
  */
 export function setup(logger: Logger) {
 	describe('New Project Wizard', () => {
-		describe('Python - New Project Wizard', () => {
-			// Shared before/after handling
-			installAllHandlers(logger);
+		installAllHandlers(logger);
 
-			before(async function () {
-
-			});
-
+		describe('Python - New Project Wizard #marie', () => {
 			describe('Python Project with new environment', () => {
 				it('Create a new Venv environment [C627912] #pr', async function () {
 					// This is the default behaviour for a new Python Project in the Project Wizard
@@ -198,13 +193,6 @@ export function setup(logger: Logger) {
 		});
 
 		describe('R - New Project Wizard', () => {
-			// Shared before/after handling
-			installAllHandlers(logger);
-
-			before(async function () {
-
-			});
-
 			it('R Project Defaults [C627913] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
@@ -327,13 +315,6 @@ export function setup(logger: Logger) {
 		});
 
 		describe('Jupyter - New Project Wizard', () => {
-			// Shared before/after handling
-			installAllHandlers(logger);
-
-			before(async function () {
-
-			});
-
 			it('Jupyter Project Defaults [C629352] #pr', async function () {
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;

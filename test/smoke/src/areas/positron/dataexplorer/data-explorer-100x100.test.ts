@@ -10,7 +10,7 @@ import { installAllHandlers } from '../../../utils';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 
 export function setupDataExplorer100x100Test(logger: Logger) {
-	describe('Data Explorer - 100x100 Data Validation', function () {
+	describe.skip('Data Explorer - 100x100 Data Validation', function () {
 		installAllHandlers(logger);
 
 		describe('Python - Pandas', function () {

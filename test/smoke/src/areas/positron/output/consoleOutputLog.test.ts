@@ -9,7 +9,7 @@ import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '
 import { installAllHandlers } from '../../../utils';
 
 export function setup(logger: Logger) {
-	describe('Output', () => {
+	describe('Console Output', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
