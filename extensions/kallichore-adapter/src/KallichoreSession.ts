@@ -665,7 +665,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					break;
 				case 'rpc_request': {
 					this.onCommRequest(msg).then(() => {
-						this.log(`Handled comm request: ${msg}`);
+						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`);
 					});
 					break;
 				}

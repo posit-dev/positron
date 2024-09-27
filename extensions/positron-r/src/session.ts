@@ -469,10 +469,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		// Check the configuration setting 'kallichoreSupervisor.enable'
 		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
 		const useKallichore = config.get<boolean>('enable', false);
 		if (useKallichore) {
+			// Use the Kallichore supervisor if enabled
 			const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
 			if (!ext) {
 				throw new Error('Kallichore Adapter extension not found');
@@ -482,6 +482,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			}
 			this.adapterApi = ext?.exports as JupyterAdapterApi;
 		} else {
+			// Otherwise, connect to the Jupyter kernel directly
 			const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
 			if (!ext) {
 				throw new Error('Jupyter Adapter extension not found');
