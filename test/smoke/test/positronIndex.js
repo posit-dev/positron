@@ -172,6 +172,9 @@ function getFailureLogs() {
 	}
 }
 
+/**
+ * Runs the Mocha tests and cleans up test data when done.
+ */
 function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
@@ -206,7 +209,7 @@ function runMochaTests() {
 }
 
 /**
- * Cleans up the test data directory after tests are complete.
+ * Cleans up the test data directory.
  */
 function cleanupTestData(callback) {
 	rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {

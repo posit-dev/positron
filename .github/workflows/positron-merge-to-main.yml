@@ -91,8 +91,8 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      # - name: Compile Integration Tests
-      #   run: yarn --cwd test/integration/browser compile
+      - name: Compile Integration Tests
+        run: yarn --cwd test/integration/browser compile
 
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
@@ -114,9 +114,9 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install ipykernel trcli
 
-      # - name: Run Unit Tests (node.js)
-      #   id: nodejs-unit-tests
-      #   run: yarn test-node
+      - name: Run Unit Tests (node.js)
+        id: nodejs-unit-tests
+        run: yarn test-node
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
@@ -128,8 +128,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        # run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 5
-        run: DISPLAY=:10 yarn smoketest-merge-to-main --tracing --parallel --jobs 4
+        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 3
 
       - name: Convert XUnit to JUnit
         id: xunit-to-junit

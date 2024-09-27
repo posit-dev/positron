@@ -19,7 +19,6 @@ export function setup(logger: Logger) {
 		beforeEach(async function () {
 			const app = this.app as Application;
 
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 			await app.workbench.quickaccess.runCommand('Help: Welcome');
 			app.workbench.editors.waitForActiveEditor('Welcome');
 		});

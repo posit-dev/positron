@@ -117,23 +117,23 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      # - name: Compile Integration Tests
-      #   run: yarn --cwd test/integration/browser compile
+      - name: Compile Integration Tests
+        run: yarn --cwd test/integration/browser compile
 
       - name: Compile Smoke Tests
         run: yarn --cwd test/smoke compile
 
-      # - name: Run Unit Tests (Electron)
-      #   id: electron-unit-tests
-      #   run: DISPLAY=:10 ./scripts/test.sh
+      - name: Run Unit Tests (Electron)
+        id: electron-unit-tests
+        run: DISPLAY=:10 ./scripts/test.sh
 
-      # - name: Run Unit Tests (node.js)
-      #   id: nodejs-unit-tests
-      #   run: yarn test-node
+      - name: Run Unit Tests (node.js)
+        id: nodejs-unit-tests
+        run: yarn test-node
 
-      # - name: Run Unit Tests (Browser, Chromium)
-      #   id: browser-unit-tests
-      #   run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+      - name: Run Unit Tests (Browser, Chromium)
+        id: browser-unit-tests
+        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
@@ -173,7 +173,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel --jobs 4
+        run: DISPLAY=:10 yarn smoketest-no-compile --tracing --parallel --jobs 3
 
       - name: Run Web Smoke Tests
         if: always()
