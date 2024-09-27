@@ -53,8 +53,6 @@ import * as windowApis from '../../../../client/common/vscodeApis/windowApis';
 import { IPythonRuntimeManager } from '../../../../client/positron/manager';
 // --- End Positron ---
 
-const untildify = require('untildify');
-
 type TelemetryEventType = { eventName: EventName; properties: unknown };
 
 suite('Set Interpreter Command', () => {

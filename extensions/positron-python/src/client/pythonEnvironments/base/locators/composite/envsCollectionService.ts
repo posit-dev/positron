@@ -11,7 +11,8 @@ import { sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
 // --- Start Positron ---
 // Import untildify.
-import { normalizePath, untildify, readFile } from '../../../common/externalDependencies';
+import { normalizePath, readFile } from '../../../common/externalDependencies';
+import { untildify } from '../../../../common/helpers';
 // --- End Positron ---
 import { PythonEnvInfo, PythonEnvKind } from '../../info';
 import { getEnvPath } from '../../info/env';

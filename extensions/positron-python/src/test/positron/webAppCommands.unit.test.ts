@@ -37,7 +37,7 @@ suite('Web app commands', () => {
         runAppOptions = undefined;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
-                assert(!runAppOptions, 'runApplication called more than once');
+                assert.ok(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
             },
         };
@@ -59,7 +59,7 @@ suite('Web app commands', () => {
 
         // Stub `vscode.commands.registerCommand` to record registered command callbacks.
         vscode.commands.registerCommand = (command, callback) => {
-            assert(!commands.has(command), `Command registered more than once: ${command}`);
+            assert.ok(!commands.has(command), `Command registered more than once: ${command}`);
             commands.set(command, callback);
             return { dispose: () => undefined };
         };
@@ -120,9 +120,9 @@ suite('Web app commands', () => {
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
-        assert(callback, `Command not registered for: ${command}`);
+        assert.ok(callback, `Command not registered for: ${command}`);
         await callback();
-        assert(runAppOptions, `runAppOptions not set for command: ${command}`);
+        assert.ok(runAppOptions, `runAppOptions not set for command: ${command}`);
 
         // Test `getTerminalOptions`.
         const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
