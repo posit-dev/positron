@@ -1,7 +1,7 @@
 {
     "displayName": "Python",
     "description": "Python kernel, Debugging (multi-threaded, remote), code formatting, refactoring, unit tests, and more.",
-    "python.command.python.startREPL.title": "Start Terminal REPL",
+    "python.command.python.startTerminalREPL.title": "Start Terminal REPL",
     "python.command.python.createEnvironment.title": "Create Environment...",
     "python.command.python.createNewFile.title": "New Python File",
     "python.command.python.createTerminal.title": "Create Terminal",
