@@ -13,7 +13,7 @@ import { installAllHandlers } from '../../../utils';
  */
 
 export function setup(logger: Logger) {
-	describe.skip('Welcome Page', () => {
+	describe('Welcome Page', () => {
 		installAllHandlers(logger);
 
 		before(async function () {
@@ -24,7 +24,7 @@ export function setup(logger: Logger) {
 			const app = this.app as Application;
 
 			await app.workbench.quickaccess.runCommand('Help: Welcome');
-			app.workbench.editors.waitForActiveEditor('Welcome');
+			await app.workbench.editors.waitForActiveEditor('Welcome');
 		});
 
 		afterEach(async function () {
