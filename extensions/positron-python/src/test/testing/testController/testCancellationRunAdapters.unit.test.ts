@@ -72,7 +72,7 @@ suite('Execution Flow Run Adapters', () => {
                 .returns(() => {
                     cancellationToken.cancel();
                     return {
-                        proc: mockProc as any,
+                        proc: mockProc! as any,
                         out: typeMoq.Mock.ofType<Observable<Output<string>>>().object,
                         dispose: () => {
                             /* no-body */
