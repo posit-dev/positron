@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as cp from 'child_process';
+import * as os from 'os';
 import * as treekill from 'tree-kill';
 import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
 import { Logger, measureAndLog } from './logger';
@@ -282,11 +283,10 @@ export class Code {
 		while (true) {
 			if (trial > retryCount) {
 				this.logger.log('Timeout!');
-				this.logger.log(`Last error encountered: ${lastError}`);
+				this.logger.log(lastError);
+				this.logger.log(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.`);
 
-				const error = new Error(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.\n Last known error: ${lastError}`);
-				this.logger.log(error.stack || 'No stack trace available');
-				throw error;
+				throw new Error(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.`);
 			}
 
 			let result;
@@ -298,8 +298,7 @@ export class Code {
 					lastError = 'Did not pass accept function';
 				}
 			} catch (e: any) {
-				lastError = e.stack || e.message || 'Unknown error';
-				this.logger.log(`Error caught during poll: ${lastError}`);
+				lastError = Array.isArray(e.stack) ? e.stack.join(os.EOL) : e.stack;
 			}
 
 			await this.wait(retryInterval);
