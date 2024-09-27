@@ -176,6 +176,7 @@ function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
 
+	// Add test files to Mocha
 	const testDirPath = path.resolve('out/test-list');
 	fs.readdirSync(testDirPath).forEach(file => {
 		if (file.endsWith('.js') && !file.includes('setupUtils')) {
@@ -184,6 +185,7 @@ function runMochaTests() {
 		}
 	});
 
+	// Run the tests
 	mocha.run(failures => {
 		// Handle test results
 		if (failures) {

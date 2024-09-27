@@ -284,9 +284,11 @@ export class Code {
 			if (trial > retryCount) {
 				this.logger.log('Timeout!');
 				this.logger.log(lastError);
-				this.logger.log(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.`);
 
-				throw new Error(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.`);
+				const error = new Error(`Timeout: ${timeoutMessage} after ${(retryCount * retryInterval) / 1000} seconds.`);
+				this.logger.log(error.stack || 'No stack trace available');
+
+				throw error;
 			}
 
 			let result;
