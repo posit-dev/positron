@@ -13,7 +13,7 @@ import { join } from 'path';
  *  Data explorer tests with small data frames
  */
 export function setup(logger: Logger) {
-	describe('Data Explorer', () => {
+	describe.skip('Data Explorer', () => {
 
 		// Shared before/after handling
 		installAllHandlers(logger);

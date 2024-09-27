@@ -16,6 +16,10 @@ export function setup(logger: Logger) {
 	describe.skip('Welcome Page', () => {
 		installAllHandlers(logger);
 
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
+		});
+
 		beforeEach(async function () {
 			const app = this.app as Application;
 
@@ -28,61 +32,55 @@ export function setup(logger: Logger) {
 			await app.workbench.quickaccess.runCommand('View: Close All Editors');
 		});
 
-		describe('General', () => {
-			before(async function () {
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-			});
+		it('Verify Welcome page header and footer [C684750]', async function () {
+			const app = this.app as Application;
 
-			it('Verify Welcome page header and footer [C684750]', async function () {
-				const app = this.app as Application;
+			await expect(app.workbench.positronWelcome.logo).toBeVisible();
 
-				await expect(app.workbench.positronWelcome.logo).toBeVisible();
+			// product name in release is 'Positron' and in dev is 'Positron Dev'
+			await expect(app.workbench.positronWelcome.title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
 
-				// product name in release is 'Positron' and in dev is 'Positron Dev'
-				await expect(app.workbench.positronWelcome.title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
+			await expect(app.workbench.positronWelcome.footer).toHaveText('Show welcome page on startup');
+		});
 
-				await expect(app.workbench.positronWelcome.footer).toHaveText('Show welcome page on startup');
-			});
+		it('Verify Welcome page content [C610960]', async function () {
+			const app = this.app as Application;
+			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
+				['Open...', 'New Folder...', 'New Folder from Git...']
+				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
 
-			it('Verify Welcome page content [C610960]', async function () {
-				const app = this.app as Application;
-				const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
-					['Open...', 'New Folder...', 'New Folder from Git...']
-					: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+			await expect(app.workbench.positronWelcome.startTitle).toHaveText('Start');
 
-				await expect(app.workbench.positronWelcome.startTitle).toHaveText('Start');
+			await expect(app.workbench.positronWelcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
 
-				await expect(app.workbench.positronWelcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
+			await expect(app.workbench.positronWelcome.helpTitle).toHaveText('Help');
 
-				await expect(app.workbench.positronWelcome.helpTitle).toHaveText('Help');
+			await expect(app.workbench.positronWelcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
 
-				await expect(app.workbench.positronWelcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
+			await expect(app.workbench.positronWelcome.openTitle).toHaveText('Open');
 
-				await expect(app.workbench.positronWelcome.openTitle).toHaveText('Open');
+			await expect(app.workbench.positronWelcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
 
-				await expect(app.workbench.positronWelcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
+			await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
 
-				await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
+			await expect(app.workbench.positronWelcome.recentTitle).toHaveText('Recent');
 
-				await expect(app.workbench.positronWelcome.recentTitle).toHaveText('Recent');
+			// 'open a folder' is a button so there is no character space because of its padding
+			await expect(app.workbench.positronWelcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
+		});
 
-				// 'open a folder' is a button so there is no character space because of its padding
-				await expect(app.workbench.positronWelcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
-			});
+		it('Click on new project from the Welcome page [C684751]', async function () {
+			const app = this.app as Application;
 
-			it('Click on new project from the Welcome page [C684751]', async function () {
-				const app = this.app as Application;
+			await app.workbench.positronWelcome.newProjectButton.click();
+			await app.workbench.positronPopups.popupCurrentlyOpen();
 
-				await app.workbench.positronWelcome.newProjectButton.click();
-				await app.workbench.positronPopups.popupCurrentlyOpen();
+			await app.workbench.positronPopups.waitForModalDialogBox();
 
-				await app.workbench.positronPopups.waitForModalDialogBox();
+			// confirm New Project dialog box is open
+			await app.workbench.positronPopups.waitForModalDialogTitle('Create New Project');
 
-				// confirm New Project dialog box is open
-				await app.workbench.positronPopups.waitForModalDialogTitle('Create New Project');
-
-				await app.workbench.positronPopups.clickCancelOnModalDialogBox();
-			});
+			await app.workbench.positronPopups.clickCancelOnModalDialogBox();
 		});
 
 		describe('Python', () => {
