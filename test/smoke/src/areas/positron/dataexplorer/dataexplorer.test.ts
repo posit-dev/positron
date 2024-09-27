@@ -99,8 +99,10 @@ df2 = pd.DataFrame(data)`;
 					await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
 				}).toPass();
 
+				// Need to make sure the data explorer is visible before we can interact with it
 				await app.workbench.positronSideBar.closeSecondarySideBar();
 				await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 				await expect(async () => {
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -114,6 +116,7 @@ df2 = pd.DataFrame(data)`;
 				}).toPass({ timeout: 60000 });
 
 				await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 			});
 			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
@@ -251,6 +254,7 @@ df2 = pd.DataFrame(data)`;
 				}).toPass({ timeout: 60000 });
 
 			});
+			//This tests rely on the previous test, so must be run together
 			it('Python Polars - Verifies basic data explorer column info functionality [C734264] #pr', async function () {
 
 				const app = this.app as Application;
@@ -263,6 +267,7 @@ df2 = pd.DataFrame(data)`;
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
 
 				await app.workbench.positronLayouts.enterLayout('notebook');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
 				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
@@ -369,6 +374,8 @@ df2 = pd.DataFrame(data)`;
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 				await expect(async () => {
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -378,6 +385,9 @@ df2 = pd.DataFrame(data)`;
 					expect(tableData[2]).toStrictEqual({ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' });
 					expect(tableData.length).toBe(3);
 				}).toPass({ timeout: 60000 });
+
+				await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 
 			});
