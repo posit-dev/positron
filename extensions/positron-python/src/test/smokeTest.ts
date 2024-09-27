@@ -61,7 +61,7 @@ class TestRunner {
     private async enableExperiments() {
         const settingsFile = path.join(await getUserDataDir(), 'User', 'settings.json');
 
-        await fs.mkdir(path.dirname(settingsFile), { recursive: true });
+        await fs.mkdir(path.dirname(settingsFile));
 
         let settings: Record<string, {}> = {};
         if (await fs.pathExists(settingsFile)) {

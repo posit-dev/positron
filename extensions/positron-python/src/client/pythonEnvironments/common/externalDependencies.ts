@@ -3,6 +3,7 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 import * as fsapi from '../../common/platform/fs-paths';
 import { IWorkspaceService } from '../../common/application/types';
 import { ExecutionResult, IProcessServiceFactory, ShellOptions, SpawnOptions } from '../../common/process/types';
@@ -197,8 +198,8 @@ export function checkParentDirs(
     let depth = 0;
     while (pathExistsSync(root) && (options?.maxDepth === undefined || depth < options.maxDepth)) {
         const filePath = path.join(root, fileName);
-        if (options?.resolveSymlinks && pathExistsSync(filePath) && fsapi.lstatSync(filePath).isSymbolicLink()) {
-            return fsapi.readlinkSync(filePath);
+        if (options?.resolveSymlinks && pathExistsSync(filePath) && fs.lstatSync(filePath).isSymbolicLink()) {
+            return fs.readlinkSync(filePath);
         }
         if (pathExistsSync(filePath)) {
             return filePath;
