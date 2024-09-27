@@ -189,7 +189,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         is_plot = False
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
-
             # Send bokeh plots to the plots pane.
             # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
             # This is not great but currently the only information we have.
@@ -210,7 +209,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         # pass back to webbrowser's list of browsers to open up the link
         return False
 
-
     @staticmethod
     def _is_module_function(module_name: str, function_name: str) -> bool:
         module = sys.modules.get(module_name)
@@ -222,7 +220,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 ):
                     return True
         return False
-
 
     def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
         if self._comm is None:
