@@ -438,7 +438,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	async restart(): Promise<void> {
 		this._exitReason = positron.RuntimeExitReason.Restart;
-		this.performShutdown(true);
+		this._restarting = true;
+		try {
+			await this._api.restartSession(this.metadata.sessionId);
+		} catch (err) {
+			if (err instanceof HttpError) {
+				throw new Error(err.body.message);
+			} else {
+				throw err;
+			}
+		}
 	}
 
 	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
@@ -524,17 +533,28 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.log(`The kernel is back online.`);
 			this._connected.open();
 		}
+		if (newState === positron.RuntimeState.Starting) {
+			this.log(`The kernel has started up after a restart.`);
+			this._restarting = false;
+		}
 		this._runtimeState = newState;
 		this._state.fire(newState);
 	}
 
 	private onExited(exitCode: number) {
-		// Clean up the websocket connection
-		this._ws?.close();
-		this._ws = undefined;
+		if (this._restarting) {
+			// If we're restarting, wait for the kernel to start up again
+			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`);
+		} else {
+			// If we aren't going to be starting up again, clean up the session
+			// websocket
+			this.log(`Kernel exited with code ${exitCode}; cleaning up.`);
+			this._ws?.close();
+			this._ws = undefined;
+			this._connected = new Barrier();
+		}
 
-		// No longer connected or ready
-		this._connected = new Barrier();
+		// We're no longer ready
 		this._ready = new Barrier();
 
 		// If we don't know the exit reason and there's a nonzero exit code,
@@ -554,22 +574,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// We have now consumed the exit reason; restore it to its default
 		this._exitReason = positron.RuntimeExitReason.Unknown;
-
-		// If the kernel was restarting, now's the time to bring it back up
-		if (this._restarting) {
-			this._restarting = false;
-			// Defer the start by 500ms to ensure the kernel has processed its
-			// own exit before we ask it to restart. This also ensures that the
-			// kernel's status events as it starts up don't overlap with the
-			// status events emitted during shutdown (which can happen on the
-			// Positron side due to internal buffering in the extension host
-			// interface)
-			setTimeout(() => {
-				// Set the new session flag so we'll start the session again
-				this._new = true;
-				this.start();
-			}, 500);
-		}
 	}
 
 	async getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
