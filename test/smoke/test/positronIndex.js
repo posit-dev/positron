@@ -67,7 +67,7 @@ function configureEnvVarsFromOptions(opts) {
 function getMochaOptions(opts) {
 	return {
 		color: true,
-		timeout: 2 * 60 * 1000,  // 2 minutes
+		timeout: 1 * 60 * 1000,  // 1 minute
 		slow: 30 * 1000,         // 30 seconds
 		grep: opts['f'] || opts['g'],
 		parallel: opts['parallel'],
@@ -180,6 +180,7 @@ async function runMochaTests() {
 
 		// Handle test results
 		if (failures) {
+			console.log('Failed tests:');
 			console.log(getFailureLogs());
 			process.exit(1);  // Exit with failure
 		} else {
