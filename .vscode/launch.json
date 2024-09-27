@@ -543,9 +543,9 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Web Smoke Test",
-			//---- Start Positron
+			// --- Start Positron
 			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
-			//---- End Positron
+			// --- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
 			"args": [
@@ -555,13 +555,13 @@
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],
-			//---- Start Positron
+			// --- Start Positron
 			"sourceMaps": true,
 			"resolveSourceMapLocations": [
 				"${workspaceFolder}/**",
 				"!**/node_modules/**"
 			],
-			//--- End Positron
+			// --- End Positron
 			"env": {
 				"NODE_ENV": "development",
 				"VSCODE_DEV": "1",

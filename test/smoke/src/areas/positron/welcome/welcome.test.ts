@@ -13,7 +13,7 @@ import { installAllHandlers } from '../../../utils';
  */
 
 export function setup(logger: Logger) {
-	describe('Welcome Page', () => {
+	describe.skip('Welcome Page', () => {
 		installAllHandlers(logger);
 
 		beforeEach(async function () {

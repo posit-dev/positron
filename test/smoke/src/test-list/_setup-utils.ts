@@ -10,7 +10,7 @@ import * as rimraf from 'rimraf';
 import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
 
-import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation/out';
+import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
 import { retry } from '../utils';
@@ -37,19 +37,31 @@ const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 
 export const opts = parseOptions();
+console.log('****', opts);
 
 export function parseOptions(): ParseOptions {
 	const args = process.argv.slice(2);
 
-	// Parallel-mode: not all workers are inheriting the args, so passing through via env vars
-	if (process.env.BUILD) { args.push('--build', process.env.BUILD); }
-	if (process.env.HEADLESS) { args.push('--headless'); }
-	if (process.env.PARALLEL) { args.push('--parallel'); }
-	if (process.env.REMOTE) { args.push('--remote'); }
-	if (process.env.TRACING) { args.push('--tracing'); }
-	if (process.env.VERBOSE) { args.push('--verbose'); }
-	if (process.env.WEB) { args.push('--web'); }
+	// Map environment variables to command-line arguments
+	const envToArgsMap: Record<string, string[]> = {
+		BUILD: ['--build'],
+		HEADLESS: ['--headless'],
+		PARALLEL: ['--parallel'],
+		REMOTE: ['--remote'],
+		TRACING: ['--tracing'],
+		VERBOSE: ['--verbose'],
+		WEB: ['--web']
+	};
 
+	// Add the mapped arguments based on environment variables
+	for (const [envVar, argList] of Object.entries(envToArgsMap)) {
+		const envValue = process.env[envVar];
+		if (envValue) {
+			args.push(...argList, ...(envValue !== 'true' && envValue !== 'false' ? [envValue] : []));
+		}
+	}
+
+	// Parse the final args array using minimist
 	return minimist(args, {
 		string: [
 			'browser',
@@ -64,22 +76,13 @@ export function parseOptions(): ParseOptions {
 			'remote',
 			'web',
 			'headless',
-			'tracing'
+			'tracing',
+			'parallel',
 		],
 		default: {
 			verbose: false
 		}
-	}) as {
-		verbose?: boolean;
-		remote?: boolean;
-		headless?: boolean;
-		web?: boolean;
-		tracing?: boolean;
-		build?: string;
-		'stable-build'?: string;
-		browser?: string;
-		electronArgs?: string;
-	};
+	}) as ParseOptions;
 }
 
 
