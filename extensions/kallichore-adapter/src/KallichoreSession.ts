@@ -27,6 +27,11 @@ import { RuntimeMessageEmitter } from './RuntimeMessageEmitter';
 import { CommMsgCommand } from './jupyter/CommMsgCommand';
 import { ShutdownRequest } from './jupyter/ShutdownRequest';
 import { LogStreamer } from './LogStreamer';
+import { JupyterMessageHeader } from './jupyter/JupyterMessageHeader';
+import { JupyterChannel } from './jupyter/JupyterChannel';
+import { InputReplyCommand } from './jupyter/InputReplyCommand';
+import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
+import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -42,6 +47,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _disposables: vscode.Disposable[] = [];
 	private readonly _log: vscode.OutputChannel;
 	private _restarting = false;
+
+	/**
+	 * The message header for the current requests if any is active.  This is
+	 * used for input requests (e.g. from `readline()` in R) Concurrent requests
+	 * are not supported.
+	 */
+	private _activeBackendRequestHeader: JupyterMessageHeader | null = null;
 
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
@@ -334,8 +346,32 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.sendCommand(commMsg);
 	}
 
-	replyToPrompt(_id: string, _reply: string): void {
-		throw new Error('Method not implemented.');
+	replyToPrompt(id: string, value: string): void {
+		if (!this._activeBackendRequestHeader) {
+			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
+			return;
+		}
+		const reply = new InputReplyCommand(this._activeBackendRequestHeader, value);
+		this.log(`Sending input reply for ${id}: ${value}`);
+		this.sendCommand(reply);
+	}
+
+	public replyToComm(response: any) {
+		// NOTE: Currently we only support synchronous reverse requests
+		// from R via the frontend comm. Since this mechanism is
+		// synchronous, there cannot be concurrent requests and we can
+		// share the active request header with `input_request`. We will
+		// need a map of active requests if we extend to support
+		// asynchronous requests from other comms.
+		const parent = this._activeBackendRequestHeader;
+
+		if (!parent) {
+			this.log(`ERROR: Failed to find parent for comm request ${response.id}`);
+			return;
+		}
+
+		const reply = new RpcReplyCommand(parent, response);
+		this.sendCommand(reply);
 	}
 
 	async restore(session: ActiveSession) {
@@ -440,6 +476,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	async interrupt(): Promise<void> {
+		// Clear current input request if any
+		this._activeBackendRequestHeader = null;
+
 		try {
 			await this._api.interruptSession(this.metadata.sessionId);
 		} catch (err) {
@@ -616,8 +655,32 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Special handling for stdin messages, which have reversed control flow
+		if (msg.channel === JupyterChannel.Stdin) {
+			switch (msg.header.msg_type) {
+				// If this is an input request, save the header so we can can
+				// line it up with the client's response.
+				case 'input_request':
+					this._activeBackendRequestHeader = msg.header;
+					break;
+				case 'rpc_request': {
+					this.onCommRequest(msg).then(() => {
+						this.log(`Handled comm request: ${msg}`);
+					});
+					break;
+				}
+			}
+		}
+
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
 		this._messages.emitJupyter(msg);
+	}
+
+	async onCommRequest(msg: JupyterMessage): Promise<void> {
+		const request = msg.content as JupyterCommRequest;
+		const response = await positron.methods.call(request.method, request.params);
+		const reply = new RpcReplyCommand(msg.header, response);
+		this.sendCommand(reply);
 	}
 
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {

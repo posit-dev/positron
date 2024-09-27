@@ -20,8 +20,12 @@ export abstract class JupyterCommand<T> {
 		public readonly channel: JupyterChannel) {
 	}
 
-	protected createMsgId() {
+	protected createMsgId(): string {
 		return Math.random().toString(16).substring(2, 12);
+	}
+
+	protected createParentHeader(): JupyterMessageHeader | null {
+		return null;
 	}
 
 	get msgId(): string {
@@ -42,7 +46,7 @@ export abstract class JupyterCommand<T> {
 		};
 		const payload = {
 			header,
-			parent_header: null,
+			parent_header: this.createParentHeader(),
 			metadata: {},
 			content: this.commandPayload,
 			channel: this.channel,

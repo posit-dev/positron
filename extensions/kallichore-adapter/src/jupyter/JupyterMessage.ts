@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 
 /**
- * Represents a message from the front end to Jupyter.
+ * Represents a message to or from the front end to Jupyter.
  *
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#a-full-message
  */
@@ -23,6 +24,13 @@ export interface JupyterMessage {
 
 	/** The body of the message */
 	content: any;
+
+	/**
+	 * The channel (ZeroMQ socket) for the message. This isn't part of the
+	 * formal Jupyter protocol; it is used to route websocket messages to/from
+	 * the correct ZeroMQ socket.
+	 */
+	channel: JupyterChannel;
 
 	/** Additional binary data */
 	buffers: Array<Uint8Array>;

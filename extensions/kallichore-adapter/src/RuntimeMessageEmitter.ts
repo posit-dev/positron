@@ -15,6 +15,7 @@ import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
 import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
+import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
 
 export class RuntimeMessageEmitter {
 
@@ -46,6 +47,9 @@ export class RuntimeMessageEmitter {
 				break;
 			case 'execute_result':
 				this.onExecuteResult(msg, msg.content as JupyterExecuteResult);
+				break;
+			case 'input_request':
+				this.onInputRequest(msg, msg.content as JupyterInputRequest);
 				break;
 			case 'status':
 				this.onKernelStatus(msg, msg.content as JupyterKernelStatus);
@@ -223,6 +227,24 @@ export class RuntimeMessageEmitter {
 			text: data.text,
 			metadata: message.metadata,
 		} as positron.LanguageRuntimeStream);
+	}
+
+	/**
+	 * Handles an input_request message from the kernel.
+	 *
+	 * @param message The message packet
+	 * @param req The input request
+	 */
+	private onInputRequest(message: JupyterMessage, req: JupyterInputRequest): void {
+		// Send the input request to the client.
+		this._emitter.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.Prompt,
+			prompt: req.prompt,
+			password: req.password,
+		} as positron.LanguageRuntimePrompt);
 	}
 
 }
