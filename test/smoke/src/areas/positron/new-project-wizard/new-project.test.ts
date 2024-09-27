@@ -14,7 +14,7 @@ export function setup(logger: Logger) {
 	describe('New Project Wizard', () => {
 		installAllHandlers(logger);
 
-		describe('Python - New Project Wizard #marie', () => {
+		describe('Python - New Project Wizard', () => {
 			describe('Python Project with new environment', () => {
 				it('Create a new Venv environment [C627912] #pr', async function () {
 					// This is the default behaviour for a new Python Project in the Project Wizard

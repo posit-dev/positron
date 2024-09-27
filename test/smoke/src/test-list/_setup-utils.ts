@@ -4,29 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-import * as cp from 'child_process';
 import * as path from 'path';
-import * as rimraf from 'rimraf';
 import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
-
-import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
+import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation';
 import { retry } from '../utils';
-
-export type ParseOptions = {
-	verbose?: boolean;
-	remote?: boolean;
-	headless?: boolean;
-	web?: boolean;
-	tracing?: boolean;
-	parallel?: boolean;
-	build?: string;
-	'stable-build'?: string;
-	browser?: string;
-	electronArgs?: string;
-};
 
 let quality: Quality;
 let version: string | undefined;
@@ -35,11 +19,122 @@ export const ROOT_PATH = path.join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
+const OPTS = parseOptions();
 
-export const opts = parseOptions();
-console.log('****', opts);
 
-export function parseOptions(): ParseOptions {
+/**
+ * Setup the environment and hooks for the test
+ *
+ * @param suiteName name of the test
+ * @returns
+ */
+export function setupEnvAndHooks(suiteName: string): Logger {
+	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
+	const logger = createLogger(logsRootPath);
+
+	setupSmokeTestEnvironment(logger);
+	setupBeforeHooks(logger, suiteName);
+
+	return logger;
+}
+
+
+function setupSmokeTestEnvironment(logger: Logger) {
+	//
+	// #### Electron Smoke Tests ####
+	//
+
+	if (!OPTS.web) {
+		let testCodePath = OPTS.build;
+		let electronPath: string;
+
+		if (testCodePath) {
+			electronPath = getBuildElectronPath(testCodePath);
+			version = getBuildVersion(testCodePath);
+		} else {
+			testCodePath = getDevElectronPath();
+			electronPath = testCodePath;
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_DEV = '1';
+			process.env.VSCODE_CLI = '1';
+		}
+
+		if (!fs.existsSync(electronPath || '')) {
+			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
+		}
+
+		quality = parseQuality();
+
+		if (OPTS.remote) {
+			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
+		} else {
+			logger.log(`Running desktop smoke tests against ${electronPath}`);
+		}
+
+		logger.log(`VS Code product quality: ${quality}.`);
+	}
+
+	//
+	// #### Web Smoke Tests ####
+	//
+	else {
+		const testCodeServerPath = OPTS.build || process.env.VSCODE_REMOTE_SERVER_PATH;
+
+		if (typeof testCodeServerPath === 'string') {
+			if (!fs.existsSync(testCodeServerPath)) {
+				throw new Error(`Cannot find Code server at ${testCodeServerPath}.`);
+			} else {
+				logger.log(`Running web smoke tests against ${testCodeServerPath}`);
+			}
+		}
+
+		if (!testCodeServerPath) {
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_DEV = '1';
+			process.env.VSCODE_CLI = '1';
+
+			logger.log(`Running web smoke out of sources`);
+		}
+
+		quality = parseQuality();
+		logger.log(`VS Code product quality: ${quality}.`);
+	}
+}
+
+function setupBeforeHooks(logger: Logger, suiteName: string) {
+	before(async function () {
+		// startTime = Date.now();
+		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
+
+		if (!OPTS.web && !OPTS.remote && OPTS.build) {
+			// Only enabled when running with --build and not in web or remote
+			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
+		}
+
+		// Set default options
+		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
+		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', 'smoke-tests-electron', suiteName);
+		this.defaultOptions = {
+			quality,
+			codePath: OPTS.build,
+			workspacePath: WORKSPACE_PATH,
+			userDataDir: path.join(TEST_DATA_PATH, 'd'),
+			extensionsPath: EXTENSIONS_PATH,
+			logger,
+			logsPath: path.join(logsRootPath, 'suite_unknown'),
+			crashesPath: path.join(crashesRootPath, 'suite_unknown'),
+			verbose: OPTS.verbose,
+			remote: OPTS.remote,
+			web: OPTS.web,
+			tracing: OPTS.tracing,
+			headless: OPTS.headless,
+			browser: OPTS.browser,
+			extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
+		};
+	});
+}
+
+function parseOptions(): ParseOptions {
 	const args = process.argv.slice(2);
 
 	// Map environment variables to command-line arguments
@@ -85,11 +180,10 @@ export function parseOptions(): ParseOptions {
 	}) as ParseOptions;
 }
 
-
-export function createLogger(logsRootPath: string): Logger {
+function createLogger(logsRootPath: string): Logger {
 	const loggers: Logger[] = [];
 
-	if (opts.verbose) {
+	if (OPTS.verbose) {
 		loggers.push(new ConsoleLogger());
 	}
 
@@ -101,7 +195,7 @@ export function createLogger(logsRootPath: string): Logger {
 	return new MultiLogger(loggers);
 }
 
-export function parseVersion(version: string): { major: number; minor: number; patch: number } {
+function parseVersion(version: string): { major: number; minor: number; patch: number } {
 	const [, major, minor, patch] = /^(\d+)\.(\d+)\.(\d+)/.exec(version)!;
 	return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch) };
 }
@@ -127,34 +221,7 @@ function parseQuality(): Quality {
 	}
 }
 
-export async function cloneTestRepository(workspacePath: string, opts: any): Promise<void> {
-	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
-
-	if (opts['test-repo']) {
-		console.log('Copying test project repository:', opts['test-repo']);
-		rimraf.sync(workspacePath);
-
-		if (process.platform === 'win32') {
-			cp.execSync(`xcopy /E "${opts['test-repo']}" "${workspacePath}"\\*`);
-		} else {
-			cp.execSync(`cp -R "${opts['test-repo']}" "${workspacePath}"`);
-		}
-	} else {
-		if (!fs.existsSync(workspacePath)) {
-			const res = cp.spawnSync('git', ['clone', testRepoUrl, workspacePath], { stdio: 'inherit' });
-			if (!fs.existsSync(workspacePath)) {
-				throw new Error(`Clone operation failed: ${res.stderr.toString()}`);
-			}
-		} else {
-			console.log('Cleaning test project repository...');
-			cp.spawnSync('git', ['fetch'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['reset', '--hard', 'FETCH_HEAD'], { cwd: workspacePath, stdio: 'inherit' });
-			cp.spawnSync('git', ['clean', '-xdf'], { cwd: workspacePath, stdio: 'inherit' });
-		}
-	}
-}
-
-export async function ensureStableCode(testDataPath: string, logger: Logger, opts: any): Promise<void> {
+async function ensureStableCode(testDataPath: string, logger: Logger, opts: any): Promise<void> {
 	let stableCodePath = opts['stable-build'];
 
 	if (!stableCodePath) {
@@ -196,107 +263,15 @@ export async function ensureStableCode(testDataPath: string, logger: Logger, opt
 	opts['stable-build'] = stableCodePath;
 }
 
-export function setupEnvAndHooks(suiteName: string): Logger {
-	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
-	const logger = createLogger(logsRootPath);
-
-	setupSmokeTestEnvironment(logger);
-	setupBeforeHooks(logger, suiteName);
-
-	return logger;
-}
-
-export function setupSmokeTestEnvironment(logger: Logger) {
-	//
-	// #### Electron Smoke Tests ####
-	//
-
-	if (!opts.web) {
-		let testCodePath = opts.build;
-		let electronPath: string;
-
-		if (testCodePath) {
-			electronPath = getBuildElectronPath(testCodePath);
-			version = getBuildVersion(testCodePath);
-		} else {
-			testCodePath = getDevElectronPath();
-			electronPath = testCodePath;
-			process.env.VSCODE_REPOSITORY = ROOT_PATH;
-			process.env.VSCODE_DEV = '1';
-			process.env.VSCODE_CLI = '1';
-		}
-
-		if (!fs.existsSync(electronPath || '')) {
-			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
-		}
-
-		quality = parseQuality();
-
-		if (opts.remote) {
-			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
-		} else {
-			logger.log(`Running desktop smoke tests against ${electronPath}`);
-		}
-
-		logger.log(`VS Code product quality: ${quality}.`);
-	}
-
-	//
-	// #### Web Smoke Tests ####
-	//
-	else {
-		const testCodeServerPath = opts.build || process.env.VSCODE_REMOTE_SERVER_PATH;
-
-		if (typeof testCodeServerPath === 'string') {
-			if (!fs.existsSync(testCodeServerPath)) {
-				throw new Error(`Cannot find Code server at ${testCodeServerPath}.`);
-			} else {
-				logger.log(`Running web smoke tests against ${testCodeServerPath}`);
-			}
-		}
-
-		if (!testCodeServerPath) {
-			process.env.VSCODE_REPOSITORY = ROOT_PATH;
-			process.env.VSCODE_DEV = '1';
-			process.env.VSCODE_CLI = '1';
-
-			logger.log(`Running web smoke out of sources`);
-		}
-
-		quality = parseQuality();
-		logger.log(`VS Code product quality: ${quality}.`);
-	}
-}
-
-export function setupBeforeHooks(logger: Logger, suiteName: string) {
-	before(async function () {
-		// startTime = Date.now();
-		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
-
-		if (!opts.web && !opts.remote && opts.build) {
-			// Only enabled when running with --build and not in web or remote
-			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, opts), 'ensureStableCode', logger);
-		}
-
-		// Set default options
-		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
-		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', 'smoke-tests-electron', suiteName);
-		this.defaultOptions = {
-			quality,
-			codePath: opts.build,
-			workspacePath: WORKSPACE_PATH,
-			userDataDir: path.join(TEST_DATA_PATH, 'd'),
-			extensionsPath: EXTENSIONS_PATH,
-			logger,
-			logsPath: path.join(logsRootPath, 'suite_unknown'),
-			crashesPath: path.join(crashesRootPath, 'suite_unknown'),
-			verbose: opts.verbose,
-			remote: opts.remote,
-			web: opts.web,
-			tracing: opts.tracing,
-			headless: opts.headless,
-			browser: opts.browser,
-			extraArgs: (opts.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
-		};
-	});
-}
+type ParseOptions = {
+	verbose?: boolean;
+	remote?: boolean;
+	headless?: boolean;
+	web?: boolean;
+	tracing?: boolean;
+	parallel?: boolean;
+	build?: string;
+	'stable-build'?: string;
+	browser?: string;
+	electronArgs?: string;
+};
