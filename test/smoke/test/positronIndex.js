@@ -161,6 +161,12 @@ async function runMochaTests() {
 		const failures = await new Promise((resolve, reject) => {
 			const runner = mocha.run(failures => resolve(failures));
 
+			// Capture Mocha runner error event
+			runner.on('error', err => {
+				console.error('Error during test execution:', err);
+				handleError('Error during test execution', err);
+			});
+
 			// Cleanup after tests finish
 			runner.on('end', async () => {
 				try {
@@ -175,10 +181,10 @@ async function runMochaTests() {
 		// Handle test results
 		if (failures) {
 			console.log(getFailureLogs());
-			process.exit(1);
+			process.exit(1);  // Exit with failure
 		} else {
 			console.log('All tests passed.');
-			process.exit(0);
+			process.exit(0);  // Exit with success
 		}
 	} catch (error) {
 		handleError('Error running Mocha tests', error);
