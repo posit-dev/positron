@@ -55,8 +55,8 @@ import { CreateEnv } from '../../../../common/utils/localize';
 import { IPythonRuntimeManager } from '../../../../positron/manager';
 import { showErrorMessage } from '../../../../common/vscodeApis/windowApis';
 import { traceError } from '../../../../logging';
-import { untildify } from '../../../../pythonEnvironments/common/externalDependencies';
 // --- End Positron ---
+import { untildify } from '../../../../common/helpers';
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -369,15 +369,15 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         // Ensure we maintain the same active item as before.
         const activeItem = activeItemBeforeUpdate
             ? quickPick.items.find((item) => {
-                  if (isInterpreterQuickPickItem(item) && isInterpreterQuickPickItem(activeItemBeforeUpdate)) {
-                      return item.interpreter.id === activeItemBeforeUpdate.interpreter.id;
-                  }
-                  if (isSpecialQuickPickItem(item) && isSpecialQuickPickItem(activeItemBeforeUpdate)) {
-                      // 'label' is a constant here instead of 'path'.
-                      return item.label === activeItemBeforeUpdate.label;
-                  }
-                  return false;
-              })
+                if (isInterpreterQuickPickItem(item) && isInterpreterQuickPickItem(activeItemBeforeUpdate)) {
+                    return item.interpreter.id === activeItemBeforeUpdate.interpreter.id;
+                }
+                if (isSpecialQuickPickItem(item) && isSpecialQuickPickItem(activeItemBeforeUpdate)) {
+                    // 'label' is a constant here instead of 'path'.
+                    return item.label === activeItemBeforeUpdate.label;
+                }
+                return false;
+            })
             : undefined;
         if (activeItem) {
             quickPick.activeItems = [activeItem];
@@ -491,7 +491,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         const recommended = cloneDeep(suggestion);
         recommended.description = areItemsGrouped
             ? // No need to add a tag as "Recommended" group already exists.
-              recommended.description
+            recommended.description
             : `${recommended.description ?? ''} - ${Common.recommended}`;
         const index = items.findIndex(
             (item) => isInterpreterQuickPickItem(item) && item.interpreter.id === recommended.interpreter.id,

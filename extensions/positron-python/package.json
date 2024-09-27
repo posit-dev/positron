@@ -25,8 +25,7 @@
         "quickPickItemTooltip",
         "terminalDataWriteEvent",
         "terminalExecuteCommandEvent",
-        "contribIssueReporter",
-        "terminalShellIntegration"
+        "contribIssueReporter"
     ],
     "author": {
         "name": "Posit Software, PBC",
@@ -53,7 +52,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.89.0-20240415"
+        "vscode": "^1.91.0"
     },
     "enableTelemetry": false,
     "keywords": [
@@ -95,7 +94,7 @@
                 "description": "%walkthrough.pythonWelcome.description%",
                 "when": "workspacePlatform != webworker",
                 "steps": [
-                   {
+                    {
                         "id": "python.createPythonFolder",
                         "title": "%walkthrough.step.python.createPythonFolder.title%",
                         "description": "%walkthrough.step.python.createPythonFolder.description%",
@@ -399,7 +398,12 @@
             {
                 "category": "Python",
                 "command": "python.startREPL",
-                "title": "%python.command.python.startREPL.title%"
+                "title": "%python.command.python.startTerminalREPL.title%"
+            },
+            {
+                "category": "Python",
+                "command": "python.startNativeREPL",
+                "title": "%python.command.python.startNativeREPL.title%"
             },
             {
                 "category": "Python",
@@ -1290,7 +1294,7 @@
                     "category": "Python",
                     "command": "python.analysis.restartLanguageServer",
                     "title": "%python.command.python.analysis.restartLanguageServer.title%",
-                    "when": "!virtualWorkspace && shellExecutionSupported && editorLangId == python"
+                    "when": "!virtualWorkspace && shellExecutionSupported && (editorLangId == python || notebookType == jupyter-notebook)"
                 },
                 {
                     "category": "Python",
@@ -1420,7 +1424,13 @@
                 {
                     "category": "Python",
                     "command": "python.startREPL",
-                    "title": "%python.command.python.startREPL.title%",
+                    "title": "%python.command.python.startTerminalREPL.title%",
+                    "when": "!virtualWorkspace && shellExecutionSupported"
+                },
+                {
+                    "category": "Python",
+                    "command": "python.startNativeREPL",
+                    "title": "%python.command.python.startNativeREPL.title%",
                     "when": "!virtualWorkspace && shellExecutionSupported"
                 },
                 {
@@ -1453,12 +1463,12 @@
                 {
                     "submenu": "python.run",
                     "group": "Python",
-                    "when": "editorLangId == python && !virtualWorkspace && shellExecutionSupported && isWorkspaceTrusted"
+                    "when": "editorLangId == python && !virtualWorkspace && shellExecutionSupported && isWorkspaceTrusted && !inChat  && notebookType != jupyter-notebook"
                 },
                 {
                     "submenu": "python.runFileInteractive",
                     "group": "Jupyter2",
-                    "when": "editorLangId == python && !virtualWorkspace && shellExecutionSupported && !isJupyterInstalled && isWorkspaceTrusted"
+                    "when": "editorLangId == python && !virtualWorkspace && shellExecutionSupported && !isJupyterInstalled && isWorkspaceTrusted && !inChat"
                 }
             ],
             "python.runFileInteractive": [
@@ -1703,7 +1713,7 @@
         "@jupyter-widgets/html-manager": "^1.0.9",
         "@vscode/extension-telemetry": "^0.8.4",
         "arch": "^2.1.0",
-        "fs-extra": "^10.0.1",
+        "fs-extra": "^11.2.0",
         "glob": "^7.2.0",
         "hash.js": "^1.1.7",
         "iconv-lite": "^0.6.3",
@@ -1726,7 +1736,6 @@
         "tmp": "^0.0.33",
         "uint64be": "^3.0.0",
         "unicode": "^14.0.0",
-        "untildify": "^4.0.0",
         "vscode-debugprotocol": "^1.28.0",
         "vscode-jsonrpc": "8.2.0",
         "vscode-languageclient": "10.0.0-next.8",
@@ -1743,14 +1752,14 @@
         "@types/chai-arrays": "^2.0.0",
         "@types/chai-as-promised": "^7.1.0",
         "@types/download": "^8.0.1",
-        "@types/fs-extra": "^9.0.13",
+        "@types/fs-extra": "^11.0.4",
         "@types/glob": "^7.2.0",
         "@types/lodash": "^4.14.104",
         "@types/mocha": "^9.1.0",
-        "@types/node": "^18.17.1",
+        "@types/node": "^22.5.0",
         "@types/semver": "^5.5.0",
         "@types/shortid": "^0.0.29",
-        "@types/sinon": "^10.0.11",
+        "@types/sinon": "^17.0.3",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
         "@types/vscode": "^1.81.0",
@@ -1766,13 +1775,14 @@
         "chai-arrays": "^2.0.0",
         "chai-as-promised": "^7.1.1",
         "copy-webpack-plugin": "^9.1.0",
+        "cross-env": "^7.0.3",
         "cross-spawn": "^6.0.5",
         "del": "^6.0.0",
         "download": "^8.0.0",
         "eslint": "^7.2.0",
         "eslint-config-airbnb": "^18.2.0",
         "eslint-config-prettier": "^8.3.0",
-        "eslint-plugin-import": "^2.25.4",
+        "eslint-plugin-import": "^2.29.1",
         "eslint-plugin-jsx-a11y": "^6.3.1",
         "eslint-plugin-react": "^7.20.3",
         "eslint-plugin-react-hooks": "^4.0.0",
@@ -1792,14 +1802,14 @@
         "rewiremock": "^3.13.0",
         "rimraf": "^3.0.2",
         "shortid": "^2.2.8",
-        "sinon": "^13.0.1",
+        "sinon": "^18.0.0",
         "source-map-support": "^0.5.12",
         "ts-loader": "^9.2.8",
         "ts-mockito": "^2.5.0",
         "ts-node": "^10.7.0",
         "tsconfig-paths-webpack-plugin": "^3.2.0",
         "typemoq": "^2.1.0",
-        "typescript": "4.5.5",
+        "typescript": "~5.2",
         "uuid": "^8.3.2",
         "webpack": "^5.76.0",
         "webpack-bundle-analyzer": "^4.5.0",

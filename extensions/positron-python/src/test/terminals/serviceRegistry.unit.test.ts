@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
@@ -47,8 +48,8 @@ suite('Terminal - Service Registry', () => {
                         // Fix for Typescript v5
                         s.addSingleton<unknown>(
                             // --- End Positron ---
-                            typemoq.It.is((v) => args[0] === v),
-                            typemoq.It.is((value) => args[1] === value),
+                            typemoq.It.is((v: any) => args[0] === v),
+                            typemoq.It.is((value: any) => args[1] === value),
                         ),
                     )
                     .verifiable(typemoq.Times.once());
@@ -59,8 +60,8 @@ suite('Terminal - Service Registry', () => {
                         // Fix for Typescript v5
                         s.addSingleton<unknown>(
                             // --- End Positron ---
-                            typemoq.It.is((v) => args[0] === v),
-                            typemoq.It.is((value) => args[1] === value),
+                            typemoq.It.is((v: any) => args[0] === v),
+                            typemoq.It.is((value: any) => args[1] === value),
 
                             typemoq.It.isValue((args[2] as unknown) as string),
                         ),
@@ -74,8 +75,8 @@ suite('Terminal - Service Registry', () => {
                 // Fix for Typescript v5
                 s.addBinding<ITerminalEnvVarCollectionService, IExtensionActivationService>(
                     // --- End Positron ---
-                    typemoq.It.is((v) => ITerminalEnvVarCollectionService === v),
-                    typemoq.It.is((value) => IExtensionActivationService === value),
+                    typemoq.It.is((v: any) => ITerminalEnvVarCollectionService === v),
+                    typemoq.It.is((value: any) => IExtensionActivationService === value),
                 ),
             )
             .verifiable(typemoq.Times.once());
