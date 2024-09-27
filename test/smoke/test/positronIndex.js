@@ -140,74 +140,6 @@ function cloneTestRepo() {
 }
 
 /**
- * Runs the Mocha tests with the provided options and performs cleanup.
- */
-async function runMochaTests() {
-	const mocha = new Mocha(getMochaOptions(opts));
-	applyTestFilters(mocha);
-	// mocha.dryRun();
-
-	// Add test files to Mocha
-	const testDirPath = path.resolve('out/test-list');
-	fs.readdirSync(testDirPath).forEach(file => {
-		if (file.endsWith('.js') && !file.includes('setupUtils')) {
-			const filePath = path.join(testDirPath, file);
-			mocha.addFile(filePath);
-		}
-	});
-
-	try {
-		// Run Mocha tests and await completion
-		const failures = await new Promise((resolve, reject) => {
-			const runner = mocha.run(failures => resolve(failures));
-
-			// Capture Mocha runner error event
-			runner.on('error', err => {
-				console.error('Error during test execution:', err);
-				handleError('Error during test execution', err);
-			});
-
-			// Cleanup after tests finish
-			runner.on('end', async () => {
-				try {
-					await cleanupTestData(TEST_DATA_PATH);
-					console.log('Test data cleaned up successfully.');
-				} catch (error) {
-					handleError('Error during cleanup', error);
-				}
-			});
-		});
-
-		// Handle test results
-		if (failures) {
-			console.log('Failed tests:');
-			console.log(getFailureLogs());
-			process.exit(1);  // Exit with failure
-		} else {
-			console.log('All tests passed.');
-			process.exit(0);  // Exit with success
-		}
-	} catch (error) {
-		handleError('Error running Mocha tests', error);
-	}
-}
-
-/**
- * Cleans up the test data directory after tests are complete.
- */
-function cleanupTestData(TEST_DATA_PATH) {
-	return new Promise((resolve, reject) => {
-		rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
-			if (error) {
-				return reject(error);
-			}
-			console.log('Test data cleaned up successfully.');
-			resolve('success');
-		});
-	});
-}
-
-/**
  * Returns formatted failure log messages.
  */
 function getFailureLogs() {
@@ -240,10 +172,47 @@ function getFailureLogs() {
 	}
 }
 
+function runMochaTests() {
+	const mocha = new Mocha(getMochaOptions(opts));
+	applyTestFilters(mocha);
+
+	const testDirPath = path.resolve('out/test-list');
+	fs.readdirSync(testDirPath).forEach(file => {
+		if (file.endsWith('.js') && !file.includes('setupUtils')) {
+			const filePath = path.join(testDirPath, file);
+			mocha.addFile(filePath);
+		}
+	});
+
+	mocha.run(failures => {
+		// Handle test results
+		if (failures) {
+			console.log(getFailureLogs());
+		} else {
+			console.log('All tests passed.');
+		}
+
+		// Cleanup test data and handle exit
+		cleanupTestData(err => {
+			if (err) {
+				console.log('Error cleaning up test data:', err);
+			} else {
+				process.exit(failures ? 1 : 0);  // Exit based on test results
+			}
+		});
+	});
+}
+
 /**
- * Generic error handler.
+ * Cleans up the test data directory after tests are complete.
  */
-function handleError(message, error) {
-	console.error(`${message}:`, error);
-	process.exit(1);
+function cleanupTestData(callback) {
+	rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
+		if (error) {
+			console.error('Error cleaning up test data:', error);
+			return callback(error);
+		}
+		console.log('Test data cleaned up successfully.');
+		callback(null);
+	});
 }

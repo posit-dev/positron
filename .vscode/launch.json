@@ -7,9 +7,7 @@
 			"name": "Gulp Build",
 			"program": "${workspaceFolder}/node_modules/gulp/bin/gulp.js",
 			"stopOnEntry": true,
-			"args": [
-				"hygiene"
-			]
+			"args": ["hygiene"]
 		},
 		{
 			"type": "node",
@@ -30,36 +28,28 @@
 			"name": "Attach to Shared Process",
 			"timeout": 0,
 			"port": 5879,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/out/**/*.js"]
 		},
 		{
 			"type": "node",
 			"request": "attach",
 			"name": "Attach to Search Process",
 			"port": 5876,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/out/**/*.js"]
 		},
 		{
 			"type": "node",
 			"request": "attach",
 			"name": "Attach to Pty Host Process",
 			"port": 5877,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/out/**/*.js"]
 		},
 		{
 			"type": "node",
 			"request": "attach",
 			"name": "Attach to CLI Process",
 			"port": 5874,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			]
+			"outFiles": ["${workspaceFolder}/out/**/*.js"]
 		},
 		{
 			"type": "node",
@@ -68,11 +58,9 @@
 			"timeout": 30000,
 			"port": 5875,
 			"continueOnAttach": true,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"presentation": {
-				"hidden": true,
+				"hidden": true
 			}
 		},
 		{
@@ -85,9 +73,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/emmet",
 				"--extensionTestsPath=${workspaceFolder}/extensions/emmet/out/test"
 			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 6
@@ -102,9 +88,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/configuration-editing",
 				"--extensionTestsPath=${workspaceFolder}/extensions/configuration-editing/out/test"
 			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 6
@@ -120,9 +104,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/git",
 				"--extensionTestsPath=${workspaceFolder}/extensions/git/out/test"
 			],
-			"outFiles": [
-				"${workspaceFolder}/extensions/git/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/extensions/git/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 6
@@ -138,9 +120,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/github",
 				"--extensionTestsPath=${workspaceFolder}/extensions/github/out/test"
 			],
-			"outFiles": [
-				"${workspaceFolder}/extensions/github/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/extensions/github/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 6
@@ -194,9 +174,7 @@
 				"--extensionDevelopmentPath=${workspaceFolder}/extensions/vscode-colorize-tests",
 				"--extensionTestsPath=${workspaceFolder}/extensions/vscode-colorize-tests/out"
 			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 5
@@ -208,12 +186,8 @@
 			"name": "Attach to Positron",
 			"browserAttachLocation": "workspace",
 			"port": 9222,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
+			"resolveSourceMapLocations": ["${workspaceFolder}/out/**/*.js"],
 			"perScriptSourcemaps": "yes"
 		},
 		// NOTE: The VSCode internal extension for debugging of tests requires
@@ -225,12 +199,8 @@
 			"name": "Attach to VS Code",
 			"browserAttachLocation": "workspace",
 			"port": 9222,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
+			"resolveSourceMapLocations": ["${workspaceFolder}/out/**/*.js"],
 			"perScriptSourcemaps": "yes"
 		},
 		{
@@ -263,16 +233,12 @@
 			],
 			"userDataDir": "${userHome}/.vscode-oss-dev",
 			"webRoot": "${workspaceFolder}",
-			"cascadeTerminateToConfigurations": [
-				"Attach to Extension Host"
-			],
+			"cascadeTerminateToConfigurations": ["Attach to Extension Host"],
 			"pauseForSourceMap": false,
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"browserLaunchLocation": "workspace",
 			"presentation": {
-				"hidden": true,
+				"hidden": true
 			},
 			// This is read by the vscode-diagnostic-tools extension
 			"vscode-diagnostic-tools.debuggerScripts": [
@@ -282,9 +248,7 @@
 		{
 			"type": "node",
 			"request": "launch",
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"name": "Positron Server (Web)",
 			"preLaunchTask": "Run code server",
 			"presentation": {
@@ -300,15 +264,10 @@
 			"enableContentValidation": false,
 			"runtimeExecutable": "${workspaceFolder}/scripts/code.sh",
 			"windows": {
-				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat",
+				"runtimeExecutable": "${workspaceFolder}/scripts/code.bat"
 			},
-			"runtimeArgs": [
-				"--inspect-brk=5875",
-				"--no-cached-data",
-			],
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"runtimeArgs": ["--inspect-brk=5875", "--no-cached-data"],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"presentation": {
 				"group": "1_vscode",
 				"order": 1
@@ -375,9 +334,7 @@
 			"program": "${workspaceFolder}/extensions/git/node_modules/mocha/bin/_mocha",
 			"stopOnEntry": false,
 			"cwd": "${workspaceFolder}/extensions/git",
-			"outFiles": [
-				"${workspaceFolder}/extensions/git/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/extensions/git/out/**/*.js"],
 			"presentation": {
 				"group": "5_tests",
 				"order": 10
@@ -462,16 +419,10 @@
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
 			},
 			"outputCapture": "std",
-			"args": [
-				"--remote-debugging-port=9222"
-			],
+			"args": ["--remote-debugging-port=9222"],
 			"cwd": "${workspaceFolder}",
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
-			"cascadeTerminateToConfigurations": [
-				"Attach to Positron"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
+			"cascadeTerminateToConfigurations": ["Attach to Positron"],
 			"env": {
 				"MOCHA_COLORS": "true"
 			},
@@ -491,19 +442,11 @@
 			"linux": {
 				"runtimeExecutable": "${workspaceFolder}/.build/electron/code-oss"
 			},
-			"cascadeTerminateToConfigurations": [
-				"Attach to Positron"
-			],
+			"cascadeTerminateToConfigurations": ["Attach to Positron"],
 			"outputCapture": "std",
-			"args": [
-				"--remote-debugging-port=9222",
-				"--run",
-				"${relativeFile}"
-			],
+			"args": ["--remote-debugging-port=9222", "--run", "${relativeFile}"],
 			"cwd": "${workspaceFolder}",
-			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
-			],
+			"outFiles": ["${workspaceFolder}/out/**/*.js"],
 			"env": {
 				"MOCHA_COLORS": "true"
 			},
@@ -515,15 +458,11 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Smoke Test",
-			"program": "${workspaceFolder}/test/smoke/test/index.js",
+			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
-			"args": [
-				"--tracing"
-			],
-			"outFiles": [
-				"${cwd}/out/**/*.js"
-			],
+			"args": ["--tracing"],
+			"outFiles": ["${cwd}/out/**/*.js"],
 			//---- Start Positron
 			"sourceMaps": true,
 			"resolveSourceMapLocations": [
@@ -544,13 +483,8 @@
 			"program": "${workspaceFolder}/test/smoke/test/index.js",
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
-			"args": [
-				"--tracing",
-				"--web"
-			],
-			"outFiles": [
-				"${cwd}/out/**/*.js"
-			],
+			"args": ["--tracing", "--web"],
+			"outFiles": ["${cwd}/out/**/*.js"],
 			//---- Start Positron
 			"sourceMaps": true,
 			"resolveSourceMapLocations": [
@@ -653,10 +587,7 @@
 		},
 		{
 			"name": "Debug Unit Tests",
-			"configurations": [
-				"Attach to Positron",
-				"Run Unit Tests"
-			],
+			"configurations": ["Attach to Positron", "Run Unit Tests"],
 			"presentation": {
 				"group": "1_vscode",
 				"order": 2
@@ -676,11 +607,8 @@
 		{
 			"name": "Renderer and Main processes",
 			"stopAll": true,
-			"configurations": [
-				"Launch Positron Internal",
-				"Attach to Main Process"
-			],
+			"configurations": ["Launch Positron Internal", "Attach to Main Process"],
 			"preLaunchTask": "Ensure Prelaunch Dependencies"
-		},
+		}
 	]
 }
