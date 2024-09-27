@@ -967,6 +967,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					this.waitForReconnect(session);
 					break;
 
+				case RuntimeState.Starting:
+					this._onWillStartRuntimeEmitter.fire({
+						session,
+						isNew: true
+					} satisfies IRuntimeSessionWillStartEvent);
+					break;
+
 				case RuntimeState.Exited:
 					// Remove the runtime from the set of starting or running runtimes.
 					this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
@@ -1000,24 +1007,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		this._register(session.onDidEndSession(async exit => {
-			// If the runtime is restarting and has just exited, let Positron know that it's
-			// about to start again. Note that we need to do this on the next tick since we
-			// need to ensure all the event handlers for the state change we
-			// are currently processing have been called (i.e. everyone knows it has exited)
+			// Note that we need to do this on the next tick since we need to
+			// ensure all the event handlers for the state change we are
+			// currently processing have been called (i.e. everyone knows it has
+			// exited)
 			setTimeout(() => {
 				const sessionInfo = this._activeSessionsBySessionId.get(session.sessionId);
 				if (!sessionInfo) {
 					this._logService.error(
 						`Session ${formatLanguageRuntimeSession(session)} is not active.`);
 					return;
-				}
-				if (sessionInfo.state === RuntimeState.Exited &&
-					exit.reason === RuntimeExitReason.Restart) {
-					const evt: IRuntimeSessionWillStartEvent = {
-						session,
-						isNew: true
-					};
-					this._onWillStartRuntimeEmitter.fire(evt);
 				}
 
 				// If a workspace session ended because the extension host was
