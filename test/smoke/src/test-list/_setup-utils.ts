@@ -31,7 +31,7 @@ export type ParseOptions = {
 let quality: Quality;
 let version: string | undefined;
 
-export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
+export const ROOT_PATH = path.join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
