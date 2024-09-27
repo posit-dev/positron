@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 .data-explorer-panel .data-explorer {
+	min-width: 0;
+	min-height: 0;
 	display: grid;
+	overflow: hidden;
 	grid-row: data-explorer / status-bar;
 	grid-template-rows: [main-row] 1fr [end-rows];
 }
@@ -32,6 +35,8 @@
 }
 
 .data-explorer-panel .data-explorer .left-column {
+	min-width: 0;
+	min-height: 0;
 	display: grid;
 	grid-row: main-row / end-rows;
 	grid-column: left-column / collapsed-left-spacer;
@@ -64,6 +69,8 @@
 }
 
 .data-explorer-panel .data-explorer .right-column {
+	min-width: 0;
+	min-height: 0;
 	display: grid;
 	grid-row: main-row / end-rows;
 	grid-column: right-column / end-columns;

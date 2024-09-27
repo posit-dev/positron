@@ -9,7 +9,7 @@ import logging
 import os
 import sys
 
-from positron_ipykernel.positron_ipkernel import PositronIPKernelApp
+from positron_ipykernel.positron_ipkernel import PositronIPKernelApp, PositronIPyKernel
 from positron_ipykernel.positron_jedilsp import POSITRON
 from positron_ipykernel.session_mode import SessionMode
 
@@ -123,7 +123,6 @@ if __name__ == "__main__":
     # command-line arguments in unexpected ways (e.g. logfile instructs it to log executed code).
     app.initialize(argv=[])
     assert app.kernel is not None, "Kernel was not initialized"
-
     # Disable the banner if running in quiet mode.
     if args.quiet:
         app.kernel.shell.banner1 = ""
@@ -148,6 +147,12 @@ if __name__ == "__main__":
         exit_status = 1
     finally:
         loop.close()
+
+    # When the app is gone, it should be safe to clear singleton instances.
+    # This allows re-starting the ipykernel in the same process, using different
+    # connection strings, etc.
+    PositronIPyKernel.clear_instance()
+    PositronIPKernelApp.clear_instance()
 
     logger.info(f"Exiting process with status {exit_status}")
     sys.exit(exit_status)

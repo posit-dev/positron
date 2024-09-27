@@ -181,7 +181,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				// Save the exit code for error reporting if we know it
 				if (closedTerminal.exitStatus && closedTerminal.exitStatus.code) {
 					this._exitCode = closedTerminal.exitStatus.code;
-
 					// The kernel's status is now exited
 					this.setStatus(positron.RuntimeState.Exited);
 				}
@@ -311,7 +310,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * @param session The Jupyter session information for the kernel running in
 	 *   the terminal
 	 */
-	private async connectToSession(session: JupyterSession) {
+	public async connectToSession(session: JupyterSession) {
 
 		// Establish a log channel for the kernel we're connecting to, if we
 		// don't already have one (we will if we're restarting)
@@ -680,6 +679,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		// and establishes available ports and sockets for the kernel to connect
 		// to.
 		const session = await createJupyterSession();
+
+		if (this._spec.startKernel) {
+			// If this is provided, it means we are starting the kernel with a different method
+			// instead of using a terminal. For instance, it could be a kernel started in a
+			// different format.
+			await this._spec.startKernel(session, this);
+		} else {
+			// This is the defualt path for starting a kernel as a vscode terminal
+			// using the given `argv` and `env` from the kernel spec.
+			await this.startTerminal(session);
+		}
+	}
+
+	async startTerminal(session: JupyterSession) {
 		const connnectionFile = session.state.connectionFile;
 		const logFile = session.state.logFile;
 		const profileFile = session.state.profileFile;
@@ -1032,7 +1045,6 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * have disconnected, we consider the kernel to have exited.
 	 */
 	private onSocketDisconnected() {
-
 		// Check to see whether all the sockets are disconnected
 		for (const socket of this._allSockets) {
 			if (socket.isConnected()) {
