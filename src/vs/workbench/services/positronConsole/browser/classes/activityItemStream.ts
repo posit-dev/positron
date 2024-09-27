@@ -47,12 +47,17 @@ export class ActivityItemStream {
 
 	/**
 	 * Constructor.
+	 *
+	 * Never to be called directly, as the result won't be fully specialized.
+	 * Internally, use `newActivityItemStream()` instead.
+	 * Externally, use `ActivityItemOutputStream` or `ActivityItemErrorStream` constructors instead.
+	 *
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param text The text.
 	 */
-	constructor(
+	protected constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
@@ -95,7 +100,7 @@ export class ActivityItemStream {
 		const remainderText = activityItemStream.text.substring(newlineIndex + 1);
 
 		// Add an ActivityItemStream with the text containing the newline.
-		this.activityItemStreams.push(new ActivityItemStream(
+		this.activityItemStreams.push(this.newActivityItemStream!(
 			activityItemStream.id,
 			activityItemStream.parentId,
 			activityItemStream.when,
@@ -116,7 +121,7 @@ export class ActivityItemStream {
 		}
 
 		// Create the remainder ActivityItemStream.
-		activityItemStream = new ActivityItemStream(
+		activityItemStream = this.newActivityItemStream!(
 			activityItemStream.id,
 			activityItemStream.parentId,
 			activityItemStream.when,
@@ -137,6 +142,25 @@ export class ActivityItemStream {
 	}
 
 	//#endregion Public Methods
+
+	//#region Protected Methods
+
+	/**
+	 * Constructor for typed ActivityItemStream instances
+	 *
+	 * Must be overriden by specializations.
+	 *
+	 * Used to ensure that newly created ActivityItemStreams returned by `addActivityItemStream()`
+	 * retain their original type, i.e. either ActivityItemOutputStream or ActivityItemErrorStream.
+	 *
+	 * @param id The identifier.
+	 * @param parentId The parent identifier.
+	 * @param when The date.
+	 * @param text The text.
+	 */
+	protected newActivityItemStream?(id: string, parentId: string, when: Date, text: string): ActivityItemStream;
+
+	//#endregion Protected Methods
 
 	//#region Private Methods
 
@@ -159,9 +183,25 @@ export class ActivityItemStream {
 /**
  * ActivityItemOutputStream class.
  */
-export class ActivityItemOutputStream extends ActivityItemStream { }
+export class ActivityItemOutputStream extends ActivityItemStream {
+	constructor(id: string, parentId: string, when: Date, text: string) {
+		super(id, parentId, when, text);
+	}
+
+	protected override newActivityItemStream(id: string, parentId: string, when: Date, text: string): ActivityItemStream {
+		return new ActivityItemOutputStream(id, parentId, when, text);
+	}
+}
 
 /**
  * ActivityItemErrorStream class.
  */
-export class ActivityItemErrorStream extends ActivityItemStream { }
+export class ActivityItemErrorStream extends ActivityItemStream {
+	constructor(id: string, parentId: string, when: Date, text: string) {
+		super(id, parentId, when, text);
+	}
+
+	protected override newActivityItemStream(id: string, parentId: string, when: Date, text: string): ActivityItemStream {
+		return new ActivityItemErrorStream(id, parentId, when, text);
+	}
+}
