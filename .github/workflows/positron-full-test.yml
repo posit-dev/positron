@@ -197,11 +197,21 @@ jobs:
           cd ..
           rm -rf positron-license
 
-      - name: Publish Test Report
+      - name: Publish Electron Test Report
         uses: mikepenz/action-junit-report@v4
-        if: success() || failure() # always run even if the previous step fails
+        if: success() || failure()
         with:
           report_paths: "**/.build/logs/smoke-tests-electron/test-results/*results.xml"
+          check_name: "Electron Test Results"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Web Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: "**/.build/logs/smoke-tests-browser/test-results/*results.xml"
+          check_name: "Web Test Results"
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
