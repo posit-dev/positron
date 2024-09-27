@@ -21,7 +21,18 @@
       {
         "languageId": "reticulate"
       }
-    ]
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "%configurationTitle%",
+      "properties": {
+        "positron.reticulate.enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "%enabledDescription%"
+        }
+      }
+    }
   },
   "extensionDependencies": [
     "ms-python.python",

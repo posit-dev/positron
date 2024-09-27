@@ -34,10 +34,33 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	) {
 		this.onDidDiscoverRuntimeEmmiter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>;
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmmiter.event;
-		this.maybeRegisterReticulateRuntime();
+
+		vscode.workspace.onDidChangeConfiguration((event) => {
+			if (this._metadata) {
+				return; // If the runtime is already registered, don't do anything
+			}
+			if (event.affectsConfiguration('positron.reticulate.enabled') && this.featureEnabled()) {
+				this.maybeRegisterReticulateRuntime();
+			}
+		});
+
+		if (this.featureEnabled()) {
+			this.maybeRegisterReticulateRuntime();
+		}
+	}
+
+	featureEnabled(): boolean | undefined {
+		// If it's disabled, don't do any registration
+		const config = vscode.workspace.getConfiguration('positron.reticulate');
+		return config.get<boolean>('enabled');
 	}
 
 	async maybeRegisterReticulateRuntime() {
+
+		if (this._metadata) {
+			return; // No-op if session is already registered.
+		}
+
 		// Get a fixed list of all current runtimes.
 		const runtimes = await positron.runtime.getRegisteredRuntimes();
 
@@ -614,7 +637,9 @@ export class ReticulateProvider {
 		}
 
 		this._client = client;
-
+		// We'll force the registration when the user calls `reticulate::repl_python()`
+		// even if the flag is not enabled.
+		await this.manager.maybeRegisterReticulateRuntime();
 		await positron.runtime.selectLanguageRuntime('reticulate');
 
 		this.manager._session?.onDidEndSession(() => {
