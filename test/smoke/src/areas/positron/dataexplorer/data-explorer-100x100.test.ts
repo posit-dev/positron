@@ -10,7 +10,7 @@ import { installAllHandlers } from '../../../utils';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 
 export function setupDataExplorer100x100Test(logger: Logger) {
-	describe('Data Explorer - 100x100 Data Validation #marie', function () {
+	describe('Data Explorer - 100x100 Data Validation', function () {
 		installAllHandlers(logger);
 
 		describe('Python - Pandas', function () {
@@ -22,7 +22,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 				await (this.app as Application).workbench.positronDataExplorer.closeDataExplorer();
 			});
 
-			it('should load 100x100 dataset into Pandas DataFrame and validate grid content [C557563]', async function () {
+			it('should load data into Pandas DataFrame and validate grid content [C557563]', async function () {
 				const app = this.app as Application;
 				const dataFrameName = 'pandas100x100';
 				await testDataExplorer(
@@ -45,7 +45,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 				await (this.app as Application).workbench.positronDataExplorer.closeDataExplorer();
 			});
 
-			it('should load 100x100 dataset into Polars DataFrame and verify values [C674520]', async function () {
+			it('should load 1data into Polars DataFrame and verify values [C674520]', async function () {
 				const app = this.app as Application;
 				const dataFrameName = 'polars100x100';
 				await testDataExplorer(
@@ -68,7 +68,7 @@ export function setupDataExplorer100x100Test(logger: Logger) {
 				await (this.app as Application).workbench.positronDataExplorer.closeDataExplorer();
 			});
 
-			it('should load 100x100 dataset into R DataFrame using Arrow and validate data [C674521]', async function () {
+			it('should load data into R DataFrame using Arrow and validate data [C674521]', async function () {
 
 				const app = this.app as Application;
 				const dataFrameName = 'r100x100';
