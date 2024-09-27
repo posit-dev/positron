@@ -21,7 +21,6 @@ const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 const OPTS = parseOptions();
 
-
 /**
  * Setup the environment and hooks for the test
  *
@@ -37,7 +36,6 @@ export function setupEnvAndHooks(suiteName: string): Logger {
 
 	return logger;
 }
-
 
 function setupSmokeTestEnvironment(logger: Logger) {
 	//
