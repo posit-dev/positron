@@ -120,6 +120,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return arg;
 		}) as Array<string>;
 
+		// Default to message-based interrupts
+		let interruptMode = InterruptMode.Message;
+
+		// If the kernel spec specifies an interrupt mode, use it
+		if (kernelSpec.interrupt_mode) {
+			switch (kernelSpec.interrupt_mode) {
+				case 'signal':
+					interruptMode = InterruptMode.Signal;
+					break;
+				case 'message':
+					interruptMode = InterruptMode.Message;
+					break;
+			}
+		}
+
 		// Create the session in the underlying API
 		const session: NewSession = {
 			argv: args,
@@ -128,8 +143,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			displayName: this.metadata.sessionName,
 			env,
 			workingDirectory: workingDir,
-			username: '',
-			interruptMode: InterruptMode.Message
+			username: os.userInfo().username,
+			interruptMode
 		};
 
 		await this._api.newSession(session);
