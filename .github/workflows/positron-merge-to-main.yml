@@ -129,7 +129,7 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         # run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 5
-        run: DISPLAY=:10 yarn smoketest-merge-to-main --tracing --parallel --jobs 3
+        run: DISPLAY=:10 yarn smoketest-merge-to-main --tracing --parallel --jobs 4
 
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
