@@ -458,7 +458,9 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Smoke Test",
+			//---- Start Positron
 			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
+			//---- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
 			"args": ["--tracing"],
@@ -480,7 +482,9 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Web Smoke Test",
-			"program": "${workspaceFolder}/test/smoke/test/index.js",
+			//---- Start Positron
+			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
+			//---- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
 			"args": ["--tracing", "--web"],
