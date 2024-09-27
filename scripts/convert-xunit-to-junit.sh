@@ -17,13 +17,19 @@ JUNIT_FILE="./.build/logs/$DIR_NAME/test-results/results.xml"
 OUTPUT_DIR=$(dirname "$JUNIT_FILE")
 mkdir -p "$OUTPUT_DIR"
 
-# Check if xUnit XML file exists
+# Check if XUnit XML file exists
 if [ ! -f "$XUNIT_FILE" ]; then
-	echo "xUnit file $XUNIT_FILE not found!"
+	echo "XUnit file $XUNIT_FILE not found!"
 	exit 1
 fi
 
-# Create a JUnit XML structure from xUnit
+# Check if the Xunit XML file is empty
+if [ ! -s "$XUNIT_FILE" ]; then
+	echo "Error: Xunit file $XUNIT_FILE exists but is empty!"
+	exit 1
+fi
+
+# Create a JUnit XML structure from XUnit
 echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
 echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 
