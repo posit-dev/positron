@@ -100,6 +100,7 @@ df2 = pd.DataFrame(data)`;
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
 
 				await expect(async () => {
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -112,6 +113,7 @@ df2 = pd.DataFrame(data)`;
 					expect(tableData.length).toBe(5);
 				}).toPass({ timeout: 60000 });
 
+				await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
 
 			});
 			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
