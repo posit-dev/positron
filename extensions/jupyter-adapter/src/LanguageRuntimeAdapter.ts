@@ -219,9 +219,10 @@ export class LanguageRuntimeSessionAdapter
 	 * Emits a message into the Jupyter kernel's log channel.
 	 *
 	 * @param message The message to emit to the log
+	 * @param logLevel Optionally, the log level of the message.
 	 */
-	public emitJupyterLog(message: string): void {
-		this._kernel.log(message);
+	public emitJupyterLog(message: string, logLevel?: vscode.LogLevel): void {
+		this._kernel.log(message, logLevel);
 	}
 
 	/**
