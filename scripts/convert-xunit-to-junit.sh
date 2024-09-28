@@ -23,9 +23,15 @@ if [ ! -f "$XUNIT_FILE" ]; then
 	exit 1
 fi
 
-# Check if the Xunit XML file is empty
+# Check if the XUnit XML file is empty
 if [ ! -s "$XUNIT_FILE" ]; then
-	echo "Error: Xunit file $XUNIT_FILE exists but is empty!"
+	echo "Error: XUnit file $XUNIT_FILE exists but is empty!"
+	exit 1
+fi
+
+# Validate the input XML file format before proceeding
+if ! /usr/bin/xmllint --noout "$XUNIT_FILE" 2>/dev/null; then
+	echo "Error: $XUNIT_FILE is not a well-formed XML file."
 	exit 1
 fi
 
@@ -33,34 +39,50 @@ fi
 echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
 echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 
-# Extract each <testsuite> element and its content
-/usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" | while read -r testsuite; do
-	# Check if the current line is an opening <testsuite> tag
-	if echo "$testsuite" | grep -q "<testsuite"; then
-		# Extract and format the <testsuite> attributes
-		echo "$testsuite" | awk '
-		{
-			gsub(/<testsuite/, "<testsuite");
-			gsub(/name=/, "name=");
-			gsub(/tests=/, "tests=");
-			gsub(/failures=/, "failures=");
-			gsub(/errors=/, "errors=");
-			gsub(/time=/, "time=");
-			gsub(/timestamp=/, "timestamp=");
-			print $0;
-		}' >> "$JUNIT_FILE"
-	fi
+# Extract the entire <testsuite> block from the XUnit file
+TESTSUITE=$(/usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" 2>/dev/null)
+
+# If no <testsuite> elements were found, output an error and exit
+if [ -z "$TESTSUITE" ]; then
+	echo "Error: No <testsuite> elements found in the XUnit file."
+	exit 1
+fi
+
+# Debug: Print the entire <testsuite> content
+# echo "Extracted <testsuite> content:"
+# echo "$TESTSUITE"
+
+# Extract the opening <testsuite> tag and its attributes
+TESTSUITE_OPENING=$(echo "$TESTSUITE" | sed -n 's/^\(<testsuite[^>]*>\).*/\1/p')
+
+# If a valid opening tag is found, proceed
+if [ -n "$TESTSUITE_OPENING" ]; then
+	# Add the <testsuite> opening tag to the JUnit file
+	echo "$TESTSUITE_OPENING" >> "$JUNIT_FILE"
 
 	# Extract and add the <testcase> elements for this <testsuite>
-	/usr/bin/xmllint --xpath '//*[local-name()="testcase"]' "$XUNIT_FILE" | sed 's#<testcase \(.*\)\/>#<testcase \1></testcase>#' >> "$JUNIT_FILE"
+	# This will capture all the nested <testcase> elements correctly
+	TESTCASES=$(echo "$TESTSUITE" | xmllint --xpath '//*[local-name()="testcase"]' - 2>/dev/null)
 
-	# Close the <testsuite> tag only if there was an opening <testsuite> tag
-	if echo "$testsuite" | grep -q "</testsuite>"; then
-		echo '</testsuite>' >> "$JUNIT_FILE"
+	# Debug: Print the extracted <testcase> elements
+	# echo "Extracted testcases:"
+	# echo "$TESTCASES"
+
+	# Add the <testcase> elements to the JUnit file
+	if [ -n "$TESTCASES" ]; then
+		echo "$TESTCASES" | sed 's#<testcase \(.*\)\/>#<testcase \1></testcase>#g' >> "$JUNIT_FILE"
+	else
+		echo "Warning: No <testcase> elements found in this testsuite."
 	fi
-done
 
-# Close the <testsuites> block
+	# Close the <testsuite> tag after processing its test cases
+	echo '</testsuite>' >> "$JUNIT_FILE"
+else
+	echo "Error: Malformed testsuite element."
+	exit 1
+fi
+
+# Close the <testsuites> root element
 echo '</testsuites>' >> "$JUNIT_FILE"
 
 # Detect if running on macOS (BSD) or Linux and adjust sed accordingly
