@@ -95,11 +95,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	private _terminal?: vscode.Terminal;
 
-	/** The channel to which output for this specific terminal is logged, if any */
+	/** The channel to which output for this specific kernel is logged, if any */
 	private _logChannel?: vscode.OutputChannel;
 
 	/** An optional profiler channel */
 	private _profileChannel?: vscode.OutputChannel;
+
+	/** The channel to which output for this specific console is logged */
+	private _consoleChannel?: vscode.LogOutputChannel;
 
 	/** The exit code, if any */
 	private _exitCode: number;
@@ -136,7 +139,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		private readonly _context: vscode.ExtensionContext,
 		spec: JupyterKernelSpec,
 		private readonly _runtimeId: string,
-		private readonly _channel: vscode.OutputChannel,
+		private readonly _channel: vscode.LogOutputChannel,
 		private readonly _notebookUri?: vscode.Uri,
 		readonly extra?: JupyterKernelExtra,
 	) {
@@ -256,7 +259,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.disposeAllSockets();
 
 		// Create ZeroMQ sockets
-		const logger = (message: string) => this.log(message);
+		const logger = (message: string, logLevel?: vscode.LogLevel) => this.log(message, logLevel);
 		this._control = new JupyterSocket('Control', 'dealer', logger);
 		this._allSockets.push(this._control);
 		this._shell = new JupyterSocket('Shell', 'dealer', logger);
@@ -312,14 +315,20 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 */
 	public async connectToSession(session: JupyterSession) {
 
-		// Establish a log channel for the kernel we're connecting to, if we
+		// Establish log channels for the console and kernel we're connecting to, if we
 		// don't already have one (we will if we're restarting)
 		// We use `.path` here because we discovered sometimes `fspath` does not exist on a `Uri`.
-		if (!this._logChannel) {
-			this._logChannel = positron.window.createRawLogOutputChannel(
+		if (!this._consoleChannel) {
+			this._consoleChannel = vscode.window.createOutputChannel(
 				this._notebookUri ?
 					`Notebook: ${path.basename(this._notebookUri.path)} (${this._spec.display_name})` :
-					`Console: ${this._spec.display_name}`);
+					`Console: ${this._spec.display_name}`,
+				{ log: true });
+		}
+
+		if (!this._logChannel) {
+			this._logChannel = positron.window.createRawLogOutputChannel(
+				`Kernel: ${this._spec.display_name}`);
 		}
 
 		// Bind to the Jupyter session
@@ -520,7 +529,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						case 'rpc_request': {
 							// Concurrent requests are not currently allowed
 							if (this._activeBackendRequestHeader !== undefined) {
-								this.log('ERROR: Overlapping request on StdIn');
+								this.log('Overlapping request on StdIn', vscode.LogLevel.Error);
 							}
 							this._activeBackendRequestHeader = msg.header;
 							break;
@@ -660,7 +669,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				return this.reconnect(this._session.state);
 			} catch (err) {
 				// If we failed to reconnect, then we need to remove the stale session state
-				this.log(`Failed to reconnect to kernel: ${err}`);
+				this.log(`Failed to reconnect to kernel: ${err}`, vscode.LogLevel.Error);
 
 				// After a beat, consider this state to be 'exited' so that we
 				// can start a new session; the most common cause of a failure
@@ -796,7 +805,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				try {
 					await this._extra!.attachOnStartup!.attach();
 				} catch (err) {
-					this.log(`Can't execute attach action: ${err}`);
+					this.log(`Can't execute attach action: ${err}`, vscode.LogLevel.Error);
 				}
 			}
 
@@ -1096,7 +1105,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		this.send(id, 'execute_request', this._shell!, msg)
 			.catch((err) => {
 				// Fail if we couldn't connect to the socket
-				this.log(`Failed to send execute_request for ${code} (id ${id}): ${err}`);
+				this.log(`Failed to send execute_request for ${code} (id ${id}): ${err}`, vscode.LogLevel.Error);
 			});
 	}
 
@@ -1125,7 +1134,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			// Couldn't find the request? Send the response anyway; most likely
 			// the kernel doesn't care (it is probably waiting for this specific
 			// response)
-			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
+			this.log(`Failed to find parent for input request ${id}; sending anyway: ${value}`, vscode.LogLevel.Warning);
 			this.send(uuidv4(), 'input_reply', this._stdin!, msg);
 		}
 	}
@@ -1140,7 +1149,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		const parent = this._activeBackendRequestHeader;
 
 		if (!parent) {
-			this.log(`ERROR: Failed to find parent for comm request ${response.id}`);
+			this.log(`Failed to find parent for comm request ${response.id}`, vscode.LogLevel.Error);
 			return;
 		}
 
@@ -1317,7 +1326,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 			await dest.send(serializeJupyterMessage(msg, this._session!.key));
 			this.log(`SEND ${msg.header.msg_type}: OK`);
 		} catch (err) {
-			this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`);
+			this.log(`SEND ${msg.header.msg_type}: ERR: ${err}`, vscode.LogLevel.Error);
 		}
 	}
 
@@ -1506,7 +1515,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 						}
 					} catch (e) {
 						this.log(`Could not find exit code in last line of log file ` +
-							`${state.logFile}: ${lastLine} (${e}))`);
+							`${state.logFile}: ${lastLine} (${e}))`,
+							vscode.LogLevel.Error);
 					}
 				}
 			} else {
@@ -1514,7 +1524,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 					`log file ${state.logFile} does not exist`);
 			}
 		} catch (e) {
-			this.log(`Error reading exit code from log file ${state.logFile}: ${e}`);
+			this.log(`Error reading exit code from log file ${state.logFile}: ${e}`,
+				vscode.LogLevel.Error);
 		}
 
 		// Fire the actual exit event
@@ -1546,24 +1557,35 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 *
 	 * @param msg The message to log
 	 */
-	public log(msg: string) {
+	public log(msg: string, logLevel?: vscode.LogLevel) {
 		// Ensure message isn't over the maximum length
 		if (msg.length > 2048) {
 			msg = msg.substring(0, 2048) + '... (truncated)';
 		}
 
-		if (this._logChannel) {
-			// If we have a kernel-specific log channel, log to that. The kernel
-			// log channel primarily streams the kernel's log, so prefix our
-			// output with "Positron" to distinguish it from the output from the
-			// language runtime.
-			this._logChannel.appendLine(`[Positron] ${msg}`);
-		} else {
-			// Otherwise, log to the main Jupyter Adapter channel. This is
-			// useful to send logs before the kernel is fully initialized; we
-			// don't create a log channel for the kernel unless it actually
-			// starts up.
-			this._channel.appendLine(msg);
+		// By default, log to the main Jupyter Adapter channel. This is
+		// useful to send logs before the kernel is fully initialized; we
+		// don't create a log channel for the kernel unless it actually
+		// starts up.
+		let channel = this._channel;
+
+		// If we have a console-specific log channel, log to that instead.
+		if (this._consoleChannel) {
+			channel = this._consoleChannel;
+		}
+
+		switch (logLevel) {
+			case vscode.LogLevel.Error:
+				channel.error(msg);
+				break;
+			case vscode.LogLevel.Warning:
+				channel.warn(msg);
+				break;
+			case vscode.LogLevel.Info:
+				channel.info(msg);
+				break;
+			default:
+				channel.appendLine(msg);
 		}
 	}
 
