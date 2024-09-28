@@ -115,8 +115,6 @@ df2 = pd.DataFrame(data)`;
 					expect(tableData.length).toBe(5);
 				}).toPass({ timeout: 60000 });
 
-				await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 			});
 			it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
@@ -130,7 +128,6 @@ df2 = pd.DataFrame(data)`;
 				expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('40%');
 
 				await app.workbench.positronLayouts.enterLayout('notebook');
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 
 				const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
 				expect(col1ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
