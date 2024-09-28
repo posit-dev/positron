@@ -81,7 +81,7 @@ export class LanguageRuntimeSessionAdapter
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		public readonly metadata: positron.RuntimeSessionMetadata,
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _channel: vscode.OutputChannel,
+		private readonly _channel: vscode.LogOutputChannel,
 		private readonly _spec: JupyterKernelSpec,
 		public dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra,
