@@ -201,7 +201,7 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: "**/.build/logs/smoke-tests-electron/test-results/*results.xml"
+          report_paths: "**/.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
           check_name: "Electron Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -209,7 +209,7 @@ jobs:
         uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          report_paths: "**/.build/logs/smoke-tests-browser/test-results/*results.xml"
+          report_paths: "**/.build/logs/smoke-tests-browser/test-results/xunit-results.xml"
           check_name: "Web Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
