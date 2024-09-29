@@ -236,6 +236,7 @@ df2 = pd.DataFrame(data)`;
 				}).toPass();
 
 				await app.workbench.positronSideBar.closeSecondarySideBar();
+				await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
 
 				await expect(async () => {
 					const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
