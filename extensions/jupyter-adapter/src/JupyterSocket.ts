@@ -51,7 +51,7 @@ export class JupyterSocket implements vscode.Disposable {
 	 * @param _logger A function that logs a message
 	 */
 	constructor(title: string, socketType: 'sub' | 'dealer' | 'req',
-		private readonly _logger: (msg: string) => void) {
+		private readonly _logger: (msg: string, logLevel?: vscode.LogLevel) => void) {
 		this._socket = zmq.createSocket(socketType);
 		this._title = title;
 		this.onDisconnected = this._disconnectEmitter.event;
@@ -65,8 +65,8 @@ export class JupyterSocket implements vscode.Disposable {
 		// Warn if we are nearing ZeroMQ's maximum number of sockets. This is 1024 in
 		// typical installations, but can be changed by setting ZMQ_MAX_SOCKETS.
 		if (JupyterSocket._jupyterSocketCount >= (zmq.Context.getMaxSockets() - 1)) {
-			this._logger(`*** WARNING *** Nearing maximum number of ZeroMQ sockets ` +
-				`(${zmq.Context.getMaxSockets()})`);
+			this._logger(`Nearing maximum number of ZeroMQ sockets ${zmq.Context.getMaxSockets()}`,
+				vscode.LogLevel.Warning);
 		}
 
 		// Monitor the socket for events; this is necessary to get events like
@@ -146,7 +146,8 @@ export class JupyterSocket implements vscode.Disposable {
 		try {
 			this._socket.disconnect(this._addr);
 		} catch (err) {
-			this._logger(`Error disconnecting ${this._title} socket from ${this._addr}: ${err}`);
+			this._logger(`Error disconnecting ${this._title} socket from ${this._addr}: ${err}`,
+				vscode.LogLevel.Error);
 		}
 
 
@@ -256,7 +257,8 @@ export class JupyterSocket implements vscode.Disposable {
 			const waitTime = Date.now() - startTime;
 			if (waitTime >= 20000) {
 				// If we've been waiting for more than 20 seconds, reject the promise
-				this._logger(`${this._title} socket connect timed out after 20 seconds`);
+				this._logger(`${this._title} socket connect timed out after 20 seconds`,
+					vscode.LogLevel.Error);
 				this._connectPromise.reject(new Error('Socket connect timed out after 20 seconds'));
 				this._connectPromise = undefined;
 
@@ -335,8 +337,9 @@ export class JupyterSocket implements vscode.Disposable {
 		// Disconnect the socket if it's connected
 		if (this._state === JupyterSocketState.Connected) {
 			// This generally should not happen, so log a warning
-			this._logger(`WARN: ${this._title} socket disposed while connected; ` +
-				` disconnecting from ${this._addr}...`);
+			this._logger(`${this._title} socket disposed while connected; ` +
+				` disconnecting from ${this._addr}...`,
+				vscode.LogLevel.Warning);
 			this.disconnect();
 		}
 
