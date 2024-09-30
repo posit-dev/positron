@@ -9,13 +9,13 @@ import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
-import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../automation/out';
+import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../automation';
 import { installAllHandlers, retry } from './utils';
 
 let quality: Quality;
 let version: string | undefined;
 
-export const ROOT_PATH = path.join(__dirname, '..', '..', '..', '..');
+export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
@@ -134,7 +134,6 @@ function setupSmokeTestEnvironment(logger: Logger) {
 
 function setupBeforeHooks(logger: Logger, suiteName: string) {
 	before(async function () {
-		// startTime = Date.now();
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
 
 		if (!OPTS.web && !OPTS.remote && OPTS.build) {
@@ -142,9 +141,19 @@ function setupBeforeHooks(logger: Logger, suiteName: string) {
 			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
 		}
 
-		// Set default options
-		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
-		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', 'smoke-tests-electron', suiteName);
+		const directoryName = (function logDirName() {
+			if (OPTS.web) {
+				return 'smoke-tests-browser';
+			} else if (OPTS.remote) {
+				return 'smoke-tests-remote';
+			} else {
+				return 'smoke-tests-electron';
+			}
+		})();
+
+		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', directoryName, suiteName);
+		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', directoryName, suiteName);
+
 		this.defaultOptions = {
 			quality,
 			codePath: OPTS.build,
