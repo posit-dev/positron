@@ -12,7 +12,7 @@ setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
-	describe('Shiny Application #pr', () => {
+	describe('Shiny Application', () => {
 		before(async function () {
 			try {
 				await this.app.workbench.extensions.installExtension('posit.shiny', true);
@@ -28,7 +28,7 @@ if (!web) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Python - Verify Basic Shiny App [C699099] #pr', async function () {
+			it('Python - Verify Basic Shiny App [C699099]', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
