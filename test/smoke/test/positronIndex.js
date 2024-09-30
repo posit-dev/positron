@@ -19,6 +19,9 @@ const minimist = require('minimist');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
 
+const mochaHooks = require('../out/hooks').mochaHooks;
+const hooksPath = path.resolve(__dirname, '../out/hooks');  // Absolute path
+
 // Constants
 const REPORT_PATH = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
@@ -78,6 +81,8 @@ function getMochaOptions(opts) {
 			xunit: REPORT_PATH,
 		},
 		retries: 1,
+		rootHooks: mochaHooks,
+		require: [hooksPath],
 	};
 }
 
