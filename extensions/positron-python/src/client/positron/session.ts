@@ -314,7 +314,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const runtimeError = err as positron.RuntimeMethodError;
             this._kernel.emitJupyterLog(
                 `Error setting console width: ${runtimeError.message} (${runtimeError.code})`,
-                vscode.LogLevel.Error
+                vscode.LogLevel.Error,
             );
         }
     }
@@ -332,9 +332,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
     private async createLsp() {
         traceInfo(`createPythonSession: resolving LSP services`);
-        const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
-            IEnvironmentVariablesProvider,
-        );
+        const environmentService =
+            this.serviceContainer.get<IEnvironmentVariablesProvider>(IEnvironmentVariablesProvider);
         const outputChannel = this.serviceContainer.get<ILanguageServerOutputChannel>(ILanguageServerOutputChannel);
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
@@ -436,15 +435,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this.adapterApi = ext?.exports as JupyterAdapterApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-            this.adapterApi.createSession(
-                this.runtimeMetadata,
-                this.metadata,
-                this.kernelSpec,
-                this.dynState,
-                createJupyterKernelExtra(),
-            )
+              this.adapterApi.createSession(
+                  this.runtimeMetadata,
+                  this.metadata,
+                  this.kernelSpec,
+                  this.dynState,
+                  createJupyterKernelExtra(),
+              )
             : // We don't have a kernel spec, so we're restoring a session
-            this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+              this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -537,7 +536,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                         const runtimeError = err as positron.RuntimeMethodError;
                         this._kernel.emitJupyterLog(
                             `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
-                            vscode.LogLevel.Error);
+                            vscode.LogLevel.Error,
+                        );
                     }
                 }
             });
@@ -566,10 +566,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                    '{0} exited unexpectedly with error: {1}',
-                    kernel.runtimeMetadata.runtimeName,
-                    logFileContent,
-                )
+                      '{0} exited unexpectedly with error: {1}',
+                      kernel.runtimeMetadata.runtimeName,
+                      logFileContent,
+                  )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));
