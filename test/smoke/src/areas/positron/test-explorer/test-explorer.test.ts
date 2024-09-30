@@ -7,7 +7,7 @@ import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../../test/_setup-utils';
+import { setupEnvAndHooks } from '../../../positronUtils';
 
 const fileName = path.basename(__filename);
 const logger = setupEnvAndHooks(fileName);

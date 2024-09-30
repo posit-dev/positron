@@ -8,7 +8,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { basename, join } from 'path';
-import { setupEnvAndHooks } from '../../../../test/_setup-utils';
+import { setupEnvAndHooks } from '../../../positronUtils';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
