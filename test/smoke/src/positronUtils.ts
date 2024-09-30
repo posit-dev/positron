@@ -22,10 +22,9 @@ const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 const OPTS = parseOptions();
 
 /**
- * Setup the environment and hooks for the test
+ * Setup the environment and hooks for the test suite.
  *
- * @param suiteName name of the test
- * @returns
+ * @returns The logger instance for the test suite.
  */
 export function setupEnvAndHooks(): Logger {
 	// Dynamically determine the test file name

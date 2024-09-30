@@ -22,7 +22,7 @@ if (!web) {
 			const app = this.app as Application;
 
 			await app.workbench.quickaccess.runCommand('Help: Welcome');
-			app.workbench.editors.waitForActiveEditor('Welcome');
+			await app.workbench.editors.waitForActiveEditor('Welcome');
 		});
 
 		afterEach(async function () {
