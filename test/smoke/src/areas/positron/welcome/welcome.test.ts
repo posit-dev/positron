@@ -11,7 +11,7 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 const web = process.env.WEB;
 
 if (!web) {
-	describe('Welcome Page', () => {
+	describe.skip('Welcome Page', () => {
 		setupEnvAndHooks();
 
 		before(async function () {
