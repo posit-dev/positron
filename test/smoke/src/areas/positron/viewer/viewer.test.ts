@@ -4,10 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { basename } from 'path';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Viewer', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);

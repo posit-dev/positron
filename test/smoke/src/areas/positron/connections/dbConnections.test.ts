@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { join } from 'path';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { basename, join } from 'path';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * DB Connections test cases, leveraging the Chinook SQLite database from https://github.com/posit-dev/qa-example-content
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
 
-	const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
-
+if (!web) {
 	describe('Connections Pane', () => {
 
 		// Shared before/after handling

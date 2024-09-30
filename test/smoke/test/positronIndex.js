@@ -179,14 +179,12 @@ function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
 
-	// Add test files to Mocha
-	const testDirPath = path.resolve('out/test-list');
-	fs.readdirSync(testDirPath).forEach(file => {
-		if (file.endsWith('.js') && !file.includes('setupUtils')) {
-			const filePath = path.join(testDirPath, file);
-			mocha.addFile(filePath);
-		}
-	});
+	// Find all test files recursively starting from `testDirPath`
+	const testDirPath = path.resolve('out/areas/positron');
+	const testFiles = findTestFilesRecursive(testDirPath);
+
+	// Add each test file to Mocha
+	testFiles.forEach(file => mocha.addFile(file));
 
 	// Run the tests
 	mocha.run(failures => {
@@ -206,6 +204,27 @@ function runMochaTests() {
 			}
 		});
 	});
+}
+
+/**
+ * Recursively finds all test files in child directories.
+ */
+function findTestFilesRecursive(dirPath) {
+	let testFiles = [];
+	const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+
+	entries.forEach(entry => {
+		const fullPath = path.join(dirPath, entry.name);
+		if (entry.isDirectory()) {
+			// If it's a directory, recursively search within it
+			testFiles = testFiles.concat(findTestFilesRecursive(fullPath));
+		} else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.includes('setupUtils')) {
+			// If it's a file, add it if it matches the criteria
+			testFiles.push(fullPath);
+		}
+	});
+
+	return testFiles;
 }
 
 /**

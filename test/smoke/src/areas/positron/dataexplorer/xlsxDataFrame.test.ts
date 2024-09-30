@@ -5,15 +5,16 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { join } from 'path';
+import { basename, join } from 'path';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * Data explorer test suite for XLSX data frames
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
+if (!web) {
 	describe('Data Explorer - XLSX', () => {
 
 		// Shared before/after handling

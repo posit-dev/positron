@@ -6,38 +6,37 @@
 
 import { expect } from '@playwright/test';
 import * as path from 'path';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * Plots test cases
- */
-export function setup(logger: Logger) {
+const fileName = path.basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
-	const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
-
-	const options: ComparisonOptions = {
-		output: {
-			errorColor: {
-				red: 255,
-				green: 0,
-				blue: 255
-			},
-			errorType: 'movement',
-			transparency: 0.3,
-			largeImageThreshold: 1200,
-			useCrossOrigin: false
+const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
+const options: ComparisonOptions = {
+	output: {
+		errorColor: {
+			red: 255,
+			green: 0,
+			blue: 255
 		},
-		scaleToSameSize: true,
-		ignore: 'antialiasing',
-	};
+		errorType: 'movement',
+		transparency: 0.3,
+		largeImageThreshold: 1200,
+		useCrossOrigin: false
+	},
+	scaleToSameSize: true,
+	ignore: 'antialiasing',
+};
+const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-	const githubActions = process.env.GITHUB_ACTIONS === "true";
-
+if (!web) {
 	describe('Plots', () => {
 
 		// Shared before/after handling

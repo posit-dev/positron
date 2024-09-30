@@ -5,10 +5,16 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { basename } from 'path';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Console Output', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);

@@ -3,13 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, Logger } from '../../../../../automation';
+import { Application } from '../../../../../automation';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
-export function setup(logger: Logger) {
+const fileName = path.basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Quarto', () => {
 
 		installAllHandlers(logger);

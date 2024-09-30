@@ -3,13 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import path = require('path');
-import { Application, Logger, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
+import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-export function setup(logger: Logger) {
+const fileName = path.basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Test Explorer', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);

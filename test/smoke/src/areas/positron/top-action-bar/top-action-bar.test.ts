@@ -3,24 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
+import { basename, join } from 'path';
 import { expect } from '@playwright/test';
-import { Application, Logger } from '../../../../../automation';
+import { Application } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * Top Action Bar test cases
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Top Action Bar', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
 		describe('Save Actions', () => {
-			before(async function () {
-
-			});
-
 			it('Save and Save All both disabled when no unsaved editors are open [C656253]', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });

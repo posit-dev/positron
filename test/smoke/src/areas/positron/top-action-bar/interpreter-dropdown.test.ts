@@ -6,18 +6,20 @@
 import { expect } from '@playwright/test';
 import {
 	Application,
-	Logger,
 	PositronConsole,
 	PositronInterpreterDropdown,
 	PositronUserSettingsFixtures,
 	QuickAccess,
 } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { basename } from 'path';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * Interpreter Dropdown in Top Action Bar test cases
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Interpreter Dropdown in Top Action Bar', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);

@@ -3,16 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
-import { Application, Logger, PositronRFixtures } from '../../../../../automation';
+import { basename, join } from 'path';
+import { Application, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * R console tests
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
 
+if (!web) {
 	describe('Editor Pane: R', () => {
 
 		// Shared before/after handling

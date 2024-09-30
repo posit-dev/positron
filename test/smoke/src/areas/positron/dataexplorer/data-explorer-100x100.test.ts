@@ -4,19 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { expect } from '@playwright/test';
 import { installAllHandlers } from '../../../utils';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/**
- * Sets up the Data Explorer 100x100 smoke test.
- * @param logger The logger.
- */
-export function setupDataExplorer100x100Test(logger: Logger) {
-	/**
-	 * Data Explorer 100x100.
-	 */
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+
+if (!web) {
 	describe.skip('Data Explorer 100x100', function () {
 		// Shared before/after handling.
 		installAllHandlers(logger);

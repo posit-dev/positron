@@ -5,13 +5,16 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger } from '../../../../../automation';
+import { Application } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { basename } from 'path';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * Test cases for Positron layouts
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('Layouts', () => {
 
 		// Shared before/after handling

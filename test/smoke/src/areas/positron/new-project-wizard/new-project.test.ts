@@ -4,13 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
+import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
+import { basename } from 'path';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-/*
- * New Project Wizard test cases
- */
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('New Project Wizard', () => {
 		installAllHandlers(logger);
 

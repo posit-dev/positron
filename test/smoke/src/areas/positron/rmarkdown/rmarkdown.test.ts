@@ -4,12 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Note - these paths will need to change for your specific test location
-import { Application, Logger, PositronRFixtures } from '../../../../../automation';
+import { Application, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { expect } from '@playwright/test';
+import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
 
-export function setup(logger: Logger) {
+const fileName = basename(__filename);
+const logger = setupEnvAndHooks(fileName);
+const web = process.env.WEB;
+
+if (!web) {
 	describe('RMarkdown', () => {
 		// All Tests blocks inside this 'describe' block will use the same app instance
 		// Shared before/after handling
