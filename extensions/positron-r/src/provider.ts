@@ -71,6 +71,13 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		}
 	}
 
+	const registryBinaries = await discoverRegistryBinaries();
+	for (const b of registryBinaries) {
+		if (!binaries.has(b)) {
+			binaries.set(b, BinarySource.registry);
+		}
+	}
+
 	const pathBinary = await findRBinaryFromPATH();
 	if (pathBinary && !binaries.has(pathBinary)) {
 		binaries.set(pathBinary, BinarySource.PATH);
@@ -309,6 +316,72 @@ function binFragments(): string[] {
 		default:
 			throw new Error('Unsupported platform');
 	}
+}
+
+/**
+ * Generates all possible R versions that we might find recorded in the Windows registry.
+ * Sort of.
+ * Only considers the major version of Positron's current minimum R version and that major
+ * version plus one.
+ * Naively tacks " Pre-release" onto each version numbers, because that's how r-devel shows up.
+*/
+function generateVersions(): string[] {
+	const minimumSupportedVersion = semver.coerce(MINIMUM_R_VERSION)!;
+	const major = minimumSupportedVersion.major;
+	const minor = minimumSupportedVersion.minor;
+	const patch = minimumSupportedVersion.patch;
+
+	const versions: string[] = [];
+	for (let x = major; x <= major + 1; x++) {
+		for (let y = (x === major ? minor : 0); y <= 9; y++) {
+			for (let z = (x === major && y === minor ? patch : 0); z <= 9; z++) {
+				versions.push(`${x}.${y}.${z}`);
+				versions.push(`${x}.${y}.${z} Pre-release`);
+			}
+		}
+	}
+
+	return versions;
+}
+
+async function discoverRegistryBinaries(): Promise<string[]> {
+	if (os.platform() !== 'win32') {
+		LOGGER.info('Skipping registry check on non-Windows platform');
+		return [];
+	}
+
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	const Registry = await import('@vscode/windows-registry');
+
+	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
+	const wows = ['', 'WOW6432Node'];
+
+	// The @vscode/windows-registry module is so minimalistic that it can't list the registry.
+	// Therefore we explicitly generate the R versions that might be there and check for each one.
+	const versions = generateVersions();
+
+	const discoveredKeys: string[] = [];
+
+	for (const hive of hives) {
+		for (const wow of wows) {
+			for (const version of versions) {
+				const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64\\${version}`;
+				try {
+					const key = Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
+					if (key) {
+						LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports an R installation at ${key}`);
+						discoveredKeys.push(key);
+					}
+				} catch { }
+			}
+		}
+	}
+
+	const binPaths = discoveredKeys
+		.map(installPath => firstExisting(installPath, binFragments()))
+		.filter(binPath => binPath !== undefined);
+
+	return binPaths;
 }
 
 export async function findCurrentRBinary(): Promise<string | undefined> {
