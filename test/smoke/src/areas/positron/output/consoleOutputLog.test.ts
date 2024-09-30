@@ -44,9 +44,6 @@ if (!web) {
 			});
 		});
 
-	});
-
-	describe('Output', () => {
 		describe('Console Output Log - R', () => {
 			before(async function () {
 				await PositronRFixtures.SetupFixtures(this.app as Application);
@@ -78,4 +75,5 @@ if (!web) {
 			});
 		});
 	});
+
 }

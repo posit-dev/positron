@@ -55,9 +55,6 @@ if (!web) {
 				await app.workbench.positronConnections.reconnectButton.waitforVisible();
 			});
 		});
-	});
-
-	describe('Connections Pane', () => {
 
 		describe('R - SQLite DB', () => {
 
