@@ -27,14 +27,46 @@ const OPTS = parseOptions();
  * @param suiteName name of the test
  * @returns
  */
-export function setupEnvAndHooks(suiteName: string): Logger {
+export function setupEnvAndHooks(): Logger {
+	// Dynamically determine the test file name
+	const suiteName = getTestFileName();
 	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
+
+	// Create a new logger for this suite
 	const logger = createLogger(logsRootPath);
 
+	// Set up environment and hooks
 	setupSmokeTestEnvironment(logger);
 	setupBeforeHooks(logger, suiteName);
 
 	return logger;
+}
+
+/**
+ * Dynamically determines the test file path based on the caller's stack trace.
+ *
+ * @returns The file name of the test file.
+ */
+function getTestFileName(): string {
+	const originalFunc = Error.prepareStackTrace;
+
+	try {
+		// Capture the stack trace
+		const err = new Error();
+		Error.prepareStackTrace = (_, stack) => stack;
+
+		// Stack index 2 points to the immediate caller of this function
+		const stackFrames = err.stack as any;
+		const callerFilePath = stackFrames[2].getFileName();  // Adjust index based on context
+
+		return path.basename(callerFilePath);
+	} catch (e) {
+		console.error('Failed to retrieve caller file name:', e);
+		return 'unknown';
+	} finally {
+		// Restore the original stack trace behavior
+		Error.prepareStackTrace = originalFunc;
+	}
 }
 
 function setupSmokeTestEnvironment(logger: Logger) {

@@ -3,14 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { basename } from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {

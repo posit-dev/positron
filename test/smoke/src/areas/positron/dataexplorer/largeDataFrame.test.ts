@@ -7,11 +7,10 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { basename, join } from 'path';
+import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 const FILTER_PARAMS = ['distance', 'is equal to', '2586'];

@@ -14,8 +14,7 @@ import * as fs from 'fs';
 import { fail } from 'assert';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const fileName = path.basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];

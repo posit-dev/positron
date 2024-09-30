@@ -3,19 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { basename, join } from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { setupEnvAndHooks } from '../../../positronUtils';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { join } from 'path';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
-	describe('Shiny Application', () => {
+	describe('Shiny Application #pr', () => {
 		// Shared before/after handling
 		installAllHandlers(logger);
 
@@ -34,7 +32,7 @@ if (!web) {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);
 			});
 
-			it('Python - Verify Basic Shiny App [C699099]', async function () {
+			it('Python - Verify Basic Shiny App [C699099] #pr', async function () {
 				const app = this.app as Application;
 
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));

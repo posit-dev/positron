@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { basename, join } from 'path';
+import { join } from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
 

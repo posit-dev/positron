@@ -10,8 +10,7 @@ import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
-const fileName = path.basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {

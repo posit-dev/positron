@@ -7,12 +7,11 @@
 import { expect } from '@playwright/test';
 import { Application, downloadFileFromS3, PositronPythonFixtures, PositronRFixtures, S3FileDownloadOptions } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { basename, join } from 'path';
 import { fail } from 'assert';
 import { setupEnvAndHooks } from '../../../positronUtils';
+import { join } from 'path';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 // AWS Configuration

@@ -12,11 +12,9 @@ import {
 	QuickAccess,
 } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { basename } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const fileName = basename(__filename);
-const logger = setupEnvAndHooks(fileName);
+const logger = setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {

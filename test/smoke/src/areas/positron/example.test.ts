@@ -4,36 +4,38 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Note - these paths will need to change for your specific test location
-import { Application, Logger, PositronPythonFixtures } from '../../../../automation';
+import { Application, PositronPythonFixtures } from '../../../../automation';
+import { setupEnvAndHooks } from '../../positronUtils';
 import { installAllHandlers } from '../../utils';
 
-export function setup(logger: Logger) {
-	describe('Major Test Area', () => {
-		// All Tests blocks inside this 'describe' block will use the same app instance
-		// Shared before/after handling
-		installAllHandlers(logger);
+const logger = setupEnvAndHooks();
 
-		describe('Minor Test area', () => {
+describe('Major Test Area', () => {
+	// All Tests blocks inside this 'describe' block will use the same app instance
+	// Shared before/after handling
+	installAllHandlers(logger);
 
-			before(async function () {
-				// Executes once before executing all tests.
-				// Change to 'beforeEach' if it needs to run before each individual test.
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-			});
+	describe('Minor Test area', () => {
 
-			it('Sample Test Case A [TESTRAIL_ID]', async function () {
-				const app = this.app as Application; //Get handle to application
-				await app.workbench.positronConsole.barPowerButton.waitforVisible();
-				this.code.logger.log("Waiting for Power button.");
-			});
+		before(async function () {
+			// Executes once before executing all tests.
+			// Change to 'beforeEach' if it needs to run before each individual test.
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
+		});
 
-			it('Sample Test Case B [TESTRAIL_ID]', async function () {
-				const app = this.app as Application; //Get handle to application
-				await app.workbench.positronConsole.barRestartButton.waitforVisible();
-				this.code.logger.log("Waiting for Power button.");
-			});
+		it('Sample Test Case A [TESTRAIL_ID]', async function () {
+			const app = this.app as Application; //Get handle to application
+			await app.workbench.positronConsole.barPowerButton.waitforVisible();
+			this.code.logger.log("Waiting for Power button.");
+		});
 
+		it('Sample Test Case B [TESTRAIL_ID]', async function () {
+			const app = this.app as Application; //Get handle to application
+			await app.workbench.positronConsole.barRestartButton.waitforVisible();
+			this.code.logger.log("Waiting for Power button.");
 		});
 
 	});
-}
+
+});
+
