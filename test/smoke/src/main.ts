@@ -452,7 +452,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	if (!opts.web && process.platform !== 'win32') { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
 	if (!opts.web && process.platform !== 'win32') { setupPlotsTest(logger); } // bugs 4800 & 4804
 	if (!opts.web) { setupPythonConsoleTest(logger); }
-	if (process.platform !== 'win32') { setupRConsoleTest(logger); }
+	setupRConsoleTest(logger)
 	if (process.platform !== 'win32') { setupLargeDataFrameTest(logger); }
 	if (process.platform !== 'win32') { setupNotebookCreateTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupConnectionsTest(logger); }
