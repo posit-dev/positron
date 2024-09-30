@@ -8,11 +8,11 @@ import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '..
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Test Explorer', () => {
+		setupEnvAndHooks();
 		let app: Application;
 		let userSettings: PositronUserSettingsFixtures;
 

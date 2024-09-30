@@ -8,11 +8,13 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Help', () => {
+		logger = setupEnvAndHooks();
+
 		describe('Python Help', () => {
 
 			before(async function () {

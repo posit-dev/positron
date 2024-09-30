@@ -9,11 +9,11 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupEnvAndHooks } from '../../../positronUtils';
 import { join } from 'path';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe.skip('Data Explorer 100x100', function () {
+		setupEnvAndHooks();
 
 		/**
 		 * Tests the data explorer.

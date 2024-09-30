@@ -8,11 +8,12 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 import { expect } from '@playwright/test';
 import { join } from 'path';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Shiny Application', () => {
+		setupEnvAndHooks();
+
 		before(async function () {
 			try {
 				await this.app.workbench.extensions.installExtension('posit.shiny', true);

@@ -14,11 +14,11 @@ import {
 
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Interpreter Dropdown in Top Action Bar', () => {
+		setupEnvAndHooks();
 		let app: Application;
 		let interpreterDropdown: PositronInterpreterDropdown;
 		let positronConsole: PositronConsole;

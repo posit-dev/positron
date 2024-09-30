@@ -8,9 +8,9 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
-
 describe('Notebooks', () => {
+	setupEnvAndHooks();
+
 	describe('Python Notebooks', () => {
 
 		before(async function () {

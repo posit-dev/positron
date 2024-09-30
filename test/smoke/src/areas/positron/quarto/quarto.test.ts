@@ -9,12 +9,11 @@ import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Quarto', () => {
-
+		setupEnvAndHooks();
 		let app: Application;
 
 		before(async function () {

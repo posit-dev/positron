@@ -9,11 +9,12 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Data Explorer - XLSX', () => {
+		logger = setupEnvAndHooks();
 
 		describe('Python Data Explorer (XLSX file)', () => {
 

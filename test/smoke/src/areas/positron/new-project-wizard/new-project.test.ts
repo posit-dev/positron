@@ -7,11 +7,12 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('New Project Wizard', () => {
+		setupEnvAndHooks();
+
 		describe('Python - New Project Wizard', () => {
 			describe('Python Project with new environment', () => {
 				it('Create a new Venv environment [C627912] #pr', async function () {

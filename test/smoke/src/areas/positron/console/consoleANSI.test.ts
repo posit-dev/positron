@@ -9,11 +9,12 @@ import { Application, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console ANSI styling', () => {
+		setupEnvAndHooks();
+
 		describe('R - Console ANSI styling', () => {
 
 			before(async function () {

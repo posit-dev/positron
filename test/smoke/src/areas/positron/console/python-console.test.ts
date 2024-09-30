@@ -6,9 +6,8 @@
 import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
-
 describe('Console Pane: Python', () => {
+	setupEnvAndHooks();
 
 	describe('Python Console Restart', () => {
 

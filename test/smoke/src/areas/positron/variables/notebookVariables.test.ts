@@ -7,11 +7,12 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Variables Pane - Notebook', () => {
+		setupEnvAndHooks();
+
 		describe('Python Notebook Variables Pane', () => {
 
 			before(async function () {
@@ -57,6 +58,7 @@ if (!web) {
 	});
 
 	describe('Variables Pane - Notebook', () => {
+		setupEnvAndHooks();
 
 		describe('R Notebook Variables Pane', () => {
 

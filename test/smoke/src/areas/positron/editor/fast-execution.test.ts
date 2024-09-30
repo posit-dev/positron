@@ -7,12 +7,12 @@ import { join } from 'path';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
-setupEnvAndHooks();
+
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Editor Pane: R', () => {
-
+		setupEnvAndHooks();
 		const FILENAME = 'fast-execution.r';
 
 		describe('R Fast Execution', () => {

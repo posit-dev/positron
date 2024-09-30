@@ -9,9 +9,10 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 
 describe('Data Explorer', () => {
+	logger = setupEnvAndHooks();
 
 	describe('Python Pandas Data Explorer', () => {
 

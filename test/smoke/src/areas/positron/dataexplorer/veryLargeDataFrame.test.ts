@@ -10,8 +10,8 @@ import { fail } from 'assert';
 import { setupEnvAndHooks } from '../../../positronUtils';
 import { join } from 'path';
 
-const logger = setupEnvAndHooks();
 const web = process.env.WEB;
+let logger;
 
 // AWS Configuration
 const region = "us-west-2";
@@ -22,6 +22,7 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 if (!web) { }
 describe('Data Explorer - Very Large Data Frame', () => {
+	logger = setupEnvAndHooks();
 
 	before(async function () {
 

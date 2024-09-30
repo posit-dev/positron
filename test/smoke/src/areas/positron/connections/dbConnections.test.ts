@@ -9,12 +9,13 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 const web = process.env.WEB;
 const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
 
 if (!web) {
 	describe('Connections Pane', () => {
+		logger = setupEnvAndHooks();
 
 		describe('Python - SQLite DB', () => {
 

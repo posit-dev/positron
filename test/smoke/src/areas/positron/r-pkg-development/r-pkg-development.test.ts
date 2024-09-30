@@ -8,13 +8,14 @@ import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '..
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 const web = process.env.WEB;
 
 if (!web) {
 	describe('R Package Development', () => {
 		let app: Application;
 		let userSettings: PositronUserSettingsFixtures;
+		logger = setupEnvAndHooks();
 
 		describe('R Package Development - R', () => {
 			before(async function () {

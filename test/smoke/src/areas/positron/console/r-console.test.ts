@@ -6,9 +6,8 @@
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
-
 describe('Console Pane: R', () => {
+	setupEnvAndHooks();
 
 	describe('R Console Restart', () => {
 

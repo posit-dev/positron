@@ -9,11 +9,12 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import * as os from 'os';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console', () => {
+		setupEnvAndHooks();
+
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 

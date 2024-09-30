@@ -8,11 +8,12 @@ import { join } from 'path';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('RMarkdown', () => {
+		setupEnvAndHooks();
+
 		before(async function () {
 			// Executes once before executing all tests.
 			await PositronRFixtures.SetupFixtures(this.app as Application);

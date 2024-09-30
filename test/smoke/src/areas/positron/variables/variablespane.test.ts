@@ -7,9 +7,11 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+
 
 describe('Variables Pane', () => {
+	const logger = setupEnvAndHooks();
+
 	describe('Python Variables Pane', () => {
 
 		before(async function () {

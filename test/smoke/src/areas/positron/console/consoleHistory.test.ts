@@ -8,11 +8,12 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console History', () => {
+		setupEnvAndHooks();
+
 		describe('Console History - Python', () => {
 			before(async function () {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);

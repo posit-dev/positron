@@ -9,13 +9,15 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
 const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
 
 describe('Data Explorer - Large Data Frame', () => {
+	logger = setupEnvAndHooks();
+
 	describe('Python Data Explorer (Large Data Frame)', () => {
 
 		before(async function () {

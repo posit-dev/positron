@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import { fail } from 'assert';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+let logger;
 const web = process.env.WEB;
 
 const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
@@ -36,6 +36,8 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 if (!web) {
 	describe('Plots', () => {
+		logger = setupEnvAndHooks();
+
 		async function simplePlotTest(app: Application, script: string, locator: string) {
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronPlots.waitForNoPlots();

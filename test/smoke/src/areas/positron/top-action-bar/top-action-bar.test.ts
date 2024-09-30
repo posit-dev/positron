@@ -8,11 +8,11 @@ import { expect } from '@playwright/test';
 import { Application } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Top Action Bar', () => {
+		setupEnvAndHooks();
 
 		describe('Save Actions', () => {
 			it('Save and Save All both disabled when no unsaved editors are open [C656253]', async function () {
