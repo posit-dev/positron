@@ -468,15 +468,15 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	if (process.platform !== 'win32') { setupConsoleOutputLogTest(logger); }
 	if (process.platform !== 'win32') { setupBasicRMarkdownTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupWelcomeTest(logger); } // web bug 4851
-	if (!opts.web && process.platform !== 'win32') { setupConsoleHistoryTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupShinyTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupFastExecutionTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupTestExplorerTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupRPKgDevelopment(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupInterpreterDropdownTest(logger); }
+	if (process.platform !== 'win32') { setupConsoleHistoryTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupShinyTest(logger); } // frame location is diff on web
+	if (process.platform !== 'win32') { setupFastExecutionTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupTestExplorerTest(logger); } // test results too small in web
+	if (process.platform !== 'win32') { setupRPKgDevelopment(logger); }
+	if (process.platform !== 'win32') { setupInterpreterDropdownTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupViewersTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupVeryLargeDataFrameTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupGraphTrendTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupQuartoTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupVeryLargeDataFrameTest(logger); } // frame location is diff on web
+	if (process.platform !== 'win32') { setupGraphTrendTest(logger); }
+	if (process.platform !== 'win32') { setupQuartoTest(logger); }
 	// --- End Positron ---
 });
