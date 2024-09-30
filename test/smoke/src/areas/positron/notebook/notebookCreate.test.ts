@@ -12,7 +12,7 @@ describe('Notebooks', () => {
 	setupEnvAndHooks();
 
 	describe('Python Notebooks', () => {
-		setupEnvAndHooks();
+
 
 		before(async function () {
 
@@ -64,6 +64,7 @@ describe('Notebooks', () => {
 });
 
 describe('Notebooks', () => {
+	setupEnvAndHooks();
 
 	describe('R Notebooks', () => {
 
