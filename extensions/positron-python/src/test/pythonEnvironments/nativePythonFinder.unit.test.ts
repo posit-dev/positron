@@ -15,7 +15,10 @@ import * as windowsApis from '../../client/common/vscodeApis/windowApis';
 import { MockOutputChannel } from '../mockClasses';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 
-suite('Native Python Finder', () => {
+// --- Start Positron ---
+// re-enable when Native Finder is used for discovery
+suite.skip('Native Python Finder', () => {
+    // --- Find Positron ---
     let finder: NativePythonFinder;
     let createLogOutputChannelStub: sinon.SinonStub;
     let getConfigurationStub: sinon.SinonStub;
