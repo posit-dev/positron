@@ -222,7 +222,7 @@ export class UiClientInstance extends Disposable {
 		} else if (uriScheme === 'http' || uriScheme === 'https') {
 			// If the path is for a server, start a generic proxy server.
 			url = await this._commandService.executeCommand<string>(
-				'positronProxy.startHttpProxyServer',
+				'positronProxy.startHelpProxyServer',
 				targetPath
 			);
 		}

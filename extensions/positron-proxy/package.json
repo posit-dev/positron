@@ -11,8 +11,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onCommand:positronProxy.startHttpProxyServer",
-    "onCommand:positronProxy.setHttpProxyServerStyles",
+    "onCommand:positronProxy.startHelpProxyServer",
+    "onCommand:positronProxy.setHelpProxyServerStyles",
     "onCommand:positronProxy.startHtmlProxyServer",
     "onStartupFinished"
   ],

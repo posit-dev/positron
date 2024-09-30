@@ -397,7 +397,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		try {
 			// Set the proxy server styles.
 			await this._commandService.executeCommand(
-				'positronProxy.setHttpProxyServerStyles',
+				'positronProxy.setHelpProxyServerStyles',
 				styles
 			);
 
@@ -494,7 +494,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		cleanupTargetOrigins.forEach(targetOrigin => {
 			if (!activeTargetOrigins.includes(targetOrigin)) {
 				this._commandService.executeCommand<boolean>(
-					'positronProxy.stopHttpProxyServer',
+					'positronProxy.stopHelpProxyServer',
 					targetOrigin
 				);
 			}
@@ -623,7 +623,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			// Try to start a help proxy server.
 			try {
 				proxyServerOrigin = await this._commandService.executeCommand<string>(
-					'positronProxy.startHttpProxyServer',
+					'positronProxy.startHelpProxyServer',
 					targetUrl.origin
 				);
 			} catch (error) {

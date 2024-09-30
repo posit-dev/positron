@@ -21,11 +21,11 @@ export function activate(context: vscode.ExtensionContext) {
 	// Create the PositronProxy object.
 	const positronProxy = new PositronProxy(context);
 
-	// Register the positronProxy.startHttpProxyServer command and add its disposable.
+	// Register the positronProxy.startHelpProxyServer command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'positronProxy.startHttpProxyServer',
-			async (targetOrigin: string) => await positronProxy.startHttpProxyServer(targetOrigin)
+			'positronProxy.startHelpProxyServer',
+			async (targetOrigin: string) => await positronProxy.startHelpProxyServer(targetOrigin)
 		)
 	);
 
@@ -37,19 +37,19 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
-	// Register the positronProxy.stopHttpProxyServer command and add its disposable.
+	// Register the positronProxy.stopHelpProxyServer command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'positronProxy.stopHttpProxyServer',
-			(targetOrigin: string) => positronProxy.stopHttpProxyServer(targetOrigin)
+			'positronProxy.stopHelpProxyServer',
+			(targetOrigin: string) => positronProxy.stopHelpProxyServer(targetOrigin)
 		)
 	);
 
-	// Register the positronProxy.setHttpProxyServerStyles command and add its disposable.
+	// Register the positronProxy.setHelpProxyServerStyles command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			'positronProxy.setHttpProxyServerStyles',
-			(styles: ProxyServerStyles) => positronProxy.setHttpProxyServerStyles(styles)
+			'positronProxy.setHelpProxyServerStyles',
+			(styles: ProxyServerStyles) => positronProxy.setHelpProxyServerStyles(styles)
 		)
 	);
 
