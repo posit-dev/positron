@@ -1244,13 +1244,15 @@ suite('Set Interpreter Command', () => {
             };
 
             for (const testValue of discoveredPropertyTestMatrix) {
-                test(`A telemetry event should be sent with the discovered prop set to ${testValue.discovered
-                    } if the interpreter had ${testValue.discovered ? 'already' : 'not'
-                    } been discovered, with an interpreter path path that is ${testValue.pathType})`, async () => {
-                        const telemetryResult = await testDiscovered(testValue.discovered, testValue.pathType);
+                test(`A telemetry event should be sent with the discovered prop set to ${
+                    testValue.discovered
+                } if the interpreter had ${
+                    testValue.discovered ? 'already' : 'not'
+                } been discovered, with an interpreter path path that is ${testValue.pathType})`, async () => {
+                    const telemetryResult = await testDiscovered(testValue.discovered, testValue.pathType);
 
-                        expect(telemetryResult.properties).to.deep.equal({ discovered: testValue.discovered });
-                    });
+                    expect(telemetryResult.properties).to.deep.equal({ discovered: testValue.discovered });
+                });
             }
         });
     });

@@ -11,7 +11,7 @@ import * as path from 'path';
 
 import { Event, EventEmitter } from 'vscode';
 import { inject, injectable } from 'inversify';
-import * as fs from "../common/platform/fs-paths";
+import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';

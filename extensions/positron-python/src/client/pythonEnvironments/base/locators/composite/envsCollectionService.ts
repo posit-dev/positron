@@ -444,7 +444,8 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
                     }
                 } catch (ex) {
                     traceError(
-                        `Failed to send telemetry for missing environment ${env.executable.filename || env.executable.sysPrefix
+                        `Failed to send telemetry for missing environment ${
+                            env.executable.filename || env.executable.sysPrefix
                         }`,
                         ex,
                     );
