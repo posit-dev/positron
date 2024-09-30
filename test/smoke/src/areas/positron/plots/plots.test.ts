@@ -12,7 +12,7 @@ import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 
 const fileName = path.basename(__filename);
 const logger = setupEnvAndHooks(fileName);

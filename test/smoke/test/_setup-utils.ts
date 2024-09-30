@@ -9,8 +9,8 @@ import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
-import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../../automation';
-import { retry } from '../utils';
+import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../automation';
+import { retry } from '../src/utils';
 
 let quality: Quality;
 let version: string | undefined;

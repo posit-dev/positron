@@ -13,7 +13,7 @@ import {
 } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
 import { basename } from 'path';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);

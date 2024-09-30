@@ -6,7 +6,7 @@
 import { basename } from 'path';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { installAllHandlers } from '../../../utils';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);

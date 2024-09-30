@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 const path = require('path');

@@ -9,7 +9,7 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { installAllHandlers } from '../../../utils';
 import * as os from 'os';
 import { basename } from 'path';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);

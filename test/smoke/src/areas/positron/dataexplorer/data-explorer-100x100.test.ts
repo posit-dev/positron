@@ -8,12 +8,11 @@ import { basename, join } from 'path';
 import { expect } from '@playwright/test';
 import { installAllHandlers } from '../../../utils';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../test-list/_setup-utils';
+import { setupEnvAndHooks } from '../../../../test/_setup-utils';
 
 const fileName = basename(__filename);
 const logger = setupEnvAndHooks(fileName);
 const web = process.env.WEB;
-
 
 if (!web) {
 	describe.skip('Data Explorer 100x100', function () {
