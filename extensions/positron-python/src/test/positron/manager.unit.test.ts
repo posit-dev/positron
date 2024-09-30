@@ -5,7 +5,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import * as assert from 'assert';
-import * as fs from 'fs-extra';
+import * as fs from '../../client/common/platform/fs-paths';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
