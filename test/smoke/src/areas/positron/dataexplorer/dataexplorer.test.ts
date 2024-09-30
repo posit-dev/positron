@@ -6,16 +6,12 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
 const logger = setupEnvAndHooks();
 
 describe('Data Explorer', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
 
 	describe('Python Pandas Data Explorer', () => {
 

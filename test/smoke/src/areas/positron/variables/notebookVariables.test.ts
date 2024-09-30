@@ -5,18 +5,13 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Variables Pane - Notebook', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		describe('Python Notebook Variables Pane', () => {
 
 			before(async function () {
@@ -62,9 +57,6 @@ if (!web) {
 	});
 
 	describe('Variables Pane - Notebook', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('R Notebook Variables Pane', () => {
 

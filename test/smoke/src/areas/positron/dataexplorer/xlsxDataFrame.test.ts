@@ -6,7 +6,6 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
@@ -15,9 +14,6 @@ const web = process.env.WEB;
 
 if (!web) {
 	describe('Data Explorer - XLSX', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('Python Data Explorer (XLSX file)', () => {
 

@@ -6,16 +6,11 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 
 describe('Notebooks', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
-
 	describe('Python Notebooks', () => {
 
 		before(async function () {
@@ -68,9 +63,6 @@ describe('Notebooks', () => {
 });
 
 describe('Notebooks', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
 
 	describe('R Notebooks', () => {
 

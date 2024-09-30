@@ -5,18 +5,14 @@
 
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { join } from 'path';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Shiny Application #pr', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		before(async function () {
 			try {
 				await this.app.workbench.extensions.installExtension('posit.shiny', true);

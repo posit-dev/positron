@@ -6,16 +6,13 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console Output', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('Console Output Log - Python', () => {
 			before(async function () {
@@ -50,9 +47,6 @@ if (!web) {
 	});
 
 	describe('Output', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		describe('Console Output Log - R', () => {
 			before(async function () {
 				await PositronRFixtures.SetupFixtures(this.app as Application);

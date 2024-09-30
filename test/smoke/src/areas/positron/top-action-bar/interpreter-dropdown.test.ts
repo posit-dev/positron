@@ -11,17 +11,14 @@ import {
 	PositronUserSettingsFixtures,
 	QuickAccess,
 } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Interpreter Dropdown in Top Action Bar', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		let app: Application;
 		let interpreterDropdown: PositronInterpreterDropdown;
 		let positronConsole: PositronConsole;

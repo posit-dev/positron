@@ -6,18 +6,14 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console ANSI styling', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		describe('R - Console ANSI styling', () => {
 
 			before(async function () {

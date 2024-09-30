@@ -10,7 +10,7 @@ import * as vscodetest from '@vscode/test-electron';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
 import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../automation/out';
-import { retry } from './utils';
+import { installAllHandlers, retry } from './utils';
 
 let quality: Quality;
 let version: string | undefined;
@@ -38,6 +38,7 @@ export function setupEnvAndHooks(): Logger {
 	// Set up environment and hooks
 	setupSmokeTestEnvironment(logger);
 	setupBeforeHooks(logger, suiteName);
+	installAllHandlers(logger);
 
 	return logger;
 }

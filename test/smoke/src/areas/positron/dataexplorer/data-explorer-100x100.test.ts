@@ -5,18 +5,15 @@
 
 import * as fs from 'fs';
 import { expect } from '@playwright/test';
-import { installAllHandlers } from '../../../utils';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 import { join } from 'path';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe.skip('Data Explorer 100x100', function () {
-		// Shared before/after handling.
-		installAllHandlers(logger);
 
 		/**
 		 * Tests the data explorer.

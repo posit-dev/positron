@@ -7,7 +7,6 @@
 import { expect } from '@playwright/test';
 import * as path from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
@@ -37,10 +36,6 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 if (!web) {
 	describe('Plots', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		async function simplePlotTest(app: Application, script: string, locator: string) {
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronPlots.waitForNoPlots();

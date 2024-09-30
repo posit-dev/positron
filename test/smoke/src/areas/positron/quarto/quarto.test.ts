@@ -5,18 +5,15 @@
 
 import { Application } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Quarto', () => {
-
-		installAllHandlers(logger);
 
 		let app: Application;
 

@@ -5,7 +5,6 @@
 
 import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
@@ -14,9 +13,6 @@ const web = process.env.WEB;
 
 if (!web) {
 	describe('R Package Development', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		let app: Application;
 		let userSettings: PositronUserSettingsFixtures;
 

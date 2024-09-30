@@ -6,15 +6,11 @@
 // Note - these paths will need to change for your specific test location
 import { Application, PositronPythonFixtures } from '../../../../automation';
 import { setupEnvAndHooks } from '../../positronUtils';
-import { installAllHandlers } from '../../utils';
 
-const logger = setupEnvAndHooks();
+// Shared before/after look which returns logger (in case you need to log in test)
+setupEnvAndHooks();
 
 describe('Major Test Area', () => {
-	// All Tests blocks inside this 'describe' block will use the same app instance
-	// Shared before/after handling
-	installAllHandlers(logger);
-
 	describe('Minor Test area', () => {
 
 		before(async function () {

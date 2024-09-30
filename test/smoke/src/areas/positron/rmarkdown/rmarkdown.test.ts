@@ -4,21 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('RMarkdown', () => {
-		// All Tests blocks inside this 'describe' block will use the same app instance
-		// Shared before/after handling
-		installAllHandlers(logger);
-
-
 		before(async function () {
 			// Executes once before executing all tests.
 			await PositronRFixtures.SetupFixtures(this.app as Application);

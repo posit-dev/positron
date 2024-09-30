@@ -6,16 +6,13 @@
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { Application } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Top Action Bar', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('Save Actions', () => {
 			it('Save and Save All both disabled when no unsaved editors are open [C656253]', async function () {

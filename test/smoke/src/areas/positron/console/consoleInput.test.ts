@@ -6,17 +6,13 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console Input', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		describe('Console Input - Python', () => {
 			before(async function () {
 				await PositronPythonFixtures.SetupFixtures(this.app as Application);

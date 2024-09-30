@@ -6,7 +6,6 @@
 
 import { join } from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
@@ -16,9 +15,6 @@ const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice
 
 if (!web) {
 	describe('Connections Pane', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		describe('Python - SQLite DB', () => {
 
@@ -61,10 +57,6 @@ if (!web) {
 	});
 
 	describe('Connections Pane', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 
 		describe('R - SQLite DB', () => {
 

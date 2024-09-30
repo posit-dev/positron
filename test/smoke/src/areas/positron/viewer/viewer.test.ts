@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
 const logger = setupEnvAndHooks();
@@ -12,9 +11,6 @@ const web = process.env.WEB;
 
 if (!web) {
 	describe('Viewer', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		let app: Application;
 
 		describe('Viewer - Python', () => {
@@ -77,9 +73,6 @@ GT(exibble)`;
 	});
 
 	describe('Viewer', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		let app: Application;
 
 		describe('Viewer - R', () => {

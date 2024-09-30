@@ -5,18 +5,14 @@
 
 import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Test Explorer', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		let app: Application;
 		let userSettings: PositronUserSettingsFixtures;
 

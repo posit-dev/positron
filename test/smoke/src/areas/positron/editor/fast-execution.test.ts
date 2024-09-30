@@ -5,18 +5,13 @@
 
 import { join } from 'path';
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { expect } from '@playwright/test';
 import { setupEnvAndHooks } from '../../../positronUtils';
-
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Editor Pane: R', () => {
-
-		// Shared before/after handling
-		installAllHandlers(logger);
 
 		const FILENAME = 'fast-execution.r';
 

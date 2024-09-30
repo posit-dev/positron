@@ -5,16 +5,13 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('New Project Wizard', () => {
-		installAllHandlers(logger);
-
 		describe('Python - New Project Wizard', () => {
 			describe('Python Project with new environment', () => {
 				it('Create a new Venv environment [C627912] #pr', async function () {

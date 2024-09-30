@@ -6,7 +6,6 @@
 
 import { expect } from '@playwright/test';
 import { Application, downloadFileFromS3, PositronPythonFixtures, PositronRFixtures, S3FileDownloadOptions } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { fail } from 'assert';
 import { setupEnvAndHooks } from '../../../positronUtils';
 import { join } from 'path';
@@ -23,9 +22,6 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 if (!web) { }
 describe('Data Explorer - Very Large Data Frame', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
 
 	before(async function () {
 

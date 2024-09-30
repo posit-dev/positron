@@ -6,18 +6,14 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import * as os from 'os';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 const web = process.env.WEB;
 
 if (!web) {
 	describe('Console', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
-
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 

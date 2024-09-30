@@ -4,15 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 
 describe('Console Pane: R', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
 
 	describe('R Console Restart', () => {
 

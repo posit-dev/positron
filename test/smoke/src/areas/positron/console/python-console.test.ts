@@ -4,15 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronPythonFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const logger = setupEnvAndHooks();
+setupEnvAndHooks();
 
 describe('Console Pane: Python', () => {
-
-	// Shared before/after handling
-	installAllHandlers(logger);
 
 	describe('Python Console Restart', () => {
 
