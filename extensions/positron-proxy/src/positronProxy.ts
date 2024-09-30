@@ -102,24 +102,24 @@ export class PositronProxy implements Disposable {
 	private _scriptsFileLoaded = false;
 
 	/**
-	 * Gets or sets the help styles.
+	 * Gets or sets the proxy server styles.
 	 */
-	private _helpStyles?: ProxyServerStyles;
+	private _serverStyles?: ProxyServerStyles;
 
 	/**
-	 * Gets or sets the help style defaults.
+	 * Gets or sets the proxy server style defaults.
 	 */
-	private _helpStyleDefaults?: string;
+	private _serverStyleDefaults?: string;
 
 	/**
-	 * Gets or sets the help style overrides.
+	 * Gets or sets the proxy server style overrides.
 	 */
-	private _helpStyleOverrides?: string;
+	private _serverStyleOverrides?: string;
 
 	/**
-	 * Gets or sets the help script.
+	 * Gets or sets the proxy server script.
 	 */
-	private _helpScript?: string;
+	private _serverScript?: string;
 
 	/**
 	 * Gets or sets the proxy servers, keyed by target origin.
@@ -149,15 +149,15 @@ export class PositronProxy implements Disposable {
 			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
 
 			// Get the elements from the scripts file.
-			this._helpStyleDefaults = getStyleElement(scripts, 'help-style-defaults');
-			this._helpStyleOverrides = getStyleElement(scripts, 'help-style-overrides');
-			this._helpScript = getScriptElement(scripts, 'help-script');
+			this._serverStyleDefaults = getStyleElement(scripts, 'http-proxy-style-defaults');
+			this._serverStyleOverrides = getStyleElement(scripts, 'http-proxy-style-overrides');
+			this._serverScript = getScriptElement(scripts, 'http-proxy-script');
 
 			// Set the scripts file loaded flag if everything appears to have worked.
 			this._scriptsFileLoaded =
-				this._helpStyleDefaults !== undefined &&
-				this._helpStyleOverrides !== undefined &&
-				this._helpScript !== undefined;
+				this._serverStyleDefaults !== undefined &&
+				this._serverStyleOverrides !== undefined &&
+				this._serverScript !== undefined;
 		} catch (error) {
 			console.log(`Failed to load the resources/scripts.html file.`);
 		}
@@ -180,11 +180,11 @@ export class PositronProxy implements Disposable {
 	//#region Public Methods
 
 	/**
-	 * Starts a help proxy server.
+	 * Starts an http proxy server.
 	 * @param targetOrigin The target origin.
 	 * @returns The server origin.
 	 */
-	startHelpProxyServer(targetOrigin: string): Promise<string> {
+	startHttpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
@@ -194,40 +194,41 @@ export class PositronProxy implements Disposable {
 					return responseBuffer;
 				}
 
-				// Build the help vars.
-				let helpVars = '';
-				if (this._helpStyles) {
-					helpVars += '<style id="help-vars">\n';
-					helpVars += '    body {\n';
-					for (const style in this._helpStyles) {
-						helpVars += `        --${style}: ${this._helpStyles[style]};\n`;
+				// Build the proxy server vars.
+				let proxyServerVars = '';
+				if (this._serverStyles) {
+					proxyServerVars += '<style id="http-proxy-vars">\n';
+					proxyServerVars += '    body {\n';
+					for (const style in this._serverStyles) {
+						proxyServerVars += `        --${style}: ${this._serverStyles[style]};\n`;
 					}
-					helpVars += '    }\n';
-					helpVars += '</style>\n';
+					proxyServerVars += '    }\n';
+					proxyServerVars += '</style>\n';
 				}
 
 				// Get the response.
 				let response = responseBuffer.toString('utf8');
 
-				// Inject the help style defaults for unstyled help documents and the help vars.
+				// Inject the proxy server style defaults for unstyled proxy server documents and
+				// the proxy server vars.
 				response = response.replace(
 					'<head>',
 					`<head>\n
-					${helpVars}\n
-					${this._helpStyleDefaults}`
+					${proxyServerVars}\n
+					${this._serverStyleDefaults}`
 				);
 
-				// Inject the help style overrides and the help script.
+				// Inject the proxy server style overrides and the proxy server script.
 				response = response.replace(
 					'</head>',
-					`${this._helpStyleOverrides}\n
-					${this._helpScript}\n
+					`${this._serverStyleOverrides}\n
+					${this._serverScript}\n
 					</head>`
 				);
 
 				// When running on Web, we need to prepend root-relative URLs with the proxy path,
-				// because the help proxy server is running at a different origin than the target origin.
-				// When running on Desktop, we don't need to do this, because the help proxy server is
+				// because the http proxy server is running at a different origin than the target origin.
+				// When running on Desktop, we don't need to do this, because the http proxy server is
 				// running at the same origin as the target origin (localhost).
 				if (vscode.env.uiKind === vscode.UIKind.Web) {
 					// Prepend root-relative URLs with the proxy path. The proxy path may look like
@@ -249,12 +250,12 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Stops a help proxy server.
+	 * Stops an http proxy server.
 	 * @param targetOrigin The target origin.
 	 * @returns A value which indicates whether the proxy server for the target origin was found and
 	 * stopped.
 	 */
-	stopHelpProxyServer(targetOrigin: string): boolean {
+	stopHttpProxyServer(targetOrigin: string): boolean {
 		// See if we have a proxy server for the target origin. If we do, stop it.
 		const proxyServer = this._proxyServers.get(targetOrigin);
 		if (proxyServer) {
@@ -283,12 +284,12 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Sets the help proxy server styles.
-	 * @param styles The help proxy server styles.
+	 * Sets the proxy server styles.
+	 * @param styles The proxy server styles.
 	 */
-	setHelpProxyServerStyles(styles: ProxyServerStyles) {
-		// Set the help styles.
-		this._helpStyles = styles;
+	setHttpProxyServerStyles(styles: ProxyServerStyles) {
+		// Set the proxy styles.
+		this._serverStyles = styles;
 	}
 
 	//#endregion Public Methods
