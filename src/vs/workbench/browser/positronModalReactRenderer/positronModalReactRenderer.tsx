@@ -51,6 +51,7 @@ export interface PositronModalReactRendererOptions {
 	readonly container: HTMLElement;
 	readonly parent?: HTMLElement;
 	readonly onDisposed?: () => void;
+	readonly disableCaptures?: boolean;
 }
 
 /**
@@ -321,14 +322,14 @@ export class PositronModalReactRenderer extends Disposable {
 		};
 
 		// Add global keydown, mousedown, and resize event listeners.
-		window.addEventListener(KEYDOWN, keydownHandler, false);
+		window.addEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures ? false : true);
 		window.addEventListener(MOUSEDOWN, mousedownHandler, true);
 		window.addEventListener(RESIZE, resizeHandler, false);
 
 		// Return the cleanup function that removes our event listeners.
 		PositronModalReactRenderer._unbindCallback = () => {
 			// Remove keydown, mousedown, and resize event listeners.
-			window.removeEventListener(KEYDOWN, keydownHandler, false);
+			window.removeEventListener(KEYDOWN, keydownHandler, renderer._options.disableCaptures ? false : true);
 			window.removeEventListener(MOUSEDOWN, mousedownHandler, true);
 			window.removeEventListener(RESIZE, resizeHandler, false);
 		};

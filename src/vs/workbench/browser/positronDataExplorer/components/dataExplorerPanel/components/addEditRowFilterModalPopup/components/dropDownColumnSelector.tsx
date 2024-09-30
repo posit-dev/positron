@@ -55,6 +55,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			keybindingService: props.keybindingService,
 			layoutService: props.layoutService,
 			container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
+			disableCaptures: true, // permits the usage of the enter key where applicable
 			onDisposed: () => {
 				ref.current.focus();
 			}
