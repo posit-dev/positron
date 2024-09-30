@@ -46,7 +46,7 @@
     "update-localization-extension": "node build/npm/update-localization-extension.js",
     "smoketest": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && node build/lib/preLaunch.js && cd test/smoke && yarn compile && node test/positronIndex.js",
     "smoketest-no-compile": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/positronIndex.js",
-    "smoketest-pr": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && TEST_FILTER=/#pr/ node test/positronIndex.js",
+    "smoketest-pr": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && yarn compile && TEST_FILTER=/#pr/ node test/positronIndex.js",
     "smoketest-merge-to-main": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/positronIndex.js",
     "smoketest-web": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-browser && cd test/smoke && node test/positronIndex.js --web",
     "xunit-to-junit": "sh ./scripts/convert-xunit-to-junit.sh",

@@ -94,9 +94,6 @@ jobs:
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
-      - name: Compile Smoke Tests
-        run: yarn --cwd test/smoke compile
-
       - name: Install rig, R, and R packages
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
