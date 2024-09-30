@@ -7,11 +7,13 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupEnvAndHooks } from '../../../positronUtils';
 
 const web = process.env.WEB;
+let logger;
 
 if (!web) {
 	describe('Viewer', () => {
 		let app: Application;
-		const logger = setupEnvAndHooks();
+
+		logger = setupEnvAndHooks();
 
 		describe('Viewer - Python', () => {
 			beforeEach(async function () {
@@ -75,7 +77,6 @@ GT(exibble)`;
 		describe('Viewer - R', () => {
 			before(async function () {
 				app = this.app as Application;
-
 				await PositronRFixtures.SetupFixtures(this.app as Application);
 			});
 
