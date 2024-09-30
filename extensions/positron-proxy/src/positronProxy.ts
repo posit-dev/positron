@@ -227,23 +227,8 @@ export class PositronProxy implements Disposable {
 					</head>`
 				);
 
-				// When running on Web, we need to prepend root-relative URLs with the proxy path,
-				// because the help proxy server is running at a different origin than the target origin.
-				// When running on Desktop, we don't need to do this, because the help proxy server is
-				// running at the same origin as the target origin (localhost).
-				if (vscode.env.uiKind === vscode.UIKind.Web) {
-					// Prepend root-relative URLs with the proxy path. The proxy path may look like
-					// /proxy/<PORT> or a different proxy path if an external uri is used.
-					response = response.replace(
-						// This is icky and we should use a proper HTML parser, but it works for now.
-						// Possible sources of error are: whitespace differences, single vs. double
-						// quotes, etc., which are not covered in this regex.
-						// Regex translation: look for src="/ or href="/ and replace it with
-						// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
-						/(src|href)="\/([^"]+)"/g,
-						`$1="${proxyPath}/$2"`
-					);
-				}
+				// Rewrite the URLs with the proxy path.
+				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
 
 				// Return the response.
 				return response;
@@ -251,12 +236,12 @@ export class PositronProxy implements Disposable {
 	}
 
 	/**
-	 * Stops a help proxy server.
+	 * Stops a proxy server.
 	 * @param targetOrigin The target origin.
 	 * @returns A value which indicates whether the proxy server for the target origin was found and
 	 * stopped.
 	 */
-	stopHelpProxyServer(targetOrigin: string): boolean {
+	stopProxyServer(targetOrigin: string): boolean {
 		// See if we have a proxy server for the target origin. If we do, stop it.
 		const proxyServer = this._proxyServers.get(targetOrigin);
 		if (proxyServer) {
@@ -291,6 +276,32 @@ export class PositronProxy implements Disposable {
 	setHelpProxyServerStyles(styles: ProxyServerStyles) {
 		// Set the help styles.
 		this._helpStyles = styles;
+	}
+
+	/**
+	 * Starts an HTTP proxy server.
+	 * @param targetOrigin The target origin.
+	 * @returns The server origin.
+	 */
+	startHttpProxyServer(targetOrigin: string): Promise<string> {
+		// Start the proxy server.
+		return this.startProxyServer(
+			targetOrigin,
+			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+				// If this isn't 'text/html' content, just return the response buffer.
+				if (!contentType.includes('text/html')) {
+					return responseBuffer;
+				}
+
+				// Get the response.
+				let response = responseBuffer.toString('utf8');
+
+				// Rewrite the URLs with the proxy path.
+				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+
+				// Return the response.
+				return response;
+			});
 	}
 
 	//#endregion Public Methods
@@ -369,6 +380,35 @@ export class PositronProxy implements Disposable {
 				resolve(externalUri.toString());
 			});
 		});
+	}
+
+	/**
+	 * Rewrites the URLs in the content.
+	 * @param content The content.
+	 * @param proxyPath The proxy path.
+	 * @returns The content with the URLs rewritten.
+	 */
+	rewriteUrlsWithProxyPath(content: string, proxyPath: string): string {
+		// When running on Web, we need to prepend root-relative URLs with the proxy path,
+		// because the help proxy server is running at a different origin than the target origin.
+		// When running on Desktop, we don't need to do this, because the help proxy server is
+		// running at the same origin as the target origin (localhost).
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			// Prepend root-relative URLs with the proxy path. The proxy path may look like
+			// /proxy/<PORT> or a different proxy path if an external uri is used.
+			return content.replace(
+				// This is icky and we should use a proper HTML parser, but it works for now.
+				// Possible sources of error are: whitespace differences, single vs. double
+				// quotes, etc., which are not covered in this regex.
+				// Regex translation: look for src="/ or href="/ and replace it with
+				// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
+				/(src|href)="\/([^"]+)"/g,
+				`$1="${proxyPath}/$2"`
+			);
+		}
+
+		// Return the content as-is.
+		return content;
 	}
 
 	//#endregion Private Methods
