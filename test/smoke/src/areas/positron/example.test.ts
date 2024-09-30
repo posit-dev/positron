@@ -7,10 +7,10 @@
 import { Application, PositronPythonFixtures } from '../../../../automation';
 import { setupEnvAndHooks } from '../../positronUtils';
 
-// Shared before/after look which returns logger (in case you need to log in test)
-setupEnvAndHooks();
-
 describe('Major Test Area', () => {
+	// Shared before/after look which returns logger (in case you need to log in test)
+	setupEnvAndHooks();
+
 	describe('Minor Test area', () => {
 
 		before(async function () {

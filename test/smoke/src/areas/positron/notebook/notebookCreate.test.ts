@@ -12,6 +12,7 @@ describe('Notebooks', () => {
 	setupEnvAndHooks();
 
 	describe('Python Notebooks', () => {
+		setupEnvAndHooks();
 
 		before(async function () {
 
