@@ -321,14 +321,14 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (!this._consoleChannel) {
 			this._consoleChannel = vscode.window.createOutputChannel(
 				this._notebookUri ?
-					`Notebook: ${path.basename(this._notebookUri.path)} (${this._spec.display_name})` :
-					`Console: ${this._spec.display_name}`,
+					`${this._spec.display_name}: Notebook: (${path.basename(this._notebookUri.path)})` :
+					`${this._spec.display_name}: Console`,
 				{ log: true });
 		}
 
 		if (!this._kernelChannel) {
 			this._kernelChannel = positron.window.createRawLogOutputChannel(
-				`Kernel: ${this._spec.display_name}`);
+				`${this._spec.display_name}: Kernel`);
 		}
 
 		// Bind to the Jupyter session
