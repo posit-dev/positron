@@ -65,7 +65,7 @@ export interface JupyterKernelSpec {
 	 *  This is used to start the kernel if it's provided. In this case `argv`
 	 *  is ignored.
 	*/
-	startKernel?: (session: JupyterSession, kernel: JupyterKernel) => Promise<void>;
+	startKernel?: (session: JupyterSession, self: any) => Promise<void>;
 }
 
 /**
