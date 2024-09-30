@@ -120,9 +120,6 @@ jobs:
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
-      - name: Compile Smoke Tests
-        run: yarn --cwd test/smoke compile
-
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
