@@ -92,37 +92,37 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
-				<span>{props.rowFilter.value}</span>
+				<span className='column-value'>{props.rowFilter.value}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorSearch) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>{props.rowFilter.operatorText}</span>
-				<span>{props.rowFilter.value}</span>
+				<span className='column-value'>&quot;{props.rowFilter.value}&quot;</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsBetween) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&gt;=</span>
-				<span>{props.rowFilter.lowerLimit}</span>
+				<span className='column-value'>{props.rowFilter.lowerLimit}</span>
 				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&lt;=</span>
-				<span>{props.rowFilter.upperLimit}</span>
+				<span className='column-value'>{props.rowFilter.upperLimit}</span>
 			</>;
 		} else if (props.rowFilter instanceof RowFilterDescriptorIsNotBetween) {
 			return <>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&lt;</span>
-				<span>{props.rowFilter.lowerLimit}</span>
+				<span className='column-value'>{props.rowFilter.lowerLimit}</span>
 				<span className='space-before space-after'>
 					{localize('positron.dataExplorer.rowFilterWidget.and', "and")}
 				</span>
 				<span className='column-name'>{props.rowFilter.schema.column_name}</span>
 				<span className='space-before space-after'>&gt;</span>
-				<span>{props.rowFilter.upperLimit}</span>
+				<span className='column-value'>{props.rowFilter.upperLimit}</span>
 			</>;
 		} else {
 			// This indicates a bug.
