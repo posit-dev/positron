@@ -178,6 +178,7 @@ function getFailureLogs() {
 function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
+	// mocha.dryRun();
 
 	// Find all test files recursively starting from `testDirPath`
 	const testDirPath = path.resolve('out/areas/positron');
@@ -218,7 +219,7 @@ function findTestFilesRecursive(dirPath) {
 		if (entry.isDirectory()) {
 			// If it's a directory, recursively search within it
 			testFiles = testFiles.concat(findTestFilesRecursive(fullPath));
-		} else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.includes('setupUtils')) {
+		} else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.startsWith('example.test.js')) {
 			// If it's a file, add it if it matches the criteria
 			testFiles.push(fullPath);
 		}
