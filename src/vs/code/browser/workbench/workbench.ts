@@ -10,7 +10,9 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 import { parse } from 'vs/base/common/marshalling';
 import { Schemas } from 'vs/base/common/network';
-import { posix } from 'vs/base/common/path';
+// --- Start PWB ---
+import { join, posix } from 'vs/base/common/path';
+// --- End PWB ---
 import { isEqual } from 'vs/base/common/resources';
 import { ltrim } from 'vs/base/common/strings';
 import { URI, UriComponents } from 'vs/base/common/uri';
@@ -614,7 +616,13 @@ function readCookie(name: string): string | undefined {
 							.replace('/p/', '/proxy/')
 							.replace('{{port}}', localhostMatch.port.toString());
 					}
-					resolvedUri = URI.parse(new URL(renderedTemplate, mainWindow.location.href).toString());
+					// Update the authority and path of the URI to point to the proxy server. This
+					// retains the original query and fragment, while updating the authority and
+					// path to the proxy server.
+					resolvedUri = resolvedUri.with({
+						authority: mainWindow.location.host,
+						path: join(renderedTemplate, resolvedUri.path),
+					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
 				}
