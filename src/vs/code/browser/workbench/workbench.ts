@@ -621,7 +621,7 @@ function readCookie(name: string): string | undefined {
 					// path to the proxy server.
 					resolvedUri = resolvedUri.with({
 						authority: mainWindow.location.host,
-						path: join(renderedTemplate, resolvedUri.path),
+						path: join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
 					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
