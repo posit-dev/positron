@@ -96,7 +96,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	private _terminal?: vscode.Terminal;
 
 	/** The channel to which output for this specific kernel is logged, if any */
-	private _logChannel?: vscode.OutputChannel;
+	private _kernelChannel?: vscode.OutputChannel;
 
 	/** An optional profiler channel */
 	private _profileChannel?: vscode.OutputChannel;
@@ -326,8 +326,8 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 				{ log: true });
 		}
 
-		if (!this._logChannel) {
-			this._logChannel = positron.window.createRawLogOutputChannel(
+		if (!this._kernelChannel) {
+			this._kernelChannel = positron.window.createRawLogOutputChannel(
 				`Kernel: ${this._spec.display_name}`);
 		}
 
@@ -353,7 +353,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 		if (fs.existsSync(logFilePath)) {
 			this.log('Streaming log file: ' + logFilePath);
 
-			this._logStreamer = new LogStreamer(this._logChannel, logFilePath, this._spec.language);
+			this._logStreamer = new LogStreamer(this._kernelChannel, logFilePath, this._spec.language);
 			this._disposables.push(this._logStreamer);
 
 			this._logStreamer.watch();
@@ -1593,7 +1593,7 @@ export class JupyterKernel extends EventEmitter implements vscode.Disposable {
 	 * Show kernel log in output panel.
 	 */
 	public showOutput() {
-		this._logChannel?.show();
+		this._kernelChannel?.show();
 	}
 
 	public async showProfile() {
