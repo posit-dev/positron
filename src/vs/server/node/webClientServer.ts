@@ -163,7 +163,12 @@ export class WebClientServer {
 			}
 			// --- PWB Start: Server proxy support ---
 			if (kProxyRegex.test(pathname)) {
-				const path: string = pathname.replace('/proxy/', 'http://0.0.0.0:');
+				let path: string = pathname.replace('/proxy/', 'http://0.0.0.0:');
+
+				// Append query string if it exists
+				if (parsedUrl.search) {
+					path = path.concat(parsedUrl.search);
+				}
 
 				return this._proxyServer.web(req, res, {
 					ignorePath: true,
