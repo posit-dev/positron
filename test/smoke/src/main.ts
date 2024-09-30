@@ -454,7 +454,7 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	if (!opts.web) { setupPythonConsoleTest(logger); }
 	setupRConsoleTest(logger)
 	if (process.platform !== 'win32') { setupLargeDataFrameTest(logger); }
-	if (process.platform !== 'win32') { setupNotebookCreateTest(logger); }
+	setupNotebookCreateTest(logger);
 	if (!opts.web && process.platform !== 'win32') { setupConnectionsTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupNewProjectWizardTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupXLSXDataFrameTest(logger); }
