@@ -14,7 +14,7 @@ import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
-import { Barrier } from './async';
+import { Barrier, PromiseHandles } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
@@ -32,6 +32,8 @@ import { JupyterChannel } from './jupyter/JupyterChannel';
 import { InputReplyCommand } from './jupyter/InputReplyCommand';
 import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
 import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
+import { Comm } from './Comm';
+import { CommMsgRequest } from './jupyter/CommMsgRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -47,6 +49,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _disposables: vscode.Disposable[] = [];
 	private readonly _log: vscode.OutputChannel;
 	private _restarting = false;
+
+	private readonly _comms: Map<string, Comm> = new Map();
 
 	/**
 	 * The message header for the current requests if any is active.  This is
@@ -238,8 +242,70 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._log.show();
 	}
 
-	callMethod(_method: string, ..._args: Array<any>): Promise<any> {
-		throw new Error('Method not implemented.');
+	callMethod(method: string, ...args: Array<any>): Promise<any> {
+		const promise = new PromiseHandles;
+		// Find the UI comm
+		const uiComm = Array.from(this._comms.values())
+			.find(c => c.target === positron.RuntimeClientType.Ui);
+		if (!uiComm) {
+			throw new Error(`Cannot invoke '${method}'; no UI comm is open.`);
+		}
+
+		// Create the request. This uses a JSON-RPC 2.0 format, with an
+		// additional `msg_type` field to indicate that this is a request type
+		// for the UI comm.
+		//
+		// NOTE: Currently using nested RPC messages for convenience but
+		// we'd like to do better
+		const request = {
+			jsonrpc: '2.0',
+			method: 'call_method',
+			params: {
+				method,
+				params: args
+			},
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: uiComm.id,
+			data: request
+		};
+
+		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
+		const commRequest = new CommMsgRequest(uniqueId, commMsg);
+		this.sendRequest(commRequest).then((reply) => {
+			const response = reply.data;
+
+			// If the response is an error, throw it
+			if (Object.keys(response).includes('error')) {
+				const error = response.error;
+
+				// Populate the error object with the name of the error code
+				// for conformity with code that expects an Error object.
+				error.name = `RPC Error ${response.error.code}`;
+
+				promise.reject(error);
+			}
+
+			// JSON-RPC specifies that the return value must have either a 'result'
+			// or an 'error'; make sure we got a result before we pass it back.
+			if (!Object.keys(response).includes('result')) {
+				const error: positron.RuntimeMethodError = {
+					code: positron.RuntimeMethodErrorCode.InternalError,
+					message: `Invalid response from UI comm: no 'result' field. ` +
+						`(response = ${JSON.stringify(response)})`,
+					name: `InvalidResponseError`,
+					data: {},
+				};
+
+				promise.reject(error);
+			}
+
+			// Otherwise, return the result
+			promise.resolve(response.result);
+		});
+
+		return promise.promise;
 	}
 
 	getKernelLogFile(): string {
@@ -251,10 +317,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
-
-	openResource?(_resource: vscode.Uri | string): Thenable<boolean> {
-		throw new Error('Method not implemented.');
-	}
 
 	execute(code: string,
 		id: string,
@@ -313,6 +375,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 			const commOpen = new CommOpenCommand(msg);
 			await this.sendCommand(commOpen);
+			this._comms.set(id, new Comm(id, type));
 		} else {
 			this.log(`Can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`);
 		}
@@ -326,7 +389,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Unwrap the comm info and add it to the result
 		for (const key in comms) {
 			if (comms.hasOwnProperty(key)) {
-				result[key] = comms[key].target_name;
+				const target = comms[key].target_name;
+				result[key] = target;
+				this._comms.set(key, new Comm(key, target));
 			}
 		}
 		return result;
