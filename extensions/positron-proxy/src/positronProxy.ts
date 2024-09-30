@@ -97,7 +97,7 @@ export class PositronProxy implements Disposable {
 	//#region Private Properties
 
 	/**
-	 * Gets or sets a value which indicates whether the resources/scripts.html file has been loaded.
+	 * Gets or sets a value which indicates whether the resources/scripts_{TYPE}.html files have been loaded.
 	 */
 	private _scriptsFileLoaded = false;
 
@@ -141,11 +141,13 @@ export class PositronProxy implements Disposable {
 	 * @param context The extension context.
 	 */
 	constructor(private readonly context: ExtensionContext) {
-		// Try to load the resources/scripts.html file and the elements within it. This will either
+		// Try to load the resources/scripts_{TYPE}.html files and the elements within them. This will either
 		// work or it will not work, but there's not sense in trying it again, if it doesn't.
+
+		// Load the scripts_help.html file for the help proxy server.
 		try {
-			// Load the resources/scripts.html scripts file.
-			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts.html');
+			// Load the resources/scripts_help.html scripts file.
+			const scriptsPath = path.join(this.context.extensionPath, 'resources', 'scripts_help.html');
 			const scripts = fs.readFileSync(scriptsPath).toString('utf8');
 
 			// Get the elements from the scripts file.
@@ -159,7 +161,7 @@ export class PositronProxy implements Disposable {
 				this._helpStyleOverrides !== undefined &&
 				this._helpScript !== undefined;
 		} catch (error) {
-			console.log(`Failed to load the resources/scripts.html file.`);
+			console.log(`Failed to load the resources/scripts_help.html file.`);
 		}
 	}
 
