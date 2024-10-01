@@ -29,7 +29,7 @@ describe('New Project Wizard', () => {
 			});
 			it('Create a new Conda environment [C628628]', async function () {
 				// This test relies on Conda already being installed on the machine
-				const projSuffix = '_condaInstalled_' + Math.floor(Math.random() * 1000000).toString();
+				const projSuffix = addRandomNumSuffix('_condaInstalled');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -58,7 +58,7 @@ describe('New Project Wizard', () => {
 
 		describe('Python Project with existing interpreter', () => {
 			it('With ipykernel already installed [C609619]', async function () {
-				const projSuffix = '_ipykernelInstalled';
+				const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				const pythonFixtures = new PositronPythonFixtures(app);
@@ -98,7 +98,7 @@ describe('New Project Wizard', () => {
 			});
 
 			it('With ipykernel not already installed [C609617]', async function () {
-				const projSuffix = '_noIpykernel';
+				const projSuffix = addRandomNumSuffix('_noIpykernel');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				const pythonFixtures = new PositronPythonFixtures(app);
@@ -152,7 +152,7 @@ describe('New Project Wizard', () => {
 		});
 
 		it('Default Python Project with git init [C674522] #pr', async function () {
-			const projSuffix = '_gitInit';
+			const projSuffix = addRandomNumSuffix('_gitInit');
 			const app = this.app as Application;
 			const pw = app.workbench.positronNewProjectWizard;
 			await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -204,7 +204,7 @@ describe('New Project Wizard', () => {
 
 		describe('R Project with Renv Environment', () => {
 			it('Accept Renv install [C633084]', async function () {
-				const projSuffix = '_installRenv';
+				const projSuffix = addRandomNumSuffix('_installRenv');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				// Create a new R project - select Renv and install
@@ -249,7 +249,7 @@ describe('New Project Wizard', () => {
 
 			it('Renv already installed [C656251]', async function () {
 				// Renv will already be installed from the previous test
-				const projSuffix = '_renvAlreadyInstalled';
+				const projSuffix = addRandomNumSuffix('_renvAlreadyInstalled');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				await pw.startNewProject(ProjectType.R_PROJECT);
@@ -277,7 +277,7 @@ describe('New Project Wizard', () => {
 			});
 
 			it('Cancel Renv install [C656252]', async function () {
-				const projSuffix = '_cancelRenvInstall';
+				const projSuffix = addRandomNumSuffix('_cancelRenvInstall');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
 				// Remove renv package so we are prompted to install it again
@@ -327,3 +327,6 @@ describe('New Project Wizard', () => {
 
 });
 
+function addRandomNumSuffix(name: string): string {
+	return `${name}_${Math.floor(Math.random() * 1000000)}`;
+}
