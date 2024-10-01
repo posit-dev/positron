@@ -10,9 +10,7 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 import { parse } from 'vs/base/common/marshalling';
 import { Schemas } from 'vs/base/common/network';
-// --- Start PWB ---
-import { join, posix } from 'vs/base/common/path';
-// --- End PWB ---
+import { posix } from 'vs/base/common/path';
 import { isEqual } from 'vs/base/common/resources';
 import { ltrim } from 'vs/base/common/strings';
 import { URI, UriComponents } from 'vs/base/common/uri';
@@ -26,6 +24,8 @@ import { create } from 'vs/workbench/workbench.web.main';
 // --- Start PWB: proxy port url ---
 import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from 'vs/platform/tunnel/common/tunnel';
 import { transformPort } from './urlPorts';
+// eslint-disable-next-line no-duplicate-imports
+import { join } from 'vs/base/common/path';
 // --- End PWB ---
 
 interface ISecretStorageCrypto {
