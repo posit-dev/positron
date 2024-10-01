@@ -147,7 +147,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra | undefined,
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
 	 * Restore a session for a Jupyter-compatible kernel.
@@ -161,7 +161,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
 	 * Finds an available TCP port for a server

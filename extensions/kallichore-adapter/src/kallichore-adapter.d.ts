@@ -33,7 +33,7 @@ export interface KallichoreAdapterApi extends JupyterAdapterApi {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra | undefined,
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
 	 * Restore a session for a Jupyter-compatible kernel.
@@ -47,5 +47,5 @@ export interface KallichoreAdapterApi extends JupyterAdapterApi {
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 }

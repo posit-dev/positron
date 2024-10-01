@@ -106,42 +106,49 @@ export class KCApi implements KallichoreAdapterApi {
 		return true;
 	}
 
-	createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): JupyterLanguageRuntimeSession {
+	async createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session object
 		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, this._api, true);
 
-		// Wait for the server to start before creating the session on the backend
-		this._started.wait().then(async () => {
-			await session.create(kernel);
-		});
+		// Wait for the server to start
+		await this._started.wait();
+
+		// Create the session on the server
+		await session.create(kernel);
 
 		return session;
 	}
 
-	restoreSession(
+	async restoreSession(
 		runtimeMetadata: LanguageRuntimeMetadata,
-		sessionMetadata: RuntimeSessionMetadata): JupyterLanguageRuntimeSession {
+		sessionMetadata: RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
 		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
 			// TODO: Store these in session state or something
 			continuationPrompt: '+',
 			inputPrompt: '>',
 		}, this._api, false);
 
-		// TODO: the restore should be async so we can wait for the server to
-		// confirm the session exists
-		this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
-			session.restore(response.body);
-		}).catch((err) => {
-			if (err instanceof HttpError) {
-				this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
-			} else {
-				this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
-			}
+		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
+			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
+				try {
+					session.restore(response.body);
+				} catch (err) {
+					this._log.error(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+					reject(err);
+				}
+				resolve(session);
+			}).catch((err) => {
+				if (err instanceof HttpError) {
+					this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
+					reject(err.body.message);
+				} else {
+					this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+					reject(err);
+				}
+			});
 		});
-
-		return session;
 	}
 
 	dispose() {

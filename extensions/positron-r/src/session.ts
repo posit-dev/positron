@@ -496,7 +496,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Create the Jupyter session
 		const kernel = this.kernelSpec ?
 			// We have a kernel spec, so create a new session
-			this.adapterApi.createSession(
+			await this.adapterApi.createSession(
 				this.runtimeMetadata,
 				this.metadata,
 				this.kernelSpec,
@@ -504,7 +504,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				this.extra) :
 
 			// We don't have a kernel spec, so restore (reconnect) the session
-			this.adapterApi.restoreSession(
+			await this.adapterApi.restoreSession(
 				this.runtimeMetadata,
 				this.metadata);
 
