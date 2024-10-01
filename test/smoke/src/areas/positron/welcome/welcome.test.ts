@@ -11,7 +11,7 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 const web = process.env.WEB;
 
 if (!web) {
-	describe.skip('Welcome Page', () => {
+	describe('Welcome Page', () => {
 		setupEnvAndHooks();
 
 		before(async function () {
@@ -20,9 +20,7 @@ if (!web) {
 
 		beforeEach(async function () {
 			const app = this.app as Application;
-
 			await app.workbench.quickaccess.runCommand('Help: Welcome');
-			await app.workbench.editors.waitForActiveEditor('Welcome');
 		});
 
 		afterEach(async function () {
