@@ -27,7 +27,7 @@ const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 
 // Parse command-line arguments
 const opts = minimist(process.argv.slice(2), {
-	boolean: ['web', 'parallel',],
+	boolean: ['web', 'parallel', 'win', 'pr'],
 	string: ['f', 'g', 'jobs']
 });
 
@@ -52,6 +52,8 @@ function configureEnvVarsFromOptions(opts) {
 		TRACING: opts['tracing'] || '',
 		VERBOSE: opts['verbose'] || '',
 		WEB: opts['web'] || '',
+		WIN: opts['win'] || '',
+		PR: opts['pr'] || '',
 		SUITE_TITLE: opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)',
 		EXTENSIONS_PATH: EXTENSIONS_PATH,
 		WORKSPACE_PATH: WORKSPACE_PATH,
@@ -85,8 +87,15 @@ function getMochaOptions(opts) {
  * Applies test filters based on environment variables.
  */
 function applyTestFilters(mocha) {
-	if (process.env.TEST_FILTER) {
-		mocha.grep(process.env.TEST_FILTER);
+	// TODO: see if it's possible to use multiple filters
+	if (process.env.WEB) {
+		mocha.grep(/#web/);
+	}
+	else if (process.env.WIN) {
+		mocha.grep(/#win/);
+	}
+	else if (process.env.PR) {
+		mocha.grep(/#pr/);
 	} else if (process.env.INVERSE_FILTER) {
 		mocha.grep(process.env.INVERSE_FILTER).invert();
 	}
@@ -178,7 +187,7 @@ function getFailureLogs() {
 function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
-	// mocha.dryRun();
+	mocha.dryRun();
 
 	// Find all test files recursively starting from `testDirPath`
 	const testDirPath = path.resolve('out/areas/positron');

@@ -15,7 +15,7 @@ const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
 const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
 
-describe('Data Explorer - Large Data Frame', () => {
+describe('Data Explorer - Large Data Frame #pr #web', () => {
 	logger = setupEnvAndHooks();
 
 	describe('Python Data Explorer (Large Data Frame)', () => {
@@ -35,7 +35,7 @@ describe('Data Explorer - Large Data Frame', () => {
 
 		});
 
-		it('Python - Verifies data explorer functionality with large data frame [C557555] #pr', async function () {
+		it('Python - Verifies data explorer functionality with large data frame [C557555]', async function () {
 			const app = this.app as Application;
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -70,7 +70,7 @@ describe('Data Explorer - Large Data Frame', () => {
 		});
 	});
 
-	describe('R Data Explorer (Large Data Frame)', () => {
+	describe('R Data Explorer (Large Data Frame) #pr #web', () => {
 
 		before(async function () {
 
@@ -87,7 +87,7 @@ describe('Data Explorer - Large Data Frame', () => {
 
 		});
 
-		it('R - Verifies data explorer functionality with large data frame [C557554] #pr', async function () {
+		it('R - Verifies data explorer functionality with large data frame [C557554]', async function () {
 			const app = this.app as Application;
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');

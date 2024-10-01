@@ -10,7 +10,7 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 describe('Console Pane: R', () => {
 	setupEnvAndHooks();
 
-	describe('R Console Restart', () => {
+	describe('R Console Restart #web #win', () => {
 
 		before(async function () {
 			// Need to make console bigger to see all bar buttons

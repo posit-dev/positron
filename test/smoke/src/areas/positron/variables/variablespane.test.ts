@@ -9,10 +9,10 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 
 
 
-describe('Variables Pane', () => {
+describe('Variables Pane #web #win', () => {
 	const logger = setupEnvAndHooks();
 
-	describe('Python Variables Pane', () => {
+	describe('Python Variables Pane #web #pr', () => {
 
 		before(async function () {
 
@@ -25,7 +25,7 @@ describe('Variables Pane', () => {
 
 		});
 
-		it('Verifies Variables pane basic function with python interpreter [C628634] #pr', async function () {
+		it('Verifies Variables pane basic function with python interpreter [C628634]', async function () {
 			const app = this.app as Application;
 
 			const executeCode = async (code: string) => {
@@ -52,7 +52,7 @@ describe('Variables Pane', () => {
 
 	});
 
-	describe('R Variables Pane', () => {
+	describe('R Variables Pane #web #pr', () => {
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
@@ -64,7 +64,7 @@ describe('Variables Pane', () => {
 
 		});
 
-		it('Verifies Variables pane basic function with R interpreter [C628635] #pr', async function () {
+		it('Verifies Variables pane basic function with R interpreter [C628635]', async function () {
 			const app = this.app as Application;
 
 			const executeCode = async (code: string) => {

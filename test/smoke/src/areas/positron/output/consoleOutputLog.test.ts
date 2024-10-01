@@ -8,72 +8,69 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
-const web = process.env.WEB;
 
-if (!web) {
-	describe('Console Output', () => {
-		setupEnvAndHooks();
+describe('Console Output #web', () => {
+	setupEnvAndHooks();
 
-		describe('Console Output Log - Python', () => {
-			before(async function () {
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-			});
-
-			after(async function () {
-				const app = this.app as Application;
-				await app.workbench.positronLayouts.enterLayout('stacked');
-			});
-
-			it('Python - Verify Console Output Log Contents [C667518]', async function () {
-				const app = this.app as Application;
-
-				const activeConsole = app.workbench.positronConsole.activeConsole;
-				await activeConsole.click();
-
-				await app.workbench.positronConsole.typeToConsole('a = b');
-				await app.workbench.positronConsole.sendEnterKey();
-
-				// retry in case the console output log is slow to appear
-				await expect(async () => {
-					await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_PY_VER_SEL!);
-
-					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
-
-					await app.workbench.positronOutput.waitForOutContaining("name 'b' is not defined");
-				}).toPass({ timeout: 60000 });
-			});
+	describe('Console Output Log - Python', () => {
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		describe('Console Output Log - R', () => {
-			before(async function () {
-				await PositronRFixtures.SetupFixtures(this.app as Application);
-			});
+		after(async function () {
+			const app = this.app as Application;
+			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
 
-			after(async function () {
-				const app = this.app as Application;
-				await app.workbench.positronLayouts.enterLayout('stacked');
-			});
+		it('Python - Verify Console Output Log Contents [C667518]', async function () {
+			const app = this.app as Application;
 
-			it('R - Verify Console Output Log Contents [C667519]', async function () {
-				const app = this.app as Application;
+			const activeConsole = app.workbench.positronConsole.activeConsole;
+			await activeConsole.click();
 
-				const activeConsole = app.workbench.positronConsole.activeConsole;
-				await activeConsole.click();
+			await app.workbench.positronConsole.typeToConsole('a = b');
+			await app.workbench.positronConsole.sendEnterKey();
 
-				await app.workbench.positronConsole.typeToConsole('a = b');
-				await app.workbench.positronConsole.sendEnterKey();
+			// retry in case the console output log is slow to appear
+			await expect(async () => {
+				await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_PY_VER_SEL!);
 
-				// retry in case the console output log is slow to appear
-				await expect(async () => {
-					await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_R_VER_SEL!);
+				await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 
-					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
-
-					await app.workbench.positronOutput.waitForOutContaining("object 'b' not found");
-				}).toPass({ timeout: 60000 });
-
-			});
+				await app.workbench.positronOutput.waitForOutContaining("name 'b' is not defined");
+			}).toPass({ timeout: 60000 });
 		});
 	});
 
-}
+	describe('Console Output Log - R', () => {
+		before(async function () {
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
+
+		after(async function () {
+			const app = this.app as Application;
+			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
+
+		it('R - Verify Console Output Log Contents [C667519]', async function () {
+			const app = this.app as Application;
+
+			const activeConsole = app.workbench.positronConsole.activeConsole;
+			await activeConsole.click();
+
+			await app.workbench.positronConsole.typeToConsole('a = b');
+			await app.workbench.positronConsole.sendEnterKey();
+
+			// retry in case the console output log is slow to appear
+			await expect(async () => {
+				await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_R_VER_SEL!);
+
+				await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
+
+				await app.workbench.positronOutput.waitForOutContaining("object 'b' not found");
+			}).toPass({ timeout: 60000 });
+
+		});
+	});
+});
+

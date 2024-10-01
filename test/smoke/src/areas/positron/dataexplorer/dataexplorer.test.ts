@@ -11,10 +11,10 @@ import { setupEnvAndHooks } from '../../../positronUtils';
 
 let logger;
 
-describe('Data Explorer', () => {
+describe('Data Explorer #web #win', () => {
 	logger = setupEnvAndHooks();
 
-	describe('Python Pandas Data Explorer', () => {
+	describe('Python Pandas Data Explorer #pr', () => {
 
 		before(async function () {
 
@@ -34,7 +34,7 @@ describe('Data Explorer', () => {
 
 		});
 
-		it('Python Pandas - Verifies basic data explorer functionality [C557556] #pr', async function () {
+		it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
 			const app = this.app as Application;
 
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -71,7 +71,7 @@ df = pd.DataFrame(data)`;
 
 		});
 
-		it('Python Pandas - Verifies data explorer functionality with empty fields [C718262] #pr', async function () {
+		it('Python Pandas - Verifies data explorer functionality with empty fields [C718262]', async function () {
 			const app = this.app as Application;
 
 			const script = `import numpy as np
@@ -113,7 +113,7 @@ df2 = pd.DataFrame(data)`;
 
 
 		});
-		it('Python Pandas - Verifies data explorer column info functionality [C734263] #pr', async function () {
+		it('Python Pandas - Verifies data explorer column info functionality [C734263]', async function () {
 
 			const app = this.app as Application;
 
@@ -148,7 +148,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 		// This test is not dependent on the previous test, so it refreshes the python environment
-		it('Python Pandas - Verifies data explorer after modification [C557574] #pr', async function () {
+		it('Python Pandas - Verifies data explorer after modification [C557574]', async function () {
 
 			const app = this.app as Application;
 			// Restart python for clean environment & open the file
@@ -202,7 +202,7 @@ df2 = pd.DataFrame(data)`;
 
 	// There is a known issue with the data explorer tests causing them to intermittently fail:
 	// https://github.com/posit-dev/positron/issues/4663
-	describe('Python Polars Data Explorer', () => {
+	describe('Python Polars Data Explorer #pr', () => {
 		before(async function () {
 
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -219,7 +219,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 
-		it('Python Polars - Verifies basic data explorer functionality [C644538] #pr', async function () {
+		it('Python Polars - Verifies basic data explorer functionality [C644538]', async function () {
 			const app = this.app as Application;
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -248,7 +248,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 
 		});
-		it('Python Polars - Verifies basic data explorer column info functionality [C734264] #pr', async function () {
+		it('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function () {
 
 			const app = this.app as Application;
 
@@ -284,7 +284,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 
-		it('Python Polars - Add Simple Column filter [C557557] #pr', async function () {
+		it('Python Polars - Add Simple Column filter [C557557]', async function () {
 			const app = this.app as Application;
 			const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
@@ -304,7 +304,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 		});
 
-		it('Python Polars - Add Simple Column Sort [C557561] #pr', async function () {
+		it('Python Polars - Add Simple Column Sort [C557561]', async function () {
 			const app = this.app as Application;
 			await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
@@ -338,7 +338,7 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	describe('R Data Explorer', () => {
+	describe('R Data Explorer #web', () => {
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
