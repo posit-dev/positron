@@ -8,19 +8,19 @@ on:
     inputs:
       smoketest_target:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
-        default: "smoketest-merge-to-main"
+        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
+        default: "smoketest-all"
         type: string
   workflow_dispatch:
     inputs:
       smoketest_target:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
-        default: "smoketest-merge-to-main"
+        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
+        default: "smoketest-all"
         type: string
 
 env:
-  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
+  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-all' }}
 
 permissions:
   id-token: write
@@ -159,7 +159,7 @@ jobs:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: linux
-    if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-merge-to-main' }}
+    if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-all' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
