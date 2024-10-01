@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
@@ -18,16 +19,16 @@ describe('Console Pane: Python', () => {
 		});
 
 		it('Verify restart button inside the console [C377918]', async function () {
-			this.retries(1);
+
 			const app = this.app as Application;
-			// Need to make console bigger to see all bar buttons
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.positronConsole.barClearButton.click();
-			await app.workbench.positronConsole.barPowerButton.click();
-			await app.workbench.positronConsole.consoleRestartButton.click();
-			await app.workbench.positronConsole.waitForReady('>>>');
-			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
-			await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
+			await expect(async () => {
+				await app.workbench.positronConsole.barClearButton.click();
+				await app.workbench.positronConsole.barPowerButton.click();
+				await app.workbench.positronConsole.consoleRestartButton.click();
+				await app.workbench.positronConsole.waitForReady('>>>');
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
+				await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
+			}).toPass();
 		});
 
 		it('Verify restart button on console bar [C617464]', async function () {

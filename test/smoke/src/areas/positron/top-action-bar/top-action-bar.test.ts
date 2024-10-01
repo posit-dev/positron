@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { Application } from '../../../../../automation';
+import { Application, PositronUserSettingsFixtures } from '../../../../../automation';
 import { setupEnvAndHooks } from '../../../positronUtils';
 
 const web = process.env.WEB;
@@ -14,12 +14,29 @@ if (!web) {
 	describe('Top Action Bar', () => {
 		setupEnvAndHooks();
 
+		let userSettings: PositronUserSettingsFixtures;
+
 		describe('Save Actions', () => {
+			before(async function () {
+				if (this.app.web) {
+					userSettings = new PositronUserSettingsFixtures(this.app);
+					await userSettings.setUserSetting(['files.autoSave', 'false']);
+				}
+			});
+
+			after(async function () {
+				if (this.app.web) {
+					await userSettings.unsetUserSettings();
+				}
+			});
+
 			it('Save and Save All both disabled when no unsaved editors are open [C656253]', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-				expect(await app.workbench.positronTopActionBar.saveButton.isDisabled()).toBeTruthy();
-				expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
+				await expect(async () => {
+					expect(await app.workbench.positronTopActionBar.saveButton.isDisabled()).toBeTruthy();
+					expect(await app.workbench.positronTopActionBar.saveAllButton.isDisabled()).toBeTruthy();
+				}).toPass({ timeout: 20000 });
 			});
 
 			it('Save enabled and Save All disabled when a single unsaved file is open [C656254]', async function () {

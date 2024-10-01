@@ -35,7 +35,7 @@ if (!web) {
 
 				// retry in case the console output log is slow to appear
 				await expect(async () => {
-					await app.workbench.positronOutput.openOutputPane('Console: Python');
+					await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_PY_VER_SEL!);
 
 					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 
@@ -65,7 +65,7 @@ if (!web) {
 
 				// retry in case the console output log is slow to appear
 				await expect(async () => {
-					await app.workbench.positronOutput.openOutputPane('Console: R');
+					await app.workbench.positronOutput.openOutputPane(process.env.POSITRON_R_VER_SEL!);
 
 					await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 
