@@ -6,11 +6,11 @@
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 
 describe('RMarkdown #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	before(async function () {
 		// Executes once before executing all tests.

@@ -7,11 +7,11 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import * as os from 'os';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 
 describe('Console', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	const isMac = os.platform() === 'darwin';
 	const modifier = isMac ? 'Meta' : 'Control';

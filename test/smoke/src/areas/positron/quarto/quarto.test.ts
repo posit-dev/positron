@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');
 
 
 describe('Quarto #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 	let app: Application;
 
 	before(async function () {

@@ -6,10 +6,10 @@
 import { join } from 'path';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Editor Pane: R #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 	const FILENAME = 'fast-execution.r';
 
 	describe('R Fast Execution', () => {

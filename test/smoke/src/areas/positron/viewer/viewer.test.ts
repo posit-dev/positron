@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Viewer', () => {
-	const logger = setupEnvAndHooks();
+	const logger = setupAndStartApp();
 	let app: Application;
 
 	describe('Viewer - Python', () => {
@@ -71,7 +71,7 @@ GT(exibble)`;
 
 
 describe('Viewer', () => {
-	const logger = setupEnvAndHooks();
+	const logger = setupAndStartApp();
 	let app: Application;
 
 	describe('Viewer - R', () => {

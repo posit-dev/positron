@@ -6,11 +6,11 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 
 describe('Console History #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Console History - Python', () => {
 		before(async function () {

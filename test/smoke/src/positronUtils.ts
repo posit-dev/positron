@@ -22,11 +22,11 @@ const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 const OPTS = parseOptions();
 
 /**
- * Setup the environment and hooks for the test suite.
+ * Setup the environment, logs, hooks for the test suite and then START the application.
  *
  * @returns The logger instance for the test suite.
  */
-export function setupEnvAndHooks(): Logger {
+export function setupAndStartApp(): Logger {
 	// Dynamically determine the test file name
 	const suiteName = getTestFileName();
 	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);

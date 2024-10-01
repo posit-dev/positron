@@ -6,12 +6,12 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 let logger;
 
 describe('Help', () => {
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	describe('Python Help', () => {
 

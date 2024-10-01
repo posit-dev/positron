@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Console Pane: Python #web #win', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Python Console Restart', () => {
 

@@ -7,10 +7,10 @@
 import { expect } from '@playwright/test';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Console ANSI styling', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('R - Console ANSI styling', () => {
 

@@ -6,11 +6,11 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 
 describe('Console Output #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Console Output Log - Python', () => {
 		before(async function () {

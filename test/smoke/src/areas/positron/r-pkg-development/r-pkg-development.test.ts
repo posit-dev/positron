@@ -6,14 +6,14 @@
 import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 let logger;
 
 describe('R Package Development #web', () => {
 	let app: Application;
 	let userSettings: PositronUserSettingsFixtures;
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	describe('R Package Development - R', () => {
 		before(async function () {

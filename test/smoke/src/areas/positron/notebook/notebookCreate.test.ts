@@ -6,10 +6,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Notebooks #pr #web #win', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Python Notebooks', () => {
 
@@ -64,7 +64,7 @@ describe('Notebooks #pr #web #win', () => {
 });
 
 describe('Notebooks #pr #web #win', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('R Notebooks', () => {
 

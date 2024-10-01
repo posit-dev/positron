@@ -6,10 +6,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Welcome Page', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	before(async function () {
 		await PositronPythonFixtures.SetupFixtures(this.app as Application);

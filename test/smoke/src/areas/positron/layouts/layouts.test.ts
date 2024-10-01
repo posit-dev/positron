@@ -6,10 +6,10 @@
 
 import { expect } from '@playwright/test';
 import { Application } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Layouts #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Stacked Layout', () => {
 

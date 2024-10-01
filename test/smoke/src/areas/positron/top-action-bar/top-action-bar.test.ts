@@ -6,10 +6,10 @@
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { Application, PositronUserSettingsFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Top Action Bar #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	let userSettings: PositronUserSettingsFixtures;
 

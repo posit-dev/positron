@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Variables Pane - Notebook #pr #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Python Notebook Variables Pane', () => {
 
@@ -55,7 +55,7 @@ describe('Variables Pane - Notebook #pr #web', () => {
 
 describe('Variables Pane - Notebook #pr #web', () => {
 
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('R Notebook Variables Pane', () => {
 

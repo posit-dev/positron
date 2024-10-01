@@ -11,7 +11,7 @@ import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 let logger;
 
@@ -35,7 +35,7 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 // web bugs 4800 & 4804
 describe('Plots', () => {
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	async function simplePlotTest(app: Application, script: string, locator: string) {
 		await app.workbench.positronPlots.clearPlots();

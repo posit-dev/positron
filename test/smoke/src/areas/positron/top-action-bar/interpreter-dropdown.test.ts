@@ -12,10 +12,10 @@ import {
 	QuickAccess,
 } from '../../../../../automation';
 
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Interpreter Dropdown in Top Action Bar #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 	let app: Application;
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;

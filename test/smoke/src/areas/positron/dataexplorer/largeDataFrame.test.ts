@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 let logger;
 
@@ -16,7 +16,7 @@ const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
 const POST_FILTER_DATA_SUMMARY = 'Showing 8,204 rows (2.44% of 336,776 total)  19 columns';
 
 describe('Data Explorer - Large Data Frame #pr #web', () => {
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	describe('Python Data Explorer (Large Data Frame)', () => {
 

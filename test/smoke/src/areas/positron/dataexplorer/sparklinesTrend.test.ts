@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Data Explorer #web', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Sparklines', () => {
 		let app: Application;

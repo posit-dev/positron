@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, downloadFileFromS3, PositronPythonFixtures, PositronRFixtures, S3FileDownloadOptions } from '../../../../../automation';
 import { fail } from 'assert';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 import { join } from 'path';
 
 let logger;
@@ -20,7 +20,7 @@ const objectKey = "largeParquet.parquet";
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 describe('Data Explorer - Very Large Data Frame', () => {
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	before(async function () {
 

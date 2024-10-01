@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('New Project Wizard', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('Python - New Project Wizard', () => {
 		describe('Python Project with new environment', () => {

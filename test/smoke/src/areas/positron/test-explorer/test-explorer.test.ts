@@ -6,10 +6,10 @@
 import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Test Explorer', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 	let app: Application;
 	let userSettings: PositronUserSettingsFixtures;
 

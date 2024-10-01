@@ -6,11 +6,11 @@
 import * as fs from 'fs';
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 import { join } from 'path';
 
 describe('Data Explorer 100x100', function () {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	/**
 	 * Tests the data explorer.

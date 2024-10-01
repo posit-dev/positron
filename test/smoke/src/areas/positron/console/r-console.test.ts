@@ -5,10 +5,10 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Console Pane: R', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	describe('R Console Restart #web #win', () => {
 

@@ -7,12 +7,12 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 
 let logger;
 
 describe('Data Explorer #web #win', () => {
-	logger = setupEnvAndHooks();
+	logger = setupAndStartApp();
 
 	describe('Python Pandas Data Explorer #pr', () => {
 

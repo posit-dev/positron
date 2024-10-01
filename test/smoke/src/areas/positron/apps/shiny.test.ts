@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupEnvAndHooks } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../positronUtils';
 import { expect } from '@playwright/test';
 import { join } from 'path';
 
 
 describe('Shiny Application', () => {
-	setupEnvAndHooks();
+	setupAndStartApp();
 
 	before(async function () {
 		try {
