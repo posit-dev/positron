@@ -105,7 +105,7 @@ jobs:
         id: electron-smoke-tests
         run: |
           cd test\smoke
-          node test/index.js --tracing --win
+          node test/positronIndex.js --tracing --win
 
       - name: Upload run artifacts - electron
         if: always()
