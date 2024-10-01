@@ -440,7 +440,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	async createClient(id: string, type: positron.RuntimeClientType, params: any, _metadata?: any): Promise<void> {
+	async createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Promise<void> {
 
 		// TODO: handle metadata
 
@@ -458,7 +458,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				comm_id: id,  // eslint-disable-line
 				data: params
 			};
-			const commOpen = new CommOpenCommand(msg);
+			const commOpen = new CommOpenCommand(msg, metadata);
 			await this.sendCommand(commOpen);
 			this._comms.set(id, new Comm(id, type));
 		} else {
