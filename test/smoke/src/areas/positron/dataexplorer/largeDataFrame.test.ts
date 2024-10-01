@@ -49,7 +49,6 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 
 			await app.workbench.positronSideBar.closeSecondarySideBar();
 
-
 			await expect(async () => {
 				// Validate full grid by checking bottom right corner data
 				await app.workbench.positronDataExplorer.clickLowerRightCorner();
@@ -59,11 +58,11 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 				expect(lastHour).toBe(LAST_CELL_CONTENTS);
 			}).toPass();
 
-			// Filter data set
-			await app.workbench.positronDataExplorer.clickUpperLeftCorner();
-			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
-
 			await expect(async () => {
+				// Filter data set
+				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
+				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+
 				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
 				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
 			}).toPass();
@@ -110,11 +109,10 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 				expect(lastHour).toBe(LAST_CELL_CONTENTS);
 			}).toPass();
 
-			// Filter data set
-			await app.workbench.positronDataExplorer.clickUpperLeftCorner();
-			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
-
 			await expect(async () => {
+				// Filter data set
+				await app.workbench.positronDataExplorer.clickUpperLeftCorner();
+				await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 				const statusBar = await app.workbench.positronDataExplorer.getDataExplorerStatusBar();
 				expect(statusBar.textContent).toBe(POST_FILTER_DATA_SUMMARY);
 			}).toPass();
