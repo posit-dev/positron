@@ -32,7 +32,7 @@ if (!web) {
 				});
 				it('Create a new Conda environment [C628628]', async function () {
 					// This test relies on Conda already being installed on the machine
-					const projSuffix = '_condaInstalled';
+					const projSuffix = '_condaInstalled_' + Math.floor(Math.random() * 1000000).toString();
 					const app = this.app as Application;
 					const pw = app.workbench.positronNewProjectWizard;
 					await pw.startNewProject(ProjectType.PYTHON_PROJECT);
