@@ -12,7 +12,7 @@ import { join } from 'path';
 const web = process.env.WEB;
 
 if (!web) {
-	describe.skip('Data Explorer 100x100', function () {
+	describe('Data Explorer 100x100 #pr', function () {
 		setupEnvAndHooks();
 
 		/**
