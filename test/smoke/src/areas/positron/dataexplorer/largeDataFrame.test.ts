@@ -24,6 +24,8 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
+			await this.app.workbench.positronLayouts.enterLayout('stacked');
+
 		});
 
 		after(async function () {
@@ -31,7 +33,6 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
 
 		});
 
@@ -43,7 +44,7 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 			logger.log('Opening data grid');
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
-				await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
+				expect(await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText() === 'Data: df');
 			}).toPass();
 
 			await app.workbench.positronSideBar.closeSecondarySideBar();
@@ -76,6 +77,8 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 
 			await PositronRFixtures.SetupFixtures(this.app as Application);
 
+			await this.app.workbench.positronLayouts.enterLayout('stacked');
+
 		});
 
 		after(async function () {
@@ -83,8 +86,6 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
-
 		});
 
 		it('R - Verifies data explorer functionality with large data frame [C557554]', async function () {
@@ -95,7 +96,7 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 			logger.log('Opening data grid');
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow('df2');
-				await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText();
+				expect(await app.code.driver.getLocator('.label-name:has-text("Data: df2")').innerText() === 'Data: df2');
 			}).toPass();
 
 			await app.workbench.positronSideBar.closeSecondarySideBar();
