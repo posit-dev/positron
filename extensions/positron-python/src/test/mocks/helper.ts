@@ -23,6 +23,8 @@ export function createTypeMoq<T>(
     // Use typemoqs for those things that are resolved as promises. mockito doesn't allow nesting of mocks. ES6 Proxy class
     // is the problem. We still need to make it thenable though. See this issue: https://github.com/florinn/typemoq/issues/67
     const result = TypeMoq.Mock.ofType<T>(targetCtor, behavior, shouldOverrideTarget, ...targetCtorArgs);
-    result.setup((x: any) => x.then).returns(() => undefined);
+    // --- Start Positron ---
+    // result.setup((x: any) => x.then).returns(() => undefined);
+    // --- End Positron ---
     return result;
 }
