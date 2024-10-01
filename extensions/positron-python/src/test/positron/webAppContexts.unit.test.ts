@@ -37,7 +37,7 @@ suite('Discover Web app frameworks', () => {
     Object.entries(texts).forEach(([text, framework]) => {
         const expected = text.includes('numpy') ? undefined : framework;
         test('should set context pythonAppFramework if application is found', () => {
-            getExtensionStub.withArgs('Posit.shiny').returns({ isActive: false });
+            getExtensionStub.withArgs('Posit.shiny').returns(undefined);
             document.getText = () => text;
             detectWebApp(document);
 
