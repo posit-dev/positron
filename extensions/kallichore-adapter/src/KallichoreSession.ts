@@ -90,7 +90,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private readonly _consoleChannel: vscode.LogOutputChannel;
 
+	/**
+	 * The channel to which profile output for this specific kernel is logged, if any
+	 */
+	private _profileChannel: vscode.OutputChannel | undefined;
+
 	private readonly _comms: Map<string, Comm> = new Map();
+
+	/** The kernel's log file, if any. */
+	private _kernelLogFile: string | undefined;
 
 	/**
 	 * The message header for the current requests if any is active.  This is
@@ -223,8 +231,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	async startPositronLsp(clientAddress: string) {
 		// Create a unique client ID for this instance
-		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${uniqueId}`;
+		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
 		this.log(`Starting LSP server ${clientId} for ${clientAddress}`);
 
 		// Notify Positron that we're handling messages from this client
@@ -262,8 +269,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// supported comms; the only way to know is to try to create one.
 
 		// Create a unique client ID for this instance
-		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${uniqueId}`;
+		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
 		this.log(`Starting DAP server ${clientId} for ${serverAddress}`);
 
 		// Notify Positron that we're handling messages from this client
@@ -279,16 +285,33 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._dapClient = new DapClient(clientId, serverPort, debugType, debugName, this);
 	}
 
-	emitJupyterLog(message: string): void {
-		this.log(message);
+	/**
+	 * Forwards a message to the Jupyter log output channel.
+	 *
+	 * @param message The message to log
+	 * @param logLevel The log level of the message
+	 */
+	emitJupyterLog(message: string, logLevel?: vscode.LogLevel): void {
+		this.log(message, logLevel);
 	}
 
+	/**
+	 * Reveals the output channel for this kernel.
+	 */
 	showOutput(): void {
 		this._kernelChannel?.show();
 	}
 
+	/**
+	 * Calls a method on the UI comm for this kernel.
+	 *
+	 * @param method The method's name
+	 * @param args Additional arguments to pass to the method
+	 * @returns The result of the method call
+	 */
 	callMethod(method: string, ...args: Array<any>): Promise<any> {
 		const promise = new PromiseHandles;
+
 		// Find the UI comm
 		const uiComm = Array.from(this._comms.values())
 			.find(c => c.target === positron.RuntimeClientType.Ui);
@@ -316,8 +339,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			data: request
 		};
 
-		const uniqueId = Math.floor(Math.random() * 0x100000000).toString(16);
-		const commRequest = new CommMsgRequest(uniqueId, commMsg);
+		const commRequest = new CommMsgRequest(this.createUniqueId(), commMsg);
 		this.sendRequest(commRequest).then((reply) => {
 			const response = reply.data;
 
@@ -353,8 +375,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return promise.promise;
 	}
 
+	/**
+	 * Gets the path to the kernel's log file, if any.
+	 *
+	 * @returns The kernel's log file.
+	 * @throws An error if the log file is not available.
+	 */
 	getKernelLogFile(): string {
-		throw new Error('Method not implemented.');
+		if (!this._kernelLogFile) {
+			throw new Error('Kernel log file not available');
+		}
+		return this._kernelLogFile;
 	}
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage>;
@@ -484,11 +515,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.sendCommand(reply);
 	}
 
+	/**
+	 * Restores an existing session from the server.
+	 *
+	 * @param session The session to restore
+	 */
 	async restore(session: ActiveSession) {
 		// Re-establish the log stream by looking for the `--log` argument.
 		//
-		// CONSIDER: This is a convention used by the R kernel. We could handle it more
-		// generically by storing this information in the session metadata.
+		// CONSIDER: This is a convention used by the R kernel but may not be
+		// reliable for other kernels. We could handle it more generically by
+		// storing this information in the session metadata.
 		const logFileIndex = session.argv.indexOf('--log');
 		if (logFileIndex > 0 && logFileIndex < session.argv.length - 1) {
 			const logFile = session.argv[logFileIndex + 1];
@@ -655,8 +692,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	showProfile?(): Thenable<void> {
-		throw new Error('Method not implemented.');
+	async showProfile?(): Promise<void> {
+		this._profileChannel?.show();
 	}
 
 	dispose() {
@@ -756,9 +793,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._exitReason = positron.RuntimeExitReason.Unknown;
 	}
 
+	/**
+	 * Gets the kernel's information, using the `kernel_info` request.
+	 *
+	 * @returns The kernel's information
+	 */
 	async getKernelInfo(): Promise<positron.LanguageRuntimeInfo> {
+		// Send the info request to the kernel; note that this waits for the
+		// kernel to be connected.
 		const request = new KernelInfoRequest();
 		const reply = await this.sendRequest(request);
+
+		// Translate the kernel info to a runtime info object
 		const info: positron.LanguageRuntimeInfo = {
 			banner: reply.banner,
 			implementation_version: reply.implementation_version,
@@ -767,10 +813,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return info;
 	}
 
+	/**
+	 * Main entry point for handling Jupyter messages delivered over the
+	 * websocket from the Kallichore server.
+	 *
+	 * @param data The message payload
+	 */
 	handleJupyterMessage(data: any) {
 		const msg = data as JupyterMessage;
 
-		// Check to see if the message is a reply to a request
+		// Check to see if the message is a reply to a request; if it is,
+		// resolve the associated promise and remove it from the pending
+		// requests map
 		if (msg.parent_header && msg.parent_header.msg_id) {
 			const request = this._pendingRequests.get(msg.parent_header.msg_id);
 			if (request) {
@@ -861,22 +915,33 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return command.sendCommand(this.metadata.sessionId, this._ws!);
 	}
 
+	/**
+	 * Begins streaming a log file to the kernel channel.
+	 *
+	 * @param logFile The path to the log file to stream
+	 */
 	private streamLogFile(logFile: string) {
 		const logStreamer = new LogStreamer(this._kernelChannel, logFile, this.runtimeMetadata.languageName);
 		this._disposables.push(logStreamer);
+		this._kernelLogFile = logFile;
 		logStreamer.watch();
 	}
 
+	/**
+	 * Begins streaming a profile file to the kernel channel.
+	 *
+	 * @param profileFilePath The path to the profile file to stream
+	 */
 	private streamProfileFile(profileFilePath: string) {
 
-		const profileChannel = positron.window.createRawLogOutputChannel(
+		this._profileChannel = positron.window.createRawLogOutputChannel(
 			this.metadata.notebookUri ?
 				`Notebook: Profiler ${path.basename(this.metadata.notebookUri.path)} (${this.runtimeMetadata.runtimeName})` :
 				`Positron ${this.runtimeMetadata.languageName} Profiler`);
 
 		this.log('Streaming profile file: ' + profileFilePath);
 
-		const profileStreamer = new LogStreamer(profileChannel, profileFilePath);
+		const profileStreamer = new LogStreamer(this._profileChannel, profileFilePath);
 		this._disposables.push(profileStreamer);
 
 		profileStreamer.watch();
@@ -908,4 +973,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Creates a short, unique ID. Use to help create unique identifiers for
+	 * comms, messages, etc.
+	 *
+	 * @returns An 8-character unique ID, like `a1b2c3d4`
+	 */
+	private createUniqueId(): string {
+		return Math.floor(Math.random() * 0x100000000).toString(16);
+	}
 }
