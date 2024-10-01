@@ -144,8 +144,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		switch (e.code) {
 			// Space key.
 			case 'Space': {
-				// Consume the event.
-				consumeEvent();
 
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
@@ -154,6 +152,9 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// If selection is enabled, process the key.
 				if (context.instance.selection) {
+					// Consume the event only if there's an action supported for it
+					consumeEvent();
+
 					if (e.ctrlKey && !e.shiftKey) {
 						context.instance.selectColumn(context.instance.cursorColumnIndex);
 					} else if (e.shiftKey && !e.ctrlKey) {

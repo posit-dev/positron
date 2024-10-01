@@ -300,6 +300,10 @@ export function translateProductToModule(product: Product): string {
             return 'ensurepip';
         case Product.python:
             return 'python';
+        // --- Start Positron ---
+        case Product.fastapiCli:
+            return 'fastapi_cli';
+        // --- End Positron ---
         default: {
             throw new Error(`Product ${product} cannot be installed as a Python Module.`);
         }

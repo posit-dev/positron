@@ -1,0 +1,16 @@
+{
+	"extends": "../tsconfig.base.json",
+	"compilerOptions": {
+		"outDir": "./out",
+		// Exclude enclosing folders' types
+		"typeRoots": [
+			"./node_modules/@types"
+		],
+	},
+	"include": [
+		"src/**/*",
+		"../../src/vscode-dts/vscode.d.ts",
+		"../../src/vscode-dts/vscode.proposed.terminalShellIntegration.d.ts",
+		"../../src/positron-dts/positron.d.ts"
+	]
+}

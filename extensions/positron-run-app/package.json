@@ -1,0 +1,48 @@
+{
+  "name": "positron-run-app",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "vscode",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "categories": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "properties": {
+        "positron.runApplication.showEnableShellIntegrationMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.positron.runApplication.showEnableShellIntegrationMessage%"
+        },
+        "positron.runApplication.showShellIntegrationNotSupportedMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.positron.runApplication.showShellIntegrationNotSupportedMessage%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/mocha": "^10.0.8",
+    "@types/node": "^22.5.4",
+    "@types/sinon": "^17.0.3",
+    "@types/sinon-test": "^2.4.6"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  }
+}

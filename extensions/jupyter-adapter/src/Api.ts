@@ -13,7 +13,7 @@ import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSer
 
 export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	constructor(private readonly _context: vscode.ExtensionContext,
-		private readonly _channel: vscode.OutputChannel) {
+		private readonly _channel: vscode.LogOutputChannel) {
 	}
 
 	/**

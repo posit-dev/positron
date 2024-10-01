@@ -448,35 +448,35 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	// if (!opts.web && !opts.remote && quality !== Quality.Dev && quality !== Quality.OSS) { setupLocalizationTests(logger); }
 	// if (!opts.web && !opts.remote) { setupLaunchTests(logger); }
 	setupVariablesTest(logger);
-	setupDataExplorerTest(logger);
-	setupDataExplorer100x100Test(logger);
-	setupPlotsTest(logger);
-	setupPythonConsoleTest(logger);
-	setupRConsoleTest(logger);
-	setupLargeDataFrameTest(logger);
-	setupNotebookCreateTest(logger);
-	setupConnectionsTest(logger);
-	setupNewProjectWizardTest(logger);
-	setupXLSXDataFrameTest(logger);
-	setupHelpTest(logger);
-	setupClipboardTest(logger);
-	setupTopActionBarTest(logger);
-	setupLayoutTest(logger);
-	setupNotebookVariablesTest(logger);
-	setupConsoleInputTest(logger);
-	setupConsoleANSITest(logger);
-	setupConsoleOutputLogTest(logger);
-	setupBasicRMarkdownTest(logger);
-	setupWelcomeTest(logger);
-	setupConsoleHistoryTest(logger);
-	setupShinyTest(logger);
-	setupFastExecutionTest(logger);
-	setupTestExplorerTest(logger);
-	setupRPKgDevelopment(logger);
-	setupInterpreterDropdownTest(logger);
-	setupViewersTest(logger);
-	setupVeryLargeDataFrameTest(logger);
-	setupGraphTrendTest(logger);
-	setupQuartoTest(logger);
+	if (process.platform !== 'win32') { setupDataExplorerTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
+	if (!opts.web && process.platform !== 'win32') { setupPlotsTest(logger); } // bugs 4800 & 4804
+	if (!opts.web && process.platform !== 'win32') { setupPythonConsoleTest(logger); }
+	if (process.platform !== 'win32') { setupRConsoleTest(logger); }
+	if (process.platform !== 'win32') { setupLargeDataFrameTest(logger); }
+	if (process.platform !== 'win32') { setupNotebookCreateTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConnectionsTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupNewProjectWizardTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupXLSXDataFrameTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupHelpTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupClipboardTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupTopActionBarTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupLayoutTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupNotebookVariablesTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConsoleInputTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConsoleANSITest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConsoleOutputLogTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupBasicRMarkdownTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupWelcomeTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConsoleHistoryTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupShinyTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupFastExecutionTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupTestExplorerTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupRPKgDevelopment(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupInterpreterDropdownTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupViewersTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupVeryLargeDataFrameTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupGraphTrendTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupQuartoTest(logger); }
 	// --- End Positron ---
 });

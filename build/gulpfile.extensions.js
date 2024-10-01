@@ -39,10 +39,12 @@ const compilations = [
 	'extensions/positron-notebooks/tsconfig.json',
 	'extensions/positron-r/tsconfig.json',
 	'extensions/positron-rstudio-keymap/tsconfig.json',
+	'extensions/positron-run-app/tsconfig.json',
 	'extensions/positron-python/tsconfig.json',
 	'extensions/positron-proxy/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',
+	'extensions/positron-reticulate/tsconfig.json',
 	'extensions/jupyter-adapter/tsconfig.json',
 	// --- End Positron ---
 	'extensions/configuration-editing/tsconfig.json',

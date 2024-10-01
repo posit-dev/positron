@@ -62,6 +62,11 @@ const extensions = [
 		workspaceFolder: path.join(os.tmpdir(), `positron-connections-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
+	{
+		label: 'positron-run-app',
+		workspaceFolder: 'extensions/positron-run-app/test-workspace',
+		mocha: { timeout: 60_000 }
+	},
 	// --- End Positron ---
 	{
 		label: 'microsoft-authentication',

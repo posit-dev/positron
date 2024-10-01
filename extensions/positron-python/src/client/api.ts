@@ -7,6 +7,9 @@
 import { Uri, Event } from 'vscode';
 import { BaseLanguageClient, LanguageClientOptions } from 'vscode-languageclient';
 import { LanguageClient } from 'vscode-languageclient/node';
+// --- Start Positron ---
+import { PythonRuntimeSession } from './positron/session';
+// --- End Positron ---
 import { PYLANCE_NAME } from './activation/node/languageClientFactory';
 import { ILanguageServerOutputChannel } from './activation/types';
 import { PythonExtension } from './api/types';
@@ -155,5 +158,15 @@ export function buildApi(
         (api as any).serviceContainer = serviceContainer;
         (api as any).serviceManager = serviceManager;
     }
+    // --- Start Positron ---
+    (api as any).positron = {
+        createPythonRuntimeSession:
+            // Types should actually be:
+            // (runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, spec: JupyterKernelSpec)
+            // but we can't import them here.
+            (runtimeMetadata: any, sessionMetadata: any, spec: any) =>
+                new PythonRuntimeSession(runtimeMetadata, sessionMetadata, serviceContainer, spec),
+    };
+    // --- End Positron ---
     return api;
 }

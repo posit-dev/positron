@@ -8,7 +8,10 @@ import { StopWatch } from '../../../../common/utils/stopWatch';
 import { traceError, traceInfo, traceVerbose } from '../../../../logging';
 import { sendTelemetryEvent } from '../../../../telemetry';
 import { EventName } from '../../../../telemetry/constants';
-import { normalizePath } from '../../../common/externalDependencies';
+// --- Start Positron ---
+// Import untildify.
+import { normalizePath, untildify } from '../../../common/externalDependencies';
+// --- End Positron ---
 import { PythonEnvInfo, PythonEnvKind } from '../../info';
 import { getEnvPath } from '../../info/env';
 import {
@@ -88,6 +91,10 @@ export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollection
     }
 
     public async resolveEnv(path: string): Promise<PythonEnvInfo | undefined> {
+        // --- Start Positron ---
+        // Positron uses tildes to represent the home dir, remove it.
+        path = untildify(path);
+        // --- End Positron ---
         path = normalizePath(path);
         // Note cache may have incomplete info when a refresh is happening.
         // This API is supposed to return complete info by definition, so

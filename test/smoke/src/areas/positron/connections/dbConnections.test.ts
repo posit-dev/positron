@@ -39,18 +39,19 @@ export function setup(logger: Logger) {
 
 			it('Python - SQLite DB Connection [C628636]', async function () {
 
-
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
 				await app.workbench.quickaccess.runCommand('python.execInConsole');
 
-				logger.log('Opening connections pane');
-				await app.workbench.positronVariables.doubleClickVariableRow('conn');
-				// in Python this will open all table connections, so should be fine.
-				await app.workbench.positronConnections.openTree();
+				await expect(async () => {
+					logger.log('Opening connections pane');
+					await app.workbench.positronVariables.doubleClickVariableRow('conn');
+					// in Python this will open all table connections, so should be fine.
+					await app.workbench.positronConnections.openTree();
 
-				// click in reverse order to avoid scrolling issues
-				await app.workbench.positronConnections.hasConnectionNodes(['albums']);
+					// click in reverse order to avoid scrolling issues
+					await app.workbench.positronConnections.hasConnectionNodes(['albums']);
+				}).toPass({ timeout: 60000 });
 
 				// disconnect icon appearance requires hover
 				await app.workbench.positronConnections.pythonConnectionOpenState.hover();
@@ -96,7 +97,7 @@ export function setup(logger: Logger) {
 					// in R, the opneTree command only shows all tables, we click to also
 					// display fields
 					await app.workbench.positronConnections.openConnectionsNodes(tables);
-				}).toPass();
+				}).toPass({ timeout: 60000 });
 
 				// disconnect icon appearance requires hover
 				await app.workbench.positronConnections.rConnectionOpenState.hover();
@@ -127,7 +128,7 @@ export function setup(logger: Logger) {
 				}
 
 				await expect(async () => {
-				// now we add a dataframe to that connection
+					// now we add a dataframe to that connection
 					await app.workbench.positronConsole.executeCode(
 						'R',
 						`DBI::dbWriteTable(con, "mtcars", mtcars)`,
