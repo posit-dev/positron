@@ -187,7 +187,7 @@ function getFailureLogs() {
 function runMochaTests() {
 	const mocha = new Mocha(getMochaOptions(opts));
 	applyTestFilters(mocha);
-	mocha.dryRun();
+	// mocha.dryRun();
 
 	// Find all test files recursively starting from `testDirPath`
 	const testDirPath = path.resolve('out/areas/positron');
