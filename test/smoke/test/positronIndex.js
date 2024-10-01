@@ -21,6 +21,7 @@ const rimraf = require('rimraf');
 
 // Constants
 const REPORT_PATH = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
+console.log('Reporting to -->', REPORT_PATH);
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');

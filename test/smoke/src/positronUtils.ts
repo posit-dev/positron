@@ -19,6 +19,7 @@ export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
+const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 const OPTS = parseOptions();
 
 /**
@@ -29,7 +30,7 @@ const OPTS = parseOptions();
 export function setupAndStartApp(): Logger {
 	// Dynamically determine the test file name
 	const suiteName = getTestFileName();
-	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'smoke-tests-electron', suiteName);
+	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
 
 	// Create a new logger for this suite
 	const logger = createLogger(logsRootPath);
@@ -140,9 +141,8 @@ function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
 		}
 
-		const logsDirName = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', logsDirName, suiteName);
-		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', logsDirName, suiteName);
+		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
+		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
 
 		this.defaultOptions = {
 			quality,

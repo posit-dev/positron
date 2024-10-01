@@ -48,7 +48,7 @@
     "smoketest-no-compile": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && cd test/smoke && node test/positronIndex.js",
     "smoketest-all": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && yarn smoketest",
     "smoketest-pr": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron && yarn smoketest --pr",
-    "smoketest-web": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-web && yarn smoketest --web",
+    "smoketest-web": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-browser && yarn smoketest --web",
     "smoketest-win": "export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-win && yarn smoketest --win",
     "xunit-to-junit": "sh ./scripts/convert-xunit-to-junit.sh",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
