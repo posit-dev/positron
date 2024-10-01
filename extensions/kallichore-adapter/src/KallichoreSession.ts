@@ -34,6 +34,7 @@ import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
 import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Comm } from './Comm';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
+import { DapClient } from './DapClient';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
@@ -49,6 +50,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _disposables: vscode.Disposable[] = [];
 	private readonly _log: vscode.OutputChannel;
 	private _restarting = false;
+	private _dapClient: DapClient | undefined;
 
 	private readonly _comms: Map<string, Comm> = new Map();
 
@@ -203,8 +205,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	async startPositronDap(
 		serverPort: number,
-		_debugType: string,
-		_debugName: string,
+		debugType: string,
+		debugName: string,
 	) {
 		// NOTE: Ideally we'd connect to any address but the
 		// `debugServer` property passed in the configuration below
@@ -231,7 +233,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			{ client_address: serverAddress }
 		);
 
-		// TODO: Handle events from the DAP (see LanguageRuntimeSessionAdapter)
+		// Create the DAP client message handler
+		this._dapClient = new DapClient(clientId, serverPort, debugType, debugName, this);
 	}
 
 	emitJupyterLog(message: string): void {
@@ -577,7 +580,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async performShutdown(restart: boolean) {
 		const shutdownRequest = new ShutdownRequest(restart);
 		await this.sendRequest(shutdownRequest);
-		this._restarting = true;
+		this._restarting = restart;
 	}
 
 	async forceQuit(): Promise<void> {
@@ -734,6 +737,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					});
 					break;
 				}
+			}
+		}
+
+		// If we have a DAP client active and this is a comm message, forward the message to the DAP client
+		if (this._dapClient && msg.header.msg_type === 'comm_msg') {
+			const commMsg = msg.content as JupyterCommMsg;
+			const comm = this._comms.get(commMsg.comm_id);
+			if (comm && comm.id === this._dapClient.clientId) {
+				this._dapClient.handleDapMessage(commMsg.data);
 			}
 		}
 
