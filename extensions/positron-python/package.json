@@ -329,6 +329,13 @@
             },
             {
                 "category": "Python",
+                "command": "python.execShinyInTerminal",
+                "icon": "$(play)",
+                "title": "%python.command.python.execShinyInTerminal.title%",
+                "enablement": "pythonAppFramework == shiny"
+            },
+            {
+                "category": "Python",
                 "command": "python.execStreamlitInTerminal",
                 "icon": "$(play)",
                 "title": "%python.command.python.execStreamlitInTerminal.title%",
@@ -1510,6 +1517,11 @@
                     "when": "pythonAppFramework == flask"
                 },
                 {
+                    "command": "python.execShinyInTerminal",
+                    "group": "Python",
+                    "when": "pythonAppFramework == shiny"
+                },
+                {
                     "command": "python.execStreamlitInTerminal",
                     "group": "Python",
                     "when": "pythonAppFramework == streamlit"
@@ -1572,6 +1584,12 @@
                     "group": "navigation@0",
                     "title": "%python.command.python.execFlaskInTerminal.title%",
                     "when": "pythonAppFramework == flask"
+                },
+                {
+                    "command": "python.execShinyInTerminal",
+                    "group": "navigation@0",
+                    "title": "%python.command.python.execShinyInTerminal.title%",
+                    "when": "pythonAppFramework == shiny"
                 },
                 {
                     "command": "python.execStreamlitInTerminal",
