@@ -450,33 +450,33 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	setupVariablesTest(logger);
 	setupDataExplorerTest(logger);
 	if (!opts.web) { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
-	if (!opts.web && process.platform !== 'win32') { setupPlotsTest(logger); } // bugs 4800 & 4804
-	if (!opts.web) { setupPythonConsoleTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupPlotsTest(logger); } // web bugs 4800 & 4804
+	setupPythonConsoleTest(logger);
 	setupRConsoleTest(logger);
 	if (process.platform !== 'win32') { setupLargeDataFrameTest(logger); }
 	setupNotebookCreateTest(logger);
-	if (!opts.web && process.platform !== 'win32') { setupConnectionsTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupNewProjectWizardTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupXLSXDataFrameTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupHelpTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupClipboardTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupTopActionBarTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupLayoutTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupNotebookVariablesTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupConsoleInputTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupConsoleANSITest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupConsoleOutputLogTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupBasicRMarkdownTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupWelcomeTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupConsoleHistoryTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupShinyTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupFastExecutionTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupTestExplorerTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupRPKgDevelopment(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupInterpreterDropdownTest(logger); }
+	if (process.platform !== 'win32') { setupConnectionsTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupNewProjectWizardTest(logger); } // web bug 4840
+	if (process.platform !== 'win32') { setupXLSXDataFrameTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupHelpTest(logger); } // web bug 4847
+	if (!opts.web && process.platform !== 'win32') { setupClipboardTest(logger); } // has an "allow paste" dialog & typeToConsole is flaky
+	if (process.platform !== 'win32') { setupTopActionBarTest(logger); }
+	if (process.platform !== 'win32') { setupLayoutTest(logger); }
+	if (process.platform !== 'win32') { setupNotebookVariablesTest(logger); }
+	if (process.platform !== 'win32') { setupConsoleInputTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupConsoleANSITest(logger); } // web bug 4847
+	if (process.platform !== 'win32') { setupConsoleOutputLogTest(logger); }
+	if (process.platform !== 'win32') { setupBasicRMarkdownTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupWelcomeTest(logger); } // web bug 4851
+	if (process.platform !== 'win32') { setupConsoleHistoryTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupShinyTest(logger); } // frame location is diff on web
+	if (process.platform !== 'win32') { setupFastExecutionTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupTestExplorerTest(logger); } // test results too small in web
+	if (process.platform !== 'win32') { setupRPKgDevelopment(logger); }
+	if (process.platform !== 'win32') { setupInterpreterDropdownTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupViewersTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupVeryLargeDataFrameTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupGraphTrendTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupQuartoTest(logger); }
+	if (!opts.web && process.platform !== 'win32') { setupVeryLargeDataFrameTest(logger); } // frame location is diff on web
+	if (process.platform !== 'win32') { setupGraphTrendTest(logger); }
+	if (process.platform !== 'win32') { setupQuartoTest(logger); }
 	// --- End Positron ---
 });
