@@ -64,12 +64,14 @@ suite('Web app commands', () => {
             return { dispose: () => undefined };
         };
 
-        // Stub `vscode.workspace.asRelativePath`.
-        sinon.stub(vscode, 'workspace').get(() => ({
-            asRelativePath(fsPath: string) {
-                return path.relative(workspacePath, fsPath);
-            },
-        }));
+        // Create a mock object for `asRelativePath`
+        const mockAsRelativePath = sinon.mock().callsFake((pathOrUri: string | vscode.Uri) => {
+            const fsPath = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.fsPath;
+            return path.relative(workspacePath, fsPath);
+        });
+        // TODO @isabelizimm: HACK HACK HACK
+        // Replace the original `asRelativePath` method with the mock object
+        (vscode.workspace).asRelativePath = mockAsRelativePath;
 
         // Stub the interpreter service and installer services.
         // Tests can set `isFastAPICliInstalled` to control whether the FastAPI CLI is installed.
@@ -180,9 +182,12 @@ suite('Web app commands', () => {
     test('Exec FastAPI in terminal - fastapi-cli not installed, could not infer app name', async () => {
         isFastAPICliInstalled = false;
 
-        sinon.stub(vscode, 'workspace').get(() => ({
+        // TODO @isabelizimm: HACK HACK HACK
+        const mockAsRelativePath = sinon.mock().callsFake(() => ({
             workspaceFolders: [{ uri: { fsPath: '/path/to' } }],
         }));
+        // Replace the original `asRelativePath` method with the mock object
+        (vscode.workspace).asRelativePath = mockAsRelativePath;
 
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
