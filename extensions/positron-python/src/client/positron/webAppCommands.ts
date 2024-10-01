@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { workspace } from 'vscode';
 import { PositronRunApp, RunAppTerminalOptions } from '../positron-run-app.d';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';

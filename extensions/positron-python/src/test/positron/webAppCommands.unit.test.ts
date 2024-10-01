@@ -71,7 +71,7 @@ suite('Web app commands', () => {
         });
         // TODO @isabelizimm: HACK HACK HACK
         // Replace the original `asRelativePath` method with the mock object
-        (vscode.workspace).asRelativePath = mockAsRelativePath;
+        vscode.workspace.asRelativePath = mockAsRelativePath;
 
         // Stub the interpreter service and installer services.
         // Tests can set `isFastAPICliInstalled` to control whether the FastAPI CLI is installed.
@@ -187,7 +187,7 @@ suite('Web app commands', () => {
             workspaceFolders: [{ uri: { fsPath: '/path/to' } }],
         }));
         // Replace the original `asRelativePath` method with the mock object
-        (vscode.workspace).asRelativePath = mockAsRelativePath;
+        vscode.workspace.asRelativePath = mockAsRelativePath;
 
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
