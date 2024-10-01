@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession } from './kcclient/api';
+import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -73,11 +73,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** A map of pending RPCs, used to pair up requests and replies */
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
 
+	/** Objects that should be disposed when the session is disposed */
 	private _disposables: vscode.Disposable[] = [];
 
 	/** Whether we are currently restarting the kernel */
 	private _restarting = false;
 
+	/** The Debug Adapter Protocol client, if any */
 	private _dapClient: DapClient | undefined;
 
 	/**
@@ -95,10 +97,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _profileChannel: vscode.OutputChannel | undefined;
 
+	/** A map of active comm channels */
 	private readonly _comms: Map<string, Comm> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
+
+	/**
+	 * The active session on the Kallichore server. Currently, this is only
+	 * defined for sessions that have been restored after reload or navigation.
+	 */
+	private _activeSession: ActiveSession | undefined;
 
 	/**
 	 * The message header for the current requests if any is active.  This is
@@ -478,6 +487,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.sendCommand(commOpen);
 	}
 
+	/**
+	 * Sends a message to an open comm.
+	 *
+	 * @param client_id The ID of the client comm to send the message to
+	 * @param message_id The ID of the message to send; used to help match
+	 * replies
+	 * @param message The message to send
+	 */
 	sendClientMessage(client_id: string, message_id: string, message: any): void {
 		const msg: JupyterCommMsg = {
 			comm_id: client_id,
@@ -487,6 +504,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.sendCommand(commMsg);
 	}
 
+	/**
+	 * Sends a reply to an input prompt to the kernel.
+	 *
+	 * @param id The ID of the input request to reply to
+	 * @param value The value to send as a reply
+	 */
 	replyToPrompt(id: string, value: string): void {
 		if (!this._activeBackendRequestHeader) {
 			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
@@ -500,10 +523,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	public replyToComm(response: any) {
 		// NOTE: Currently we only support synchronous reverse requests
 		// from R via the frontend comm. Since this mechanism is
-		// synchronous, there cannot be concurrent requests and we can
-		// share the active request header with `input_request`. We will
-		// need a map of active requests if we extend to support
-		// asynchronous requests from other comms.
+		// synchronous, there cannot be concurrent requests.
 		const parent = this._activeBackendRequestHeader;
 
 		if (!parent) {
@@ -544,6 +564,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Open the established barrier so that we can start sending messages
+		this._activeSession = session;
 		this._established.open();
 	}
 
@@ -578,14 +599,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// kernel to start up.
 			await withTimeout(this._ready.wait(), 10000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be ready`);
 		} else {
-			// If it's not a new session, enter the ready state immediately.
-			// TODO: this should actually wait for the kernel to be ready; what
-			// if it's busy?
-			this._ready.open();
-			this._state.fire(positron.RuntimeState.Ready);
+			if (this._activeSession?.status === Status.Busy) {
+				// If the session is busy, wait for it to become idle before
+				// connecting. This could take some time, so show a progress
+				// notification.
+				//
+				// CONSIDER: This could be a long wait; it would be better
+				// (though it'd require more orchestration) to bring the user
+				// back to the same experience they had before the reconnecting
+				// (i.e. all UI is usable but the busy indicator is shown).
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.metadata.sessionName),
+					cancellable: false,
+				}, async () => {
+					await this.waitForIdle();
+				});
+			} else {
+				// Enter the ready state immediately if the session is not busy
+				this._ready.open();
+				this._state.fire(positron.RuntimeState.Ready);
+			}
 		}
 
 		return this.getKernelInfo();
+	}
+
+	async waitForIdle(): Promise<void> {
+		this.log(`Session ${this.metadata.sessionId} is busy; waiting for it to become idle before connecting.`);
+		return new Promise((resolve, _reject) => {
+			this._state.event(async (state) => {
+				if (state === positron.RuntimeState.Idle) {
+					resolve();
+					this._ready.open();
+					this._state.fire(positron.RuntimeState.Ready);
+				}
+			});
+		});
 	}
 
 	connect(): Promise<void> {
