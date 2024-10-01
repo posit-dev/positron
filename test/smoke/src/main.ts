@@ -448,13 +448,13 @@ describe(`VSCode Smoke Tests (${opts.web ? 'Web' : 'Electron'})`, () => {
 	// if (!opts.web && !opts.remote && quality !== Quality.Dev && quality !== Quality.OSS) { setupLocalizationTests(logger); }
 	// if (!opts.web && !opts.remote) { setupLaunchTests(logger); }
 	setupVariablesTest(logger);
-	if (process.platform !== 'win32') { setupDataExplorerTest(logger); }
-	if (!opts.web && process.platform !== 'win32') { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
+	setupDataExplorerTest(logger);
+	if (!opts.web) { setupDataExplorer100x100Test(logger); } // skipping for web since it's slow
 	if (!opts.web && process.platform !== 'win32') { setupPlotsTest(logger); } // web bugs 4800 & 4804
-	if (process.platform !== 'win32') { setupPythonConsoleTest(logger); }
-	if (process.platform !== 'win32') { setupRConsoleTest(logger); }
+	setupPythonConsoleTest(logger);
+	setupRConsoleTest(logger);
 	if (process.platform !== 'win32') { setupLargeDataFrameTest(logger); }
-	if (process.platform !== 'win32') { setupNotebookCreateTest(logger); }
+	setupNotebookCreateTest(logger);
 	if (process.platform !== 'win32') { setupConnectionsTest(logger); }
 	if (!opts.web && process.platform !== 'win32') { setupNewProjectWizardTest(logger); } // web bug 4840
 	if (process.platform !== 'win32') { setupXLSXDataFrameTest(logger); }
