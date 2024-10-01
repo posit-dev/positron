@@ -34,9 +34,9 @@ export function setupEnvAndHooks(): Logger {
 	// Create a new logger for this suite
 	const logger = createLogger(logsRootPath);
 
-	// Set up environment and hooks
+	// Set up environment, logs and hooks
 	setupSmokeTestEnvironment(logger);
-	setupBeforeHooks(logger, suiteName);
+	setupLogsAndDefaults(logger, suiteName);
 	installAllHandlers(logger);
 
 	return logger;
@@ -131,7 +131,7 @@ function setupSmokeTestEnvironment(logger: Logger) {
 	}
 }
 
-function setupBeforeHooks(logger: Logger, suiteName: string) {
+function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 	before(async function () {
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
 
@@ -140,7 +140,7 @@ function setupBeforeHooks(logger: Logger, suiteName: string) {
 			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
 		}
 
-		const directoryName = (function logDirName() {
+		const logsDirName = (function logDirName() {
 			if (OPTS.web) {
 				return 'smoke-tests-browser';
 			} else if (OPTS.remote) {
@@ -150,8 +150,8 @@ function setupBeforeHooks(logger: Logger, suiteName: string) {
 			}
 		})();
 
-		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', directoryName, suiteName);
-		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', directoryName, suiteName);
+		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', logsDirName, suiteName);
+		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', logsDirName, suiteName);
 
 		this.defaultOptions = {
 			quality,
