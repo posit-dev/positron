@@ -43,6 +43,10 @@
 	font-weight: 600;
 }
 
+.row-filter-widget .title .column-value {
+	font-family: var(--monaco-monospace-font), monospace;
+}
+
 .row-filter-widget .title .space-before::before {
 	content: " ";
 	white-space: pre;

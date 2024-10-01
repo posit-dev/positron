@@ -263,8 +263,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// fatal, so we don't rethrow the error
 			const runtimeError = err as positron.RuntimeMethodError;
 			this._kernel!.emitJupyterLog(
-				`Error setting console width: ${runtimeError.message} ` +
-				`(${runtimeError.code})`);
+				`Error setting console width: ${runtimeError.message} ${runtimeError.code})`,
+				vscode.LogLevel.Error);
 		}
 	}
 
@@ -601,7 +601,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 						const runtimeError = err as positron.RuntimeMethodError;
 						this._kernel.emitJupyterLog(
 							`Error setting initial console width: ${runtimeError.message} ` +
-							`(${runtimeError.code})`);
+							`(${runtimeError.code})`,
+							vscode.LogLevel.Error);
 					}
 				}
 			});

@@ -312,7 +312,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // Log the error if we can't set the console width; this is not
             // fatal, so we don't rethrow the error
             const runtimeError = err as positron.RuntimeMethodError;
-            this._kernel.emitJupyterLog(`Error setting console width: ${runtimeError.message} (${runtimeError.code})`);
+            this._kernel.emitJupyterLog(
+                `Error setting console width: ${runtimeError.message} (${runtimeError.code})`,
+                vscode.LogLevel.Error,
+            );
         }
     }
 
@@ -534,6 +537,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                         const runtimeError = err as positron.RuntimeMethodError;
                         this._kernel.emitJupyterLog(
                             `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
+                            vscode.LogLevel.Error,
                         );
                     }
                 }

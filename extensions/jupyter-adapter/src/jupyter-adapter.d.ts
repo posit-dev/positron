@@ -100,8 +100,9 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * channel.
 	 *
 	 * @param message A message to emit to the Jupyter log.
+	 * @param logLevel Optionally, the log level of the message.
 	 */
-	emitJupyterLog(message: string): void;
+	emitJupyterLog(message: string, logLevel?: vscode.LogLevel): void;
 
 	/**
 	 * A Jupyter kernel is guaranteed to have a `showOutput()`

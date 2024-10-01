@@ -29,6 +29,7 @@ describe('Notebooks', () => {
 		it('Python - Basic notebook creation and execution (code) [C628631] #pr', async function () {
 			const app = this.app as Application;
 
+			await app.workbench.positronLayouts.enterLayout('notebook');
 
 			await expect(async () => {
 
@@ -82,6 +83,8 @@ describe('Notebooks', () => {
 
 		it('R - Basic notebook creation and execution (code) [C628629] #pr', async function () {
 			const app = this.app as Application;
+
+			await app.workbench.positronLayouts.enterLayout('notebook');
 
 			await app.workbench.positronNotebooks.createNewNotebook();
 
