@@ -13,7 +13,7 @@ function getSupportedLibraries(): string[] {
     const shinyExtension = vscode.extensions.getExtension(shinyExtensionId);
 
     // if shiny extension is installed, we don't need to handle it
-    if (shinyExtension && shinyExtension.isActive) {
+    if (shinyExtension) {
         return libraries;
     }
     return libraries.concat('shiny');
