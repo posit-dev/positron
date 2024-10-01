@@ -494,7 +494,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		cleanupTargetOrigins.forEach(targetOrigin => {
 			if (!activeTargetOrigins.includes(targetOrigin)) {
 				this._commandService.executeCommand<boolean>(
-					'positronProxy.stopHelpProxyServer',
+					'positronProxy.stopProxyServer',
 					targetOrigin
 				);
 			}

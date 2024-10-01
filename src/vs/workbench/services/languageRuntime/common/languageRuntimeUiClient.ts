@@ -204,16 +204,28 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
-	 * Starts an HTML proxy server for the given HTML file.
+	 * Starts a proxy server for the given HTML file or server url.
 	 *
-	 * @param htmlPath The path to the HTML file to open
-	 * @returns A URI representing the HTML file
+	 * @param targetPath The path to the HTML file or server url to open
+	 * @returns A URI representing the HTML file or server url
 	 */
-	private async startHtmlProxyServer(htmlPath: string): Promise<URI> {
-		const url = await this._commandService.executeCommand<string>(
-			'positronProxy.startHtmlProxyServer',
-			htmlPath
-		);
+	private async startHtmlProxyServer(targetPath: string): Promise<URI> {
+		const uriScheme = URI.parse(targetPath).scheme;
+		let url;
+
+		if (uriScheme === 'file') {
+			// If the path is for a file, start an HTML proxy server.
+			url = await this._commandService.executeCommand<string>(
+				'positronProxy.startHtmlProxyServer',
+				targetPath
+			);
+		} else if (uriScheme === 'http' || uriScheme === 'https') {
+			// If the path is for a server, start a generic proxy server.
+			url = await this._commandService.executeCommand<string>(
+				'positronProxy.startHttpProxyServer',
+				targetPath
+			);
+		}
 
 		if (!url) {
 			throw new Error('Failed to start HTML file proxy server');
