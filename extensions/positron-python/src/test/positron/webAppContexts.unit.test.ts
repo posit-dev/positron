@@ -10,9 +10,10 @@ import * as cmdApis from '../../client/common/vscodeApis/commandApis';
 import { detectWebApp, getFramework } from '../../client/positron/webAppContexts';
 import { IDisposableRegistry } from '../../client/common/types';
 
-suite('Discover webapp frameworks', () => {
+suite('Discover Web app frameworks', () => {
     let document: vscode.TextDocument;
     let executeCommandStub: sinon.SinonStub;
+    let getExtensionStub: sinon.SinonStub;
     const disposables: IDisposableRegistry = [];
 
     setup(() => {
@@ -20,6 +21,7 @@ suite('Discover webapp frameworks', () => {
         document = {
             getText: () => '',
         } as vscode.TextDocument;
+        getExtensionStub = sinon.stub(vscode.extensions, 'getExtension');
     });
 
     teardown(() => {
@@ -35,6 +37,7 @@ suite('Discover webapp frameworks', () => {
     Object.entries(texts).forEach(([text, framework]) => {
         const expected = text.includes('numpy') ? undefined : framework;
         test('should set context pythonAppFramework if application is found', () => {
+            getExtensionStub.withArgs('Posit.shiny').returns(undefined);
             document.getText = () => text;
             detectWebApp(document);
 
@@ -63,5 +66,12 @@ suite('Discover webapp frameworks', () => {
 
             assert.strictEqual(actual, expected);
         });
+    });
+    test(`should not detect shiny if extension is installed`, () => {
+        getExtensionStub.withArgs('Posit.shiny').returns({ isActive: true });
+        const text = `from shiny import XYZ`;
+        const actual = getFramework(text);
+
+        assert.strictEqual(actual, undefined);
     });
 });
