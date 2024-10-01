@@ -14,7 +14,7 @@ import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
-import { Barrier, PromiseHandles } from './async';
+import { Barrier, PromiseHandles, withTimeout } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
@@ -37,18 +37,47 @@ import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { DapClient } from './DapClient';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
+	/**
+	 * The runtime messages emitter; consumes Jupyter messages and translates
+	 * them to Positron language runtime messages
+	 */
 	private readonly _messages: RuntimeMessageEmitter = new RuntimeMessageEmitter();
+
+	/** Emitter for runtime state changes */
 	private readonly _state: vscode.EventEmitter<positron.RuntimeState>;
+
+	/** Emitter for runtime exit events */
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
+
+	/** Barrier: opens when the session has been established on Kallichore */
 	private readonly _established: Barrier = new Barrier();
+
+	/** Barrier: opens when the WebSocket is connected and Jupyter messages can
+	 * be sent and received */
 	private _connected: Barrier = new Barrier();
+
+	/** Barrier: opens when the kernel has started up and has a heartbeat */
 	private _ready: Barrier = new Barrier();
+
+	/** Cached exit reason; used to indicate an exit is expected so we can
+	 * distinguish between expected and unexpected exits */
 	private _exitReason: positron.RuntimeExitReason = positron.RuntimeExitReason.Unknown;
+
+	/** The WebSocket connection to the Kallichore server for this session
+	 */
 	private _ws: WebSocket | undefined;
+
+	/** The current runtime state of this session */
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
+
+	/** A map of pending RPCs, used to pair up requests and replies */
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
+
 	private _disposables: vscode.Disposable[] = [];
+
+	/** Whether we are currently restarting the kernel */
 	private _restarting = false;
+
 	private _dapClient: DapClient | undefined;
 
 	/**
@@ -485,7 +514,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
-		await this._established.wait();
+		await withTimeout(this._established.wait(), 2000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be established`);
 
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
@@ -504,12 +533,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Connect to the session's websocket
-		await this.connect();
+		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to session ${this.metadata.sessionId}`);
 
 		if (this._new) {
 			// If this is a new session, wait for it to be ready before
-			// returning
-			await this._ready.wait();
+			// returning. This can take some time as it needs to wait for the
+			// kernel to start up.
+			await withTimeout(this._ready.wait(), 10000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be ready`);
 		} else {
 			// If it's not a new session, enter the ready state immediately.
 			// TODO: this should actually wait for the kernel to be ready; what
@@ -530,7 +560,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// Connect to the session's websocket
 			const uri = vscode.Uri.parse(this._api.basePath);
-			this._ws = new WebSocket(`ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`);
+			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
+			this.log(`Connecting to websocket: ${wsUri}`);
+			this._ws = new WebSocket(wsUri);
 			this._ws.onopen = () => {
 				this.log(`Connected to websocket.`);
 				// Open the connected barrier so that we can start sending messages
@@ -571,8 +603,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Performs a restart of the kernel. Kallichore handles the mechanics of
+	 * stopping the process and starting a new one; we just need to listen for
+	 * the events and update our state.
+	 */
 	async restart(): Promise<void> {
+		// Remember that we're restarting so that when the exit event arrives,
+		// we can label it as such
 		this._exitReason = positron.RuntimeExitReason.Restart;
+
+		// Perform the restart
 		this._restarting = true;
 		try {
 			await this._api.restartSession(this.metadata.sessionId);
@@ -585,17 +626,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Performs a shutdown of the kernel.
+	 *
+	 * @param exitReason The reason for the shutdown
+	 */
 	async shutdown(exitReason: positron.RuntimeExitReason): Promise<void> {
 		this._exitReason = exitReason;
-		this.performShutdown(exitReason === positron.RuntimeExitReason.Restart);
-	}
-
-	async performShutdown(restart: boolean) {
-		const shutdownRequest = new ShutdownRequest(restart);
+		const restarting = exitReason === positron.RuntimeExitReason.Restart;
+		const shutdownRequest = new ShutdownRequest(restarting);
 		await this.sendRequest(shutdownRequest);
-		this._restarting = restart;
 	}
 
+	/**
+	 * Forces the kernel to quit immediately.
+	 */
 	async forceQuit(): Promise<void> {
 		try {
 			this._exitReason = positron.RuntimeExitReason.ForcedQuit;
@@ -767,21 +812,52 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._messages.emitJupyter(msg);
 	}
 
+	/**
+	 * Part of a reverse request from the UI comm. These requests are fulfilled
+	 * by Positron and the results sent back to the kernel.
+	 *
+	 * @param msg The message payload
+	 */
 	async onCommRequest(msg: JupyterMessage): Promise<void> {
 		const request = msg.content as JupyterCommRequest;
+
+		// Get the response from Positron
 		const response = await positron.methods.call(request.method, request.params);
+
+		// Send the response back to the kernel
 		const reply = new RpcReplyCommand(msg.header, response);
 		this.sendCommand(reply);
 	}
 
+	/**
+	 * Sends an RPC request to the kernel and waits for a response.
+	 *
+	 * @param request The request to send
+	 * @returns The response from the kernel
+	 */
 	async sendRequest<T>(request: JupyterRequest<any, T>): Promise<T> {
+		// Ensure we're connected before sending the request; if requests are
+		// sent before the connection is established, they'll fail
 		await this._connected.wait();
+
+		// Add the request to the pending requests map so we can match up the
+		// reply when it arrives
 		this._pendingRequests.set(request.msgId, request);
+
+		// Send the request over the websocket
 		return request.sendRpc(this.metadata.sessionId, this._ws!);
 	}
 
+	/**
+	 * Send a command to the kernel. Does not wait for a response.
+	 *
+	 * @param command The command to send
+	 */
 	async sendCommand<T>(command: JupyterCommand<T>) {
+		// Ensure we're connected before sending the command
 		await this._connected.wait();
+
+		// Send the command over the websocket
 		return command.sendCommand(this.metadata.sessionId, this._ws!);
 	}
 
