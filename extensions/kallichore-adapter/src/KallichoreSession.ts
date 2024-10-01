@@ -740,7 +740,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		// If we have a DAP client active and this is a comm message, forward the message to the DAP client
+		// If we have a DAP client active and this is a comm message intended
+		// for that client, forward the message.
 		if (this._dapClient && msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
 			const comm = this._comms.get(commMsg.comm_id);
