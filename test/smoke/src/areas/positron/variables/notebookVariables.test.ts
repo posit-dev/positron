@@ -55,9 +55,9 @@ describe('Variables Pane - Notebook #pr #web', () => {
 
 describe('Variables Pane - Notebook #pr #web', () => {
 
+	setupEnvAndHooks();
 
 	describe('R Notebook Variables Pane', () => {
-		setupEnvAndHooks();
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
