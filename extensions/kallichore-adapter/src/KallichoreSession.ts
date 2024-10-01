@@ -48,9 +48,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
 	private _disposables: vscode.Disposable[] = [];
-	private readonly _log: vscode.OutputChannel;
 	private _restarting = false;
 	private _dapClient: DapClient | undefined;
+
+	/**
+	 * The channel to which output for this specific kernel is logged, if any
+	 */
+	private readonly _kernelChannel: vscode.OutputChannel;
+
+	/**
+	 * The channel to which output for this specific console is logged
+	 */
+	private readonly _consoleChannel: vscode.LogOutputChannel;
 
 	private readonly _comms: Map<string, Comm> = new Map();
 
@@ -77,11 +86,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this.onDidEndSession = this._exit.event;
 
-		// Create a log channel for this session
-		this._log = positron.window.createRawLogOutputChannel(
+		// Establish log channels for the console and kernel we're connecting to
+		this._consoleChannel = vscode.window.createOutputChannel(
 			metadata.notebookUri ?
-				`Notebook: ${path.basename(metadata.notebookUri.path)} (${runtimeMetadata.runtimeName})` :
-				`Console: ${runtimeMetadata.runtimeName}`);
+				`${runtimeMetadata.runtimeName}: Notebook: (${path.basename(metadata.notebookUri.path)})` :
+				`${runtimeMetadata.runtimeName}: Console`,
+			{ log: true });
+
+		this._kernelChannel = positron.window.createRawLogOutputChannel(
+			`${runtimeMetadata.runtimeName}: Kernel`);
 	}
 
 	/**
@@ -242,7 +255,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	showOutput(): void {
-		this._log.show();
+		this._kernelChannel?.show();
 	}
 
 	callMethod(method: string, ...args: Array<any>): Promise<any> {
@@ -773,7 +786,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	private streamLogFile(logFile: string) {
-		const logStreamer = new LogStreamer(this._log, logFile, this.runtimeMetadata.languageName);
+		const logStreamer = new LogStreamer(this._kernelChannel, logFile, this.runtimeMetadata.languageName);
 		this._disposables.push(logStreamer);
 		logStreamer.watch();
 	}
@@ -793,12 +806,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		profileStreamer.watch();
 	}
 
-	public log(msg: string) {
+	/**
+	 * Emits a message to the the log channel
+	 *
+	 * @param msg The message to log
+	 */
+	public log(msg: string, logLevel?: vscode.LogLevel) {
 		// Ensure message isn't over the maximum length
 		if (msg.length > 2048) {
 			msg = msg.substring(0, 2048) + '... (truncated)';
 		}
-		this._log.appendLine(`[Positron] ${msg}`);
+
+		switch (logLevel) {
+			case vscode.LogLevel.Error:
+				this._consoleChannel.error(msg);
+				break;
+			case vscode.LogLevel.Warning:
+				this._consoleChannel.warn(msg);
+				break;
+			case vscode.LogLevel.Info:
+				this._consoleChannel.info(msg);
+				break;
+			default:
+				this._consoleChannel.appendLine(msg);
+		}
 	}
 
 }
