@@ -140,16 +140,7 @@ function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
 		}
 
-		const logsDirName = (function logDirName() {
-			if (OPTS.web) {
-				return 'smoke-tests-browser';
-			} else if (OPTS.remote) {
-				return 'smoke-tests-remote';
-			} else {
-				return 'smoke-tests-electron';
-			}
-		})();
-
+		const logsDirName = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', logsDirName, suiteName);
 		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', logsDirName, suiteName);
 
