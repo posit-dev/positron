@@ -9,10 +9,9 @@ import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
 import fetch from 'node-fetch';
 import minimist = require('minimist');
-import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath, Quality } from '../../automation';
+import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath } from '../../automation';
 import { installAllHandlers, retry } from './utils';
 
-let quality: Quality;
 let version: string | undefined;
 
 export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
@@ -94,15 +93,11 @@ function setupSmokeTestEnvironment(logger: Logger) {
 			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
 		}
 
-		quality = parseQuality();
-
 		if (OPTS.remote) {
 			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
 		} else {
 			logger.log(`Running desktop smoke tests against ${electronPath}`);
 		}
-
-		logger.log(`VS Code product quality: ${quality}.`);
 	}
 
 	//
@@ -126,9 +121,6 @@ function setupSmokeTestEnvironment(logger: Logger) {
 
 			logger.log(`Running web smoke out of sources`);
 		}
-
-		quality = parseQuality();
-		logger.log(`VS Code product quality: ${quality}.`);
 	}
 }
 
@@ -145,7 +137,6 @@ function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
 
 		this.defaultOptions = {
-			quality,
 			codePath: OPTS.build,
 			workspacePath: WORKSPACE_PATH,
 			userDataDir: path.join(TEST_DATA_PATH, 'd'),
@@ -230,26 +221,6 @@ function parseVersion(version: string): { major: number; minor: number; patch: n
 	return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch) };
 }
 
-function parseQuality(): Quality {
-	if (process.env.VSCODE_DEV === '1') {
-		return Quality.Dev;
-	}
-
-	const quality = process.env.VSCODE_QUALITY ?? '';
-
-	switch (quality) {
-		case 'stable':
-			return Quality.Stable;
-		case 'insider':
-			return Quality.Insiders;
-		case 'exploration':
-			return Quality.Exploration;
-		case 'oss':
-			return Quality.OSS;
-		default:
-			return Quality.Dev;
-	}
-}
 
 async function ensureStableCode(testDataPath: string, logger: Logger, opts: any): Promise<void> {
 	let stableCodePath = opts['stable-build'];
