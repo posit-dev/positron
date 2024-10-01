@@ -20,7 +20,7 @@ describe('Variables Pane #web #win', () => {
 
 		});
 
-		after(async function () {
+		beforeEach(async function () {
 			await this.app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
@@ -59,7 +59,7 @@ describe('Variables Pane #web #win', () => {
 
 		});
 
-		after(async function () {
+		beforeEach(async function () {
 			await this.app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
