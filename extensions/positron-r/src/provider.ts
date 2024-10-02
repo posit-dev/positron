@@ -384,14 +384,23 @@ async function discoverRegistryBinaries(): Promise<string[]> {
 	return binPaths;
 }
 
+let cachedRBinary: string | undefined;
+
 export async function findCurrentRBinary(): Promise<string | undefined> {
+	if (cachedRBinary !== undefined) {
+		return cachedRBinary;
+	}
+
 	if (os.platform() === 'win32') {
 		const registryBinary = await findCurrentRBinaryFromRegistry();
 		if (registryBinary) {
+			cachedRBinary = registryBinary;
 			return registryBinary;
 		}
 	}
-	return findRBinaryFromPATH();
+
+	cachedRBinary = await findRBinaryFromPATH();
+	return cachedRBinary;
 }
 
 async function findRBinaryFromPATH(): Promise<string | undefined> {
