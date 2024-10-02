@@ -63,7 +63,9 @@ export class PlaywrightDriver {
 		try {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
-				persistPath = join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
+				// --- Start Positron ---
+				persistPath = join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}_${Date.now()}.zip`);
+				// --- End Positron ---
 			}
 
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
@@ -73,7 +75,9 @@ export class PlaywrightDriver {
 			// does not guarantee to give us a screenshot unless
 			// some driver action ran before.
 			if (persist) {
-				await this.takeScreenshot(name);
+				// --- Start Positron ---
+				await this.takeScreenshot(`${name}_${Date.now()}`);
+				// --- End Positron ---
 			}
 		} catch (error) {
 			// Ignore
