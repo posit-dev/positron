@@ -99,7 +99,7 @@ This section contains guidelines and setup instructions for running smoke tests 
 
 For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
-### Automation Helpers
+### Test Helpers Location
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
