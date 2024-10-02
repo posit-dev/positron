@@ -97,14 +97,14 @@ This section contains guidelines and setup instructions for running smoke tests 
 - General test dir: `test/smoke/src/areas`
 - Positron test dir: `test/smoke/src/areas/positron`
 
-For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
 ### Automation Helpers
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
 ### Test Template
 
@@ -149,17 +149,17 @@ Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
 Graphviz is external software that has a Python package to render graphs. Install for your OS:
 
-* **Debian/Ubuntu** - `apt install graphviz`
-* **Fedora** - `dnf install graphviz`
-* **Windows** - `choco install graphviz`
-* **Mac** - `brew install graphviz`
+- **Debian/Ubuntu** - `apt install graphviz`
+- **Fedora** - `dnf install graphviz`
+- **Windows** - `choco install graphviz`
+- **Mac** - `brew install graphviz`
 
 ### Conda
 
 Some smoke tests use Conda environments. Install a lightweight version of Conda:
 
-* [miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
-* [miniconda](https://docs.anaconda.com/miniconda/#quick-command-line-install) (On Mac, you can `brew install miniconda`. The equivalent installer may also be available via package managers on Linux and Windows.)
+- [miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
+- [miniconda](https://docs.anaconda.com/miniconda/#quick-command-line-install) (On Mac, you can `brew install miniconda`. The equivalent installer may also be available via package managers on Linux and Windows.)
 
 ### Resemblejs
 
@@ -173,7 +173,7 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Prior to compiling the tests, install the test dependencies in both these directories:
+Before compiling the tests, make sure to install dependencies in the following directories:
 
 ```bash
 yarn --cwd test/automation install
@@ -182,7 +182,7 @@ yarn --cwd test/smoke install
 
 ### Build
 
-The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
+The tests are written in TypeScript, but unlike the main Positron code, these files aren’t automatically transpiled by the build daemons. To run the tests, you’ll need to start the build watcher:
 
 ```bash
 yarn --cwd test/smoke watch
