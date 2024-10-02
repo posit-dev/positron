@@ -114,7 +114,7 @@ function setTestDefaults(logger: Logger, logsRootPath: string, crashesRootPath: 
  * @param logsRootPath the root path for the logs
  * @returns Logger instance
  */
-export function createLogger(logsRootPath: string): Logger {
+export function createLogger(logsRootPath: string, logsFileName = `smoke-test-runner.log`): Logger {
 	const loggers: Logger[] = [];
 
 	if (OPTS.verbose) {
@@ -124,7 +124,7 @@ export function createLogger(logsRootPath: string): Logger {
 	fs.rmSync(logsRootPath, { recursive: true, force: true, maxRetries: 3 });
 	mkdirp.sync(logsRootPath);
 
-	loggers.push(new FileLogger(path.join(logsRootPath, `smoke-test-runner.log`)));
+	loggers.push(new FileLogger(path.join(logsRootPath, logsFileName)));
 
 	return new MultiLogger(loggers);
 }
