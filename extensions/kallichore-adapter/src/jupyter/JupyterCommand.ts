@@ -87,6 +87,7 @@ export abstract class JupyterCommand<T> {
 			channel: this.channel,
 			buffers: []
 		};
-		socket.send(JSON.stringify(payload));
+		const text = JSON.stringify(payload);
+		socket.send(text);
 	}
 }

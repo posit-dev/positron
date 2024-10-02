@@ -6,8 +6,10 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as os from 'os';
+import * as path from 'path';
+import * as fs from 'fs';
 import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { DefaultApi, HttpError } from './kcclient/api';
+import { DefaultApi, HttpBasicAuth, HttpBearerAuth, HttpError } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
@@ -57,6 +59,21 @@ export class KCApi implements KallichoreAdapterApi {
 			'RUST_LOG': 'debug'
 		};
 
+		// Create a 16 hex digit UUID for the bearer token
+		const bearerToken = Math.floor(Math.random() * 0x100000000).toString(16);
+
+		// Write it to a temporary file using the fs module. Kallichore will
+		// delete it when it's done.
+		const tokenPath = path.join(os.tmpdir(), `kallichore-${bearerToken}.token`);
+		fs.writeFileSync(tokenPath, bearerToken, 'utf8');
+
+		// Change the permissions on the file so only the current user can read it
+		fs.chmodSync(tokenPath, 0o600);
+
+		// Create a bearer auth object with the token
+		const bearer = new HttpBearerAuth();
+		bearer.accessToken = bearerToken;
+
 		// Find a port for the server to listen on
 		const port = await findAvailablePort([], 10);
 
@@ -64,15 +81,17 @@ export class KCApi implements KallichoreAdapterApi {
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: 'Kallichore',
 			shellPath: shellPath,
-			shellArgs: ['--port', port.toString()],
+			shellArgs: ['--port', port.toString(), '--token', tokenPath],
 			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: false,
 			isTransient: false
 		});
-		// wait 1s for the server to start up (TODO: there has to be faster way to do this)
+
+		// wait 500ms for the server to start up (TODO: there has to be faster way to do this)
 		setTimeout(() => {
 			this._api.basePath = `http://localhost:${port}`;
+			this._api.setDefaultAuthentication(bearer);
 			this._api.listSessions().then(async sessions => {
 				this._started.open();
 				const state: KallichoreServerState = {
@@ -84,7 +103,7 @@ export class KCApi implements KallichoreAdapterApi {
 				this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
 			});
-		}, 1000);
+		}, 500);
 	}
 
 	async reconnect(serverState: KallichoreServerState): Promise<boolean> {

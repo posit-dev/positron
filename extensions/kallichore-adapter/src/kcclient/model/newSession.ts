@@ -31,6 +31,14 @@ export class NewSession {
     */
     'username': string;
     /**
+    * The text to use to prompt for input
+    */
+    'inputPrompt': string;
+    /**
+    * The text to use to prompt for input continuations
+    */
+    'continuationPrompt': string;
+    /**
     * The program and command-line parameters for the session
     */
     'argv': Array<string>;
@@ -65,6 +73,16 @@ export class NewSession {
         {
             "name": "username",
             "baseName": "username",
+            "type": "string"
+        },
+        {
+            "name": "inputPrompt",
+            "baseName": "input_prompt",
+            "type": "string"
+        },
+        {
+            "name": "continuationPrompt",
+            "baseName": "continuation_prompt",
             "type": "string"
         },
         {

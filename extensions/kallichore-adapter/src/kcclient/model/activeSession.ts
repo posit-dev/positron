@@ -57,6 +57,14 @@ export class ActiveSession {
     * The session\'s current working directory
     */
     'workingDirectory': string;
+    /**
+    * The text to use to prompt for input
+    */
+    'inputPrompt': string;
+    /**
+    * The text to use to prompt for input continuations
+    */
+    'continuationPrompt': string;
     'executionQueue': ExecutionQueue;
     'status': Status;
 
@@ -116,6 +124,16 @@ export class ActiveSession {
         {
             "name": "workingDirectory",
             "baseName": "working_directory",
+            "type": "string"
+        },
+        {
+            "name": "inputPrompt",
+            "baseName": "input_prompt",
+            "type": "string"
+        },
+        {
+            "name": "continuationPrompt",
+            "baseName": "continuation_prompt",
             "type": "string"
         },
         {

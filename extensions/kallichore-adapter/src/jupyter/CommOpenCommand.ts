@@ -23,6 +23,11 @@ export class CommOpenCommand extends JupyterCommand<JupyterCommOpen> {
 	}
 
 	override get metadata(): any {
+		// If we don't have metadata, return an empty object to ensure the
+		// metadata field is sent
+		if (typeof this._metadata === 'undefined') {
+			return {};
+		}
 		return this._metadata;
 	}
 }
