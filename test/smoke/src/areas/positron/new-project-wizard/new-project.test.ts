@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction, PositronConsole } from '../../../../../automation';
+import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { setupAndStartApp } from '../../../positronUtils';
 
 describe('New Project Wizard', () => {
