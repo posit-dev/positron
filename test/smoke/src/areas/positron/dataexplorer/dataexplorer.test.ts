@@ -252,14 +252,14 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 
+			await app.workbench.positronLayouts.enterLayout('notebook');
+
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
-
-			await app.workbench.positronLayouts.enterLayout('notebook');
 
 			const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
 			expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
