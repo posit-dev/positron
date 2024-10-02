@@ -47,24 +47,29 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 			await positronConsole.waitForNoInterpretersRunning(50);
 			return;
 		} catch (error) {
-			// If an interpreter is running, we'll shut it down and disable automatic startup
+			try {
+				// If an interpreter is running, we'll shut it down and disable automatic startup
 
-			// Shutdown running interpreter
-			await quickaccess.runCommand('workbench.action.languageRuntime.shutdown');
-			await positronConsole.waitForInterpreterShutdown();
+				// Shutdown running interpreter
+				await quickaccess.runCommand('workbench.action.languageRuntime.shutdown');
+				await positronConsole.waitForInterpreterShutdown();
 
-			// Disable automatic startup of interpreters in user settings. This setting will be
-			// cleared in the next app startup for a subsequent test, so we don't need to unset
-			// it.
-			await userSettings.setUserSetting([
-				'positron.interpreters.automaticStartup',
-				'false',
-			]);
+				// Disable automatic startup of interpreters in user settings. This setting will be
+				// cleared in the next app startup for a subsequent test, so we don't need to unset
+				// it.
+				await userSettings.setUserSetting([
+					'positron.interpreters.automaticStartup',
+					'false',
+				]);
 
-			// Reload the window
-			// keepOpen is set to true so we don't need to wait for the prompt input to close
-			// (it will never close since the app gets reloaded)
-			await quickaccess.runCommand('workbench.action.reloadWindow', { keepOpen: true });
+				// Reload the window
+				// keepOpen is set to true so we don't need to wait for the prompt input to close
+				// (it will never close since the app gets reloaded)
+				await quickaccess.runCommand('workbench.action.reloadWindow', { keepOpen: true });
+			} catch (e) {
+				this.app.code.driver.takeScreenshot('interpreterDropdownSetup');
+				throw e;
+			}
 		}
 	});
 
