@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
+import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction, PositronConsole } from '../../../../../automation';
 import { setupAndStartApp } from '../../../positronUtils';
 
 describe('New Project Wizard', () => {
@@ -203,6 +203,11 @@ describe('New Project Wizard', () => {
 		});
 
 		describe('R Project with Renv Environment', () => {
+			beforeEach(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+			});
+
 			it('Accept Renv install [C633084]', async function () {
 				const projSuffix = addRandomNumSuffix('_installRenv');
 				const app = this.app as Application;
