@@ -8,18 +8,31 @@ import * as path from 'path';
 import * as mkdirp from 'mkdirp';
 import * as vscodetest from '@vscode/test-electron';
 import fetch from 'node-fetch';
-import minimist = require('minimist');
 import { MultiLogger, ConsoleLogger, FileLogger, Logger, measureAndLog, getBuildElectronPath, getBuildVersion, getDevElectronPath } from '../../automation';
 import { installAllHandlers, retry } from './utils';
 
 let version: string | undefined;
-
 export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-const OPTS = parseOptions();
+
+
+const asBoolean = (value: string | undefined): boolean | undefined => {
+	return value === 'true' ? true : value === 'false' ? false : undefined;
+};
+const OPTS: ParseOptions = {
+	tracing: asBoolean(process.env.TRACING),
+	parallel: asBoolean(process.env.PARALLEL),
+	web: asBoolean(process.env.WEB),
+	build: process.env.BUILD,
+	remote: asBoolean(process.env.REMOTE),
+	verbose: asBoolean(process.env.VERBOSE),
+	headless: asBoolean(process.env.HEADLESS),
+	browser: process.env.BROWSER,
+	electronArgs: process.env.ELECTRON_ARGS,
+};
 
 /**
  * Setup the environment, logs, hooks for the test suite and then START the application.
@@ -153,51 +166,6 @@ function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 			extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
 		};
 	});
-}
-
-function parseOptions(): ParseOptions {
-	const args = process.argv.slice(2);
-
-	// Map environment variables to command-line arguments
-	const envToArgsMap: Record<string, string[]> = {
-		HEADLESS: ['--headless'],
-		PARALLEL: ['--parallel'],
-		REMOTE: ['--remote'],
-		TRACING: ['--tracing'],
-		VERBOSE: ['--verbose'],
-		WEB: ['--web']
-	};
-
-	// Add the mapped arguments based on environment variables
-	for (const [envVar, argList] of Object.entries(envToArgsMap)) {
-		const envValue = process.env[envVar];
-		if (envValue) {
-			args.push(...argList, ...(envValue !== 'true' && envValue !== 'false' ? [envValue] : []));
-		}
-	}
-
-	// Parse the final args array using minimist
-	return minimist(args, {
-		string: [
-			'browser',
-			'build',
-			'stable-build',
-			'wait-time',
-			'test-repo',
-			'electronArgs'
-		],
-		boolean: [
-			'verbose',
-			'remote',
-			'web',
-			'headless',
-			'tracing',
-			'parallel',
-		],
-		default: {
-			verbose: false
-		}
-	}) as ParseOptions;
 }
 
 function createLogger(logsRootPath: string): Logger {
