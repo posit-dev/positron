@@ -354,6 +354,8 @@ async function discoverRegistryBinaries(): Promise<string[]> {
 	const Registry = await import('@vscode/windows-registry');
 
 	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
+	// R's install path is written to a WOW (Windows on Windows) node when e.g. an x86 build of
+	// R is installed on an ARM version of Windows.
 	const wows = ['', 'WOW6432Node'];
 
 	// The @vscode/windows-registry module is so minimalistic that it can't list the registry.
@@ -458,46 +460,6 @@ async function findRBinaryFromPATHNotWindows(whichR: string): Promise<string | u
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	let userPath = await getRegistryInstallPath('HKEY_CURRENT_USER');
-	if (!userPath) {
-		// If we didn't find R in the default user location, check WOW64
-		userPath = await getRegistryInstallPath('HKEY_CURRENT_USER', 'WOW6432Node');
-	}
-	let machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE');
-	if (!machinePath) {
-		// If we didn't find R in the default machine location, check WOW64
-		machinePath = await getRegistryInstallPath('HKEY_LOCAL_MACHINE', 'WOW6432Node');
-	}
-	if (!userPath && !machinePath) {
-		return undefined;
-	}
-	const installPath = userPath || machinePath || '';
-
-	const binPath = firstExisting(installPath, binFragments());
-	if (!binPath) {
-		return undefined;
-	}
-	LOGGER.info(`Identified the current version of R from the registry: ${binPath}`);
-
-	return binPath;
-}
-
-/**
- * Get the registry install path for R.
- *
- * @param hive The Windows registry hive to check -- HKCU or HKLM
- * @param wow Optionally, the WOW node to check under `Software`. R's install
- * path is written to a WOW (Windows on Windows) node when e.g. an x86 build of
- * R is installed on an ARM version of Windows.
- *
- * @returns The install path for R, or undefined if an R installation file could
- * not be found at the install path.
- */
-async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MACHINE', wow?: string | undefined): Promise<string | undefined> {
-	// 'R64' here is another place where we explicitly ignore 32-bit R
-	// Amend a WOW path after "Software" if requested
-	const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64`;
-
 	if (os.platform() !== 'win32') {
 		LOGGER.info('Skipping registry check on non-Windows platform');
 		return undefined;
@@ -506,13 +468,37 @@ async function getRegistryInstallPath(hive: 'HKEY_CURRENT_USER' | 'HKEY_LOCAL_MA
 	// eslint-disable-next-line @typescript-eslint/naming-convention
 	const Registry = await import('@vscode/windows-registry');
 
-	try {
-		LOGGER.info(`Checking for 'InstallPath' in registry key ${hive}\\${R64_KEY}`);
-		return Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
-	} catch (err) {
-		LOGGER.info(err as string);
+	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
+	const wows = ['', 'WOW6432Node'];
+
+	let installPath = undefined;
+
+	for (const hive of hives) {
+		for (const wow of wows) {
+			const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64`;
+			try {
+				const key = Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
+				if (key) {
+					installPath = key;
+					LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports an R installation at ${key}`);
+					break;
+				}
+			} catch { }
+		}
+	}
+
+	if (installPath === undefined) {
+		LOGGER.info('Cannot determine current version of R from the registry.');
 		return undefined;
 	}
+
+	const binPath = firstExisting(installPath, binFragments());
+	if (!binPath) {
+		return undefined;
+	}
+	LOGGER.info(`Identified the current R binary: ${binPath}`);
+
+	return binPath;
 }
 
 // Should we recommend an R runtime for the workspace?
