@@ -13,12 +13,6 @@ describe('Console Output', () => {
 	describe('Console Output - R', () => {
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
-			await this.app.workbench.positronLayouts.enterLayout('fullSizedPanel');
-		});
-
-		after(async function () {
-			const app = this.app as Application;
-			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 
 		it('R - Console output in a loop with short pauses [C885225]', async function () {
