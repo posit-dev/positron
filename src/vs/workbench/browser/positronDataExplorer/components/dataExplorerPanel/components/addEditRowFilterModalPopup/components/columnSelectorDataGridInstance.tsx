@@ -107,6 +107,32 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		return this._columnSchemaCache.columns;
 	}
 
+	/**
+	 * Gets the number of columns.
+	 */
+	get firstColumn() {
+		return {
+			columnIndex: 0,
+			left: 0
+		};
+	}
+
+	/**
+	 * Gets the number of rows.
+	 */
+	get firstRow() {
+		const rowIndex = Math.floor(
+			this.verticalScrollOffset / this.defaultRowHeight
+		);
+
+		const top = (rowIndex * this.defaultRowHeight) - this.verticalScrollOffset;
+
+		return {
+			rowIndex,
+			top
+		};
+	}
+
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
@@ -118,7 +144,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	override async fetchData() {
 		await this._columnSchemaCache.updateCache({
 			searchText: this._searchText,
-			firstColumnIndex: this.firstRowIndex,
+			firstColumnIndex: this.firstRowIndexXX,
 			visibleColumns: this.screenRows
 		});
 	}

@@ -32,12 +32,11 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	let { left, columnIndex } = context.instance.firstColumn;
+
 	// Render the visible column headers.
 	const columnHeaders: JSX.Element[] = [];
-	for (let columnIndex = context.instance.firstColumnIndex, left = 0;
-		columnIndex < context.instance.columns && left < props.width;
-		columnIndex++
-	) {
+	while (left - context.instance.horizontalScrollOffset < props.width && columnIndex < context.instance.columns) {
 		// Access the column.
 		const column = context.instance.column(columnIndex);
 
@@ -47,13 +46,34 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 				key={columnIndex}
 				column={column}
 				columnIndex={columnIndex}
-				left={left}
+				left={left - context.instance.horizontalScrollOffset}
 			/>
 		);
 
 		// Adjust the left offset for the next column.
 		left += context.instance.getColumnWidth(columnIndex);
+		columnIndex++;
 	}
+	// 	for (let columnIndex = context.instance.firstColumnIndexXX, left = 0;
+	// 	columnIndex < context.instance.columns && left < props.width;
+	// 	columnIndex++
+	// ) {
+	// 	// Access the column.
+	// 	const column = context.instance.column(columnIndex);
+
+	// 	// Push the column header component.
+	// 	columnHeaders.push(
+	// 		<DataGridColumnHeader
+	// 			key={columnIndex}
+	// 			column={column}
+	// 			columnIndex={columnIndex}
+	// 			left={left}
+	// 		/>
+	// 	);
+
+	// 	// Adjust the left offset for the next column.
+	// 	left += context.instance.getColumnWidth(columnIndex);
+	// }
 
 	// Render.
 	return (
