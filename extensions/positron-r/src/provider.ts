@@ -480,7 +480,7 @@ async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
 				const key = Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
 				if (key) {
 					installPath = key;
-					LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports an R installation at ${key}`);
+					LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports the current R installation is at ${key}`);
 					break;
 				}
 			} catch { }
