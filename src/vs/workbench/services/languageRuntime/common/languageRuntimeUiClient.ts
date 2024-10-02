@@ -161,9 +161,14 @@ export class UiClientInstance extends Disposable {
 
 		// Wrap the ShowHtmlFile event to start a proxy server for the HTML file.
 		this._register(this._comm.onDidShowHtmlFile(async e => {
+			let uri: URI;
 			try {
-				// Start an HTML proxy server for the file
-				const uri = await this.startHtmlProxyServer(e.path);
+				if (e.path.endsWith('.html') || e.path.endsWith('.htm')) {
+					// Start an HTML proxy server for the file
+					uri = await this.startHtmlProxyServer(e.path);
+				} else {
+					uri = URI.parse(e.path);
+				}
 
 				if (e.is_plot) {
 					// Check the configuration to see if we should open the plot
