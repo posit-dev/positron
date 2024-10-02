@@ -94,14 +94,21 @@ This section contains guidelines and setup instructions for running smoke tests 
 
 ### Test Code Location
 
-* Test Directory: `test/smoke`
-* Positron Test Directory: `test/smoke/src/areas/positron`
-* Positron Test Script path: `test/smoke/src/areas/positron/<area>/*.test.ts`
-* Example/template test: `test/smoke/src/areas/positron/example.test.ts`
+- General test dir: `test/smoke/src/areas`
+- Positron test dir: `test/smoke/src/areas/positron`
+
+For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
 ### Automation Helpers
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements. These helper classes are located under: `test/automation/src/positron`
+- General helpers dir: `test/automation/src`
+- Positron helpers dir: `test/automation/src/positron`
+
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+
+### Test Template
+
+An [example test](https://github.com/posit-dev/positron/blob/main/test/smoke/src/areas/positron/example.test.ts) is available to help guide you in structuring a new test.
 
 ## Setup
 
@@ -166,18 +173,19 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ### Install
 
-Prior to compiling the tests, install the test dependencies by running `yarn install` in both these directories:
+Prior to compiling the tests, install the test dependencies in both these directories:
 
-* test/automation
-* test/smoke
+```bash
+yarn --cwd test/automation install
+yarn --cwd test/smoke install
+```
 
 ### Build
 
 The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
 
 ```bash
-cd test/smoke
-yarn watch
+yarn --cwd test/smoke watch
 ```
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
@@ -186,15 +194,15 @@ _You may see errors in test files before you run this builder step once, as it's
 
 #### Debug Mode
 
-You can start the smoke tests using the `Launch Smoke Test` action from the debug dropdown (it’s near the bottom of the list). In debug mode, **tests run serially** - parallel execution is not supported — so running the entire suite can take a long time.
+You can start the smoke tests using the `Launch Smoke Test` action from the debug dropdown (it’s near the bottom of the list). In debug mode, **tests run serially - parallel execution is not supported** — so running the entire suite can take a long time.
 
-To speed things up, you can focus on specific tests by adding the `it()` function to your test (example: `it.only()`). If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
+To speed things up, you can focus on specific tests by adding the `it()` function to your test. If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
 
 _Note: Don't forget to remove the `.only()`s when you're done!_
 
 #### Command Line
 
-The command line is a faster way to run tests since it allows for parallel execution. However, note that `.only()` does **not** work when running tests in parallel mode. For example, to run the entire test suite against your branch with 4 parallel jobs, use:
+The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. For example, to run the entire test suite against your branch with 4 parallel jobs, use:
 
 ```bash
 yarn smoketest-all --parallel --jobs 4
@@ -203,9 +211,9 @@ yarn smoketest-all --parallel --jobs 4
 The following smoketest scripts are currently available:
 
 - `smoketest-all`: Runs all smoke tests
-- `smoketest-web`: Runs tests tagged with #web
-- `smoketest-win`: Runs tests tagged with #win (Windows)
-- `smoketest-pr`: Runs tests tagged with #pr
+- `smoketest-web`: Runs tests tagged with `#web`
+- `smoketest-win`: Runs tests tagged with `#win` (Windows)
+- `smoketest-pr`: Runs tests tagged with `#pr`
 
 ## Test Project
 
