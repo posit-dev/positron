@@ -338,7 +338,7 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	describe('R Data Explorer #web', () => {
+	describe('R Data Explorer', () => {
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
@@ -365,7 +365,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 			}).toPass();
 
-			await app.workbench.positronSideBar.closeSecondarySideBar();
+			await app.workbench.positronLayouts.enterLayout('notebook');
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -376,8 +376,7 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(3);
 			}).toPass({ timeout: 60000 });
 
-			await app.workbench.quickaccess.runCommand('workbench.action.restorePanel');
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
 
 		});
