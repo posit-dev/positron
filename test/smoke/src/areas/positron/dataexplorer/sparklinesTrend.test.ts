@@ -4,71 +4,69 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { setupAndStartApp } from '../../../positronUtils';
 
-export function setup(logger: Logger) {
-	describe('Data Explorer', () => {
+describe('Data Explorer #web', () => {
+	setupAndStartApp();
 
-		installAllHandlers(logger);
+	describe('Sparklines', () => {
+		let app: Application;
 
-		describe('Sparklines', () => {
-			let app: Application;
-
-			beforeEach(async function () {
-				app = this.app;
-				await app.workbench.positronLayouts.enterLayout('stacked');
-			});
-
-			afterEach(async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-			});
-
-			it('Python Pandas - Verifies downward trending graph [C830552]', async () => {
-				await PositronPythonFixtures.SetupFixtures(app);
-
-				await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
-				await openDataExplorerColumnProfile(app, 'pythonData');
-				await verifyGraphBarHeights(app);
-			});
-
-
-			it('R - Verifies downward trending graph [C830553]', async () => {
-				await PositronRFixtures.SetupFixtures(app);
-
-				await app.workbench.positronConsole.executeCode('R', rScript, '>');
-				await openDataExplorerColumnProfile(app, 'rData');
-				await verifyGraphBarHeights(app);
-			});
+		beforeEach(async function () {
+			app = this.app;
+			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 
-		async function openDataExplorerColumnProfile(app: Application, variableName: string) {
+		afterEach(async () => {
+			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
+		});
 
-			await expect(async () => {
-				await app.workbench.positronVariables.doubleClickVariableRow(variableName);
-				await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
-			}).toPass();
+		it('Python Pandas - Verifies downward trending graph [C830552]', async () => {
+			await PositronPythonFixtures.SetupFixtures(app);
 
-			await app.workbench.positronDataExplorer.getDataExplorerTableData();
-			await app.workbench.positronSideBar.closeSecondarySideBar();
-			await app.workbench.positronDataExplorer.expandColumnProfile(0);
-		}
+			await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
+			await openDataExplorerColumnProfile(app, 'pythonData');
+			await verifyGraphBarHeights(app);
+		});
 
-		async function verifyGraphBarHeights(app: Application) {
-			// Get all graph graph bars/rectangles
-			await expect(async () => {
-				const rects = app.code.driver.getLocator('rect.count');
 
-				// Iterate over each rect and verify the height
-				const expectedHeights = ['50', '40', '30', '20', '10'];
-				for (let i = 0; i < expectedHeights.length; i++) {
-					const height = await rects.nth(i).getAttribute('height');
-					expect(height).toBe(expectedHeights[i]);
-				}
-			}).toPass({ timeout: 10000 });
-		}
+		it('R - Verifies downward trending graph [C830553]', async () => {
+			await PositronRFixtures.SetupFixtures(app);
+
+			await app.workbench.positronConsole.executeCode('R', rScript, '>');
+			await openDataExplorerColumnProfile(app, 'rData');
+			await verifyGraphBarHeights(app);
+		});
 	});
-}
+
+	async function openDataExplorerColumnProfile(app: Application, variableName: string) {
+
+		await expect(async () => {
+			await app.workbench.positronVariables.doubleClickVariableRow(variableName);
+			await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
+		}).toPass();
+
+		await app.workbench.positronDataExplorer.getDataExplorerTableData();
+		await app.workbench.positronSideBar.closeSecondarySideBar();
+		await app.workbench.positronDataExplorer.expandColumnProfile(0);
+	}
+
+	async function verifyGraphBarHeights(app: Application) {
+		// Get all graph graph bars/rectangles
+		await expect(async () => {
+			const rects = app.code.driver.getLocator('rect.count');
+
+			// Iterate over each rect and verify the height
+			const expectedHeights = ['50', '40', '30', '20', '10'];
+			for (let i = 0; i < expectedHeights.length; i++) {
+				const height = await rects.nth(i).getAttribute('height');
+				expect(height).toBe(expectedHeights[i]);
+			}
+		}).toPass({ timeout: 10000 });
+	}
+});
+
 
 const rScript = `library(dplyr)
 
