@@ -29,20 +29,35 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Render the row headers.
+	let { top, rowIndex } = context.instance.firstRow;
+
 	const rowHeaders: JSX.Element[] = [];
-	for (let rowIndex = context.instance.firstRowIndex, top = 0;
-		rowIndex < context.instance.rows && top < props.height;
-		rowIndex++
-	) {
-		// Push the row header component.
+	while (top - context.instance.verticalScrollOffset < props.height && rowIndex < context.instance.rows) {
+
+		// Render the data grid row.
 		rowHeaders.push(
-			<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top} />
+			<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top - context.instance.verticalScrollOffset} />
 		);
 
-		// Adjust the top offset for the next row.
 		top += context.instance.getRowHeight(rowIndex);
+		rowIndex++;
+
 	}
+
+	// // Render the row headers.
+	// const rowHeaders: JSX.Element[] = [];
+	// for (let rowIndex = context.instance.firstRowIndex, top = 0;
+	// 	rowIndex < context.instance.rows && top < props.height;
+	// 	rowIndex++
+	// ) {
+	// 	// Push the row header component.
+	// 	rowHeaders.push(
+	// 		<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top} />
+	// 	);
+
+	// 	// Adjust the top offset for the next row.
+	// 	top += context.instance.getRowHeight(rowIndex);
+	// }
 
 	// Render.
 	return (

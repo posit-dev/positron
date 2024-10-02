@@ -31,24 +31,40 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
+	let { left, columnIndex } = context.instance.firstColumn;
+
 	// Render the visible row cells.
 	const rowCells: JSX.Element[] = [];
-	for (let columnIndex = context.instance.firstColumnIndex, left = 0;
-		columnIndex < context.instance.columns && left < props.width;
-		columnIndex++
-	) {
+	while (left - context.instance.horizontalScrollOffset < props.width && columnIndex < context.instance.columns) {
 		rowCells.push(
 			<DataGridRowCell
 				key={`row-cell-${props.rowIndex}-${columnIndex}`}
 				columnIndex={columnIndex}
 				rowIndex={props.rowIndex}
-				left={left}
+				left={left - context.instance.horizontalScrollOffset}
 			/>
 		);
 
-		// Adjust the left offset for the next column.
 		left += context.instance.getColumnWidth(columnIndex);
+		columnIndex++;
 	}
+
+	// for (let columnIndex = context.instance.firstColumnIndexXX, left = 0;
+	// 	columnIndex < context.instance.columns && left < props.width;
+	// 	columnIndex++
+	// ) {
+	// 	rowCells.push(
+	// 		<DataGridRowCell
+	// 			key={`row-cell-${props.rowIndex}-${columnIndex}`}
+	// 			columnIndex={columnIndex}
+	// 			rowIndex={props.rowIndex}
+	// 			left={left}
+	// 		/>
+	// 	);
+
+	// 	// Adjust the left offset for the next column.
+	// 	left += context.instance.getColumnWidth(columnIndex);
+	// }
 
 	// Render.
 	return (
