@@ -27,10 +27,7 @@ const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 
 // Parse command-line arguments
-const opts = minimist(process.argv.slice(2), {
-	boolean: ['web', 'parallel', 'win', 'pr'],
-	string: ['f', 'g', 'jobs']
-});
+const opts = minimist(process.argv.slice(2));
 
 // Set environment variables based on options
 configureEnvVarsFromOptions(opts);
@@ -44,7 +41,6 @@ runMochaTests();
  * Configures environment variables based on parsed options.
  */
 function configureEnvVarsFromOptions(opts) {
-	// Set environment variables based on options
 	const envVars = {
 		BUILD: opts['build'] || '',
 		HEADLESS: opts['headless'] || '',
@@ -55,7 +51,6 @@ function configureEnvVarsFromOptions(opts) {
 		WEB: opts['web'] || '',
 		WIN: opts['win'] || '',
 		PR: opts['pr'] || '',
-		SUITE_TITLE: opts['web'] ? 'Smoke Tests (Browser)' : 'Smoke Tests (Electron)',
 		EXTENSIONS_PATH: EXTENSIONS_PATH,
 		WORKSPACE_PATH: WORKSPACE_PATH,
 		TEST_DATA_PATH: TEST_DATA_PATH,
