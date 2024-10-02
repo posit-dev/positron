@@ -9,7 +9,7 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupAndStartApp } from '../../../positronUtils';
 
 
-describe('Console Output #web', () => {
+describe('Output #web', () => {
 	setupAndStartApp();
 
 	describe('Console Output Log - Python', () => {

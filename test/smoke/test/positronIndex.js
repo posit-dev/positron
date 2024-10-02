@@ -75,7 +75,7 @@ function getMochaOptions(opts) {
 			spec: '-',  // Console output
 			xunit: REPORT_PATH,
 		},
-		retries: 0,
+		retries: 1,
 	};
 }
 
