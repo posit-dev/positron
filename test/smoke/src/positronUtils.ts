@@ -18,10 +18,10 @@ const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
 const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 
-
 const asBoolean = (value: string | undefined): boolean | undefined => {
 	return value === 'true' ? true : value === 'false' ? false : undefined;
 };
+
 const OPTS: ParseOptions = {
 	tracing: asBoolean(process.env.TRACING),
 	parallel: asBoolean(process.env.PARALLEL),
@@ -43,13 +43,14 @@ export function setupAndStartApp(): Logger {
 	// Dynamically determine the test file name
 	const suiteName = getTestFileName();
 	const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
+	const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
 
 	// Create a new logger for this suite
 	const logger = createLogger(logsRootPath);
 
-	// Set up environment, logs and hooks
-	setupSmokeTestEnvironment(logger);
-	setupLogsAndDefaults(logger, suiteName);
+	// Set up environment, hooks, etc
+	setupTestEnvironment(logger);
+	setTestDefaults(logger, logsRootPath, crashesRootPath);
 	installAllHandlers(logger);
 
 	return logger;
@@ -82,7 +83,7 @@ function getTestFileName(): string {
 	}
 }
 
-function setupSmokeTestEnvironment(logger: Logger) {
+function setupTestEnvironment(logger: Logger) {
 	//
 	// #### Electron Smoke Tests ####
 	//
@@ -137,7 +138,7 @@ function setupSmokeTestEnvironment(logger: Logger) {
 	}
 }
 
-function setupLogsAndDefaults(logger: Logger, suiteName: string) {
+function setTestDefaults(logger: Logger, logsRootPath: string, crashesRootPath: string) {
 	before(async function () {
 		this.timeout(5 * 60 * 1000); // increase timeout for downloading VSCode
 
@@ -145,9 +146,6 @@ function setupLogsAndDefaults(logger: Logger, suiteName: string) {
 			// Only enabled when running with --build and not in web or remote
 			await measureAndLog(() => ensureStableCode(TEST_DATA_PATH, logger, OPTS), 'ensureStableCode', logger);
 		}
-
-		const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
-		const crashesRootPath = path.join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
 
 		this.defaultOptions = {
 			codePath: OPTS.build,
