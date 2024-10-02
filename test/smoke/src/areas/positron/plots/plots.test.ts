@@ -6,70 +6,64 @@
 
 import { expect } from '@playwright/test';
 import * as path from 'path';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
+import { setupAndStartApp } from '../../../positronUtils';
 
-/*
- * Plots test cases
- */
-export function setup(logger: Logger) {
+let logger;
 
-	const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
-
-	const options: ComparisonOptions = {
-		output: {
-			errorColor: {
-				red: 255,
-				green: 0,
-				blue: 255
-			},
-			errorType: 'movement',
-			transparency: 0.3,
-			largeImageThreshold: 1200,
-			useCrossOrigin: false
+const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
+const options: ComparisonOptions = {
+	output: {
+		errorColor: {
+			red: 255,
+			green: 0,
+			blue: 255
 		},
-		scaleToSameSize: true,
-		ignore: 'antialiasing',
-	};
+		errorType: 'movement',
+		transparency: 0.3,
+		largeImageThreshold: 1200,
+		useCrossOrigin: false
+	},
+	scaleToSameSize: true,
+	ignore: 'antialiasing',
+};
+const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-	const githubActions = process.env.GITHUB_ACTIONS === "true";
+// web bugs 4800 & 4804
+describe('Plots', () => {
+	logger = setupAndStartApp();
 
-	describe('Plots', () => {
+	async function simplePlotTest(app: Application, script: string, locator: string) {
+		await app.workbench.positronPlots.clearPlots();
+		await app.workbench.positronPlots.waitForNoPlots();
 
-		// Shared before/after handling
-		installAllHandlers(logger);
+		await app.workbench.positronConsole.pasteCodeToConsole(script);
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronPlots.waitForWebviewPlot(locator);
+	}
 
-		async function simplePlotTest(app: Application, script: string, locator: string) {
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronPlots.waitForNoPlots();
+	describe('Python Plots', () => {
 
-			await app.workbench.positronConsole.pasteCodeToConsole(script);
-			await app.workbench.positronConsole.sendEnterKey();
-			await app.workbench.positronPlots.waitForWebviewPlot(locator);
-		}
+		before(async function () {
+			// Set the viewport to a size that ensures all the plots view actions are visible
+			if (process.platform === 'linux') {
+				await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
+			}
+			await this.app.workbench.positronLayouts.enterLayout('stacked');
 
-		describe('Python Plots', () => {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 
-			before(async function () {
-				// Set the viewport to a size that ensures all the plots view actions are visible
-				if (process.platform === 'linux') {
-					await this.app.code.driver.setViewportSize({ width: 1280, height: 800 });
-				}
-				await this.app.workbench.positronLayouts.enterLayout('stacked');
+		});
 
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
+		it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
+			const app = this.app as Application;
 
-			});
-
-			it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
-				const app = this.app as Application;
-
-				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
-				const script = `import pandas as pd
+			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
+			const script = `import pandas as pd
 import matplotlib.pyplot as plt
 data_dict = {'name': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
 				'age': [20, 20, 21, 20, 21, 20],
@@ -88,39 +82,39 @@ df.plot(kind='scatter',
 plt.title('ScatterPlot')
 plt.show()`;
 
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+			logger.log('Sending code to console');
+			await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
+			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(fs.readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
+			const data = await compareImages(fs.readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
-				if (githubActions && data.rawMisMatchPercentage > 2.0) {
-					if (data.getBuffer) {
-						// FIXME: Temporarily ignore compilation issue
-						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-						// @ts-ignore
-						fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
-					}
-					// capture a new master image in CI
-					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
-
-					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+				if (data.getBuffer) {
+					// FIXME: Temporarily ignore compilation issue
+					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+					// @ts-ignore
+					fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 				}
+				// capture a new master image in CI
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			}
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-			it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
-				const app = this.app as Application;
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
-				const script = `import graphviz as gv
+		it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
+			const app = this.app as Application;
+
+			const script = `import graphviz as gv
 import IPython
 
 h = gv.Digraph(format="svg")
@@ -136,39 +130,39 @@ h.edge("A", "C")
 
 IPython.display.display_png(h)`;
 
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+			logger.log('Sending code to console');
+			await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+			await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
-				const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
+			const buffer = await app.workbench.positronPlots.getCurrentStaticPlotAsBuffer();
 
-				const data = await compareImages(fs.readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
+			const data = await compareImages(fs.readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
-				if (githubActions && data.rawMisMatchPercentage > 2.0) {
-					if (data.getBuffer) {
-						// FIXME: Temporarily ignore compilation issue
-						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-						// @ts-ignore
-						fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
-					}
-					// capture a new master image in CI
-					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
-
-					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+				if (data.getBuffer) {
+					// FIXME: Temporarily ignore compilation issue
+					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+					// @ts-ignore
+					fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
 				}
+				// capture a new master image in CI
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			}
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-			it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
-				const app = this.app as Application;
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
-				const scriptPlot1 = `import graphviz as gv
+		it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
+			const app = this.app as Application;
+
+			const scriptPlot1 = `import graphviz as gv
 import IPython
 
 h = gv.Digraph(format="svg")
@@ -184,7 +178,7 @@ h.edge("A", "C")
 
 IPython.display.display_png(h)`;
 
-				const scriptPlot2 = `import matplotlib.pyplot as plt
+			const scriptPlot2 = `import matplotlib.pyplot as plt
 
 # x axis values
 x = [1,2,3]
@@ -204,64 +198,64 @@ plt.title('My first graph!')
 
 # function to show the plot
 plt.show()`;
-				logger.log('Sending code to console');
+			logger.log('Sending code to console');
 
-				// default plot pane state for action bar
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.savePlotButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeVisible();
-				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
+			// default plot pane state for action bar
+			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
+			await expect(app.workbench.positronPlots.savePlotButton).not.toBeVisible();
+			await expect(app.workbench.positronPlots.copyPlotButton).not.toBeVisible();
+			await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
 
-				// create plots separately so that the order is known
-				await app.workbench.positronConsole.executeCode('Python', scriptPlot1, '>>>');
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
-				await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			// create plots separately so that the order is known
+			await app.workbench.positronConsole.executeCode('Python', scriptPlot1, '>>>');
+			await app.workbench.positronPlots.waitForCurrentStaticPlot();
+			await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.savePlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.copyPlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
+			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.savePlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.copyPlotButton).not.toBeDisabled();
 
-				// switch to fixed size plot
-				await app.workbench.positronPlots.previousPlotButton.click();
-				await app.workbench.positronPlots.waitForCurrentStaticPlot();
+			// switch to fixed size plot
+			await app.workbench.positronPlots.previousPlotButton.click();
+			await app.workbench.positronPlots.waitForCurrentStaticPlot();
 
-				// switching to fized size plot changes action bar
-				await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
+			// switching to fized size plot changes action bar
+			await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
+			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
 
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.nextPlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.previousPlotButton).toBeDisabled();
+			await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeDisabled();
 
-				// switch back to dynamic plot
-				await app.workbench.positronPlots.nextPlotButton.click();
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			// switch back to dynamic plot
+			await app.workbench.positronPlots.nextPlotButton.click();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
-				await expect(app.workbench.positronPlots.plotSizeButton).toBeVisible();
+			await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
+			await expect(app.workbench.positronPlots.plotSizeButton).toBeVisible();
 
-				await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-				await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-				await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
+			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
+			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
-			it('Python - Verifies saving a Python plot [C557005]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies saving a Python plot [C557005]', async function () {
+			const app = this.app as Application;
 
-				// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
-				const script = `import pandas as pd
+			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
+			const script = `import pandas as pd
 import matplotlib.pyplot as plt
 data_dict = {'name': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
 				'age': [20, 20, 21, 20, 21, 20],
@@ -280,38 +274,38 @@ df.plot(kind='scatter',
 plt.title('ScatterPlot')
 plt.show()`;
 
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('Python', script, '>>>');
+			logger.log('Sending code to console');
+			await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				// save again with a different name and file format
-				await app.workbench.positronPlots.savePlotButton.click();
+			// save again with a different name and file format
+			await app.workbench.positronPlots.savePlotButton.click();
 
-				await app.workbench.positronPopups.waitForModalDialogBox();
+			await app.workbench.positronPopups.waitForModalDialogBox();
 
-				// fill in the file name and change file format to JPEG
-				await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('Python-scatter');
-				await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
+			// fill in the file name and change file format to JPEG
+			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('Python-scatter');
+			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
 
-				// save the plot
-				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+			// save the plot
+			await app.workbench.positronPopups.clickOkOnModalDialogBox();
 
-				// verify the plot is in the file explorer with the new file name and format
-				await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
-			it('Python - Verifies bqplot Python widget [C720869]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies bqplot Python widget [C720869]', async function () {
+			const app = this.app as Application;
 
-				const script = `import bqplot.pyplot as bplt
+			const script = `import bqplot.pyplot as bplt
 import numpy as np
 
 x = np.linspace(-10, 10, 100)
@@ -325,27 +319,27 @@ line = bplt.plot(
 
 bplt.show()`;
 
-				await simplePlotTest(app, script, '.svg-figure');
+			await simplePlotTest(app, script, '.svg-figure');
 
-			});
+		});
 
-			it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
+			const app = this.app as Application;
 
-				const script = `import pandas as pd
+			const script = `import pandas as pd
 from ipydatagrid import DataGrid
 data= pd.DataFrame({"A": [1, 2, 3], "B": [4, 5, 6]}, index=["One", "Two", "Three"])
 DataGrid(data)
 DataGrid(data, selection_mode="cell", editable=True)`;
 
-				await simplePlotTest(app, script, 'canvas:nth-child(1)');
+			await simplePlotTest(app, script, 'canvas:nth-child(1)');
 
-			});
+		});
 
-			it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
+			const app = this.app as Application;
 
-				const script = `from ipyleaflet import Map, Marker, display
+			const script = `from ipyleaflet import Map, Marker, display
 center = (52.204793, 360.121558)
 map = Map(center=center, zoom=12)
 
@@ -356,24 +350,24 @@ map.add_control(marker)
 
 display(map)`;
 
-				await simplePlotTest(app, script, '.leaflet-container');
-			});
+			await simplePlotTest(app, script, '.leaflet-container');
+		});
 
-			it('Python - Verifies hvplot can load with plotly extension [C766660]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies hvplot can load with plotly extension [C766660]', async function () {
+			const app = this.app as Application;
 
-				const script = `import hvplot.pandas
+			const script = `import hvplot.pandas
 import pandas as pd
 hvplot.extension('plotly')
 pd.DataFrame(dict(x=[1,2,3], y=[4,5,6])).hvplot.scatter(x="x", y="y")`;
 
-				await simplePlotTest(app, script, '.plotly');
-			});
+			await simplePlotTest(app, script, '.plotly');
+		});
 
-			it('Python - Verifies ipytree Python widget [C720872]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies ipytree Python widget [C720872]', async function () {
+			const app = this.app as Application;
 
-				const script = `from ipytree import Tree, Node
+			const script = `from ipytree import Tree, Node
 tree = Tree(stripes=True)
 tree
 tree
@@ -393,51 +387,51 @@ node2.add_node(Node('node7'), 2)
 
 tree`;
 
-				await simplePlotTest(app, script, '.jstree-container-ul');
+			await simplePlotTest(app, script, '.jstree-container-ul');
 
-				// tree should be expanded by default
-				const treeNodes = app.workbench.positronPlots.getWebviewPlotLocator('.jstree-container-ul .jstree-node');
-				await expect(treeNodes).toHaveCount(9);
+			// tree should be expanded by default
+			const treeNodes = app.workbench.positronPlots.getWebviewPlotLocator('.jstree-container-ul .jstree-node');
+			await expect(treeNodes).toHaveCount(9);
 
-				// collapse the tree, only parent nodes should be visible
-				treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
-				await expect(treeNodes).toHaveCount(3);
-			});
+			// collapse the tree, only parent nodes should be visible
+			treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
+			await expect(treeNodes).toHaveCount(3);
+		});
 
 
-			it('Python - Verifies ipywidget.Output Python widget', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies ipywidget.Output Python widget', async function () {
+			const app = this.app as Application;
 
-				// Create the Output widget.
-				const script = `import ipywidgets
+			// Create the Output widget.
+			const script = `import ipywidgets
 output = ipywidgets.Output()
 output`;
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output', 'attached');
+			await app.workbench.positronConsole.pasteCodeToConsole(script);
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output', 'attached');
 
-				// Redirect a print statement to the Output widget.
-				await app.workbench.positronConsole.pasteCodeToConsole(`with output:
+			// Redirect a print statement to the Output widget.
+			await app.workbench.positronConsole.pasteCodeToConsole(`with output:
     print('Hello, world!')
 `);  // Empty line needed for the statement to be considered complete.
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
 
-				// The printed statement should not be shown in the console.
-				const lines = await app.workbench.positronConsole.waitForConsoleContents();
-				expect(lines).not.toContain('Hello, world!');
+			// The printed statement should not be shown in the console.
+			const lines = await app.workbench.positronConsole.waitForConsoleContents();
+			expect(lines).not.toContain('Hello, world!');
 
-				// Clear the plots pane.
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronPlots.waitForNoPlots();
+			// Clear the plots pane.
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 
-			});
+		});
 
 
-			it('Python - Verifies bokeh Python widget [C730343]', async function () {
-				const app = this.app as Application;
+		it('Python - Verifies bokeh Python widget [C730343]', async function () {
+			const app = this.app as Application;
 
-				const script = `from bokeh.plotting import figure, output_file, show
+			const script = `from bokeh.plotting import figure, output_file, show
 
 # instantiating the figure object
 graph = figure(title = "Bokeh Line Graph")
@@ -453,155 +447,155 @@ graph.line(x, y)
 show(graph)`;
 
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronConsole.pasteCodeToConsole(script);
+			await app.workbench.positronConsole.sendEnterKey();
 
-				// selector not factored out as it is unique to bokeh
-				const bokehCanvas = '.bk-Canvas';
-				await app.workbench.positronPlots.waitForWebviewPlot(bokehCanvas);
+			// selector not factored out as it is unique to bokeh
+			const bokehCanvas = '.bk-Canvas';
+			await app.workbench.positronPlots.waitForWebviewPlot(bokehCanvas);
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
-				// selector not factored out as it is unique to bokeh
-				await app.workbench.positronPlots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
+			// selector not factored out as it is unique to bokeh
+			await app.workbench.positronPlots.getWebviewPlotLocator('.bk-tool-icon-box-zoom').click();
 
-				const canvasLocator = app.workbench.positronPlots.getWebviewPlotLocator(bokehCanvas);
-				const boundingBox = await canvasLocator.boundingBox();
+			const canvasLocator = app.workbench.positronPlots.getWebviewPlotLocator(bokehCanvas);
+			const boundingBox = await canvasLocator.boundingBox();
 
-				// plot capture before zoom
-				const bufferBeforeZoom = await canvasLocator.screenshot();
+			// plot capture before zoom
+			const bufferBeforeZoom = await canvasLocator.screenshot();
 
-				if (boundingBox) {
+			if (boundingBox) {
 
-					await app.code.driver.clickAndDrag({
-						from: {
-							x: boundingBox.x + boundingBox.width / 3,
-							y: boundingBox.y + boundingBox.height / 3
-						},
-						to: {
-							x: boundingBox.x + 2 * (boundingBox.width / 3),
-							y: boundingBox.y + 2 * (boundingBox.height / 3)
-						}
-					});
-				} else {
-					fail('Bounding box not found');
-				}
+				await app.code.driver.clickAndDrag({
+					from: {
+						x: boundingBox.x + boundingBox.width / 3,
+						y: boundingBox.y + boundingBox.height / 3
+					},
+					to: {
+						x: boundingBox.x + 2 * (boundingBox.width / 3),
+						y: boundingBox.y + 2 * (boundingBox.height / 3)
+					}
+				});
+			} else {
+				fail('Bounding box not found');
+			}
 
-				// plot capture after zoom
-				const bufferAfterZoom = await canvasLocator.screenshot();
+			// plot capture after zoom
+			const bufferAfterZoom = await canvasLocator.screenshot();
 
-				// two plot captures should be different
-				const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
-				expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
+			// two plot captures should be different
+			const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
+			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-				await app.workbench.positronPlots.waitForNoPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 
-				await app.workbench.positronLayouts.enterLayout('stacked');
-
-			});
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
 
-		describe('R Plots', () => {
+	});
 
-			before(async function () {
+	describe('R Plots', () => {
 
-				await PositronRFixtures.SetupFixtures(this.app as Application);
+		before(async function () {
 
-			});
+			await PositronRFixtures.SetupFixtures(this.app as Application);
 
-			it('R - Verifies basic plot functionality [C628633] #pr', async function () {
-				const app = this.app as Application;
+		});
 
-				const script = `cars <- c(1, 3, 6, 4, 9)
+		it('R - Verifies basic plot functionality [C628633] #pr', async function () {
+			const app = this.app as Application;
+
+			const script = `cars <- c(1, 3, 6, 4, 9)
 plot(cars, type="o", col="blue")
 title(main="Autos", col.main="red", font.main=4)`;
 
-				logger.log('Sending code to console');
-				await app.workbench.positronConsole.executeCode('R', script, '>');
+			logger.log('Sending code to console');
+			await app.workbench.positronConsole.executeCode('R', script, '>');
 
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
+			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
 
-				const data = await compareImages(fs.readFileSync(path.join('plots', 'autos.png'),), buffer, options);
+			const data = await compareImages(fs.readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
-				if (githubActions && data.rawMisMatchPercentage > 2.0) {
-					if (data.getBuffer) {
-						// FIXME: Temporarily ignore compilation issue
-						// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
-						// @ts-ignore
-						fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
-					}
-					// capture a new master image in CI
-					await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
-
-					fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+				if (data.getBuffer) {
+					// FIXME: Temporarily ignore compilation issue
+					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
+					// @ts-ignore
+					fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
 				}
+				// capture a new master image in CI
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			}
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-			it('R - Verifies saving an R plot [C557006]', async function () {
-				const app = this.app as Application;
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
-				const script = `cars <- c(1, 3, 6, 4, 9)
+		it('R - Verifies saving an R plot [C557006]', async function () {
+			const app = this.app as Application;
+
+			const script = `cars <- c(1, 3, 6, 4, 9)
 plot(cars, type="o", col="blue")
 title(main="Autos", col.main="red", font.main=4)`;
 
-				logger.log('Sending code to console');
-				// create a plot
-				await app.workbench.positronConsole.executeCode('R', script, '>');
+			logger.log('Sending code to console');
+			// create a plot
+			await app.workbench.positronConsole.executeCode('R', script, '>');
 
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				// click save to bring up the modal save dialog
-				await app.workbench.positronPlots.savePlotButton.click();
+			// click save to bring up the modal save dialog
+			await app.workbench.positronPlots.savePlotButton.click();
 
-				await app.workbench.positronPopups.waitForModalDialogBox();
+			await app.workbench.positronPopups.waitForModalDialogBox();
 
-				// save with defaults
-				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+			// save with defaults
+			await app.workbench.positronPopups.clickOkOnModalDialogBox();
 
-				// verify a plot is in the file explorer with the default file name
-				await app.workbench.positronExplorer.waitForProjectFileToAppear('plot.png');
+			// verify a plot is in the file explorer with the default file name
+			await app.workbench.positronExplorer.waitForProjectFileToAppear('plot.png');
 
-				// save again with a different name and file format
-				await app.workbench.positronPlots.savePlotButton.click();
+			// save again with a different name and file format
+			await app.workbench.positronPlots.savePlotButton.click();
 
-				await app.workbench.positronPopups.waitForModalDialogBox();
+			await app.workbench.positronPopups.waitForModalDialogBox();
 
-				// fill in the file name and change file format to SVG
-				await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('R-cars');
-				await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption('SVG');
+			// fill in the file name and change file format to SVG
+			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('R-cars');
+			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption('SVG');
 
-				// save the plot
-				await app.workbench.positronPopups.clickOkOnModalDialogBox();
+			// save the plot
+			await app.workbench.positronPopups.clickOkOnModalDialogBox();
 
-				// verify the plot is in the file explorer with the new file name and format
-				await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
+			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-				await app.workbench.positronPlots.waitForNoPlots();
-			});
+			await app.workbench.positronPlots.waitForNoPlots();
+		});
 
 
-			it('R - Verifies rplot plot [C720873]', async function () {
-				const app = this.app as Application;
+		it('R - Verifies rplot plot [C720873]', async function () {
+			const app = this.app as Application;
 
-				const script = `library('corrr')
+			const script = `library('corrr')
 
 x <- correlate(mtcars)
 rplot(x)
@@ -613,55 +607,54 @@ rplot(x)
 rplot(x, print_cor = TRUE)
 rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 
-				await app.workbench.positronConsole.pasteCodeToConsole(script);
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronPlots.waitForCurrentPlot();
+			await app.workbench.positronConsole.pasteCodeToConsole(script);
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronPlots.waitForCurrentPlot();
 
-				await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-				await app.workbench.positronPlots.clearPlots();
-				await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
-				await app.workbench.positronPlots.waitForNoPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 
-			});
+		});
 
-			it('R - Verifies highcharter plot [C720874]', async function () {
-				const app = this.app as Application;
+		it('R - Verifies highcharter plot [C720874]', async function () {
+			const app = this.app as Application;
 
-				const script = `library(highcharter)
+			const script = `library(highcharter)
 
 data("mpg", "diamonds", "economics_long", package = "ggplot2")
 
 hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
-				await simplePlotTest(app, script, 'svg');
+			await simplePlotTest(app, script, 'svg');
 
-			});
+		});
 
-			it('R - Verifies leaflet plot [C720875]', async function () {
-				const app = this.app as Application;
+		it('R - Verifies leaflet plot [C720875]', async function () {
+			const app = this.app as Application;
 
-				const script = `library(leaflet)
+			const script = `library(leaflet)
 m = leaflet() %>% addTiles()
 m = m %>% setView(-93.65, 42.0285, zoom = 17)
 m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, ISU')`;
 
-				await simplePlotTest(app, script, '.leaflet');
+			await simplePlotTest(app, script, '.leaflet');
 
-			});
+		});
 
-			it('R - Verifies plotly plot [C720876]', async function () {
-				const app = this.app as Application;
+		it('R - Verifies plotly plot [C720876]', async function () {
+			const app = this.app as Application;
 
-				const script = `library(plotly)
+			const script = `library(plotly)
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
 fig`;
 
-				await simplePlotTest(app, script, '.plot-container');
-
-			});
+			await simplePlotTest(app, script, '.plot-container');
 
 		});
 
 	});
-}
+
+});

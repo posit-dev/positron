@@ -5,33 +5,27 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { setupAndStartApp } from '../../../positronUtils';
 
-/*
- *  Welcome test cases.
- */
+describe('Welcome Page', () => {
+	setupAndStartApp();
 
-export function setup(logger: Logger) {
-	describe('Welcome Page', () => {
-		installAllHandlers(logger);
+	before(async function () {
+		await PositronPythonFixtures.SetupFixtures(this.app as Application);
+	});
 
-		before(async function () {
-			await PositronPythonFixtures.SetupFixtures(this.app as Application);
-		});
+	beforeEach(async function () {
+		const app = this.app as Application;
+		await app.workbench.quickaccess.runCommand('Help: Welcome');
+	});
 
-		beforeEach(async function () {
-			const app = this.app as Application;
+	afterEach(async function () {
+		const app = this.app as Application;
+		await app.workbench.quickaccess.runCommand('View: Close All Editors');
+	});
 
-			await app.workbench.quickaccess.runCommand('Help: Welcome');
-			app.workbench.editors.waitForActiveEditor('Welcome');
-		});
-
-		afterEach(async function () {
-			const app = this.app as Application;
-			await app.workbench.quickaccess.runCommand('View: Close All Editors');
-		});
-
+	describe('General', () => {
 		it('Verify Welcome page header and footer [C684750]', async function () {
 			const app = this.app as Application;
 
@@ -82,98 +76,97 @@ export function setup(logger: Logger) {
 
 			await app.workbench.positronPopups.clickCancelOnModalDialogBox();
 		});
+	});
 
-		describe('Python', () => {
-			before(async function () {
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-			});
-
-			it('Create a new Python file from the Welcome page [C684752]', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronWelcome.newFileButton.click();
-
-				await app.workbench.quickinput.selectQuickInputElementContaining('Python File');
-
-				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
-
-				await app.workbench.quickaccess.runCommand('View: Close Editor');
-			});
-
-			it('Create a new Python notebook from the Welcome page [C684753]', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronWelcome.newNotebookButton.click();
-
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption('Python Notebook');
-
-				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-
-				const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-				await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
-			});
-
-			it('Click on Python console from the Welcome page [C684754]', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronWelcome.newConsoleButton.click();
-				await app.workbench.positronPopups.popupCurrentlyOpen();
-
-				const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
-
-				// editor is hidden because bottom panel is maximized
-				await expect(app.workbench.editors.editorPart).not.toBeVisible();
-
-				// console is the active view in the bottom panel
-				await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
-			});
+	describe('Python', () => {
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		describe('R', () => {
-			before(async function () {
-				await PositronRFixtures.SetupFixtures(this.app as Application);
-			});
+		it('Create a new Python file from the Welcome page [C684752]', async function () {
+			const app = this.app as Application;
 
-			it('Create a new R file from the Welcome page [C684755]', async function () {
-				const app = this.app as Application;
+			await app.workbench.positronWelcome.newFileButton.click();
 
-				await app.workbench.positronWelcome.newFileButton.click();
+			await app.workbench.quickinput.selectQuickInputElementContaining('Python File');
 
-				await app.workbench.quickinput.selectQuickInputElementContaining('R File');
+			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
 
-				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
-			});
+			await app.workbench.quickaccess.runCommand('View: Close Editor');
+		});
 
-			it('Click on R console from the Welcome page [C684756]', async function () {
-				const app = this.app as Application;
+		it('Create a new Python notebook from the Welcome page [C684753]', async function () {
+			const app = this.app as Application;
 
-				await app.workbench.positronWelcome.newConsoleButton.click();
-				await app.workbench.positronPopups.popupCurrentlyOpen();
+			await app.workbench.positronWelcome.newNotebookButton.click();
 
-				const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption('Python Notebook');
 
-				// editor is hidden because bottom panel is maximized
-				await expect(app.workbench.editors.editorPart).not.toBeVisible();
+			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
 
-				// console is the active view in the bottom panel
-				await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
-			});
+			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
+			await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+		});
 
-			it('Create a new R notebook from the Welcome page [C684757]', async function () {
-				const app = this.app as Application;
+		it('Click on Python console from the Welcome page [C684754]', async function () {
+			const app = this.app as Application;
 
-				await app.workbench.positronWelcome.newNotebookButton.click();
+			await app.workbench.positronWelcome.newConsoleButton.click();
+			await app.workbench.positronPopups.popupCurrentlyOpen();
 
-				await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');
+			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
 
-				await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
+			// editor is hidden because bottom panel is maximized
+			await expect(app.workbench.editors.editorPart).not.toBeVisible();
 
-				const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-				await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
-			});
+			// console is the active view in the bottom panel
+			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
 		});
 	});
 
-}
+	describe('R', () => {
+		before(async function () {
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
+
+		it('Create a new R file from the Welcome page [C684755]', async function () {
+			const app = this.app as Application;
+
+			await app.workbench.positronWelcome.newFileButton.click();
+
+			await app.workbench.quickinput.selectQuickInputElementContaining('R File');
+
+			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
+		});
+
+		it('Click on R console from the Welcome page [C684756]', async function () {
+			const app = this.app as Application;
+
+			await app.workbench.positronWelcome.newConsoleButton.click();
+			await app.workbench.positronPopups.popupCurrentlyOpen();
+
+			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
+
+			// editor is hidden because bottom panel is maximized
+			await expect(app.workbench.editors.editorPart).not.toBeVisible();
+
+			// console is the active view in the bottom panel
+			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
+		});
+
+		it('Create a new R notebook from the Welcome page [C684757]', async function () {
+			const app = this.app as Application;
+
+			await app.workbench.positronWelcome.newNotebookButton.click();
+
+			await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');
+
+			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
+
+			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
+			await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
+		});
+	});
+});
