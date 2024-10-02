@@ -6,15 +6,13 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as mkdirp from 'mkdirp';
-// import * as vscodetest from '@vscode/test-electron';
-// import fetch from 'node-fetch';
 import { MultiLogger, ConsoleLogger, FileLogger, Logger, } from '../../automation';
 import { installAllHandlers, } from './utils';
 
 export const ROOT_PATH = path.join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
-const WORKSPACE_PATH = path.join(TEST_DATA_PATH, 'qa-example-content');
-const EXTENSIONS_PATH = path.join(TEST_DATA_PATH, 'extensions-dir');
+const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH not set';
+const EXTENSIONS_PATH = process.env.EXTENSIONS_PATH || 'EXTENSIONS_PATH not set';
 const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 
 const asBoolean = (value: string | undefined): boolean | undefined => {
@@ -82,6 +80,13 @@ function getTestFileName(): string {
 	}
 }
 
+/**
+ * Set the default options for the test suite.
+ *
+ * @param logger the logger instance for the test suite
+ * @param logsRootPath  the root path for the logs
+ * @param crashesRootPath the root path for the crashes
+ */
 function setTestDefaults(logger: Logger, logsRootPath: string, crashesRootPath: string) {
 	before(async function () {
 		this.defaultOptions = {
@@ -103,6 +108,12 @@ function setTestDefaults(logger: Logger, logsRootPath: string, crashesRootPath: 
 	});
 }
 
+/**
+ * Create a logger instance.
+ *
+ * @param logsRootPath the root path for the logs
+ * @returns Logger instance
+ */
 export function createLogger(logsRootPath: string): Logger {
 	const loggers: Logger[] = [];
 

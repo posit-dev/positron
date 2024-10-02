@@ -59,7 +59,6 @@ async function prepareTestEnv() {
 		if (!OPTS.web && !OPTS.remote && OPTS.build) {
 			// Only enabled when running with --build and not in web or remote
 			version = getBuildVersion(OPTS.build);
-			console.log('!!!', TEST_DATA_PATH, version);
 			await ensureStableCode(TEST_DATA_PATH, logger, OPTS);
 		}
 
@@ -71,37 +70,32 @@ async function prepareTestEnv() {
 }
 
 /**
- * Configures environment variables based on parsed options.
- */
-function configureEnvVarsFromOptions(opts) {
-	const envVars = {
-		BUILD: opts['build'] || '',
-		HEADLESS: opts['headless'] || '',
-		PARALLEL: opts['parallel'] || '',
-		REMOTE: opts['remote'] || '',
-		TRACING: opts['tracing'] || '',
-		VERBOSE: opts['verbose'] || '',
-		WEB: opts['web'] || '',
-		WIN: opts['win'] || '',
-		PR: opts['pr'] || '',
-		EXTENSIONS_PATH: EXTENSIONS_PATH,
-		WORKSPACE_PATH: WORKSPACE_PATH,
-		TEST_DATA_PATH: TEST_DATA_PATH,
-		REPORT_PATH: REPORT_PATH,
-	};
-	Object.assign(process.env, envVars);
-}
-
-/**
  * Runs Mocha tests.
  */
 function runMochaTests() {
-	const mocha = new Mocha(getMochaOptions(OPTS));
+	const mocha = new Mocha({
+		color: true,
+		timeout: 1 * 60 * 1000,  // 1 minute
+		slow: 30 * 1000,         // 30 seconds
+		grep: OPTS['f'] || OPTS['g'],
+		parallel: OPTS['parallel'],
+		jobs: OPTS['jobs'],
+		reporter: 'mocha-multi',
+		reporterOptions: {
+			spec: '-',  // Console output
+			xunit: REPORT_PATH,
+		},
+		retries: 0,
+	});
+
+	// Apply test filters based on CLI options
 	applyTestFilters(mocha);
 
+	// Add test files to the Mocha runner
 	const testFiles = findTestFilesRecursive(path.resolve('out/areas/positron'));
 	testFiles.forEach(file => mocha.addFile(file));
 
+	// Run the Mocha tests
 	mocha.run(failures => {
 		if (failures) {
 			console.log(getFailureLogs());
@@ -116,48 +110,6 @@ function runMochaTests() {
 			}
 		});
 	});
-}
-
-/**
- * Configures environment variables based on parsed options.
- */
-function configureEnvVarsFromOptions(opts) {
-	const envVars = {
-		BUILD: opts['build'] || '',
-		HEADLESS: opts['headless'] || '',
-		PARALLEL: opts['parallel'] || '',
-		REMOTE: opts['remote'] || '',
-		TRACING: opts['tracing'] || '',
-		VERBOSE: opts['verbose'] || '',
-		WEB: opts['web'] || '',
-		WIN: opts['win'] || '',
-		PR: opts['pr'] || '',
-		EXTENSIONS_PATH: EXTENSIONS_PATH,
-		WORKSPACE_PATH: WORKSPACE_PATH,
-		TEST_DATA_PATH: TEST_DATA_PATH,
-		REPORT_PATH: REPORT_PATH,
-	};
-	Object.assign(process.env, envVars);
-}
-
-/**
- * Returns the Mocha options based on the parsed arguments.
- */
-function getMochaOptions(opts) {
-	return {
-		color: true,
-		timeout: 1 * 60 * 1000,  // 1 minute
-		slow: 30 * 1000,         // 30 seconds
-		grep: opts['f'] || opts['g'],
-		parallel: opts['parallel'],
-		jobs: opts['jobs'],
-		reporter: 'mocha-multi',
-		reporterOptions: {
-			spec: '-',  // Console output
-			xunit: REPORT_PATH,
-		},
-		retries: 0,
-	};
 }
 
 /**
@@ -408,4 +360,26 @@ function initializeTestEnvironment(logger) {
 			logger.log(`Running web smoke out of sources`);
 		}
 	}
+}
+
+/**
+ * Configures environment variables based on parsed options.
+ */
+function configureEnvVarsFromOptions(opts) {
+	const envVars = {
+		BUILD: opts['build'] || '',
+		HEADLESS: opts['headless'] || '',
+		PARALLEL: opts['parallel'] || '',
+		REMOTE: opts['remote'] || '',
+		TRACING: opts['tracing'] || '',
+		VERBOSE: opts['verbose'] || '',
+		WEB: opts['web'] || '',
+		WIN: opts['win'] || '',
+		PR: opts['pr'] || '',
+		EXTENSIONS_PATH: EXTENSIONS_PATH,
+		WORKSPACE_PATH: WORKSPACE_PATH,
+		TEST_DATA_PATH: TEST_DATA_PATH,
+		REPORT_PATH: REPORT_PATH,
+	};
+	Object.assign(process.env, envVars);
 }
