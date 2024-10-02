@@ -35,6 +35,96 @@ import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardCol
 const addFilterTitle = localize('positron.addFilter', "Add Filter");
 
 /**
+ * Range interface.
+ */
+interface Range {
+	edge: number;
+	size: number;
+	value: number;
+}
+
+/**
+ * Ranges class.
+ */
+export class Ranges {
+	/**
+	 * Gets or sets the ranges.
+	 */
+	private _ranges: Range[] = [];
+
+	private _lastValue = -1;
+	private _lastRange?: Range;
+
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+	}
+
+	/**
+	 * Gets the length.
+	 */
+	get length() {
+		return this._ranges.length;
+	}
+
+	/**
+	 * Clears the ranges.
+	 */
+	clear() {
+		this._ranges = [];
+	}
+
+	/**
+	 * Inserts a range.
+	 * @param range The range to insert.
+	 */
+	insert(range: Range) {
+		this._ranges.push(range);
+	}
+
+	/**
+	 * Finds a value.
+	 * @param value The value to find.
+	 * @returns The range, or, undefined.
+	 */
+	find(value: number): Range | undefined {
+		if (this._lastValue === value) {
+			// console.log(`Ranges.find found cached value ${value}`);
+			return this._lastRange;
+		}
+
+		// Setup the binary search.
+		let left = 0;
+		let right = this._ranges.length - 1;
+
+		// Binary chop.
+		while (left <= right) {
+			const middle = Math.floor((left + right) / 2);
+			const range = this._ranges[middle];
+
+			// Check for a match.
+			if (value >= range.edge && value < range.edge + range.size) {
+				// console.log(`Ranges.find found value ${value}`);
+				this._lastValue = value;
+				this._lastRange = range;
+				return range;
+			}
+
+			// Setup the next binary chop.
+			if (range.edge < value) {
+				left = middle + 1;
+			} else {
+				right = middle - 1;
+			}
+		}
+
+		// Not found.
+		return undefined;
+	}
+}
+
+/**
  * TableDataDataGridInstance class.
  */
 export class TableDataDataGridInstance extends DataGridInstance {
@@ -95,14 +185,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
+		this._userDefinedRowHeights.set(10, 60);
+
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.All,
-				firstColumnIndex: this.firstColumnIndex,
+				firstColumnIndex: this.firstColumnIndexXX,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndex,
+				firstRowIndex: this.firstRowIndexXX,
 				screenRows: this.screenRows
 			});
 		}));
@@ -112,9 +204,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: this.firstColumnIndex,
+				firstColumnIndex: this.firstColumnIndexXX,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndex,
+				firstRowIndex: this.firstRowIndexXX,
 				screenRows: this.screenRows
 			});
 		}));
@@ -156,6 +248,87 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	get rows() {
 		return this._tableDataCache.rows;
+	}
+
+	private _columnRanges = new Ranges();
+	private _rowRanges = new Ranges();
+
+	/**
+	 * Gets the first column.
+	 */
+	get firstColumn() {
+		if (this.rows !== this._rowRanges.length) {
+			const start = new Date().getTime();
+			this._columnRanges.clear();
+			let left = 0;
+			for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
+				const columnWidth = this.getColumnWidth(columnIndex);
+
+				this._columnRanges.insert({
+					edge: left,
+					size: columnWidth,
+					value: columnIndex
+				});
+
+				left += columnWidth;
+			}
+
+			const end = new Date().getTime();
+			// console.log(`+++++++++++++ Building column ranges took ${end - start}ms`);
+		}
+
+		const yama = this._columnRanges.find(this.horizontalScrollOffset);
+
+		if (yama) {
+			return {
+				columnIndex: yama.value,
+				left: yama.edge
+			};
+		}
+
+		return {
+			columnIndex: 0,
+			left: 0
+		};
+	}
+
+	/**
+	 * Gets the first row.
+	 */
+	get firstRow() {
+		if (this.rows !== this._rowRanges.length) {
+			const start = new Date().getTime();
+			this._rowRanges.clear();
+			let top = 0;
+			for (let rowIndex = 0; rowIndex < this.rows; rowIndex++) {
+				const rowHeight = this._userDefinedRowHeights.get(rowIndex) || this.defaultRowHeight;
+
+				this._rowRanges.insert({
+					edge: top,
+					size: rowHeight,
+					value: rowIndex
+				});
+
+				top += rowHeight;
+			}
+
+			const end = new Date().getTime();
+			console.log(`+++++++++++++ Building row ranges took ${end - start}ms`);
+		}
+
+		const yama = this._rowRanges.find(this.verticalScrollOffset);
+
+		if (yama) {
+			return {
+				rowIndex: yama.value,
+				top: yama.edge
+			};
+		}
+
+		return {
+			rowIndex: 0,
+			top: 0
+		};
 	}
 
 	//#endregion DataGridInstance Properties
@@ -220,9 +393,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndex,
+			firstColumnIndex: this.firstColumnIndexXX,
 			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
+			firstRowIndex: this.firstRowIndexXX,
 			screenRows: this.screenRows
 		});
 	}
@@ -232,12 +405,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
+		// BRIAN
+
+		const firstRowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
+
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.None,
-			firstColumnIndex: this.firstColumnIndex,
+			firstColumnIndex: this.firstColumnIndexXX,
 			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
+			firstRowIndex,
 			screenRows: this.screenRows
 		});
 	}
@@ -675,9 +852,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndex,
+			firstColumnIndex: this.firstColumnIndexXX,
 			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
+			firstRowIndex: this.firstRowIndexXX,
 			screenRows: this.screenRows
 		});
 	}

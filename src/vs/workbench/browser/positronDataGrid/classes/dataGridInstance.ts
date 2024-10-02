@@ -137,6 +137,16 @@ type DataGridOptions =
 	DefaultCursorOptions &
 	SelectionOptions;
 
+export interface FirstColumnDescriptor {
+	readonly columnIndex: number;
+	readonly left: number;
+}
+
+export interface FirstRowDescriptor {
+	readonly rowIndex: number;
+	readonly top: number;
+}
+
 /**
  * ExtendColumnSelectionBy enumeration.
  */
@@ -634,12 +644,22 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets or sets the first column index.
 	 */
-	private _firstColumnIndex = 0;
+	private _firstColumnIndexXX = 0;
 
 	/**
 	 * Gets or sets the first row index.
 	 */
-	private _firstRowIndex = 0;
+	private _firstRowIndexXX = 0;
+
+	/**
+	 * The horizontal scroll offset.
+	 */
+	private _horizontalScrollOffset = 0;
+
+	/**
+	 * The vertical scroll offset.
+	 */
+	private _verticalScrollOffset = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
@@ -983,7 +1003,7 @@ export abstract class DataGridInstance extends Disposable {
 	get visibleColumns() {
 		// Calculate the visible columns.
 		let visibleColumns = 0;
-		let columnIndex = this._firstColumnIndex;
+		let columnIndex = this._firstColumnIndexXX;
 		let availableLayoutWidth = this.layoutWidth;
 		while (columnIndex < this.columns) {
 			// Get the column width.
@@ -1019,7 +1039,7 @@ export abstract class DataGridInstance extends Disposable {
 	get visibleRows() {
 		// Calculate the visible rows.
 		let visibleRows = 0;
-		let rowIndex = this._firstRowIndex;
+		let rowIndex = this._firstRowIndexXX;
 		let availableLayoutHeight = this.layoutHeight;
 		while (rowIndex < this.rows) {
 			// Get the row height.
@@ -1043,71 +1063,63 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the maximum first column.
+	 * Gets the maximum horizontal scroll offset.
 	 */
-	get maximumFirstColumnIndex() {
-		// When there are no columns, return 0.
-		if (!this.columns) {
+	get maximumHorizontalScrollOffset() {
+		if (this.columns * this._defaultColumnWidth <= this.layoutWidth) {
 			return 0;
 		}
 
-		// Calculate the maximum first column by looking backward through the columns for the last
-		// column that fits.
-		let layoutWidth = this.layoutWidth - this.getColumnWidth(this.columns - 1);
-		let maximumFirstColumn = this.columns - 1;
-		for (let columnIndex = maximumFirstColumn - 1; columnIndex >= 0; columnIndex--) {
-			const columnWidth = this.getColumnWidth(columnIndex);
-			if (columnWidth < layoutWidth) {
-				layoutWidth -= columnWidth;
-				maximumFirstColumn--;
-			} else {
-				break;
-			}
-		}
-
-		// Done.
-		return maximumFirstColumn;
+		return (this.columns * this._defaultColumnWidth - this.layoutWidth) + 10;
 	}
 
 	/**
-	 * Gets the maximum first row.
+	 * Gets the maximum vertical scroll offset.
 	 */
-	get maximumFirstRowIndex() {
-		// When there are no rows, return 0.
-		if (!this.rows) {
+	get maximumVerticalScrollOffset() {
+		if (this.rows * this._defaultRowHeight <= this.layoutHeight) {
 			return 0;
 		}
 
-		// Calculate the maximum first row by looking backward through the rows for the last row
-		// that fits.
-		let layoutHeight = this.layoutHeight - this.getRowHeight(this.rows - 1);
-		let maximumFirstRow = this.rows - 1;
-		for (let rowIndex = maximumFirstRow - 1; rowIndex >= 0; rowIndex--) {
-			const rowHeight = this.getRowHeight(rowIndex);
-			if (rowHeight < layoutHeight) {
-				layoutHeight -= rowHeight;
-				maximumFirstRow--;
-			} else {
-				break;
-			}
-		}
-
-		// Done.
-		return maximumFirstRow;
+		return (this.rows * this._defaultRowHeight - this.layoutHeight) + 10;
 	}
 
 	/**
 	 * Gets the first column index.
 	 */
-	get firstColumnIndex() {
-		return this._firstColumnIndex;
+	get firstColumnIndexXX() {
+		return this._firstColumnIndexXX;
 	}
 
 	/**
 	 * Gets the first row index.
 	 */
-	get firstRowIndex() {
-		return this._firstRowIndex;
+	get firstRowIndexXX() {
+		return this._firstRowIndexXX;
+	}
+
+	/**
+	 * Gets the first column.
+	 */
+	abstract get firstColumn(): FirstColumnDescriptor;
+
+	/**
+	 * Gets the first row.
+	 */
+	abstract get firstRow(): FirstRowDescriptor;
+
+	/**
+	 * Gets the horizontal scroll offset.
+	 */
+	get horizontalScrollOffset() {
+		return this._horizontalScrollOffset;
+	}
+
+	/**
+	 * Gets the vertical scroll offset.
+	 */
+	get verticalScrollOffset() {
+		return this._verticalScrollOffset;
 	}
 
 	/**
@@ -1383,15 +1395,19 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Sets the screen position.
-	 * @param firstColumnIndex The first column index.
-	 * @param firstRowIndex The first row index.
+	 * @param horizontalScrollOffset The horizontal scroll offset.
+	 * @param verticalScrollOffset The vertical scroll offset.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setScreenPosition(firstColumnIndex: number, firstRowIndex: number): Promise<void> {
-		if (firstColumnIndex !== this._firstColumnIndex || firstRowIndex !== this._firstRowIndex) {
+	async setScreenPosition(
+		horizontalScrollOffset: number,
+		verticalScrollOffset: number
+	): Promise<void> {
+		// If the screen position has changed, update the data grid.
+		if (horizontalScrollOffset !== this._horizontalScrollOffset || verticalScrollOffset !== this._verticalScrollOffset) {
 			// Set the screen position.
-			this._firstColumnIndex = firstColumnIndex;
-			this._firstRowIndex = firstRowIndex;
+			this._horizontalScrollOffset = horizontalScrollOffset;
+			this._verticalScrollOffset = verticalScrollOffset;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1407,9 +1423,9 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setFirstColumn(firstColumnIndex: number): Promise<void> {
-		if (firstColumnIndex !== this._firstColumnIndex) {
+		if (firstColumnIndex !== this._firstColumnIndexXX) {
 			// Set the first column index.
-			this._firstColumnIndex = firstColumnIndex;
+			this._firstColumnIndexXX = firstColumnIndex;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1428,9 +1444,9 @@ export abstract class DataGridInstance extends Disposable {
 	async setFirstRow(firstRowIndex: number, force: boolean = false): Promise<void> {
 		// If the operation is being forced, or the first row has changed, set the first row and
 		// update the data grid.
-		if (force || firstRowIndex !== this._firstRowIndex) {
+		if (force || firstRowIndex !== this._firstRowIndexXX) {
 			// Set the first row index.
-			this._firstRowIndex = firstRowIndex;
+			this._firstRowIndexXX = firstRowIndex;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1439,6 +1455,51 @@ export abstract class DataGridInstance extends Disposable {
 			this._onDidUpdateEmitter.fire();
 		}
 	}
+
+	/**
+	 * Sets the horizontal scroll offset.
+	 * @param horizontalScrollOffset The horizontal scroll offset.
+	 * @param force A value which indicates whether to force the operation.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async setHorizontalScrollOffset(
+		horizontalScrollOffset: number,
+		force: boolean = false
+	): Promise<void> {
+		if (force || horizontalScrollOffset !== this._horizontalScrollOffset) {
+			// Set the horizontal scroll offset.
+			this._horizontalScrollOffset = horizontalScrollOffset;
+
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	/**
+	 * Sets the vertical scroll offset.
+	 * @param verticalScrollOffset The vertical scroll offset.
+	 * @param force A value which indicates whether to force the operation.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async setVerticalScrollOffset(
+		verticalScrollOffset: number,
+		force: boolean = false
+	): Promise<void> {
+		if (force || verticalScrollOffset !== this._verticalScrollOffset) {
+			// Set the vertical scroll offset.
+			this._verticalScrollOffset = verticalScrollOffset;
+
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
 
 	/**
 	 * Sets the cursor position.
@@ -1511,12 +1572,12 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToColumn(columnIndex: number): Promise<void> {
-		if (columnIndex < this._firstColumnIndex) {
+		if (columnIndex < this._firstColumnIndexXX) {
 			await this.setFirstColumn(columnIndex);
-		} else if (columnIndex >= this._firstColumnIndex + this.visibleColumns) {
+		} else if (columnIndex >= this._firstColumnIndexXX + this.visibleColumns) {
 			do {
-				await this.setFirstColumn(this._firstColumnIndex + 1);
-			} while (columnIndex >= this._firstColumnIndex + this.visibleColumns);
+				await this.setFirstColumn(this._firstColumnIndexXX + 1);
+			} while (columnIndex >= this._firstColumnIndexXX + this.visibleColumns);
 		}
 	}
 
@@ -1525,12 +1586,12 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	async scrollToRow(rowIndex: number) {
-		if (rowIndex < this.firstRowIndex) {
+		if (rowIndex < this.firstRowIndexXX) {
 			await this.setFirstRow(rowIndex);
-		} else if (rowIndex >= this.firstRowIndex + this.visibleRows) {
+		} else if (rowIndex >= this.firstRowIndexXX + this.visibleRows) {
 			do {
-				await this.setFirstRow(this.firstRowIndex + 1);
-			} while (rowIndex >= this.firstRowIndex + this.visibleRows);
+				await this.setFirstRow(this.firstRowIndexXX + 1);
+			} while (rowIndex >= this.firstRowIndexXX + this.visibleRows);
 		}
 	}
 
@@ -1656,7 +1717,7 @@ export abstract class DataGridInstance extends Disposable {
 		const adjustCursor = async (columnIndex: number) => {
 			// Adjust the cursor.
 			this._cursorColumnIndex = columnIndex;
-			this._cursorRowIndex = this._firstRowIndex;
+			this._cursorRowIndex = this._firstRowIndexXX;
 		};
 
 		// Process the selection based on selection type.
@@ -1779,7 +1840,7 @@ export abstract class DataGridInstance extends Disposable {
 		 */
 		const adjustCursor = async (rowIndex: number) => {
 			// Adjust the cursor.
-			this._cursorColumnIndex = this._firstColumnIndex;
+			this._cursorColumnIndex = this._firstColumnIndexXX;
 			this._cursorRowIndex = rowIndex;
 		};
 
@@ -2463,8 +2524,8 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	protected softReset() {
 		// Reset the display.
-		this._firstColumnIndex = 0;
-		this._firstRowIndex = 0;
+		this._firstColumnIndexXX = 0;
+		this._firstRowIndexXX = 0;
 		if (this._cursorInitiallyHidden) {
 			this._cursorColumnIndex = -1;
 			this._cursorRowIndex = -1;
@@ -2497,13 +2558,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private optimizeFirstColumn() {
 		// If the waffle isn't scrolled horizontally, return.
-		if (!this.firstColumnIndex) {
+		if (!this.firstColumnIndexXX) {
 			return;
 		}
 
 		// Calculate the layout width.
 		let layoutWidth = this.layoutWidth;
-		for (let i = this.firstColumnIndex; i < this.columns; i++) {
+		for (let i = this.firstColumnIndexXX; i < this.columns; i++) {
 			// Adjust the layout width.
 			layoutWidth -= this.getColumnWidth(i);
 
@@ -2515,7 +2576,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		// See if we can optimize the first column.
 		let firstColumnIndex: number | undefined = undefined;
-		for (let i = this.firstColumnIndex - 1; i >= 0 && layoutWidth > 0; i--) {
+		for (let i = this.firstColumnIndexXX - 1; i >= 0 && layoutWidth > 0; i--) {
 			// Get the column width.
 			const columnWidth = this.getColumnWidth(i);
 
@@ -2530,7 +2591,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Set the first column, if it was adjusted.
 		if (firstColumnIndex) {
-			this._firstColumnIndex = firstColumnIndex;
+			this._firstColumnIndexXX = firstColumnIndex;
 		}
 	}
 
@@ -2539,13 +2600,13 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private optimizeFirstRow() {
 		// If the waffle isn't scrolled vertically, return.
-		if (!this.firstRowIndex) {
+		if (!this.firstRowIndexXX) {
 			return;
 		}
 
 		// Calculate the layout height.
 		let layoutHeight = this.layoutHeight;
-		for (let i = this.firstRowIndex; i < this.rows; i++) {
+		for (let i = this.firstRowIndexXX; i < this.rows; i++) {
 			// Adjust the layout height.
 			layoutHeight -= this.getRowHeight(i);
 
@@ -2557,7 +2618,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		// See if we can optimize the first column.
 		let firstRowIndex: number | undefined = undefined;
-		for (let i = this.firstRowIndex - 1; i >= 0 && layoutHeight > 0; i--) {
+		for (let i = this.firstRowIndexXX - 1; i >= 0 && layoutHeight > 0; i--) {
 			// Get the row height.
 			const rowHeight = this.getRowHeight(i);
 
@@ -2572,7 +2633,7 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Set the first row, if it was adjusted.
 		if (firstRowIndex) {
-			this._firstRowIndex = firstRowIndex;
+			this._firstRowIndexXX = firstRowIndex;
 		}
 	}
 
