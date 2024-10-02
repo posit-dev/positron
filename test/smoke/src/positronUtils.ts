@@ -160,7 +160,6 @@ function parseOptions(): ParseOptions {
 
 	// Map environment variables to command-line arguments
 	const envToArgsMap: Record<string, string[]> = {
-		BUILD: ['--build'],
 		HEADLESS: ['--headless'],
 		PARALLEL: ['--parallel'],
 		REMOTE: ['--remote'],
