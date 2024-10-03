@@ -176,7 +176,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
-			scrollbarWidth: 14,
+			scrollbarThickness: 14,
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
@@ -184,8 +184,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			internalCursor: true,
 			cursorOffset: 0.5,
 		});
-
-		this._userDefinedRowHeights.set(10, 60);
 
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
@@ -250,6 +248,27 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		return this._tableDataCache.rows;
 	}
 
+	/**
+	 * Gets the scroll width.
+	 */
+	get scrollWidth() {
+		// TODO@scroll.
+		return 2000;
+	}
+
+	/**
+	 * Gets the scroll height.
+	 */
+	get scrollHeight() {
+		// When row resize is disabled, we can calculate the first row and its top directly.
+		if (!this.rowResize) {
+			return this.rows * this.defaultRowHeight;
+		}
+
+		// TODO@scroll.
+		return 2000;
+	}
+
 	private _columnRanges = new Ranges();
 	private _rowRanges = new Ranges();
 
@@ -258,7 +277,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	get firstColumn() {
 		if (this.rows !== this._rowRanges.length) {
-			const start = new Date().getTime();
 			this._columnRanges.clear();
 			let left = 0;
 			for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
@@ -272,9 +290,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 				left += columnWidth;
 			}
-
-			const end = new Date().getTime();
-			// console.log(`+++++++++++++ Building column ranges took ${end - start}ms`);
 		}
 
 		const yama = this._columnRanges.find(this.horizontalScrollOffset);
@@ -296,6 +311,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the first row.
 	 */
 	get firstRow() {
+		// When row resize is disabled, we can calculate the first row and its top directly.
+		if (!this.rowResize) {
+			const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
+			return {
+				rowIndex,
+				top: rowIndex * this.defaultRowHeight
+			};
+		}
+
 		if (this.rows !== this._rowRanges.length) {
 			const start = new Date().getTime();
 			this._rowRanges.clear();

@@ -24,22 +24,6 @@ const MIN_SLIDER_SIZE = 20;
  */
 interface DataGridSmoothScrollbarProps {
 	/**
-	 * Gets the orientation of the scrollbar.
-	 */
-	readonly orientation: 'horizontal' | 'vertical';
-
-	/**
-	 * Gets a value which indicates whether both horizontal and vertical scrollbars are visible.
-	 */
-	readonly bothScrollbarsVisible: boolean;
-
-	/**
-	 * Gets the scrollbar width. For a vertical scrollbar, this is the scrollbar width. For a
-	 * horizontal scrollbar, this is the scrollbar height.
-	 */
-	readonly scrollbarWidth: number;
-
-	/**
 	 * Gets the container width for the scrollbar.
 	 */
 	readonly containerWidth: number;
@@ -50,16 +34,45 @@ interface DataGridSmoothScrollbarProps {
 	readonly containerHeight: number;
 
 	/**
-	 * Gets the content size. For a vertical scrollbar, this is the height of the scrollable
+	 * Gets the orientation of the scrollbar.
+	 */
+	readonly orientation: 'horizontal' | 'vertical';
+
+	/**
+	 * Gets a value which indicates whether both horizontal and vertical scrollbars are visible.
+	 */
+	readonly bothScrollbarsVisible: boolean;
+
+	/**
+	 * Gets the scrollbar thickness. For a vertical scrollbar, this is the scrollbar width. For a
+	 * horizontal scrollbar, this is the scrollbar height.
+	 */
+	readonly scrollbarThickness: number;
+
+	/**
+	 * Gets the scroll size. For a vertical scrollbar, this is the height of the scrollable
 	 * content. For a horizontal scrollbar, this is the width of the scrollable content.
 	 */
-	readonly contentSize: number;
+	readonly scrollSize: number;
+
+	/**
+	 * Gets the layout size. For a vertical scrollbar, this is the visible height of the content.
+	 * For a horizontal scrollbar, this is the visible width of the content.
+	 */
+	readonly layoutSize: number;
 
 	/**
 	 * Gets the scroll offset. For a vertical scrollbar, this is the top position of the scrollbar.
 	 * For a horizontal scrollbar, this is the left position of the scrollbar.
 	 */
 	readonly scrollOffset: number;
+
+	/**
+	 * Gets the maximum scroll offset. For a vertical scrollbar, this is the maximum top position of
+	 * the scrollbar. For a horizontal scrollbar, this is the maximum left position of the
+	 * scrollbar.
+	 */
+	readonly maximumScrollOffset: number;
 
 	/**
 	 * Scroll offset changed callback.
@@ -129,11 +142,11 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 				props.containerHeight :
 				props.containerWidth;
 			if (props.bothScrollbarsVisible) {
-				scrollbarLength -= props.scrollbarWidth;
+				scrollbarLength -= props.scrollbarThickness;
 			}
 
 			// If the scrollbar isn't necessary, disable it and return.
-			if (props.scrollOffset === 0 && scrollbarLength >= props.contentSize) {
+			if (props.scrollOffset === 0 && scrollbarLength >= props.scrollSize) {
 				return {
 					scrollbarLength,
 					scrollbarDisabled: true,
@@ -144,30 +157,24 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			}
 
 			// Calculate the slider size.
-			const sliderSize = pinToRange(
-				scrollbarLength / props.contentSize,
-				MIN_SLIDER_SIZE,
-				scrollbarLength
+			const sliderSize = Math.max(
+				scrollbarLength / props.scrollSize * props.layoutSize,
+				MIN_SLIDER_SIZE
 			);
 
 			// Calculate the slider position.
 			let sliderPosition: number;
 			if (previousScrollbarState.preserveSliderPosition) {
+				console.log('preserve slider position!');
 				sliderPosition = state.sliderPosition;
 			} else {
-				if (props.scrollOffset === 0) {
-					sliderPosition = 0;
-				} else if (props.scrollOffset + props.scrollbarWidth >= props.contentSize) {
-					sliderPosition = scrollbarLength - sliderSize;
-				} else {
-					sliderPosition = pinToRange(
-						(scrollbarLength - sliderSize) *
-						(props.scrollOffset / (props.contentSize - props.scrollbarWidth)),
-						0,
-						scrollbarLength - sliderSize
-					);
-				}
+				console.log('change slider position!');
+				sliderPosition =
+					props.scrollOffset / props.maximumScrollOffset *
+					(scrollbarLength - sliderSize);
 			}
+
+			// console.log(`Outside slider position: ${sliderPosition}`);
 
 			// Update the scrollbar state.
 			return {
@@ -217,7 +224,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 
 		// Calculate the scroll offset.
 		const scrollOffset = Math.min(Math.trunc(
-			(props.contentSize - 10) * sliderPosition / (state.scrollbarLength - state.sliderSize)),
+			(props.scrollSize - 10) * sliderPosition / (state.scrollbarLength - state.sliderSize)),
 			1000
 		);
 
@@ -300,14 +307,18 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 				};
 			});
 
-			// Calculate the scroll offset.
-			const scrollOffset = Math.min(Math.trunc(
-				(props.contentSize - state.scrollbarLength) * sliderPosition / (state.scrollbarLength - state.sliderSize)),
-				100000
+			console.log(`Slider position: ${sliderPosition}`);
+
+			const sliderPercent = pinToRange(
+				sliderPosition / (state.scrollbarLength - state.sliderSize),
+				0,
+				1
 			);
 
+			console.log(`sliderPercent: ${sliderPercent}`);
+
 			// Call the onDidChangeScrollOffset callback.
-			props.onDidChangeScrollOffset(scrollOffset);
+			props.onDidChangeScrollOffset(props.maximumScrollOffset * sliderPercent);
 		};
 
 		// Set the capture target of future pointer events to be the current target and add our
@@ -319,24 +330,24 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 
 	// Set the scrollbar style.
 	const scrollbarStyle: CSSProperties = props.orientation === 'vertical' ? {
-		width: props.scrollbarWidth,
-		bottom: props.bothScrollbarsVisible ? props.scrollbarWidth : 0,
+		width: props.scrollbarThickness,
+		bottom: props.bothScrollbarsVisible ? props.scrollbarThickness : 0,
 	} : {
-		height: props.scrollbarWidth,
-		right: props.bothScrollbarsVisible ? props.scrollbarWidth : 0
+		height: props.scrollbarThickness,
+		right: props.bothScrollbarsVisible ? props.scrollbarThickness : 0
 	};
 
 	// Set the slider style.
 	const sliderStyle: CSSProperties = props.orientation === 'vertical' ? {
 		top: state.sliderPosition,
 		// -1 to not overlap border.
-		width: props.scrollbarWidth - 1,
+		width: props.scrollbarThickness - 1,
 		height: state.sliderSize
 	} : {
 		left: state.sliderPosition,
 		width: state.sliderSize,
 		// -1 to not overlap border.
-		height: props.scrollbarWidth - 1
+		height: props.scrollbarThickness - 1
 	};
 
 	// Render.
