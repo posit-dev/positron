@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { DefaultApi, HttpBasicAuth, HttpBearerAuth, HttpError } from './kcclient/api';
+import { DefaultApi, HttpBearerAuth, HttpError } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
@@ -72,26 +72,38 @@ export class KCApi implements KallichoreAdapterApi {
 
 	async start() {
 		// Check to see if there's a server already running for this workspace
-		const serverState = this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+		const serverState =
+			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 
 		// If there is, and we can reconnect to it, do so
 		if (serverState) {
 			try {
 				if (await this.reconnect(serverState)) {
+					// Successfully reconnected
 					return;
 				} else {
-					this._log.warn(`Could not reconnect to Kallichore server at ${serverState.base_path}. Starting a new server`);
+					// Did not reconnect; start a new server. This isn't
+					// necessarily an error condition since we always try to
+					// reconnect to the server saved in the state, and it's
+					// normal for it to have exited if this is a new Positron
+					// session.
+					this._log.info(`Could not reconnect to Kallichore server ` +
+						`at ${serverState.base_path}. Starting a new server`);
 				}
 			} catch (err) {
-				this._log.error(`Failed to reconnect to Kallichore server at ${serverState.base_path}: ${err}. Starting a new server.`);
+				this._log.error(`Failed to reconnect to Kallichore server ` +
+					` at ${serverState.base_path}: ${err}. Starting a new server.`);
 			}
 		}
 
+		// Get the path to the Kallichore server binary. This will throw an
+		// error if the server binary cannot be found.
 		const shellPath = this.getKallichorePath();
+
 		const env = {
 			'POSITRON': '1',
 			'POSITRON_VERSION': positron.version,
-			'RUST_LOG': 'debug'
+			'RUST_LOG': 'debug' // TODO: make this configurable
 		};
 
 		// Create a 16 hex digit UUID for the bearer token
@@ -112,6 +124,7 @@ export class KCApi implements KallichoreAdapterApi {
 		// Find a port for the server to listen on
 		const port = await findAvailablePort([], 10);
 
+		// Start the server in a new terminal
 		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: 'Kallichore',
@@ -123,25 +136,44 @@ export class KCApi implements KallichoreAdapterApi {
 			isTransient: false
 		});
 
-		// wait 500ms for the server to start up (TODO: there has to be faster way to do this)
-		setTimeout(() => {
-			this._api.basePath = `http://localhost:${port}`;
-			this._api.setDefaultAuthentication(bearer);
-			this._api.listSessions().then(async sessions => {
-				this._started.open();
-				const state: KallichoreServerState = {
-					base_path: this._api.basePath,
-					port,
-					server_path: shellPath,
-					server_pid: await terminal.processId || 0,
-					bearer_token: bearerToken
-				};
-				this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
-				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
-			});
-		}, 500);
+		// Wait for the terminal to start and get the PID
+		await terminal.processId;
+
+		// Establish the API
+		this._api.basePath = `http://localhost:${port}`;
+		this._api.setDefaultAuthentication(bearer);
+
+		// List the sessions to verify that the server is up
+		try {
+			const sessions = await this._api.listSessions();
+			this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
+		} catch (err) {
+			this._log.error(`Failed to get session list from Kallichore; ` +
+				`server may not be running or may not be ready. Check the terminal for errors. ` +
+				`Error: ${JSON.stringify(err)}`);
+			throw err;
+		}
+
+		// Open the started barrier and save the server state since we're online
+		this._started.open();
+		const state: KallichoreServerState = {
+			base_path: this._api.basePath,
+			port,
+			server_path: shellPath,
+			server_pid: await terminal.processId || 0,
+			bearer_token: bearerToken
+		};
+		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
 
+	/**
+	 * Attempt to reconnect to a Kallichore server that was previously running.
+	 *
+	 * @param serverState The state of the server to reconnect to.
+	 * @returns True if the server was successfully reconnected, false if the
+	 *  server was not running.
+	 * @throws An error if the server was running but could not be reconnected.
+	 */
 	async reconnect(serverState: KallichoreServerState): Promise<boolean> {
 		// Check to see if the pid is still running
 		const pid = serverState.server_pid;
@@ -168,19 +200,38 @@ export class KCApi implements KallichoreAdapterApi {
 		return true;
 	}
 
-	async createSession(runtimeMetadata: LanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, kernel: JupyterKernelSpec, dynState: LanguageRuntimeDynState, _extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
+	/**
+	 * Create a new session for a Jupyter-compatible kernel.
+	 *
+	 * @param runtimeMetadata The metadata for the associated language runtime
+	 * @param sessionMetadata The metadata for this specific kernel session
+	 * @param kernel The Jupyter kernel spec for the kernel to be started
+	 * @param dynState The kernel's initial dynamic state
+	 * @param _extra Extra functionality for the kernel
+	 *
+	 * @returns A promise that resolves to the new session
+	 * @throws An error if the session cannot be created
+	 */
+	async createSession(
+		runtimeMetadata: LanguageRuntimeMetadata,
+		sessionMetadata: RuntimeSessionMetadata,
+		kernel: JupyterKernelSpec,
+		dynState: LanguageRuntimeDynState,
+		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
+
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session object
-		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, dynState, this._api, true);
+		const session = new KallichoreSession(
+			sessionMetadata, runtimeMetadata, dynState, this._api, true);
 
-		// Wait for the server to start
+		// Wait for the server to start before creating the session
 		await this._started.wait();
 
 		// Create the session on the server
 		await session.create(kernel);
 
-		// Save the session
+		// Save the session now that it has been created on the server
 		this._sessions.push(session);
 
 		return session;
@@ -242,9 +293,11 @@ export class KCApi implements KallichoreAdapterApi {
 	 */
 	getKallichorePath(): string {
 
-		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
 		const path = require('path');
 		const fs = require('fs');
+
+		// Get the name of the server binary for the current platform
+		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
 
 		// Look for locally built Debug or Release server binaries. If both exist, we'll use
 		// whichever is newest. This is the location where the kernel is typically built
@@ -268,7 +321,8 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Now try the default (embedded) kernel. This is where the kernel is placed in
 		// development and release builds.
-		const embeddedBinary = path.join(this._context.extensionPath, 'resources', 'ark', serverBin);
+		const embeddedBinary = path.join(
+			this._context.extensionPath, 'resources', 'kallichore', serverBin);
 		if (fs.existsSync(embeddedBinary)) {
 			return embeddedBinary;
 		}

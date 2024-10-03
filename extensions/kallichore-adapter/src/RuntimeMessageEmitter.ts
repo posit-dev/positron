@@ -17,6 +17,10 @@ import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
 
+/**
+ * An emitter for runtime messages; translates Jupyter messages into language
+ * runtime messages and emits them to Positron.
+ */
 export class RuntimeMessageEmitter {
 
 	private readonly _emitter: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -29,6 +33,12 @@ export class RuntimeMessageEmitter {
 		return this._emitter.event;
 	}
 
+	/**
+	 * Main entry point for message router; consumes a Jupyter message and emits
+	 * a corresponding LanguageRuntimeMessage.
+	 *
+	 * @param msg The Jupyter message to be emitted
+	 */
 	public emitJupyter(msg: JupyterMessage): void {
 		switch (msg.header.msg_type) {
 			case 'comm_msg':

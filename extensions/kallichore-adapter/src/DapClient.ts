@@ -7,8 +7,14 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { JupyterLanguageRuntimeSession } from './jupyter-adapter';
 
+/**
+ * A Debug Adapter Protocol (DAP) client instance; handles messages from the
+ * kernel side of the DAP and forwards them to the debug adapter.
+ */
 export class DapClient {
+	/** Message counter; used for creating unique message IDs */
 	private static _counter = 0;
+
 	private _msgStem: string;
 
 	constructor(readonly clientId: string,
