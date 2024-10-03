@@ -594,7 +594,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 				return false;
 			}
 
-			// The the second row filter value is valid.
+			// The second row filter value is valid.
 			return true;
 		};
 

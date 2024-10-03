@@ -49,23 +49,6 @@ export const DataGridRow = (props: DataGridRowProps) => {
 		columnIndex++;
 	}
 
-	// for (let columnIndex = context.instance.firstColumnIndexXX, left = 0;
-	// 	columnIndex < context.instance.columns && left < props.width;
-	// 	columnIndex++
-	// ) {
-	// 	rowCells.push(
-	// 		<DataGridRowCell
-	// 			key={`row-cell-${props.rowIndex}-${columnIndex}`}
-	// 			columnIndex={columnIndex}
-	// 			rowIndex={props.rowIndex}
-	// 			left={left}
-	// 		/>
-	// 	);
-
-	// 	// Adjust the left offset for the next column.
-	// 	left += context.instance.getColumnWidth(columnIndex);
-	// }
-
 	// Render.
 	return (
 		<div

@@ -27,7 +27,7 @@ import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronData
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, ColumnDescriptor, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
  * Localized strings.
@@ -52,7 +52,14 @@ export class Ranges {
 	 */
 	private _ranges: Range[] = [];
 
+	/**
+	 * Gets or sets the last value.
+	 */
 	private _lastValue = -1;
+
+	/**
+	 * Gets or sets the last range for the last value.
+	 */
 	private _lastRange?: Range;
 
 	/**
@@ -83,39 +90,50 @@ export class Ranges {
 		this._ranges.push(range);
 	}
 
+	get lastRange(): Range {
+		if (!this._ranges.length) {
+			return {
+				edge: 0,
+				size: 0,
+				value: 0
+			};
+		}
+		return this._ranges[this._ranges.length - 1];
+	}
+
 	/**
 	 * Finds a value.
 	 * @param value The value to find.
 	 * @returns The range, or, undefined.
 	 */
 	find(value: number): Range | undefined {
-		if (this._lastValue === value) {
-			// console.log(`Ranges.find found cached value ${value}`);
+		// If the value is the same as the last value, return the last range.
+		if (value === this._lastValue) {
 			return this._lastRange;
 		}
 
 		// Setup the binary search.
-		let left = 0;
-		let right = this._ranges.length - 1;
+		let leftIndex = 0;
+		let rightIndex = this._ranges.length - 1;
 
 		// Binary chop.
-		while (left <= right) {
-			const middle = Math.floor((left + right) / 2);
-			const range = this._ranges[middle];
+		while (leftIndex <= rightIndex) {
+			const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
+			const middleRange = this._ranges[middleIndex];
 
 			// Check for a match.
-			if (value >= range.edge && value < range.edge + range.size) {
-				// console.log(`Ranges.find found value ${value}`);
+			if (value >= middleRange.edge && value < middleRange.edge + middleRange.size) {
+				// Cache the last value and range.
 				this._lastValue = value;
-				this._lastRange = range;
-				return range;
+				this._lastRange = middleRange;
+				return middleRange;
 			}
 
 			// Setup the next binary chop.
-			if (range.edge < value) {
-				left = middle + 1;
+			if (middleRange.edge < value) {
+				leftIndex = middleIndex + 1;
 			} else {
-				right = middle - 1;
+				rightIndex = middleIndex - 1;
 			}
 		}
 
@@ -129,6 +147,9 @@ export class Ranges {
  */
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
+
+	private _columnRanges = new Ranges();
+	private _rowRanges = new Ranges();
 
 	/**
 	 * Gets or sets the sort index width calculator.
@@ -190,21 +211,21 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.All,
-				firstColumnIndex: this.firstColumnIndexXX,
+				firstColumnIndex: this.firstColumn.columnIndex,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndexXX,
+				firstRowIndex: this.firstRow.rowIndex,
 				screenRows: this.screenRows
 			});
 		}));
 
-		// Add the the data explorer client onDidDataUpdate event handler.
+		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: this.firstColumnIndexXX,
+				firstColumnIndex: this.firstColumn.columnIndex,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndexXX,
+				firstRowIndex: this.firstRow.rowIndex,
 				screenRows: this.screenRows
 			});
 		}));
@@ -224,10 +245,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		));
 
 		// Add the table data cache onDidUpdate event handler.
-		this._register(this._tableDataCache.onDidUpdate(() =>
+		this._register(this._tableDataCache.onDidUpdate(() => {
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
-		));
+			this._onDidUpdateEmitter.fire();
+		}));
 	}
 
 	//#endregion Constructor
@@ -252,15 +273,22 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {
+		// When column resize is disabled, we can calculate the scroll width.
+		if (!this.columnResize) {
+			return this.columns * this.defaultColumnWidth;
+		}
+
+		console.log('lqwejqleje');
+
 		// TODO@scroll.
-		return 2000;
+		return this._columnRanges.lastRange.edge + this._columnRanges.lastRange.size;
 	}
 
 	/**
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		// When row resize is disabled, we can calculate the first row and its top directly.
+		// When row resize is disabled, we can calculate the scroll height.
 		if (!this.rowResize) {
 			return this.rows * this.defaultRowHeight;
 		}
@@ -276,35 +304,60 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		return this.layoutHeight - this.defaultRowHeight;
 	}
 
-	private _columnRanges = new Ranges();
-	private _rowRanges = new Ranges();
-
 	/**
 	 * Gets the first column.
 	 */
-	get firstColumn() {
-		if (this.columns !== this._columnRanges.length) {
-			this._columnRanges.clear();
-			let left = 0;
-			for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
-				const columnWidth = this.getColumnWidth(columnIndex);
-
-				this._columnRanges.insert({
-					edge: left,
-					size: columnWidth,
-					value: columnIndex
-				});
-
-				left += columnWidth;
-			}
+	get firstColumn(): ColumnDescriptor {
+		// When column resize is disabled, we can easily calculate the first column.
+		if (!this.columnResize) {
+			const columnIndex = Math.floor(this.horizontalScrollOffset / this.defaultColumnWidth);
+			return {
+				columnIndex,
+				left: columnIndex * this.defaultColumnWidth,
+			};
 		}
 
-		const yama = this._columnRanges.find(this.horizontalScrollOffset);
+		const start = new Date().getTime();
+		console.log('RECOMPUTING COLUMN RANGES');
+		this._columnRanges.clear();
+		for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
+			const columnWidth = this.getColumnWidth(columnIndex);
 
-		if (yama) {
+			this._columnRanges.insert({
+				edge: left,
+				size: columnWidth,
+				value: columnIndex
+			});
+
+			left += columnWidth;
+		}
+
+		const end = new Date().getTime();
+
+		console.log(`RECOMPUTING COLUMN RANGES TOOK: ${end - start}ms`);
+
+		// if (this.columns !== this._columnRanges.length) {
+		// 	this._columnRanges.clear();
+		// 	let left = 0;
+		// 	for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
+		// 		const columnWidth = this.getColumnWidth(columnIndex);
+
+		// 		this._columnRanges.insert({
+		// 			edge: left,
+		// 			size: columnWidth,
+		// 			value: columnIndex
+		// 		});
+
+		// 		left += columnWidth;
+		// 	}
+		// }
+
+		const columnRange = this._columnRanges.find(this.horizontalScrollOffset);
+
+		if (columnRange) {
 			return {
-				columnIndex: yama.value,
-				left: yama.edge
+				columnIndex: columnRange.value,
+				left: columnRange.edge
 			};
 		}
 
@@ -318,7 +371,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the first row.
 	 */
 	get firstRow() {
-		// When row resize is disabled, we can calculate the first row and its top directly.
+		// When row resize is disabled, we can easily calculate the first row.
 		if (!this.rowResize) {
 			const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
 			return {
@@ -328,7 +381,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		if (this.rows !== this._rowRanges.length) {
-			const start = new Date().getTime();
 			this._rowRanges.clear();
 			let top = 0;
 			for (let rowIndex = 0; rowIndex < this.rows; rowIndex++) {
@@ -342,17 +394,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 				top += rowHeight;
 			}
-
-			const end = new Date().getTime();
-			console.log(`+++++++++++++ Building row ranges took ${end - start}ms`);
 		}
 
-		const yama = this._rowRanges.find(this.verticalScrollOffset);
+		const rowRange = this._rowRanges.find(this.verticalScrollOffset);
 
-		if (yama) {
+		if (rowRange) {
 			return {
-				rowIndex: yama.value,
-				top: yama.edge
+				rowIndex: rowRange.value,
+				top: rowRange.edge
 			};
 		}
 
@@ -424,9 +473,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndexXX,
+			firstColumnIndex: this.firstColumn.columnIndex,
 			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndexXX,
+			firstRowIndex: this.firstRow.rowIndex,
 			screenRows: this.screenRows
 		});
 	}
@@ -436,16 +485,12 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		// BRIAN
-
-		const firstRowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
-
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.None,
-			firstColumnIndex: this.firstColumnIndexXX,
+			firstColumnIndex: this.firstColumn.columnIndex,
 			screenColumns: this.screenColumns,
-			firstRowIndex,
+			firstRowIndex: this.firstRow.rowIndex,
 			screenRows: this.screenRows
 		});
 	}
@@ -883,9 +928,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Update the cache.
 		await this._tableDataCache.update({
 			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndexXX,
+			firstColumnIndex: this.firstColumn.columnIndex,
 			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndexXX,
+			firstRowIndex: this.firstRow.rowIndex,
 			screenRows: this.screenRows
 		});
 	}
