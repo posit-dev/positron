@@ -36,7 +36,6 @@ const { createLogger, ROOT_PATH } = require('../out/positronUtils');
 const { retry } = require('../out/utils');
 const { getBuildVersion, measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
 
-
 // Define a logger instance for `test-setup`
 const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'test-setup');
 const logger = createLogger(logsRootPath);
@@ -237,14 +236,18 @@ function findTestFilesRecursive(dirPath) {
  * Cleans up the test data directory.
  */
 function cleanupTestData(callback) {
-	rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
-		if (error) {
-			console.error('Error cleaning up test data:', error);
-			return callback(error);
-		}
-		console.log('Test data cleaned up successfully.');
+	if (process.env.SKIP_CLEANUP) {
 		callback(null);
-	});
+	} else {
+		rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
+			if (error) {
+				console.error('Error cleaning up test data:', error);
+				return callback(error);
+			}
+			console.log('Test data cleaned up successfully.');
+			callback(null);
+		});
+	}
 }
 
 /**
@@ -378,6 +381,7 @@ function configureEnvVarsFromOptions(opts) {
 		WEB: opts['web'] || '',
 		WIN: opts['win'] || '',
 		PR: opts['pr'] || '',
+		SKIP_CLEANUP: opts['skip-cleanup'] || '',
 		EXTENSIONS_PATH: EXTENSIONS_PATH,
 		WORKSPACE_PATH: WORKSPACE_PATH,
 		TEST_DATA_PATH: TEST_DATA_PATH,
