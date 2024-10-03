@@ -203,6 +203,11 @@ describe('New Project Wizard', () => {
 		});
 
 		describe('R Project with Renv Environment', () => {
+			beforeEach(async function () {
+				const app = this.app as Application;
+				await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+			});
+
 			it('Accept Renv install [C633084]', async function () {
 				const projSuffix = addRandomNumSuffix('_installRenv');
 				const app = this.app as Application;

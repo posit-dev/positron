@@ -83,37 +83,40 @@ On Windows, check for the folder `C:\Users\<username>\AppData\Local\Temp\t`. If 
 - Beware of **timing**. You need to read from or write to the DOM... but is it the right time to do that? Can you 100% guarantee that `input` box will be visible at that point in time? Or are you just hoping that it will be so? Hope is your worst enemy in UI tests. Example: just because you triggered Quick Access with `F1`, it doesn't mean that it's open and you can just start typing; you must first wait for the input element to be in the DOM as well as be the current active element.
 
 - Beware of **waiting**. **Never** wait longer than a couple of seconds for anything, unless it's justified. Think of it as a human using Code. Would a human take 10 minutes to run through the Search viewlet smoke test? Then, the computer should even be faster. **Don't** use `setTimeout` just because. Think about what you should wait for in the DOM to be ready and wait for that instead.
+
 <!-- Start Positron -->
 
-# Notes on smoke tests in Positron
+# Positron Smoke Tests Guide
 
-The following are a series of notes related to running smoke tests in Positron.
+This section contains guidelines and setup instructions for running smoke tests in the Positron project.
 
-## Where?
+## Test Structure Overview
 
-Code for smoke tests is in the path `test/smoke` from the root of the repo.
+### Test Code Location
 
-### Test scripts
+- General test dir: `test/smoke/src/areas`
+- Positron test dir: `test/smoke/src/areas/positron`
 
-The tests themselves are located at the path `test/smoke/src/areas/positron/<area>/*.test.ts`
+For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
-For instance the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+### Test Helpers Location
 
-An example/template test can be found in `test/smoke/src/areas/positron/example.test.ts`
+- General helpers dir: `test/automation/src`
+- Positron helpers dir: `test/automation/src/positron`
 
-### Automation helpers
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
-Typically an area being tested will have a companion class that helps manage the details of finding and interacting with the area that sits at `test/automation/src/positron`.
+### Test Template
 
-Again, the help pane tests have a `PositronHelp` class defined at `test/automation/src/positron/positronHelp.ts`
+An [example test](https://github.com/posit-dev/positron/blob/main/test/smoke/src/areas/positron/example.test.ts) is available to help guide you in structuring a new test.
 
-## Environment setup
+## Setup
 
-In order to run the tests you'll need to have two environment variables set. These are so Positron knows what R and Python versions to load.
+### Environment Variables
 
-A typical place to set them on a mac is in your `.zshrc`, but you should use your environment variable setting method of choice!
+In order to run the tests you'll need to have two environment variables set. These are so Positron knows what R and Python versions to load. A typical place to set them on a mac is in your `.zshrc`, but you should use your environment variable setting method of choice!
 
-**~/.zshrc**
+Add these to your .zshrc or the relevant configuration file for your shell:
 
 ```bash
 export POSITRON_PY_VER_SEL="3.11.5"
@@ -124,54 +127,93 @@ Make sure you actually have the version you chose installed. Easiest way is to o
 
 _Note: If you forgot to do this before trying to run the tests, you'll need to restart VSCode or whatever editor you're using before they will take effect._
 
-Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects.  A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
+## Dependencies
 
-The current commands for Python packages:
+### Python Dependencies
 
-```
+```bash
 curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 python -m pip install ipykernel
 ```
 
-The current commands for R packages:
+### R Dependencies
 
-```
+```bash
 curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 ```
 
-Graphviz is external software that has a Python package to render graphs. Install for your OS:
-* **Debian/Ubuntu** - `apt install graphviz`
-* **Fedora** - `dnf install graphviz`
-* **Windows** - `choco install graphviz`
-* **Mac** - `brew install graphviz`
+### Graphviz
 
-**Conda** environments are leveraged by some smoke tests. You can install a lightweight version of Conda (instead of installing Anaconda) by installing one of the following:
+Graphviz is external software that has a Python package to render graphs. Install for your OS:
+
+- **Debian/Ubuntu** - `apt install graphviz`
+- **Fedora** - `dnf install graphviz`
+- **Windows** - `choco install graphviz`
+- **Mac** - `brew install graphviz`
+
+### Conda
+
+Some smoke tests use Conda environments. Install a lightweight version of Conda:
+
 - [miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
 - [miniconda](https://docs.anaconda.com/miniconda/#quick-command-line-install) (On Mac, you can `brew install miniconda`. The equivalent installer may also be available via package managers on Linux and Windows.)
 
-## Environment Setup - Resemblejs dependency
+### Resemblejs
 
 Make sure that you have followed the [Machine Setup](https://connect.posit.it/positron-wiki/machine-setup.html) instructions so that you can be sure you are set up to build resemblejs (which depends on node-canvas).
 
-## Install Step
+### Test Dependencies
 
-Prior to compiling the tests, install the test dependencies by running `yarn install` in both these directories:
-* test/automation
-* test/smoke
+Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects.  A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
 
-## Build step
+## Running Tests
 
-The tests are written in typescript, but unlike the main Positron typescript, the files are not transpiled by the build daemons. So when running tests you'll need to navigate into the smoke tests location and run the build watcher:
+### Install
+
+Before compiling the tests, make sure to install dependencies in the following directories:
 
 ```bash
-cd test/smoke
-yarn watch
+yarn --cwd test/automation install
+yarn --cwd test/smoke install
+```
+
+### Build
+
+The tests are written in TypeScript, but unlike the main Positron code, these files aren’t automatically transpiled by the build daemons. To run the tests, you’ll need to start the build watcher:
+
+```bash
+yarn --cwd test/smoke watch
 ```
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
+
+### Launch Tests
+
+#### Debug Mode
+
+You can start the smoke tests using the `Launch Smoke Test` action from the debug dropdown (it’s near the bottom of the list). In debug mode, **tests run serially - parallel execution is not supported** — so running the entire suite can take a long time.
+
+To speed things up, you can focus on specific tests by adding the `it()` function to your test. If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
+
+_Note: Don't forget to remove the `.only()`s when you're done!_
+
+#### Command Line
+
+The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. For example, to run the entire test suite against your branch with 4 parallel jobs, use:
+
+```bash
+yarn smoketest-all --parallel --jobs 4
+```
+
+The following smoketest scripts are currently available:
+
+- `smoketest-all`: Runs all smoke tests
+- `smoketest-web`: Runs tests tagged with `#web`
+- `smoketest-win`: Runs tests tagged with `#win` (Windows)
+- `smoketest-pr`: Runs tests tagged with `#pr`
 
 ## Test Project
 
@@ -180,16 +222,6 @@ Before any of the tests start executing the test framework clones down the [QA C
 For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise.  If this becomes a problem, we can revisit this mechanism.
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
-
-## Running tests
-
-Once you have the build watcher running you can run the smoke tests with the debug action `Launch Smoke Test`. (It's near the bottom of the debug dropdown.)
-
-### Only running a subset of tests
-
-It takes a long time to run all the tests. To only run specific tests you can replace the `it()` function from your test script with `it.only()`. If the runner detects `it.only()`s in the tests it will _only_ run those blocks.
-
-_Note: Don't forget to remove the `.only()`s when you're done!_
 
 ## Local debugging
 
