@@ -28,9 +28,18 @@ module.exports.all = [
 	'!**/node_modules/**',
 
 	// --- Start Positron ---
+	// Excluded since it's generated code (an OpenAPI client)
 	'!extensions/kallichore-adapter/src/kcclient/**/*',
+
+	// Excluded since it comes from an external source with its own hygiene
+	// rules
 	'!extensions/positron-python/**/*',
+
+	// Excluded since it comes from an external source with its own hygiene
+	// rules
 	'!extensions/open-remote-ssh/**/*',
+
+	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
 	// --- End Positron ---
 ];

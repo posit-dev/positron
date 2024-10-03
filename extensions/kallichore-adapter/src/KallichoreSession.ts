@@ -227,7 +227,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 
 		await this._api.newSession(session);
-		this.log(`Session created: ${JSON.stringify(session)}`);
+		this.log(`Session created: ${JSON.stringify(session)}`, vscode.LogLevel.Info);
 		this._established.open();
 	}
 
@@ -243,7 +243,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async startPositronLsp(clientAddress: string) {
 		// Create a unique client ID for this instance
 		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
-		this.log(`Starting LSP server ${clientId} for ${clientAddress}`);
+		this.log(`Starting LSP server ${clientId} for ${clientAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -281,7 +281,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create a unique client ID for this instance
 		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
-		this.log(`Starting DAP server ${clientId} for ${serverAddress}`);
+		this.log(`Starting DAP server ${clientId} for ${serverAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
@@ -420,7 +420,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		};
 		const execute = new ExecuteRequest(id, request);
 		this.sendRequest(execute).then((reply) => {
-			this.log(`Execution result: ${JSON.stringify(reply)}`);
+			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
 		});
 	}
 
@@ -464,7 +464,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			await this.sendCommand(commOpen);
 			this._comms.set(id, new Comm(id, type));
 		} else {
-			this.log(`Can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`);
+			this.log(`Can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`, vscode.LogLevel.Error);
 		}
 	}
 
@@ -514,11 +514,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	replyToPrompt(id: string, value: string): void {
 		if (!this._activeBackendRequestHeader) {
-			this.log(`WARN: Failed to find parent for input request ${id}; sending anyway: ${value}`);
+			this.log(`Failed to find parent for input request ${id}; sending anyway: ${value}`, vscode.LogLevel.Warning);
 			return;
 		}
 		const reply = new InputReplyCommand(this._activeBackendRequestHeader, value);
-		this.log(`Sending input reply for ${id}: ${value}`);
+		this.log(`Sending input reply for ${id}: ${value}`, vscode.LogLevel.Debug);
 		this.sendCommand(reply);
 	}
 
@@ -529,7 +529,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const parent = this._activeBackendRequestHeader;
 
 		if (!parent) {
-			this.log(`ERROR: Failed to find parent for comm request ${response.id}`);
+			this.log(`Failed to find parent for comm request ${response.id}`, vscode.LogLevel.Warning);
 			return;
 		}
 
@@ -543,16 +543,20 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @param session The session to restore
 	 */
 	async restore(session: ActiveSession) {
-		// Re-establish the log stream by looking for the `--log` argument.
+		// Re-establish the log stream by looking for the `--log` or `--logfile`
+		// arguments.
 		//
-		// CONSIDER: This is a convention used by the R kernel but may not be
-		// reliable for other kernels. We could handle it more generically by
-		// storing this information in the session metadata.
-		const logFileIndex = session.argv.indexOf('--log');
-		if (logFileIndex > 0 && logFileIndex < session.argv.length - 1) {
-			const logFile = session.argv[logFileIndex + 1];
-			if (fs.existsSync(logFile)) {
-				this.streamLogFile(logFile);
+		// CONSIDER: This is a convention used by the R and Python kernels but
+		// may not be reliable for other kernels. We could handle it more
+		// generically by storing this information in the session metadata.
+		for (const arg of ['--log', '--logfile']) {
+			const logFileIndex = session.argv.indexOf(arg);
+			if (logFileIndex > 0 && logFileIndex < session.argv.length - 1) {
+				const logFile = session.argv[logFileIndex + 1];
+				if (fs.existsSync(logFile)) {
+					this.streamLogFile(logFile);
+					break;
+				}
 			}
 		}
 
@@ -570,6 +574,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._established.open();
 	}
 
+	/**
+	 * Starts a previously established session.
+	 *
+	 * This method is used both to start a new session and to reconnect to an
+	 * existing session.
+	 *
+	 * @returns The kernel info for the session.
+	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
@@ -627,8 +639,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return this.getKernelInfo();
 	}
 
+	/**
+	 * Waits for the session to become idle before connecting.
+	 *
+	 * @returns A promise that resolves when the session is idle. Does not time
+	 * out or reject.
+	 */
 	async waitForIdle(): Promise<void> {
-		this.log(`Session ${this.metadata.sessionId} is busy; waiting for it to become idle before connecting.`);
+		this.log(`Session ${this.metadata.sessionId} is busy; waiting for it to become idle before connecting.`, vscode.LogLevel.Info);
 		return new Promise((resolve, _reject) => {
 			this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
@@ -640,6 +658,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		});
 	}
 
+	/**
+	 * Connects or reconnects to the session's websocket.
+	 *
+	 * @returns A promise that resolves when the websocket is connected.
+	 */
 	connect(): Promise<void> {
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
@@ -647,36 +670,43 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this._ws.close();
 			}
 
-			// Connect to the session's websocket
+			// Connect to the session's websocket. The websocket URL is based on
+			// the base path of the API.
 			const uri = vscode.Uri.parse(this._api.basePath);
 			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
-			this.log(`Connecting to websocket: ${wsUri}`);
+			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
 			this._ws = new WebSocket(wsUri);
 			this._ws.onopen = () => {
-				this.log(`Connected to websocket.`);
+				this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
 				// Open the connected barrier so that we can start sending messages
 				this._connected.open();
 				resolve();
 			};
 			this._ws.onerror = (err: any) => {
-				this.log(`Error connecting to socket: ${err}`);
+				this.log(`Error connecting to socket: ${err}`, vscode.LogLevel.Error);
 				reject(err);
 
 				// TODO: Needs to take kernel down if this happens due to the
 				// connection getting closed from the server
 			};
 			this._ws.onmessage = (msg: any) => {
-				this.log(`RECV message: ${msg.data}`);
+				this.log(`RECV message: ${msg.data}`, vscode.LogLevel.Trace);
 				try {
 					const data = JSON.parse(msg.data.toString());
 					this.handleMessage(data);
 				} catch (err) {
-					this.log(`Could not parse message: ${err}`);
+					this.log(`Could not parse message: ${err}`, vscode.LogLevel.Error);
 				}
 			};
 		});
 	}
 
+	/**
+	 * Interrupt a running kernel.
+	 *
+	 * @returns A promise that resolves when the kernel interrupt request has
+	 * been sent. Note that the kernel may not be interrupted immediately.
+	 */
 	async interrupt(): Promise<void> {
 		// Clear current input request if any
 		this._activeBackendRequestHeader = null;
@@ -744,10 +774,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Shows the profile output for this kernel, if any.
+	 */
 	async showProfile?(): Promise<void> {
 		this._profileChannel?.show();
 	}
 
+	/**
+	 * Clean up the session.
+	 */
 	dispose() {
 		// Close the websocket if it's open
 		this._ws?.close();
@@ -758,9 +794,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._disposables = [];
 	}
 
+	/**
+	 * Main entry point for handling messages delivered over the websocket from
+	 * the Kallichore server.
+	 *
+	 * @param data The message payload
+	 */
 	handleMessage(data: any) {
 		if (!data.kind) {
-			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${data}`);
+			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${data}`, vscode.LogLevel.Warning);
 			return;
 		}
 		switch (data.kind) {
@@ -773,6 +815,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Handles kernel-level messages sent from the Kallichore server.
+	 *
+	 * @param data The message payload
+	 */
 	handleKernelMessage(data: any) {
 		if (data.hasOwnProperty('status')) {
 			// Check to see if the status is a valid runtime state
@@ -792,7 +839,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.log(`Received initial heartbeat; kernel is ready.`);
 			this._ready.open();
 		}
-		this.log(`State: ${this._runtimeState} => ${newState}`);
+		this.log(`State: ${this._runtimeState} => ${newState}`, vscode.LogLevel.Debug);
 		if (newState === positron.RuntimeState.Offline) {
 			// Close the connected barrier if the kernel is offline
 			this._connected = new Barrier();
@@ -802,11 +849,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			newState === positron.RuntimeState.Offline) {
 			// The kernel was offline but is back online; open the connected
 			// barrier
-			this.log(`The kernel is back online.`);
+			this.log(`The kernel is back online.`, vscode.LogLevel.Info);
 			this._connected.open();
 		}
 		if (newState === positron.RuntimeState.Starting) {
-			this.log(`The kernel has started up after a restart.`);
+			this.log(`The kernel has started up after a restart.`, vscode.LogLevel.Info);
 			this._restarting = false;
 		}
 		this._runtimeState = newState;
@@ -816,11 +863,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private onExited(exitCode: number) {
 		if (this._restarting) {
 			// If we're restarting, wait for the kernel to start up again
-			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`);
+			this.log(`Kernel exited with code ${exitCode}; waiting for restart to finish.`, vscode.LogLevel.Info);
 		} else {
 			// If we aren't going to be starting up again, clean up the session
 			// websocket
-			this.log(`Kernel exited with code ${exitCode}; cleaning up.`);
+			this.log(`Kernel exited with code ${exitCode}; cleaning up.`, vscode.LogLevel.Info);
 			this._ws?.close();
 			this._ws = undefined;
 			this._connected = new Barrier();
@@ -900,7 +947,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					break;
 				case 'rpc_request': {
 					this.onCommRequest(msg).then(() => {
-						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`);
+						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
 					});
 					break;
 				}
@@ -994,7 +1041,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				`Notebook: Profiler ${path.basename(this.metadata.notebookUri.path)} (${this.runtimeMetadata.runtimeName})` :
 				`Positron ${this.runtimeMetadata.languageName} Profiler`);
 
-		this.log('Streaming profile file: ' + profileFilePath);
+		this.log('Streaming profile file: ' + profileFilePath, vscode.LogLevel.Debug);
 
 		const profileStreamer = new LogStreamer(this._profileChannel, profileFilePath);
 		this._disposables.push(profileStreamer);
