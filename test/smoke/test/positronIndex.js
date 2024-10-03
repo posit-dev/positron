@@ -87,7 +87,30 @@ function runMochaTests() {
 			spec: '-',  // Console output
 			xunit: REPORT_PATH,
 		},
-		retries: 1,
+		retries: 0,
+	});
+
+	// Apply test filters based on CLI options
+	applyTestFilters(mocha);
+
+	// Add test files to the Mocha runner
+	const testFiles = findTestFilesRecursive(path.resolve('out/areas/positron'));
+	testFiles.forEach(file => mocha.addFile(file));
+
+	// Run the Mocha tests
+	mocha.run(failures => {
+		if (failures) {
+			console.log(getFailureLogs());
+		} else {
+			console.log('All tests passed.');
+		}
+		cleanupTestData(err => {
+			if (err) {
+				console.log('Error cleaning up test data:', err);
+			} else {
+				process.exit(failures ? 1 : 0);
+			}
+		});
 	});
 }
 
