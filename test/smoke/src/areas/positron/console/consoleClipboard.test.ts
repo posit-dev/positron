@@ -5,85 +5,83 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import * as os from 'os';
+import { setupAndStartApp } from '../../../positronUtils';
 
-export function setup(logger: Logger) {
-	describe('Console', () => {
-		// Shared before/after handling
-		installAllHandlers(logger);
 
-		const isMac = os.platform() === 'darwin';
-		const modifier = isMac ? 'Meta' : 'Control';
+describe('Console', () => {
+	setupAndStartApp();
 
-		async function testBody(app: Application) {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	const isMac = os.platform() === 'darwin';
+	const modifier = isMac ? 'Meta' : 'Control';
 
-			const activeConsole = app.workbench.positronConsole.activeConsole;
-			await activeConsole.click();
-			const page = activeConsole!.page();
+	async function testBody(app: Application) {
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
-			const testLine = 'a = 1';
+		const activeConsole = app.workbench.positronConsole.activeConsole;
+		await activeConsole.click();
+		const page = activeConsole!.page();
 
-			await expect(async () => {
-				// Ensure nothing is in the current line and clear the console
-				await app.workbench.positronConsole.sendEnterKey();
-				await app.workbench.positronConsole.barClearButton.click();
+		const testLine = 'a = 1';
 
-				// Send test line to console
-				await app.workbench.positronConsole.typeToConsole(testLine);
+		await expect(async () => {
+			// Ensure nothing is in the current line and clear the console
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronConsole.barClearButton.click();
 
-				// copy the test line and send enter key
-				await page.keyboard.press(`${modifier}+A`);
-				await page.keyboard.press(`${modifier}+C`);
-				await app.workbench.positronConsole.sendEnterKey();
+			// Send test line to console
+			await app.workbench.positronConsole.typeToConsole(testLine);
 
-				// ensure the console previous lines contain the test line
-				await app.workbench.positronConsole.waitForConsoleContents(
-					(lines) => lines.some((line) => line.includes(testLine)));
-
-				// clear the console and ensure the clear succeeded
-				await app.workbench.positronConsole.barClearButton.click();
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => {
-					return !contents.some(Boolean);
-				});
-			}).toPass({ timeout: 40000 });
-
-			await page.keyboard.press(`${modifier}+V`);
-
-			await app.workbench.positronConsole.waitForCurrentConsoleLineContents((line) =>
-				line.includes(testLine.replaceAll(' ', ' ')));
-
+			// copy the test line and send enter key
+			await page.keyboard.press(`${modifier}+A`);
+			await page.keyboard.press(`${modifier}+C`);
 			await app.workbench.positronConsole.sendEnterKey();
 
-			// check for two instances of the test line in a row (invalid)
-			await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-				contents.some((line) => line.includes(testLine))
-			);
+			// ensure the console previous lines contain the test line
+			await app.workbench.positronConsole.waitForConsoleContents(
+				(lines) => lines.some((line) => line.includes(testLine)));
 
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		}
-
-		describe('Console Clipboard - Python', () => {
-			before(async function () {
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
+			// clear the console and ensure the clear succeeded
+			await app.workbench.positronConsole.barClearButton.click();
+			await app.workbench.positronConsole.waitForConsoleContents((contents) => {
+				return !contents.some(Boolean);
 			});
+		}).toPass({ timeout: 40000 });
 
-			it('Python - Copy from console & paste to console [C608100]', async function () {
-				await testBody(this.app);
-			});
+		await page.keyboard.press(`${modifier}+V`);
+
+		await app.workbench.positronConsole.waitForCurrentConsoleLineContents((line) =>
+			line.includes(testLine.replaceAll(' ', ' ')));
+
+		await app.workbench.positronConsole.sendEnterKey();
+
+		// check for two instances of the test line in a row (invalid)
+		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+			contents.some((line) => line.includes(testLine))
+		);
+
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	}
+
+	describe('Console Clipboard - Python', () => {
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		describe('Console Clipboard - R', () => {
-			before(async function () {
-				// setup R but do not wait for a default interpreter to finish starting
-				await PositronRFixtures.SetupFixtures(this.app as Application, true);
-			});
-
-			it('R - Copy from console & paste to console [C663725]', async function () {
-				await testBody(this.app);
-			});
+		it('Python - Copy from console & paste to console [C608100]', async function () {
+			await testBody(this.app);
 		});
 	});
-}
+
+	describe('Console Clipboard - R', () => {
+		before(async function () {
+			// setup R but do not wait for a default interpreter to finish starting
+			await PositronRFixtures.SetupFixtures(this.app as Application, true);
+		});
+
+		it('R - Copy from console & paste to console [C663725]', async function () {
+			await testBody(this.app);
+		});
+	});
+});
