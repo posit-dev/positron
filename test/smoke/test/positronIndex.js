@@ -7,9 +7,9 @@
 'use strict';
 
 // Node.js core modules
-const cp = require('child_process');
 const fs = require('fs');
 const os = require('os');
+const cp = require('child_process');
 const path = require('path');
 const { join } = require('path');
 
@@ -18,65 +18,106 @@ const Mocha = require('mocha');
 const minimist = require('minimist');
 const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
+const vscodetest = require('@vscode/test-electron');
 
 // Constants
 const REPORT_PATH = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
-console.log('Reporting to -->', REPORT_PATH);
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 
-// Parse command-line arguments
-const opts = minimist(process.argv.slice(2));
-
 // Set environment variables based on options
-configureEnvVarsFromOptions(opts);
+// NOTE: Must be set before importing internal modules
+const OPTS = minimist(process.argv.slice(2));
+configureEnvVarsFromOptions(OPTS);
+
+// Internal modules
+const { createLogger, ROOT_PATH } = require('../out/positronUtils');
+const { retry } = require('../out/utils');
+const { measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
+
+// Define a logger instance for `test-setup`
+const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'test-setup');
+const logger = createLogger(logsRootPath);
+let version;
 
 // Main execution flow
-prepareTestDataDirectory();
-cloneTestRepo();
-runMochaTests();
+(function main() {
+	prepareTestEnv();
+	cloneTestRepo();
+	runMochaTests();
+})();
 
 /**
- * Configures environment variables based on parsed options.
+ * Prepares the test environment for Electron or Web smoke tests.
  */
-function configureEnvVarsFromOptions(opts) {
-	const envVars = {
-		BUILD: opts['build'] || '',
-		HEADLESS: opts['headless'] || '',
-		PARALLEL: opts['parallel'] || '',
-		REMOTE: opts['remote'] || '',
-		TRACING: opts['tracing'] || '',
-		VERBOSE: opts['verbose'] || '',
-		WEB: opts['web'] || '',
-		WIN: opts['win'] || '',
-		PR: opts['pr'] || '',
-		EXTENSIONS_PATH: EXTENSIONS_PATH,
-		WORKSPACE_PATH: WORKSPACE_PATH,
-		TEST_DATA_PATH: TEST_DATA_PATH,
-		REPORT_PATH: REPORT_PATH,
-	};
-	Object.assign(process.env, envVars);
+function prepareTestEnv() {
+	try {
+		initializeTestEnvironment(logger);
+		console.log('Test environment setup completed successfully.');
+
+		// Disabling this section of code for now. It's used to download a stable version of VSCode
+		// Maybe we would want to update this to download a stable version of Positron some day?
+		// if (!OPTS.web && !OPTS.remote && OPTS.build) {
+		// 	// Only enabled when running with --build and not in web or remote
+		// 	version = getBuildVersion(OPTS.build);
+		// 	await ensureStableCode(TEST_DATA_PATH, logger, OPTS);
+		// }
+
+		prepareTestDataDirectory();
+	} catch (error) {
+		console.error('Failed to set up the test environment:', error);
+		process.exit(1);
+	}
 }
 
 /**
- * Returns the Mocha options based on the parsed arguments.
+ * Runs Mocha tests.
  */
-function getMochaOptions(opts) {
-	return {
+function runMochaTests() {
+	const mocha = new Mocha({
 		color: true,
 		timeout: 1 * 60 * 1000,  // 1 minute
 		slow: 30 * 1000,         // 30 seconds
-		grep: opts['f'] || opts['g'],
-		parallel: opts['parallel'],
-		jobs: opts['jobs'],
+		grep: OPTS['f'] || OPTS['g'],
+		parallel: OPTS['parallel'],
+		jobs: OPTS['jobs'],
 		reporter: 'mocha-multi',
 		reporterOptions: {
 			spec: '-',  // Console output
 			xunit: REPORT_PATH,
 		},
-		retries: 1,
-	};
+		retries: 0,
+	});
+
+	// Apply test filters based on CLI options
+	applyTestFilters(mocha);
+
+	// Add test files to the Mocha runner
+	const testFiles = findTestFilesRecursive(path.resolve('out/areas/positron'));
+	testFiles.forEach(file => mocha.addFile(file));
+
+	// Run the Mocha tests
+	const runner = mocha.run(failures => {
+		if (failures) {
+			console.log(getFailureLogs());
+		} else {
+			console.log('All tests passed.');
+		}
+		cleanupTestData(err => {
+			if (err) {
+				console.log('Error cleaning up test data:', err);
+			} else {
+				process.exit(failures ? 1 : 0);
+			}
+		});
+	});
+
+	// Attach the 'retry' event listener to the runner
+	runner.on('retry', (test, err) => {
+		console.error('Test failed, retrying:', test.fullTitle());
+		console.error(err);
+	});
 }
 
 /**
@@ -113,16 +154,16 @@ function prepareTestDataDirectory() {
 function cloneTestRepo() {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
-	if (opts['test-repo']) {
-		console.log('Copying test project repository from:', opts['test-repo']);
+	if (OPTS['test-repo']) {
+		console.log('Copying test project repository from:', OPTS['test-repo']);
 		// Remove the existing workspace path if the option is provided
 		rimraf.sync(WORKSPACE_PATH);
 
 		// Copy the repository based on the platform (Windows vs. non-Windows)
 		if (process.platform === 'win32') {
-			cp.execSync(`xcopy /E "${opts['test-repo']}" "${WORKSPACE_PATH}\\*"`);
+			cp.execSync(`xcopy /E "${OPTS['test-repo']}" "${WORKSPACE_PATH}\\*"`);
 		} else {
-			cp.execSync(`cp -R "${opts['test-repo']}" "${WORKSPACE_PATH}"`);
+			cp.execSync(`cp -R "${OPTS['test-repo']}" "${WORKSPACE_PATH}"`);
 		}
 	} else {
 		// If no test-repo is specified, clone the repository if it doesn't exist
@@ -178,41 +219,6 @@ function getFailureLogs() {
 }
 
 /**
- * Runs the Mocha tests and cleans up test data when done.
- */
-function runMochaTests() {
-	const mocha = new Mocha(getMochaOptions(opts));
-	applyTestFilters(mocha);
-	// mocha.dryRun();
-
-	// Find all test files recursively starting from `testDirPath`
-	const testDirPath = path.resolve('out/areas/positron');
-	const testFiles = findTestFilesRecursive(testDirPath);
-
-	// Add each test file to Mocha
-	testFiles.forEach(file => mocha.addFile(file));
-
-	// Run the tests
-	mocha.run(failures => {
-		// Handle test results
-		if (failures) {
-			console.log(getFailureLogs());
-		} else {
-			console.log('All tests passed.');
-		}
-
-		// Cleanup test data and handle exit
-		cleanupTestData(err => {
-			if (err) {
-				console.log('Error cleaning up test data:', err);
-			} else {
-				process.exit(failures ? 1 : 0);  // Exit based on test results
-			}
-		});
-	});
-}
-
-/**
  * Recursively finds all test files in child directories.
  */
 function findTestFilesRecursive(dirPath) {
@@ -237,12 +243,172 @@ function findTestFilesRecursive(dirPath) {
  * Cleans up the test data directory.
  */
 function cleanupTestData(callback) {
-	rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
-		if (error) {
-			console.error('Error cleaning up test data:', error);
-			return callback(error);
-		}
-		console.log('Test data cleaned up successfully.');
+	if (process.env.SKIP_CLEANUP) {
 		callback(null);
-	});
+	} else {
+		rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
+			if (error) {
+				console.error('Error cleaning up test data:', error);
+				return callback(error);
+			}
+			console.log('Test data cleaned up successfully.');
+			callback(null);
+		});
+	}
+}
+
+/**
+ * Parses the version string into its major, minor, and patch components.
+ */
+function parseVersion(version) {
+	const match = /^(\d+)\.(\d+)\.(\d+)/.exec(version);
+	if (!match) {
+		throw new Error(`Invalid version format: ${version}`);
+	}
+	const [, major, minor, patch] = match;
+	return { major: parseInt(major), minor: parseInt(minor), patch: parseInt(patch) };
+}
+
+/**
+ * Ensures a stable version of VSCode is downloaded if not already available.
+ */
+async function ensureStableCode(testDataPath, logger, opts) {
+	let stableCodePath = opts['stable-build'];
+
+	// Ensure that the `vscsmoke` folder exists before proceeding
+	mkdirp.sync(testDataPath);
+
+	if (!stableCodePath) {
+		const current = parseVersion(version);  // Use version declared in main
+		const versionsReq = await retry(() => measureAndLog(() => fetch('https://update.code.visualstudio.com/api/releases/stable'), 'versionReq', logger), 1000, 20);
+
+		if (!versionsReq.ok) {
+			throw new Error('Could not fetch releases from update server');
+		}
+
+		const versions = await measureAndLog(() => versionsReq.json(), 'versionReq.json()', logger);
+		const stableVersion = versions.find(raw => {
+			const version = parseVersion(raw);
+			return version.major < current.major || (version.major === current.major && version.minor < current.minor);
+		});
+
+		if (!stableVersion) {
+			throw new Error(`Could not find suitable stable version for ${version}`);
+		}
+
+		logger.log(`Found VS Code v${version}, downloading previous VS Code version ${stableVersion}...`);
+
+		const stableCodeDestination = path.join(testDataPath, 's');
+		const stableCodeExecutable = await retry(() => measureAndLog(() => vscodetest.download({
+			cachePath: stableCodeDestination,
+			version: stableVersion,
+			extractSync: true,
+		}), 'download stable code', logger), 1000, 3);
+
+		stableCodePath = path.dirname(stableCodeExecutable);
+	}
+
+	if (!fs.existsSync(stableCodePath)) {
+		throw new Error(`Cannot find Stable VSCode at ${stableCodePath}.`);
+	}
+
+	logger.log(`Using stable build ${stableCodePath} for migration tests`);
+	opts['stable-build'] = stableCodePath;
+}
+
+/**
+ * Sets up the test environment for Electron or Web smoke tests.
+ */
+function initializeTestEnvironment(logger) {
+	//
+	// #### Electron Smoke Tests ####
+	//
+
+	if (!OPTS.web) {
+		let testCodePath = OPTS.build;
+		let electronPath;
+
+		if (testCodePath) {
+			electronPath = getBuildElectronPath(testCodePath);
+			version = getPositronVersion(testCodePath);
+			console.log('POSITRON VERSION:', version);
+		} else {
+			testCodePath = getDevElectronPath();
+			electronPath = testCodePath;
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_DEV = '1';
+			process.env.VSCODE_CLI = '1';
+		}
+
+		if (!fs.existsSync(electronPath || '')) {
+			throw new Error(`Cannot find VSCode at ${electronPath}. Please run VSCode once first (scripts/code.sh, scripts\\code.bat) and try again.`);
+		}
+
+		if (OPTS.remote) {
+			logger.log(`Running desktop remote smoke tests against ${electronPath}`);
+		} else {
+			logger.log(`Running desktop smoke tests against ${electronPath}`);
+		}
+	}
+
+	//
+	// #### Web Smoke Tests ####
+	//
+	else {
+		const testCodeServerPath = OPTS.build || process.env.VSCODE_REMOTE_SERVER_PATH;
+
+		if (typeof testCodeServerPath === 'string') {
+			if (!fs.existsSync(testCodeServerPath)) {
+				throw new Error(`Cannot find Code server at ${testCodeServerPath}.`);
+			} else {
+				logger.log(`Running web smoke tests against ${testCodeServerPath}`);
+			}
+		}
+
+		if (!testCodeServerPath) {
+			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_DEV = '1';
+			process.env.VSCODE_CLI = '1';
+
+			logger.log(`Running web smoke out of sources`);
+		}
+	}
+}
+
+/**
+ * Configures environment variables based on parsed options.
+ */
+function configureEnvVarsFromOptions(opts) {
+	const envVars = {
+		BUILD: opts['build'] || '',
+		HEADLESS: opts['headless'] || '',
+		PARALLEL: opts['parallel'] || '',
+		REMOTE: opts['remote'] || '',
+		TRACING: opts['tracing'] || '',
+		VERBOSE: opts['verbose'] || '',
+		WEB: opts['web'] || '',
+		WIN: opts['win'] || '',
+		PR: opts['pr'] || '',
+		SKIP_CLEANUP: opts['skip-cleanup'] || '',
+		EXTENSIONS_PATH: EXTENSIONS_PATH,
+		WORKSPACE_PATH: WORKSPACE_PATH,
+		TEST_DATA_PATH: TEST_DATA_PATH,
+		REPORT_PATH: REPORT_PATH,
+	};
+	Object.assign(process.env, envVars);
+}
+
+function getPositronVersion(testCodePath) {
+	const productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+
+	// Read and parse the JSON file
+	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
+
+	// Return the `positronVersion` property if it exists, otherwise log an error
+	if (productJson.positronVersion) {
+		return productJson.positronVersion;
+	} else {
+		console.error('positronVersion not found in product.json.');
+		return null;
+	}
 }
