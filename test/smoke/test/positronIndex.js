@@ -34,7 +34,7 @@ configureEnvVarsFromOptions(OPTS);
 // Internal modules
 const { createLogger, ROOT_PATH } = require('../out/positronUtils');
 const { retry } = require('../out/utils');
-const { getBuildVersion, measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
+const { measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
 
 // Define a logger instance for `test-setup`
 const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'test-setup');
@@ -98,7 +98,7 @@ function runMochaTests() {
 	testFiles.forEach(file => mocha.addFile(file));
 
 	// Run the Mocha tests
-	mocha.run(failures => {
+	const runner = mocha.run(failures => {
 		if (failures) {
 			console.log(getFailureLogs());
 		} else {
@@ -111,6 +111,12 @@ function runMochaTests() {
 				process.exit(failures ? 1 : 0);
 			}
 		});
+	});
+
+	// Attach the 'retry' event listener to the runner
+	runner.on('retry', (test, err) => {
+		console.error('Test failed, retrying:', test.fullTitle());
+		console.error(err);
 	});
 }
 
