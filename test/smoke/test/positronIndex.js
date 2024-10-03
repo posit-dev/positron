@@ -42,8 +42,8 @@ const logger = createLogger(logsRootPath);
 let version;
 
 // Main execution flow
-(async function main() {
-	await prepareTestEnv();
+(function main() {
+	prepareTestEnv();
 	cloneTestRepo();
 	runMochaTests();
 })();
@@ -51,13 +51,13 @@ let version;
 /**
  * Prepares the test environment for Electron or Web smoke tests.
  */
-async function prepareTestEnv() {
+function prepareTestEnv() {
 	try {
 		initializeTestEnvironment(logger);
 		console.log('Test environment setup completed successfully.');
 
 		// Disabling this section of code for now. It's used to download a stable version of VSCode
-		// I'm guessing we would want to update this to download a stable version of Positron some day?
+		// Maybe we would want to update this to download a stable version of Positron some day?
 		// if (!OPTS.web && !OPTS.remote && OPTS.build) {
 		// 	// Only enabled when running with --build and not in web or remote
 		// 	version = getBuildVersion(OPTS.build);
