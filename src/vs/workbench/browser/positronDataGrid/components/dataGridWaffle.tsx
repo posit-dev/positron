@@ -17,7 +17,6 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
 import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
 import { DataGridRow } from 'vs/workbench/browser/positronDataGrid/components/dataGridRow';
-import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { DataGridRowHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowHeaders';
 import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
 import { DataGridCornerTopLeft } from 'vs/workbench/browser/positronDataGrid/components/dataGridCornerTopLeft';
@@ -508,8 +507,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	const dataGridRows: JSX.Element[] = [];
 	while (top - context.instance.verticalScrollOffset < height && rowIndex < context.instance.rows) {
 
-		// console.log(`Rendering rowIndex ${rowIndex} at ${top - context.instance.verticalScrollOffset}`);
-
 		// Render the data grid row.
 		dataGridRows.push(
 			<DataGridRow
@@ -577,22 +574,22 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 
 			{context.instance.horizontalScrollbar &&
-				<DataGridScrollbar
+				<DataGridSmoothScrollbar
+					containerWidth={width}
+					containerHeight={height}
 					orientation='horizontal'
 					bothScrollbarsVisible={
-						context.instance.horizontalScrollbar &&
-						context.instance.verticalScrollbar
+						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarWidth={context.instance.scrollbarThickness}
-					containerWidth={width}
-					containerHeight={height - context.instance.columnHeadersHeight}
-					entries={context.instance.columns}
-					visibleEntries={context.instance.visibleColumns}
-					firstEntry={context.instance.firstColumnIndexXX}
-					maximumFirstEntry={0}
-					onDidChangeFirstEntry={async firstColumnIndex =>
-						await context.instance.setFirstColumn(firstColumnIndex)
-					}
+					scrollbarThickness={context.instance.scrollbarThickness}
+					scrollSize={context.instance.scrollWidth}
+					layoutSize={context.instance.layoutWidth}
+					pageSize={context.instance.pageWidth}
+					scrollOffset={context.instance.horizontalScrollOffset}
+					maximumScrollOffset={context.instance.maximumHorizontalScrollOffset}
+					onDidChangeScrollOffset={async scrollOffset => {
+						await context.instance.setHorizontalScrollOffset(scrollOffset);
+					}}
 				/>
 			}
 
@@ -606,12 +603,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}
 					scrollbarThickness={context.instance.scrollbarThickness}
 					scrollSize={context.instance.scrollHeight}
-					layoutSize={height - context.instance.columnHeadersHeight - 14}
+					layoutSize={context.instance.layoutHeight}
+					pageSize={context.instance.pageHeight}
 					scrollOffset={context.instance.verticalScrollOffset}
 					maximumScrollOffset={context.instance.maximumVerticalScrollOffset}
-					onDidChangeScrollOffset={async verticalScrollOffset => {
-						console.log(`Setting vertical scroll offset to ${verticalScrollOffset}`);
-						await context.instance.setVerticalScrollOffset(verticalScrollOffset);
+					onDidChangeScrollOffset={async scrollOffset => {
+						await context.instance.setVerticalScrollOffset(scrollOffset);
 					}}
 				/>
 			}

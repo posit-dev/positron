@@ -62,6 +62,12 @@ interface DataGridSmoothScrollbarProps {
 	readonly layoutSize: number;
 
 	/**
+	 * Gets the page size. For a vertical scrollbar, this is the height of a page. For a horizontal
+	 * scrollbar, this is the width of a page.
+	 */
+	readonly pageSize: number;
+
+	/**
 	 * Gets the scroll offset. For a vertical scrollbar, this is the top position of the scrollbar.
 	 * For a horizontal scrollbar, this is the left position of the scrollbar.
 	 */
@@ -86,15 +92,15 @@ interface DataGridSmoothScrollbarProps {
  */
 interface ScrollbarState {
 	/**
+	 * Gets a value which indicates whether the scrollbar is disabled.
+	 */
+	readonly scrollbarDisabled: boolean;
+
+	/**
 	 * Gets the scrollbar length. For a vertical scrollbar, this is the scrollbar height. For a
 	 * horizontal scrollbar, this is the scrollbar width.
 	 */
 	readonly scrollbarLength: number;
-
-	/**
-	 * Gets a value which indicates whether the scrollbar is disabled.
-	 */
-	readonly scrollbarDisabled: boolean;
 
 	/**
 	 * Gets the slider size. For a vertical scrollbar, this is the slider height. For a horizontal
@@ -107,13 +113,6 @@ interface ScrollbarState {
 	 * For a horizontal scrollbar, this is the left position of the slider.
 	 */
 	readonly sliderPosition: number;
-
-	/**
-	 * Gets a value which indicates whether to preserve slider position. This is set to true when
-	 * the user has directly positioned the scrollbar before the onDidChangeScrollOffset callback is
-	 * called.
-	 */
-	readonly preserveSliderPosition: boolean;
 }
 
 /**
@@ -124,11 +123,10 @@ interface ScrollbarState {
 export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => {
 	// State hooks.
 	const [state, setState] = useState<ScrollbarState>({
-		scrollbarLength: 0,
 		scrollbarDisabled: true,
+		scrollbarLength: 0,
 		sliderSize: 0,
-		sliderPosition: 0,
-		preserveSliderPosition: false
+		sliderPosition: 0
 	});
 
 	/**
@@ -136,7 +134,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 	 */
 	useLayoutEffect(() => {
 		// Update the scrollbar state.
-		setState(previousScrollbarState => {
+		setState((): ScrollbarState => {
 			// Calculate the scrollbar length.
 			let scrollbarLength = props.orientation === 'vertical' ?
 				props.containerHeight :
@@ -148,11 +146,10 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			// If the scrollbar isn't necessary, disable it and return.
 			if (props.scrollOffset === 0 && scrollbarLength >= props.scrollSize) {
 				return {
-					scrollbarLength,
 					scrollbarDisabled: true,
+					scrollbarLength,
 					sliderSize: 0,
-					sliderPosition: 0,
-					preserveSliderPosition: false
+					sliderPosition: 0
 				};
 			}
 
@@ -163,26 +160,16 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			);
 
 			// Calculate the slider position.
-			let sliderPosition: number;
-			if (previousScrollbarState.preserveSliderPosition) {
-				console.log('preserve slider position!');
-				sliderPosition = state.sliderPosition;
-			} else {
-				console.log('change slider position!');
-				sliderPosition =
-					props.scrollOffset / props.maximumScrollOffset *
-					(scrollbarLength - sliderSize);
-			}
-
-			// console.log(`Outside slider position: ${sliderPosition}`);
+			const sliderPosition =
+				props.scrollOffset / props.maximumScrollOffset *
+				(scrollbarLength - sliderSize);
 
 			// Update the scrollbar state.
 			return {
-				scrollbarLength,
 				scrollbarDisabled: false,
+				scrollbarLength,
 				sliderSize,
-				sliderPosition,
-				preserveSliderPosition: false
+				sliderPosition
 			};
 		});
 	}, [props, state.sliderPosition]);
@@ -205,31 +192,16 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			e.clientY - boundingClientRect.y :
 			e.clientX - boundingClientRect.x;
 
-		// Calculate the slider position so that it is centered on the mouse position in the
-		// scrollbar.
-		const sliderPosition = pinToRange(
-			mousePosition - (state.sliderSize / 2),
-			0,
-			state.scrollbarLength - state.sliderSize
-		);
-
-		// Set the scrollbar state.
-		setState(previousScrollbarState => {
-			return {
-				...previousScrollbarState,
-				sliderPosition,
-				preserveSliderPosition: true
-			};
-		});
-
-		// Calculate the scroll offset.
-		const scrollOffset = Math.min(Math.trunc(
-			(props.scrollSize - 10) * sliderPosition / (state.scrollbarLength - state.sliderSize)),
-			1000
-		);
-
-		// Call the onDidChangeScrollOffset callback.
-		props.onDidChangeScrollOffset(scrollOffset);
+		// If the mouse is above the slider, page up. If the mouse is below the slider, page down.
+		if (mousePosition < state.sliderPosition) {
+			props.onDidChangeScrollOffset(
+				Math.max(props.scrollOffset - props.pageSize, 0)
+			);
+		} else if (mousePosition > state.sliderPosition + state.sliderSize) {
+			props.onDidChangeScrollOffset(
+				Math.min(props.scrollOffset + props.pageSize, props.maximumScrollOffset)
+			);
+		}
 	};
 
 	/**
@@ -299,23 +271,19 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			);
 
 			// Set the scrollbar state.
-			setState(previousScrollbarState => {
+			setState((previousScrollbarState): ScrollbarState => {
 				return {
 					...previousScrollbarState,
-					sliderPosition,
-					preserveSliderPosition: true
+					sliderPosition
 				};
 			});
 
-			console.log(`Slider position: ${sliderPosition}`);
-
+			// Calculate the slider percent.
 			const sliderPercent = pinToRange(
 				sliderPosition / (state.scrollbarLength - state.sliderSize),
 				0,
 				1
 			);
-
-			console.log(`sliderPercent: ${sliderPercent}`);
 
 			// Call the onDidChangeScrollOffset callback.
 			props.onDidChangeScrollOffset(props.maximumScrollOffset * sliderPercent);

@@ -994,6 +994,20 @@ export abstract class DataGridInstance extends Disposable {
 	abstract get scrollHeight(): number;
 
 	/**
+	 * Gets the page width.
+	 */
+	get pageWidth() {
+		return this.layoutWidth;
+	}
+
+	/**
+	 * Gets the page height.
+	 */
+	get pageHeight() {
+		return this.layoutHeight;
+	}
+
+	/**
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
