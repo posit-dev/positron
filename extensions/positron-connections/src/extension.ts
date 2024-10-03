@@ -20,17 +20,17 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register a handler for the positron.connection client type. This client
 	// represents an active, queryable database connection.
-	context.subscriptions.push(
-		positron.runtime.registerClientHandler({
-			clientType: 'positron.connection',
-			callback: (client, params: any) => {
-				connectionProvider.addConnection(
-					new PositronConnectionsComm(client),
-					params
-				);
-				return true;
-			}
-		}));
+	// context.subscriptions.push(
+	// 	positron.runtime.registerClientHandler({
+	// 		clientType: 'positron.connection',
+	// 		callback: (client, params: any) => {
+	// 			connectionProvider.addConnection(
+	// 				new PositronConnectionsComm(client),
+	// 				params
+	// 			);
+	// 			return false;
+	// 		}
+	// 	}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
