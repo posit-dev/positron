@@ -60,9 +60,11 @@ type ColumnResizeOptions = | {
 type RowResizeOptions = | {
 	readonly rowResize: false;
 	readonly minimumRowHeight?: never;
+	readonly maximumRowHeight?: never;
 } | {
 	readonly rowResize: true;
 	readonly minimumRowHeight: number;
+	readonly maximumRowHeight: number;
 };
 
 /**
@@ -71,19 +73,19 @@ type RowResizeOptions = | {
 type ScrollbarOptions = | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: false;
-	readonly scrollbarWidth?: never;
+	readonly scrollbarThickness?: never;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: false;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
 } | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: true;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: true;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
 };
 
 /**
@@ -137,11 +139,17 @@ type DataGridOptions =
 	DefaultCursorOptions &
 	SelectionOptions;
 
+/**
+ * FirstColumnDescriptor interface.
+ */
 export interface FirstColumnDescriptor {
 	readonly columnIndex: number;
 	readonly left: number;
 }
 
+/**
+ * FirstRowDescriptor interface.
+ */
 export interface FirstRowDescriptor {
 	readonly rowIndex: number;
 	readonly top: number;
@@ -558,6 +566,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _minimumRowHeight: number;
 
 	/**
+	 * Gets the maximum row height.
+	 */
+	private readonly _maximumRowHeight: number;
+
+	/**
 	 * Gets the default row height.
 	 */
 	private readonly _defaultRowHeight: number;
@@ -573,9 +586,9 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _verticalScrollbar: boolean;
 
 	/**
-	 * Gets the scrollbar width.
+	 * Gets the scrollbar thickness.
 	 */
-	private readonly _scrollbarWidth: number;
+	private readonly _scrollbarThickness: number;
 
 	/**
 	 * Gets a value which indicates whether to use the editor font to display data.
@@ -753,10 +766,11 @@ export abstract class DataGridInstance extends Disposable {
 
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
+		this._maximumRowHeight = options.maximumRowHeight ?? options.defaultRowHeight;
 
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
-		this._scrollbarWidth = options.scrollbarWidth ?? 0;
+		this._scrollbarThickness = options.scrollbarThickness ?? 0;
 
 		this._useEditorFont = options.useEditorFont;
 		this._automaticLayout = options.automaticLayout;
@@ -858,7 +872,14 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the defailt row height.
+	 * Gets the maximum row height.
+	 */
+	get maximumRowHeight() {
+		return this._maximumRowHeight;
+	}
+
+	/**
+	 * Gets the default row height.
 	 */
 	get defaultRowHeight() {
 		return this._defaultRowHeight;
@@ -881,8 +902,8 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the scrollbar width.
 	 */
-	get scrollbarWidth() {
-		return this._scrollbarWidth;
+	get scrollbarThickness() {
+		return this._scrollbarThickness;
 	}
 
 	/**
@@ -963,13 +984,26 @@ export abstract class DataGridInstance extends Disposable {
 	abstract get rows(): number;
 
 	/**
+	 * Gets the scroll width.
+	 */
+	abstract get scrollWidth(): number;
+
+	/**
+	 * Gets the scroll height.
+	 */
+	abstract get scrollHeight(): number;
+
+	/**
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
 		// Calculate the layout width.
-		let layoutWidth = this._width - this._rowHeadersWidth;
+		let layoutWidth = this._width;
+		if (this.rowHeaders) {
+			layoutWidth -= this._rowHeadersWidth;
+		}
 		if (this._verticalScrollbar) {
-			layoutWidth -= this._scrollbarWidth;
+			layoutWidth -= this._scrollbarThickness;
 		}
 
 		// Done.
@@ -981,9 +1015,12 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get layoutHeight() {
 		// Calculate the layout height.
-		let layoutHeight = this._height - this._columnHeadersHeight;
+		let layoutHeight = this._height;
+		if (this.columnHeaders) {
+			layoutHeight -= this._columnHeadersHeight;
+		}
 		if (this._horizontalScrollbar) {
-			layoutHeight -= this._scrollbarWidth;
+			layoutHeight -= this._scrollbarThickness;
 		}
 
 		// Done.
@@ -1066,22 +1103,26 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the maximum horizontal scroll offset.
 	 */
 	get maximumHorizontalScrollOffset() {
-		if (this.columns * this._defaultColumnWidth <= this.layoutWidth) {
+		// If the scroll width is less than or equal to the layout width, return 0.
+		if (this.scrollWidth <= this.layoutWidth) {
 			return 0;
 		}
 
-		return (this.columns * this._defaultColumnWidth - this.layoutWidth) + 10;
+		// Return the maximum horizontal scroll offset.
+		return (this.scrollWidth - this.layoutWidth) + this._defaultColumnWidth;
 	}
 
 	/**
 	 * Gets the maximum vertical scroll offset.
 	 */
 	get maximumVerticalScrollOffset() {
-		if (this.rows * this._defaultRowHeight <= this.layoutHeight) {
+		// If the scroll height is less than or equal to the layout height, return 0.
+		if (this.scrollHeight <= this.layoutHeight) {
 			return 0;
 		}
 
-		return (this.rows * this._defaultRowHeight - this.layoutHeight) + 10;
+		// Return the maximum vertical scroll offset.
+		return (this.scrollHeight - this.layoutHeight) + this._defaultRowHeight;
 	}
 
 	/**

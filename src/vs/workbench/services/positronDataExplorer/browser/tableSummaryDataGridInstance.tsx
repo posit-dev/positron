@@ -70,7 +70,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			rowResize: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 14,
+			scrollbarThickness: 14,
 			useEditorFont: false,
 			automaticLayout: true,
 			cellBorders: false,
@@ -131,6 +131,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	get rows() {
 		return this._tableSummaryCache.columns;
+	}
+
+	/**
+	 * Gets the scroll width.
+	 */
+	get scrollWidth() {
+		return 0;
+	}
+
+	/**
+	 * Gets the scroll height.
+	 */
+	get scrollHeight() {
+		return this.rows * this.defaultRowHeight;
 	}
 
 	/**
