@@ -4,17 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
 	private readonly connections: PositronConnectionsInstance[] = [];
+	readonly _serviceBrand: undefined;
 
 	constructor(
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		super();
 
@@ -25,9 +26,10 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		}));
 	}
 
+	initialize(): void { }
+
 	attachRuntime(session: ILanguageRuntimeSession) {
 		this._register(session.onDidCreateClientInstance(({ message, client }) => {
-
 			if (!(client.getClientType() === RuntimeClientType.Connection)) {
 				return;
 			}
@@ -58,3 +60,9 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		return this.getConnection(clientId) !== undefined;
 	}
 }
+
+registerSingleton(
+	IPositronConnectionsService,
+	PositronConnectionsService,
+	InstantiationType.Delayed
+);
