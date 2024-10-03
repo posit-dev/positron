@@ -64,7 +64,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			rowResize: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
-			scrollbarWidth: 8,
+			scrollbarThickness: 8,
 			useEditorFont: false,
 			automaticLayout: true,
 			rowsMargin: 4,
@@ -105,6 +105,20 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 */
 	get rows() {
 		return this._columnSchemaCache.columns;
+	}
+
+	/**
+	 * Gets the scroll width.
+	 */
+	get scrollWidth() {
+		return 0;
+	}
+
+	/**
+	 * Gets the scroll height.
+	 */
+	get scrollHeight() {
+		return this.rows * this.defaultRowHeight;
 	}
 
 	/**
