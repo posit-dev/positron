@@ -269,6 +269,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		return 2000;
 	}
 
+	/**
+	 * Gets the page height.
+	 */
+	override get pageHeight() {
+		return this.layoutHeight - this.defaultRowHeight;
+	}
+
 	private _columnRanges = new Ranges();
 	private _rowRanges = new Ranges();
 
@@ -276,7 +283,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Gets the first column.
 	 */
 	get firstColumn() {
-		if (this.rows !== this._rowRanges.length) {
+		if (this.columns !== this._columnRanges.length) {
 			this._columnRanges.clear();
 			let left = 0;
 			for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
