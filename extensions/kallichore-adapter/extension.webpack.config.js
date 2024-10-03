@@ -17,5 +17,9 @@ module.exports = withDefaults({
 	},
 	node: {
 		__dirname: false
+	},
+	externals: {
+		'bufferutil': 'commonjs bufferutil',
+		'utf-8-validate': 'commonjs utf-8-validate'
 	}
 });
