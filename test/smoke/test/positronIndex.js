@@ -27,6 +27,7 @@ const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 
 // Set environment variables based on options
+// NOTE: Must be set before importing internal modules
 const OPTS = minimist(process.argv.slice(2));
 configureEnvVarsFromOptions(OPTS);
 
@@ -87,7 +88,7 @@ function runMochaTests() {
 			xunit: REPORT_PATH,
 		},
 		retries: 1,
-	};
+	});
 }
 
 /**
