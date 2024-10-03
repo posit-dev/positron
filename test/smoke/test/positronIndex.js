@@ -20,11 +20,6 @@ const mkdirp = require('mkdirp');
 const rimraf = require('rimraf');
 const vscodetest = require('@vscode/test-electron');
 
-// Internal modules
-const { createLogger, ROOT_PATH } = require('../out/positronUtils');
-const { retry } = require('../out/utils');
-const { getBuildVersion, measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
-
 // Constants
 const REPORT_PATH = join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
@@ -34,6 +29,12 @@ const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 // Set environment variables based on options
 const OPTS = minimist(process.argv.slice(2));
 configureEnvVarsFromOptions(OPTS);
+
+// Internal modules
+const { createLogger, ROOT_PATH } = require('../out/positronUtils');
+const { retry } = require('../out/utils');
+const { getBuildVersion, measureAndLog, getBuildElectronPath, getDevElectronPath } = require('../../automation/out');
+
 
 // Define a logger instance for `test-setup`
 const logsRootPath = path.join(ROOT_PATH, '.build', 'logs', 'test-setup');
