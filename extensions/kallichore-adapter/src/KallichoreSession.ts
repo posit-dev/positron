@@ -444,8 +444,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	async createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Promise<void> {
 
-		// TODO: handle metadata
-
 		// Ensure the type of client we're being asked to create is a known type that supports
 		// client-initiated creation
 		if (type === positron.RuntimeClientType.Variables ||
@@ -676,19 +674,38 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
 			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
 			this._ws = new WebSocket(wsUri);
+
+			// Handle websocket events
 			this._ws.onopen = () => {
 				this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
 				// Open the connected barrier so that we can start sending messages
 				this._connected.open();
 				resolve();
 			};
-			this._ws.onerror = (err: any) => {
-				this.log(`Error connecting to socket: ${err}`, vscode.LogLevel.Error);
-				reject(err);
 
-				// TODO: Needs to take kernel down if this happens due to the
-				// connection getting closed from the server
+			this._ws.onerror = (err: any) => {
+				this.log(`Websocket error: ${err}`, vscode.LogLevel.Error);
+				if (this._connected.isOpen()) {
+					// If the error happened after the connection was established,
+					// something bad happened. Close the connected barrier and
+					// show an error.
+					this._connected = new Barrier();
+					vscode.window.showErrorMessage(`Error connecting to ${this.metadata.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
+				} else {
+					// The connection never established; reject the promise and
+					// let the caller handle it.
+					reject(err);
+				}
 			};
+
+			this._ws.onclose = (_evt: any) => {
+				// When the socket is closed, reset the connected barrier and
+				// clear the websocket instance.
+				this._connected = new Barrier();
+				this._ws = undefined;
+			};
+
+			// Main handler for incoming messages
 			this._ws.onmessage = (msg: any) => {
 				this.log(`RECV message: ${msg.data}`, vscode.LogLevel.Trace);
 				try {
