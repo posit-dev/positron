@@ -749,10 +749,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	dispose() {
-		this._disposables.forEach(d => d.dispose());
-
 		// Close the websocket if it's open
 		this._ws?.close();
+		this._ws = undefined;
+
+		// Close the log streamer and any other disposables
+		this._disposables.forEach(d => d.dispose());
+		this._disposables = [];
 	}
 
 	handleMessage(data: any) {

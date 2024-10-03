@@ -16,20 +16,54 @@ import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } 
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier } from './async';
 
-const KALLICHORE_STATE_KEY = 'kallichore-adapter.v1';
+const KALLICHORE_STATE_KEY = 'kallichore-adapter.v2';
 
+/**
+ * The persisted state of the Kallichore server. This metadata is saved in
+ * workspace state storage and used to re-establish a connection to the server
+ * when the extension (or Positron) is reloaded.
+ */
 interface KallichoreServerState {
+	/** The port the server is listening on, e.g. 8182 */
 	port: number;
+
+	/** The full base path of the API, e.g. http://127.0.0.1:8182/ */
 	base_path: string;
+
+	/** The path to the server binary, e.g. /usr/lib/bin/kcserver. */
 	server_path: string;
+
+	/** The PID of the server process */
 	server_pid: number;
+
+	/** The bearer token used to authenticate with the server */
 	bearer_token: string;
 }
 
 export class KCApi implements KallichoreAdapterApi {
+
+	/** The instance of the API; the API is code-generated from the Kallichore
+	 * OpenAPI spec */
 	private readonly _api: DefaultApi;
+
+	/** A barrier that opens when the Kallichore server has successfully started;
+	 * used to hold operations until we're online */
 	private readonly _started: Barrier = new Barrier();
-	constructor(private readonly _context: vscode.ExtensionContext, private readonly _log: vscode.LogOutputChannel) {
+
+	/** The currently active sessions (only the ones used by this client; does
+	 * not track the full set of sessions on the Kallichore server) */
+	private readonly _sessions: Array<KallichoreSession> = [];
+
+	/**
+	 * Create a new Kallichore API object.
+	 *
+	 * @param _context The extension context
+	 * @param _log A log output channel for the extension
+	 */
+	constructor(
+		private readonly _context: vscode.ExtensionContext,
+		private readonly _log: vscode.LogOutputChannel) {
+
 		this._api = new DefaultApi();
 		this.start().then(() => {
 			this._log.info('Kallichore started');
@@ -146,6 +180,9 @@ export class KCApi implements KallichoreAdapterApi {
 		// Create the session on the server
 		await session.create(kernel);
 
+		// Save the session
+		this._sessions.push(session);
+
 		return session;
 	}
 
@@ -166,6 +203,8 @@ export class KCApi implements KallichoreAdapterApi {
 					this._log.error(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 					reject(err);
 				}
+				// Save the session
+				this._sessions.push(session);
 				resolve(session);
 			}).catch((err) => {
 				if (err instanceof HttpError) {
@@ -179,8 +218,15 @@ export class KCApi implements KallichoreAdapterApi {
 		});
 	}
 
+	/**
+	 * Clean up the Kallichore server and all sessions. Note that this doesn't
+	 * actually remove the sessions from the server; it just disconnects them
+	 * from the API.
+	 */
 	dispose() {
-		throw new Error('Method not implemented.');
+		// Dispose of each session
+		this._sessions.forEach(session => session.dispose());
+		this._sessions.length = 0;
 	}
 
 	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
