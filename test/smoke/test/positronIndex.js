@@ -56,12 +56,13 @@ async function prepareTestEnv() {
 		initializeTestEnvironment(logger);
 		console.log('Test environment setup completed successfully.');
 
-		// Ensure the code is stable before running tests
-		if (!OPTS.web && !OPTS.remote && OPTS.build) {
-			// Only enabled when running with --build and not in web or remote
-			version = getBuildVersion(OPTS.build);
-			await ensureStableCode(TEST_DATA_PATH, logger, OPTS);
-		}
+		// Disabling this section of code for now. It's used to download a stable version of VSCode
+		// I'm guessing we would want to update this to download a stable version of Positron
+		// if (!OPTS.web && !OPTS.remote && OPTS.build) {
+		// 	// Only enabled when running with --build and not in web or remote
+		// 	version = getBuildVersion(OPTS.build);
+		// 	await ensureStableCode(TEST_DATA_PATH, logger, OPTS);
+		// }
 
 		prepareTestDataDirectory();
 	} catch (error) {
