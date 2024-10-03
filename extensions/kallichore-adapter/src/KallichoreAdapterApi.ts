@@ -67,6 +67,9 @@ export class KCApi implements KallichoreAdapterApi {
 		this._api = new DefaultApi();
 		this.start().then(() => {
 			this._log.info('Kallichore started');
+		}).catch((err) => {
+			vscode.window.showErrorMessage(`Failed to start Jupyter kernel supervisor.\n\n ${JSON.stringify(err)}`);
+			this._log.error(`Failed to start Kallichore: ${err}`);
 		});
 	}
 
@@ -124,6 +127,9 @@ export class KCApi implements KallichoreAdapterApi {
 		// Find a port for the server to listen on
 		const port = await findAvailablePort([], 10);
 
+		// Start a timer so we can track server startup time
+		const startTime = Date.now();
+
 		// Start the server in a new terminal
 		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
@@ -143,18 +149,38 @@ export class KCApi implements KallichoreAdapterApi {
 		this._api.basePath = `http://localhost:${port}`;
 		this._api.setDefaultAuthentication(bearer);
 
-		// List the sessions to verify that the server is up
-		try {
-			const sessions = await this._api.listSessions();
-			this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
-		} catch (err) {
-			this._log.error(`Failed to get session list from Kallichore; ` +
-				`server may not be running or may not be ready. Check the terminal for errors. ` +
-				`Error: ${JSON.stringify(err)}`);
-			throw err;
+		// List the sessions to verify that the server is up. The process is
+		// alive for a few milliseconds before the HTTP server is ready, so we
+		// may need to retry a few times.
+		for (let retry = 0; retry < 40; retry++) {
+			try {
+				const sessions = await this._api.listSessions();
+				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
+				break;
+			} catch (err) {
+				// ECONNREFUSED is a normal condition; the server isn't ready
+				// yet. Keep trying until we hit the retry limit, about 2
+				// seconds from the time we got a process ID established.
+				if (err.code === 'ECONNREFUSED') {
+					if (retry < 19) {
+						// Wait a bit and try again
+						await new Promise((resolve) => setTimeout(resolve, 50));
+						continue;
+					} else {
+						// Give up; it shouldn't take this long to start
+						this._log.error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
+						throw new Error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
+					}
+				}
+				this._log.error(`Failed to get session list from Kallichore; ` +
+					`server may not be running or may not be ready. Check the terminal for errors. ` +
+					`Error: ${JSON.stringify(err)}`);
+				throw err;
+			}
 		}
 
 		// Open the started barrier and save the server state since we're online
+		this._log.debug(`Kallichore server started in ${Date.now() - startTime}ms`);
 		this._started.open();
 		const state: KallichoreServerState = {
 			base_path: this._api.basePath,
@@ -219,14 +245,14 @@ export class KCApi implements KallichoreAdapterApi {
 		dynState: LanguageRuntimeDynState,
 		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
 
-		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
-
 		// Create the session object
 		const session = new KallichoreSession(
 			sessionMetadata, runtimeMetadata, dynState, this._api, true);
 
 		// Wait for the server to start before creating the session
 		await this._started.wait();
+
+		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session on the server
 		await session.create(kernel);

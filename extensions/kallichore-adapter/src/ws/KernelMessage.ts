@@ -5,6 +5,9 @@
 
 import { SocketMessage } from './SocketMessage';
 
+/**
+ * Represents a status message from the kernel.
+ */
 export interface KernelMessageStatus extends SocketMessage {
 	status: string;
 }
