@@ -215,6 +215,16 @@ The following smoketest scripts are currently available:
 - `smoketest-win`: Runs tests tagged with `#win` (Windows)
 - `smoketest-pr`: Runs tests tagged with `#pr`
 
+#### Target a Positron Build
+
+You can specify a custom build of Positron to run your tests against using the `--build` option. This allows you to point to a local installation or a specific build of the application.
+
+```bash
+yarn smoketest-pr --build /Applications/Positron.app --parallel --jobs 3
+```
+
+**Note:** During the setup phase, the script will automatically detect and display the version of Positron being tested. This helps verify that the correct build is being used.
+
 ## Test Project
 
 Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts.  If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.

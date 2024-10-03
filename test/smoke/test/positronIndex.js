@@ -57,7 +57,7 @@ async function prepareTestEnv() {
 		console.log('Test environment setup completed successfully.');
 
 		// Disabling this section of code for now. It's used to download a stable version of VSCode
-		// I'm guessing we would want to update this to download a stable version of Positron
+		// I'm guessing we would want to update this to download a stable version of Positron some day?
 		// if (!OPTS.web && !OPTS.remote && OPTS.build) {
 		// 	// Only enabled when running with --build and not in web or remote
 		// 	version = getBuildVersion(OPTS.build);
@@ -324,7 +324,8 @@ function initializeTestEnvironment(logger) {
 
 		if (testCodePath) {
 			electronPath = getBuildElectronPath(testCodePath);
-			version = getBuildVersion(testCodePath);
+			version = getPositronVersion(testCodePath);
+			console.log('POSITRON VERSION:', version);
 		} else {
 			testCodePath = getDevElectronPath();
 			electronPath = testCodePath;
@@ -389,4 +390,19 @@ function configureEnvVarsFromOptions(opts) {
 		REPORT_PATH: REPORT_PATH,
 	};
 	Object.assign(process.env, envVars);
+}
+
+function getPositronVersion(testCodePath) {
+	const productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+
+	// Read and parse the JSON file
+	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
+
+	// Return the `positronVersion` property if it exists, otherwise log an error
+	if (productJson.positronVersion) {
+		return productJson.positronVersion;
+	} else {
+		console.error('positronVersion not found in product.json.');
+		return null;
+	}
 }
