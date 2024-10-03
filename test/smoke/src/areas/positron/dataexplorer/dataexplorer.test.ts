@@ -17,9 +17,8 @@ describe('Data Explorer #web #win', () => {
 	describe('Python Pandas Data Explorer #pr', () => {
 
 		before(async function () {
-
+			this.timeout(120000);
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
-
 		});
 
 		after(async function () {
@@ -204,9 +203,8 @@ df2 = pd.DataFrame(data)`;
 	// https://github.com/posit-dev/positron/issues/4663
 	describe('Python Polars Data Explorer #pr', () => {
 		before(async function () {
-
+			this.timeout(120000);
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
-
 		});
 
 		after(async function () {
@@ -341,8 +339,8 @@ df2 = pd.DataFrame(data)`;
 	describe('R Data Explorer', () => {
 
 		before(async function () {
+			this.timeout(120000);
 			await PositronRFixtures.SetupFixtures(this.app as Application);
-
 		});
 
 		it('R - Verifies basic data explorer functionality [C609620] #pr', async function () {
