@@ -110,11 +110,16 @@ export class KCApi implements KallichoreAdapterApi {
 		// error if the server binary cannot be found.
 		const shellPath = this.getKallichorePath();
 
+
+		// Get the log level from the configuration
+		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const logLevel = config.get<string>('logLevel') ?? 'warn';
+
 		// Export the Positron version as an environment variable
 		const env = {
 			'POSITRON': '1',
 			'POSITRON_VERSION': positron.version,
-			'RUST_LOG': 'debug' // TODO: make this configurable
+			'RUST_LOG': logLevel,
 		};
 
 		// Create a 16 hex digit UUID for the bearer token

@@ -32,7 +32,27 @@
         "kallichoreSupervisor.enable": {
           "type": "boolean",
           "default": false,
-          "description": "Run Jupyter kernels under the Kallichore supervisor."
+          "description": "%configuration.enable.description%"
+        },
+        "kallichoreSupervisor.logLevel": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "enumDescriptions": [
+            "%configuration.logLevel.error.description%",
+            "%configuration.logLevel.warn.description%",
+            "%configuration.logLevel.info.description%",
+            "%configuration.logLevel.debug.description%",
+            "%configuration.logLevel.trace.description%"
+          ],
+          "default": "debug",
+          "description": "%configuration.logLevel.description%"
         }
       }
     }
