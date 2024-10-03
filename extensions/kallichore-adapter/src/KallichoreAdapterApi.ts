@@ -73,6 +73,13 @@ export class KCApi implements KallichoreAdapterApi {
 		});
 	}
 
+	/**
+	 * Starts a new Kallichore server. If a server is already running, it will
+	 * attempt to reconnect to it. Returns a promise that resolves when the
+	 * server is online.
+	 *
+	 * @throws An error if the server cannot be started or reconnected to.
+	 */
 	async start() {
 		// Check to see if there's a server already running for this workspace
 		const serverState =
@@ -103,6 +110,7 @@ export class KCApi implements KallichoreAdapterApi {
 		// error if the server binary cannot be found.
 		const shellPath = this.getKallichorePath();
 
+		// Export the Positron version as an environment variable
 		const env = {
 			'POSITRON': '1',
 			'POSITRON_VERSION': positron.version,
@@ -112,8 +120,8 @@ export class KCApi implements KallichoreAdapterApi {
 		// Create a 16 hex digit UUID for the bearer token
 		const bearerToken = Math.floor(Math.random() * 0x100000000).toString(16);
 
-		// Write it to a temporary file using the fs module. Kallichore will
-		// delete it when it's done.
+		// Write it to a temporary file. Kallichore will delete it after reading
+		// the secret.
 		const tokenPath = path.join(os.tmpdir(), `kallichore-${bearerToken}.token`);
 		fs.writeFileSync(tokenPath, bearerToken, 'utf8');
 
@@ -263,19 +271,30 @@ export class KCApi implements KallichoreAdapterApi {
 		return session;
 	}
 
+	/**
+	 * Restores (reconnects to) an already running session on the Kallichore
+	 * server.
+	 *
+	 * @param runtimeMetadata The metadata for the associated language runtime
+	 * @param sessionMetadata The metadata for the session to be restored
+	 * @returns The restored session
+	 */
 	async restoreSession(
 		runtimeMetadata: LanguageRuntimeMetadata,
 		sessionMetadata: RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
-		const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
-			// TODO: Store these in session state or something
-			continuationPrompt: '+',
-			inputPrompt: '>',
-		}, this._api, false);
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
 			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
+				// Create the session object
+				const kcSession = response.body;
+				const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
+					continuationPrompt: kcSession.continuationPrompt,
+					inputPrompt: kcSession.inputPrompt,
+				}, this._api, false);
+
+				// Restore the session from the server
 				try {
-					session.restore(response.body);
+					session.restore(kcSession);
 				} catch (err) {
 					this._log.error(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 					reject(err);
@@ -309,7 +328,6 @@ export class KCApi implements KallichoreAdapterApi {
 	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
 		return findAvailablePort(excluding, maxTries);
 	}
-
 
 	/**
 	 * Attempts to locate a copy of the Kallichore server binary.
