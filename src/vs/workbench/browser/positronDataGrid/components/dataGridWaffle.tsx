@@ -467,7 +467,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		let deltaX = e.deltaX;
 		let deltaY = e.deltaY;
 
-		// When the user is holding the shift key, invert the delta X and delta Y.
+		// When the user is holding the shift key, invert delta X and delta Y.
 		if (e.shiftKey) {
 			[deltaX, deltaY] = [deltaY, deltaX];
 		}
@@ -481,11 +481,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				deltaY *= 10;
 			}
 
+
 			// Set the vertical scroll offset.
 			await context.instance.setVerticalScrollOffset(pinToRange(
 				context.instance.verticalScrollOffset + deltaY,
 				0,
-				context.instance.rows * 24
+				context.instance.maximumVerticalScrollOffset
 			));
 		} else if (Math.abs(deltaX) >= Math.abs(deltaY)) {
 			// If the alt key is pressed, scroll by 10 times the delta X.
@@ -493,16 +494,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				deltaX *= 10;
 			}
 
-			const asdf = pinToRange(
+			// Set the horizontal scroll offset.
+			await context.instance.setHorizontalScrollOffset(pinToRange(
 				context.instance.horizontalScrollOffset + deltaX,
 				0,
-				100000000
-			);
-
-			console.log(`Setting horizontal scroll offset to ${asdf}`);
-
-			// Set the horizontal scroll offset.
-			await context.instance.setHorizontalScrollOffset(asdf);
+				context.instance.maximumHorizontalScrollOffset
+			));
 		}
 	};
 
@@ -586,7 +583,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.horizontalScrollbar &&
 						context.instance.verticalScrollbar
 					}
-					scrollbarWidth={context.instance.scrollbarWidth}
+					scrollbarWidth={context.instance.scrollbarThickness}
 					containerWidth={width}
 					containerHeight={height - context.instance.columnHeadersHeight}
 					entries={context.instance.columns}
@@ -601,15 +598,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 			{context.instance.verticalScrollbar &&
 				<DataGridSmoothScrollbar
+					containerWidth={width}
+					containerHeight={height}
 					orientation='vertical'
 					bothScrollbarsVisible={
 						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={width - context.instance.rowHeadersWidth}
-					containerHeight={height}
-					contentSize={context.instance.rows * context.instance.defaultRowHeight}
+					scrollbarThickness={context.instance.scrollbarThickness}
+					scrollSize={context.instance.scrollHeight}
+					layoutSize={height - context.instance.columnHeadersHeight - 14}
 					scrollOffset={context.instance.verticalScrollOffset}
+					maximumScrollOffset={context.instance.maximumVerticalScrollOffset}
 					onDidChangeScrollOffset={async verticalScrollOffset => {
 						console.log(`Setting vertical scroll offset to ${verticalScrollOffset}`);
 						await context.instance.setVerticalScrollOffset(verticalScrollOffset);
