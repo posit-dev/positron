@@ -24,6 +24,7 @@ import { IViewDescriptorService } from 'vs/workbench/common/views';
 import * as DOM from 'vs/base/browser/dom';
 import { PositronConnections } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
 import * as React from 'react';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -73,6 +74,7 @@ export class PositronConnectionsView
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
+		@ICommandService private readonly commandService: ICommandService
 	) {
 		super(
 			options,
@@ -118,7 +120,14 @@ export class PositronConnectionsView
 		this.positronReactRenderer = new PositronReactRenderer(this.positronConnectionsContainer);
 		this._register(this.positronReactRenderer);
 		this.positronReactRenderer.render(
-			<PositronConnections />
+			<PositronConnections
+				configurationService={this.configurationService}
+				commandService={this.commandService}
+				contextKeyService={this.contextKeyService}
+				contextMenuService={this.contextMenuService}
+				hoverService={this.hoverService}
+				keybindingService={this.keybindingService}
+			/>
 		);
 	}
 }

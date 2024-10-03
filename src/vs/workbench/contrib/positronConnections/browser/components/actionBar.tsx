@@ -1,0 +1,57 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import * as React from 'react';
+
+import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
+import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
+import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
+import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+
+import { ICommandService } from 'vs/platform/commands/common/commands';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+
+const kPaddingLeft = 8;
+const kPaddingRight = 8;
+
+interface ActionBarProps {
+	readonly commandService: ICommandService;
+	readonly configurationService: IConfigurationService;
+	readonly contextKeyService: IContextKeyService;
+	readonly contextMenuService: IContextMenuService;
+	readonly hoverService: IHoverService;
+	readonly keybindingService: IKeybindingService;
+}
+
+export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
+	return (
+		<PositronActionBarContextProvider {...props}>
+			<PositronActionBar
+				size='small'
+				borderTop={true}
+				borderBottom={true}
+				paddingLeft={kPaddingLeft}
+				paddingRight={kPaddingRight}
+			>
+				<ActionBarRegion location='right'>
+					<ActionBarButton
+						align='right'
+						iconId='positron-refresh'
+					/>
+					<ActionBarSeparator />
+					<ActionBarButton
+						align='right'
+						iconId='clear-all'
+					/>
+				</ActionBarRegion>
+			</PositronActionBar>
+		</PositronActionBarContextProvider>
+	);
+};
