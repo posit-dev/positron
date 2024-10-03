@@ -6,6 +6,7 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
+export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
 
 export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
