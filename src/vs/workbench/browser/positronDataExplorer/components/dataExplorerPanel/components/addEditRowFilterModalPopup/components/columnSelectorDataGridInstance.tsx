@@ -158,13 +158,13 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	override async fetchData() {
 		await this._columnSchemaCache.updateCache({
 			searchText: this._searchText,
-			firstColumnIndex: this.firstRowIndexXX,
+			firstColumnIndex: this.firstRow.rowIndex,
 			visibleColumns: this.screenRows
 		});
 	}
 
 	/**
-	 * Gets the the width of a column.
+	 * Gets the width of a column.
 	 * @param columnIndex The column index.
 	 */
 	override getColumnWidth(columnIndex: number): number {
@@ -172,7 +172,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the the height of a row.
+	 * Gets the height of a row.
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
@@ -241,7 +241,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 			// select the first available row after fetching so that users cat hit "enter"
 			// to make an immediate confirmation on what they were searching for
-			if (this.visibleRows) {
+			if (this.rows > 0) {
 				this.showCursor();
 				this.setCursorRow(0);
 			}

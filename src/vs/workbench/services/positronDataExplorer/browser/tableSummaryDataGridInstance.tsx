@@ -83,7 +83,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Update the cache with invalidation.
 			await this._tableSummaryCache.update({
 				invalidateCache: true,
-				firstColumnIndex: this.firstColumnIndexXX,
+				firstColumnIndex: this.firstColumn.columnIndex,
 				screenColumns: this.screenRows
 			});
 		}));
@@ -184,13 +184,13 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override async fetchData() {
 		await this._tableSummaryCache.update({
 			invalidateCache: false,
-			firstColumnIndex: this.firstRowIndexXX,
+			firstColumnIndex: this.firstRow.rowIndex,
 			screenColumns: this.screenRows
 		});
 	}
 
 	/**
-	 * Gets the the width of a column.
+	 * Gets the width of a column.
 	 * @param columnIndex The column index.
 	 */
 	override getColumnWidth(columnIndex: number): number {
@@ -198,7 +198,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the the height of a row.
+	 * Gets the height of a row.
 	 * @param rowIndex The row index.
 	 */
 	override getRowHeight(rowIndex: number): number {
