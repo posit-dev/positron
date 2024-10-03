@@ -23,6 +23,7 @@ interface KallichoreServerState {
 	base_path: string;
 	server_path: string;
 	server_pid: number;
+	bearer_token: string;
 }
 
 export class KCApi implements KallichoreAdapterApi {
@@ -98,7 +99,8 @@ export class KCApi implements KallichoreAdapterApi {
 					base_path: this._api.basePath,
 					port,
 					server_path: shellPath,
-					server_pid: await terminal.processId || 0
+					server_pid: await terminal.processId || 0,
+					bearer_token: bearerToken
 				};
 				this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
@@ -118,6 +120,13 @@ export class KCApi implements KallichoreAdapterApi {
 				return false;
 			}
 		}
+
+		// Re-establish the bearer token
+		const bearer = new HttpBearerAuth();
+		bearer.accessToken = serverState.bearer_token;
+		this._api.setDefaultAuthentication(bearer);
+
+		// Reconnect and get the session list
 		this._api.basePath = serverState.base_path;
 		const sessions = await this._api.listSessions();
 		this._started.open();
