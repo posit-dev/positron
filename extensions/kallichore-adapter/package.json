@@ -19,6 +19,7 @@
     "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
     "lint": "eslint src --ext ts",
     "pretest": "yarn run compile && yarn run lint",
+    "postinstall": "ts-node scripts/post-install.ts",
     "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "yarn run compile",
     "watch": "gulp watch-extension:kallichore-adapter"

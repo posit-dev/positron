@@ -14,7 +14,7 @@
  * releases.
  */
 
-import * as decompress from 'decompress';
+import decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
