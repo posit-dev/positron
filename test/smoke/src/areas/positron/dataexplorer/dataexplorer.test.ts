@@ -17,7 +17,6 @@ describe('Data Explorer #web #win', () => {
 	describe('Python Pandas Data Explorer #pr', () => {
 
 		before(async function () {
-			this.timeout(120000);
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
@@ -35,6 +34,7 @@ describe('Data Explorer #web #win', () => {
 
 		it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			const script = `import pandas as pd
@@ -72,6 +72,7 @@ df = pd.DataFrame(data)`;
 
 		it('Python Pandas - Verifies data explorer functionality with empty fields [C718262]', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			const script = `import numpy as np
 import pandas as pd
@@ -115,6 +116,7 @@ df2 = pd.DataFrame(data)`;
 		it('Python Pandas - Verifies data explorer column info functionality [C734263]', async function () {
 
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('20%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('40%');
@@ -150,6 +152,8 @@ df2 = pd.DataFrame(data)`;
 		it('Python Pandas - Verifies data explorer after modification [C557574]', async function () {
 
 			const app = this.app as Application;
+			this.timeout(120000);
+
 			// Restart python for clean environment & open the file
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -203,7 +207,6 @@ df2 = pd.DataFrame(data)`;
 	// https://github.com/posit-dev/positron/issues/4663
 	describe('Python Polars Data Explorer #pr', () => {
 		before(async function () {
-			this.timeout(120000);
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
@@ -219,6 +222,8 @@ df2 = pd.DataFrame(data)`;
 
 		it('Python Polars - Verifies basic data explorer functionality [C644538]', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
+
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -249,6 +254,7 @@ df2 = pd.DataFrame(data)`;
 		it('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function () {
 
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			await app.workbench.positronLayouts.enterLayout('notebook');
 
@@ -284,6 +290,8 @@ df2 = pd.DataFrame(data)`;
 
 		it('Python Polars - Add Simple Column filter [C557557]', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
+
 			const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 			await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 
@@ -304,6 +312,8 @@ df2 = pd.DataFrame(data)`;
 
 		it('Python Polars - Add Simple Column Sort [C557561]', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
+
 			await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 			let tableData;
@@ -339,12 +349,12 @@ df2 = pd.DataFrame(data)`;
 	describe('R Data Explorer', () => {
 
 		before(async function () {
-			this.timeout(120000);
 			await PositronRFixtures.SetupFixtures(this.app as Application);
 		});
 
 		it('R - Verifies basic data explorer functionality [C609620] #pr', async function () {
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			// snippet from https://www.w3schools.com/r/r_data_frames.asp
 			const script = `Data_Frame <- data.frame (
@@ -381,6 +391,7 @@ df2 = pd.DataFrame(data)`;
 		it('R - Verifies basic data explorer column info functionality [C734265] #pr', async function () {
 
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
@@ -412,6 +423,7 @@ df2 = pd.DataFrame(data)`;
 		it('R - Open Data Explorer for the second time brings focus back [C701143]', async function () {
 			// Regression test for https://github.com/posit-dev/positron/issues/4197
 			const app = this.app as Application;
+			this.timeout(120000);
 
 			const script = `Data_Frame <- mtcars`;
 			await app.workbench.positronConsole.executeCode('R', script, '>');
