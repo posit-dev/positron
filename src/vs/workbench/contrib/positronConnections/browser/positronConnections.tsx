@@ -13,6 +13,8 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ActionBar } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
 
+import { FixedSizeList as List } from 'react-window';
+
 import 'vs/css!./positronConnections';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
@@ -33,49 +35,62 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	// service can fire and trigger re-rendering this component.
 	const [, reRender] = React.useReducer((x) => x + 1, 0);
 
-	// For each connection we generate the connection item, and
+	// For each connection we create the connection item, and
 	// recursively for it's children, if they are expanded and have children
 	// TODO: parent is currently a hack to ensure unique keys, but we should
 	// be able to fix that with proper Id's that contain the element path.
-	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = '') => {
-		return items.reduce<JSX.Element[]>((elements, con, index) => {
+	const getConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = '') => {
+		return items.reduce<PositronConnectionsItemProps[]>((elements, con, index) => {
 			elements.push(
-				<PositronConnectionsItem
-					key={`${con.name()}-${level}-${parent}-${index}`}
-					name={con.name()}
-					icon={con.icon()}
-					expanded={con.expanded()}
-					onExpand={con.expanded() === undefined ? undefined : () => {
+				{
+					name: con.name(),
+					icon: con.icon(),
+					expanded: con.expanded(),
+					onExpand: con.expanded() === undefined ? undefined : () => {
 						if (con.onToggleExpandEmitter) {
 							con.onToggleExpandEmitter.fire();
 						}
 						// We trigger a re-render when connection is expanded.
 						reRender();
-					}}
-					level={level}
-				>
-				</PositronConnectionsItem>
+					},
+					level: level
+				}
 			);
 
 			if (con.expanded() && con.getChildren) {
-				elements.push(...renderConnectionItems(con.getChildren(), level + 1, `${parent}-${index}`));
+				elements.push(...getConnectionItems(con.getChildren(), level + 1, `${parent}-${index}`));
 			}
 
 			return elements;
 		}, []);
 	};
 
+	const items = getConnectionItems(props.connectionsService.getConnections());
+
+	const ItemEntry = (props: ItemEntryProps) => {
+		return <PositronConnectionsItem {...items[props.index]}></PositronConnectionsItem>;
+	};
+
 	return (
 		<div className='positron-connections'>
 			<ActionBar {...props}></ActionBar>
 			<div className='connections-items-container'>
-				{
-					renderConnectionItems(props.connectionsService.getConnections())
-				}
+				<List
+					itemCount={items.length}
+					itemSize={26}
+					height={1000}         // Height of the list
+					width={'100%'}
+				>
+					{ItemEntry}
+				</List>
 			</div>
 		</div>
 	);
 };
+
+interface ItemEntryProps {
+	index: number,
+}
 
 interface PositronConnectionsItemProps {
 	name: string;

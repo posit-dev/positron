@@ -15,6 +15,18 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		new MockedConnectionItem(),
 		new MockedConnectionItem(),
 		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
 	];
 
 	constructor(private readonly clientId: string) {
