@@ -120,6 +120,8 @@ export class KCApi implements KallichoreAdapterApi {
 			'POSITRON': '1',
 			'POSITRON_VERSION': positron.version,
 			'RUST_LOG': logLevel,
+			'POSITRON_LONG_VERSION': `${positron.version}+${positron.buildNumber}`,
+			'POSITRON_MODE': vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server',
 		};
 
 		// Create a 16 hex digit UUID for the bearer token
