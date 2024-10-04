@@ -30,10 +30,14 @@
 	display: flex;
 	cursor: pointer;
 	align-items: center;
+	height: 26px;
 }
 
 .connections-name {
 	flex-grow: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .connections-icon {
@@ -44,7 +48,6 @@
 
 .connections-item .expand-collapse-area {
 	width: 26px;
-	height: 26px;
 	display: flex;
 	align-items: center;
 	justify-content: center;
