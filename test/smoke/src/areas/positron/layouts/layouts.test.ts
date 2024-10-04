@@ -6,7 +6,7 @@
 
 import { expect } from '@playwright/test';
 import { Application } from '../../../../../automation';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 describe('Layouts #web', () => {
 	setupAndStartApp();

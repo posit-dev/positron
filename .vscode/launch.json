@@ -516,7 +516,7 @@
 			"request": "launch",
 			"name": "Launch Smoke Test",
 			// --- Start Positron
-			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
+			"program": "${workspaceFolder}/test/smoke/run-tests.js",
 			// --- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
@@ -544,7 +544,7 @@
 			"request": "launch",
 			"name": "Launch Web Smoke Test",
 			// --- Start Positron
-			"program": "${workspaceFolder}/test/smoke/test/positronIndex.js",
+			"program": "${workspaceFolder}/test/smoke/run-tests.js",
 			// --- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
