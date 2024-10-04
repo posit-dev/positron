@@ -47,12 +47,15 @@ export class PositronConnectionsView
 	onRestoreScrollPosition: Event<void> =
 		this.onRestoreScrollPositionEmitter.event;
 
+	private _width = 0;
+	private _height = 0;
+
 	get height() {
-		return 0;
+		return this._height;
 	}
 
 	get width() {
-		return 0;
+		return this._width;
 	}
 
 	get containerVisible() {
@@ -130,7 +133,23 @@ export class PositronConnectionsView
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				connectionsService={this.connectionsService}
+				reactComponentContainer={this}
 			/>
 		);
+	}
+
+	protected override layoutBody(height: number, width: number): void {
+		// Call the base class's method.
+		super.layoutBody(height, width);
+
+		// Set the width and height.
+		this._width = width;
+		this._height = height;
+
+		// Raise the onSizeChanged event.
+		this.onSizeChangedEmitter.fire({
+			width,
+			height
+		});
 	}
 }
