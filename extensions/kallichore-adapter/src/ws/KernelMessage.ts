@@ -12,3 +12,12 @@ export interface KernelMessageStatus extends SocketMessage {
 	status: string;
 }
 
+/**
+ * Represents a message from the kernel containing output.
+ */
+export interface KernelOutputMessage extends SocketMessage {
+	/**
+	 * A 2-element array containing the stream name and the output text.
+	 */
+	output: [string, string];
+}

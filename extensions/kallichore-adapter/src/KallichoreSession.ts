@@ -35,6 +35,7 @@ import { Comm } from './Comm';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
+import { KernelOutputMessage } from './ws/KernelMessage';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -879,6 +880,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			} else {
 				this.log(`Unknown state: ${data.status}`);
 			}
+		} else if (data.hasOwnProperty('output')) {
+			const output = data as KernelOutputMessage;
+			this._kernelChannel.append(output.output[1]);
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
 		}
