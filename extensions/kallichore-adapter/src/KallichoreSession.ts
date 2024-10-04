@@ -83,6 +83,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** The Debug Adapter Protocol client, if any */
 	private _dapClient: DapClient | undefined;
 
+	/** A map of pending comm startups */
+	private _startingComms: Map<string, PromiseHandles<void>> = new Map();
+
 	/**
 	 * The channel to which output for this specific kernel is logged, if any
 	 */
@@ -249,11 +252,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Notify Positron that we're handling messages from this client
 		this._disposables.push(positron.runtime.registerClientInstance(clientId));
 
+		// Ask the backend to create the client
 		await this.createClient(
 			clientId,
 			positron.RuntimeClientType.Lsp,
 			{ client_address: clientAddress }
 		);
+
+		// Create a promise that will resolve when the LSP starts on the server
+		// side.
+		const startPromise = new PromiseHandles<void>();
+		this._startingComms.set(clientId, startPromise);
+		return startPromise.promise;
 	}
 
 	/**
@@ -1012,13 +1022,26 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		// If we have a DAP client active and this is a comm message intended
-		// for that client, forward the message.
-		if (this._dapClient && msg.header.msg_type === 'comm_msg') {
+		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
-			const comm = this._comms.get(commMsg.comm_id);
-			if (comm && comm.id === this._dapClient.clientId) {
-				this._dapClient.handleDapMessage(commMsg.data);
+
+			// If we have a DAP client active and this is a comm message intended
+			// for that client, forward the message.
+			if (this._dapClient) {
+				const comm = this._comms.get(commMsg.comm_id);
+				if (comm && comm.id === this._dapClient.clientId) {
+					this._dapClient.handleDapMessage(commMsg.data);
+				}
+			}
+
+			// If this is a `server_started` message, resolve the promise that
+			// was created when the comm was started.
+			if (commMsg.data.msg_type === 'server_started') {
+				const startingPromise = this._startingComms.get(commMsg.comm_id);
+				if (startingPromise) {
+					startingPromise.resolve();
+					this._startingComms.delete(commMsg.comm_id);
+				}
 			}
 		}
 
