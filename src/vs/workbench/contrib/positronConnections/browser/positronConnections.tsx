@@ -29,13 +29,15 @@ export interface PositronConnectionsProps {
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
 
+	// There's probably a better way to trigger the re-render. Probably, an event the connections
+	// service can fire and trigger re-rendering this component.
 	const [, reRender] = React.useReducer((x) => x + 1, 0);
 
 	// For each connection we generate the connection item, and
 	// recursively for it's children, if they are expanded and have children
 	// TODO: parent is currently a hack to ensure unique keys, but we should
 	// be able to fix that with proper Id's that contain the element path.
-	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = 0) => {
+	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = '') => {
 		return items.reduce<JSX.Element[]>((elements, con, index) => {
 			elements.push(
 				<PositronConnectionsItem
@@ -43,8 +45,10 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 					name={con.name()}
 					icon={con.icon()}
 					expanded={con.expanded()}
-					onExpand={() => {
-						con.onToggleExpandEmitter.fire();
+					onExpand={con.expanded() === undefined ? undefined : () => {
+						if (con.onToggleExpandEmitter) {
+							con.onToggleExpandEmitter.fire();
+						}
 						// We trigger a re-render when connection is expanded.
 						reRender();
 					}}
@@ -53,8 +57,8 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				</PositronConnectionsItem>
 			);
 
-			if (con.expanded()) {
-				elements.push(...renderConnectionItems(con.getChildren(), level + 1, index));
+			if (con.expanded() && con.getChildren) {
+				elements.push(...renderConnectionItems(con.getChildren(), level + 1, `${parent}-${index}`));
 			}
 
 			return elements;
@@ -77,7 +81,7 @@ interface PositronConnectionsItemProps {
 	name: string;
 	icon: string;
 	expanded: boolean | undefined;
-	onExpand(): void;
+	onExpand?(): void;
 	level: number; // How nested the item is.
 }
 
