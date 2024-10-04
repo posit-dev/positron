@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import enum
 import logging
-from typing import Callable, Generic, Optional, Type, TypeVar
 import threading
+from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
 
