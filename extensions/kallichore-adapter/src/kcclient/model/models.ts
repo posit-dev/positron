@@ -6,6 +6,7 @@ export * from './interruptMode';
 export * from './modelError';
 export * from './newSession';
 export * from './newSession200Response';
+export * from './serverStatus';
 export * from './sessionList';
 export * from './status';
 
@@ -28,6 +29,7 @@ import { InterruptMode } from './interruptMode';
 import { ModelError } from './modelError';
 import { NewSession } from './newSession';
 import { NewSession200Response } from './newSession200Response';
+import { ServerStatus } from './serverStatus';
 import { SessionList } from './sessionList';
 import { Status } from './status';
 
@@ -54,6 +56,7 @@ let typeMap: {[index: string]: any} = {
     "ModelError": ModelError,
     "NewSession": NewSession,
     "NewSession200Response": NewSession200Response,
+    "ServerStatus": ServerStatus,
     "SessionList": SessionList,
 }
 
