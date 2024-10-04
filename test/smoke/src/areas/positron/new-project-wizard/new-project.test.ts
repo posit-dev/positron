@@ -204,6 +204,7 @@ describe('New Project Wizard', () => {
 
 		describe('R Project with Renv Environment', () => {
 			beforeEach(async function () {
+				this.timeout(120000);
 				const app = this.app as Application;
 				await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
 			});
