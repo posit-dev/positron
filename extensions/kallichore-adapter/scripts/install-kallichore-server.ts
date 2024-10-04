@@ -388,6 +388,14 @@ async function main() {
 	await downloadAndReplaceKallichore(packageJsonVersion, githubPat, gitCredential);
 }
 
-main().catch((error) => {
-	console.error('An error occurred:', error);
-});
+// Disable downloading in Github Actions pull requests; these run on the public
+// repository, which doesn't currently have access to the private Kallichore
+// repository.
+if (process.env.GITHUB_ACTIONS && process.env.GITHUB_EVENT_NAME === 'pull_request') {
+	console.log('Skipping Kallichore download in pull request.');
+} else {
+
+	main().catch((error) => {
+		console.error('An error occurred:', error);
+	});
+}

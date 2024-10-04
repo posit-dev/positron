@@ -10,6 +10,12 @@ import { API_INSTANCE } from '../extension';
 // correct version as specified in the package.json.
 suite('Server', () => {
 	test('Server starts and connects', async () => {
+		// Skip this test if the server is not available (see notes in `install-kallichore-server.ts`)
+		if (process.env.GITHUB_ACTIONS && process.env.GITHUB_EVENT_NAME === 'pull_request') {
+			// Skip the test
+			return;
+		}
+
 		// Start the server and connect to it
 		const status = await API_INSTANCE.serverStatus();
 
