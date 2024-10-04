@@ -45,6 +45,20 @@ export function activate(context: vscode.ExtensionContext) {
 		)
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.justStartTheServer',
+			async () => await positronProxy.justStartTheServer()
+		)
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.nowHookUpTheMiddleware',
+			async (targetOrigin: string, serverOrigin: string) => await positronProxy.nowHookUpTheMiddleware(targetOrigin, serverOrigin)
+		)
+	);
+
 	// Register the positronProxy.stopProxyServer command and add its disposable.
 	context.subscriptions.push(
 		vscode.commands.registerCommand(

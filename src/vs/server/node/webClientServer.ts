@@ -170,6 +170,8 @@ export class WebClientServer {
 					path = path.concat(parsedUrl.search);
 				}
 
+				console.log('[webClientServer] Proxying request to:', path);
+
 				return this._proxyServer.web(req, res, {
 					ignorePath: true,
 					target: path

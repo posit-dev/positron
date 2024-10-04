@@ -74,11 +74,13 @@ export class ProxyServer implements Disposable {
 	 * @param serverOrigin The server origin.
 	 * @param targetOrigin The target origin.
 	 * @param server The server.
+	 * @param app The express app; optional.
 	 */
 	constructor(
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
-		private readonly server: Server,
+		readonly server: Server,
+		readonly app?: express.Express
 	) {
 	}
 
@@ -125,6 +127,11 @@ export class PositronProxy implements Disposable {
 	 * Gets or sets the proxy servers, keyed by target origin.
 	 */
 	private _proxyServers = new Map<string, ProxyServer>();
+
+	/**
+	 * Gets or sets the pending proxy servers, keyed by server origin.
+	 */
+	private _pendingProxyServers = new Map<string, ProxyServer>();
 
 	/**
 	 * The HTML proxy server. There's only ever one of these; it serves all raw
@@ -304,6 +311,27 @@ export class PositronProxy implements Disposable {
 			});
 	}
 
+	nowHookUpTheMiddleware(targetOrigin: string, serverOrigin: string) {
+		return this.nowHookUpTheMiddlewareImpl(
+			targetOrigin,
+			serverOrigin,
+			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+				// If this isn't 'text/html' content, just return the response buffer.
+				if (!contentType.includes('text/html')) {
+					return responseBuffer;
+				}
+
+				// Get the response.
+				let response = responseBuffer.toString('utf8');
+
+				// Rewrite the URLs with the proxy path.
+				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+
+				// Return the response.
+				return response;
+			});
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -380,6 +408,107 @@ export class PositronProxy implements Disposable {
 				resolve(externalUri.toString());
 			});
 		});
+	}
+
+	justStartTheServer() {
+		return new Promise((resolve, reject) => {
+			// Create the app and start listening on a random port.
+			const app = express();
+			const server = app.listen(0, HOST, async () => {
+				// Get the server address.
+				const address = server.address();
+
+				// Ensure that we have the address info of the server.
+				if (!isAddressInfo(address)) {
+					server.close();
+					reject();
+					return;
+				}
+
+				// Create the server origin.
+				const serverOrigin = `http://${address.address}:${address.port}`;
+				// localhost:1234
+
+				// Add the pending proxy server for
+				this._pendingProxyServers.set(serverOrigin, new ProxyServer(
+					serverOrigin,
+					'',
+					server,
+					app
+				));
+
+				// Convert the server origin to an external URI.
+				const originUri = vscode.Uri.parse(serverOrigin);
+				console.log('[positron-proxy] justStartTheServer: originUri', originUri);
+				let externalUri = await vscode.env.asExternalUri(originUri);
+
+				console.log('[positron-proxy] justStartTheServer: externalUri', externalUri);
+
+				// localhost:8080/proxy/1234
+
+				// Resolve the server origin URI.
+				resolve({
+					serverOrigin: serverOrigin.toString(), // so that we can loop up the proxy server later
+					port: address.port,
+					proxyUrl: externalUri.toString() // so that the app framework knows the proxy path
+				});
+			});
+		});
+
+	}
+
+	async nowHookUpTheMiddlewareImpl(targetOrigin: string, serverOrigin: string, contentRewriter: ContentRewriter) {
+		const pendingProxyServer = this._pendingProxyServers.get(serverOrigin);
+
+		if (!pendingProxyServer) {
+			console.log('No pending proxy server found');
+			return;
+		}
+
+		this._proxyServers.set(targetOrigin, new ProxyServer(
+			serverOrigin,
+			targetOrigin,
+			pendingProxyServer.server
+		));
+
+
+		if (!pendingProxyServer.app) {
+			console.log('No app found');
+			return;
+		}
+
+		// Convert the server origin to an external URI.
+		const originUri = vscode.Uri.parse(serverOrigin);
+		const externalUri = await vscode.env.asExternalUri(originUri);
+
+		// Add the proxy middleware.
+		pendingProxyServer.app.use('*', createProxyMiddleware({
+			target: targetOrigin,
+			changeOrigin: true,
+			selfHandleResponse: true,
+			// Logging for development work.
+			// onProxyReq: (proxyReq, req, res, options) => {
+			// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
+			// },
+			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
+				// Get the URL and the content type. These must be present to call the
+				// content rewriter. Also, the scripts must be loaded.
+				const url = req.url;
+				const contentType = proxyRes.headers['content-type'];
+				if (!url || !contentType || !this._scriptsFileLoaded) {
+					// Don't process the response.
+					return responseBuffer;
+				}
+
+				// Rewrite the content.
+				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
+			})
+		}));
+
+		this._pendingProxyServers.delete(serverOrigin);
+
+		// Return the server origin external URI.
+		return externalUri.toString();
 	}
 
 	/**

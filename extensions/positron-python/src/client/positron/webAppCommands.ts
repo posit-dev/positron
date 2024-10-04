@@ -154,7 +154,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                         'true',
                     ];
                     if (port) {
-                        args.push('--port', port);
+                        args.push('--server.port', port);
                     }
                     return { commandLine: args.join(' ') };
                 },
