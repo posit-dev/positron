@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 let logger;
 

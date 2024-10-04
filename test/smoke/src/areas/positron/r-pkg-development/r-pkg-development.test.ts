@@ -6,7 +6,7 @@
 import path = require('path');
 import { Application, PositronRFixtures, PositronUserSettingsFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 let logger;
 

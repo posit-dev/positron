@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 describe('Viewer', () => {
 	const logger = setupAndStartApp();

@@ -5,7 +5,7 @@
 
 
 import { Application, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 describe('Console Output', () => {
 	setupAndStartApp();
