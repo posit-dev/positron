@@ -367,9 +367,11 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		 * onDidVisibleEditorsChange event handler.
 		 */
 		const onDidVisibleEditorsChangeHandler = () => {
-			// When the panel position is bottom and the panel alignment is center, and there isn't
-			// an active editor, and the editor isn't hidden, then we want to hide the editor.
-			if (this.getPanelPosition() === Position.BOTTOM &&
+			// When the panel is visible (i.e. user hasn't explicitly hidden it), position is
+			// bottom, and the panel alignment is center, and there isn't an active editor, and the
+			// editor isn't hidden, then we want to hide the editor to maximize the panel.
+			if (this.isVisible(Parts.PANEL_PART) &&
+				this.getPanelPosition() === Position.BOTTOM &&
 				this.getPanelAlignment() === 'center' &&
 				!this.editorService.activeEditor &&
 				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
@@ -396,7 +398,8 @@ export abstract class Layout extends Disposable implements IWorkbenchLayoutServi
 		// is ready to avoid conflicts on startup
 		this.editorGroupService.whenRestored.then(() => {
 			// --- Start Positron ---
-			if (this.getPanelPosition() === Position.BOTTOM &&
+			if (this.isVisible(Parts.PANEL_PART) &&
+				this.getPanelPosition() === Position.BOTTOM &&
 				this.getPanelAlignment() === 'center' &&
 				!this.editorService.activeEditor &&
 				!this.stateModel.getRuntimeValue(LayoutStateKeys.EDITOR_HIDDEN)) {
