@@ -5,8 +5,8 @@
 
 import * as fs from 'fs';
 import { join } from 'path';
-import rimraf = require('rimraf');
-import mkdirp = require('mkdirp');
+const rimraf = require('rimraf');
+const mkdirp = require('mkdirp');
 import { getBuildElectronPath, getDevElectronPath, Logger } from '../../../automation';
 import { createLogger } from './logger';
 

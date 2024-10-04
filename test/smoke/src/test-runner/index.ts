@@ -3,6 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-export { prepareTestEnv } from './testSetup';
+export { prepareTestEnv } from './test-setup';
 export { cloneTestRepo } from './utils';
-export { runMochaTests } from './mochaRunner';
+export { runMochaTests } from './mocha-runner';

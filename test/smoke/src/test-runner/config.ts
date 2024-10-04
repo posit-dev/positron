@@ -23,6 +23,7 @@ Object.assign(process.env, {
 	PR: OPTS['pr'] || '',
 	SKIP_CLEANUP: OPTS['skip-cleanup'] || '',
 	TEST_DATA_PATH: TEST_DATA_PATH,
+	ROOT_PATH: path.join(__dirname, '..', '..', '..', '..'),
 	EXTENSIONS_PATH: path.join(TEST_DATA_PATH, 'extensions-dir'),
 	WORKSPACE_PATH: path.join(TEST_DATA_PATH, 'qa-example-content'),
 	REPORT_PATH: path.join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/xunit-results.xml'),

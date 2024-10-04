@@ -5,7 +5,7 @@
 
 import * as cp from 'child_process';
 import * as fs from 'fs';
-import rimraf = require('rimraf');
+const rimraf = require('rimraf');
 
 const TEST_REPO = process.env.TEST_REPO;
 const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set';

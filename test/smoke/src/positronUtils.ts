@@ -7,8 +7,8 @@ import { join } from 'path';
 import * as path from 'path';
 import { Logger, } from '../../automation';
 import { installAllHandlers, } from './utils';
-import { createLogger } from './test-helpers/logger';
-import { OPTS } from './test-helpers/config';
+import { createLogger } from './test-runner/logger';
+import { OPTS } from './test-runner/config';
 
 export const ROOT_PATH = join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';

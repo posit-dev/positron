@@ -7,9 +7,9 @@
 'use strict';
 
 // must import the config file first to set up the environment variables
-require('../out/test-helpers/config');
+require('../out/test-runner/config');
 const minimist = require('minimist');
-const { prepareTestEnv, cloneTestRepo, runMochaTests } = require('../out/test-helpers');
+const { prepareTestEnv, cloneTestRepo, runMochaTests } = require('../out/test-runner');
 const OPTS = minimist(process.argv.slice(2));
 
 (function main() {
