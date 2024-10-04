@@ -5,12 +5,12 @@
 
 import { join } from 'path';
 import * as path from 'path';
-import { Logger, } from '../../../automation/out';
+import { Logger, } from '../../../automation';
 import { installAllHandlers, } from '../utils';
 import { createLogger } from './logger';
 import { OPTS } from './config';
 
-export const ROOT_PATH = join(__dirname, '..', '..', '..');
+export const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH not set';
 const EXTENSIONS_PATH = process.env.EXTENSIONS_PATH || 'EXTENSIONS_PATH not set';
