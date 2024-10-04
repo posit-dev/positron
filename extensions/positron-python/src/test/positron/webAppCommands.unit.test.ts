@@ -179,13 +179,6 @@ suite('Web app commands', () => {
     test('Exec FastAPI in terminal - fastapi-cli not installed, could not infer app name', async () => {
         isFastAPICliInstalled = false;
 
-        // TODO @isabelizimm: HACK HACK HACK
-        const mockAsRelativePath = sinon.mock().callsFake(() => ({
-            workspaceFolders: [{ uri: { fsPath: '/path/to' } }],
-        }));
-        // Replace the original `asRelativePath` method with the mock object
-        vscode.workspace.asRelativePath = mockAsRelativePath;
-
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
 
