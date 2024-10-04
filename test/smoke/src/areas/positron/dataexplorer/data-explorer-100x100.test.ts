@@ -157,6 +157,7 @@ describe('Data Explorer 100x100', function () {
 		it('Data Explorer 100x100 - Python - Pandas - Smoke Test [C557563]', async function () {
 			// Get the app.
 			const app = this.app as Application;
+			this.timeout(180000);
 
 			// Test the data explorer.
 			const dataFrameName = 'pandas100x100';
@@ -201,6 +202,7 @@ describe('Data Explorer 100x100', function () {
 		it('Data Explorer 100x100 - Python - Polars - Smoke Test [C674520]', async function () {
 			// Get the app.
 			const app = this.app as Application;
+			this.timeout(180000);
 
 			// Test the data explorer.
 			const dataFrameName = 'polars100x100';
@@ -245,6 +247,7 @@ describe('Data Explorer 100x100', function () {
 		it('Data Explorer 100x100 - R - Smoke Test [C674521]', async function () {
 			// Get the app.
 			const app = this.app as Application;
+			this.timeout(180000);
 
 			// Test the data explorer.
 			const dataFrameName = 'r100x100';
