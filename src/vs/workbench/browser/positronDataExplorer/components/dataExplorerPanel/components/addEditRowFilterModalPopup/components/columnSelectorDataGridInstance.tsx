@@ -65,6 +65,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 8,
+			scrollbarOverscroll: 0,
 			useEditorFont: false,
 			automaticLayout: true,
 			rowsMargin: 4,
@@ -110,21 +111,21 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the scroll width.
 	 */
-	get scrollWidth() {
+	override get scrollWidth() {
 		return 0;
 	}
 
 	/**
 	 * Gets the scroll height.
 	 */
-	get scrollHeight() {
+	override get scrollHeight() {
 		return this.rows * this.defaultRowHeight;
 	}
 
 	/**
 	 * Gets the number of columns.
 	 */
-	get firstColumn() {
+	override get firstColumn() {
 		return {
 			columnIndex: 0,
 			left: 0
@@ -134,7 +135,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the number of rows.
 	 */
-	get firstRow() {
+	override get firstRow() {
 		const rowIndex = Math.floor(
 			this.verticalScrollOffset / this.defaultRowHeight
 		);
