@@ -4,11 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
+import { Emitter, Event } from 'vs/base/common/event';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
 import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 
 
 export class PositronConnectionsInstance extends Disposable implements IPositronConnectionInstance {
+	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
+	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
+
 	constructor(
 		private readonly client: ConnectionsClientInstance,
 		private readonly metadata: ConnectionMetadata

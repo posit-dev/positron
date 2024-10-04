@@ -29,23 +29,32 @@ export interface PositronConnectionsProps {
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
 
+	const [, reRender] = React.useReducer((x) => x + 1, 0);
+
 	// For each connection we generate the connection item, and
 	// recursively for it's children, if they are expanded and have children
-	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0) => {
-		return items.reduce<JSX.Element[]>((elements, con) => {
+	// TODO: parent is currently a hack to ensure unique keys, but we should
+	// be able to fix that with proper Id's that contain the element path.
+	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = 0) => {
+		return items.reduce<JSX.Element[]>((elements, con, index) => {
 			elements.push(
 				<PositronConnectionsItem
-					key={con.name()}
+					key={`${con.name()}-${level}-${parent}-${index}`}
 					name={con.name()}
 					icon={con.icon()}
 					expanded={con.expanded()}
+					onExpand={() => {
+						con.onToggleExpandEmitter.fire();
+						// We trigger a re-render when connection is expanded.
+						reRender();
+					}}
 					level={level}
 				>
 				</PositronConnectionsItem>
 			);
 
 			if (con.expanded()) {
-				elements.push(...renderConnectionItems(con.getChildren(), level + 1));
+				elements.push(...renderConnectionItems(con.getChildren(), level + 1, index));
 			}
 
 			return elements;
@@ -57,7 +66,6 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			<ActionBar {...props}></ActionBar>
 			<div className='connections-items-container'>
 				{
-
 					renderConnectionItems(props.connectionsService.getConnections())
 				}
 			</div>
@@ -69,13 +77,14 @@ interface PositronConnectionsItemProps {
 	name: string;
 	icon: string;
 	expanded: boolean | undefined;
+	onExpand(): void;
 	level: number; // How nested the item is.
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
 
 	// If the connection is not expandable, we add some more padding.
-	const padding = props.level * 10 + (props.expanded ? 26 : 0);
+	const padding = props.level * 10 + (props.expanded === undefined ? 26 : 0);
 
 	return (
 		<div className='connections-item'>
@@ -83,7 +92,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			{
 				props.expanded === undefined ?
 					<></> :
-					<div className='expand-collapse-area'>
+					<div className='expand-collapse-area' onClick={props.onExpand}>
 						<div
 							className={`codicon codicon-chevron-${props.expanded ? 'down' : 'right'}`}
 						>
