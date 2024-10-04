@@ -11,13 +11,15 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ActionBar } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
+import { ActionBar, kHeight as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
 
 import { FixedSizeList as List } from 'react-window';
 
 import 'vs/css!./positronConnections';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 export interface PositronConnectionsProps {
 	readonly commandService: ICommandService;
@@ -27,6 +29,7 @@ export interface PositronConnectionsProps {
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
 	readonly connectionsService: IPositronConnectionsService;
+	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
@@ -34,6 +37,20 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	// There's probably a better way to trigger the re-render. Probably, an event the connections
 	// service can fire and trigger re-rendering this component.
 	const [, reRender] = React.useReducer((x) => x + 1, 0);
+
+	// This allows us to introspect the size of the component. Which then allows
+	// us to efficiently only render items that are in view.
+	const [, setWidth] = React.useState(props.reactComponentContainer.width);
+	const [height, setHeight] = React.useState(props.reactComponentContainer.height);
+
+	React.useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
+			setWidth(size.width);
+			setHeight(size.height);
+		}));
+		return () => disposableStore.dispose();
+	});
 
 	// For each connection we create the connection item, and
 	// recursively for it's children, if they are expanded and have children
@@ -53,7 +70,8 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 						// We trigger a re-render when connection is expanded.
 						reRender();
 					},
-					level: level
+					level: level,
+					id: `${parent}-${level}-${index}`
 				}
 			);
 
@@ -68,7 +86,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	const items = getConnectionItems(props.connectionsService.getConnections());
 
 	const ItemEntry = (props: ItemEntryProps) => {
-		return <PositronConnectionsItem {...items[props.index]}></PositronConnectionsItem>;
+		return <PositronConnectionsItem {...items[props.index]} style={props.style}></PositronConnectionsItem>;
 	};
 
 	return (
@@ -78,8 +96,9 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				<List
 					itemCount={items.length}
 					itemSize={26}
-					height={1000}         // Height of the list
+					height={height - kActionBarHeight}
 					width={'100%'}
+					itemKey={index => items[index].id}
 				>
 					{ItemEntry}
 				</List>
@@ -89,15 +108,18 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 };
 
 interface ItemEntryProps {
-	index: number,
+	index: number;
+	style: any;
 }
 
 interface PositronConnectionsItemProps {
+	id: string;
 	name: string;
 	icon: string;
 	expanded: boolean | undefined;
 	onExpand?(): void;
 	level: number; // How nested the item is.
+	style?: any;
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
@@ -106,7 +128,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	const padding = props.level * 10 + (props.expanded === undefined ? 26 : 0);
 
 	return (
-		<div className='connections-item'>
+		<div className='connections-item' style={props.style}>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
 			{
 				props.expanded === undefined ?

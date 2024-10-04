@@ -20,6 +20,7 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
+export const kHeight = 32;
 
 interface ActionBarProps {
 	readonly commandService: ICommandService;
@@ -32,26 +33,28 @@ interface ActionBarProps {
 
 export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 	return (
-		<PositronActionBarContextProvider {...props}>
-			<PositronActionBar
-				size='small'
-				borderTop={true}
-				borderBottom={true}
-				paddingLeft={kPaddingLeft}
-				paddingRight={kPaddingRight}
-			>
-				<ActionBarRegion location='right'>
-					<ActionBarButton
-						align='right'
-						iconId='positron-refresh'
-					/>
-					<ActionBarSeparator />
-					<ActionBarButton
-						align='right'
-						iconId='clear-all'
-					/>
-				</ActionBarRegion>
-			</PositronActionBar>
-		</PositronActionBarContextProvider>
+		<div style={{ height: kHeight }}>
+			<PositronActionBarContextProvider {...props}>
+				<PositronActionBar
+					size='small'
+					borderTop={true}
+					borderBottom={true}
+					paddingLeft={kPaddingLeft}
+					paddingRight={kPaddingRight}
+				>
+					<ActionBarRegion location='right'>
+						<ActionBarButton
+							align='right'
+							iconId='positron-refresh'
+						/>
+						<ActionBarSeparator />
+						<ActionBarButton
+							align='right'
+							iconId='clear-all'
+						/>
+					</ActionBarRegion>
+				</PositronActionBar>
+			</PositronActionBarContextProvider>
+		</div>
 	);
 };
