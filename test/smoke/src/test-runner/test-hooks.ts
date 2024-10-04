@@ -8,13 +8,31 @@ import * as path from 'path';
 import { Logger, } from '../../../automation';
 import { installAllHandlers, } from '../utils';
 import { createLogger } from './logger';
-import { OPTS } from './config';
 
 export const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH not set';
 const EXTENSIONS_PATH = process.env.EXTENSIONS_PATH || 'EXTENSIONS_PATH not set';
 const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
+
+
+const asBoolean = (value: string | undefined): boolean | undefined => {
+	return value === 'true' ? true : value === 'false' ? false : undefined;
+};
+
+// NOTE: When running with --build, the config file does not load so we are setting the options here
+const OPTS: ParseOptions = {
+	tracing: asBoolean(process.env.TRACING),
+	parallel: asBoolean(process.env.PARALLEL),
+	web: asBoolean(process.env.WEB),
+	build: process.env.BUILD,
+	remote: asBoolean(process.env.REMOTE),
+	verbose: asBoolean(process.env.VERBOSE),
+	headless: asBoolean(process.env.HEADLESS),
+	browser: process.env.BROWSER,
+	electronArgs: process.env.ELECTRON_ARGS,
+	version: process.env.BUILD_VERSION,
+};
 
 /**
  * Setup the environment, logs, hooks for the test suite and then START the application.
@@ -91,3 +109,17 @@ function getTestFileName(): string {
 		Error.prepareStackTrace = originalFunc;
 	}
 }
+
+type ParseOptions = {
+	verbose?: boolean;
+	remote?: boolean;
+	headless?: boolean;
+	web?: boolean;
+	tracing?: boolean;
+	parallel?: boolean;
+	build?: string;
+	'stable-build'?: string;
+	browser?: string;
+	electronArgs?: string;
+	version?: string;
+};
