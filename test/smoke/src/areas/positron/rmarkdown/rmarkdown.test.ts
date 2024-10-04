@@ -6,7 +6,7 @@
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
 import { expect } from '@playwright/test';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 
 describe('RMarkdown #web', () => {

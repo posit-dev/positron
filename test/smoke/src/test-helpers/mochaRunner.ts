@@ -16,6 +16,7 @@ const REPORT_PATH = process.env.REPORT_PATH || 'REPORT_PATH not set';
  * Runs Mocha tests.
  */
 export function runMochaTests(OPTS: minimist.ParsedArgs) {
+	// export const runMochaTests = (OPTS: minimist.ParsedArgs) => {
 	const mocha = new Mocha({
 		color: true,
 		timeout: 1 * 60 * 1000,  // 1 minute

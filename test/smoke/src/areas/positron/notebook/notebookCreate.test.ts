@@ -6,7 +6,7 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 describe('Notebooks #pr #web #win', () => {
 	setupAndStartApp();

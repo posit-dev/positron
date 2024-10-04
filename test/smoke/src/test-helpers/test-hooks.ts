@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import * as path from 'path';
-import { Logger, } from '../../../automation/out';
+import { Logger, } from '../../../automation';
 import { installAllHandlers, } from '../utils';
 import { createLogger } from './logger';
 import { OPTS } from './config';

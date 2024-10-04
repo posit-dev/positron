@@ -12,7 +12,7 @@ import {
 	QuickAccess,
 } from '../../../../../automation';
 
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { setupAndStartApp } from '../../../test-helpers/test-hooks';
 
 describe('Interpreter Dropdown in Top Action Bar #web', () => {
 	setupAndStartApp();

@@ -5,7 +5,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import mkdirp = require('mkdirp');
-import { ConsoleLogger, FileLogger, Logger, MultiLogger } from '../../../automation/out';
+import { ConsoleLogger, FileLogger, Logger, MultiLogger } from '../../../automation';
 
 const VERBOSE = process.env.VERBOSE === 'true';
 
