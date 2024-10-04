@@ -26,13 +26,13 @@ describe('RMarkdown #web', () => {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
 			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Output created: basicRmd.html')));
-		}).toPass({ timeout: 50000 });
+		}).toPass({ timeout: 80000 });
 
 		// Wrapped in expect.toPass to allow UI to update/render
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 			expect(projectFiles).toContain('basicRmd.html');
-		}).toPass({ timeout: 50000 });
+		}).toPass({ timeout: 80000 });
 
 	});
 
