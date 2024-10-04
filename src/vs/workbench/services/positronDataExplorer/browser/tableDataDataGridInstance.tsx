@@ -13,6 +13,7 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
@@ -35,121 +36,13 @@ import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardCol
 const addFilterTitle = localize('positron.addFilter', "Add Filter");
 
 /**
- * Range interface.
- */
-interface Range {
-	edge: number;
-	size: number;
-	value: number;
-}
-
-/**
- * Ranges class.
- */
-export class Ranges {
-	/**
-	 * Gets or sets the ranges.
-	 */
-	private _ranges: Range[] = [];
-
-	/**
-	 * Gets or sets the last value.
-	 */
-	private _lastValue = -1;
-
-	/**
-	 * Gets or sets the last range for the last value.
-	 */
-	private _lastRange?: Range;
-
-	/**
-	 * Constructor.
-	 */
-	constructor() {
-	}
-
-	/**
-	 * Gets the length.
-	 */
-	get length() {
-		return this._ranges.length;
-	}
-
-	/**
-	 * Clears the ranges.
-	 */
-	clear() {
-		this._ranges = [];
-	}
-
-	/**
-	 * Inserts a range.
-	 * @param range The range to insert.
-	 */
-	insert(range: Range) {
-		this._ranges.push(range);
-	}
-
-	get lastRange(): Range {
-		if (!this._ranges.length) {
-			return {
-				edge: 0,
-				size: 0,
-				value: 0
-			};
-		}
-		return this._ranges[this._ranges.length - 1];
-	}
-
-	/**
-	 * Finds a value.
-	 * @param value The value to find.
-	 * @returns The range, or, undefined.
-	 */
-	find(value: number): Range | undefined {
-		// If the value is the same as the last value, return the last range.
-		if (value === this._lastValue) {
-			return this._lastRange;
-		}
-
-		// Setup the binary search.
-		let leftIndex = 0;
-		let rightIndex = this._ranges.length - 1;
-
-		// Binary chop.
-		while (leftIndex <= rightIndex) {
-			const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
-			const middleRange = this._ranges[middleIndex];
-
-			// Check for a match.
-			if (value >= middleRange.edge && value < middleRange.edge + middleRange.size) {
-				// Cache the last value and range.
-				this._lastValue = value;
-				this._lastRange = middleRange;
-				return middleRange;
-			}
-
-			// Setup the next binary chop.
-			if (middleRange.edge < value) {
-				leftIndex = middleIndex + 1;
-			} else {
-				rightIndex = middleIndex - 1;
-			}
-		}
-
-		// Not found.
-		return undefined;
-	}
-}
-
-/**
  * TableDataDataGridInstance class.
  */
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
-	private _columnRanges = new Ranges();
-	private _rowRanges = new Ranges();
+	private _columnLayoutRegions = new LayoutRegions();
+	private _rowLayoutRegions = new LayoutRegions();
 
 	/**
 	 * Gets or sets the sort index width calculator.
@@ -278,10 +171,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			return this.columns * this.defaultColumnWidth;
 		}
 
-		console.log('lqwejqleje');
-
 		// TODO@scroll.
-		return this._columnRanges.lastRange.edge + this._columnRanges.lastRange.size;
+		return this._columnLayoutRegions.extent;
 	}
 
 	/**
@@ -294,7 +185,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		}
 
 		// TODO@scroll.
-		return 2000;
+		return this._rowLayoutRegions.extent;
 	}
 
 	/**
@@ -317,54 +208,40 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			};
 		}
 
+		// Recompute the column ranges.
 		const start = new Date().getTime();
-		console.log('RECOMPUTING COLUMN RANGES');
-		this._columnRanges.clear();
+		this._columnLayoutRegions.clear();
 		for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
 			const columnWidth = this.getColumnWidth(columnIndex);
 
-			this._columnRanges.insert({
-				edge: left,
+			this._columnLayoutRegions.append({
+				start: left,
 				size: columnWidth,
-				value: columnIndex
+				index: columnIndex
 			});
 
 			left += columnWidth;
 		}
 
 		const end = new Date().getTime();
-
 		console.log(`RECOMPUTING COLUMN RANGES TOOK: ${end - start}ms`);
 
-		// if (this.columns !== this._columnRanges.length) {
-		// 	this._columnRanges.clear();
-		// 	let left = 0;
-		// 	for (let columnIndex = 0; columnIndex < this.columns; columnIndex++) {
-		// 		const columnWidth = this.getColumnWidth(columnIndex);
+		// Get the column layout region.
+		const columnLayoutRegion = this._columnLayoutRegions.find(this.horizontalScrollOffset);
 
-		// 		this._columnRanges.insert({
-		// 			edge: left,
-		// 			size: columnWidth,
-		// 			value: columnIndex
-		// 		});
-
-		// 		left += columnWidth;
-		// 	}
-		// }
-
-		const columnRange = this._columnRanges.find(this.horizontalScrollOffset);
-
-		if (columnRange) {
+		// If the column column layout region was found, return it; otherwise, return the first
+		// column.
+		if (columnLayoutRegion) {
 			return {
-				columnIndex: columnRange.value,
-				left: columnRange.edge
+				columnIndex: columnLayoutRegion.index,
+				left: columnLayoutRegion.start
+			};
+		} else {
+			return {
+				columnIndex: 0,
+				left: 0
 			};
 		}
-
-		return {
-			columnIndex: 0,
-			left: 0
-		};
 	}
 
 	/**
@@ -380,28 +257,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			};
 		}
 
-		if (this.rows !== this._rowRanges.length) {
-			this._rowRanges.clear();
-			let top = 0;
-			for (let rowIndex = 0; rowIndex < this.rows; rowIndex++) {
-				const rowHeight = this._userDefinedRowHeights.get(rowIndex) || this.defaultRowHeight;
+		this._rowLayoutRegions.clear();
+		let top = 0;
+		for (let rowIndex = 0; rowIndex < this.rows; rowIndex++) {
+			const rowHeight = this._userDefinedRowHeights.get(rowIndex) || this.defaultRowHeight;
 
-				this._rowRanges.insert({
-					edge: top,
-					size: rowHeight,
-					value: rowIndex
-				});
+			this._rowLayoutRegions.append({
+				start: top,
+				size: rowHeight,
+				index: rowIndex
+			});
 
-				top += rowHeight;
-			}
+			top += rowHeight;
 		}
 
-		const rowRange = this._rowRanges.find(this.verticalScrollOffset);
-
-		if (rowRange) {
+		const rowLayoutRegion = this._rowLayoutRegions.find(this.verticalScrollOffset);
+		if (rowLayoutRegion) {
 			return {
-				rowIndex: rowRange.value,
-				top: rowRange.edge
+				rowIndex: rowLayoutRegion.index,
+				top: rowLayoutRegion.start
 			};
 		}
 

@@ -78,7 +78,7 @@ interface DataGridSmoothScrollbarProps {
 	 * the scrollbar. For a horizontal scrollbar, this is the maximum left position of the
 	 * scrollbar.
 	 */
-	readonly maximumScrollOffset: number;
+	readonly maximumScrollOffset: () => number;
 
 	/**
 	 * Scroll offset changed callback.
@@ -161,7 +161,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 
 			// Calculate the slider position.
 			const sliderPosition =
-				props.scrollOffset / props.maximumScrollOffset *
+				props.scrollOffset / props.maximumScrollOffset() *
 				(scrollbarLength - sliderSize);
 
 			// Update the scrollbar state.
@@ -199,7 +199,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			);
 		} else if (mousePosition > state.sliderPosition + state.sliderSize) {
 			props.onDidChangeScrollOffset(
-				Math.min(props.scrollOffset + props.pageSize, props.maximumScrollOffset)
+				Math.min(props.scrollOffset + props.pageSize, props.maximumScrollOffset())
 			);
 		}
 	};
@@ -286,7 +286,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			);
 
 			// Call the onDidChangeScrollOffset callback.
-			props.onDidChangeScrollOffset(props.maximumScrollOffset * sliderPercent);
+			props.onDidChangeScrollOffset(props.maximumScrollOffset() * sliderPercent);
 		};
 
 		// Set the capture target of future pointer events to be the current target and add our
