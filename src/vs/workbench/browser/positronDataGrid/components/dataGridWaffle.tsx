@@ -586,7 +586,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					layoutSize={context.instance.layoutWidth}
 					pageSize={context.instance.pageWidth}
 					scrollOffset={context.instance.horizontalScrollOffset}
-					maximumScrollOffset={context.instance.maximumHorizontalScrollOffset}
+					maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
 					onDidChangeScrollOffset={async scrollOffset => {
 						await context.instance.setHorizontalScrollOffset(scrollOffset);
 					}}
@@ -606,7 +606,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					layoutSize={context.instance.layoutHeight}
 					pageSize={context.instance.pageHeight}
 					scrollOffset={context.instance.verticalScrollOffset}
-					maximumScrollOffset={context.instance.maximumVerticalScrollOffset}
+					maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
 					onDidChangeScrollOffset={async scrollOffset => {
 						await context.instance.setVerticalScrollOffset(scrollOffset);
 					}}
