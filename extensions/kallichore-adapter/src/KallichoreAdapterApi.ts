@@ -13,7 +13,7 @@ import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
-import { Barrier } from './async';
+import { Barrier, PromiseHandles } from './async';
 
 const KALLICHORE_STATE_KEY = 'kallichore-adapter.v2';
 
@@ -49,6 +49,12 @@ export class KCApi implements KallichoreAdapterApi {
 	 * used to hold operations until we're online */
 	private readonly _started: Barrier = new Barrier();
 
+	/**
+	 * If we're currently starting, this is the promise that resolves when the
+	 * server is online.
+	 */
+	private _starting: PromiseHandles<void> | undefined;
+
 	/** The currently active sessions (only the ones used by this client; does
 	 * not track the full set of sessions on the Kallichore server) */
 	private readonly _sessions: Array<KallichoreSession> = [];
@@ -64,12 +70,45 @@ export class KCApi implements KallichoreAdapterApi {
 		private readonly _log: vscode.LogOutputChannel) {
 
 		this._api = new DefaultApi();
+
+		// If the Kallichore server is enabled in the configuration, start it
+		// eagerly so it's warm when we start trying to create or restore sessions.
+		if (vscode.workspace.getConfiguration('kallichoreSupervisor').get<boolean>('enabled')) {
+			this.ensureStarted().catch((err) => {
+				this._log.error(`Failed to start Kallichore server: ${err}`);
+			});
+		}
+	}
+
+	/**
+	 * Ensures that the server has been started. If the server is already
+	 * started, this is a no-op. If the server is starting, this waits for the
+	 * server to start. If the server is not started, this starts the server.
+	 *
+	 * @returns A promise that resolves when the Kallichore server is online.
+	 */
+	async ensureStarted(): Promise<void> {
+
+		// If the server is already started, we're done
+		if (this._started.isOpen()) {
+			return;
+		}
+
+		// If we're currently starting, just wait for that to finish
+		if (this._starting) {
+			return this._starting.promise;
+		}
+
+		// Create a new starting promise and start the server
+		this._starting = new PromiseHandles<void>();
 		this.start().then(() => {
-			this._log.info('Kallichore started');
+			this._starting?.resolve();
+			this._starting = undefined;
 		}).catch((err) => {
-			vscode.window.showErrorMessage(`Failed to start Jupyter kernel supervisor.\n\n ${JSON.stringify(err)}`);
-			this._log.error(`Failed to start Kallichore: ${err}`);
+			this._starting?.reject(err);
+			this._starting = undefined;
 		});
+		return this._starting.promise;
 	}
 
 	/**
@@ -259,12 +298,12 @@ export class KCApi implements KallichoreAdapterApi {
 		dynState: positron.LanguageRuntimeDynState,
 		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
 
+		// Ensure the server is started before trying to create the session
+		await this.ensureStarted();
+
 		// Create the session object
 		const session = new KallichoreSession(
 			sessionMetadata, runtimeMetadata, dynState, this._api, true);
-
-		// Wait for the server to start before creating the session
-		await this._started.wait();
 
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
@@ -288,6 +327,9 @@ export class KCApi implements KallichoreAdapterApi {
 	async restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
+
+		// Ensure the server is started before trying to restore the session
+		await this.ensureStarted();
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
 			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
