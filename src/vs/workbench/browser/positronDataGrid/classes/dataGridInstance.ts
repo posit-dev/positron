@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
 
 /**
  * ColumnHeaderOptions type.
@@ -74,18 +75,22 @@ type ScrollbarOptions = | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: false;
 	readonly scrollbarThickness?: never;
+	readonly scrollbarOverscroll?: never;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: false;
 	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 } | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: true;
 	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: true;
 	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 };
 
 /**
@@ -591,6 +596,11 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _scrollbarThickness: number;
 
 	/**
+	 * Gets the scrollbar overscroll.
+	 */
+	private readonly _scrollbarOverscroll: number;
+
+	/**
 	 * Gets a value which indicates whether to use the editor font to display data.
 	 */
 	private readonly _useEditorFont: boolean;
@@ -653,6 +663,16 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets or sets the height.
 	 */
 	private _height = 0;
+
+	/**
+	 * Gets or sets the column layout regions.
+	 */
+	private _columnLayoutRegions = new LayoutRegions();
+
+	/**
+	 * Gets or sets the row layout regions.
+	 */
+	private _rowLayoutRegions = new LayoutRegions();
 
 	/**
 	 * The horizontal scroll offset.
@@ -766,6 +786,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
 		this._scrollbarThickness = options.scrollbarThickness ?? 0;
+		this._scrollbarOverscroll = options.scrollbarOverscroll ?? 0;
 
 		// DisplayOptions.
 		this._useEditorFont = options.useEditorFont;
@@ -906,6 +927,13 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the scrollbar overscroll.
+	 */
+	get scrollbarOverscroll() {
+		return this._scrollbarOverscroll;
+	}
+
+	/**
 	 * Gets a value which indicates whether to perform automatic layout using a ResizeObserver.
 	 */
 	get useEditorFont() {
@@ -985,12 +1013,24 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the scroll width.
 	 */
-	abstract get scrollWidth(): number;
+	get scrollWidth() {
+		return (
+			!this._columnResize ?
+				this.columns * this._defaultColumnWidth :
+				this._columnLayoutRegions.extent
+		) + this._scrollbarOverscroll;
+	}
 
 	/**
 	 * Gets the scroll height.
 	 */
-	abstract get scrollHeight(): number;
+	get scrollHeight() {
+		return (
+			!this._rowResize ?
+				this.rows * this._defaultRowHeight :
+				this._rowLayoutRegions.extent
+		) + this._scrollbarOverscroll;
+	}
 
 	/**
 	 * Gets the page width.
@@ -1058,38 +1098,103 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the maximum horizontal scroll offset.
 	 */
 	get maximumHorizontalScrollOffset() {
-		// If the scroll width is less than or equal to the layout width, return 0.
-		if (this.scrollWidth <= this.layoutWidth) {
-			return 0;
-		}
-
-		// Return the maximum horizontal scroll offset. Using _defaultRowHeight is intentional. This
-		// results in the same amount of extra space for both horizontal and vertical scrolling.
-		return (this.scrollWidth - this.layoutWidth) + this._defaultRowHeight;
+		// If the scroll width is less than or equal to the layout width, return 0; otherwise,
+		// calculate and return the maximum horizontal scroll offset.
+		return this.scrollWidth <= this.layoutWidth ? 0 : this.scrollWidth - this.layoutWidth;
 	}
 
 	/**
 	 * Gets the maximum vertical scroll offset.
 	 */
 	get maximumVerticalScrollOffset() {
-		// If the scroll height is less than or equal to the layout height, return 0.
-		if (this.scrollHeight <= this.layoutHeight) {
-			return 0;
-		}
-
-		// Return the maximum vertical scroll offset.
-		return (this.scrollHeight - this.layoutHeight) + this._defaultRowHeight;
+		// If the scroll height is less than or equal to the layout height, return 0; otherwise,
+		// calculate and return the maximum vertical scroll offset.
+		return this.scrollHeight <= this.layoutHeight ? 0 : this.scrollHeight - this.layoutHeight;
 	}
 
 	/**
 	 * Gets the first column.
 	 */
-	abstract get firstColumn(): ColumnDescriptor;
+	get firstColumn(): ColumnDescriptor {
+		// When column resize is disabled, we can calculate the first column.
+		if (!this.columnResize) {
+			const columnIndex = Math.floor(this.horizontalScrollOffset / this.defaultColumnWidth);
+			return {
+				columnIndex,
+				left: columnIndex * this.defaultColumnWidth,
+			};
+		}
+
+		// Recompute the column layout regions.
+		this._columnLayoutRegions.clear();
+		for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
+			const columnWidth = this.getColumnWidth(columnIndex);
+			this._columnLayoutRegions.append({
+				start: left,
+				size: columnWidth,
+				index: columnIndex
+			});
+			left += columnWidth;
+		}
+
+		// Get the column layout region.
+		const columnLayoutRegion = this._columnLayoutRegions.find(this.horizontalScrollOffset);
+
+		// Return the column layout region.
+		if (columnLayoutRegion) {
+			return {
+				columnIndex: columnLayoutRegion.index,
+				left: columnLayoutRegion.start
+			};
+		} else {
+			return {
+				columnIndex: 0,
+				left: 0
+			};
+		}
+	}
 
 	/**
 	 * Gets the first row.
 	 */
-	abstract get firstRow(): RowDescriptor;
+	get firstRow(): RowDescriptor {
+		// When row resize is disabled, we can calculate the first row.
+		if (!this.rowResize) {
+			const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
+			return {
+				rowIndex,
+				top: rowIndex * this.defaultRowHeight
+			};
+		}
+
+		// Recompute the row layout regions.
+		this._rowLayoutRegions.clear();
+		for (let top = 0, rowIndex = 0; rowIndex < this.rows; rowIndex++) {
+			const rowHeight = this._userDefinedRowHeights.get(rowIndex) || this.defaultRowHeight;
+			this._rowLayoutRegions.append({
+				start: top,
+				size: rowHeight,
+				index: rowIndex
+			});
+			top += rowHeight;
+		}
+
+		// Get the row layout region.
+		const rowLayoutRegion = this._rowLayoutRegions.find(this.verticalScrollOffset);
+
+		// Return the row layout region.
+		if (rowLayoutRegion) {
+			return {
+				rowIndex: rowLayoutRegion.index,
+				top: rowLayoutRegion.start
+			};
+		} else {
+			return {
+				rowIndex: 0,
+				top: 0
+			};
+		}
+	}
 
 	/**
 	 * Gets the horizontal scroll offset.

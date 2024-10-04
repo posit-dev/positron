@@ -71,6 +71,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
+			scrollbarOverscroll: 14,
 			useEditorFont: false,
 			automaticLayout: true,
 			cellBorders: false,
@@ -136,40 +137,17 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the scroll width.
 	 */
-	get scrollWidth() {
+	override get scrollWidth() {
 		return 0;
-	}
-
-	/**
-	 * Gets the scroll height.
-	 */
-	get scrollHeight() {
-		return this.rows * this.defaultRowHeight;
 	}
 
 	/**
 	 * Gets the number of columns.
 	 */
-	get firstColumn() {
+	override get firstColumn() {
 		return {
 			columnIndex: 0,
 			left: 0
-		};
-	}
-
-	/**
-	 * Gets the number of rows.
-	 */
-	get firstRow() {
-		const rowIndex = Math.floor(
-			this.verticalScrollOffset / this.defaultRowHeight
-		);
-
-		const top = (rowIndex * this.defaultRowHeight) - this.verticalScrollOffset;
-
-		return {
-			rowIndex,
-			top
 		};
 	}
 
