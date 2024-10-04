@@ -9,6 +9,7 @@ import * as portfinder from 'portfinder';
 import * as positron from 'positron';
 import * as path from 'path';
 import * as fs from 'fs-extra';
+import * as os from 'os';
 
 import { Event, EventEmitter } from 'vscode';
 import { inject, injectable } from 'inversify';
@@ -186,6 +187,9 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
             argv: args,
             display_name: `${runtimeMetadata.runtimeName}`,
             language: 'Python',
+            // On Windows, we need to use the 'signal' interrupt mode since 'message' is
+            // not supported.
+            interrupt_mode: os.platform() === 'win32' ? 'signal' : 'message',
             env,
         };
 
