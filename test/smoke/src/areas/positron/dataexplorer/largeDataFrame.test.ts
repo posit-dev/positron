@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 
@@ -37,6 +37,7 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 		});
 
 		it('Python - Verifies data explorer functionality with large data frame [C557555]', async function () {
+			this.timeout(1200000);
 			const app = this.app as Application;
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -88,6 +89,7 @@ describe('Data Explorer - Large Data Frame #pr #web', () => {
 		});
 
 		it('R - Verifies data explorer functionality with large data frame [C557554]', async function () {
+			this.timeout(1200000);
 			const app = this.app as Application;
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');

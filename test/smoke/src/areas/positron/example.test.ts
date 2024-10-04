@@ -5,7 +5,7 @@
 
 // Note - these paths will need to change for your specific test location
 import { Application, PositronPythonFixtures } from '../../../../automation';
-import { setupAndStartApp } from '../../positronUtils';
+import { setupAndStartApp } from '../../test-runner/test-hooks';
 
 describe('Major Test Area', () => {
 	// Needed at parent `describe` block to setup shared before/after hooks
