@@ -10,22 +10,22 @@ import { KallichoreAdapterApi } from './kallichore-adapter';
 import { KCApi } from './KallichoreAdapterApi';
 
 /** Singleton instance of the Kallichore API wrapper */
-let apiInstance: KallichoreAdapterApi;
+export let API_INSTANCE: KCApi;
 
 export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi {
 	const log = vscode.window.createOutputChannel('Kallichore Adapter', { log: true });
 	log.debug('Kallichore Adapter activated');
 
 	// Create the singleton instance of the Kallichore API wrapper
-	apiInstance = new KCApi(context, log);
+	API_INSTANCE = new KCApi(context, log);
 
-	return apiInstance;
+	return API_INSTANCE;
 }
 
 export function deactivate() {
 	// Dispose of the Kallichore API wrapper if it exists; this closes any open
 	// connections
-	if (apiInstance) {
-		apiInstance.dispose();
+	if (API_INSTANCE) {
+		API_INSTANCE.dispose();
 	}
 }

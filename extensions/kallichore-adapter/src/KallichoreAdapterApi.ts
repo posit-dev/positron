@@ -8,8 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { LanguageRuntimeMetadata, RuntimeSessionMetadata, LanguageRuntimeDynState } from 'positron';
-import { DefaultApi, HttpBearerAuth, HttpError } from './kcclient/api';
+import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
@@ -169,8 +168,8 @@ export class KCApi implements KallichoreAdapterApi {
 		// may need to retry a few times.
 		for (let retry = 0; retry < 40; retry++) {
 			try {
-				const sessions = await this._api.listSessions();
-				this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
+				const status = await this._api.serverStatus();
+				this._log.info(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
 				break;
 			} catch (err) {
 				// ECONNREFUSED is a normal condition; the server isn't ready
@@ -235,9 +234,9 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Reconnect and get the session list
 		this._api.basePath = serverState.base_path;
-		const sessions = await this._api.listSessions();
+		const status = await this._api.serverStatus();
 		this._started.open();
-		this._log.info(`Kallichore server online with ${sessions.body.total} sessions`);
+		this._log.info(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
 		return true;
 	}
 
@@ -254,10 +253,10 @@ export class KCApi implements KallichoreAdapterApi {
 	 * @throws An error if the session cannot be created
 	 */
 	async createSession(
-		runtimeMetadata: LanguageRuntimeMetadata,
-		sessionMetadata: RuntimeSessionMetadata,
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata,
 		kernel: JupyterKernelSpec,
-		dynState: LanguageRuntimeDynState,
+		dynState: positron.LanguageRuntimeDynState,
 		_extra?: JupyterKernelExtra | undefined): Promise<JupyterLanguageRuntimeSession> {
 
 		// Create the session object
@@ -287,8 +286,8 @@ export class KCApi implements KallichoreAdapterApi {
 	 * @returns The restored session
 	 */
 	async restoreSession(
-		runtimeMetadata: LanguageRuntimeMetadata,
-		sessionMetadata: RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
+		runtimeMetadata: positron.LanguageRuntimeMetadata,
+		sessionMetadata: positron.RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
 			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
@@ -319,6 +318,16 @@ export class KCApi implements KallichoreAdapterApi {
 				}
 			});
 		});
+	}
+
+	/**
+	 * Gets the status of the Kallichore server.
+	 *
+	 * @returns The server status.
+	 */
+	public async serverStatus(): Promise<ServerStatus> {
+		const status = await this._api.serverStatus();
+		return status.body;
 	}
 
 	/**
