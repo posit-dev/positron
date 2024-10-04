@@ -26,6 +26,10 @@
 	height: min-content;
 }
 
+.connections-items-container {
+	height: 100%;
+}
+
 .connections-item {
 	display: flex;
 	cursor: pointer;
