@@ -86,13 +86,13 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
 		// Get port and url prefix from positron
 
-		const proxyInfo = await vscode.commands.executeCommand<{ serverOrigin: string; port: string; proxyUrl: string }>('positronProxy.justStartTheServer');
+		const proxyInfo = await vscode.commands.executeCommand<{ serverOrigin: string; port: string; proxyUrl: string; proxyPath: string }>('positronProxy.justStartTheServer');
 		console.log('##########################################');
 		console.log(proxyInfo);
 		console.log('##########################################');
 		// const port = proxyInfo.port;
 		const port = undefined;
-		const urlPrefix = proxyInfo.proxyUrl;
+		const urlPrefix = proxyInfo.proxyPath;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
 		if (!terminalOptions) {
 			return;
@@ -217,8 +217,10 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 				(async () => {
 					for await (const data of stream) {
 						const match = data.match(localUrlRegex)?.[0];
-						if (match) {
+						// Hack to ensure the proxy url isn't used as the app server url
+						if (match && match !== 'http://localhost:8080') {
 							console.log('[positron-run-app] data:', data);
+							console.log('[positron-run-app] match:', match);
 							return new URL(match);
 						}
 					}

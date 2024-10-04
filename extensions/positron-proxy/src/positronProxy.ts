@@ -440,7 +440,7 @@ export class PositronProxy implements Disposable {
 				// Convert the server origin to an external URI.
 				const originUri = vscode.Uri.parse(serverOrigin);
 				console.log('[positron-proxy] justStartTheServer: originUri', originUri);
-				let externalUri = await vscode.env.asExternalUri(originUri);
+				const externalUri = await vscode.env.asExternalUri(originUri);
 
 				console.log('[positron-proxy] justStartTheServer: externalUri', externalUri);
 
@@ -450,7 +450,8 @@ export class PositronProxy implements Disposable {
 				resolve({
 					serverOrigin: serverOrigin.toString(), // so that we can loop up the proxy server later
 					port: address.port,
-					proxyUrl: externalUri.toString() // so that the app framework knows the proxy path
+					proxyUrl: externalUri.toString(), // so that the app framework knows the proxy path
+					proxyPath: externalUri.path
 				});
 			});
 		});
