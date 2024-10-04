@@ -64,8 +64,11 @@
   "devDependencies": {
     "@types/decompress": "^4.2.7",
     "@types/request": "^2.48.12",
+    "@types/mocha": "^9.1.0",
     "@types/tail": "^2.2.3",
     "@types/ws": "^8.5.12",
+    "mocha": "^9.2.1",
+    "ts-node": "^10.9.1",
     "decompress": "^4.2.1"
   },
   "positron": {
