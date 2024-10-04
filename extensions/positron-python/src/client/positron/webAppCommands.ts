@@ -18,17 +18,32 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Dash',
-                getTerminalOptions(runtime, document, port, urlPrefix) {
+                getTerminalOptions(runtime, document, _port, urlPrefix) {
                     const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
                     };
-                    if (port || urlPrefix) {
+                    if (urlPrefix) {
                         terminalOptions.env = {};
-                        if (port) {
-                            terminalOptions.env.DASH_PORT = port;
-                        }
                         if (urlPrefix) {
-                            terminalOptions.env.DASH_URL_PREFIX = urlPrefix;
+                            // Relevant env vars: https://dash.plotly.com/reference
+
+                            /* DASH_URL_PREFIX or if none of the env vars are set */
+                            // terminalOptions.env.DASH_URL_PREFIX = urlPrefix; // Error on page: "Error loading layout"
+                            // Console errors:
+                            // - Failed to load resource: the server responded with a status of 404 (Not Found) :8080/_dash-layout:1
+                            // - Failed to load resource: the server responded with a status of 404 (Not Found) :8080/_dash-dependencies:1
+
+                            /* DASH_URL_BASE_PATHNAME, DASH_REQUESTS_PATHNAME_PREFIX and DASH_ROUTES_PATHNAME_PREFIX */
+                            // terminalOptions.env.DASH_URL_BASE_PATHNAME = urlPrefix; // Stuck on page: "Loading..."
+                            // terminalOptions.env.DASH_REQUESTS_PATHNAME_PREFIX = urlPrefix; // Stuck on page: "Loading..."
+                            // terminalOptions.env.DASH_ROUTES_PATHNAME_PREFIX = urlPrefix; // Stuck on page: "Loading..."
+                            // Console errors:
+                            // - a bunch of: Uncaught SyntaxError: Unexpected token '<' in minified js files
+                            // - Uncaught ReferenceError: DashRenderer is not defined (anonymous) @52596/?_positronRender%3D1:33
+
+                            // From what I can tell, we probably don't want to set any of these env vars. However, that
+                            // means we need some way to get past the "Failed to load resource: the server responded with a status of 404 (Not Found)"
+                            // errors.
                         }
                     }
                     return terminalOptions;
@@ -40,7 +55,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'FastAPI',
-                async getTerminalOptions(runtime, document, port, urlPrefix) {
+                async getTerminalOptions(runtime, document, _port, _urlPrefix) {
                     let hasFastapiCli = false;
 
                     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -70,13 +85,6 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                             `${pathToModule(document.uri.fsPath)}:${appName}`,
                         ];
                     }
-
-                    if (port) {
-                        args.push('--port', port);
-                    }
-                    if (urlPrefix) {
-                        args.push('--root-path', urlPrefix);
-                    }
                     return { commandLine: args.join(' ') };
                 },
                 urlPath: '/docs',
@@ -87,15 +95,11 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Flask',
-                async getTerminalOptions(runtime, document, port, urlPrefix) {
-                    const args = [runtime.runtimePath, '-m', 'flask', '--app', document.uri.fsPath, 'run'];
-                    if (port) {
-                        args.push('--port', port);
-                    }
+                async getTerminalOptions(runtime, document, _port, _urlPrefix) {
+                    const args = [runtime.runtimePath, '-m', 'flask', 'run'];
                     const terminalOptions: RunAppTerminalOptions = { commandLine: args.join(' ') };
-                    if (urlPrefix) {
-                        terminalOptions.env = { SCRIPT_NAME: urlPrefix };
-                    }
+                    terminalOptions.env = {};
+                    terminalOptions.env.FLASK_APP = document.uri.fsPath;
                     return terminalOptions;
                 },
             });
@@ -105,19 +109,19 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Gradio',
-                getTerminalOptions(runtime, document, port, urlPrefix) {
+                getTerminalOptions(runtime, document, _port, urlPrefix) {
                     const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
                     };
-                    if (port || urlPrefix) {
-                        terminalOptions.env = {};
-                        if (port) {
-                            terminalOptions.env.GRADIO_SERVER_PORT = port;
-                        }
-                        if (urlPrefix) {
-                            terminalOptions.env.GRADIO_ROOT_PATH = urlPrefix;
-                        }
+
+                    terminalOptions.env = {};
+                    if (urlPrefix) {
+                        // Gradio doc: https://www.gradio.app/guides/environment-variables#7-gradio-root-path
+                        // Issue with Gradio not loading assets when Gradio is run via proxy:
+                        //     https://github.com/gradio-app/gradio/issues/9529
+                        terminalOptions.env.GRADIO_ROOT_PATH = urlPrefix;
                     }
+
                     return terminalOptions;
                 },
             });
@@ -126,12 +130,9 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         vscode.commands.registerCommand(Commands.Exec_Shiny_In_Terminal, async () => {
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
-                name: 'Shiny',
-                getTerminalOptions(runtime, document, port, _urlPrefix) {
+                name: 'Shiny', // WORKING
+                getTerminalOptions(runtime, document, _port, _urlPrefix) {
                     const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload', document.uri.fsPath];
-                    if (port) {
-                        args.push('--port', port);
-                    }
                     return { commandLine: args.join(' ') };
                 },
             });
@@ -141,7 +142,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Streamlit',
-                getTerminalOptions(runtime, document, port, _urlPrefix) {
+                getTerminalOptions(runtime, document, _port, _urlPrefix) {
                     const args = [
                         runtime.runtimePath,
                         '-m',
@@ -153,9 +154,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                         '--server.headless',
                         'true',
                     ];
-                    if (port) {
-                        args.push('--server.port', port);
-                    }
+                    // Maybe related? https://github.com/streamlit/streamlit/issues/6305
+                    // None of the suggestions from https://docs.streamlit.io/knowledge-base/deploy/remote-start
+                    // resolve the infinite skeleton loading issue.
+                    // Console error: WebSocket connection to 'ws://localhost:8080/proxy/49767/_stcore/stream' failed: WebSocket is closed before the connection is established.
                     return { commandLine: args.join(' ') };
                 },
             });
