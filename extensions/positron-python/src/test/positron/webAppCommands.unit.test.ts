@@ -65,10 +65,10 @@ suite('Web app commands', () => {
         };
 
         // Stub `vscode.workspace.asRelativePath`.
-        vscode.workspace.asRelativePath = ((pathOrUri: string | vscode.Uri) => {
+        vscode.workspace.asRelativePath = (pathOrUri: string | vscode.Uri) => {
             const fsPath = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.fsPath;
             return path.relative(workspacePath, fsPath);
-        });
+        };
 
         // Stub the interpreter service and installer services.
         // Tests can set `isFastAPICliInstalled` to control whether the FastAPI CLI is installed.
