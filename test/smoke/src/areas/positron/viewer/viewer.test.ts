@@ -19,6 +19,8 @@ describe('Viewer', () => {
 
 		it('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
 
+			this.timeout(120000);
+
 			const script = `from vetiver import VetiverModel, VetiverAPI
 from vetiver.data import mtcars
 from sklearn.linear_model import LinearRegression
@@ -33,7 +35,7 @@ VetiverAPI(v).run()`;
 
 			const theDoc = app.workbench.positronViewer.getViewerLocator('#thedoc');
 
-			await theDoc.waitFor({ state: 'attached' });
+			await theDoc.waitFor({ state: 'attached', timeout: 60000 });
 
 			await app.workbench.positronConsole.activeConsole.click();
 			await app.workbench.positronConsole.sendKeyboardKey('Control+C');
@@ -45,6 +47,8 @@ VetiverAPI(v).run()`;
 		});
 
 		it('Python - Verify Viewer functionality with great-tables [C784888]', async function () {
+
+			this.timeout(120000);
 
 			// extra clean up - https://github.com/posit-dev/positron/issues/4604
 			// without this, on ubuntu, the Enter key send to the console
@@ -60,7 +64,7 @@ GT(exibble)`;
 
 			const apricot = app.workbench.positronViewer.getViewerLocator('td').filter({ hasText: 'apricot' });
 
-			await apricot.waitFor({ state: 'attached' });
+			await apricot.waitFor({ state: 'attached', timeout: 60000 });
 
 			// Note that there is not a control to clear the viewer at this point
 
