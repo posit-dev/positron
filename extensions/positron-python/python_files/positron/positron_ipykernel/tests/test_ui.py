@@ -249,7 +249,7 @@ def test_plotly_show_sends_events(
     mock_handle_request: Mock,
 ) -> None:
     """
-    Test that showing a Plotly plot sends the expected UI events.
+    Test that showing a Plotly plot sends the expected UI events when using `fig.show()` and `fig`.
     """
     shell.run_cell(
         """\
@@ -265,11 +265,16 @@ import plotly.express as px
 
 fig = px.bar(x=["a", "b", "c"], y=[1, 3, 2])
 fig.show()
+fig
 """
     )
     mock_handle_request.assert_called()
-    assert len(ui_comm.messages) == 1
+    assert len(ui_comm.messages) == 2
     params = ui_comm.messages[0]["data"]["params"]
+    assert params["title"] == ""
+    assert params["is_plot"]
+    assert params["height"] == 0
+    params = ui_comm.messages[1]["data"]["params"]
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
