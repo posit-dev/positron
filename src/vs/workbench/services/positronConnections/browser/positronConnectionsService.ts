@@ -6,12 +6,22 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
+import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { MockedConnectionInstance } from 'vs/workbench/services/positronConnections/browser/mockConnections';
 import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
-	private readonly connections: PositronConnectionsInstance[] = [];
+	private readonly connections: IPositronConnectionInstance[] = [
+		new MockedConnectionInstance('hello_world'),
+		new MockedConnectionInstance('Hello world')
+	];
+
+	getConnections() {
+		return this.connections;
+	}
+
 	readonly _serviceBrand: undefined;
 
 	constructor(

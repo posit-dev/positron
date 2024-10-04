@@ -5,9 +5,10 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
+import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 
 
-export class PositronConnectionsInstance extends Disposable implements PositronConnectionsInstance {
+export class PositronConnectionsInstance extends Disposable implements IPositronConnectionInstance {
 	constructor(
 		private readonly client: ConnectionsClientInstance,
 		private readonly metadata: ConnectionMetadata
@@ -21,6 +22,30 @@ export class PositronConnectionsInstance extends Disposable implements PositronC
 
 	getMetadata() {
 		return this.metadata;
+	}
+
+	getChildren() {
+		return [];
+	}
+
+	hasChildren() {
+		return false;
+	}
+
+	name() {
+		return this.metadata.name;
+	}
+
+	icon() {
+		if (!this.metadata.icon) {
+			return 'database';
+		}
+
+		return this.metadata.icon;
+	}
+
+	expanded() {
+		return false;
 	}
 }
 

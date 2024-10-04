@@ -14,6 +14,8 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ActionBar } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
 
 import 'vs/css!./positronConnections';
+import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 
 export interface PositronConnectionsProps {
 	readonly commandService: ICommandService;
@@ -22,141 +24,68 @@ export interface PositronConnectionsProps {
 	readonly contextMenuService: IContextMenuService;
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
+	readonly connectionsService: IPositronConnectionsService;
 }
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
+
+	// For each connection we generate the connection item, and
+	// recursively for it's children, if they are expanded and have children
+	const renderConnectionItems = (items: IPositronConnectionItem[], level = 0) => {
+		return items.reduce<JSX.Element[]>((elements, con) => {
+			elements.push(
+				<PositronConnectionsItem
+					key={con.name()}
+					name={con.name()}
+					icon={con.icon()}
+					expanded={con.expanded()}
+					level={level}
+				>
+				</PositronConnectionsItem>
+			);
+
+			if (con.expanded()) {
+				elements.push(...renderConnectionItems(con.getChildren(), level + 1));
+			}
+
+			return elements;
+		}, []);
+	};
+
 	return (
 		<div className='positron-connections'>
 			<ActionBar {...props}></ActionBar>
 			<div className='connections-items-container'>
-				<PositronConnectionsItem
-					name='Snowflake Connection 1: R'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={0}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='Snowflake Connection 2: Python'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={0}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='PostgreSQL Connection: Python'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={0}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='rds'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={1}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='content'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={2}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_model_data'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_predict_metrics'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_raw_data'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_raw_dataset'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_station_info'
-					icon='database'
-					expanded={ConnectionItemExpanded.Expanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='station_id'
-					icon='database'
-					expanded={ConnectionItemExpanded.None}
-					level={4}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='name'
-					icon='database'
-					expanded={ConnectionItemExpanded.None}
-					level={4}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='lat'
-					icon='database'
-					expanded={ConnectionItemExpanded.None}
-					level={4}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='lon'
-					icon='database'
-					expanded={ConnectionItemExpanded.None}
-					level={4}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='bike_test_data'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={3}
-				></PositronConnectionsItem>
-				<PositronConnectionsItem
-					name='Spark Connection: Python'
-					icon='database'
-					expanded={ConnectionItemExpanded.NotExpanded}
-					level={0}
-				></PositronConnectionsItem>
+				{
+
+					renderConnectionItems(props.connectionsService.getConnections())
+				}
 			</div>
 		</div>
 	);
 };
 
-enum ConnectionItemExpanded {
-	Expanded,
-	NotExpanded,
-	None
-}
-
 interface PositronConnectionsItemProps {
 	name: string;
 	icon: string;
-	expanded: ConnectionItemExpanded;
+	expanded: boolean | undefined;
 	level: number; // How nested the item is.
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
 
 	// If the connection is not expandable, we add some more padding.
-	const padding = props.level * 10 + (props.expanded === ConnectionItemExpanded.None ? 26 : 0);
+	const padding = props.level * 10 + (props.expanded ? 26 : 0);
 
 	return (
 		<div className='connections-item'>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
 			{
-				props.expanded === ConnectionItemExpanded.None ?
+				props.expanded === undefined ?
 					<></> :
 					<div className='expand-collapse-area'>
 						<div
-							className={`codicon codicon-chevron-${props.expanded === ConnectionItemExpanded.Expanded ? 'down' : 'right'}`}
+							className={`codicon codicon-chevron-${props.expanded ? 'down' : 'right'}`}
 						>
 						</div>
 					</div>

@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
@@ -11,4 +12,5 @@ export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections
 export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
 	initialize(): void;
+	getConnections(): IPositronConnectionItem[];
 }
