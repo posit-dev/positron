@@ -10,7 +10,6 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
-import { WebSocket } from 'ws';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -35,6 +34,7 @@ import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Comm } from './Comm';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { DapClient } from './DapClient';
+import { SocketSession } from './ws/SocketSession';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -65,7 +65,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** The WebSocket connection to the Kallichore server for this session
 	 */
-	private _ws: WebSocket | undefined;
+	private _socket: SocketSession | undefined;
 
 	/** The current runtime state of this session */
 	private _runtimeState: positron.RuntimeState = positron.RuntimeState.Uninitialized;
@@ -405,11 +405,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
+	/**
+	 * Requests that the kernel execute a code fragment.
+	 *
+	 * @param code The code to execute
+	 * @param id An ID for the code fragment; used to identify output and errors
+	 * that come from this code fragment.
+	 * @param mode The execution mode
+	 * @param errorBehavior What to do if an error occurs
+	 */
 	execute(code: string,
 		id: string,
 		mode: positron.RuntimeCodeExecutionMode,
 		errorBehavior: positron.RuntimeErrorBehavior): void {
 
+		// Translate the parameters into a Jupyter execute request
 		const request: JupyterExecuteRequest = {
 			code,
 			silent: mode === positron.RuntimeCodeExecutionMode.Silent,
@@ -418,13 +428,25 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			allow_stdin: true,
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
+
+		// Create and send the execute request
 		const execute = new ExecuteRequest(id, request);
 		this.sendRequest(execute).then((reply) => {
 			this.log(`Execution result: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
+		}).catch((err) => {
+			// This should be exceedingly rare; it represents a failure to send
+			// the request to Kallichore rather than a failure to execute it
+			this.log(`Failed to send execution request for '${code}': ${err}`, vscode.LogLevel.Error);
 		});
 	}
 
+	/**
+	 * Tests whether a code fragment is complete.
+	 * @param code The code to test
+	 * @returns The status of the code fragment
+	 */
 	async isCodeFragmentComplete(code: string): Promise<positron.RuntimeCodeFragmentStatus> {
+		// Form the Jupyter request
 		const request: JupyterIsCompleteRequest = {
 			code
 		};
@@ -664,8 +686,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	connect(): Promise<void> {
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
-			if (this._ws) {
-				this._ws.close();
+			if (this._socket) {
+				this._socket.close();
 			}
 
 			// Connect to the session's websocket. The websocket URL is based on
@@ -673,17 +695,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const uri = vscode.Uri.parse(this._api.basePath);
 			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
 			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
-			this._ws = new WebSocket(wsUri);
+			this._socket = new SocketSession(wsUri, this.metadata.sessionId);
+			this._disposables.push(this._socket);
 
 			// Handle websocket events
-			this._ws.onopen = () => {
+			this._socket.ws.onopen = () => {
 				this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
 				// Open the connected barrier so that we can start sending messages
 				this._connected.open();
 				resolve();
 			};
 
-			this._ws.onerror = (err: any) => {
+			this._socket.ws.onerror = (err: any) => {
 				this.log(`Websocket error: ${err}`, vscode.LogLevel.Error);
 				if (this._connected.isOpen()) {
 					// If the error happened after the connection was established,
@@ -698,15 +721,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 			};
 
-			this._ws.onclose = (_evt: any) => {
+			this._socket.ws.onclose = (_evt: any) => {
 				// When the socket is closed, reset the connected barrier and
 				// clear the websocket instance.
 				this._connected = new Barrier();
-				this._ws = undefined;
+				this._socket = undefined;
 			};
 
 			// Main handler for incoming messages
-			this._ws.onmessage = (msg: any) => {
+			this._socket.ws.onmessage = (msg: any) => {
 				this.log(`RECV message: ${msg.data}`, vscode.LogLevel.Trace);
 				try {
 					const data = JSON.parse(msg.data.toString());
@@ -802,11 +825,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Clean up the session.
 	 */
 	dispose() {
-		// Close the websocket if it's open
-		this._ws?.close();
-		this._ws = undefined;
-
-		// Close the log streamer and any other disposables
+		// Close the log streamer, the websocket, and any other disposables
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
 	}
@@ -885,8 +904,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// If we aren't going to be starting up again, clean up the session
 			// websocket
 			this.log(`Kernel exited with code ${exitCode}; cleaning up.`, vscode.LogLevel.Info);
-			this._ws?.close();
-			this._ws = undefined;
+			this._socket?.close();
+			this._socket = undefined;
 			this._connected = new Barrier();
 		}
 
@@ -1018,7 +1037,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._pendingRequests.set(request.msgId, request);
 
 		// Send the request over the websocket
-		return request.sendRpc(this.metadata.sessionId, this._ws!);
+		return request.sendRpc(this._socket!);
 	}
 
 	/**
@@ -1031,7 +1050,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await this._connected.wait();
 
 		// Send the command over the websocket
-		return command.sendCommand(this.metadata.sessionId, this._ws!);
+		return command.sendCommand(this._socket!);
 	}
 
 	/**

@@ -7,6 +7,7 @@ import { WebSocket } from 'ws';
 import { JupyterChannel } from './JupyterChannel';
 import { PromiseHandles } from '../async';
 import { JupyterCommand } from './JupyterCommand';
+import { SocketSession } from '../ws/SocketSession';
 
 export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 	private _promise: PromiseHandles<U> = new PromiseHandles<U>();
@@ -22,8 +23,8 @@ export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 		this._promise.resolve(response);
 	}
 
-	public sendRpc(sessionId: string, socket: WebSocket): Promise<U> {
-		super.sendCommand(sessionId, socket);
+	public sendRpc(socket: SocketSession): Promise<U> {
+		super.sendCommand(socket);
 		return this._promise.promise;
 	}
 }

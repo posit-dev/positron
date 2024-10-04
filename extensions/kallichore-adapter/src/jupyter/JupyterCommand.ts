@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { SocketSession } from '../ws/SocketSession';
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { WebSocket } from 'ws';
@@ -70,11 +71,11 @@ export abstract class JupyterCommand<T> {
 	 * @param sessionId The session ID to send the command to
 	 * @param socket
 	 */
-	public sendCommand(sessionId: string, socket: WebSocket) {
+	public sendCommand(socket: SocketSession) {
 		const header: JupyterMessageHeader = {
 			msg_id: this.msgId,
-			session: sessionId,
-			username: '',
+			session: socket.sessionId,
+			username: socket.userId,
 			date: new Date().toISOString(),
 			msg_type: this.commandType,
 			version: '5.3'
@@ -88,6 +89,6 @@ export abstract class JupyterCommand<T> {
 			buffers: []
 		};
 		const text = JSON.stringify(payload);
-		socket.send(text);
+		socket.ws.send(text);
 	}
 }
