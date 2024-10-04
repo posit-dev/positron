@@ -381,7 +381,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// Otherwise, return the result
 			promise.resolve(response.result);
-		});
+		})
+			.catch((err) => {
+				this.log(`Failed to send UI comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+				promise.reject(err);
+			});
 
 		return promise.promise;
 	}
@@ -464,7 +468,20 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
-	async createClient(id: string, type: positron.RuntimeClientType, params: any, metadata?: any): Promise<void> {
+	/**
+	 * Create a new client comm.
+	 *
+	 * @param id The ID of the client comm; must be unique among all comms
+	 * connected to this kernel
+	 * @param type The type of client comm to create
+	 * @param params The parameters to pass to the client comm
+	 * @param metadata Additional metadata to pass to the client comm
+	 */
+	async createClient(
+		id: string,
+		type: positron.RuntimeClientType,
+		params: any,
+		metadata?: any): Promise<void> {
 
 		// Ensure the type of client we're being asked to create is a known type that supports
 		// client-initiated creation
@@ -488,6 +505,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Get a list of open clients (comms) from the kernel.
+	 *
+	 * @param type The type of client to list, or undefined to list all clients
+	 * @returns A map of client IDs to client names (targets)
+	 */
 	async listClients(type?: positron.RuntimeClientType): Promise<Record<string, string>> {
 		const request = new CommInfoRequest(type || '');
 		const reply = await this.sendRequest(request);
@@ -498,7 +521,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (comms.hasOwnProperty(key)) {
 				const target = comms[key].target_name;
 				result[key] = target;
-				this._comms.set(key, new Comm(key, target));
+				// If we don't have a comm object for this comm, create one
+				if (!this._comms.has(key)) {
+					this._comms.set(key, new Comm(key, target));
+				}
 			}
 		}
 		return result;
@@ -523,7 +549,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			data: message
 		};
 		const commMsg = new CommMsgCommand(message_id, msg);
-		this.sendCommand(commMsg);
+		this.sendCommand(commMsg).then(() => {
+			// Nothing to do here; the message was sent successfully
+		}).catch((err) => {
+			this.log(`Failed to send message ${JSON.stringify(message)} to ${client_id}: ${err}`, vscode.LogLevel.Error);
+		});
 	}
 
 	/**
@@ -539,21 +569,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		const reply = new InputReplyCommand(this._activeBackendRequestHeader, value);
 		this.log(`Sending input reply for ${id}: ${value}`, vscode.LogLevel.Debug);
-		this.sendCommand(reply);
-	}
-
-	public replyToComm(response: any) {
-		// NOTE: Currently we only support synchronous reverse requests
-		// from R via the frontend comm. Since this mechanism is
-		// synchronous, there cannot be concurrent requests.
-		const parent = this._activeBackendRequestHeader;
-
-		if (!parent) {
-			this.log(`Failed to find parent for comm request ${response.id}`, vscode.LogLevel.Warning);
-			return;
-		}
-
-		const reply = new RpcReplyCommand(parent, response);
 		this.sendCommand(reply);
 	}
 
@@ -984,7 +999,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				case 'rpc_request': {
 					this.onCommRequest(msg).then(() => {
 						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
-					});
+					})
+						.catch((err) => {
+							this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+						});
 					break;
 				}
 			}
@@ -1018,7 +1036,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Send the response back to the kernel
 		const reply = new RpcReplyCommand(msg.header, response);
-		this.sendCommand(reply);
+		return this.sendCommand(reply);
 	}
 
 	/**
@@ -1045,7 +1063,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param command The command to send
 	 */
-	async sendCommand<T>(command: JupyterCommand<T>) {
+	async sendCommand<T>(command: JupyterCommand<T>): Promise<void> {
 		// Ensure we're connected before sending the command
 		await this._connected.wait();
 
