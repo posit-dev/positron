@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 describe('Variables Pane #web #win', () => {
 	const logger = setupAndStartApp();

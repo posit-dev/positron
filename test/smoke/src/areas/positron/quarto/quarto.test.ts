@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');

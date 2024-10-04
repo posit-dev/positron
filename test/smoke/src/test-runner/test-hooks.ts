@@ -5,10 +5,10 @@
 
 import { join } from 'path';
 import * as path from 'path';
-import { Logger, } from '../../automation/out';
-import { installAllHandlers, } from './utils';
-import { createLogger } from './test-runner/logger';
-import { OPTS } from './test-runner/config';
+import { Logger, } from '../../../automation/out';
+import { installAllHandlers, } from '../utils';
+import { createLogger } from './logger';
+import { OPTS } from './config';
 
 export const ROOT_PATH = join(__dirname, '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
@@ -35,33 +35,6 @@ export function setupAndStartApp(): Logger {
 	installAllHandlers(logger);
 
 	return logger;
-}
-
-/**
- * Dynamically determines the test file path based on the caller's stack trace.
- *
- * @returns The file name of the test file.
- */
-function getTestFileName(): string {
-	const originalFunc = Error.prepareStackTrace;
-
-	try {
-		// Capture the stack trace
-		const err = new Error();
-		Error.prepareStackTrace = (_, stack) => stack;
-
-		// Stack index 2 points to the immediate caller of this function
-		const stackFrames = err.stack as any;
-		const callerFilePath = stackFrames[2].getFileName();  // Adjust index based on context
-
-		return path.basename(callerFilePath);
-	} catch (e) {
-		console.error('Failed to retrieve caller file name:', e);
-		return 'unknown';
-	} finally {
-		// Restore the original stack trace behavior
-		Error.prepareStackTrace = originalFunc;
-	}
 }
 
 /**
@@ -92,3 +65,29 @@ function setTestDefaults(logger: Logger, logsRootPath: string, crashesRootPath: 
 	});
 }
 
+/**
+ * Dynamically determines the test file path based on the caller's stack trace.
+ *
+ * @returns The file name of the test file.
+ */
+function getTestFileName(): string {
+	const originalFunc = Error.prepareStackTrace;
+
+	try {
+		// Capture the stack trace
+		const err = new Error();
+		Error.prepareStackTrace = (_, stack) => stack;
+
+		// Stack index 2 points to the immediate caller of this function
+		const stackFrames = err.stack as any;
+		const callerFilePath = stackFrames[2].getFileName();  // Adjust index based on context
+
+		return path.basename(callerFilePath);
+	} catch (e) {
+		console.error('Failed to retrieve caller file name:', e);
+		return 'unknown';
+	} finally {
+		// Restore the original stack trace behavior
+		Error.prepareStackTrace = originalFunc;
+	}
+}

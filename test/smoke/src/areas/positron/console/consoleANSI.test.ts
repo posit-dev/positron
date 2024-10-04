@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { join } from 'path';
-import { setupAndStartApp } from '../../../test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 describe('Console ANSI styling', () => {
 	setupAndStartApp();

@@ -5,9 +5,8 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-import minimist = require('minimist');
-import rimraf = require('rimraf');
-import Mocha = require('mocha');
+const rimraf = require('rimraf');
+const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const REPORT_PATH = process.env.REPORT_PATH || 'REPORT_PATH not set';
@@ -15,8 +14,7 @@ const REPORT_PATH = process.env.REPORT_PATH || 'REPORT_PATH not set';
 /**
  * Runs Mocha tests.
  */
-export function runMochaTests(OPTS: minimist.ParsedArgs) {
-	// export const runMochaTests = (OPTS: minimist.ParsedArgs) => {
+export function runMochaTests(OPTS) {
 	const mocha = new Mocha({
 		color: true,
 		timeout: 1 * 60 * 1000,  // 1 minute
