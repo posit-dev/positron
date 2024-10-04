@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../../../automation';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-hooks';
 import { expect } from '@playwright/test';
 const path = require('path');
 const fs = require('fs-extra');

@@ -5,7 +5,7 @@
 
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-hooks';
 
 describe('Console Pane: Python #web #win', () => {
 	setupAndStartApp();

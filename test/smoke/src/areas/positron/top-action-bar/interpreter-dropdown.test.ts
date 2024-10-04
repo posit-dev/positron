@@ -12,7 +12,7 @@ import {
 	QuickAccess,
 } from '../../../../../automation';
 
-import { setupAndStartApp } from '../../../positronUtils';
+import { setupAndStartApp } from '../../../test-hooks';
 
 describe('Interpreter Dropdown in Top Action Bar #web', () => {
 	setupAndStartApp();
