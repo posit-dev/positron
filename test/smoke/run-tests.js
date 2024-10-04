@@ -6,9 +6,9 @@
 //@ts-check
 'use strict';
 
-require('../out/test-runner/config'); // must import first to set up the env vars
+require('./out/test-runner/config'); // must import first to set up the env vars
 const minimist = require('minimist');
-const { prepareTestEnv, cloneTestRepo, runMochaTests } = require('../out/test-runner');
+const { prepareTestEnv, cloneTestRepo, runMochaTests } = require('./out/test-runner');
 const OPTS = minimist(process.argv.slice(2));
 
 (function main() {
