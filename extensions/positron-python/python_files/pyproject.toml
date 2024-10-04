@@ -88,7 +88,7 @@ select = [
 #    "FBT",  # flake8-boolean-trap
 #    "FLY",  # flynt
 #    "FURB",  # refurb
-    "I",  # isort
+#    "I",  # isort
 #    "INP",  # flake8-no-pep420
     "INT",  # flake8-gettext
     "LOG",  # flake8-logging
