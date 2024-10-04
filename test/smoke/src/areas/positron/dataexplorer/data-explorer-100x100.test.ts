@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../positronUtils';
 import { join } from 'path';
 
 describe('Data Explorer 100x100', function () {

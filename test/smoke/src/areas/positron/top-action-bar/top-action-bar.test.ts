@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { expect } from '@playwright/test';
 import { Application, PositronUserSettingsFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Top Action Bar #web', () => {
 	setupAndStartApp();

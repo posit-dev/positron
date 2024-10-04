@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../positronUtils';
 
 describe('Editor Pane: R #web', () => {
 	setupAndStartApp();
