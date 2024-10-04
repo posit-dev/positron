@@ -29,6 +29,7 @@ export function runMochaTests(OPTS) {
 		},
 		retries: 1,
 	});
+	// mocha.dryRun();
 
 	// Apply test filters based on CLI options
 	applyTestFilters(mocha);
@@ -65,15 +66,20 @@ export function runMochaTests(OPTS) {
  */
 function applyTestFilters(mocha: Mocha): void {
 	// TODO: see if it's possible to use multiple filters
-	if (process.env.WEB) {
-		mocha.grep(/#web/);
-	}
-	else if (process.env.WIN) {
-		mocha.grep(/#win/);
-	}
-	else if (process.env.PR) {
-		mocha.grep(/#pr/);
-	} else if (process.env.INVERSE_FILTER) {
+	const filters = {
+		WEB: /#web/,
+		WIN: /#win/,
+		PR: /#pr/,
+		ONLY: /#only/
+	};
+
+	Object.keys(filters).forEach((key) => {
+		if (process.env[key]) {
+			mocha.grep(filters[key]);
+		}
+	});
+
+	if (process.env.INVERSE_FILTER) {
 		mocha.grep(process.env.INVERSE_FILTER).invert();
 	}
 }

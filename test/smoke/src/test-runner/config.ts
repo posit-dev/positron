@@ -20,6 +20,7 @@ Object.assign(process.env, {
 	VERBOSE: OPTS['verbose'] || '',
 	WEB: OPTS['web'] || '',
 	WIN: OPTS['win'] || '',
+	ONLY: OPTS['only'] || '',
 	PR: OPTS['pr'] || '',
 	SKIP_CLEANUP: OPTS['skip-cleanup'] || '',
 	TEST_DATA_PATH: TEST_DATA_PATH,
