@@ -3,21 +3,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter, Event } from 'vs/base/common/event';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 
 export class MockedConnectionInstance implements IPositronConnectionInstance {
-	constructor(private readonly clientId: string) { }
+	private _expanded: boolean = false;
+	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
+	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
+
+	children = [
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+		new MockedConnectionItem(),
+	];
+
+	constructor(private readonly clientId: string) {
+		this.onToggleExpand(() => {
+			console.log('Expand clicked!');
+			this._expanded = !this._expanded;
+		});
+	}
 
 	getClientId() {
 		return this.clientId;
 	}
 
 	getChildren() {
-		return [
-			new MockedConnectionItem(),
-			new MockedConnectionItem(),
-			new MockedConnectionItem(),
-		];
+		return this.children;
 	}
 
 	hasChildren() {
@@ -33,11 +45,22 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 	}
 
 	expanded() {
-		return false;
+		return this._expanded;
 	}
 }
 
 class MockedConnectionItem implements IPositronConnectionItem {
+
+	expanded_: boolean = false;
+	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
+	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
+
+	constructor() {
+		this.onToggleExpand(() => {
+			this.expanded_ = !this.expanded_;
+		});
+	}
+
 	name() {
 		return 'children 1';
 	}
