@@ -25,3 +25,27 @@
 .positron-connections .positron-connections-action-bars {
 	height: min-content;
 }
+
+.connections-item {
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+}
+
+.connections-name {
+	flex-grow: 1;
+}
+
+.connections-icon {
+	flex-shrink: 0;
+	flex-grow: 0;
+	padding-right: 5px;
+}
+
+.connections-item .expand-collapse-area {
+	width: 26px;
+	height: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}

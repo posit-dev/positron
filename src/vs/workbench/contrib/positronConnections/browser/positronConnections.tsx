@@ -28,7 +28,36 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	return (
 		<div className='positron-connections'>
 			<ActionBar {...props}></ActionBar>
-			<p>Hello world</p>
+			<div className='connections-items-container'>
+				<PositronConnectionsItem
+					name='SQLite Connection 1'
+					icon='database'
+				></PositronConnectionsItem>
+				<PositronConnectionsItem
+					name='SQLite Connection 2'
+					icon='database'
+				></PositronConnectionsItem>
+			</div>
+		</div>
+	);
+};
+
+interface PositronConnectionsItemProps {
+	name: string;
+	icon: string;
+}
+
+const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
+	return (
+		<div className='connections-item'>
+			<div className='expand-collapse-area'>
+				<div className='codicon codicon-chevron-right'></div>
+			</div>
+			<div className='connections-name'>
+				{props.name}
+			</div>
+			<div className={`connections-icon codicon codicon-${props.icon}`}>
+			</div>
 		</div>
 	);
 };
