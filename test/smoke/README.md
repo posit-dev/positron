@@ -202,18 +202,26 @@ _Note: Don't forget to remove the `.only()`s when you're done!_
 
 #### Command Line
 
-The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. For example, to run the entire test suite against your branch with 4 parallel jobs, use:
+The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. To overcome this limitation and run a subset of tests in parallel locally, we introduced a workaround:
+
+1. Add `#only` to the test descriptions you want to run.
+2. Execute the following command to trigger the subset of tests:
 
 ```bash
-yarn smoketest-all --parallel --jobs 4
+yarn somketest-only
 ```
 
-The following smoketest scripts are currently available:
+Remember to remove any `#only` from test titles before committing!
+
+#### Smoke Test Scripts
+
+The following smoke test scripts are available:
 
 - `smoketest-all`: Runs all smoke tests
 - `smoketest-web`: Runs tests tagged with `#web`
 - `smoketest-win`: Runs tests tagged with `#win` (Windows)
 - `smoketest-pr`: Runs tests tagged with `#pr`
+- `smoketest-only`: Runs tests tagged with `#only`
 
 #### Target a Positron Build
 
