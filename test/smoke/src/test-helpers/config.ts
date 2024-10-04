@@ -8,7 +8,7 @@ import * as os from 'os';
 import minimist = require('minimist');
 
 const TEST_DATA_PATH = path.join(os.tmpdir(), 'vscsmoke');
-const OPTS = minimist(process.argv.slice(2));
+export const OPTS = minimist(process.argv.slice(2));
 
 // Set environment variables
 Object.assign(process.env, {
