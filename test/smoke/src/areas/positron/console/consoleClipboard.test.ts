@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import * as os from 'os';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 
 describe('Console', () => {

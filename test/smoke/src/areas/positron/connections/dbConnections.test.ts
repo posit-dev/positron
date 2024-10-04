@@ -7,7 +7,7 @@
 import { join } from 'path';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { expect } from '@playwright/test';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];

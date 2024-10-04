@@ -6,7 +6,7 @@
 import { Application } from '../../../../../automation';
 // import { setupAndStartApp } from '../../../positronUtils';
 import { expect } from '@playwright/test';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 const path = require('path');
 const fs = require('fs-extra');
 

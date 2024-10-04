@@ -11,7 +11,7 @@ import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { setupAndStartApp } from '../../../test-helpers/test-hooks';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 
