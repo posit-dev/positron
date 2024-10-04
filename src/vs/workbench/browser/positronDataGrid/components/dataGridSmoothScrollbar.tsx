@@ -144,7 +144,7 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 			}
 
 			// If the scrollbar isn't necessary, disable it and return.
-			if (props.scrollOffset === 0 && scrollbarLength >= props.scrollSize) {
+			if (props.scrollOffset === 0 && props.maximumScrollOffset() === 0) {
 				return {
 					scrollbarDisabled: true,
 					scrollbarLength,

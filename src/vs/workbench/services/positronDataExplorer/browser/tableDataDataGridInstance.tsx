@@ -13,7 +13,6 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
@@ -28,7 +27,7 @@ import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronData
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, ColumnDescriptor, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
  * Localized strings.
@@ -40,9 +39,6 @@ const addFilterTitle = localize('positron.addFilter', "Add Filter");
  */
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
-
-	private _columnLayoutRegions = new LayoutRegions();
-	private _rowLayoutRegions = new LayoutRegions();
 
 	/**
 	 * Gets or sets the sort index width calculator.
@@ -91,6 +87,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
+			scrollbarOverscroll: 14,
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
@@ -163,126 +160,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the scroll width.
-	 */
-	get scrollWidth() {
-		// When column resize is disabled, we can calculate the scroll width.
-		if (!this.columnResize) {
-			return this.columns * this.defaultColumnWidth;
-		}
-
-		// TODO@scroll.
-		return this._columnLayoutRegions.extent;
-	}
-
-	/**
-	 * Gets the scroll height.
-	 */
-	get scrollHeight() {
-		// When row resize is disabled, we can calculate the scroll height.
-		if (!this.rowResize) {
-			return this.rows * this.defaultRowHeight;
-		}
-
-		// TODO@scroll.
-		return this._rowLayoutRegions.extent;
-	}
-
-	/**
 	 * Gets the page height.
 	 */
 	override get pageHeight() {
 		return this.layoutHeight - this.defaultRowHeight;
-	}
-
-	/**
-	 * Gets the first column.
-	 */
-	get firstColumn(): ColumnDescriptor {
-		// When column resize is disabled, we can easily calculate the first column.
-		if (!this.columnResize) {
-			const columnIndex = Math.floor(this.horizontalScrollOffset / this.defaultColumnWidth);
-			return {
-				columnIndex,
-				left: columnIndex * this.defaultColumnWidth,
-			};
-		}
-
-		// Recompute the column ranges.
-		const start = new Date().getTime();
-		this._columnLayoutRegions.clear();
-		for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
-			const columnWidth = this.getColumnWidth(columnIndex);
-
-			this._columnLayoutRegions.append({
-				start: left,
-				size: columnWidth,
-				index: columnIndex
-			});
-
-			left += columnWidth;
-		}
-
-		const end = new Date().getTime();
-		console.log(`RECOMPUTING COLUMN RANGES TOOK: ${end - start}ms`);
-
-		// Get the column layout region.
-		const columnLayoutRegion = this._columnLayoutRegions.find(this.horizontalScrollOffset);
-
-		// If the column column layout region was found, return it; otherwise, return the first
-		// column.
-		if (columnLayoutRegion) {
-			return {
-				columnIndex: columnLayoutRegion.index,
-				left: columnLayoutRegion.start
-			};
-		} else {
-			return {
-				columnIndex: 0,
-				left: 0
-			};
-		}
-	}
-
-	/**
-	 * Gets the first row.
-	 */
-	get firstRow() {
-		// When row resize is disabled, we can easily calculate the first row.
-		if (!this.rowResize) {
-			const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
-			return {
-				rowIndex,
-				top: rowIndex * this.defaultRowHeight
-			};
-		}
-
-		this._rowLayoutRegions.clear();
-		let top = 0;
-		for (let rowIndex = 0; rowIndex < this.rows; rowIndex++) {
-			const rowHeight = this._userDefinedRowHeights.get(rowIndex) || this.defaultRowHeight;
-
-			this._rowLayoutRegions.append({
-				start: top,
-				size: rowHeight,
-				index: rowIndex
-			});
-
-			top += rowHeight;
-		}
-
-		const rowLayoutRegion = this._rowLayoutRegions.find(this.verticalScrollOffset);
-		if (rowLayoutRegion) {
-			return {
-				rowIndex: rowLayoutRegion.index,
-				top: rowLayoutRegion.start
-			};
-		}
-
-		return {
-			rowIndex: 0,
-			top: 0
-		};
 	}
 
 	//#endregion DataGridInstance Properties
