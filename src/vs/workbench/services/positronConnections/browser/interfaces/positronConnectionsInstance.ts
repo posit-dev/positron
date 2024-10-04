@@ -12,10 +12,10 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 // This is the interface the front-end needs from a connection instance
 // in order to be able to render it nicely.
 export interface IPositronConnectionItem {
-	getChildren(): IPositronConnectionItem[];
-	hasChildren(): boolean;
+
 	icon(): string;
 	name(): string;
+	getChildren?(): IPositronConnectionItem[];
 
 	/**
 	 * Wether the connection is expanded or not. Undefined
@@ -25,7 +25,8 @@ export interface IPositronConnectionItem {
 
 	/**
 	 * Front-end may fire this event whenever the user clicks the
-	 * toggle expand button.
+	 * toggle expand button. Must be implemented if the item is
+	 * expandable.
 	 */
-	onToggleExpandEmitter: Emitter<void>;
+	onToggleExpandEmitter?: Emitter<void>;
 }

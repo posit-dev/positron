@@ -19,7 +19,6 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 
 	constructor(private readonly clientId: string) {
 		this.onToggleExpand(() => {
-			console.log('Expand clicked!');
 			this._expanded = !this._expanded;
 		});
 	}
@@ -66,11 +65,10 @@ class MockedConnectionItem implements IPositronConnectionItem {
 	}
 
 	getChildren() {
-		return [];
-	}
-
-	hasChildren(): boolean {
-		return false;
+		return [
+			new MockField('mpg'),
+			new MockField('mpa')
+		];
 	}
 
 	icon() {
@@ -78,7 +76,30 @@ class MockedConnectionItem implements IPositronConnectionItem {
 	}
 
 	expanded() {
-		return false;
+		return this.expanded_;
 	}
 }
 
+class MockField implements IPositronConnectionItem {
+	constructor(readonly _name: string) { }
+
+	name() {
+		return this._name;
+	}
+
+	icon() {
+		return 'database';
+	}
+
+	expanded() {
+		return undefined;
+	}
+
+	hasChildren() {
+		return false;
+	}
+
+	getChildren() {
+		return [];
+	}
+}
