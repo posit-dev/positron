@@ -864,7 +864,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-		const matches = this.getPlotUri(options.uri);
+		const matches = this.splitPlotDataUri(options.uri);
 
 		if (!matches) {
 			return;
@@ -878,17 +878,27 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			});
 	};
 
-	private getPlotUri(plotData: string) {
-		const regex = /^data:.+\/(.+);base64,(.*)$/;
-		const matches = plotData.match(regex);
-		if (!matches || matches.length !== 3) {
+	/**
+	 * Splits an image data URI into its MIME, type, and data.
+	 * @param plotDataUri the data URI
+	 * @returns an array containing the MIME type, the type of the image, and the image data
+	 */
+	private splitPlotDataUri(plotDataUri: string) {
+		// match the data URI scheme
+		// the data portion isn't matched because of javascript regex performance with large stringszs
+		const mimeAndData = plotDataUri.split('base64,');
+		if (mimeAndData.length !== 2) {
 			return null;
 		}
-		return matches;
+
+		const mime = mimeAndData[0].split('data:')[1];
+		const imageData = mimeAndData[1];
+
+		return [mime, mime.split('/')[1], imageData];
 	}
 
 	showSavePlotDialog(uri: string) {
-		const matches = this.getPlotUri(uri);
+		const matches = this.splitPlotDataUri(uri);
 
 		if (!matches) {
 			return;
