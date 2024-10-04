@@ -202,9 +202,7 @@ _Note: Don't forget to remove the `.only()`s when you're done!_
 
 #### Command Line
 
-The command line provides a faster way to run tests since it supports parallel execution. However, be aware that using `.only()` to run specific tests does not work when tests are executed in parallel mode.
-
-To overcome this limitation and run a subset of tests in parallel locally, we introduced a workaround:
+The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. To overcome this limitation and run a subset of tests in parallel locally, we introduced a workaround:
 
 1. Add `#only` to the test descriptions you want to run.
 2. Execute the following command to trigger the subset of tests:

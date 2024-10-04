@@ -29,7 +29,6 @@ export function runMochaTests(OPTS) {
 		},
 		retries: 1,
 	});
-	// mocha.dryRun();
 
 	// Apply test filters based on CLI options
 	applyTestFilters(mocha);
