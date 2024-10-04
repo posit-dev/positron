@@ -95,7 +95,6 @@ export class PositronConnectionsView
 			hoverService
 		);
 
-		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
 			// The browser will automatically set scrollTop to 0 on child components that have been
 			// hidden and made visible. (This is called "desperate" elsewhere in Visual Studio Code.

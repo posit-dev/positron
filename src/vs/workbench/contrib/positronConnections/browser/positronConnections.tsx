@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -20,6 +20,8 @@ import { IPositronConnectionsService } from 'vs/workbench/services/positronConne
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import * as DOM from 'vs/base/browser/dom';
 
 export interface PositronConnectionsProps {
 	readonly commandService: ICommandService;
@@ -43,11 +45,33 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	const [, setWidth] = React.useState(props.reactComponentContainer.width);
 	const [height, setHeight] = React.useState(props.reactComponentContainer.height);
 
-	React.useEffect(() => {
+	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
+		}));
+		return () => disposableStore.dispose();
+	});
+
+	// We're required to save the scroll state because browsers will automatically
+	// scrollTop when an object becomes visible again.
+	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(undefined);
+	const innerRef = useRef<HTMLElement>(undefined!);
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.reactComponentContainer.onSaveScrollPosition(() => {
+			if (innerRef.current) {
+				setScrollState(DOM.saveParentsScrollTop(innerRef.current));
+			}
+		}));
+		disposableStore.add(props.reactComponentContainer.onRestoreScrollPosition(() => {
+			if (scrollStateRef.current) {
+				if (innerRef.current) {
+					DOM.restoreParentsScrollTop(innerRef.current, scrollStateRef.current);
+				}
+				setScrollState(undefined);
+			}
 		}));
 		return () => disposableStore.dispose();
 	});
@@ -99,6 +123,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 					height={height - kActionBarHeight}
 					width={'100%'}
 					itemKey={index => items[index].id}
+					innerRef={innerRef}
 				>
 					{ItemEntry}
 				</List>
