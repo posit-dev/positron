@@ -11,6 +11,9 @@
 		"outDir": "out",
 		"sourceMap": true,
 		"skipLibCheck": true,
+		// --- Start Positron ---
+		"declaration": true,
+		// --- End Positron ---
 		"lib": [
 			"esnext", // for #201187
 			"dom"
