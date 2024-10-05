@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus } from './kcclient/api';
+import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
@@ -333,8 +333,16 @@ export class KCApi implements KallichoreAdapterApi {
 
 		return new Promise<JupyterLanguageRuntimeSession>((resolve, reject) => {
 			this._api.getSession(sessionMetadata.sessionId).then(async (response) => {
-				// Create the session object
+				// Make sure the session is still running; it may have exited
+				// while we were disconnected.
 				const kcSession = response.body;
+				if (kcSession.status === Status.Exited) {
+					this._log.error(`Attempt to reconnect to session ${sessionMetadata.sessionId} failed because it is no longer running`);
+					reject(`Session ${sessionMetadata.sessionName} (${sessionMetadata.sessionId}) is no longer running`);
+					return;
+				}
+
+				// Create the session object
 				const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
 					continuationPrompt: kcSession.continuationPrompt,
 					inputPrompt: kcSession.inputPrompt,
