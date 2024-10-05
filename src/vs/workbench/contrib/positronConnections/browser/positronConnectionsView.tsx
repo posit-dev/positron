@@ -116,7 +116,7 @@ export class PositronConnectionsView
 		super.renderBody(container);
 
 		// Create and append the Positron variables container.
-		this.positronConnectionsContainer = DOM.$('.positron-variables-container');
+		this.positronConnectionsContainer = DOM.$('.positron-connections-container');
 		container.appendChild(this.positronConnectionsContainer);
 
 
