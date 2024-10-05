@@ -72,6 +72,10 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 	expanded() {
 		return this._expanded;
 	}
+
+	active() {
+		return false;
+	}
 }
 
 class MockedConnectionItem implements IPositronConnectionItem {

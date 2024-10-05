@@ -94,12 +94,15 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 						// We trigger a re-render when connection is expanded.
 						reRender();
 					},
+					active: con.active ? con.active() : true,
 					level: level,
 					id: `${parent}-${level}-${index}`
 				}
 			);
 
-			if (con.expanded() && con.getChildren) {
+			// To show children, the connection must be expanded, have a getChildren() method.
+			// If it implements `active()` it must be active.
+			if (con.expanded() && con.getChildren && !(con.active && !con.active())) {
 				elements.push(...getConnectionItems(con.getChildren(), level + 1, `${parent}-${index}`));
 			}
 
@@ -140,6 +143,7 @@ interface ItemEntryProps {
 interface PositronConnectionsItemProps {
 	id: string;
 	name: string;
+	active: boolean;
 	icon: string;
 	expanded: boolean | undefined;
 	onExpand?(): void;
@@ -158,14 +162,19 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			{
 				props.expanded === undefined ?
 					<></> :
-					<div className='expand-collapse-area' onClick={props.onExpand}>
+					<div
+						className='expand-collapse-area'
+						onClick={props.onExpand}
+						// Disable clicking when the connection is not active
+						style={{ pointerEvents: props.active ? undefined : 'none' }}
+					>
 						<div
 							className={`codicon codicon-chevron-${props.expanded ? 'down' : 'right'}`}
 						>
 						</div>
 					</div>
 			}
-			<div className='connections-name'>
+			<div className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}>
 				{props.name}
 			</div>
 			<div className={`connections-icon codicon codicon-${props.icon}`}>
