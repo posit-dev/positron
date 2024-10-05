@@ -15,6 +15,14 @@ export interface IPositronConnectionItem {
 
 	icon(): string;
 	name(): string;
+
+	/**
+	 * Wether the connection item is currently active.
+	 * Mostly only make sense if the item is a root connection.
+	 * If implemented, won't try to get children of inactive items.
+	 */
+	active?(): boolean;
+
 	getChildren?(): IPositronConnectionItem[];
 
 	/**
