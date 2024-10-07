@@ -96,7 +96,6 @@ jobs:
         uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
-        if: steps.cache-multi-paths.outputs.all-cache-hit != 'true'
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
