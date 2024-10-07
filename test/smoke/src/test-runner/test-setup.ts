@@ -130,7 +130,7 @@ function getPositronVersion(testCodePath: string): string | null {
 			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
 			break;
 		default:
-			throw new Error('Unsupported platform.');
+			return null;
 	}
 
 	// Read and parse the JSON file
