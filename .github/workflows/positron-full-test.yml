@@ -83,15 +83,6 @@ jobs:
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
 
-      - name: Save rig and R installation as artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: rig-and-r
-          path: |
-            /usr/local/rig
-            /opt/R/4.4.0
-            ../positron-license/pdol/target/debug/pdol_rsa
-
       # ---- START: move to shared SETUP ----
       - name: Checkout test licensing tool
         run: |
