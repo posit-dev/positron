@@ -19,7 +19,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      BUILD_ARTIFACTSTAGINGDIRECTORY: ../../.build/logs/smoke-tests-electron
+
     steps:
       - uses: actions/checkout@v4
 
@@ -102,6 +102,7 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
+          BUILD_ARTIFACTSTAGINGDIRECTORY: ../../.build/logs/smoke-tests-electron
         id: electron-smoke-tests
         run: |
           cd test\smoke
