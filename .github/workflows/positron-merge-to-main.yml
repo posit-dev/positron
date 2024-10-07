@@ -69,6 +69,10 @@ jobs:
       - name: Cache node_modules, build, extensions, etc
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Debug all-cache-hit
+        run: |
+          echo "All Cache Hit: ${{ steps.cache-multi-paths.outputs.all-hit }}"
+
       - name: Execute yarn
         if: steps.cache-multi-paths.outputs.all-cache-hit != 'true'
         env:
