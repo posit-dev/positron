@@ -37,13 +37,13 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 describe('Plots', () => {
 	logger = setupAndStartApp();
 
-	async function simplePlotTest(app: Application, script: string, locator: string) {
+	async function simplePlotTest(app: Application, script: string, locator: string, RWeb = false) {
 		await app.workbench.positronPlots.clearPlots();
 		await app.workbench.positronPlots.waitForNoPlots();
 
 		await app.workbench.positronConsole.pasteCodeToConsole(script);
 		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronPlots.waitForWebviewPlot(locator);
+		await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
 	}
 
 	describe('Python Plots', () => {
@@ -59,7 +59,7 @@ describe('Plots', () => {
 
 		});
 
-		it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr', async function () {
+		it('Python - Verifies basic plot functionality - Dynamic Plot [C608114] #pr #web', async function () {
 			const app = this.app as Application;
 
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -91,7 +91,7 @@ plt.show()`;
 
 			const data = await compareImages(fs.readFileSync(path.join('plots', 'pythonScatterplot.png'),), buffer, options);
 
-			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+			if (githubActions && !this.app.web && data.rawMisMatchPercentage > 2.0) {
 				if (data.getBuffer) {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
@@ -111,7 +111,7 @@ plt.show()`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr', async function () {
+		it('Python - Verifies basic plot functionality - Static Plot [C654401] #pr #web', async function () {
 			const app = this.app as Application;
 
 			const script = `import graphviz as gv
@@ -139,7 +139,7 @@ IPython.display.display_png(h)`;
 
 			const data = await compareImages(fs.readFileSync(path.join('plots', 'graphviz.png'),), buffer, options);
 
-			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+			if (githubActions && !this.app.web && data.rawMisMatchPercentage > 2.0) {
 				if (data.getBuffer) {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
@@ -159,7 +159,7 @@ IPython.display.display_png(h)`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies the plots pane action bar - Plot actions [C656297]', async function () {
+		it('Python - Verifies the plots pane action bar - Plot actions [C656297] #web', async function () {
 			const app = this.app as Application;
 
 			const scriptPlot1 = `import graphviz as gv
@@ -302,7 +302,7 @@ plt.show()`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies bqplot Python widget [C720869]', async function () {
+		it('Python - Verifies bqplot Python widget [C720869] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `import bqplot.pyplot as bplt
@@ -323,7 +323,7 @@ bplt.show()`;
 
 		});
 
-		it('Python - Verifies ipydatagrid Python widget [C720870]', async function () {
+		it('Python - Verifies ipydatagrid Python widget [C720870] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `import pandas as pd
@@ -336,7 +336,7 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 
 		});
 
-		it('Python - Verifies ipyleaflet Python widget [C720871]', async function () {
+		it('Python - Verifies ipyleaflet Python widget [C720871] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipyleaflet import Map, Marker, display
@@ -353,7 +353,7 @@ display(map)`;
 			await simplePlotTest(app, script, '.leaflet-container');
 		});
 
-		it('Python - Verifies hvplot can load with plotly extension [C766660]', async function () {
+		it('Python - Verifies hvplot can load with plotly extension [C766660] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `import hvplot.pandas
@@ -364,7 +364,7 @@ pd.DataFrame(dict(x=[1,2,3], y=[4,5,6])).hvplot.scatter(x="x", y="y")`;
 			await simplePlotTest(app, script, '.plotly');
 		});
 
-		it('Python - Verifies ipytree Python widget [C720872]', async function () {
+		it('Python - Verifies ipytree Python widget [C720872] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipytree import Tree, Node
@@ -399,7 +399,7 @@ tree`;
 		});
 
 
-		it('Python - Verifies ipywidget.Output Python widget', async function () {
+		it('Python - Verifies ipywidget.Output Python widget #web', async function () {
 			const app = this.app as Application;
 
 			// Create the Output widget.
@@ -412,7 +412,7 @@ output`;
 
 			// Redirect a print statement to the Output widget.
 			await app.workbench.positronConsole.pasteCodeToConsole(`with output:
-    print('Hello, world!')
+	print('Hello, world!')
 `);  // Empty line needed for the statement to be considered complete.
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output .jp-OutputArea-child');
@@ -428,7 +428,7 @@ output`;
 		});
 
 
-		it('Python - Verifies bokeh Python widget [C730343]', async function () {
+		it('Python - Verifies bokeh Python widget [C730343] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `from bokeh.plotting import figure, output_file, show
@@ -508,7 +508,7 @@ show(graph)`;
 
 		});
 
-		it('R - Verifies basic plot functionality [C628633] #pr', async function () {
+		it('R - Verifies basic plot functionality [C628633] #pr #web', async function () {
 			const app = this.app as Application;
 
 			const script = `cars <- c(1, 3, 6, 4, 9)
@@ -524,7 +524,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 
 			const data = await compareImages(fs.readFileSync(path.join('plots', 'autos.png'),), buffer, options);
 
-			if (githubActions && data.rawMisMatchPercentage > 2.0) {
+			if (githubActions && !this.app.web && data.rawMisMatchPercentage > 2.0) {
 				if (data.getBuffer) {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
@@ -592,7 +592,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 		});
 
 
-		it('R - Verifies rplot plot [C720873]', async function () {
+		it('R - Verifies rplot plot [C720873] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `library('corrr')
@@ -619,7 +619,7 @@ rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 
 		});
 
-		it('R - Verifies highcharter plot [C720874]', async function () {
+		it('R - Verifies highcharter plot [C720874] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `library(highcharter)
@@ -628,11 +628,11 @@ data("mpg", "diamonds", "economics_long", package = "ggplot2")
 
 hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
-			await simplePlotTest(app, script, 'svg');
+			await simplePlotTest(app, script, 'svg', this.app.web);
 
 		});
 
-		it('R - Verifies leaflet plot [C720875]', async function () {
+		it('R - Verifies leaflet plot [C720875] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `library(leaflet)
@@ -640,18 +640,18 @@ m = leaflet() %>% addTiles()
 m = m %>% setView(-93.65, 42.0285, zoom = 17)
 m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, ISU')`;
 
-			await simplePlotTest(app, script, '.leaflet');
+			await simplePlotTest(app, script, '.leaflet', this.app.web);
 
 		});
 
-		it('R - Verifies plotly plot [C720876]', async function () {
+		it('R - Verifies plotly plot [C720876] #web', async function () {
 			const app = this.app as Application;
 
 			const script = `library(plotly)
 fig <- plot_ly(midwest, x = ~percollege, color = ~state, type = "box")
 fig`;
 
-			await simplePlotTest(app, script, '.plot-container');
+			await simplePlotTest(app, script, '.plot-container', this.app.web);
 
 		});
 
