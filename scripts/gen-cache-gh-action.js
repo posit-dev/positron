@@ -13,7 +13,7 @@ const outputPath = path.join(__dirname, '../.github/actions/cache-multi-paths/ac
 // Template for generating action.yml
 const generateActionYaml = (cacheSteps) => `
 name: "Cache Multiple Directories"
-description: "Restores/Saves cache for node_modules, build, extensions, and remote"
+description: "Restores/Saves cache for node_modules, build, extensions, etc"
 runs:
 	using: "composite"
 	steps:
