@@ -116,7 +116,9 @@ jobs:
       - name: Upload Test Results to TestRail
         id: testrail-upload
         if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        shell: pwsh
+        run: |
+          trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
 
 
       - name: Upload run artifacts - electron
