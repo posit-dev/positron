@@ -21,12 +21,12 @@ runs:
       id: cache-extensions
       uses: actions/cache@v4
       with:
-        path: ./extensions/node_modules
+        path: ./extensions/**/node_modules
         key: cache-extensions-v1-${{ runner.os }}-${{ hashFiles('extensions/**/yarn.lock') }}
 
     - name: Cache 'remote'
       id: cache-remote
       uses: actions/cache@v4
       with:
-        path: ./remote/node_modules
+        path: ./remote/**/node_modules
         key: cache-remote-v1-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
