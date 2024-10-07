@@ -66,12 +66,8 @@ jobs:
       - name: Install Tinytex
         run: quarto install tinytex
 
-      - name: Cache node_modules, build, extensions, etc
+      - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
-
-      - name: Debug all-cache-hit
-        run: |
-          echo "All Cache Hit: ${{ steps.cache-multi-paths.outputs.all-hit }}"
 
       - name: Execute yarn
         env:

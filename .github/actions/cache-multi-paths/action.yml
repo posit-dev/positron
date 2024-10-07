@@ -1,5 +1,5 @@
 name: "Cache Multiple Directories"
-description: "Restores/Saves cache for node_modules, build, extensions, etc"
+description: "Restores/Saves cache for node_modules, build, extensions, and remote"
 runs:
   using: "composite"
   steps:
