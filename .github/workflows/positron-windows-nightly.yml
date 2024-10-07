@@ -19,7 +19,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}\.build\logs\smoke-tests-electron
+      BUILD_ARTIFACTSTAGINGDIRECTORY: ..\..\.build\logs\smoke-tests-electron
 
     steps:
       - uses: actions/checkout@v4
@@ -108,6 +108,7 @@ jobs:
           Write-Output $env:BUILD_ARTIFACTSTAGINGDIRECTORY # debug
           cd test\smoke
           node run-tests.js --tracing --win
+          Get-ChildItem -Recurse -Filter "*results.xml" # debug
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
