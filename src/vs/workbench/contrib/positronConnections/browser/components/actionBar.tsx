@@ -17,6 +17,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
@@ -42,16 +43,25 @@ export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
 				>
-					<ActionBarRegion location='right'>
+					<ActionBarRegion location='left'>
 						<ActionBarButton
-							align='right'
-							iconId='positron-refresh'
+							align='left'
+							iconId='debug-disconnect'
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
-							align='right'
-							iconId='clear-all'
+							align='left'
+							iconId='debug-disconnect'
+							text='Disconnect'
 						/>
+						<ActionBarSeparator />
+						<ActionBarButton
+							align='left'
+							iconId='refresh'
+						/>
+					</ActionBarRegion>
+					<ActionBarRegion location="right">
+						<ActionBarSearch placeholder='filter'></ActionBarSearch>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
