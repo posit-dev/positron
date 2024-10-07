@@ -419,8 +419,8 @@ runs:
         key: cache-test-monaco-v1-${{ runner.os }}-${{ hashFiles('test/monaco/yarn.lock') }}
 
     - name: Cache '.vscode/extensions/vscode-selfhost-test-provider'
-      id: cache-.vscode-extensions-vscode-selfhost-test-provider
+      id: cache--vscode-extensions-vscode-selfhost-test-provider
       uses: actions/cache@v4
       with:
         path: ./.vscode/extensions/vscode-selfhost-test-provider/node_modules
-        key: cache-.vscode-extensions-vscode-selfhost-test-provider-v1-${{ runner.os }}-${{ hashFiles('.vscode/extensions/vscode-selfhost-test-provider/yarn.lock') }}
+        key: cache--vscode-extensions-vscode-selfhost-test-provider-v1-${{ runner.os }}-${{ hashFiles('.vscode/extensions/vscode-selfhost-test-provider/yarn.lock') }}
