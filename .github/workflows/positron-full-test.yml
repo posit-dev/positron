@@ -100,8 +100,8 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      - name: Compile and Download Extensions
-        run: yarn npm-run-all --max_old_space_size=4095 -l compile download-builtin-extensions
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -200,8 +200,8 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      - name: Compile and Download Extensions
-        run: yarn npm-run-all --max_old_space_size=4095 -l compile download-builtin-extensions
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -211,11 +211,13 @@ jobs:
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
       - name: Run Integration Tests (Remote)
+        if: success() || failure()
         id: electron-remote-integration-tests
         timeout-minutes: 15
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
       - name: Run Integration Tests (Browser, Chromium)
+        if: success() || failure()
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
