@@ -31,17 +31,11 @@ describe('Notebooks #pr #web #win', () => {
 
 		it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
 			await expect(async () => {
+				await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
+				await app.workbench.positronNotebooks.executeCodeInCell();
 
-				try {
-					await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
-					await app.workbench.positronNotebooks.executeCodeInCell();
-
-					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-				} catch (e) {
-					await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
-				}
+				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
 			}).toPass({ timeout: 120000 });
-
 		});
 
 		it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
