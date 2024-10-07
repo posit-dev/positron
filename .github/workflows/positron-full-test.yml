@@ -12,10 +12,8 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
-    name: Unit Tests (Linux)
+  setup:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -26,21 +24,28 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # ---- START: move to shared SETUP ----
-      - name: Checkout test licensing tool
-        run: |
-          cd ..
-          mkdir positron-license
-          cd positron-license
-          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-        env:
-          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+      # - name: Checkout test licensing tool
+      #   run: |
+      #       cd ..
+      #       mkdir positron-license
+      #       cd positron-license
+      #       git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
+      #   env:
+      #       GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
 
-      - name: Install Rust latest nightly
-        uses: actions-rs/toolchain@v1
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: setup
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
         with:
-          toolchain: nightly
-          override: true
+          node-version-file: .nvmrc
 
       - name: Build licensing tool
         run: |
@@ -54,6 +59,49 @@ jobs:
           cd positron-license/pdol/target/debug
           echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
           chmod 600 pdol_rsa
+
+      - name: Install rig and R
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+
+      - name: Save rig and R installation as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: rig-and-r
+          path: |
+            /usr/local/rig
+            /opt/R/4.4.0
+            ../positron-license/pdol/target/debug/pdol_rsa
+
+      # ---- START: move to shared SETUP ----
+      # - name: Checkout test licensing tool
+      #   run: |
+      #     cd ..
+      #     mkdir positron-license
+      #     cd positron-license
+      #     git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
+      #   env:
+      #     GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+
+      - name: Install Rust latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
+      # - name: Build licensing tool
+      #   run: |
+      #     cd ..
+      #     cd positron-license/pdol
+      #     cargo build
+
+      # - name: Echo license
+      #   run: |
+      #     cd ..
+      #     cd positron-license/pdol/target/debug
+      #     echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
+      #     chmod 600 pdol_rsa
 
       - name: Setup Build Environment
         run: |
@@ -116,9 +164,9 @@ jobs:
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
   integration-tests:
-    name: Integration Tests (Linux)
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 15
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -213,7 +261,6 @@ jobs:
       - name: Run Integration Tests (Remote)
         if: success() || failure()
         id: electron-remote-integration-tests
-        timeout-minutes: 15
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
       - name: Run Integration Tests (Browser, Chromium)
@@ -222,9 +269,9 @@ jobs:
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   e2e-tests-electron:
-    name: Electron Tests (Linux)
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 60
+    timeout-minutes: 20
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -272,8 +319,8 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
       - name: Install Conda (Miniforge3)
@@ -367,9 +414,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
   e2e-tests-browser:
-    name: Web Tests (Linux)
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 60
+    timeout-minutes: 20
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -417,8 +464,8 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
       - name: Install Conda (Miniforge3)
@@ -495,7 +542,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils
-          yarn xunit-to-junit smoke-tests-electron
+          yarn xunit-to-junit smoke-tests-browser
 
       - name: Clean up license files
         if: always()
