@@ -80,7 +80,7 @@ const generateCheckAllCachesStep = (cacheSteps) => {
 ${hitCheckVariables}
 
         # Calculate if all caches were a hit
-        if [ ${allHitCheck} ]; then
+        if [[ ${allHitCheck} ]]; then
           echo "All caches hit: true"
           echo "all-hit=true" >> $GITHUB_OUTPUT
         else
