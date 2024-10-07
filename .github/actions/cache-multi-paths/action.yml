@@ -67,10 +67,9 @@ runs:
       shell: bash
       run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # Install R dependencies
+    # Install R dependencies, including pak
     - name: Install R Development Dependencies
       shell: bash
       run: |
+        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-      env:
-        R_LIBS_USER: ~/.R/library

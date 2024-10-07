@@ -268,7 +268,7 @@ jobs:
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-  e2e-tests-electron:
+  e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 20
     needs: setup
@@ -413,7 +413,7 @@ jobs:
           check_name: "Electron Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-  e2e-tests-browser:
+  e2e-browser-tests:
     runs-on: ubuntu-latest-4x
     timeout-minutes: 20
     needs: setup
