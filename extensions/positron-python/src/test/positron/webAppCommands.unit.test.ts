@@ -20,8 +20,8 @@ import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Web app commands', () => {
-    const runtimePath = '/path/to/python';
-    const workspacePath = '/path/to';
+    const runtimePath = path.join('path', 'to', 'python');
+    const workspacePath = path.join('path', 'to', 'workspace');
     const documentPath = path.join(workspacePath, 'file.py');
     const port = '8080';
     const urlPrefix = 'http://new-url-prefix';
