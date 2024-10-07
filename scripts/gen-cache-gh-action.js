@@ -82,12 +82,10 @@ ${hitCheckVariables}
         # Calculate if all caches were a hit
         if [[ ${allHitCheck} ]]; then
           echo "All caches hit: true"
-          echo "all-hit=true" >> $GITHUB_ENV
-		  echo "all-hit=true" >> $GITHUB_OUTPUT
+          echo "CACHE_ALL_HIT=true" >> $GITHUB_ENV
         else
           echo "All caches hit: false"
-          echo "all-hit=false" >> $GITHUB_ENV
-		  echo "all-hit=false" >> $GITHUB_OUTPUT
+          echo "CACHE_ALL_HIT=false" >> $GITHUB_ENV
         fi
   `;
 };
