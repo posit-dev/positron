@@ -18,6 +18,7 @@ runs:
 	using: "composite"
 	steps:
 ${cacheSteps.join('\n')}
+${generateCheckAllCachesStep(cacheSteps)}
 `;
 
 // Helper function to generate a valid GitHub action ID
@@ -49,9 +50,41 @@ const generateCacheSteps = (dirs) => {
 		});
 };
 
+// Generate the "Check All Caches" step dynamically based on cache step IDs
+const generateCheckAllCachesStep = (cacheSteps) => {
+	const cacheIds = cacheSteps.map((step) => {
+		const match = step.match(/id:\s+(cache-[\w-]+)/);
+		return match ? match[1] : null;
+	}).filter(Boolean);
+
+	const hitCheckVariables = cacheIds.map((id) => `        ${id.toUpperCase().replace(/-/g, '_')}_HIT=\${{ steps.${id}.outputs.cache-hit == 'true' }}`).join('\n');
+	const allHitCheck = cacheIds.map((id) => `\${{ steps.${id}.outputs.cache-hit == 'true' }}`).join(' && ');
+
+	return `
+	  - name: Check All Caches
+      shell: bash
+      id: check-all-caches
+      run: |
+	      # Check cache-hit status for each cache step
+${hitCheckVariables}
+
+        # Calculate if all caches were a hit
+        if [ ${allHitCheck} ]; then
+          echo "All caches hit: true"
+          echo "::set-output name=all-hit::true"
+        else
+          echo "All caches hit: false"
+          echo "::set-output name=all-hit::false"
+        fi
+  `;
+};
+
 // Create action.yml with dynamically generated steps
 const cacheSteps = generateCacheSteps(dirs);
-const actionYmlContent = generateActionYaml(cacheSteps);
+let actionYmlContent = generateActionYaml(cacheSteps);
+
+// Replace any tabs with 2 spaces to ensure proper YAML formatting
+actionYmlContent = actionYmlContent.replace(/\t/g, '  ');
 
 // Write the generated action.yml content to the file
 fs.writeFileSync(outputPath, actionYmlContent, 'utf8');
