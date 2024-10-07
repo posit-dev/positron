@@ -22,6 +22,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      # ---- START: move to shared SETUP ----
       - name: Checkout test licensing tool
         run: |
           cd ..
@@ -73,25 +78,7 @@ jobs:
           sudo bash Miniforge3.sh -b -p "${HOME}/conda"
           source "${HOME}/conda/etc/profile.d/conda.sh"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      # - name: AWS S3 Access Setup
-      #   uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-      #     aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      # - name: Install Quarto CLI
-      #   run: |
-      #     TEMP_DEB="$(mktemp)" &&
-      #     wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-      #     sudo dpkg -i "$TEMP_DEB"
-      #     rm -f "$TEMP_DEB"
-
-      # - name: Install Tinytex
-      #   run: quarto install tinytex
+    # --- END: move to shared SETUP ---
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
@@ -116,9 +103,6 @@ jobs:
       - name: Compile and Download Extensions
         run: yarn npm-run-all --max_old_space_size=4095 -l compile download-builtin-extensions
 
-      - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
-
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
@@ -130,19 +114,6 @@ jobs:
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
-
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration.sh
-
-      - name: Run Integration Tests (Remote)
-        id: electron-remote-integration-tests
-        timeout-minutes: 15
-        run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-
-      - name: Run Integration Tests (Browser, Chromium)
-        id: browser-integration-tests
-        run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   integration-tests:
     name: Integration Tests (Linux)
@@ -209,22 +180,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # - name: AWS S3 Access Setup
-      #   uses: aws-actions/configure-aws-credentials@v4
-      #   with:
-      #     role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-      #     aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      # - name: Install Quarto CLI
-      #   run: |
-      #     TEMP_DEB="$(mktemp)" &&
-      #     wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-      #     sudo dpkg -i "$TEMP_DEB"
-      #     rm -f "$TEMP_DEB"
-
-      # - name: Install Tinytex
-      #   run: quarto install tinytex
-
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -250,18 +205,6 @@ jobs:
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
-
-      - name: Run Unit Tests (Electron)
-        id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
-
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
-
-      - name: Run Unit Tests (Browser, Chromium)
-        id: browser-unit-tests
-        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
@@ -618,34 +561,6 @@ jobs:
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile playwright-install download-builtin-extensions
-      # - name: Compile Integration Tests
-      #   run: yarn --cwd test/integration/browser compile
-
-      # - name: Run Unit Tests (Electron)
-      #   id: electron-unit-tests
-      #   run: DISPLAY=:10 ./scripts/test.sh
-
-      # - name: Run Unit Tests (node.js)
-      #   id: nodejs-unit-tests
-      #   run: yarn test-node
-
-      # - name: Run Unit Tests (Browser, Chromium)
-      #   id: browser-unit-tests
-      #   run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
-
-      # - name: Run Integration Tests (Electron)
-      #   id: electron-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-integration.sh
-
-      # - name: Run Integration Tests (Remote)
-      #   id: electron-remote-integration-tests
-      #   timeout-minutes: 15
-      #   run: DISPLAY=:10 ./scripts/test-remote-integration.sh
-
-      # - name: Run Integration Tests (Browser, Chromium)
-      #   id: browser-integration-tests
-      #   run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
-
 
       - name: Setup Graphviz
         if: always()
