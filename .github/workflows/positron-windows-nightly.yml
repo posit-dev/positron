@@ -19,7 +19,7 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      BUILD_ARTIFACTSTAGINGDIRECTORY: .build\logs\smoke-tests-electron
+      BUILD_ARTIFACTSTAGINGDIRECTORY: ${{ github.workspace }}\.build\logs\smoke-tests-electron
 
     steps:
       - uses: actions/checkout@v4
