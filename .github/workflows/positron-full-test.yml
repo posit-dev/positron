@@ -50,6 +50,21 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Checkout test licensing tool
+        run: |
+          cd ..
+          mkdir positron-license
+          cd positron-license
+          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
+        env:
+          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
+
+      - name: Install Rust latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+
       - name: Build licensing tool
         run: |
           cd ..
@@ -273,7 +288,7 @@ jobs:
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -418,7 +433,7 @@ jobs:
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
