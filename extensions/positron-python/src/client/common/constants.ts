@@ -64,6 +64,7 @@ export namespace Commands {
     export const Debug_FastAPI_In_Terminal = 'python.debugFastAPIInTerminal';
     export const Debug_Flask_In_Terminal = 'python.debugFlaskInTerminal';
     export const Debug_Gradio_In_Terminal = 'python.debugGradioInTerminal';
+    export const Debug_Shiny_In_Terminal = 'python.debugShinyInTerminal';
     export const Debug_Streamlit_In_Terminal = 'python.debugStreamlitInTerminal';
     // --- End Positron ---
     export const Exec_In_REPL = 'python.execInREPL';

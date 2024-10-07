@@ -35,21 +35,24 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             getStreamlitDebugConfig(document, port),
         ),
         registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, port, urlPrefix) =>
-            Promise.resolve(getDashDebugConfig(document, port, urlPrefix)),
+            getDashDebugConfig(document, port, urlPrefix),
         ),
         registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, port, urlPrefix) =>
             getFastAPIDebugConfig(serviceContainer, runtime, document, port, urlPrefix),
         ),
         registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, port, urlPrefix) =>
-            Promise.resolve(getFlaskDebugConfig(document, port, urlPrefix)),
+            getFlaskDebugConfig(document, port, urlPrefix),
         ),
         registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, port, urlPrefix) =>
-            Promise.resolve(getGradioDebugConfig(document, port, urlPrefix)),
+            getGradioDebugConfig(document, port, urlPrefix),
+        ),
+        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, port, _urlPrefix) =>
+            getShinyDebugConfig(document, port),
         ),
         registerDebugCommand(
             Commands.Debug_Streamlit_In_Terminal,
             'Streamlit',
-            (_runtime, document, port, _urlPrefix) => Promise.resolve(getStreamlitDebugConfig(document, port)),
+            (_runtime, document, port, _urlPrefix) => getStreamlitDebugConfig(document, port),
         ),
     );
 }
@@ -107,7 +110,7 @@ function registerDebugCommand(
         document: vscode.TextDocument,
         port?: string,
         urlPrefix?: string,
-    ) => Promise<DebugConfiguration | undefined>,
+    ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
