@@ -29,11 +29,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # - name: Install miniconda
-      #   uses: conda-incubator/setup-miniconda@v3
-      #   with:
-      #     miniconda-version: "latest"
-
       - name: Install System Level Python
         uses: actions/setup-python@v5
         with:
@@ -62,9 +57,6 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      # - name: Run Unit Tests (Electron)
-      #   run: .\scripts\test.bat
-
       - name: Compile Smoke Tests
         run: |
           yarn --cwd test/automation compile
@@ -76,7 +68,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install ipykernel trcli
-
 
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
