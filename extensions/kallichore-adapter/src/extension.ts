@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 
-import path = require('path');
 import { KallichoreAdapterApi } from './kallichore-adapter';
 import { KCApi } from './KallichoreAdapterApi';
 

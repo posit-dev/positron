@@ -403,16 +403,13 @@ export class KCApi implements KallichoreAdapterApi {
 	 */
 	getKallichorePath(): string {
 
-		const path = require('path');
-		const fs = require('fs');
-
 		// Get the name of the server binary for the current platform
 		const serverBin = os.platform() === 'win32' ? 'kcserver.exe' : 'kcserver';
 
 		// Look for locally built Debug or Release server binaries. If both exist, we'll use
 		// whichever is newest. This is the location where the kernel is typically built
 		// by developers, who have `positron` and `kallichore` directories side-by-side.
-		let devBinary = undefined;
+		let devBinary;
 		const positronParent = path.dirname(path.dirname(path.dirname(this._context.extensionPath)));
 		const devDebugBinary = path.join(positronParent, 'kallichore', 'target', 'debug', serverBin);
 		const devReleaseBinary = path.join(positronParent, 'kallichore', 'target', 'release', serverBin);

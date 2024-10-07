@@ -24,7 +24,7 @@ export class DapClient {
 		readonly session: JupyterLanguageRuntimeSession) {
 
 		// Generate 8 random hex characters for the message stem
-		this._msgStem = Math.random().toString(16).substr(2, 8);
+		this._msgStem = Math.random().toString(16).slice(2, 10);
 	}
 
 	handleDapMessage(msg: any) {

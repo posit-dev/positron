@@ -12,7 +12,7 @@ export class Comm {
 	 * Create a new comm representation
 	 *
 	 * @param id The unique ID of the comm instance @param target The comm
-	 * @param target The comm's target name (also know as its type); can be any
+	 * @param target The comm's target name (also known as its type); can be any
 	 * string. Positron-specific comms are listed in its `RuntimeClientType`
 	 * enum.
 	 */

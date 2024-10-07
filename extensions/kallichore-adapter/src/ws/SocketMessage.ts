@@ -18,6 +18,7 @@ export enum SocketMessageKind {
 
 /**
  * Represents a message received from a WebSocket connection. Every message sent
+ * from the server over the WebSocket connection will be a SocketMessage.
  */
 export interface SocketMessage {
 	/** The kind of message */
