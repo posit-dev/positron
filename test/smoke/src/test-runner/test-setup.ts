@@ -118,7 +118,20 @@ function prepareTestDataDirectory() {
 }
 
 function getPositronVersion(testCodePath: string): string | null {
-	const productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+	let productJsonPath;
+	switch (process.platform) {
+		case 'darwin':
+			productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+			break;
+		case 'linux':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		case 'win32':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		default:
+			return null;
+	}
 
 	// Read and parse the JSON file
 	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
