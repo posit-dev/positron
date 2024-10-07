@@ -21,7 +21,6 @@ runs:
 	using: "composite"
 	steps:
 ${cacheSteps.join('\n')}
-${generateCheckAllCachesStep(cacheSteps)}
 `;
 
 // Helper function to generate a valid GitHub action ID
@@ -59,35 +58,6 @@ const generateCacheSteps = (dirs) => {
 				path: ${nodeModulesPath}
 				key: ${cacheKeyWithComment}`;
 		});
-};
-
-// Generate the "Check All Caches" step dynamically based on cache step IDs
-const generateCheckAllCachesStep = (cacheSteps) => {
-	const cacheIds = cacheSteps.map((step) => {
-		const match = step.match(/id:\s+(cache-[\w-]+)/);
-		return match ? match[1] : null;
-	}).filter(Boolean);
-
-	const hitCheckVariables = cacheIds.map((id) => `        ${id.toUpperCase().replace(/-/g, '_')}_HIT=\${{ steps.${id}.outputs.cache-hit == 'true' }}`).join('\n');
-	const allHitCheck = cacheIds.map((id) => `\${{ steps.${id}.outputs.cache-hit == 'true' }}`).join(' && ');
-
-	return `
-	  - name: Check All Caches
-      shell: bash
-      id: check-all-caches
-      run: |
-	      # Check cache-hit status for each cache step
-${hitCheckVariables}
-
-        # Calculate if all caches were a hit
-        if [[ ${allHitCheck} ]]; then
-          echo "All caches hit: true"
-          echo "CACHE_ALL_HIT=true" >> $GITHUB_ENV
-        else
-          echo "All caches hit: false"
-          echo "CACHE_ALL_HIT=false" >> $GITHUB_ENV
-        fi
-  `;
 };
 
 // Create action.yml with dynamically generated steps

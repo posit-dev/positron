@@ -74,7 +74,6 @@ jobs:
           echo "All Cache Hit: ${{ steps.cache-multi-paths.outputs.all-hit }}"
 
       - name: Execute yarn
-        if: env.CACHE_ALL_HIT != 'true'
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
