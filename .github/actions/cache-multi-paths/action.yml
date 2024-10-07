@@ -1,32 +1,426 @@
+
 name: "Cache Multiple Directories"
 description: "Restores/Saves cache for node_modules, build, extensions, and remote"
 runs:
   using: "composite"
   steps:
-    - name: Cache node_modules
-      id: cache-node-modules
+
+    - name: Cache 'root'
+      id: cache-root
       uses: actions/cache@v4
       with:
         path: ./node_modules
-        key: root-node-modules-v7-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        key: cache-root-v1-${{ runner.os }}-${{ hashFiles('./yarn.lock') }}
 
-    - name: Cache build
+    - name: Cache 'build'
       id: cache-build
       uses: actions/cache@v4
       with:
         path: ./build/node_modules
-        key: build-node-modules-v7-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+        key: cache-build-v1-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
-    - name: Cache extensions
+    - name: Cache 'extensions'
       id: cache-extensions
       uses: actions/cache@v4
       with:
         path: ./extensions/node_modules
-        key: extensions-v7-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+        key: cache-extensions-v1-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
 
-    - name: Cache remote
+    - name: Cache 'extensions/open-remote-ssh'
+      id: cache-extensions-open-remote-ssh
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/open-remote-ssh/node_modules
+        key: cache-extensions-open-remote-ssh-v1-${{ runner.os }}-${{ hashFiles('extensions/open-remote-ssh/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-code-cells'
+      id: cache-extensions-positron-code-cells
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-code-cells/node_modules
+        key: cache-extensions-positron-code-cells-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-code-cells/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-connections'
+      id: cache-extensions-positron-connections
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-connections/node_modules
+        key: cache-extensions-positron-connections-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-connections/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-ipywidgets'
+      id: cache-extensions-positron-ipywidgets
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-ipywidgets/node_modules
+        key: cache-extensions-positron-ipywidgets-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-ipywidgets/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-javascript'
+      id: cache-extensions-positron-javascript
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-javascript/node_modules
+        key: cache-extensions-positron-javascript-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-javascript/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-notebook-controllers'
+      id: cache-extensions-positron-notebook-controllers
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-notebook-controllers/node_modules
+        key: cache-extensions-positron-notebook-controllers-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-notebook-controllers/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-notebooks'
+      id: cache-extensions-positron-notebooks
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-notebooks/node_modules
+        key: cache-extensions-positron-notebooks-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-notebooks/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-r'
+      id: cache-extensions-positron-r
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-r/node_modules
+        key: cache-extensions-positron-r-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-r/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-reticulate'
+      id: cache-extensions-positron-reticulate
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-reticulate/node_modules
+        key: cache-extensions-positron-reticulate-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-reticulate/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-rstudio-keymap'
+      id: cache-extensions-positron-rstudio-keymap
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-rstudio-keymap/node_modules
+        key: cache-extensions-positron-rstudio-keymap-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-rstudio-keymap/yarn.lock') }} #pragma: allowlist secret
+
+    - name: Cache 'extensions/positron-run-app'
+      id: cache-extensions-positron-run-app
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-run-app/node_modules
+        key: cache-extensions-positron-run-app-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-run-app/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-python'
+      id: cache-extensions-positron-python
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-python/node_modules
+        key: cache-extensions-positron-python-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-python/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-proxy'
+      id: cache-extensions-positron-proxy
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-proxy/node_modules
+        key: cache-extensions-positron-proxy-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-proxy/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-viewer'
+      id: cache-extensions-positron-viewer
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-viewer/node_modules
+        key: cache-extensions-positron-viewer-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-viewer/yarn.lock') }}
+
+    - name: Cache 'extensions/positron-zed'
+      id: cache-extensions-positron-zed
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/positron-zed/node_modules
+        key: cache-extensions-positron-zed-v1-${{ runner.os }}-${{ hashFiles('extensions/positron-zed/yarn.lock') }}
+
+    - name: Cache 'extensions/configuration-editing'
+      id: cache-extensions-configuration-editing
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/configuration-editing/node_modules
+        key: cache-extensions-configuration-editing-v1-${{ runner.os }}-${{ hashFiles('extensions/configuration-editing/yarn.lock') }}
+
+    - name: Cache 'extensions/css-language-features'
+      id: cache-extensions-css-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/css-language-features/node_modules
+        key: cache-extensions-css-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/css-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/css-language-features/server'
+      id: cache-extensions-css-language-features-server
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/css-language-features/server/node_modules
+        key: cache-extensions-css-language-features-server-v1-${{ runner.os }}-${{ hashFiles('extensions/css-language-features/server/yarn.lock') }}
+
+    - name: Cache 'extensions/debug-auto-launch'
+      id: cache-extensions-debug-auto-launch
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/debug-auto-launch/node_modules
+        key: cache-extensions-debug-auto-launch-v1-${{ runner.os }}-${{ hashFiles('extensions/debug-auto-launch/yarn.lock') }}
+
+    - name: Cache 'extensions/debug-server-ready'
+      id: cache-extensions-debug-server-ready
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/debug-server-ready/node_modules
+        key: cache-extensions-debug-server-ready-v1-${{ runner.os }}-${{ hashFiles('extensions/debug-server-ready/yarn.lock') }}
+
+    - name: Cache 'extensions/emmet'
+      id: cache-extensions-emmet
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/emmet/node_modules
+        key: cache-extensions-emmet-v1-${{ runner.os }}-${{ hashFiles('extensions/emmet/yarn.lock') }}
+
+    - name: Cache 'extensions/extension-editing'
+      id: cache-extensions-extension-editing
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/extension-editing/node_modules
+        key: cache-extensions-extension-editing-v1-${{ runner.os }}-${{ hashFiles('extensions/extension-editing/yarn.lock') }}
+
+    - name: Cache 'extensions/git'
+      id: cache-extensions-git
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/git/node_modules
+        key: cache-extensions-git-v1-${{ runner.os }}-${{ hashFiles('extensions/git/yarn.lock') }}
+
+    - name: Cache 'extensions/git-base'
+      id: cache-extensions-git-base
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/git-base/node_modules
+        key: cache-extensions-git-base-v1-${{ runner.os }}-${{ hashFiles('extensions/git-base/yarn.lock') }}
+
+    - name: Cache 'extensions/github'
+      id: cache-extensions-github
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/github/node_modules
+        key: cache-extensions-github-v1-${{ runner.os }}-${{ hashFiles('extensions/github/yarn.lock') }}
+
+    - name: Cache 'extensions/github-authentication'
+      id: cache-extensions-github-authentication
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/github-authentication/node_modules
+        key: cache-extensions-github-authentication-v1-${{ runner.os }}-${{ hashFiles('extensions/github-authentication/yarn.lock') }}
+
+    - name: Cache 'extensions/grunt'
+      id: cache-extensions-grunt
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/grunt/node_modules
+        key: cache-extensions-grunt-v1-${{ runner.os }}-${{ hashFiles('extensions/grunt/yarn.lock') }}
+
+    - name: Cache 'extensions/gulp'
+      id: cache-extensions-gulp
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/gulp/node_modules
+        key: cache-extensions-gulp-v1-${{ runner.os }}-${{ hashFiles('extensions/gulp/yarn.lock') }}
+
+    - name: Cache 'extensions/html-language-features'
+      id: cache-extensions-html-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/html-language-features/node_modules
+        key: cache-extensions-html-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/html-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/html-language-features/server'
+      id: cache-extensions-html-language-features-server
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/html-language-features/server/node_modules
+        key: cache-extensions-html-language-features-server-v1-${{ runner.os }}-${{ hashFiles('extensions/html-language-features/server/yarn.lock') }}
+
+    - name: Cache 'extensions/ipynb'
+      id: cache-extensions-ipynb
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/ipynb/node_modules
+        key: cache-extensions-ipynb-v1-${{ runner.os }}-${{ hashFiles('extensions/ipynb/yarn.lock') }}
+
+    - name: Cache 'extensions/jake'
+      id: cache-extensions-jake
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/jake/node_modules
+        key: cache-extensions-jake-v1-${{ runner.os }}-${{ hashFiles('extensions/jake/yarn.lock') }}
+
+    - name: Cache 'extensions/json-language-features'
+      id: cache-extensions-json-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/json-language-features/node_modules
+        key: cache-extensions-json-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/json-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/json-language-features/server'
+      id: cache-extensions-json-language-features-server
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/json-language-features/server/node_modules
+        key: cache-extensions-json-language-features-server-v1-${{ runner.os }}-${{ hashFiles('extensions/json-language-features/server/yarn.lock') }}
+
+    - name: Cache 'extensions/jupyter-adapter'
+      id: cache-extensions-jupyter-adapter
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/jupyter-adapter/node_modules
+        key: cache-extensions-jupyter-adapter-v1-${{ runner.os }}-${{ hashFiles('extensions/jupyter-adapter/yarn.lock') }}
+
+    - name: Cache 'extensions/markdown-language-features'
+      id: cache-extensions-markdown-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/markdown-language-features/node_modules
+        key: cache-extensions-markdown-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/markdown-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/markdown-math'
+      id: cache-extensions-markdown-math
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/markdown-math/node_modules
+        key: cache-extensions-markdown-math-v1-${{ runner.os }}-${{ hashFiles('extensions/markdown-math/yarn.lock') }}
+
+    - name: Cache 'extensions/media-preview'
+      id: cache-extensions-media-preview
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/media-preview/node_modules
+        key: cache-extensions-media-preview-v1-${{ runner.os }}-${{ hashFiles('extensions/media-preview/yarn.lock') }}
+
+    - name: Cache 'extensions/merge-conflict'
+      id: cache-extensions-merge-conflict
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/merge-conflict/node_modules
+        key: cache-extensions-merge-conflict-v1-${{ runner.os }}-${{ hashFiles('extensions/merge-conflict/yarn.lock') }}
+
+    - name: Cache 'extensions/microsoft-authentication'
+      id: cache-extensions-microsoft-authentication
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/microsoft-authentication/node_modules
+        key: cache-extensions-microsoft-authentication-v1-${{ runner.os }}-${{ hashFiles('extensions/microsoft-authentication/yarn.lock') }}
+
+    - name: Cache 'extensions/notebook-renderers'
+      id: cache-extensions-notebook-renderers
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/notebook-renderers/node_modules
+        key: cache-extensions-notebook-renderers-v1-${{ runner.os }}-${{ hashFiles('extensions/notebook-renderers/yarn.lock') }}
+
+    - name: Cache 'extensions/npm'
+      id: cache-extensions-npm
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/npm/node_modules
+        key: cache-extensions-npm-v1-${{ runner.os }}-${{ hashFiles('extensions/npm/yarn.lock') }}
+
+    - name: Cache 'extensions/php-language-features'
+      id: cache-extensions-php-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/php-language-features/node_modules
+        key: cache-extensions-php-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/php-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/references-view'
+      id: cache-extensions-references-view
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/references-view/node_modules
+        key: cache-extensions-references-view-v1-${{ runner.os }}-${{ hashFiles('extensions/references-view/yarn.lock') }}
+
+    - name: Cache 'extensions/search-result'
+      id: cache-extensions-search-result
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/search-result/node_modules
+        key: cache-extensions-search-result-v1-${{ runner.os }}-${{ hashFiles('extensions/search-result/yarn.lock') }}
+
+    - name: Cache 'extensions/simple-browser'
+      id: cache-extensions-simple-browser
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/simple-browser/node_modules
+        key: cache-extensions-simple-browser-v1-${{ runner.os }}-${{ hashFiles('extensions/simple-browser/yarn.lock') }}
+
+    - name: Cache 'extensions/tunnel-forwarding'
+      id: cache-extensions-tunnel-forwarding
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/tunnel-forwarding/node_modules
+        key: cache-extensions-tunnel-forwarding-v1-${{ runner.os }}-${{ hashFiles('extensions/tunnel-forwarding/yarn.lock') }}
+
+    - name: Cache 'extensions/typescript-language-features'
+      id: cache-extensions-typescript-language-features
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/typescript-language-features/node_modules
+        key: cache-extensions-typescript-language-features-v1-${{ runner.os }}-${{ hashFiles('extensions/typescript-language-features/yarn.lock') }}
+
+    - name: Cache 'extensions/vscode-api-tests'
+      id: cache-extensions-vscode-api-tests
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/vscode-api-tests/node_modules
+        key: cache-extensions-vscode-api-tests-v1-${{ runner.os }}-${{ hashFiles('extensions/vscode-api-tests/yarn.lock') }}
+
+    - name: Cache 'extensions/vscode-colorize-tests'
+      id: cache-extensions-vscode-colorize-tests
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/vscode-colorize-tests/node_modules
+        key: cache-extensions-vscode-colorize-tests-v1-${{ runner.os }}-${{ hashFiles('extensions/vscode-colorize-tests/yarn.lock') }}
+
+    - name: Cache 'extensions/vscode-test-resolver'
+      id: cache-extensions-vscode-test-resolver
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/vscode-test-resolver/node_modules
+        key: cache-extensions-vscode-test-resolver-v1-${{ runner.os }}-${{ hashFiles('extensions/vscode-test-resolver/yarn.lock') }}
+
+    - name: Cache 'remote'
       id: cache-remote
       uses: actions/cache@v4
       with:
         path: ./remote/node_modules
-        key: remote-node-modules-v7-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+        key: cache-remote-v1-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+
+    - name: Cache 'remote/web'
+      id: cache-remote-web
+      uses: actions/cache@v4
+      with:
+        path: ./remote/web/node_modules
+        key: cache-remote-web-v1-${{ runner.os }}-${{ hashFiles('remote/web/yarn.lock') }}
+
+    - name: Cache 'remote/reh-web'
+      id: cache-remote-reh-web
+      uses: actions/cache@v4
+      with:
+        path: ./remote/reh-web/node_modules
+        key: cache-remote-reh-web-v1-${{ runner.os }}-${{ hashFiles('remote/reh-web/yarn.lock') }}
+
+    - name: Cache 'test/integration/browser'
+      id: cache-test-integration-browser
+      uses: actions/cache@v4
+      with:
+        path: ./test/integration/browser/node_modules
+        key: cache-test-integration-browser-v1-${{ runner.os }}-${{ hashFiles('test/integration/browser/yarn.lock') }}
+
+    - name: Cache 'test/monaco'
+      id: cache-test-monaco
+      uses: actions/cache@v4
+      with:
+        path: ./test/monaco/node_modules
+        key: cache-test-monaco-v1-${{ runner.os }}-${{ hashFiles('test/monaco/yarn.lock') }}
+
+    - name: Cache '.vscode/extensions/vscode-selfhost-test-provider'
+      id: cache-.vscode-extensions-vscode-selfhost-test-provider
+      uses: actions/cache@v4
+      with:
+        path: ./.vscode/extensions/vscode-selfhost-test-provider/node_modules
+        key: cache-.vscode-extensions-vscode-selfhost-test-provider-v1-${{ runner.os }}-${{ hashFiles('.vscode/extensions/vscode-selfhost-test-provider/yarn.lock') }}
