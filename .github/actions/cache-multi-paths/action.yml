@@ -3,30 +3,30 @@ description: "Restores/Saves cache for node_modules, build, extensions, and remo
 runs:
   using: "composite"
   steps:
-    - name: Cache 'root'
+    - name: Cache root
       id: cache-root
       uses: actions/cache@v4
       with:
         path: ./node_modules
-        key: cache-root-v1-${{ runner.os }}-${{ hashFiles('./yarn.lock') }}
+        key: cache-root-v2-${{ runner.os }}-${{ hashFiles('./yarn.lock') }}
 
-    - name: Cache 'build'
+    - name: Cache build
       id: cache-build
       uses: actions/cache@v4
       with:
         path: ./build/node_modules
-        key: cache-build-v1-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+        key: cache-build-v2-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
-    - name: Cache 'extensions'
+    - name: Cache extensions
       id: cache-extensions
       uses: actions/cache@v4
       with:
         path: ./extensions/**/node_modules
-        key: cache-extensions-v1-${{ runner.os }}-${{ hashFiles('extensions/**/yarn.lock') }}
+        key: cache-extensions-v2-${{ runner.os }}-${{ hashFiles('extensions/**/yarn.lock') }}
 
-    - name: Cache 'remote'
+    - name: Cache remote
       id: cache-remote
       uses: actions/cache@v4
       with:
         path: ./remote/**/node_modules
-        key: cache-remote-v1-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
+        key: cache-remote-v2-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
