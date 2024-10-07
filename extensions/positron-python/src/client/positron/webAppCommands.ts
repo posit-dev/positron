@@ -119,6 +119,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                         // Gradio doc: https://www.gradio.app/guides/environment-variables#7-gradio-root-path
                         // Issue with Gradio not loading assets when Gradio is run via proxy:
                         //     https://github.com/gradio-app/gradio/issues/9529
+                        // Gradio works if we use these versions: gradio==3.3.1 fastapi==0.85.2 httpx==0.24.1
                         terminalOptions.env.GRADIO_ROOT_PATH = urlPrefix;
                     }
 
@@ -130,7 +131,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         vscode.commands.registerCommand(Commands.Exec_Shiny_In_Terminal, async () => {
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
-                name: 'Shiny', // WORKING
+                name: 'Shiny',
                 getTerminalOptions(runtime, document, _port, _urlPrefix) {
                     const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload', document.uri.fsPath];
                     return { commandLine: args.join(' ') };
