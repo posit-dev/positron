@@ -53,6 +53,17 @@
           ],
           "default": "debug",
           "description": "%configuration.logLevel.description%"
+        },
+        "kallichoreSupervisor.attachOnStartup": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.attachOnStartup.description%"
+        },
+        "kallichoreSupervisor.sleepOnStartup": {
+          "scope": "window",
+          "type": "number",
+          "description": "%configuration.sleepOnStartup.description%"
         }
       }
     }

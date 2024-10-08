@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
+import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -124,8 +124,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
 		private readonly _api: DefaultApi,
-		private _new: boolean
-	) {
+		private _new: boolean,
+		private readonly _extra?: JupyterKernelExtra | undefined) {
+
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
@@ -216,6 +217,20 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Initialize extra functionality, if any. These settings modify the
+		// argument list `args` in place, so need to happen right before we send
+		// the arg list to the server.
+		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
+		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
+		if (attachOnStartup) {
+			this._extra!.attachOnStartup!.init(args);
+		}
+		if (sleepOnStartup) {
+			const delay = config.get('sleepOnStartup', 0);
+			this._extra!.sleepOnStartup!.init(args, delay);
+		}
+
 		// Create the session in the underlying API
 		const session: NewSession = {
 			argv: args,
@@ -229,7 +244,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			username: os.userInfo().username,
 			interruptMode
 		};
-
 		await this._api.newSession(session);
 		this.log(`Session created: ${JSON.stringify(session)}`, vscode.LogLevel.Info);
 		this._established.open();
@@ -647,6 +661,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					// Rethrow the error as-is if it's not an HTTP error
 					throw err;
 				}
+			}
+		}
+
+		// Before connecting, check if we should attach to the session on
+		// startup
+		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
+		if (attachOnStartup) {
+			try {
+				await this._extra!.attachOnStartup!.attach();
+			} catch (err) {
+				this.log(`Can't execute attach action: ${err}`, vscode.LogLevel.Error);
 			}
 		}
 

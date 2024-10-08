@@ -303,7 +303,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// Create the session object
 		const session = new KallichoreSession(
-			sessionMetadata, runtimeMetadata, dynState, this._api, true);
+			sessionMetadata, runtimeMetadata, dynState, this._api, true, _extra);
 
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
