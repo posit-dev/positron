@@ -67,9 +67,6 @@ describe('Console ANSI styling', () => {
 		});
 
 		it("R - Can produce colored output [C683071] #pr", async function () {
-
-			this.retries(1);
-
 			const app = this.app as Application;
 
 			const color = '#ff3333';
