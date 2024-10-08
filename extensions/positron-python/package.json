@@ -378,9 +378,9 @@
             },
             {
                 "category": "Python",
-                "command": "python.debugSinyInTerminal",
+                "command": "python.debugShinyInTerminal",
                 "icon": "$(debug-alt)",
-                "title": "%python.command.python.debugSinyInTerminal.title%",
+                "title": "%python.command.python.debugShinyInTerminal.title%",
                 "enablement": "pythonAppFramework == shiny"
             },
             {
