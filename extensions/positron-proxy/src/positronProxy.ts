@@ -74,13 +74,11 @@ export class ProxyServer implements Disposable {
 	 * @param serverOrigin The server origin.
 	 * @param targetOrigin The target origin.
 	 * @param server The server.
-	 * @param app The express app; optional.
 	 */
 	constructor(
 		readonly serverOrigin: string,
 		readonly targetOrigin: string,
 		readonly server: Server,
-		readonly app?: express.Express
 	) {
 	}
 
@@ -89,6 +87,27 @@ export class ProxyServer implements Disposable {
 	 */
 	dispose(): void {
 		this.server.close();
+	}
+}
+
+/**
+ * PendingProxyServer class.
+ * This is a temporary class to hold the server and app until the middleware is hooked up.
+ */
+class PendingProxyServer extends ProxyServer {
+	/**
+	 * Constructor.
+	 * @param serverOrigin The server origin.
+	 * @param server The server.
+	 * @param app The express app.
+	 */
+	constructor(
+		readonly serverOrigin: string,
+		readonly server: Server,
+		readonly app: express.Express
+	) {
+		// We don't have a target origin yet, so we pass an empty string.
+		super(serverOrigin, '', server);
 	}
 }
 
@@ -131,7 +150,7 @@ export class PositronProxy implements Disposable {
 	/**
 	 * Gets or sets the pending proxy servers, keyed by server origin.
 	 */
-	private _pendingProxyServers = new Map<string, ProxyServer>();
+	private _pendingProxyServers = new Map<string, PendingProxyServer>();
 
 	/**
 	 * The HTML proxy server. There's only ever one of these; it serves all raw
@@ -311,25 +330,69 @@ export class PositronProxy implements Disposable {
 			});
 	}
 
-	nowHookUpTheMiddleware(targetOrigin: string, serverOrigin: string) {
-		return this.nowHookUpTheMiddlewareImpl(
-			targetOrigin,
-			serverOrigin,
-			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
-				// If this isn't 'text/html' content, just return the response buffer.
-				if (!contentType.includes('text/html')) {
-					return responseBuffer;
+	/**
+	 * Starts a proxy server that is pending middleware setup.
+	 * This is used to create a server and app that will be used to add middleware later.
+	 * @returns The server origin and the proxy path.
+	 */
+	startPendingProxyServer() {
+		return new Promise((resolve, reject) => {
+			// Create the app and start listening on a random port.
+			const app = express();
+			const server = app.listen(0, HOST, async () => {
+				// Get the server address.
+				const address = server.address();
+
+				// Ensure that we have the address info of the server.
+				if (!isAddressInfo(address)) {
+					server.close();
+					reject();
+					return;
 				}
 
-				// Get the response.
-				let response = responseBuffer.toString('utf8');
+				// Create the server origin.
+				const serverOrigin = `http://${address.address}:${address.port}`;
 
-				// Rewrite the URLs with the proxy path.
-				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+				// Store the pending proxy server.
+				this._pendingProxyServers.set(serverOrigin, new PendingProxyServer(
+					serverOrigin,
+					server,
+					app
+				));
 
-				// Return the response.
-				return response;
+				// Convert the server origin to an external URI.
+				const originUri = vscode.Uri.parse(serverOrigin);
+				const externalUri = await vscode.env.asExternalUri(originUri);
+
+				// Resolve the server origin URI.
+				resolve({
+					// The serverOrigin will be used to look up the proxy server later.
+					serverOrigin: serverOrigin.toString(),
+					proxyPath: externalUri.path,
+					finishProxySetup: (targetOrigin: string) => {
+						return this.nowHookUpTheMiddlewareImpl(
+							targetOrigin,
+							serverOrigin,
+							async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
+								// If this isn't 'text/html' content, just return the response buffer.
+								if (!contentType.includes('text/html')) {
+									return responseBuffer;
+								}
+
+								// Get the response.
+								let response = responseBuffer.toString('utf8');
+
+								// Rewrite the URLs with the proxy path.
+								response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+
+								// Return the response.
+								return response;
+							});
+					}
+				});
 			});
+		});
+
 	}
 
 	//#endregion Public Methods
@@ -342,7 +405,7 @@ export class PositronProxy implements Disposable {
 	 * @param contentRewriter The content rewriter.
 	 * @returns The server origin.
 	 */
-	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+	private startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
 		// Return a promise.
 		return new Promise((resolve, reject) => {
 			// See if we have an existing proxy server for target origin. If there is, return the
@@ -410,48 +473,7 @@ export class PositronProxy implements Disposable {
 		});
 	}
 
-	justStartTheServer() {
-		return new Promise((resolve, reject) => {
-			// Create the app and start listening on a random port.
-			const app = express();
-			const server = app.listen(0, HOST, async () => {
-				// Get the server address.
-				const address = server.address();
-
-				// Ensure that we have the address info of the server.
-				if (!isAddressInfo(address)) {
-					server.close();
-					reject();
-					return;
-				}
-
-				// Create the server origin.
-				const serverOrigin = `http://${address.address}:${address.port}`;
-				// localhost:1234
-
-				// Add the pending proxy server for
-				this._pendingProxyServers.set(serverOrigin, new ProxyServer(
-					serverOrigin,
-					'',
-					server,
-					app
-				));
-
-				// Convert the server origin to an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				const externalUri = await vscode.env.asExternalUri(originUri);
-
-				// Resolve the server origin URI.
-				resolve({
-					serverOrigin: serverOrigin.toString(), // so that we can look up the proxy server later
-					proxyPath: externalUri.path
-				});
-			});
-		});
-
-	}
-
-	async nowHookUpTheMiddlewareImpl(targetOrigin: string, serverOrigin: string, contentRewriter: ContentRewriter) {
+	private async nowHookUpTheMiddlewareImpl(targetOrigin: string, serverOrigin: string, contentRewriter: ContentRewriter) {
 		const pendingProxyServer = this._pendingProxyServers.get(serverOrigin);
 
 		if (!pendingProxyServer) {
@@ -512,7 +534,7 @@ export class PositronProxy implements Disposable {
 	 * @param proxyPath The proxy path.
 	 * @returns The content with the URLs rewritten.
 	 */
-	rewriteUrlsWithProxyPath(content: string, proxyPath: string): string {
+	private rewriteUrlsWithProxyPath(content: string, proxyPath: string): string {
 		// When running on Web, we need to prepend root-relative URLs with the proxy path,
 		// because the help proxy server is running at a different origin than the target origin.
 		// When running on Desktop, we don't need to do this, because the help proxy server is

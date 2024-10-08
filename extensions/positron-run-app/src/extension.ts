@@ -11,6 +11,11 @@ import { raceTimeout, SequencerByKey } from './utils';
 // Regex to match a URL with the format http://localhost:1234/path
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
 
+type PositronProxyInfo = {
+	proxyPath: string;
+	finishProxySetup: (targetOrigin: string) => Promise<string>;
+};
+
 export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
 
 export async function activate(context: vscode.ExtensionContext): Promise<PositronRunApp> {
@@ -82,11 +87,9 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 		}
 
 		// Get the terminal options for the application.
-		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
-		//       Some application frameworks need to know the URL prefix when running behind a proxy.
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
 		// Start the proxy server
-		const proxyInfo = await vscode.commands.executeCommand<{ serverOrigin: string; proxyPath: string }>('positronProxy.justStartTheServer');
+		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
 		const port = undefined;
 		const urlPrefix = proxyInfo.proxyPath;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
@@ -234,14 +237,10 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 				const localBaseUri = vscode.Uri.parse(url.toString());
 				const localUri = options.urlPath ?
 					vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
-				// Hook up the middleware to the proxy server.
-				const proxyUri = await vscode.commands.executeCommand<string>(
-					'positronProxy.nowHookUpTheMiddleware',
-					localUri.toString(),
-					proxyInfo.serverOrigin
-				);
+				// Finish the Positron proxy setup to get the external URI.
+				const externalUri = await proxyInfo.finishProxySetup(localUri.toString());
 				// Open the server URL in the viewer pane.
-				positron.window.previewUrl(vscode.Uri.parse(proxyUri));
+				positron.window.previewUrl(vscode.Uri.parse(externalUri));
 			}
 		} else {
 			// No shell integration support, just run the command.
