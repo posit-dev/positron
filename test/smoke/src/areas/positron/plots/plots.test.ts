@@ -253,7 +253,7 @@ plt.show()`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies saving a Python plot [C557005]', async function () {
+		it('Python - Verifies saving a Python plot [C557005] #win', async function () {
 			const app = this.app as Application;
 
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -281,6 +281,8 @@ plt.show()`;
 
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			// save again with a different name and file format
 			await app.workbench.positronPlots.savePlotButton.click();
 
@@ -295,6 +297,7 @@ plt.show()`;
 			await app.workbench.positronPopups.clickOkOnModalDialogBox();
 
 			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
