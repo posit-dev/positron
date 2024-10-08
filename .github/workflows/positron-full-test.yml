@@ -62,7 +62,7 @@ jobs:
 
       # Upload the license from the current directory (./license)
       - name: Save License as Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: pdol-license
           path: ./license/pdol_rsa
@@ -148,11 +148,11 @@ jobs:
         # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
+      # - name: Install Conda (Miniforge3)
+      #   run: |
+      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+      #     sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+      #     source "${HOME}/conda/etc/profile.d/conda.sh"
 
       # ---------
 
