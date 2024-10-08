@@ -91,27 +91,6 @@ export class ProxyServer implements Disposable {
 }
 
 /**
- * PendingProxyServer class.
- * This is a temporary class to hold the server and app until the middleware is hooked up.
- */
-class PendingProxyServer extends ProxyServer {
-	/**
-	 * Constructor.
-	 * @param serverOrigin The server origin.
-	 * @param server The server.
-	 * @param app The express app.
-	 */
-	constructor(
-		readonly serverOrigin: string,
-		readonly server: Server,
-		readonly app: express.Express
-	) {
-		// We don't have a target origin yet, so we pass an empty string.
-		super(serverOrigin, '', server);
-	}
-}
-
-/**
 * PositronProxy class.
 */
 export class PositronProxy implements Disposable {
@@ -146,11 +125,6 @@ export class PositronProxy implements Disposable {
 	 * Gets or sets the proxy servers, keyed by target origin.
 	 */
 	private _proxyServers = new Map<string, ProxyServer>();
-
-	/**
-	 * Gets or sets the pending proxy servers, keyed by server origin.
-	 */
-	private _pendingProxyServers = new Map<string, PendingProxyServer>();
 
 	/**
 	 * The HTML proxy server. There's only ever one of these; it serves all raw
@@ -353,13 +327,6 @@ export class PositronProxy implements Disposable {
 				// Create the server origin.
 				const serverOrigin = `http://${address.address}:${address.port}`;
 
-				// Store the pending proxy server.
-				this._pendingProxyServers.set(serverOrigin, new PendingProxyServer(
-					serverOrigin,
-					server,
-					app
-				));
-
 				// Convert the server origin to an external URI.
 				const originUri = vscode.Uri.parse(serverOrigin);
 				const externalUri = await vscode.env.asExternalUri(originUri);
@@ -370,9 +337,11 @@ export class PositronProxy implements Disposable {
 					serverOrigin: serverOrigin.toString(),
 					proxyPath: externalUri.path,
 					finishProxySetup: (targetOrigin: string) => {
-						return this.nowHookUpTheMiddlewareImpl(
+						return this.finishProxySetup(
 							targetOrigin,
 							serverOrigin,
+							server,
+							app,
 							async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
 								// If this isn't 'text/html' content, just return the response buffer.
 								if (!contentType.includes('text/html')) {
@@ -432,40 +401,8 @@ export class PositronProxy implements Disposable {
 				// Create the server origin.
 				const serverOrigin = `http://${address.address}:${address.port}`;
 
-				// Add the proxy server.
-				this._proxyServers.set(targetOrigin, new ProxyServer(
-					serverOrigin,
-					targetOrigin,
-					server
-				));
-
-				// Convert the server origin to an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				const externalUri = await vscode.env.asExternalUri(originUri);
-
-				// Add the proxy middleware.
-				app.use('*', createProxyMiddleware({
-					target: targetOrigin,
-					changeOrigin: true,
-					selfHandleResponse: true,
-					// Logging for development work.
-					// onProxyReq: (proxyReq, req, res, options) => {
-					// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-					// },
-					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
-						// Get the URL and the content type. These must be present to call the
-						// content rewriter. Also, the scripts must be loaded.
-						const url = req.url;
-						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType || !this._scriptsFileLoaded) {
-							// Don't process the response.
-							return responseBuffer;
-						}
-
-						// Rewrite the content.
-						return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
-					})
-				}));
+				// Finish the proxy setup to get the external URI.
+				const externalUri = await this.finishProxySetup(targetOrigin, serverOrigin, server, app, contentRewriter);
 
 				// Resolve the server origin external URI.
 				resolve(externalUri.toString());
@@ -473,32 +410,20 @@ export class PositronProxy implements Disposable {
 		});
 	}
 
-	private async nowHookUpTheMiddlewareImpl(targetOrigin: string, serverOrigin: string, contentRewriter: ContentRewriter) {
-		const pendingProxyServer = this._pendingProxyServers.get(serverOrigin);
-
-		if (!pendingProxyServer) {
-			console.log('No pending proxy server found');
-			return;
-		}
-
+	private async finishProxySetup(targetOrigin: string, serverOrigin: string, server: Server, app: express.Express, contentRewriter: ContentRewriter) {
+		// Add the proxy server.
 		this._proxyServers.set(targetOrigin, new ProxyServer(
 			serverOrigin,
 			targetOrigin,
-			pendingProxyServer.server
+			server
 		));
-
-
-		if (!pendingProxyServer.app) {
-			console.log('No app found');
-			return;
-		}
 
 		// Convert the server origin to an external URI.
 		const originUri = vscode.Uri.parse(serverOrigin);
 		const externalUri = await vscode.env.asExternalUri(originUri);
 
 		// Add the proxy middleware.
-		pendingProxyServer.app.use('*', createProxyMiddleware({
+		app.use('*', createProxyMiddleware({
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
@@ -521,8 +446,6 @@ export class PositronProxy implements Disposable {
 				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
 			})
 		}));
-
-		this._pendingProxyServers.delete(serverOrigin);
 
 		// Return the server origin external URI.
 		return externalUri.toString();
