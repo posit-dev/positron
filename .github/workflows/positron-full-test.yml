@@ -24,11 +24,20 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, remote, and R packages
+      - name: Cache node_modules, build, extensions, remote, etc
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
+      # - name: Setup Build Environment
+      #   uses: ./.github/actions/setup-build-env
+
+      - name: Install Build Environment Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
 
       - name: Execute yarn
         env:
@@ -63,7 +72,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, remote, R packages, Python dependencies
+      - name: Cache node_modules, build, extensions, remote, R deps, Python deps
         uses: ./.github/actions/cache-multi-paths
 
       - name: Setup Build Environment
