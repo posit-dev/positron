@@ -35,3 +35,8 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
+
+    - name: Install License
+      uses: ./.github/actions/install-license
+      with:
+        license-directory: positron-license

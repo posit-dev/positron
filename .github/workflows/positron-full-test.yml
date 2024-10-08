@@ -82,16 +82,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
-
-      - name: Install License
-        uses: ./.github/actions/install-license
-        with:
-            license-directory: positron-license
-
       - name: Cache node_modules, build, extensions, remote, R packages, Python dependencies
         uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Execute yarn
         env:
@@ -127,7 +122,7 @@ jobs:
 
   integration-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -244,22 +239,17 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: AWS S3 Access Setup
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Install License
-        uses: ./.github/actions/install-license
-        with:
-            license-directory: positron-license
-
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Install Quarto CLI
         run: |
@@ -339,6 +329,9 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: AWS S3 Access Setup
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -360,9 +353,6 @@ jobs:
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
