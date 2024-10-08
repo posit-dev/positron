@@ -146,12 +146,6 @@ jobs:
           echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
           chmod 600 pdol_rsa
 
-      - name: Download Compiled Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: compiled-app
-          path: ./out/vs
-
       - name: Download Electron, Playwright, Built-in Extensions
         run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
 
@@ -164,12 +158,23 @@ jobs:
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
           POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
-          corepack enable
-          yarn global add node-gyp
-          yarn --immutable --network-timeout 120000
+            # Enable corepack (for yarn)
+            corepack enable
+            yarn global add node-gyp
+            # Perform the main yarn command; this installs all Node packages and
+            # dependencies
+            yarn --immutable --network-timeout 120000
 
-      - name: Download Electron, Playwright
-        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      # - name: Download Electron, Playwright
+      #   run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
+
+      # - name: Download Compiled Artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: compiled-app
+      #     path: ./out/vs
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
