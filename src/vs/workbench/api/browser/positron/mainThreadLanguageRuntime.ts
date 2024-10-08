@@ -1136,7 +1136,7 @@ export class MainThreadLanguageRuntime
 		@IPositronPlotsService private readonly _positronPlotService: IPositronPlotsService,
 		@IPositronIPyWidgetsService private readonly _positronIPyWidgetsService: IPositronIPyWidgetsService,
 		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
-		@IPositronConnectionsService private readonly x: IPositronConnectionsService,
+		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -1153,7 +1153,7 @@ export class MainThreadLanguageRuntime
 		this._positronPlotService.initialize();
 		this._positronIPyWidgetsService.initialize();
 		this._positronWebviewPreloadService.initialize();
-		this.x.initialize();
+		this._positronConnectionsService.initialize();
 		this._proxy = extHostContext.getProxy(ExtHostPositronContext.ExtHostLanguageRuntime);
 		this._id = MainThreadLanguageRuntime.MAX_ID++;
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { PositronConnectionsComm } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
+import { ObjectSchema, PositronConnectionsComm } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { Disposable } from 'vs/base/common/lifecycle';
 
 export class ConnectionsClientInstance extends Disposable {
@@ -19,5 +19,25 @@ export class ConnectionsClientInstance extends Disposable {
 
 	getClientId() {
 		return this._positronConnectionsComm.clientId;
+	}
+
+	async listObjects(path: ObjectSchema[]) {
+		return await this._positronConnectionsComm.listObjects(path);
+	}
+
+	async listFields(path: ObjectSchema[]) {
+		return await this._positronConnectionsComm.listFields(path);
+	}
+
+	async containsData(path: ObjectSchema[]) {
+		return await this._positronConnectionsComm.containsData(path);
+	}
+
+	async getIcon(path: ObjectSchema[]) {
+		return await this._positronConnectionsComm.getIcon(path);
+	}
+
+	get onDidClose() {
+		return this._positronConnectionsComm.onDidClose;
 	}
 }

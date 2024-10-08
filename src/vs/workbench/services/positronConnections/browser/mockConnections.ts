@@ -8,44 +8,47 @@ import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workben
 
 export class MockedConnectionInstance implements IPositronConnectionInstance {
 	private _expanded: boolean = false;
+
 	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
 	children = [
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
-		new MockedConnectionItem(),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
+		new MockedConnectionItem(this.onDidChangeDataEmitter),
 	];
 
-	constructor(private readonly clientId: string) {
+	constructor(private readonly clientId: string, readonly onDidChangeDataEmitter: Emitter<void>) {
 		this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
+			console.log('expanded is?', this._expanded);
+			this.onDidChangeDataEmitter.fire();
 		});
 	}
 
@@ -53,83 +56,93 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return this.clientId;
 	}
 
-	getChildren() {
+	async getChildren() {
 		return this.children;
 	}
 
-	hasChildren() {
+	async hasChildren() {
 		return true;
 	}
 
-	name() {
+	get name() {
 		return 'SQL Lite Connection 1';
 	}
 
-	icon() {
+	async getIcon() {
 		return 'database';
 	}
 
-	expanded() {
+	get expanded() {
 		return this._expanded;
 	}
 
-	active() {
-		return false;
+	get active() {
+		return true;
 	}
 }
 
 class MockedConnectionItem implements IPositronConnectionItem {
 
 	expanded_: boolean = false;
+	active: boolean = true;
+
 	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
-	constructor() {
+	constructor(readonly onDidChangeDataEmitter: Emitter<void>) {
 		this.onToggleExpand(() => {
 			this.expanded_ = !this.expanded_;
+			this.onDidChangeDataEmitter.fire();
 		});
 	}
 
-	name() {
+	get name() {
 		return 'children 1';
 	}
 
-	getChildren() {
+	async getChildren() {
 		return [
 			new MockField('mpg'),
 			new MockField('mpa')
 		];
 	}
 
-	icon() {
+	async getIcon() {
 		return 'database';
 	}
 
-	expanded() {
+	async hasChildren() {
+		return true;
+	}
+
+	get expanded() {
 		return this.expanded_;
 	}
 }
 
 class MockField implements IPositronConnectionItem {
+
+	active: boolean = true;
+
 	constructor(readonly _name: string) { }
 
-	name() {
+	get name() {
 		return this._name;
 	}
 
-	icon() {
+	async getIcon() {
 		return 'database';
 	}
 
-	expanded() {
+	get expanded() {
 		return undefined;
 	}
 
-	hasChildren() {
+	async hasChildren() {
 		return false;
 	}
 
-	getChildren() {
+	async getChildren() {
 		return [];
 	}
 }
