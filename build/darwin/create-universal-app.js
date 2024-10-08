@@ -48,7 +48,6 @@ const stashPatterns = [
     // Exclusions from R language pack (positron-r)
     '**/ark', // Compiled R kernel and LSP
     // Exclusions from Kallichore Jupyter supervisor
-    '**/kerberos.node', // Native module for Kerberos authentication
     '**/kcserver', // Compiled Jupyter supervisor
     // Exclusions from Quarto
     '**/quarto/bin/tools/**',
