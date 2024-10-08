@@ -205,14 +205,70 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
+      # - name: Setup Build Environment
+      #   uses: ./.github/actions/setup-build-env
 
-      - name: Setup E2E Test Environment
-        uses: ./.github/actions/setup-e2e-env
+      # - name: Setup E2E Test Environment
+      # uses: ./.github/actions/setup-e2e-env
+      # with:
+      #   aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+      #   aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      # -------------
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Install rig, R, and R packages
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+      # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
+      - name: Install Conda (Miniforge3)
+        run: |
+          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+          source "${HOME}/conda/etc/profile.d/conda.sh"
+
+      - uses: actions/setup-node@v4
         with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          node-version-file: .nvmrc
+
+      - name: AWS S3 Access Setup
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Install Quarto CLI
+        run: |
+          TEMP_DEB="$(mktemp)" &&
+          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
+          sudo dpkg -i "$TEMP_DEB"
+          rm -f "$TEMP_DEB"
+
+      - name: Install Tinytex
+        run: quarto install tinytex
+
+      - name: Setup Graphviz
+        uses: ts-graphviz/setup-graphviz@v2.0.2
+
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ipykernel trcli
+
+# ----------
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
