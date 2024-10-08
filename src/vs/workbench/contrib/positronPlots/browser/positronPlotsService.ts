@@ -863,7 +863,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private savePlotAs = (options: SavePlotOptions) => {
-		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
 		const matches = this.getPlotUri(options.uri);
 
 		if (!matches) {
