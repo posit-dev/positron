@@ -38,6 +38,8 @@ runs:
       run: |
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
         rig add 4.4.0
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
     - name: Install Quarto CLI
       shell: bash
