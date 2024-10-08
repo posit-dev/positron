@@ -242,27 +242,11 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-e2e-env
 
       - name: Execute yarn
         env:
@@ -332,27 +316,11 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-e2e-env
 
       - name: Execute yarn
         env:
