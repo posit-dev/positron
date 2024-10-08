@@ -170,7 +170,7 @@ jobs:
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 25
+    timeout-minutes: 30
     needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -259,7 +259,7 @@ jobs:
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 25
+    timeout-minutes: 30
     needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
