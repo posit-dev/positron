@@ -24,11 +24,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
-
       - name: Cache node_modules, build, extensions, remote, and R packages
         uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Execute yarn
         env:
