@@ -213,16 +213,18 @@ export class UiClientInstance extends Disposable {
 		const uriScheme = URI.parse(targetPath).scheme;
 		let url;
 
-		if (uriScheme === 'file') {
-			// If the path is for a file, start an HTML proxy server.
-			url = await this._commandService.executeCommand<string>(
-				'positronProxy.startHtmlProxyServer',
-				targetPath
-			);
-		} else if (uriScheme === 'http' || uriScheme === 'https') {
+		if (uriScheme === 'http' || uriScheme === 'https') {
 			// If the path is for a server, start a generic proxy server.
 			url = await this._commandService.executeCommand<string>(
 				'positronProxy.startHttpProxyServer',
+				targetPath
+			);
+		} else {
+			// Assume the path is for a file and start an HTML proxy server.
+			// The uriScheme could be 'file' in this case, or even 'C' if the path is for an HTML
+			// file on a Windows machine.
+			url = await this._commandService.executeCommand<string>(
+				'positronProxy.startHtmlProxyServer',
 				targetPath
 			);
 		}
