@@ -82,11 +82,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install License
-        uses: ./.github/actions/install-license
-        with:
-            license-directory: positron-license
-
       - name: Setup Build Environment
         run: |
           sudo apt-get update
@@ -95,6 +90,11 @@ jobs:
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
+      - name: Install License
+        uses: ./.github/actions/install-license
+        with:
+            license-directory: positron-license
 
       - name: Install rig and R
         run: |
@@ -108,7 +108,7 @@ jobs:
           sudo bash Miniforge3.sh -b -p "${HOME}/conda"
           source "${HOME}/conda/etc/profile.d/conda.sh"
 
-      - name: Cache node_modules, build, extensions, and remote
+      - name: Cache node_modules, build, extensions, remote, R packages, Python dependencies
         uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
@@ -153,10 +153,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install License
-        uses: ./.github/actions/install-license
+      - uses: actions/setup-node@v4
         with:
-            license-directory: positron-license
+          node-version-file: .nvmrc
 
       - name: Setup Build Environment
         run: |
@@ -166,6 +165,11 @@ jobs:
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
+      - name: Install License
+        uses: ./.github/actions/install-license
+        with:
+            license-directory: positron-license
 
       - name: Install rig and R
         run: |
@@ -178,10 +182,6 @@ jobs:
           wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
           sudo bash Miniforge3.sh -b -p "${HOME}/conda"
           source "${HOME}/conda/etc/profile.d/conda.sh"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
 
       - name: Cache node_modules, build, extensions, remote, and R packages
         uses: ./.github/actions/cache-multi-paths
@@ -233,6 +233,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
       - name: AWS S3 Access Setup
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -244,14 +248,14 @@ jobs:
         with:
             license-directory: positron-license
 
-      # - name: Setup Build Environment
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
-      #     sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-      #     sudo chmod +x /etc/init.d/xvfb
-      #     sudo update-rc.d xvfb defaults
-      #     sudo service xvfb start
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
 
       # - name: Install rig, R, and R packages
       #   run: |
@@ -280,10 +284,6 @@ jobs:
           wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
           sudo bash Miniforge3.sh -b -p "${HOME}/conda"
           source "${HOME}/conda/etc/profile.d/conda.sh"
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
 
       - name: Install Quarto CLI
         run: |
@@ -324,12 +324,12 @@ jobs:
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
 
-      # - name: Install python dependencies
-      #   run: |
-      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-      #     python -m pip install --upgrade pip
-      #     python -m pip install -r requirements.txt
-      #     python -m pip install ipykernel trcli
+      - name: Install python dependencies
+        run: |
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install ipykernel trcli
 
       - name: Run Tests (Electron)
         env:
