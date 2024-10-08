@@ -1,11 +1,12 @@
 name: "Install Positron License"
 description: "Downloads and installs the license file, setting the correct permissions"
+
 inputs:
-  github-pat:
-    description: "GitHub Personal Access Token for cloning the repository"
+  github-token:
+    description: "GitHub token for cloning the repository."
     required: true
-  dev-license:
-    description: "Positron development license"
+  license-key:
+    description: "License key to be used for the licensing tool."
     required: true
 
 runs:
@@ -14,11 +15,10 @@ runs:
     - name: Checkout test licensing tool
       shell: bash
       run: |
-        mkdir -p $HOME/positron-license
-        cd $HOME/positron-license
-        git clone https://${{ inputs.github-pat }}@github.com/posit-dev/positron-license.git .
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-pat }}
+        cd ..
+        mkdir positron-license
+        cd positron-license
+        git clone https://${{ inputs.github-token }}@github.com/posit-dev/positron-license.git .
 
     - name: Install Rust latest nightly
       uses: actions-rs/toolchain@v1
@@ -29,19 +29,54 @@ runs:
     - name: Build licensing tool
       shell: bash
       run: |
-        cd $HOME/positron-license/pdol
+        cd ..
+        cd positron-license/pdol
         cargo build
 
-    - name: Save License File
+    - name: Setup License Key
       shell: bash
       run: |
-        cd $HOME/positron-license/pdol/target/debug
-        echo "${{ inputs.dev-license }}" > pdol_rsa
+        cd ..
+        cd positron-license/pdol/target/debug
+        echo "${{ inputs.license-key }}" > pdol_rsa
         chmod 600 pdol_rsa
 
-      # - name: Echo license
-      #   run: |
-      #     cd ..
-      #     cd positron-license/pdol/target/debug
-      #     echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-      #     chmod 600 pdol_rsa
+# inputs:
+#   github-pat:
+#     description: "GitHub Personal Access Token for cloning the repository"
+#     required: true
+#   dev-license:
+#     description: "Positron development license"
+#     required: true
+
+# runs:
+#   using: "composite"
+#   steps:
+#     - name: Checkout test licensing tool
+#       shell: bash
+#       run: |
+#         mkdir -p $HOME/positron-license
+#         cd $HOME/positron-license
+#         git clone https://${{ inputs.github-pat }}@github.com/posit-dev/positron-license.git .
+#       env:
+#         GITHUB_TOKEN: ${{ inputs.github-pat }}
+
+#     - name: Install Rust latest nightly
+#       uses: actions-rs/toolchain@v1
+#       with:
+#         toolchain: nightly
+#         override: true
+
+#     - name: Build licensing tool
+#       shell: bash
+#       run: |
+#         cd $HOME/positron-license/pdol
+#         cargo build
+
+#     - name: Save License File
+#       shell: bash
+#       run: |
+#         cd $HOME/positron-license/pdol/target/debug
+#         echo "${{ inputs.dev-license }}" > pdol_rsa
+#         chmod 600 pdol_rsa
+
