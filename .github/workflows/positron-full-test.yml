@@ -27,6 +27,33 @@ jobs:
       - name: Cache node_modules, build, extensions, remote, and R packages
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-env
+
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          corepack enable
+          yarn global add node-gyp
+          yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
+
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+      - name: Upload Compiled Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-app
+          path: |
+            ./build
+            ./dist
+            ./extensions
+
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -47,25 +74,10 @@ jobs:
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -126,33 +138,10 @@ jobs:
           echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
           chmod 600 pdol_rsa
 
-
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
-
-      - uses: actions/setup-node@v4
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
         with:
-          node-version-file: .nvmrc
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+          name: compiled-app
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -203,27 +192,10 @@ jobs:
           github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
           dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
 
       - name: Run Tests (Electron)
         env:
@@ -286,34 +258,10 @@ jobs:
             github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
             dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile playwright-install download-builtin-extensions
-
-      # - name: Install python dependencies
-      #   run: |
-      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-      #     python -m pip install --upgrade pip
-      #     python -m pip install -r requirements.txt
-      #     python -m pip install ipykernel trcli
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
 
       # - name: Run Web Smoke Tests
       #   env:
