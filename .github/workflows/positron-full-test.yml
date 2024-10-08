@@ -258,6 +258,9 @@ jobs:
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Install Quarto CLI
         run: |
           TEMP_DEB="$(mktemp)" &&
@@ -270,9 +273,6 @@ jobs:
 
       - name: Setup Graphviz
         uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -295,14 +295,6 @@ jobs:
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
 
       - name: Run Tests (Electron)
         env:
