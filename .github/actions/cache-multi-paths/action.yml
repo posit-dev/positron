@@ -3,6 +3,8 @@ description: "Restores/Saves cache for node_modules, build, extensions, and remo
 runs:
   using: "composite"
   steps:
+  # Step 1: Cache Node.js dependencies
+
     - name: Cache root
       id: cache-root
       uses: actions/cache@v4

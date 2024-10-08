@@ -173,11 +173,11 @@ jobs:
           rig add 4.4.0
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      # - name: Install Conda (Miniforge3)
-      #   run: |
-      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-      #     sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-      #     source "${HOME}/conda/etc/profile.d/conda.sh"
+      - name: Install Conda (Miniforge3)
+        run: |
+          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+          source "${HOME}/conda/etc/profile.d/conda.sh"
 
       - uses: actions/setup-node@v4
         with:
@@ -233,26 +233,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: AWS S3 Access Setup
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
       - name: Install License
         uses: ./.github/actions/install-license
         with:
             license-directory: positron-license
 
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
+      # - name: Setup Build Environment
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+      #     sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+      #     sudo chmod +x /etc/init.d/xvfb
+      #     sudo update-rc.d xvfb defaults
+      #     sudo service xvfb start
 
-      - name: Install rig, R, and R packages
+      # - name: Install rig, R, and R packages
+      #   run: |
+      #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+      #     rig add 4.4.0
+        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      - name: Cache rig and R Installation
+        id: cache-rig
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/local/rig
+            /opt/R/4.4.0
+          key: cache-rig-${{ runner.os }}-r-4.4.0
+
+      - name: Install rig and R (if not cached)
+        if: steps.cache-rig.outputs.cache-hit != 'true'
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
       - name: Install Conda (Miniforge3)
@@ -264,12 +284,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Install Quarto CLI
         run: |
