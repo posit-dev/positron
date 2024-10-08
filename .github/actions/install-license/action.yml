@@ -1,0 +1,29 @@
+name: "Install Positron License"
+description: "Downloads and installs the license file, setting the correct permissions"
+runs:
+  using: "composite"
+  steps:
+
+    # Step 1: Download the license artifact
+    - name: Download License Artifact
+      uses: actions/download-artifact@v3
+      with:
+        name: pdol-license
+        path: ${{ inputs.license-directory }}
+
+    # Step 2: Set permissions on the license file to 600
+    - name: Set License File Permissions
+      shell: bash
+      run: |
+        chmod 600 "${{ inputs.license-directory }}/pdol_rsa"
+
+    # Step 3: Verify the license file permissions
+    - name: Verify License File Permissions
+      shell: bash
+      run: |
+        ls -l "${{ inputs.license-directory }}/pdol_rsa"
+
+inputs:
+  license-directory:
+    description: "The directory to store the license artifact"
+    required: true

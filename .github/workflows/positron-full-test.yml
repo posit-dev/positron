@@ -82,57 +82,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install rig and R
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-
-      # ---- START: move to shared SETUP ----
-
-      # - name: Checkout test licensing tool
-      #   run: |
-      #     cd ..
-      #     mkdir positron-license
-      #     cd positron-license
-      #     git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      # - name: Install Rust latest nightly
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     toolchain: nightly
-      #     override: true
-
-      # - name: Build licensing tool
-      #   run: |
-      #     cd ..
-      #     cd positron-license/pdol
-      #     cargo build
-
-      # - name: Echo license
-      #   run: |
-      #     cd ..
-      #     cd positron-license/pdol/target/debug
-      #     echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-      #     chmod 600 pdol_rsa
-
-      - name: Download License Artifact
-        uses: actions/download-artifact@v3
+      - name: Install License
+        uses: ./.github/actions/install-license
         with:
-          name: pdol-license
-
-      - name: Download License Artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: pdol-license
-          path: positron-license
-
-         # Set permissions on the downloaded license file
-      - name: Set License File Permissions
-        run: |
-           chmod 600 positron-license/pdol_rsa
-
+            license-directory: positron-license
 
       - name: Setup Build Environment
         run: |
@@ -147,8 +100,6 @@ jobs:
         run: |
           curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
           rig add 4.4.0
-        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
       - name: Install Conda (Miniforge3)
@@ -156,8 +107,6 @@ jobs:
           wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
           sudo bash Miniforge3.sh -b -p "${HOME}/conda"
           source "${HOME}/conda/etc/profile.d/conda.sh"
-
-    # --- END: move to shared SETUP ---
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
