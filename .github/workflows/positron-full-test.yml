@@ -83,7 +83,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Install License
         uses: ./.github/actions/install-license
@@ -256,7 +256,7 @@ jobs:
             license-directory: positron-license
 
       - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Install Quarto CLI
         run: |
@@ -354,7 +354,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Install Quarto CLI
         run: |
