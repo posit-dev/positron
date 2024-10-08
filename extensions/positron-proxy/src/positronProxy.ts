@@ -439,18 +439,11 @@ export class PositronProxy implements Disposable {
 
 				// Convert the server origin to an external URI.
 				const originUri = vscode.Uri.parse(serverOrigin);
-				console.log('[positron-proxy] justStartTheServer: originUri', originUri);
 				const externalUri = await vscode.env.asExternalUri(originUri);
-
-				console.log('[positron-proxy] justStartTheServer: externalUri', externalUri);
-
-				// localhost:8080/proxy/1234
 
 				// Resolve the server origin URI.
 				resolve({
-					serverOrigin: serverOrigin.toString(), // so that we can loop up the proxy server later
-					port: address.port,
-					proxyUrl: externalUri.toString(), // so that the app framework knows the proxy path
+					serverOrigin: serverOrigin.toString(), // so that we can look up the proxy server later
 					proxyPath: externalUri.path
 				});
 			});
@@ -535,12 +528,13 @@ export class PositronProxy implements Disposable {
 				// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
 				/(src|href)="\/([^"]+)"/g,
 				(match, p1, p2, _offset, _string, _groups) => {
+					// Add a leading slash to the matched path which was removed by the regex.
+					const matchedPath = '/' + p2;
+
 					// If the URL already starts with the proxy path, don't rewrite it. Some app
 					// frameworks may already have rewritten the URLs.
 					// Example: match = src="/proxy/1234/path/to/resource"
 					//             p2 = "proxy/1234/path/to/resource"
-					// Add a leading slash to the matched path which was removed by the regex.
-					const matchedPath = '/' + p2;
 					if (matchedPath.startsWith(proxyPath)) {
 						return match;
 					}

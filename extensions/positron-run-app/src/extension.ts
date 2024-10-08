@@ -85,13 +85,8 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
 		//       Some application frameworks need to know the URL prefix when running behind a proxy.
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
-		// Get port and url prefix from positron
-
-		const proxyInfo = await vscode.commands.executeCommand<{ serverOrigin: string; port: string; proxyUrl: string; proxyPath: string }>('positronProxy.justStartTheServer');
-		console.log('##########################################');
-		console.log(proxyInfo);
-		console.log('##########################################');
-		// const port = proxyInfo.port;
+		// Start the proxy server
+		const proxyInfo = await vscode.commands.executeCommand<{ serverOrigin: string; proxyPath: string }>('positronProxy.justStartTheServer');
 		const port = undefined;
 		const urlPrefix = proxyInfo.proxyPath;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
@@ -239,22 +234,12 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 				const localBaseUri = vscode.Uri.parse(url.toString());
 				const localUri = options.urlPath ?
 					vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
-
-				// localhost:5678
-				// tell positron proxy about the app url so the requests can be proxied
-				// positronProxy.nowHookUptheMiddleWare(localhost:5678, localhost:1234)
-				//   - returns localhost:8080/proxy/1234
-
-				console.log('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$');
-				console.log('[positron-run-app] localUri:', localUri);
-
+				// Hook up the middleware to the proxy server.
 				const proxyUri = await vscode.commands.executeCommand<string>(
 					'positronProxy.nowHookUpTheMiddleware',
 					localUri.toString(),
 					proxyInfo.serverOrigin
 				);
-				console.log('[positron-run-app] proxyUri:', proxyUri);
-				console.log('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$');
 				// Open the server URL in the viewer pane.
 				positron.window.previewUrl(vscode.Uri.parse(proxyUri));
 			}
