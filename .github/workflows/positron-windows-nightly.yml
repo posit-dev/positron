@@ -33,6 +33,9 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.10.10"
+          
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Install node dependencies with yarn
         env:
