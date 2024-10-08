@@ -373,7 +373,7 @@ pd.DataFrame(dict(x=[1,2,3], y=[4,5,6])).hvplot.scatter(x="x", y="y")`;
 			await simplePlotTest(app, script, '.plotly');
 		});
 
-		it('Python - Verifies ipytree Python widget [C720872] #web', async function () {
+		it('Python - Verifies ipytree Python widget [C720872] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipytree import Tree, Node
@@ -398,6 +398,9 @@ tree`;
 
 			await simplePlotTest(app, script, '.jstree-container-ul');
 
+			// fullauxbar layout needed for some smaller windows
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			// tree should be expanded by default
 			const treeNodes = app.workbench.positronPlots.getWebviewPlotLocator('.jstree-container-ul .jstree-node');
 			await expect(treeNodes).toHaveCount(9);
@@ -405,10 +408,13 @@ tree`;
 			// collapse the tree, only parent nodes should be visible
 			treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
 			await expect(treeNodes).toHaveCount(3);
+
+			// return to stacked layout
+			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 
 
-		it('Python - Verifies ipywidget.Output Python widget #web', async function () {
+		it('Python - Verifies ipywidget.Output Python widget #web #win', async function () {
 			const app = this.app as Application;
 
 			// Create the Output widget.
@@ -431,8 +437,10 @@ output`;
 			expect(lines).not.toContain('Hello, world!');
 
 			// Clear the plots pane.
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronPlots.waitForNoPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
 
