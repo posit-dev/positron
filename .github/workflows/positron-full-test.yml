@@ -55,11 +55,18 @@ jobs:
           echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
           chmod 600 pdol_rsa
 
+      # Copy the license to the current working directory (e.g., ./license)
+      - name: Copy License to Local Directory
+        run: |
+          mkdir -p license
+          cp ../positron-license/pdol/target/debug/pdol_rsa ./license/
+
+      # Upload the license from the current directory (./license)
       - name: Save License as Artifact
         uses: actions/upload-artifact@v3
         with:
           name: pdol-license
-          path: ../positron-license/pdol/target/debug/pdol_rsa
+          path: ./license/pdol_rsa
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -115,10 +122,10 @@ jobs:
         with:
           name: pdol-license
 
-      # Verify that the license file is present and set correct permissions
-      - name: Set License File Permissions
+      - name: Move License and Set Permissions
         run: |
-          chmod 600 pdol_rsa
+          mv license/pdol_rsa ../positron-license/pdol/target/debug/
+          chmod 600 ../positron-license/pdol/target/debug/pdol_rsa
 
       - name: Setup Build Environment
         run: |
