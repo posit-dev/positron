@@ -122,10 +122,17 @@ jobs:
         with:
           name: pdol-license
 
-      - name: Move License and Set Permissions
+      - name: Download License Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: pdol-license
+          path: positron-license
+
+         # Set permissions on the downloaded license file
+      - name: Set License File Permissions
         run: |
-          mv license/pdol_rsa ../positron-license/pdol/target/debug/
-          chmod 600 ../positron-license/pdol/target/debug/pdol_rsa
+           chmod 600 positron-license/pdol_rsa
+
 
       - name: Setup Build Environment
         run: |
