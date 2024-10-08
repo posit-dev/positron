@@ -41,41 +41,8 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install rig and R
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-
-      # ---- START: move to shared SETUP ----
-
-      - name: Checkout test licensing tool
-        run: |
-          cd ..
-          mkdir positron-license
-          cd positron-license
-          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-        env:
-          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      - name: Install Rust latest nightly
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          override: true
-
-      - name: Build licensing tool
-        run: |
-          cd ..
-          cd positron-license/pdol
-          cargo build
-
-      - name: Echo license
-        run: |
-          cd ..
-          cd positron-license/pdol/target/debug
-          echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-          chmod 600 pdol_rsa
-
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Setup Build Environment
         run: |
@@ -86,24 +53,19 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Install rig and R
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      # - name: Install rig and R
+      #   run: |
+      #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+      #     rig add 4.4.0
+      #   # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+      #   # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-      # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
-
-    # --- END: move to shared SETUP ---
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      # # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
+      # - name: Install Conda (Miniforge3)
+      #   run: |
+      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+      #     sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+      #     source "${HOME}/conda/etc/profile.d/conda.sh"
 
       - name: Execute yarn
         env:
@@ -147,6 +109,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
@@ -162,26 +131,20 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Install rig and R
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
+      # - name: Install rig and R
+      #   run: |
+      #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+      #     rig add 4.4.0
         # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
         # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
+      # - name: Install Conda (Miniforge3)
+      #   run: |
+      #     wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+      #     sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+      #     source "${HOME}/conda/etc/profile.d/conda.sh"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -230,6 +193,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
@@ -245,42 +215,11 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Install rig, R, and R packages
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
-
-      - uses: actions/setup-node@v4
+      - name: Setup Test Environment
+        uses: ./.github/actions/setup-e2e-env
         with:
-          node-version-file: .nvmrc
-
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -304,15 +243,15 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
+      # - name: Setup Graphviz
+      #   uses: ts-graphviz/setup-graphviz@v2.0.2
 
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
+      # - name: Install python dependencies
+      #   run: |
+      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+      #     python -m pip install --upgrade pip
+      #     python -m pip install -r requirements.txt
+      #     python -m pip install ipykernel trcli
 
       - name: Run Tests (Electron)
         env:
@@ -353,6 +292,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
@@ -368,19 +310,11 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Install rig, R, and R packages
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-        # curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        # Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
-      - name: Install Conda (Miniforge3)
-        run: |
-          wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-          sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-          source "${HOME}/conda/etc/profile.d/conda.sh"
+      - name: Setup Test Environment
+        uses: ./.github/actions/setup-e2e-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - uses: actions/setup-node@v4
         with:
@@ -391,19 +325,6 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:

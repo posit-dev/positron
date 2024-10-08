@@ -1,0 +1,55 @@
+name: "Setup Test Environment"
+description: "Sets up the Quarto CLI, TinyTeX, Graphviz, and configures AWS S3 access."
+inputs:
+  aws-role-to-assume:
+    description: "The AWS role to assume for S3 access"
+    required: true
+  aws-region:
+    description: "The AWS region for S3"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup AWS S3 Access
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-to-assume }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Install Conda (Miniforge3)
+      shell: bash
+      run: |
+        wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+        sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+        echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
+        source "${HOME}/conda/etc/profile.d/conda.sh"
+
+    - name: Install python dependencies
+      shell: bash
+      run: |
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install ipykernel trcli
+
+    - name: Install rig and R
+      shell: bash
+      run: |
+        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+        rig add 4.4.0
+
+    - name: Install Quarto CLI
+      shell: bash
+      run: |
+        TEMP_DEB="$(mktemp)" &&
+        wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
+        sudo dpkg -i "$TEMP_DEB"
+        rm -f "$TEMP_DEB"
+
+    - name: Install TinyTeX
+      shell: bash
+      run: quarto install tinytex
+
+    - name: Setup Graphviz
+      uses: ts-graphviz/setup-graphviz@v2.0.2
