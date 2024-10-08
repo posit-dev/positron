@@ -50,9 +50,8 @@ jobs:
         with:
           name: compiled-app
           path: |
-            ./build
-            ./dist
-            ./extensions
+            ../out/vs
+            ./out/vs
 
   unit-tests:
     runs-on: ubuntu-latest
