@@ -37,21 +37,17 @@ jobs:
           POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
           corepack enable
-          yarn global add node-gyp
           yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - name: Compile
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile
 
       - name: Upload Compiled Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: compiled-app
           include-hidden-files: true
-          path: |
-            ./out/vs
+          path: ./out/vs
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -79,8 +75,14 @@ jobs:
           name: compiled-app
           path: ./out/vs
 
-      - name: Download Electron, Playwright
-        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
+      # - name: Download Built-in Extensions
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: built-in-extensions
+      #     path: .build/builtInExtensions
+
+      - name: Download Electron, Playwright, Built-in Extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -146,6 +148,9 @@ jobs:
         with:
           name: compiled-app
           path: ./out/vs
+
+      - name: Download Electron, Playwright, Built-in Extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
 
       - name: Execute yarn
         env:

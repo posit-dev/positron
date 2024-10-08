@@ -32,6 +32,6 @@ runs:
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2.0.2
 
-    - name: Download Electron, Playwright
+    - name: Download Electron, Playwright, Built-in Extensions
       shell: bash
-      run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
+      run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
