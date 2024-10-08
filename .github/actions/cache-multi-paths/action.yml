@@ -59,17 +59,38 @@ runs:
       with:
         path: ~/.R/library
         key: cache-r-packages-v1-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
-        restore-keys: |
-          cache-r-packages-v1-${{ runner.os }}-
 
-    # Download DESCRIPTION file for R dependencies
+    # R dependencies: Download DESCRIPTION file
     - name: Download DESCRIPTION
       shell: bash
       run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # Install R dependencies, including pak
+    # R dependencies: Install, including pak
     - name: Install R Development Dependencies
       shell: bash
       run: |
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+
+    # Python dependencies: Download the requirements.txt file
+    - name: Download requirements.txt
+      shell: bash
+      run: |
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+
+    # Python dependencies: cache
+    - name: Cache Python Dependencies
+      id: cache-python
+      uses: actions/cache@v4
+      with:
+        # Cache pip's local cache to avoid re-downloading packages
+        path: ~/.cache/pip
+        key: cache-python-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
+
+    # Python dependencies: install
+    - name: Install Python Dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install ipykernel trcli
