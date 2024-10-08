@@ -8,7 +8,7 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { URI } from 'vs/base/common/uri';
 import { ProgressBar } from 'vs/base/browser/ui/positronComponents/progressBar';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
@@ -30,6 +30,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IRenderedPlot } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -45,7 +46,7 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param selectedSizingPolicy the selected sizing policy for the plot
  * @param layoutService the layout service for the modal
  * @param keybindingService the keybinding service to intercept shortcuts
- * @param dialogService the dialog service to confirm the save
+ * @param modalDialogService the dialog service to confirm the save
  * @param fileService the file service to check if paths exist
  * @param fileDialogService the file dialog service to prompt where to save the plot
  * @param logService the log service
@@ -58,7 +59,7 @@ export const showSavePlotModalDialog = (
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
 	layoutService: IWorkbenchLayoutService,
 	keybindingService: IKeybindingService,
-	dialogService: IDialogService,
+	modalDialogService: IPositronModalDialogsService,
 	fileService: IFileService,
 	fileDialogService: IFileDialogService,
 	logService: ILogService,
@@ -77,7 +78,7 @@ export const showSavePlotModalDialog = (
 	renderer.render(
 		<SavePlotModalDialog
 			layoutService={layoutService}
-			dialogService={dialogService}
+			dialogService={modalDialogService}
 			fileService={fileService}
 			fileDialogService={fileDialogService}
 			keybindingService={keybindingService}
@@ -96,7 +97,7 @@ export const showSavePlotModalDialog = (
 
 interface SavePlotModalDialogProps {
 	layoutService: IWorkbenchLayoutService;
-	dialogService: IDialogService;
+	dialogService: IPositronModalDialogsService;
 	fileService: IFileService;
 	fileDialogService: IFileDialogService;
 	logService: ILogService;
@@ -198,12 +199,18 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			const filePath = URI.joinPath(directory.value, `${name.value}.${format}`);
 			const fileExists = await props.fileService.exists(filePath);
 			if (fileExists) {
-				const confirmation = await props.dialogService.confirm({
-					message: localize('positron.savePlotModalDialog.fileExists', "The file already exists. Do you want to overwrite it?"),
-					primaryButton: localize('positron.savePlotModalDialog.overwrite', "Overwrite"),
-					cancelButton: localize('positron.savePlotModalDialog.cancel', "Cancel"),
+				const confirmation = await new Promise<boolean>((resolve) => {
+					const dialog = props.dialogService.showModalDialogPrompt(
+						localize('positron.savePlotModalDialog.fileExists', "The file already exists"),
+						localize('positron.savePlotModalDialog.fileExistsMessage', "The file already exists. Do you want to overwrite it?"),
+						localize('positron.savePlotModalDialog.overwrite', "Overwrite"),
+						localize('positron.savePlotModalDialog.cancel', "Cancel"),
+					);
+					dialog.onChoice((choice) => {
+						resolve(choice);
+					});
 				});
-				if (!confirmation.confirmed) {
+				if (!confirmation) {
 					return;
 				}
 			}
