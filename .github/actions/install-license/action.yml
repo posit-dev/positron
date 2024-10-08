@@ -6,7 +6,7 @@ runs:
 
     # Step 1: Download the license artifact
     - name: Download License Artifact
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: pdol-license
         path: ${{ inputs.license-directory }}
