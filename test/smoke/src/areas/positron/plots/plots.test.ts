@@ -38,12 +38,16 @@ describe('Plots', () => {
 	logger = setupAndStartApp();
 
 	async function simplePlotTest(app: Application, script: string, locator: string, RWeb = false) {
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.positronPlots.clearPlots();
 		await app.workbench.positronPlots.waitForNoPlots();
+		await app.workbench.positronLayouts.enterLayout('stacked');
 
 		await app.workbench.positronConsole.pasteCodeToConsole(script);
 		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
+		await app.workbench.positronLayouts.enterLayout('stacked');
 	}
 
 	describe('Python Plots', () => {
@@ -253,7 +257,7 @@ plt.show()`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies saving a Python plot [C557005] #win', async function () {
+		it('Python - Verifies saving a Python plot [C557005]', async function () {
 			const app = this.app as Application;
 
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
@@ -328,7 +332,7 @@ bplt.show()`;
 
 		});
 
-		it('Python - Verifies ipydatagrid Python widget [C720870] #web', async function () {
+		it('Python - Verifies ipydatagrid Python widget [C720870] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `import pandas as pd
@@ -341,7 +345,7 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 
 		});
 
-		it('Python - Verifies ipyleaflet Python widget [C720871] #web', async function () {
+		it('Python - Verifies ipyleaflet Python widget [C720871] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipyleaflet import Map, Marker, display
@@ -358,7 +362,7 @@ display(map)`;
 			await simplePlotTest(app, script, '.leaflet-container');
 		});
 
-		it('Python - Verifies hvplot can load with plotly extension [C766660] #web', async function () {
+		it('Python - Verifies hvplot can load with plotly extension [C766660] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `import hvplot.pandas
