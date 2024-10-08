@@ -188,7 +188,7 @@ export class NotebookController implements vscode.Disposable {
 				id: cellId,
 				mode: positron.RuntimeCodeExecutionMode.Interactive,
 				errorBehavior: positron.RuntimeErrorBehavior.Stop,
-				callback: message => this.handleMessageForCellExecution(message, currentExecution),
+				callback: message => this.handleMessageForCellExecution(message, currentExecution, session),
 			});
 			success = true;
 		} catch (error) {
@@ -202,6 +202,7 @@ export class NotebookController implements vscode.Disposable {
 	private async handleMessageForCellExecution(
 		message: positron.LanguageRuntimeMessage,
 		execution: vscode.NotebookCellExecution,
+		session: positron.LanguageRuntimeSession,
 	): Promise<void> {
 		// Handle the message, updating the cell execution as needed.
 		switch (message.type) {
@@ -209,6 +210,12 @@ export class NotebookController implements vscode.Disposable {
 				handleRuntimeMessageInput(
 					message as positron.LanguageRuntimeInput,
 					execution,
+				);
+				break;
+			case positron.LanguageRuntimeMessageType.Prompt:
+				await handleRuntimeMessagePrompt(
+					message as positron.LanguageRuntimePrompt,
+					session,
 				);
 				break;
 			case positron.LanguageRuntimeMessageType.Output:
@@ -361,6 +368,23 @@ function handleRuntimeMessageInput(
 	execution: vscode.NotebookCellExecution,
 ): void {
 	execution.executionOrder = message.execution_count;
+}
+
+/**
+ * Handle a LanguageRuntimePrompt message.
+ *
+ * @param message Message to handle.
+ * @param session The runtime session that sent the message.
+ */
+async function handleRuntimeMessagePrompt(
+	message: positron.LanguageRuntimePrompt,
+	session: positron.LanguageRuntimeSession,
+): Promise<void> {
+	const reply = await vscode.window.showInputBox({
+		password: message.password,
+		prompt: message.prompt,
+	});
+	session.replyToPrompt(message.id, reply ?? '');
 }
 
 
