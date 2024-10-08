@@ -1,14 +1,21 @@
 name: "Setup E2E Test Environment"
 description: "Sets up the Quarto CLI, TinyTeX, Graphviz, and configures AWS S3 access."
+inputs:
+  aws-role-to-assume:
+    description: "The AWS role to assume for S3 access"
+    required: true
+  aws-region:
+    description: "The AWS region for S3"
+    required: true
+
 runs:
   using: "composite"
   steps:
-
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
-        role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-        aws-region: ${{ secrets.QA_AWS_REGION }}
+        role-to-assume: ${{ inputs.aws-role-to-assume }}
+        aws-region: ${{ inputs.aws-region }}
 
     - name: Install Quarto CLI
       shell: bash

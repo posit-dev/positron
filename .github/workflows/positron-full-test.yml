@@ -198,6 +198,9 @@ jobs:
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-e2e-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Execute yarn
         env:
@@ -272,6 +275,9 @@ jobs:
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-e2e-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Execute yarn
         env:
