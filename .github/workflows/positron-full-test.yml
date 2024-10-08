@@ -24,11 +24,11 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, remote, and R packages
-        uses: ./.github/actions/cache-multi-paths
-
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
+
+      - name: Cache node_modules, build, extensions, remote, and R packages
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:
@@ -78,6 +78,9 @@ jobs:
         with:
           name: compiled-app
           path: ./out/vs
+
+      - name: Download Electron, Playwright
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -144,6 +147,19 @@ jobs:
           name: compiled-app
           path: ./out/vs
 
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          corepack enable
+          yarn global add node-gyp
+          yarn --immutable --network-timeout 120000
+
+      - name: Download Electron, Playwright
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install
+
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
@@ -192,6 +208,18 @@ jobs:
         with:
           github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
           dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
+
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          corepack enable
+          yarn global add node-gyp
+          yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
 
       - name: Download Compiled Artifacts
         uses: actions/download-artifact@v4
@@ -259,6 +287,18 @@ jobs:
         with:
             github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
             dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
+
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          corepack enable
+          yarn global add node-gyp
+          yarn --immutable --network-timeout 120000
+          yarn --cwd test/automation install --frozen-lockfile
+          yarn --cwd test/smoke install --frozen-lockfile
 
       - name: Download Compiled Artifacts
         uses: actions/download-artifact@v4
