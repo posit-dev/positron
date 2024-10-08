@@ -38,3 +38,10 @@ runs:
         cd $HOME/positron-license/pdol/target/debug
         echo "${{ inputs.dev-license }}" > pdol_rsa
         chmod 600 pdol_rsa
+
+      # - name: Echo license
+      #   run: |
+      #     cd ..
+      #     cd positron-license/pdol/target/debug
+      #     echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
+      #     chmod 600 pdol_rsa

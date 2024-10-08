@@ -27,46 +27,6 @@ jobs:
       - name: Cache node_modules, build, extensions, remote, and R packages
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Checkout test licensing tool
-        run: |
-          cd ..
-          mkdir positron-license
-          cd positron-license
-          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-        env:
-          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      - name: Install Rust Nightly
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-
-      - name: Build licensing tool
-        run: |
-          cd ..
-          cd positron-license/pdol
-          cargo build
-
-      - name: Echo license
-        run: |
-          cd ..
-          cd positron-license/pdol/target/debug
-          echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-          chmod 600 pdol_rsa
-
-      # Copy the license to the current working directory (e.g., ./license)
-      - name: Copy License to Local Directory
-        run: |
-          mkdir -p license
-          cp ../positron-license/pdol/target/debug/pdol_rsa ./license/
-
-      # Upload the license from the current directory (./license)
-      - name: Save License as Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: pdol-license
-          path: ./license/pdol_rsa
-
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -136,7 +96,7 @@ jobs:
         uses: ./.github/actions/setup-build-env
 
       - name: Install Positron License
-        uses: ./.github/actions/install-positron-license
+        uses: ./.github/actions/install-license
         with:
           github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
           dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
