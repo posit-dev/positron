@@ -75,7 +75,7 @@ describe('Python Applications #pr', () => {
 
 			await app.workbench.positronEditor.pressPlay();
 
-			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stDeployButton', this.app.web);
+			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stAppDeployButton', this.app.web);
 
 			await expect(headerLocator).toHaveText('Deploy', { timeout: 30000 });
 
