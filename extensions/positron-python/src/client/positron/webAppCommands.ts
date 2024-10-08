@@ -136,10 +136,6 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                         '--server.headless',
                         'true',
                     ];
-                    // Maybe related? https://github.com/streamlit/streamlit/issues/6305
-                    // None of the suggestions from https://docs.streamlit.io/knowledge-base/deploy/remote-start
-                    // resolve the infinite skeleton loading issue.
-                    // Console error: WebSocket connection to 'ws://localhost:8080/proxy/49767/_stcore/stream' failed: WebSocket is closed before the connection is established.
                     return { commandLine: args.join(' ') };
                 },
             });

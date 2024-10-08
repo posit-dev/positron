@@ -487,6 +487,7 @@ export class PositronProxy implements Disposable {
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
+			ws: true,
 			// Logging for development work.
 			// onProxyReq: (proxyReq, req, res, options) => {
 			// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
