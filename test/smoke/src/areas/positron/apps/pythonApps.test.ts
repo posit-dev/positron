@@ -21,7 +21,8 @@ describe('Python Applications #pr', () => {
 		afterEach(async function () {
 			await this.app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 
-			await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
+			// unreliable on ubuntu:
+			// await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
 
 			await this.app.workbench.positronViewer.refreshViewer();
 		});

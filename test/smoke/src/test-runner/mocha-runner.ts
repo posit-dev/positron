@@ -27,7 +27,7 @@ export function runMochaTests(OPTS) {
 			spec: '-',  // Console output
 			xunit: REPORT_PATH,
 		},
-		retries: 1,
+		retries: 0,
 	});
 
 	// Apply test filters based on CLI options
