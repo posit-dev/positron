@@ -39,7 +39,9 @@ describe('Python Applications #pr', () => {
 
 		});
 
-		it('Python - Verify Basic FastAPI App [C903306]', async function () {
+		// https://github.com/posit-dev/positron/issues/4949
+		// FastAPI is not working as expected on Ubuntu
+		it.skip('Python - Verify Basic FastAPI App [C903306]', async function () {
 			const app = this.app as Application;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
