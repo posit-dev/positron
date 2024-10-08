@@ -205,39 +205,42 @@ export class NotebookController implements vscode.Disposable {
 
 	private async handleMessageForCellExecution(
 		message: positron.LanguageRuntimeMessage,
-		currentExecution: vscode.NotebookCellExecution,
+		execution: vscode.NotebookCellExecution,
 	): Promise<void> {
-		// Outputs to append to the cell, if any.
-		let cellOutput: vscode.NotebookCellOutput | undefined;
-
-		// Handle the message, and store any resulting state.
+		// Handle the message, updating the cell execution as needed.
 		switch (message.type) {
 			case positron.LanguageRuntimeMessageType.Input:
-				currentExecution.executionOrder = (message as positron.LanguageRuntimeInput).execution_count;
-				break;
-			case positron.LanguageRuntimeMessageType.Output:
-				cellOutput = handleRuntimeMessageOutput(
-					(message as positron.LanguageRuntimeOutput),
-					NotebookCellOutputType.DisplayData
+				handleRuntimeMessageInput(
+					message as positron.LanguageRuntimeInput,
+					execution,
 				);
 				break;
+			case positron.LanguageRuntimeMessageType.Output:
+				handleRuntimeMessageOutput(
+					message as positron.LanguageRuntimeOutput,
+					NotebookCellOutputType.DisplayData,
+					execution,
+				);
 			case positron.LanguageRuntimeMessageType.Result:
-				cellOutput = handleRuntimeMessageOutput(
-					(message as positron.LanguageRuntimeResult),
-					NotebookCellOutputType.ExecuteResult
+				handleRuntimeMessageOutput(
+					message as positron.LanguageRuntimeResult,
+					NotebookCellOutputType.ExecuteResult,
+					execution,
 				);
 				break;
 			case positron.LanguageRuntimeMessageType.Stream:
-				cellOutput = handleRuntimeMessageStream(message as positron.LanguageRuntimeStream);
+				handleRuntimeMessageStream(
+					message as positron.LanguageRuntimeStream,
+					execution,
+				);
 				break;
-			case positron.LanguageRuntimeMessageType.Error:
-				cellOutput = handleRuntimeMessageError(message as positron.LanguageRuntimeError);
+			case positron.LanguageRuntimeMessageType.Error: {
+				handleRuntimeMessageError(
+					message as positron.LanguageRuntimeError,
+					execution,
+				);
 				break;
-		}
-
-		// Append any resulting outputs to the cell execution.
-		if (cellOutput) {
-			currentExecution.appendOutput(cellOutput);
+			}
 		}
 	}
 
@@ -350,18 +353,33 @@ async function updateNotebookLanguage(notebook: vscode.NotebookDocument, languag
 	);
 }
 
+/**
+ * Handle a LanguageRuntimeInput message.
+ *
+ * @param message Message to handle.
+ * @param execution The cell execution to which the message belongs.
+ */
+function handleRuntimeMessageInput(
+	message: positron.LanguageRuntimeInput,
+	execution: vscode.NotebookCellExecution,
+): void {
+	execution.executionOrder = message.execution_count;
+}
+
 
 /**
  * Handle a LanguageRuntimeOutput message.
  *
  * @param message Message to handle.
  * @param outputType Type of the output.
- * @returns Resulting cell output items.
+ * @param execution The cell execution to which the message belongs.
  */
 function handleRuntimeMessageOutput(
 	message: positron.LanguageRuntimeOutput,
 	outputType: NotebookCellOutputType,
-): vscode.NotebookCellOutput {
+	execution: vscode.NotebookCellExecution,
+
+): void {
 	const cellOutputItems: vscode.NotebookCellOutputItem[] = [];
 	for (const [mimeType, data] of Object.entries(message.data)) {
 		switch (mimeType) {
@@ -392,16 +410,20 @@ function handleRuntimeMessageOutput(
 				cellOutputItems.push(vscode.NotebookCellOutputItem.text(data, mimeType));
 		}
 	}
-	return new vscode.NotebookCellOutput(cellOutputItems, { outputType });
+	const cellOutput = new vscode.NotebookCellOutput(cellOutputItems, { outputType });
+	execution.appendOutput(cellOutput);
 }
 
 /**
  * Handle a LanguageRuntimeStream message.
  *
  * @param message Message to handle.
- * @returns Resulting cell output items.
+ * @param execution The cell execution to which the message belongs.
  */
-function handleRuntimeMessageStream(message: positron.LanguageRuntimeStream): vscode.NotebookCellOutput {
+function handleRuntimeMessageStream(
+	message: positron.LanguageRuntimeStream,
+	execution: vscode.NotebookCellExecution,
+): void {
 	const cellOutputItems: vscode.NotebookCellOutputItem[] = [];
 	switch (message.name) {
 		case positron.LanguageRuntimeStreamName.Stdout:
@@ -409,21 +431,26 @@ function handleRuntimeMessageStream(message: positron.LanguageRuntimeStream): vs
 		case positron.LanguageRuntimeStreamName.Stderr:
 			cellOutputItems.push(vscode.NotebookCellOutputItem.stderr(message.text));
 	}
-	return new vscode.NotebookCellOutput(cellOutputItems);
+	const cellOutput = new vscode.NotebookCellOutput(cellOutputItems);
+	execution.appendOutput(cellOutput);
 }
 
 /**
  * Handle a LanguageRuntimeError message.
  *
  * @param message Message to handle.
- * @returns Resulting cell output items.
+ * @param execution The cell execution to which the message belongs.
  */
-function handleRuntimeMessageError(message: positron.LanguageRuntimeError): vscode.NotebookCellOutput {
-	return new vscode.NotebookCellOutput([
+function handleRuntimeMessageError(
+	message: positron.LanguageRuntimeError,
+	execution: vscode.NotebookCellExecution,
+): void {
+	const cellOutput = new vscode.NotebookCellOutput([
 		vscode.NotebookCellOutputItem.error({
 			name: message.name,
 			message: message.message,
 			stack: message.traceback.join('\n'),
 		})
 	]);
+	execution.appendOutput(cellOutput);
 }
