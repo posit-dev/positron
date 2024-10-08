@@ -115,6 +115,7 @@ export class PositronDataExplorer {
 				expect(checkValue).toBe(columnName);
 			} catch (e) {
 				await this.code.driver.getKeyboard().press('Escape');
+				throw e;
 			}
 		}).toPass({ timeout: 30000 });
 
