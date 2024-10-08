@@ -95,33 +95,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Checkout test licensing tool
-        run: |
-          cd ..
-          mkdir positron-license
-          cd positron-license
-          git clone https://${{ secrets.POSITRON_GITHUB_PAT }}@github.com/posit-dev/positron-license.git .
-        env:
-          GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      - name: Install Rust latest nightly
-        uses: actions-rs/toolchain@v1
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
         with:
-          toolchain: nightly
-          override: true
-
-      - name: Build licensing tool
-        run: |
-          cd ..
-          cd positron-license/pdol
-          cargo build
-
-      - name: Echo license
-        run: |
-          cd ..
-          cd positron-license/pdol/target/debug
-          echo "${{ secrets.POSITRON_DEV_LICENSE }}" > pdol_rsa
-          chmod 600 pdol_rsa
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       - name: Setup Build Environment
         run: |
@@ -212,6 +190,7 @@ jobs:
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+
       - name: Setup Build Environment
         run: |
           sudo apt-get update
