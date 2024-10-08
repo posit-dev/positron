@@ -38,12 +38,16 @@ describe('Plots', () => {
 	logger = setupAndStartApp();
 
 	async function simplePlotTest(app: Application, script: string, locator: string, RWeb = false) {
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.positronPlots.clearPlots();
 		await app.workbench.positronPlots.waitForNoPlots();
+		await app.workbench.positronLayouts.enterLayout('stacked');
 
 		await app.workbench.positronConsole.pasteCodeToConsole(script);
 		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
+		await app.workbench.positronLayouts.enterLayout('stacked');
 	}
 
 	describe('Python Plots', () => {
@@ -159,7 +163,7 @@ IPython.display.display_png(h)`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies the plots pane action bar - Plot actions [C656297] #web', async function () {
+		it('Python - Verifies the plots pane action bar - Plot actions [C656297] #web #win', async function () {
 			const app = this.app as Application;
 
 			const scriptPlot1 = `import graphviz as gv
@@ -212,6 +216,9 @@ plt.show()`;
 			await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
+			// expand the plot pane to show the action bar
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
 			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
 			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
@@ -244,7 +251,6 @@ plt.show()`;
 			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronLayouts.enterLayout('stacked');
 
@@ -279,6 +285,8 @@ plt.show()`;
 
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			// save again with a different name and file format
 			await app.workbench.positronPlots.savePlotButton.click();
 
@@ -293,6 +301,7 @@ plt.show()`;
 			await app.workbench.positronPopups.clickOkOnModalDialogBox();
 
 			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
@@ -323,7 +332,7 @@ bplt.show()`;
 
 		});
 
-		it('Python - Verifies ipydatagrid Python widget [C720870] #web', async function () {
+		it('Python - Verifies ipydatagrid Python widget [C720870] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `import pandas as pd
@@ -336,7 +345,7 @@ DataGrid(data, selection_mode="cell", editable=True)`;
 
 		});
 
-		it('Python - Verifies ipyleaflet Python widget [C720871] #web', async function () {
+		it('Python - Verifies ipyleaflet Python widget [C720871] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipyleaflet import Map, Marker, display
@@ -353,7 +362,7 @@ display(map)`;
 			await simplePlotTest(app, script, '.leaflet-container');
 		});
 
-		it('Python - Verifies hvplot can load with plotly extension [C766660] #web', async function () {
+		it('Python - Verifies hvplot can load with plotly extension [C766660] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `import hvplot.pandas
@@ -364,7 +373,7 @@ pd.DataFrame(dict(x=[1,2,3], y=[4,5,6])).hvplot.scatter(x="x", y="y")`;
 			await simplePlotTest(app, script, '.plotly');
 		});
 
-		it('Python - Verifies ipytree Python widget [C720872] #web', async function () {
+		it('Python - Verifies ipytree Python widget [C720872] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `from ipytree import Tree, Node
@@ -389,6 +398,9 @@ tree`;
 
 			await simplePlotTest(app, script, '.jstree-container-ul');
 
+			// fullauxbar layout needed for some smaller windows
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			// tree should be expanded by default
 			const treeNodes = app.workbench.positronPlots.getWebviewPlotLocator('.jstree-container-ul .jstree-node');
 			await expect(treeNodes).toHaveCount(9);
@@ -396,10 +408,13 @@ tree`;
 			// collapse the tree, only parent nodes should be visible
 			treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
 			await expect(treeNodes).toHaveCount(3);
+
+			// return to stacked layout
+			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 
 
-		it('Python - Verifies ipywidget.Output Python widget #web', async function () {
+		it('Python - Verifies ipywidget.Output Python widget #web #win', async function () {
 			const app = this.app as Application;
 
 			// Create the Output widget.
@@ -422,8 +437,10 @@ output`;
 			expect(lines).not.toContain('Hello, world!');
 
 			// Clear the plots pane.
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronPlots.waitForNoPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
 
@@ -592,7 +609,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 		});
 
 
-		it('R - Verifies rplot plot [C720873] #web', async function () {
+		it('R - Verifies rplot plot [C720873] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library('corrr')
@@ -619,7 +636,7 @@ rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 
 		});
 
-		it('R - Verifies highcharter plot [C720874] #web', async function () {
+		it('R - Verifies highcharter plot [C720874] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(highcharter)
@@ -632,7 +649,7 @@ hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
 		});
 
-		it('R - Verifies leaflet plot [C720875] #web', async function () {
+		it('R - Verifies leaflet plot [C720875] #web @win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(leaflet)
@@ -644,7 +661,7 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 
 		});
 
-		it('R - Verifies plotly plot [C720876] #web', async function () {
+		it('R - Verifies plotly plot [C720876] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(plotly)
