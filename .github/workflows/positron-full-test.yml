@@ -49,6 +49,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: compiled-app
+          include-hidden-files: true
           path: |
             ./out/vs
 
@@ -76,6 +77,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: compiled-app
+          path: ./out/vs
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -140,6 +142,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: compiled-app
+          path: ./out/vs
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -194,6 +197,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: compiled-app
+          path: ./out/vs
 
       - name: Run Tests (Electron)
         env:
@@ -260,6 +264,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: compiled-app
+          path: ./out/vs
 
       # - name: Run Web Smoke Tests
       #   env:
