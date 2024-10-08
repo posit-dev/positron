@@ -36,11 +36,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.POSITRON_GITHUB_PAT }}
 
-      - name: Install Rust latest nightly
-        uses: actions-rs/toolchain@v1
+      - name: Install Rust Nightly
+        uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: nightly
-          override: true
 
       - name: Build licensing tool
         run: |
