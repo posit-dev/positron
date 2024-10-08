@@ -35,3 +35,9 @@ runs:
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
+
+    - name: Install R Development Dependencies
+      shell: bash
+      run: |
+        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"

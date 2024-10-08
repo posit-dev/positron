@@ -78,11 +78,11 @@ jobs:
       # - name: Download Built-in Extensions
       #   uses: actions/download-artifact@v4
       #   with:
-      #     name: built-in-extensions
+      #     name: download-builtin-extensions
       #     path: .build/builtInExtensions
 
       - name: Download Electron, Playwright, Built-in Extensions
-        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -150,7 +150,7 @@ jobs:
           path: ./out/vs
 
       - name: Download Electron, Playwright, Built-in Extensions
-        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
 
       - name: Execute yarn
         env:
