@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload Test Results to TestRail
         id: testrail-upload
-        if: always()
+        if: success() || failure()
         shell: pwsh
         run: |
           trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
