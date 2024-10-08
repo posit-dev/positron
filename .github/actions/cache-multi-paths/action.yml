@@ -45,31 +45,31 @@ runs:
         path: ./remote/**/node_modules
         key: cache-nested-remote-v2-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
 
-    # # Setup R Environment Path
-    # - name: Create R Library Path
-    #   shell: bash
-    #   run: |
-    #     mkdir -p ~/.R/library
-    #     echo "R_LIBS_USER=~/.R/library" >> ~/.Renviron
+    # Setup R Environment Path
+    - name: Create R Library Path
+      shell: bash
+      run: |
+        mkdir -p ~/.R/library
+        echo "R_LIBS_USER=~/.R/library" >> ~/.Renviron
 
-    # # Cache for R packages
-    # - name: Cache R packages
-    #   id: cache-r-packages
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: ~/.R/library
-    #     key: cache-r-packages-v1-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
-    #     restore-keys: |
-    #       cache-r-packages-v1-${{ runner.os }}-
+    # Cache for R packages
+    - name: Cache R packages
+      id: cache-r-packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.R/library
+        key: cache-r-packages-v1-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
+        restore-keys: |
+          cache-r-packages-v1-${{ runner.os }}-
 
-    # # Download DESCRIPTION file for R dependencies
-    # - name: Download DESCRIPTION
-    #   shell: bash
-    #   run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+    # Download DESCRIPTION file for R dependencies
+    - name: Download DESCRIPTION
+      shell: bash
+      run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # # Install R dependencies, including pak
-    # - name: Install R Development Dependencies
-    #   shell: bash
-    #   run: |
-    #     Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
-    #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+    # Install R dependencies, including pak
+    - name: Install R Development Dependencies
+      shell: bash
+      run: |
+        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
