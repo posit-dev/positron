@@ -1,29 +1,40 @@
 name: "Install Positron License"
 description: "Downloads and installs the license file, setting the correct permissions"
+inputs:
+  github-pat:
+    description: "GitHub Personal Access Token for cloning the repository"
+    required: true
+  dev-license:
+    description: "Positron development license"
+    required: true
+
 runs:
   using: "composite"
   steps:
+    - name: Checkout test licensing tool
+      shell: bash
+      run: |
+        mkdir -p $HOME/positron-license
+        cd $HOME/positron-license
+        git clone https://${{ inputs.github-pat }}@github.com/posit-dev/positron-license.git .
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-pat }}
 
-    # Step 1: Download the license artifact
-    - name: Download License Artifact
-      uses: actions/download-artifact@v4
+    - name: Install Rust latest nightly
+      uses: actions-rs/toolchain@v1
       with:
-        name: pdol-license
-        path: ${{ inputs.license-directory }}
+        toolchain: nightly
+        override: true
 
-    # Step 2: Set permissions on the license file to 600
-    - name: Set License File Permissions
+    - name: Build licensing tool
       shell: bash
       run: |
-        chmod 600 "${{ inputs.license-directory }}/pdol_rsa"
+        cd $HOME/positron-license/pdol
+        cargo build
 
-    # Step 3: Verify the license file permissions
-    - name: Verify License File Permissions
+    - name: Save License File
       shell: bash
       run: |
-        ls -l "${{ inputs.license-directory }}/pdol_rsa"
-
-inputs:
-  license-directory:
-    description: "The directory to store the license artifact"
-    required: true
+        cd $HOME/positron-license/pdol/target/debug
+        echo "${{ inputs.dev-license }}" > pdol_rsa
+        chmod 600 pdol_rsa

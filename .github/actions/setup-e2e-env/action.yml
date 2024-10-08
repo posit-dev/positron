@@ -31,3 +31,9 @@ runs:
 
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2.0.2
+
+    - name: Install Positron License
+      uses: ./.github/actions/install-positron-license
+      with:
+        github-pat: ${{ secrets.POSITRON_GITHUB_PAT }}
+        dev-license: ${{ secrets.POSITRON_DEV_LICENSE }}
