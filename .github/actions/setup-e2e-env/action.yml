@@ -34,4 +34,4 @@ runs:
 
     - name: Download Electron, Playwright, Built-in Extensions
       shell: bash
-      run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install built-in-extensions
+      run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
