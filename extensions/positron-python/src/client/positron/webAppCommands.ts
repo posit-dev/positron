@@ -22,29 +22,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
                     const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
                     };
+                    terminalOptions.env = {};
                     if (urlPrefix) {
-                        terminalOptions.env = {};
-                        if (urlPrefix) {
-                            // Relevant env vars: https://dash.plotly.com/reference
-
-                            /* DASH_URL_PREFIX or if none of the env vars are set */
-                            // terminalOptions.env.DASH_URL_PREFIX = urlPrefix; // Error on page: "Error loading layout"
-                            // Console errors:
-                            // - Failed to load resource: the server responded with a status of 404 (Not Found) :8080/_dash-layout:1
-                            // - Failed to load resource: the server responded with a status of 404 (Not Found) :8080/_dash-dependencies:1
-
-                            /* DASH_URL_BASE_PATHNAME, DASH_REQUESTS_PATHNAME_PREFIX and DASH_ROUTES_PATHNAME_PREFIX */
-                            // terminalOptions.env.DASH_URL_BASE_PATHNAME = urlPrefix; // Stuck on page: "Loading..."
-                            // terminalOptions.env.DASH_REQUESTS_PATHNAME_PREFIX = urlPrefix; // Stuck on page: "Loading..."
-                            // terminalOptions.env.DASH_ROUTES_PATHNAME_PREFIX = urlPrefix; // Stuck on page: "Loading..."
-                            // Console errors:
-                            // - a bunch of: Uncaught SyntaxError: Unexpected token '<' in minified js files
-                            // - Uncaught ReferenceError: DashRenderer is not defined (anonymous) @52596/?_positronRender%3D1:33
-
-                            // From what I can tell, we probably don't want to set any of these env vars. However, that
-                            // means we need some way to get past the "Failed to load resource: the server responded with a status of 404 (Not Found)"
-                            // errors.
-                        }
+                        // Note that this will result in the app being run at http://localhost:APP_PORT/proxy/PROXY_PORT/
+                        terminalOptions.env.DASH_URL_BASE_PATHNAME = urlPrefix;
                     }
                     return terminalOptions;
                 },

@@ -197,7 +197,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -294,7 +294,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -315,7 +315,7 @@ export class PositronProxy implements Disposable {
 		return this.nowHookUpTheMiddlewareImpl(
 			targetOrigin,
 			serverOrigin,
-			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -389,7 +389,7 @@ export class PositronProxy implements Disposable {
 					// onProxyReq: (proxyReq, req, res, options) => {
 					// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
 					// },
-					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
+					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
 						// Get the URL and the content type. These must be present to call the
 						// content rewriter. Also, the scripts must be loaded.
 						const url = req.url;
@@ -491,7 +491,7 @@ export class PositronProxy implements Disposable {
 			// onProxyReq: (proxyReq, req, res, options) => {
 			// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
 			// },
-			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
+			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
 				// Get the URL and the content type. These must be present to call the
 				// content rewriter. Also, the scripts must be loaded.
 				const url = req.url;
@@ -533,7 +533,20 @@ export class PositronProxy implements Disposable {
 				// Regex translation: look for src="/ or href="/ and replace it with
 				// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
 				/(src|href)="\/([^"]+)"/g,
-				`$1="${proxyPath}/$2"`
+				(match, p1, p2, _offset, _string, _groups) => {
+					// If the URL already starts with the proxy path, don't rewrite it. Some app
+					// frameworks may already have rewritten the URLs.
+					// Example: match = src="/proxy/1234/path/to/resource"
+					//             p2 = "proxy/1234/path/to/resource"
+					// Add a leading slash to the matched path which was removed by the regex.
+					const matchedPath = '/' + p2;
+					if (matchedPath.startsWith(proxyPath)) {
+						return match;
+					}
+
+					// Example: src="/path/to/resource" -> src="/proxy/1234/path/to/resource"
+					return `${p1}="${proxyPath}/${p2}"`;
+				}
 			);
 		}
 

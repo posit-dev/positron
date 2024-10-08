@@ -8,7 +8,8 @@ import * as positron from 'positron';
 import { PositronRunApp, RunAppOptions } from './positron-run-app';
 import { raceTimeout, SequencerByKey } from './utils';
 
-const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
+// Regex to match a URL with the format http://localhost:1234/path
+const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
 
 export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
 
@@ -252,12 +253,10 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 					localUri.toString(),
 					proxyInfo.serverOrigin
 				);
-				const externalUri = await vscode.env.asExternalUri(vscode.Uri.parse(proxyUri));
 				console.log('[positron-run-app] proxyUri:', proxyUri);
-				console.log('[positron-run-app] externalUri:', externalUri);
 				console.log('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$');
 				// Open the server URL in the viewer pane.
-				positron.window.previewUrl(externalUri);
+				positron.window.previewUrl(vscode.Uri.parse(proxyUri));
 			}
 		} else {
 			// No shell integration support, just run the command.
