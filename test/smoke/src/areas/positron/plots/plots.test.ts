@@ -46,7 +46,7 @@ describe('Plots', () => {
 		await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
 	}
 
-	describe('Python Plots', () => {
+	describe('Python Plots #win', () => {
 
 		before(async function () {
 			// Set the viewport to a size that ensures all the plots view actions are visible
