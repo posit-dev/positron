@@ -50,7 +50,6 @@ jobs:
         with:
           name: compiled-app
           path: |
-            ../out/vs
             ./out/vs
 
   unit-tests:
