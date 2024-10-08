@@ -13,12 +13,6 @@ runs:
         sudo update-rc.d xvfb defaults
         sudo service xvfb start
 
-    - name: Install rig and R
-      shell: bash
-      run: |
-        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-        rig add 4.4.0
-
     # Instructions from: https://github.com/conda-forge/miniforge/?tab=readme-ov-file#downloading-the-installer-as-part-of-a-ci-pipeline
     - name: Install Conda (Miniforge3)
       shell: bash
@@ -36,8 +30,20 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
-    - name: Install R Development Dependencies
+    # - name: Install rig and R
+    #   shell: bash
+    #   run: |
+    #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+    #     rig add 4.4.0
+
+    - name: Install rig and R
       shell: bash
       run: |
-        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
-        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+        if ! command -v rig &> /dev/null; then
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+        fi
+        rig add 4.4.0
+
+    - name: Set R Library Path
+      shell: bash
+      run: echo "R_LIBS_USER=~/.R/library" >> ~/.Renviron

@@ -84,12 +84,6 @@ jobs:
           name: compiled-app
           path: ./out/vs
 
-      # - name: Download Built-in Extensions
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: download-builtin-extensions
-      #     path: .build/builtInExtensions
-
       - name: Download Electron, Playwright, Built-in Extensions
         run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
 
@@ -160,6 +154,9 @@ jobs:
 
       - name: Download Electron, Playwright, Built-in Extensions
         run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
+
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-env
 
       - name: Execute yarn
         env:
