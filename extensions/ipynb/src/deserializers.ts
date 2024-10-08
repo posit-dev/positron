@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as nbformat from '@jupyterlab/nbformat';
-import { extensions, NotebookCellData, NotebookCellExecutionSummary, NotebookCellKind, NotebookCellOutput, NotebookCellOutputItem, NotebookData } from 'vscode';
+// --- Start Positron ---
+// Remove `extensions` import to change the defaultLanguage below.
+import { NotebookCellData, NotebookCellExecutionSummary, NotebookCellKind, NotebookCellOutput, NotebookCellOutputItem, NotebookData } from 'vscode';
+// --- End Positron ---
 import { CellMetadata, CellOutputMetadata, useCustomPropertyInMetadata } from './common';
 
 const jupyterLanguageToMonacoLanguageMapping = new Map([
@@ -21,11 +24,18 @@ export function getPreferredLanguage(metadata?: nbformat.INotebookMetadata) {
 		metadata?.language_info?.name ||
 		(metadata?.kernelspec as any)?.language;
 
-	// Default to python language only if the Python extension is installed.
-	const defaultLanguage =
-		extensions.getExtension('ms-python.python')
-			? 'python'
-			: (extensions.getExtension('ms-dotnettools.dotnet-interactive-vscode') ? 'csharp' : 'python');
+	// --- Start Positron ---
+	// When a notebook is saved, an empty notebook is first created with a single cell, and then
+	// updated with the actual contents. In VSCode, each cell is backed by a TextDocument which
+	// *must* have a language. The empty notebook's single cell uses the defaultLanguage set below.
+	//
+	// Upstream, defaultLanguage was set to 'python' or 'csharp' based on the installed extensions.
+	// That caused unexpected behavior in Positron e.g. starting a Python interpreter in an R
+	// notebook (https://github.com/posit-dev/positron/issues/4796). We instead default to
+	// 'plaintext'. Users shouldn't end up with cells in the defaultLanguage, but if they do,
+	// 'plaintext' should be less surprising than 'python' or 'csharp'.
+	const defaultLanguage = 'plaintext';
+	// --- Start Positron ---
 
 	// Note, whatever language is returned here, when the user selects a kernel, the cells (of blank documents) get updated based on that kernel selection.
 	return translateKernelLanguageToMonaco(jupyterLanguage || defaultLanguage);
