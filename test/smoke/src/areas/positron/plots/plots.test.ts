@@ -609,7 +609,7 @@ title(main="Autos", col.main="red", font.main=4)`;
 		});
 
 
-		it('R - Verifies rplot plot [C720873] #web', async function () {
+		it('R - Verifies rplot plot [C720873] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library('corrr')
@@ -636,7 +636,7 @@ rplot(x, shape = 20, colors = c("red", "green"), legend = TRUE)`;
 
 		});
 
-		it('R - Verifies highcharter plot [C720874] #web', async function () {
+		it('R - Verifies highcharter plot [C720874] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(highcharter)
@@ -649,7 +649,7 @@ hchart(mpg, "point", hcaes(x = displ, y = cty, group = year))`;
 
 		});
 
-		it('R - Verifies leaflet plot [C720875] #web', async function () {
+		it('R - Verifies leaflet plot [C720875] #web @win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(leaflet)
@@ -661,7 +661,7 @@ m %>% addPopups(-93.65, 42.0285, 'Here is the <b>Department of Statistics</b>, I
 
 		});
 
-		it('R - Verifies plotly plot [C720876] #web', async function () {
+		it('R - Verifies plotly plot [C720876] #web #win', async function () {
 			const app = this.app as Application;
 
 			const script = `library(plotly)
