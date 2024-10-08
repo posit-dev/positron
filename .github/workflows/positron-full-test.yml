@@ -12,25 +12,25 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-    steps:
-      - uses: actions/checkout@v4
+  # setup:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  #     POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+  #     - name: Cache node_modules, build, extensions, and remote
+  #       uses: ./.github/actions/cache-multi-paths
 
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: setup
+#    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -82,7 +82,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: setup
+#    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -151,7 +151,7 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 30
-    needs: setup
+#    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -234,7 +234,7 @@ jobs:
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
     timeout-minutes: 30
-    needs: setup
+#    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
