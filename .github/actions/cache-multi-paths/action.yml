@@ -3,8 +3,7 @@ description: "Restores/Saves cache for node_modules, build, extensions, and remo
 runs:
   using: "composite"
   steps:
-  # Step 1: Cache Node.js dependencies
-
+    # --- Cache Node.js dependencies ---
     - name: Cache root
       id: cache-root
       uses: actions/cache@v4
@@ -47,14 +46,13 @@ runs:
         path: ./remote/**/node_modules
         key: cache-nested-remote-v2-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
 
-    # Setup R Environment Path
+    # --- Cache R dependencies ---
     - name: Create R Library Path
       shell: bash
       run: |
         mkdir -p ~/.R/library
         echo "R_LIBS_USER=~/.R/library" >> ~/.Renviron
 
-    # Cache for R packages
     - name: Cache R packages
       id: cache-r-packages
       uses: actions/cache@v4
@@ -62,37 +60,34 @@ runs:
         path: ~/.R/library
         key: cache-r-packages-v1-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
 
-    # R dependencies: Download DESCRIPTION file
     - name: Download DESCRIPTION
       shell: bash
       run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # R dependencies: Install, including pak
     - name: Install R Development Dependencies
       shell: bash
       run: |
         Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-    # Python dependencies: Download the requirements.txt file
+    # --- Cache Python dependencies ---
     - name: Download requirements.txt
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
 
-    # Python dependencies: cache
     - name: Cache Python Dependencies
       id: cache-python
       uses: actions/cache@v4
       with:
-        # Cache pip's local cache to avoid re-downloading packages
-        path: ~/.cache/pip
+        path: ~/.cache/pip # Cache pip's local cache to avoid re-downloading packages
         key: cache-python-${{ runner.os }}-${{ hashFiles('requirements.txt') }}
 
-    # Python dependencies: install
     - name: Install Python Dependencies
       shell: bash
       run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
+
+
