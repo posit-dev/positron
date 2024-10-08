@@ -13,6 +13,7 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 // in order to be able to render it nicely.
 export interface IPositronConnectionItem {
 	name: string;
+	kind?: string;
 
 	/**
 	 * Those endpoints must make an API call to obtain their values

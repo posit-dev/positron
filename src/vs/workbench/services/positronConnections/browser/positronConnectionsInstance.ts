@@ -68,11 +68,11 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 	}
 
 	async getIcon() {
-		if (!this.metadata.icon) {
-			return 'database';
-		}
+		return this.client.getIcon([]);
+	}
 
-		return this.metadata.icon;
+	get kind() {
+		return 'database';
 	}
 
 	get expanded() {
@@ -88,10 +88,9 @@ interface ConnectionMetadata {
 	name: string;
 	language_id: string;
 	// host and type are used to identify a unique connection
-	host: string;
-	type: string;
+	host?: string;
+	type?: string;
 	code?: string;
-	icon?: string; // base64 encoded icon image (if available)
 }
 
 class PositronConnectionItem implements IPositronConnectionItem {
@@ -145,6 +144,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	get name() {
 		return this._name;
+	}
+
+	get kind() {
+		return this._kind;
 	}
 
 	async getIcon() {

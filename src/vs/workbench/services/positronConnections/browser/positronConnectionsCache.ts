@@ -22,8 +22,11 @@ export interface IPositronConnectionEntry {
 	id: string;
 
 	name: string;
-	icon: Promise<string>;
 	active: boolean;
+
+	icon: Promise<string | undefined>;
+	dtype?: string;
+	kind?: string;
 
 	/**
 	 * Wether the connection is expanded or not. Undefined
@@ -56,8 +59,17 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return this.item.name;
 	}
 
+	get kind() {
+		return this.item.kind;
+	}
+
 	get icon() {
-		return this.item.getIcon();
+		return this.item.getIcon().then((icon) => {
+			if (icon === '') {
+				return undefined;
+			}
+			return icon;
+		});
 	}
 
 	get active() {

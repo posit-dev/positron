@@ -94,6 +94,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				level={itemProps.level}
 				id={itemProps.id}
 				icon={itemProps.icon}
+				kind={itemProps.kind}
 				active={itemProps.active}
 				style={props.style}>
 			</PositronConnectionsItem>
@@ -138,6 +139,34 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 	};
 
+	const [icon, setIcon] = useState(() => {
+		if (props.kind) {
+			switch (props.kind) {
+				case 'table':
+					return 'table';
+				case 'field':
+					return 'symbol-field';
+				case 'database':
+					return 'database';
+				// TODO: handle other kinds suuch as schema, catalog, etc that are common
+				// in other dbs. Will need to add our own codicons.
+			}
+		}
+		// If kind is not known, then no icon is dplsayed by default.
+		return '';
+	});
+
+	useEffect(() => {
+		props.icon.then((i) => {
+			console.log(i);
+			if (i === undefined) {
+				console.log('icon is undefined!');
+				return;
+			}
+			setIcon(i);
+		});
+	}, []);
+
 	return (
 		<div className='connections-item' style={props.style}>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
@@ -159,7 +188,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			<div className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}>
 				{props.name}
 			</div>
-			{/* <div className={`connections-icon codicon codicon-${props.icon}`}></div> */}
+			<div className={`connections-icon codicon codicon-${icon}`}></div>
 		</div>
 	);
 };
