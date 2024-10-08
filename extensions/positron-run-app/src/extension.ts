@@ -13,7 +13,8 @@ const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
 
 type PositronProxyInfo = {
 	proxyPath: string;
-	finishProxySetup: (targetOrigin: string) => Promise<string>;
+	externalUri: vscode.Uri;
+	finishProxySetup: (targetOrigin: string) => Promise<void>;
 };
 
 export const log = vscode.window.createOutputChannel('Positron Run App', { log: true });
@@ -237,10 +238,10 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 				const localBaseUri = vscode.Uri.parse(url.toString());
 				const localUri = options.urlPath ?
 					vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
-				// Finish the Positron proxy setup to get the external URI.
-				const externalUri = await proxyInfo.finishProxySetup(localUri.toString());
+				// Finish the Positron proxy setup so that proxy middleware is hooked up.
+				await proxyInfo.finishProxySetup(localUri.toString());
 				// Open the server URL in the viewer pane.
-				positron.window.previewUrl(vscode.Uri.parse(externalUri));
+				positron.window.previewUrl(proxyInfo.externalUri);
 			}
 		} else {
 			// No shell integration support, just run the command.

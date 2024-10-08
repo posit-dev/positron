@@ -54,6 +54,15 @@ type ContentRewriter = (
 ) => Promise<Buffer | string>;
 
 /**
+ * PendingProxyServer type.
+ */
+type PendingProxyServer = {
+	externalUri: vscode.Uri;
+	proxyPath: string;
+	finishProxySetup: (targetOrigin: string) => Promise<void>;
+};
+
+/**
  * Custom type guard for AddressInfo.
  * @param addressInfo The value to type guard.
  * @returns true if the value is an AddressInfo; otherwise, false.
@@ -285,23 +294,51 @@ export class PositronProxy implements Disposable {
 	 */
 	startHttpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
-		return this.startProxyServer(
-			targetOrigin,
-			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
-				// If this isn't 'text/html' content, just return the response buffer.
-				if (!contentType.includes('text/html')) {
-					return responseBuffer;
-				}
+		return this.startProxyServer(targetOrigin, this.htmlContentRewriter);
+	}
 
-				// Get the response.
-				let response = responseBuffer.toString('utf8');
+	/**
+	 * Starts an HTTP proxy server that is pending middleware setup.
+	 * Use this instead of startHttpProxyServer if you need to set up a proxy in steps instead of
+	 * all at once. For example, you may want to start the proxy server and pass the proxy path to
+	 * an application framework, start the app and get the targetOrigin, and then add the middleware
+	 * to the proxy server.
+	 * @returns The pending proxy server info.
+	 */
+	startPendingHttpProxyServer(): Promise<PendingProxyServer> {
+		// Start the proxy server and return the pending proxy server info. The caller will need to
+		// call finishProxySetup to complete the proxy setup.
+		return this.startNewProxyServer(this.htmlContentRewriter);
+	}
 
-				// Rewrite the URLs with the proxy path.
-				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+	//#endregion Public Methods
 
-				// Return the response.
-				return response;
+	//#region Private Methods
+
+	/**
+	 * Starts a proxy server.
+	 * @param targetOrigin The target origin.
+	 * @param contentRewriter The content rewriter.
+	 * @returns The server origin, resolved to an external uri if applicable.
+	 */
+	private startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		// Return a promise.
+		return new Promise((resolve, reject) => {
+			// See if we have an existing proxy server for target origin. If there is, return the
+			// server origin.
+			const proxyServer = this._proxyServers.get(targetOrigin);
+			if (proxyServer) {
+				resolve(proxyServer.serverOrigin);
+				return;
+			}
+
+			// We don't have an existing proxy server for the target origin, so start a new one.
+			this.startNewProxyServer(contentRewriter).then(({ externalUri, finishProxySetup }) => {
+				finishProxySetup(targetOrigin).then(() => {
+					resolve(externalUri.toString());
+				});
 			});
+		});
 	}
 
 	/**
@@ -309,7 +346,7 @@ export class PositronProxy implements Disposable {
 	 * This is used to create a server and app that will be used to add middleware later.
 	 * @returns The server origin and the proxy path.
 	 */
-	startPendingProxyServer() {
+	private startNewProxyServer(contentRewriter: ContentRewriter): Promise<PendingProxyServer> {
 		return new Promise((resolve, reject) => {
 			// Create the app and start listening on a random port.
 			const app = express();
@@ -331,96 +368,42 @@ export class PositronProxy implements Disposable {
 				const originUri = vscode.Uri.parse(serverOrigin);
 				const externalUri = await vscode.env.asExternalUri(originUri);
 
-				// Resolve the server origin URI.
+				// Resolve the proxy info.
 				resolve({
-					// The serverOrigin will be used to look up the proxy server later.
-					serverOrigin: serverOrigin.toString(),
+					externalUri: externalUri,
 					proxyPath: externalUri.path,
 					finishProxySetup: (targetOrigin: string) => {
 						return this.finishProxySetup(
 							targetOrigin,
 							serverOrigin,
+							externalUri,
 							server,
 							app,
-							async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
-								// If this isn't 'text/html' content, just return the response buffer.
-								if (!contentType.includes('text/html')) {
-									return responseBuffer;
-								}
-
-								// Get the response.
-								let response = responseBuffer.toString('utf8');
-
-								// Rewrite the URLs with the proxy path.
-								response = this.rewriteUrlsWithProxyPath(response, proxyPath);
-
-								// Return the response.
-								return response;
-							});
+							contentRewriter
+						);
 					}
 				});
 			});
 		});
-
 	}
-
-	//#endregion Public Methods
-
-	//#region Private Methods
 
 	/**
-	 * Starts a proxy server.
+	 * Finishes setting up the proxy server by adding the proxy middleware.
 	 * @param targetOrigin The target origin.
+	 * @param serverOrigin The server origin.
+	 * @param externalUri The external URI.
+	 * @param server The server.
+	 * @param app The express app.
 	 * @param contentRewriter The content rewriter.
-	 * @returns The server origin.
+	 * @returns A promise that resolves when the proxy setup is complete.
 	 */
-	private startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		// Return a promise.
-		return new Promise((resolve, reject) => {
-			// See if we have an existing proxy server for target origin. If there is, return the
-			// server origin.
-			const proxyServer = this._proxyServers.get(targetOrigin);
-			if (proxyServer) {
-				resolve(proxyServer.serverOrigin);
-				return;
-			}
-
-			// Create the app and start listening on a random port.
-			const app = express();
-			const server = app.listen(0, HOST, async () => {
-				// Get the server address.
-				const address = server.address();
-
-				// Ensure that we have the address info of the server.
-				if (!isAddressInfo(address)) {
-					server.close();
-					reject();
-					return;
-				}
-
-				// Create the server origin.
-				const serverOrigin = `http://${address.address}:${address.port}`;
-
-				// Finish the proxy setup to get the external URI.
-				const externalUri = await this.finishProxySetup(targetOrigin, serverOrigin, server, app, contentRewriter);
-
-				// Resolve the server origin external URI.
-				resolve(externalUri.toString());
-			});
-		});
-	}
-
-	private async finishProxySetup(targetOrigin: string, serverOrigin: string, server: Server, app: express.Express, contentRewriter: ContentRewriter) {
+	private async finishProxySetup(targetOrigin: string, serverOrigin: string, externalUri: vscode.Uri, server: Server, app: express.Express, contentRewriter: ContentRewriter) {
 		// Add the proxy server.
 		this._proxyServers.set(targetOrigin, new ProxyServer(
 			serverOrigin,
 			targetOrigin,
 			server
 		));
-
-		// Convert the server origin to an external URI.
-		const originUri = vscode.Uri.parse(serverOrigin);
-		const externalUri = await vscode.env.asExternalUri(originUri);
 
 		// Add the proxy middleware.
 		app.use('*', createProxyMiddleware({
@@ -446,9 +429,31 @@ export class PositronProxy implements Disposable {
 				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
 			})
 		}));
+	}
 
-		// Return the server origin external URI.
-		return externalUri.toString();
+	/**
+	 * A generic content rewriter for HTML content.
+	 * @param _serverOrigin The server origin.
+	 * @param proxyPath The proxy path.
+	 * @param _url The URL.
+	 * @param contentType The content type.
+	 * @param responseBuffer The response buffer.
+	 * @returns The rewritten response buffer.
+	 */
+	private async htmlContentRewriter(_serverOrigin: string, proxyPath: string, _url: string, contentType: string, responseBuffer: Buffer) {
+		// If this isn't 'text/html' content, just return the response buffer.
+		if (!contentType.includes('text/html')) {
+			return responseBuffer;
+		}
+
+		// Get the response.
+		let response = responseBuffer.toString('utf8');
+
+		// Rewrite the URLs with the proxy path.
+		response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+
+		// Return the response.
+		return response;
 	}
 
 	/**
