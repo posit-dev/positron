@@ -60,7 +60,7 @@ export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							iconId='refresh'
 						/>
 					</ActionBarRegion>
-					<ActionBarRegion location="right">
+					<ActionBarRegion location='right'>
 						<ActionBarSearch placeholder='filter'></ActionBarSearch>
 					</ActionBarRegion>
 				</PositronActionBar>

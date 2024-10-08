@@ -5,6 +5,8 @@
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+import { Event } from 'vs/base/common/event';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
@@ -13,4 +15,20 @@ export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
 	initialize(): void;
 	getConnections(): IPositronConnectionItem[];
+
+	/**
+	 * Returns a flattended list of entries that the service is currently displaying.
+	 */
+	getConnectionEntries(): IPositronConnectionEntry[];
+
+	/**
+	 * Refresh the connections entries cache and fires the onDidChangeEntries event when it's done.
+	 */
+	refreshConnectionEntries(): Promise<void>;
+
+	/**
+	 * An event that users can subscribe to receive updates when the flattened list
+	 * of entries changes.
+	 */
+	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
 }

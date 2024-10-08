@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -17,11 +17,11 @@ import { FixedSizeList as List } from 'react-window';
 
 import 'vs/css!./positronConnections';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import * as DOM from 'vs/base/browser/dom';
+import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 
 export interface PositronConnectionsProps {
 	readonly commandService: ICommandService;
@@ -36,10 +36,6 @@ export interface PositronConnectionsProps {
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
 
-	// There's probably a better way to trigger the re-render. Probably, an event the connections
-	// service can fire and trigger re-rendering this component.
-	const [, reRender] = React.useReducer((x) => x + 1, 0);
-
 	// This allows us to introspect the size of the component. Which then allows
 	// us to efficiently only render items that are in view.
 	const [, setWidth] = React.useState(props.reactComponentContainer.width);
@@ -52,7 +48,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			setHeight(size.height);
 		}));
 		return () => disposableStore.dispose();
-	});
+	}, []);
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -74,46 +70,34 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			}
 		}));
 		return () => disposableStore.dispose();
-	});
+	}, []);
 
-	// For each connection we create the connection item, and
-	// recursively for it's children, if they are expanded and have children
-	// TODO: parent is currently a hack to ensure unique keys, but we should
-	// be able to fix that with proper Id's that contain the element path.
-	const getConnectionItems = (items: IPositronConnectionItem[], level = 0, parent = '') => {
-		return items.reduce<PositronConnectionsItemProps[]>((elements, con, index) => {
-			elements.push(
-				{
-					name: con.name(),
-					icon: con.icon(),
-					expanded: con.expanded(),
-					onExpand: con.expanded() === undefined ? undefined : () => {
-						if (con.onToggleExpandEmitter) {
-							con.onToggleExpandEmitter.fire();
-						}
-						// We trigger a re-render when connection is expanded.
-						reRender();
-					},
-					active: con.active ? con.active() : true,
-					level: level,
-					id: `${parent}-${level}-${index}`
-				}
-			);
-
-			// To show children, the connection must be expanded, have a getChildren() method.
-			// If it implements `active()` it must be active.
-			if (con.expanded() && con.getChildren && !(con.active && !con.active())) {
-				elements.push(...getConnectionItems(con.getChildren(), level + 1, `${parent}-${index}`));
-			}
-
-			return elements;
-		}, []);
-	};
-
-	const items = getConnectionItems(props.connectionsService.getConnections());
+	const [items, setItems] = useState<PositronConnectionsItemProps[]>(props.connectionsService.getConnectionEntries);
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(props.connectionsService.onDidChangeEntries((entries) => {
+			setItems(entries);
+		}));
+		props.connectionsService.refreshConnectionEntries();
+		return () => disposableStore.dispose();
+	}, []);
 
 	const ItemEntry = (props: ItemEntryProps) => {
-		return <PositronConnectionsItem {...items[props.index]} style={props.style}></PositronConnectionsItem>;
+		const itemProps = items[props.index];
+
+
+		return (
+			<PositronConnectionsItem
+				name={itemProps.name}
+				expanded={itemProps.expanded}
+				onToggleExpandEmitter={itemProps.onToggleExpandEmitter}
+				level={itemProps.level}
+				id={itemProps.id}
+				icon={itemProps.icon}
+				active={itemProps.active}
+				style={props.style}>
+			</PositronConnectionsItem>
+		);
 	};
 
 	return (
@@ -140,14 +124,7 @@ interface ItemEntryProps {
 	style: any;
 }
 
-interface PositronConnectionsItemProps {
-	id: string;
-	name: string;
-	active: boolean;
-	icon: string;
-	expanded: boolean | undefined;
-	onExpand?(): void;
-	level: number; // How nested the item is.
+interface PositronConnectionsItemProps extends IPositronConnectionEntry {
 	style?: any;
 }
 
@@ -155,6 +132,11 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 	// If the connection is not expandable, we add some more padding.
 	const padding = props.level * 10 + (props.expanded === undefined ? 26 : 0);
+	const handleExpand = () => {
+		if (props.onToggleExpandEmitter) {
+			props.onToggleExpandEmitter.fire();
+		}
+	};
 
 	return (
 		<div className='connections-item' style={props.style}>
@@ -164,7 +146,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					<></> :
 					<div
 						className='expand-collapse-area'
-						onClick={props.onExpand}
+						onClick={handleExpand}
 						// Disable clicking when the connection is not active
 						style={{ pointerEvents: props.active ? undefined : 'none' }}
 					>
@@ -177,8 +159,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			<div className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}>
 				{props.name}
 			</div>
-			<div className={`connections-icon codicon codicon-${props.icon}`}>
-			</div>
+			{/* <div className={`connections-icon codicon codicon-${props.icon}`}></div> */}
 		</div>
 	);
 };
