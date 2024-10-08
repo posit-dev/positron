@@ -46,7 +46,7 @@ describe('Plots', () => {
 		await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
 	}
 
-	describe('Python Plots #win', () => {
+	describe('Python Plots', () => {
 
 		before(async function () {
 			// Set the viewport to a size that ensures all the plots view actions are visible
@@ -159,7 +159,7 @@ IPython.display.display_png(h)`;
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		it('Python - Verifies the plots pane action bar - Plot actions [C656297] #web', async function () {
+		it('Python - Verifies the plots pane action bar - Plot actions [C656297] #web #win', async function () {
 			const app = this.app as Application;
 
 			const scriptPlot1 = `import graphviz as gv
@@ -212,6 +212,9 @@ plt.show()`;
 			await app.workbench.positronConsole.executeCode('Python', scriptPlot2, '>>>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
+			// expand the plot pane to show the action bar
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
 			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
 			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
 			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
@@ -244,7 +247,6 @@ plt.show()`;
 			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
 			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
 
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronLayouts.enterLayout('stacked');
 
