@@ -134,7 +134,28 @@
 					"type": "null"
 				}
 			}
+		},
+		{
+			"name": "get_metadata",
+			"summary": "Gets metadata from the connections",
+			"description": "A connection has tied metadata such as an icon, the host, etc.",
+			"params": [
+				{
+					"name": "comm_id",
+					"description": "The comm_id of the client we want to retrieve metdata for.",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"$ref": "#/components/schemas/metadata_schema"
+				}
+			}
 		}
+
 	],
 	"components": {
 		"contentDescriptors": {},
@@ -170,6 +191,35 @@
 					"dtype": {
 						"type": "string",
 						"description": "The field data type"
+					}
+				}
+			},
+			"metadata_schema": {
+				"type": "object",
+				"required": [
+					"name",
+					"language_id"
+				],
+				"properties": {
+					"name": {
+						"type": "string",
+						"description": "Connection name"
+					},
+					"language_id": {
+						"type": "string",
+						"description": "Language ID for the connections. Essentially just R or python"
+					},
+					"host": {
+						"type": "string",
+						"description": "Connection host"
+					},
+					"type": {
+						"type": "string",
+						"description": "Connection type"
+					},
+					"code": {
+						"type": "string",
+						"description": "Code used to re-create the connection"
 					}
 				}
 			}

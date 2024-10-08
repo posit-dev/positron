@@ -64,7 +64,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	attachRuntime(session: ILanguageRuntimeSession) {
 		this._register(session.onDidCreateClientInstance(({ message, client }) => {
-			if (!(client.getClientType() === RuntimeClientType.Connection)) {
+			if (client.getClientType() !== RuntimeClientType.Connection) {
 				return;
 			}
 
@@ -79,6 +79,24 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 				message.data as any
 			));
 		}));
+
+		session.listClients().then((clients) => {
+			clients.forEach(async (client) => {
+				console.log("Client", client.getClientType());
+				if (client.getClientType() !== RuntimeClientType.Connection) {
+					return;
+				}
+
+				const connectionsClient = new ConnectionsClientInstance(client);
+				const metadata = await connectionsClient.getMetadata();
+
+				this.addConnection(new PositronConnectionsInstance(
+					this.onDidChangeDataEmitter,
+					connectionsClient,
+					metadata
+				));
+			});
+		});
 	}
 
 	addConnection(instance: PositronConnectionsInstance) {
