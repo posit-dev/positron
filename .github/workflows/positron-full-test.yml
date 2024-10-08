@@ -243,7 +243,7 @@ jobs:
           sudo service xvfb start
 
       - name: Setup Test Environment
-        uses: ./.github/actions/setup-e2e-env
+        uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
@@ -338,7 +338,7 @@ jobs:
           sudo service xvfb start
 
       - name: Setup Test Environment
-        uses: ./.github/actions/setup-e2e-env
+        uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
