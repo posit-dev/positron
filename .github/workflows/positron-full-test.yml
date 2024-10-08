@@ -383,8 +383,6 @@ jobs:
       - name: Install Tinytex
         run: quarto install tinytex
 
-
-
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
@@ -417,12 +415,12 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip install ipykernel trcli
 
-      # - name: Run Web Smoke Tests
-      #   env:
-      #     POSITRON_PY_VER_SEL: 3.10.12
-      #     POSITRON_R_VER_SEL: 4.4.0
-      #   id: electron-web-smoke-tests
-      #   run: DISPLAY=:10 yarn smoketest-web --tracing
+      - name: Run Web Smoke Tests
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-web-smoke-tests
+        run: DISPLAY=:10 yarn smoketest-web --tracing
 
       # - name: Convert XUnit to JUnit
       #   id: xunit-to-junit
