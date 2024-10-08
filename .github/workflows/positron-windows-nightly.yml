@@ -103,7 +103,7 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
-        if: always()
+        if: success() || failure()
         run: echo "TESTRAIL_TITLE=$(Get-Date -Format 'yyyy-MM-dd') Nightly Smoke Tests - $env:GITHUB_REF_NAME" >> $env:GITHUB_ENV
         shell: pwsh
 
