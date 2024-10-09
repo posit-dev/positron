@@ -15,6 +15,10 @@ runs:
   using: "composite"
   steps:
     # --- Needed by E2E Tests ---
+    # AWS S3 Access, Graphviz, Quarto, Conda, Python + Python Deps, R + R Deps
+
+    # --- Needed by Integration Tests ---
+    # R + R Deps
 
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
@@ -67,8 +71,6 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
-    # --- Needed by E2E AND Integration Tests ---
-
     - name: Set up R
       uses: r-lib/actions/setup-r@v2
       with:
@@ -84,4 +86,8 @@ runs:
 
     - name: Install R dependencies
       shell: bash
-      run: Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      run: |
+        # Install pak if not already present
+        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
+        # Install the development dependencies
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
