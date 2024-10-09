@@ -56,6 +56,9 @@ jobs:
           path: |
             ./out/**
             ./.build/**
+            ./.vscode/**
+            ./.vscode-test/**
+            ./.*
 
   unit-tests:
     runs-on: ubuntu-latest
