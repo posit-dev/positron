@@ -88,12 +88,18 @@ jobs:
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
-      - name: Setup Test Environment
-        uses: ./.github/actions/setup-test-env
+      # - name: Setup Test Environment
+      #   uses: ./.github/actions/setup-test-env
+      #   with:
+      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+      #     aws-region: ${{ secrets.QA_AWS_REGION }}
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup R
+        uses: ./.github/actions/install-r
         with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          r-version: "4.4.0"
+          install-pkgs: "true"
 
       - name: Execute yarn
         env:

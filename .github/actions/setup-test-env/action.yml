@@ -44,51 +44,42 @@ runs:
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
-    # Download dependency files for cache key calculation
-    - name: Download dependency files
-      shell: bash
-      run: |
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-
-    # Install Python and Python dependencies with cache
-    # - name: Install System Level Python
-    #   uses: actions/setup-python@v5
+    # - name: Install Python
+    #   uses: ./.github/actions/setup-python-xvfb
     #   with:
-    #     python-version: "3.10.10"
+    #     version: "3.10"
 
-    # - name: Cache Python dependencies
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: ~/.cache/pip
-    #     key: python-v2-${{ hashFiles('requirements.txt') }}
+    # - name: Install Python dependencies
+    #   shell: bash
+    #   run: |
+    #     python -m pip install --upgrade pip
+    #     python -m pip install -r requirements.txt
+    #     python -m pip install ipykernel trcli
 
-    - name: Install Python dependencies
-      shell: bash
-      run: |
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install ipykernel trcli
+    # # Install R and R pkgs with cache
+    # - name: Install rig, R
+    #   shell: bash
+    #   env:
+    #     R_VERSION: "4.4.0"
+    #   run: |
+    #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+    #     rig add "$R_VERSION"
 
-    # Install R and R pkgs with cache
-    - name: Install rig, R
-      shell: bash
-      env:
-        R_VERSION: "4.4.0"
-      run: |
-        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-        rig add "$R_VERSION"
+    # - name: Install R packages
+    #   shell: bash
+    #   run: |
+    #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+    #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
-    # - name: Cache R Dependencies
-    #   uses: actions/cache@v3
-    #   with:
-    #     path: |
-    #       ~/.R
-    #       ~/.cache/R
-    #     key: R-v2-${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/DESCRIPTION') }}
+    # Use the custom composite action to install R with or without packages
 
-    - name: Install R packages
-      shell: bash
-      run: |
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+    - name: Setup Python
+      uses: ./.github/actions/install-python
+      with:
+        version: "3.10"
+
+    - name: Setup R
+      uses: ./.github/actions/install-r
+      with:
+        r-version: "4.4.0"
+        install-pkgs: "true"
