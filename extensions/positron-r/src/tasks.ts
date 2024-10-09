@@ -73,9 +73,12 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 	}
 
 	return taskData.map(data => {
+		let taskEnv = { ...env };
+
 		if (data.envVars) {
-			Object.assign(env, data.envVars);
+			Object.assign(taskEnv, data.envVars);
 		}
+
 		let exec: vscode.ProcessExecution | vscode.ShellExecution;
 		if (data.task === 'r.task.rmarkdownRender' && os.platform() === 'win32') {
 			// Using vscode.ProcessExecution gets around some hairy quoting issues on Windows,
@@ -87,7 +90,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			exec = new vscode.ProcessExecution(
 				binpath,
 				['--quiet', '--no-restore', '--no-save', '-e', data.rcode],
-				{ env }
+				{ env: taskEnv }
 			);
 		} else {
 			// The explicit quoting treatment here is also motivated by PowerShell, so make sure to
@@ -95,7 +98,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			exec = new vscode.ShellExecution(
 				binpath,
 				['--quiet', '--no-restore', '--no-save', '-e', { value: data.rcode, quoting: vscode.ShellQuoting.Strong }],
-				{ env }
+				{ env: taskEnv }
 			);
 		}
 
