@@ -31,24 +31,6 @@ jobs:
       - name: Setup Build Environment
         uses: ./.github/actions/setup-build-env
 
-      # TEMP
-
-      - name: Install rig, R, and R packages
-        env:
-          R_VERSION: "4.4.0" # Set the desired R version here or use an environment variable
-        run: |
-          # Install rig for R version management
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-
-          rig add "$R_VERSION"
-
-          # Download the DESCRIPTION file for dependency installation
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-
-          # Install the R development dependencies specified in the DESCRIPTION file
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      # -------
       - name: Execute yarn
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1

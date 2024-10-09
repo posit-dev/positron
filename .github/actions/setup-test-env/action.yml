@@ -49,7 +49,6 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
     # Cache Python dependencies based on the requirements.txt hash
     - name: Install System Level Python
@@ -71,10 +70,13 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
-    - name: Set up R
-      uses: r-lib/actions/setup-r@v2
-      with:
-        r-version: "4.4.0"
+    - name: Install rig, R
+      shell: bash
+      env:
+        R_VERSION: "4.4.0" # Set the desired R version here or use an environment variable
+      run: |
+        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+        rig add "$R_VERSION"
 
     - name: Cache R Dependencies
       uses: actions/cache@v3
@@ -82,12 +84,10 @@ runs:
         path: |
           ~/.R
           ~/.cache/R
-        key: R-v2-${{ runner.os }}-r-${{ hashFiles('**/DESCRIPTION') }}
+        key: R-v2-${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/DESCRIPTION') }}
 
-    - name: Install R dependencies
+    - name: Install R packages
       shell: bash
       run: |
-        # Install pak if not already present
-        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
-        # Install the development dependencies
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
