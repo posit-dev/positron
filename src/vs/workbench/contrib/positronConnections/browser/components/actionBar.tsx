@@ -19,6 +19,9 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 
+import 'vs/css!./actionBar';
+import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+
 const kPaddingLeft = 8;
 const kPaddingRight = 8;
 export const kHeight = 32;
@@ -32,7 +35,16 @@ interface ActionBarProps {
 	readonly keybindingService: IKeybindingService;
 }
 
-export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
+interface ConnectionActionBarProps extends ActionBarProps {
+	selectedEntry: IPositronConnectionEntry | undefined;
+}
+
+export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProps>) => {
+
+	// We only enable the disconnect button if there's some connection selected
+	// and it's the root of a connection (level == 0).
+	const disconnectDisabled = (props.selectedEntry === undefined) || (props.selectedEntry.level !== 0);
+
 	return (
 		<div style={{ height: kHeight }}>
 			<PositronActionBarContextProvider {...props}>
@@ -53,6 +65,8 @@ export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							align='left'
 							iconId='debug-disconnect'
 							text='Disconnect'
+							disabled={disconnectDisabled}
+							onPressed={() => props.selectedEntry?.disconnect?.()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
@@ -61,7 +75,9 @@ export const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<ActionBarSearch placeholder='filter'></ActionBarSearch>
+						<div className='action-bar-disabled'>
+							<ActionBarSearch placeholder='filter'></ActionBarSearch>
+						</div>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>

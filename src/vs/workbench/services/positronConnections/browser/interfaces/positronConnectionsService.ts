@@ -15,6 +15,7 @@ export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
 	initialize(): void;
 	getConnections(): IPositronConnectionItem[];
+	closeConnection(id: string): void;
 
 	/**
 	 * Returns a flattended list of entries that the service is currently displaying.

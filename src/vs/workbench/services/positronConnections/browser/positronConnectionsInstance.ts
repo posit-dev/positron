@@ -49,6 +49,12 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 		return this.metadata;
 	}
 
+	disconnect(): void {
+		// We don't need to send the DidDataChange event because it will be triggered
+		// when the client is actually closed.
+		this.client.dispose();
+	}
+
 	async getChildren() {
 		if (this._children === undefined) {
 			const children = await this.client.listObjects([]);

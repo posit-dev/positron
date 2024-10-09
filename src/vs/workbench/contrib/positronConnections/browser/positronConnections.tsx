@@ -106,7 +106,11 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 
 	return (
 		<div className='positron-connections'>
-			<ActionBar {...props}></ActionBar>
+			<ActionBar
+				{...props}
+				selectedEntry={items.find((item) => item.id === selectedId)}
+			>
+			</ActionBar>
 			<div className='connections-items-container'>
 				<List
 					itemCount={items.length}
