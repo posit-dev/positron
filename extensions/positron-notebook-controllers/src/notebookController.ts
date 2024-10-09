@@ -221,6 +221,7 @@ export class NotebookController implements vscode.Disposable {
 					NotebookCellOutputType.DisplayData,
 					execution,
 				);
+				break;
 			case positron.LanguageRuntimeMessageType.Result:
 				await handleRuntimeMessageOutput(
 					message as positron.LanguageRuntimeResult,
