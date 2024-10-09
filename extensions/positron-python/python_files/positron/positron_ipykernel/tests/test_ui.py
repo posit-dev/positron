@@ -304,6 +304,5 @@ webbrowser.open("file://file.html")
     assert "is_plot" not in params
 
     params = ui_comm.messages[1]["data"]["params"]
-    assert params["path"] == "file://file.html"
+    assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
     assert params["is_plot"] is False
-

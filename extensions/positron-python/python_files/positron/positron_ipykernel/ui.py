@@ -210,7 +210,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
     @staticmethod
-    def _is_module_function(module_name: str, function_name: str = None) -> bool:
+    def _is_module_function(module_name: str, function_name: Union[str, None] = None) -> bool:
         module = sys.modules.get(module_name)
         if module:
             for frame_info in inspect.stack():
