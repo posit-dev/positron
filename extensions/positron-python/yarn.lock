@@ -9657,10 +9657,10 @@ typemoq@^2.1.0:
     lodash "^4.17.4"
     postinstall-build "^5.0.1"
 
-typescript@~5.2:
-  version "5.2.2"
-  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.2.2.tgz#5ebb5e5a5b75f085f22bc3f8460fba308310fa78"
-  integrity sha512-mI4WrpHsbCIcwT9cF4FZvr80QUeKvsUsUvKDoR+X/7XHQH98xYD8YHZg7ANtz2GtZt/CBq2QJ0thkGJMHfqc1w==
+typescript@^5.7.0-dev.20240903:
+  version "5.7.0-dev.20241008"
+  resolved "https://registry.yarnpkg.com/typescript/-/typescript-5.7.0-dev.20241008.tgz#7d74ba39d72fdd2ec55c5195f7de202b04ceb899"
+  integrity sha512-FZzeU/lVGUgdl8+Rl2MChV2+eD0ZciK1LuVeoL8+P8ePsJjduRhGrWGRBHvy5KQOhZpxm0QdjrcnGkGDQEphvQ==
 
 typestyle@^2.0.4:
   version "2.4.0"
