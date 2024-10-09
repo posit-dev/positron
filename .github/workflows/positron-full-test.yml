@@ -85,22 +85,22 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
+      # - name: Setup Build Environment
+      #   uses: ./.github/actions/setup-build-env
 
-      - name: Setup Test Environment
-        uses: ./.github/actions/setup-test-env
-        with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
+      # - name: Setup Test Environment
+      #   uses: ./.github/actions/setup-test-env
+      #   with:
+      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+      #     aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      # - name: Install rig and R
-      #   shell: bash
-      #   run: |
-      #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-      #     rig add 4.4.0
-      #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-      #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      - name: Install rig and R
+        shell: bash
+        run: |
+          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+          rig add 4.4.0
+          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
       - name: Execute yarn
         env:
