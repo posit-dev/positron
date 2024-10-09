@@ -77,7 +77,9 @@ describe('Python Applications #pr #win', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stAppDeployButton', this.app.web);
 
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await expect(headerLocator).toHaveText('Deploy', { timeout: 45000 });
+			await app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
 	});
