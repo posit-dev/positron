@@ -744,23 +744,28 @@ class SummaryStatsDate(BaseModel):
     SummaryStatsDate in Schemas
     """
 
-    num_unique: StrictInt = Field(
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
         description="The exact number of distinct values",
     )
 
-    min_date: StrictStr = Field(
+    min_date: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum date value as string",
     )
 
-    mean_date: StrictStr = Field(
+    mean_date: Optional[StrictStr] = Field(
+        default=None,
         description="Average date value as string",
     )
 
-    median_date: StrictStr = Field(
+    median_date: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) date value as string",
     )
 
-    max_date: StrictStr = Field(
+    max_date: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum date value as string",
     )
 
@@ -770,23 +775,28 @@ class SummaryStatsDatetime(BaseModel):
     SummaryStatsDatetime in Schemas
     """
 
-    num_unique: StrictInt = Field(
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
         description="The exact number of distinct values",
     )
 
-    min_date: StrictStr = Field(
+    min_date: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum date value as string",
     )
 
-    mean_date: StrictStr = Field(
+    mean_date: Optional[StrictStr] = Field(
+        default=None,
         description="Average date value as string",
     )
 
-    median_date: StrictStr = Field(
+    median_date: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) date value as string",
     )
 
-    max_date: StrictStr = Field(
+    max_date: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum date value as string",
     )
 

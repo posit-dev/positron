@@ -1043,13 +1043,7 @@
 			},
 			"summary_stats_date": {
 				"type": "object",
-				"required": [
-					"num_unique",
-					"min_date",
-					"mean_date",
-					"median_date",
-					"max_date"
-				],
+				"required": [],
 				"properties": {
 					"num_unique": {
 						"type": "integer",
@@ -1075,13 +1069,7 @@
 			},
 			"summary_stats_datetime": {
 				"type": "object",
-				"required": [
-					"num_unique",
-					"min_date",
-					"mean_date",
-					"median_date",
-					"max_date"
-				],
+				"required": [],
 				"properties": {
 					"num_unique": {
 						"type": "integer",

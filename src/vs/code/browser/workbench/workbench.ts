@@ -24,6 +24,8 @@ import { create } from 'vs/workbench/workbench.web.main';
 // --- Start PWB: proxy port url ---
 import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from 'vs/platform/tunnel/common/tunnel';
 import { transformPort } from './urlPorts';
+// eslint-disable-next-line no-duplicate-imports
+import { join } from 'vs/base/common/path';
 // --- End PWB ---
 
 interface ISecretStorageCrypto {
@@ -614,7 +616,13 @@ function readCookie(name: string): string | undefined {
 							.replace('/p/', '/proxy/')
 							.replace('{{port}}', localhostMatch.port.toString());
 					}
-					resolvedUri = URI.parse(new URL(renderedTemplate, mainWindow.location.href).toString());
+					// Update the authority and path of the URI to point to the proxy server. This
+					// retains the original query and fragment, while updating the authority and
+					// path to the proxy server.
+					resolvedUri = resolvedUri.with({
+						authority: mainWindow.location.host,
+						path: join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
+					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
 				}

@@ -608,27 +608,27 @@ export interface SummaryStatsDate {
 	/**
 	 * The exact number of distinct values
 	 */
-	num_unique: number;
+	num_unique?: number;
 
 	/**
 	 * Minimum date value as string
 	 */
-	min_date: string;
+	min_date?: string;
 
 	/**
 	 * Average date value as string
 	 */
-	mean_date: string;
+	mean_date?: string;
 
 	/**
 	 * Sample median (50% value) date value as string
 	 */
-	median_date: string;
+	median_date?: string;
 
 	/**
 	 * Maximum date value as string
 	 */
-	max_date: string;
+	max_date?: string;
 
 }
 
@@ -639,27 +639,27 @@ export interface SummaryStatsDatetime {
 	/**
 	 * The exact number of distinct values
 	 */
-	num_unique: number;
+	num_unique?: number;
 
 	/**
 	 * Minimum date value as string
 	 */
-	min_date: string;
+	min_date?: string;
 
 	/**
 	 * Average date value as string
 	 */
-	mean_date: string;
+	mean_date?: string;
 
 	/**
 	 * Sample median (50% value) date value as string
 	 */
-	median_date: string;
+	median_date?: string;
 
 	/**
 	 * Maximum date value as string
 	 */
-	max_date: string;
+	max_date?: string;
 
 	/**
 	 * Time zone for timestamp with time zone

@@ -5,6 +5,7 @@
 
 import { localize } from 'vs/nls';
 import { FileAccess } from 'vs/base/common/network';
+import { join } from 'vs/base/common/path';
 import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -493,7 +494,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		cleanupTargetOrigins.forEach(targetOrigin => {
 			if (!activeTargetOrigins.includes(targetOrigin)) {
 				this._commandService.executeCommand<boolean>(
-					'positronProxy.stopHelpProxyServer',
+					'positronProxy.stopProxyServer',
 					targetOrigin
 				);
 			}
@@ -649,6 +650,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		sourceUrl.protocol = proxyServerOriginUrl.protocol;
 		sourceUrl.hostname = proxyServerOriginUrl.hostname;
 		sourceUrl.port = proxyServerOriginUrl.port;
+		sourceUrl.pathname = join(proxyServerOriginUrl.pathname, targetUrl.pathname);
 
 		// Basically this can't happen.
 		if (!session) {

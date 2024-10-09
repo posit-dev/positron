@@ -14,6 +14,7 @@
     "onCommand:positronProxy.startHelpProxyServer",
     "onCommand:positronProxy.setHelpProxyServerStyles",
     "onCommand:positronProxy.startHtmlProxyServer",
+    "onCommand:positronProxy.startHttpProxyServer",
     "onStartupFinished"
   ],
   "main": "./out/extension.js",

@@ -58,8 +58,17 @@ export class PositronPlots {
 		return this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().locator(selector);
 	}
 
-	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible') {
-		await this.getWebviewPlotLocator(selector).waitFor({ state, timeout: 30000 });
+	getRWebWebviewPlotLocator(selector: string): Locator {
+		return this.code.driver.getFrame(OUTER_WEBVIEW_FRAME).last().frameLocator(INNER_WEBVIEW_FRAME).last().frameLocator('//iframe').last().locator(selector);
+	}
+
+	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) {
+
+		if (RWeb) {
+			await this.getRWebWebviewPlotLocator(selector).waitFor({ state, timeout: 30000 });
+		} else {
+			await this.getWebviewPlotLocator(selector).waitFor({ state, timeout: 30000 });
+		}
 	}
 
 	async clearPlots() {

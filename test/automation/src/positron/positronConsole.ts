@@ -34,8 +34,13 @@ export class PositronConsole {
 	barClearButton: PositronBaseElement;
 	consoleRestartButton: PositronBaseElement;
 
-	activeConsole = this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
-	emptyConsole = this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+	get activeConsole() {
+		return this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
+	}
+
+	get emptyConsole() {
+		return this.code.driver.getLocator(EMPTY_CONSOLE).getByText('There is no interpreter running');
+	}
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput) {
 		this.barPowerButton = new PositronBaseElement(CONSOLE_BAR_POWER_BUTTON, this.code);

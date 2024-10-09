@@ -139,6 +139,14 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		return ROW_HEIGHT;
 	}
 
+	selectItem(rowIndex: number): void {
+		// Get the column schema for the row index.
+		const columnSchema = this._columnSchemaCache.getColumnSchema(rowIndex);
+		if (!columnSchema) { return; }
+
+		this._onDidSelectColumnEmitter.fire(columnSchema);
+	}
+
 	/**
 	 * Gets a cell.
 	 * @param columnIndex The column index.
@@ -190,6 +198,13 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			// Set the search text and fetch data.
 			this._searchText = searchText;
 			await this.fetchData();
+
+			// select the first available row after fetching so that users cat hit "enter"
+			// to make an immediate confirmation on what they were searching for
+			if (this.visibleRows) {
+				this.showCursor();
+				this.setCursorRow(0);
+			}
 		}
 	}
 

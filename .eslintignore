@@ -7,6 +7,10 @@
 **/extensions/html-language-features/server/lib/jquery.d.ts
 **/extensions/html-language-features/server/src/test/pathCompletionFixtures/**
 **/extensions/ipynb/notebook-out/**
+# --- Start Positron ---
+# Ignore OpenAPI generated files
+**/extensions/kallichore-adapter/src/kcclient/**
+# --- End Positron ---
 **/extensions/markdown-language-features/media/**
 **/extensions/markdown-language-features/notebook-out/**
 **/extensions/markdown-math/notebook-out/**

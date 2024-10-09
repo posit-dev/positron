@@ -20,6 +20,7 @@ from positron_ipykernel.positron_ipkernel import (
 )
 from positron_ipykernel.session_mode import SessionMode
 from positron_ipykernel.variables import VariablesService
+from http.server import HTTPServer
 
 utils.TESTING = True
 
@@ -192,6 +193,13 @@ def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> M
 def mock_display_pub(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell, "display_pub", mock)
+    return mock
+
+
+@pytest.fixture
+def mock_handle_request(monkeypatch: pytest.MonkeyPatch) -> Mock:
+    mock = Mock()
+    monkeypatch.setattr(HTTPServer, "handle_request", mock)
     return mock
 
 

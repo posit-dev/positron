@@ -13,7 +13,7 @@ import { JupyterAdapterApi } from './jupyter-adapter';
 export const JUPYTER_WORKSPACE_STATE_KEY = 'jupyter-adapter.v1';
 
 export function activate(_context: vscode.ExtensionContext): JupyterAdapterApi {
-	const channel = vscode.window.createOutputChannel('Jupyter Adapter');
+	const channel = vscode.window.createOutputChannel('Jupyter Adapter', { log: true });
 	channel.appendLine('Jupyter Adapter extension activated');
 	return new JupyterAdapterApiImpl(_context, channel);
 }

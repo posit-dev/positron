@@ -64,7 +64,10 @@ export function installDiagnosticsHandler(logger: Logger, appFn?: () => Applicat
 		logger.log('');
 
 		const app: Application = appFn?.() ?? this.app;
-		await app?.stopTracing(testTitle.replace(/[^a-z0-9\-]/ig, '_'), failed);
+		// --- Start Positron ---
+		// state is undefined during retry
+		await app?.stopTracing(testTitle.replace(/[^a-z0-9\-]/ig, '_'), failed || (currentTest.state === undefined));
+		// --- End Positron ---
 	});
 }
 

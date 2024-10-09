@@ -48,6 +48,7 @@ const dirs = [
 	'extensions/json-language-features/server',
 	// --- Start Positron ---
 	'extensions/jupyter-adapter',
+	'extensions/kallichore-adapter',
 	// --- End Positron ---
 	'extensions/markdown-language-features',
 	'extensions/markdown-math',

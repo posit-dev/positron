@@ -106,13 +106,18 @@ export class PositronDataExplorer {
 
 		// worakaround for column being set incorrectly
 		await expect(async () => {
-			await this.code.waitAndClick(COLUMN_SELECTOR);
-			const columnText = `${columnName}\n`;
-			await this.code.waitForSetValue(COLUMN_INPUT, columnText);
-			await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
-			const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
-			expect(checkValue).toBe(columnName);
-		}).toPass({ timeout: 10000 });
+			try {
+				await this.code.waitAndClick(COLUMN_SELECTOR);
+				const columnText = `${columnName}\n`;
+				await this.code.waitForSetValue(COLUMN_INPUT, columnText);
+				await this.code.waitAndClick(COLUMN_SELECTOR_CELL);
+				const checkValue = (await this.code.waitForElement(COLUMN_SELECTOR)).textContent;
+				expect(checkValue).toBe(columnName);
+			} catch (e) {
+				await this.code.driver.getKeyboard().press('Escape');
+				throw e;
+			}
+		}).toPass({ timeout: 30000 });
 
 
 		await this.code.waitAndClick(FUNCTION_SELECTOR);

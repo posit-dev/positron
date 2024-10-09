@@ -515,7 +515,9 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Smoke Test",
-			"program": "${workspaceFolder}/test/smoke/test/index.js",
+			// --- Start Positron
+			"program": "${workspaceFolder}/test/smoke/run-tests.js",
+			// --- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
 			"args": [
@@ -524,13 +526,13 @@
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],
-			//---- Start Positron
+			// --- Start Positron
 			"sourceMaps": true,
 			"resolveSourceMapLocations": [
 				"${workspaceFolder}/**",
 				"!**/node_modules/**"
 			],
-			//--- End Positron
+			// --- End Positron
 			"env": {
 				"NODE_ENV": "development",
 				"VSCODE_DEV": "1",
@@ -541,7 +543,9 @@
 			"type": "node",
 			"request": "launch",
 			"name": "Launch Web Smoke Test",
-			"program": "${workspaceFolder}/test/smoke/test/index.js",
+			// --- Start Positron
+			"program": "${workspaceFolder}/test/smoke/run-tests.js",
+			// --- End Positron
 			"cwd": "${workspaceFolder}/test/smoke",
 			"timeout": 240000,
 			"args": [
@@ -551,13 +555,13 @@
 			"outFiles": [
 				"${cwd}/out/**/*.js"
 			],
-			//---- Start Positron
+			// --- Start Positron
 			"sourceMaps": true,
 			"resolveSourceMapLocations": [
 				"${workspaceFolder}/**",
 				"!**/node_modules/**"
 			],
-			//--- End Positron
+			// --- End Positron
 			"env": {
 				"NODE_ENV": "development",
 				"VSCODE_DEV": "1",
