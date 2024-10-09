@@ -223,7 +223,7 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 					log.warn('URL not found in terminal output');
 					return undefined;
 				})(),
-				5000,
+				10_000,
 				() => {
 					log.warn('Timed out waiting for server URL in terminal output');
 				}
