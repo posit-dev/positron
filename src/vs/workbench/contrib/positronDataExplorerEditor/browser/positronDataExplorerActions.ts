@@ -40,7 +40,7 @@ const category: ILocalizedString = {
  */
 export const enum PositronDataExplorerCommandId {
 	CopyAction = 'workbench.action.positronDataExplorer.copy',
-	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData'
+	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData',
 }
 
 /**
