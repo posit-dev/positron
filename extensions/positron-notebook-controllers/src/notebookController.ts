@@ -56,11 +56,7 @@ export class NotebookController implements vscode.Disposable {
 		this.controller.description = _runtimeMetadata.runtimePath;
 		this.controller.supportsExecutionOrder = true;
 		this.controller.executeHandler = this.executeCells.bind(this);
-
-		// We intentionally don't set this.controller.supportedLanguages. If we restrict it, when a
-		// user first runs a cell in a new notebook with no selected controller, and they select a
-		// controller from the quickpick for a language that differs from the cell, the cell will
-		// not be executed.
+		this.controller.supportedLanguages = [this._runtimeMetadata.languageId, 'raw'];
 
 		this._disposables.push(this.controller);
 
