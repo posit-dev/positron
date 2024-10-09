@@ -8,7 +8,7 @@ import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-describe('Python Applications #pr', () => {
+describe('Python Applications #pr #win', () => {
 	setupAndStartApp();
 
 	describe('Python Applications', () => {
