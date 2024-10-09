@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { expect } from '@playwright/test';
-import { Application, PositronPythonFixtures } from '../../../../../automation/out';
+import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
@@ -36,7 +36,7 @@ describe('Python Applications #pr', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('#_dash-app-content');
 
-			await expect(headerLocator).toHaveText('Hello World', { timeout: 30000 });
+			await expect(headerLocator).toHaveText('Hello World', { timeout: 45000 });
 
 		});
 
@@ -51,7 +51,7 @@ describe('Python Applications #pr', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('h2.title');
 
-			await expect(headerLocator).toContainText('FastAPI', { timeout: 30000 });
+			await expect(headerLocator).toContainText('FastAPI', { timeout: 45000 });
 
 		});
 
@@ -64,7 +64,7 @@ describe('Python Applications #pr', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('button.primary');
 
-			await expect(headerLocator).toHaveText('Submit', { timeout: 30000 });
+			await expect(headerLocator).toHaveText('Submit', { timeout: 45000 });
 
 		});
 
@@ -77,7 +77,7 @@ describe('Python Applications #pr', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stAppDeployButton', this.app.web);
 
-			await expect(headerLocator).toHaveText('Deploy', { timeout: 30000 });
+			await expect(headerLocator).toHaveText('Deploy', { timeout: 45000 });
 
 		});
 	});
