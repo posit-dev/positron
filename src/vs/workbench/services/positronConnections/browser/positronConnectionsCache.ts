@@ -45,6 +45,11 @@ export interface IPositronConnectionEntry {
 	 * Causes the item to disconnect.
 	 */
 	disconnect?(): void;
+
+	/**
+	 * Cause the item to connect.
+	 */
+	connect?(): void;
 }
 
 /**
@@ -92,6 +97,12 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	disconnect() {
 		if (this.item.disconnect) {
 			this.item.disconnect();
+		}
+	}
+
+	connect() {
+		if (this.item.connect) {
+			this.item.connect();
 		}
 	}
 }

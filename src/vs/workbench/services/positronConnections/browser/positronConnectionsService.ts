@@ -13,6 +13,7 @@ import { MockedConnectionInstance } from 'vs/workbench/services/positronConnecti
 import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event, Emitter } from 'vs/base/common/event';
+
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
 	private readonly _cache: PositronConnectionsCache;
@@ -25,8 +26,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	private onDidChangeData = this.onDidChangeDataEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [
-		new MockedConnectionInstance('hello_world', this.onDidChangeDataEmitter),
-		new MockedConnectionInstance('Hello world', this.onDidChangeDataEmitter)
+		new MockedConnectionInstance('hello_world', this.onDidChangeDataEmitter, this),
+		new MockedConnectionInstance('Hello world', this.onDidChangeDataEmitter, this)
 	];
 
 	constructor(
@@ -75,6 +76,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 			this.addConnection(new PositronConnectionsInstance(
 				this.onDidChangeDataEmitter,
+				this._runtimeSessionService,
 				new ConnectionsClientInstance(client),
 				message.data as any
 			));
@@ -91,6 +93,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 				this.addConnection(new PositronConnectionsInstance(
 					this.onDidChangeDataEmitter,
+					this._runtimeSessionService,
 					connectionsClient,
 					metadata
 				));
@@ -99,8 +102,19 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	addConnection(instance: PositronConnectionsInstance) {
-		this.connections.push(instance);
-		// When a connection is added, we should refresh the connection entries
+		// If a connection with the same id exists, we will replace it with a new one
+		// otherwise just push to the end of the list.
+		const newId = instance.id;
+		const existingConnectionIndex = this.connections.findIndex((conn) => {
+			return conn.id === newId;
+		});
+
+		if (existingConnectionIndex > 0) {
+			this.connections[existingConnectionIndex] = instance;
+		} else {
+			this.connections.push(instance);
+		}
+
 		this.refreshConnectionEntries();
 	}
 

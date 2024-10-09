@@ -41,9 +41,23 @@ interface ConnectionActionBarProps extends ActionBarProps {
 
 export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProps>) => {
 
-	// We only enable the disconnect button if there's some connection selected
-	// and it's the root of a connection (level == 0).
-	const disconnectDisabled = (props.selectedEntry === undefined) || (props.selectedEntry.level !== 0);
+	// We only enable the disconnect button if:
+	// 1. there's some connection selected
+	// 2. it's the root of a connection (level == 0).
+	// 3. the connection is active.
+	const disconnectDisabled = (props.selectedEntry === undefined) ||
+		(props.selectedEntry.level !== 0) ||
+		(!props.selectedEntry.active);
+
+	// We only enable the connect button if:
+	// 1. there's some connection selected
+	// 2. it's the root of a connection (level == 0).
+	// 3. the connection is not active.
+	// 4. it implements a 'connect' method.
+	const connectDisabled = (props.selectedEntry === undefined) ||
+		(props.selectedEntry.level !== 0) ||
+		(props.selectedEntry.active) ||
+		(props.selectedEntry.connect === undefined);
 
 	return (
 		<div style={{ height: kHeight }}>
@@ -58,7 +72,11 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
+							// TODO: should have a connect-icon
 							iconId='debug-disconnect'
+							tooltip={() => 'Connect'}
+							disabled={connectDisabled}
+							onPressed={() => props.selectedEntry?.connect?.()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton

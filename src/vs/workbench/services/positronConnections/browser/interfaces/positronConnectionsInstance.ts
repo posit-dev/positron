@@ -7,7 +7,13 @@ import { Emitter } from 'vs/base/common/event';
 
 export interface IPositronConnectionInstance extends IPositronConnectionItem {
 	getClientId(): string | undefined;
+	id: string;
 	disconnect(): void;
+
+	/**
+	 * Connection instances can implement this method to launch a connection.
+	 */
+	connect?(): void;
 }
 
 // This is the interface the front-end needs from a connection instance
@@ -55,4 +61,10 @@ export interface IPositronConnectionItem {
 	 * with top level connections.
 	 */
 	disconnect?(): void;
+
+	/***
+	 * Similarly to `disconnect`. Any might implement it, but we currently
+	 * will only evaluate if it's implemented in the connections instance.
+	 */
+	connect?(): void;
 }

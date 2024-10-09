@@ -5,6 +5,7 @@
 
 import { Emitter, Event } from 'vs/base/common/event';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export class MockedConnectionInstance implements IPositronConnectionInstance {
 	private _expanded: boolean = false;
@@ -44,10 +45,13 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		new MockedConnectionItem(this.onDidChangeDataEmitter),
 	];
 
-	constructor(private readonly clientId: string, readonly onDidChangeDataEmitter: Emitter<void>) {
+	constructor(
+		private readonly clientId: string,
+		readonly onDidChangeDataEmitter: Emitter<void>,
+		readonly connectionsService: IPositronConnectionsService,
+	) {
 		this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
-			console.log('expanded is?', this._expanded);
 			this.onDidChangeDataEmitter.fire();
 		});
 	}
@@ -68,6 +72,19 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return 'SQL Lite Connection 1';
 	}
 
+	get id() {
+		return this.clientId;
+	}
+
+	connect() {
+		// Dummy reconnection. Just creates a new instance with the same id.
+		this.connectionsService.addConnection(new MockedConnectionInstance(
+			this.clientId,
+			this.onDidChangeDataEmitter,
+			this.connectionsService
+		));
+	}
+
 	async getIcon() {
 		return 'database';
 	}
@@ -84,6 +101,7 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 
 	disconnect(): void {
 		this._active = false;
+		this._expanded = false;
 		this.onDidChangeDataEmitter.fire();
 	}
 }
