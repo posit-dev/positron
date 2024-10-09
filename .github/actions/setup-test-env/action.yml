@@ -17,9 +17,6 @@ runs:
     # --- Needed by E2E Tests ---
     # AWS S3 Access, Graphviz, Quarto, Conda, Python + Python Deps, R + R Deps
 
-    # --- Needed by Integration Tests ---
-    # R + R Deps
-
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -36,42 +33,13 @@ runs:
       with:
         tinytex: true
 
-    - name: Install Conda (Miniforge3)
+    - name: Setup Conda (Miniforge3)
       shell: bash
       run: |
         wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
         sudo bash Miniforge3.sh -b -p "${HOME}/conda"
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
-
-    # - name: Install Python
-    #   uses: ./.github/actions/setup-python-xvfb
-    #   with:
-    #     version: "3.10"
-
-    # - name: Install Python dependencies
-    #   shell: bash
-    #   run: |
-    #     python -m pip install --upgrade pip
-    #     python -m pip install -r requirements.txt
-    #     python -m pip install ipykernel trcli
-
-    # # Install R and R pkgs with cache
-    # - name: Install rig, R
-    #   shell: bash
-    #   env:
-    #     R_VERSION: "4.4.0"
-    #   run: |
-    #     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-    #     rig add "$R_VERSION"
-
-    # - name: Install R packages
-    #   shell: bash
-    #   run: |
-    #     curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-    #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-    # Use the custom composite action to install R with or without packages
 
     - name: Setup Python
       uses: ./.github/actions/install-python

@@ -27,6 +27,13 @@ runs:
         # Set up update-alternatives for managing multiple Python versions
         sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1
 
+    - name: Install Python dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install ipykernel trcli
+
     - name: Verify Python Version
       shell: bash
       run: |
