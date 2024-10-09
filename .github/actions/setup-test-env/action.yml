@@ -52,16 +52,16 @@ runs:
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
     # Install Python and Python dependencies with cache
-    - name: Install System Level Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.10.10"
+    # - name: Install System Level Python
+    #   uses: actions/setup-python@v5
+    #   with:
+    #     python-version: "3.10.10"
 
-    - name: Cache Python dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: python-v2-${{ hashFiles('requirements.txt') }}
+    # - name: Cache Python dependencies
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: ~/.cache/pip
+    #     key: python-v2-${{ hashFiles('requirements.txt') }}
 
     - name: Install Python dependencies
       shell: bash
@@ -74,7 +74,7 @@ runs:
     - name: Install rig, R
       shell: bash
       env:
-        R_VERSION: "4.4.0" # Set the desired R version here or use an environment variable
+        R_VERSION: "4.4.0"
       run: |
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
         rig add "$R_VERSION"

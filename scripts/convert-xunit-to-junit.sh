@@ -30,7 +30,8 @@ if [ ! -s "$XUNIT_FILE" ]; then
 	exit 1
 fi
 
-# Step 1: Strip ANSI escape codes from the XUnit XML file and save it as a new clean file
+# When we started logging stack traces in middle of test results ANSI escape codes were added to the XML file
+# These escape codes are not valid XML and cause xmllint to fail. So we need to strip them out.
 # - `&#x1B;` sequences represent ANSI escape codes in XML (used for colors and formatting).
 # - `\u001b` is the raw representation of the escape code in other formats.
 # Create a cleaned copy of the input file without escape sequences.
@@ -94,22 +95,14 @@ echo '</testsuites>' >> "$JUNIT_FILE"
 
 # Detect if running on macOS (BSD) or Linux and adjust sed accordingly
 case "$OSTYPE" in
-  darwin*)
-	# macOS/BSD sed: use -i '' for in-place edits
-    SED_OPTS="-i ''"
-    ;;
-  *)
-    # Linux/GNU sed: use -i without ''
-    SED_OPTS="-i"
-    ;;
+	darwin*)
+		# macOS/BSD sed: use -i '' for in-place edits
+		sed -i '' -e 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+		;;
+	*)
+		# Linux/GNU sed: use -i without ''
+		sed -i 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
+		;;
 esac
-
-# Replace <skipped></testcase> with <skipped /> in JUnit XML
-sed $SED_OPTS 's#<skipped></testcase>#<skipped />#g' "$JUNIT_FILE"
-
-# Remove any ANSI escape codes from the <failure> elements in the JUnit XML
-# ANSI codes often start with `&#x1B;` or can be represented with `\u001b`
-sed $SED_OPTS -E 's/&#x1B;\[[0-9;]*[a-zA-Z]//g' "$JUNIT_FILE"
-sed $SED_OPTS -E 's/\u001b\[[0-9;]*[a-zA-Z]//g' "$JUNIT_FILE"
 
 echo "Conversion complete. JUnit XML saved to: $JUNIT_FILE"
