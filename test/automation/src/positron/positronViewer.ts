@@ -18,11 +18,17 @@ export class PositronViewer {
 
 	constructor(private code: Code) { }
 
-	getViewerLocator(sublocator: string): Locator {
+	getViewerLocator(sublocator: string, additionalNesting = false): Locator {
 		const outerFrame = this.code.driver.getFrame(OUTER_FRAME);
 		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
-		const element = innerFrame.locator(sublocator);
-		return element;
+		if (!additionalNesting) {
+			const element = innerFrame.locator(sublocator);
+			return element;
+		} else {
+			const innerInnerFrame = innerFrame.frameLocator('//iframe');
+			const element = innerInnerFrame.locator(sublocator);
+			return element;
+		}
 	}
 
 	getViewerFrame(frameLocator: string): FrameLocator {

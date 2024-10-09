@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+// eslint-disable-next-line import/no-unresolved
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { PositronRunApp, RunAppTerminalOptions } from '../positron-run-app.d';
 import { IServiceContainer } from '../ioc/types';
@@ -14,133 +16,231 @@ import { Commands } from '../common/constants';
 
 export function activateWebAppCommands(serviceContainer: IServiceContainer, disposables: vscode.Disposable[]): void {
     disposables.push(
-        vscode.commands.registerCommand(Commands.Exec_Dash_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Dash',
-                getTerminalOptions(runtime, document, urlPrefix) {
-                    const terminalOptions: RunAppTerminalOptions = {
-                        commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
-                    };
-                    terminalOptions.env = {};
-                    if (urlPrefix) {
-                        // Note that this will result in the app being run at http://localhost:APP_PORT/proxy/PROXY_PORT/
-                        terminalOptions.env.DASH_URL_BASE_PATHNAME = urlPrefix;
-                    }
-                    return terminalOptions;
-                },
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_FastAPI_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'FastAPI',
-                async getTerminalOptions(runtime, document, _urlPrefix) {
-                    let hasFastapiCli = false;
-
-                    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-                    const interpreter = await interpreterService.getInterpreterDetails(runtime.runtimePath);
-                    if (interpreter) {
-                        const installer = serviceContainer.get<IInstaller>(IInstaller);
-                        hasFastapiCli = await installer.isInstalled(Product.fastapiCli, interpreter);
-                    } else {
-                        traceError(
-                            `Could not check if fastapi-cli is installed due to an invalid interpreter path: ${runtime.runtimePath}`,
-                        );
-                    }
-
-                    let args: string[];
-                    if (hasFastapiCli) {
-                        args = [runtime.runtimePath, '-m', 'fastapi', 'dev', document.uri.fsPath];
-                    } else {
-                        const appName = await getAppName(document, 'FastAPI');
-                        if (!appName) {
-                            return undefined;
-                        }
-                        args = [
-                            runtime.runtimePath,
-                            '-m',
-                            'uvicorn',
-                            '--reload',
-                            `${pathToModule(document.uri.fsPath)}:${appName}`,
-                        ];
-                    }
-                    return { commandLine: args.join(' ') };
-                },
-                urlPath: '/docs',
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_Flask_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Flask',
-                async getTerminalOptions(runtime, document, _urlPrefix) {
-                    const args = [runtime.runtimePath, '-m', 'flask', 'run'];
-                    const terminalOptions: RunAppTerminalOptions = { commandLine: args.join(' ') };
-                    terminalOptions.env = {};
-                    terminalOptions.env.FLASK_APP = document.uri.fsPath;
-                    return terminalOptions;
-                },
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_Gradio_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Gradio',
-                getTerminalOptions(runtime, document, urlPrefix) {
-                    const terminalOptions: RunAppTerminalOptions = {
-                        commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
-                    };
-
-                    terminalOptions.env = {};
-                    if (urlPrefix) {
-                        // Gradio doc: https://www.gradio.app/guides/environment-variables#7-gradio-root-path
-                        // Issue with Gradio not loading assets when Gradio is run via proxy:
-                        //     https://github.com/gradio-app/gradio/issues/9529
-                        // Gradio works if we use these versions: gradio==3.3.1 fastapi==0.85.2 httpx==0.24.1
-                        terminalOptions.env.GRADIO_ROOT_PATH = urlPrefix;
-                    }
-
-                    return terminalOptions;
-                },
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_Shiny_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Shiny',
-                getTerminalOptions(runtime, document, _urlPrefix) {
-                    const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload', document.uri.fsPath];
-                    return { commandLine: args.join(' ') };
-                },
-            });
-        }),
-
-        vscode.commands.registerCommand(Commands.Exec_Streamlit_In_Terminal, async () => {
-            const runAppApi = await getPositronRunAppApi();
-            await runAppApi.runApplication({
-                name: 'Streamlit',
-                getTerminalOptions(runtime, document, _urlPrefix) {
-                    const args = [
-                        runtime.runtimePath,
-                        '-m',
-                        'streamlit',
-                        'run',
-                        document.uri.fsPath,
-                        // Enable headless mode to avoid opening a browser window since it
-                        // will already be previewed in the viewer pane.
-                        '--server.headless',
-                        'true',
-                    ];
-                    return { commandLine: args.join(' ') };
-                },
-            });
-        }),
+        registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, port, urlPrefix) =>
+            getDashDebugConfig(document, port, urlPrefix),
+        ),
+        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, port, urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document, port, urlPrefix),
+        ),
+        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, port, urlPrefix) =>
+            getFlaskDebugConfig(document, port, urlPrefix),
+        ),
+        registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, port, urlPrefix) =>
+            getGradioDebugConfig(document, port, urlPrefix),
+        ),
+        registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, port, _urlPrefix) =>
+            getShinyDebugConfig(document, port),
+        ),
+        registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, port, _urlPrefix) =>
+            getStreamlitDebugConfig(document, port),
+        ),
+        registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, port, urlPrefix) =>
+            getDashDebugConfig(document, port, urlPrefix),
+        ),
+        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, port, urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document, port, urlPrefix),
+        ),
+        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, port, urlPrefix) =>
+            getFlaskDebugConfig(document, port, urlPrefix),
+        ),
+        registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, port, urlPrefix) =>
+            getGradioDebugConfig(document, port, urlPrefix),
+        ),
+        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, port, _urlPrefix) =>
+            getShinyDebugConfig(document, port),
+        ),
+        registerDebugCommand(
+            Commands.Debug_Streamlit_In_Terminal,
+            'Streamlit',
+            (_runtime, document, port, _urlPrefix) => getStreamlitDebugConfig(document, port),
+        ),
     );
+}
+
+function registerExecCommand(
+    command: string,
+    name: string,
+    getDebugConfiguration: (
+        runtime: positron.LanguageRuntimeMetadata,
+        document: vscode.TextDocument,
+        port?: string,
+        urlPrefix?: string,
+    ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
+    urlPath?: string,
+): vscode.Disposable {
+    return vscode.commands.registerCommand(command, async () => {
+        const runAppApi = await getPositronRunAppApi();
+        await runAppApi.runApplication({
+            name,
+            async getTerminalOptions(runtime, document, port, urlPrefix) {
+                const config = await getDebugConfiguration(runtime, document, port, urlPrefix);
+                if (!config) {
+                    return undefined;
+                }
+
+                const args = [runtime.runtimePath];
+                if ('module' in config) {
+                    args.push('-m', config.module);
+                } else {
+                    args.push(config.program);
+                }
+                if (config.args) {
+                    args.push(...config.args);
+                }
+
+                const terminalOptions: RunAppTerminalOptions = {
+                    commandLine: args.join(' '),
+                };
+                // Add environment variables if any.
+                if (config.env && Object.keys(config.env).length > 0) {
+                    terminalOptions.env = config.env;
+                }
+                return terminalOptions;
+            },
+            urlPath,
+        });
+    });
+}
+
+function registerDebugCommand(
+    command: string,
+    name: string,
+    getPythonDebugConfiguration: (
+        runtime: positron.LanguageRuntimeMetadata,
+        document: vscode.TextDocument,
+        port?: string,
+        urlPrefix?: string,
+    ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
+): vscode.Disposable {
+    return vscode.commands.registerCommand(command, async () => {
+        const runAppApi = await getPositronRunAppApi();
+        await runAppApi.debugApplication({
+            name,
+            async getDebugConfiguration(runtime, document, port, urlPrefix) {
+                const config = await getPythonDebugConfiguration(runtime, document, port, urlPrefix);
+                if (!config) {
+                    return undefined;
+                }
+                return {
+                    type: 'python',
+                    name,
+                    request: 'launch',
+                    ...config,
+                    jinja: true,
+                    stopOnEntry: false,
+                };
+            },
+        });
+    });
+}
+
+interface BaseDebugConfiguration {
+    env?: { [key: string]: string | null | undefined };
+    args?: string[];
+}
+
+interface ModuleDebugConfiguration extends BaseDebugConfiguration {
+    module: string;
+}
+
+interface ProgramDebugConfiguration extends BaseDebugConfiguration {
+    program: string;
+}
+
+type DebugConfiguration = ModuleDebugConfiguration | ProgramDebugConfiguration;
+
+function getDashDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+    const env: { [key: string]: string | null | undefined } = {
+        PYTHONPATH: path.dirname(document.uri.fsPath),
+    };
+    if (port) {
+        env.DASH_PORT = port;
+    }
+    if (urlPrefix) {
+        env.DASH_URL_PREFIX = urlPrefix;
+    }
+
+    return { program: document.uri.fsPath, env };
+}
+
+async function getFastAPIDebugConfig(
+    serviceContainer: IServiceContainer,
+    runtime: positron.LanguageRuntimeMetadata,
+    document: vscode.TextDocument,
+    port?: string,
+    urlPrefix?: string,
+): Promise<DebugConfiguration | undefined> {
+    let mod: string | undefined;
+    let args: string[];
+    if (await isFastAPICLIInstalled(serviceContainer, runtime.runtimePath)) {
+        mod = 'fastapi';
+        args = ['dev', document.uri.fsPath];
+    } else {
+        const appName = await getAppName(document, 'FastAPI');
+        if (!appName) {
+            return undefined;
+        }
+        mod = 'uvicorn';
+        args = ['--reload', `${pathToModule(document.uri.fsPath)}:${appName}`];
+    }
+
+    if (port) {
+        args.push('--port', port);
+    }
+    if (urlPrefix) {
+        args.push('--root-path', urlPrefix);
+    }
+
+    return { module: mod, args };
+}
+
+async function isFastAPICLIInstalled(serviceContainer: IServiceContainer, pythonPath: string): Promise<boolean> {
+    const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+    const interpreter = await interpreterService.getInterpreterDetails(pythonPath);
+    if (!interpreter) {
+        traceError(`Could not check if fastapi-cli is installed due to an invalid interpreter path: ${pythonPath}`);
+    }
+    const installer = serviceContainer.get<IInstaller>(IInstaller);
+    return installer.isInstalled(Product.fastapiCli, interpreter);
+}
+
+function getFlaskDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+    const args = ['--app', document.uri.fsPath, 'run'];
+    if (port) {
+        args.push('--port', port);
+    }
+    const env: { [key: string]: string } = {};
+    if (urlPrefix) {
+        env.SCRIPT_NAME = urlPrefix;
+    }
+    return { module: 'flask', args, env };
+}
+
+function getGradioDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+    const env: { [key: string]: string } = {};
+    if (port) {
+        env.GRADIO_SERVER_PORT = port;
+    }
+    if (urlPrefix) {
+        env.GRADIO_ROOT_PATH = urlPrefix;
+    }
+    return { program: document.uri.fsPath, env };
+}
+
+function getShinyDebugConfig(document: vscode.TextDocument, port?: string): DebugConfiguration {
+    const args = ['run', '--reload', document.uri.fsPath];
+    if (port) {
+        args.push('--port', port);
+    }
+    return { module: 'shiny', args };
+}
+
+function getStreamlitDebugConfig(document: vscode.TextDocument, port?: string): DebugConfiguration {
+    const args = ['run', document.uri.fsPath, '--server.headless', 'true'];
+    if (port) {
+        args.push('--port', port);
+    }
+    return { module: 'streamlit', args };
 }
 
 /**
