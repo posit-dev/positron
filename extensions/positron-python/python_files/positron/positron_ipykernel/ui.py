@@ -223,8 +223,6 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                 else:
                     if inspect.getmodule(frame_info.frame) == module:
                         return True
-        else:
-            return True
         return False
 
     def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
