@@ -37,6 +37,10 @@ export class ConnectionsClientInstance extends Disposable {
 		return await this._positronConnectionsComm.getIcon(path);
 	}
 
+	async previewObject(path: ObjectSchema[]) {
+		await this._positronConnectionsComm.previewObject(path);
+	}
+
 	async getMetadata() {
 		return await this._positronConnectionsComm.getMetadata(this._positronConnectionsComm.clientId);
 	}
