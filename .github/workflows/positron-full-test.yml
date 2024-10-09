@@ -321,7 +321,7 @@ jobs:
           path: .build/logs/smoke-tests-browser/
 
   slack-notification:
-    name: "Send Slack notification"
+    name: "slack-notification"
     runs-on: ubuntu-latest
     needs:
       [
