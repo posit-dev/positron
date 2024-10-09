@@ -221,6 +221,7 @@ export class PositronInterpreterDropdown {
 		// Fail if green dot running indicator missing
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
 		if (!(await runningIndicator.isVisible())) {
+			this.code.logger.log('Green dot running indicator missing');
 			return false;
 		}
 
@@ -232,6 +233,7 @@ export class PositronInterpreterDropdown {
 			!(await restartButton.isVisible()) ||
 			!(await restartButton.isEnabled())
 		) {
+			this.code.logger.log('Restart button not visible and enabled');
 			return false;
 		}
 
@@ -243,6 +245,7 @@ export class PositronInterpreterDropdown {
 			!(await stopButton.isVisible()) ||
 			!(await stopButton.isEnabled())
 		) {
+			this.code.logger.log('Stop button not visible and enabled');
 			return false;
 		}
 
