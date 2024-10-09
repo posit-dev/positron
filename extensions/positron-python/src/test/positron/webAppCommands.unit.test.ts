@@ -139,11 +139,7 @@ suite('Web app commands', () => {
                 return options?.documentText ?? '';
             },
         } as vscode.TextDocument;
-        const terminalOptions = await runAppOptions.getTerminalOptions(
-            runtime,
-            document,
-            options?.urlPrefix,
-        );
+        const terminalOptions = await runAppOptions.getTerminalOptions(runtime, document, options?.urlPrefix);
         assert.deepStrictEqual(terminalOptions, expectedTerminalOptions);
     }
 
@@ -287,11 +283,7 @@ suite('Web app commands', () => {
                 return options?.documentText ?? '';
             },
         } as vscode.TextDocument;
-        const terminalOptions = await debugAppOptions.getDebugConfiguration(
-            runtime,
-            document,
-            options?.urlPrefix,
-        );
+        const terminalOptions = await debugAppOptions.getDebugConfiguration(runtime, document, options?.urlPrefix);
         assert.deepStrictEqual(terminalOptions, expectedDebugConfig);
     }
 

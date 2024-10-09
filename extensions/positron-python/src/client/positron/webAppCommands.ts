@@ -19,9 +19,11 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
             getDashDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document),
-            '/docs'
+        registerExecCommand(
+            Commands.Exec_FastAPI_In_Terminal,
+            'FastAPI',
+            (runtime, document, _urlPrefix) => getFastAPIDebugConfig(serviceContainer, runtime, document),
+            '/docs',
         ),
         registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
             getFlaskDebugConfig(document),
@@ -50,10 +52,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
             getShinyDebugConfig(document),
         ),
-        registerDebugCommand(
-            Commands.Debug_Streamlit_In_Terminal,
-            'Streamlit',
-            (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
+        registerDebugCommand(Commands.Debug_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
+            getStreamlitDebugConfig(document),
         ),
     );
 }
