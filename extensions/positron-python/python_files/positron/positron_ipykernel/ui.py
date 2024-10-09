@@ -198,7 +198,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
 
         for addr in _localhosts:
             if addr in url:
-                is_plot = self._is_module_function("plotly.basedatatypes", "show")
+                is_plot = self._is_module_function("plotly.basedatatypes")
                 if is_plot:
                     return self._send_show_html_event(url, is_plot)
                 else:
@@ -210,15 +210,18 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
     @staticmethod
-    def _is_module_function(module_name: str, function_name: str) -> bool:
+    def _is_module_function(module_name: str, function_name: str = None) -> bool:
         module = sys.modules.get(module_name)
         if module:
-            for frame_info in inspect.stack():
-                if (
-                    inspect.getmodule(frame_info.frame, frame_info.filename) == module
-                    and frame_info.function == function_name
-                ):
-                    return True
+            if function_name:
+                for frame_info in inspect.stack():
+                    if (
+                        inspect.getmodule(frame_info.frame, frame_info.filename) == module
+                        and frame_info.function == function_name
+                    ):
+                        return True
+            else:
+                return True
         return False
 
     def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
