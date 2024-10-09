@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.action-bar-disabled {
+	cursor: not-allowed;
+}
+
+.action-bar-disabled > .action-bar-search {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+	border: 1px solid #d0d0d0;
+	cursor: not-allowed;
+	pointer-events: none;
+}

@@ -5,7 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 
@@ -40,6 +40,11 @@ export interface IPositronConnectionEntry {
 	 * expandable.
 	 */
 	onToggleExpandEmitter?: Emitter<void>;
+
+	/**
+	 * Causes the item to disconnect.
+	 */
+	disconnect?(): void;
 }
 
 /**
@@ -83,6 +88,12 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	get onToggleExpandEmitter() {
 		return this.item.onToggleExpandEmitter;
 	}
+
+	disconnect() {
+		if (this.item.disconnect) {
+			this.item.disconnect();
+		}
+	}
 }
 
 export class PositronConnectionsCache {
@@ -105,7 +116,19 @@ export class PositronConnectionsCache {
 	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0, parent = '') {
 		return await items.reduce<Promise<IPositronConnectionEntry[]>>(async (entries, item, index) => {
 			const _entries = await entries;
-			const id = `${parent}-${level}-${index}`;
+
+			let id: string | undefined;
+
+			if (level === 0) {
+				// When level === 0 we have a root connection instance, and they
+				// might have a clientId which we can use as Id.
+				// This id is then used ton close the connection.
+				id = (item as IPositronConnectionInstance).getClientId();
+			}
+
+			if (!id) {
+				id = `${parent}-${level}-${index}`;
+			}
 
 			_entries.push(new PositronConnectionEntry(
 				item,

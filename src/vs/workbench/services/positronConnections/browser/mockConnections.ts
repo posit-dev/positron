@@ -76,8 +76,15 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return this._expanded;
 	}
 
+	_active: boolean = true;
+
 	get active() {
-		return true;
+		return this._active;
+	}
+
+	disconnect(): void {
+		this._active = false;
+		this.onDidChangeDataEmitter.fire();
 	}
 }
 

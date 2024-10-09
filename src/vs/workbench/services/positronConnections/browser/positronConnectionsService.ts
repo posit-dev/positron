@@ -110,6 +110,13 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		});
 	}
 
+	closeConnection(clientId: string) {
+		const connection = this.getConnection(clientId);
+		if (connection) {
+			connection.disconnect();
+		}
+	}
+
 	hasConnection(clientId: string) {
 		return this.getConnection(clientId) !== undefined;
 	}

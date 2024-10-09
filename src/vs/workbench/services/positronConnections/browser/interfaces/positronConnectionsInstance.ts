@@ -7,6 +7,7 @@ import { Emitter } from 'vs/base/common/event';
 
 export interface IPositronConnectionInstance extends IPositronConnectionItem {
 	getClientId(): string | undefined;
+	disconnect(): void;
 }
 
 // This is the interface the front-end needs from a connection instance
@@ -48,4 +49,10 @@ export interface IPositronConnectionItem {
 	 * Eg. The connections is turned off, or some child was expanded.
 	 */
 	onDidChangeDataEmitter?: Emitter<void>;
+
+	/***
+	 * Items could implement disconnect - but this method is only called
+	 * with top level connections.
+	 */
+	disconnect?(): void;
 }
