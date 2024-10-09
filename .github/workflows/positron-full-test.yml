@@ -90,7 +90,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/R
-          key: R-v0-${{ hashFiles('DESCRIPTION') }}
+          key: R-v2-${{ hashFiles('DESCRIPTION') }}
 
       # Install rig and R only if the cache is not hit
       - name: Install R and its dependencies
