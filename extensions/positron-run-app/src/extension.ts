@@ -218,13 +218,7 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 					for await (const data of stream) {
 						const match = data.match(localUrlRegex)?.[0];
 						if (match) {
-							if (match === proxyInfo.externalUri.toString()) {
-								// Continue searching if the URL is the same as the proxy URL.
-								// This can happen if the server outputs the proxy url as part of
-								// its startup message or if the proxy URL is passed as an argument.
-								continue;
-							}
-							return new URL(match);
+							return new URL(match.trim());
 						}
 					}
 					log.warn('URL not found in terminal output');
