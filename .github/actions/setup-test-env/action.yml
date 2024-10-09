@@ -25,20 +25,41 @@ runs:
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
-    - name: Install python dependencies
+    # Download dependency files for cache key calculation
+    - name: Download dependency files
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+
+    # Cache Python dependencies based on the requirements.txt hash
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: python-v0-${{ hashFiles('requirements.txt') }}
+
+    # Install Python dependencies only if the cache is not hit
+    - name: Install Python dependencies
+      shell: bash
+      run: |
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
-    - name: Install rig and R
+    # Cache R dependencies based on the DESCRIPTION file hash
+    - name: Cache R dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/R
+        key: R-v0-${{ hashFiles('DESCRIPTION') }}
+
+    # Install rig and R only if the cache is not hit
+    - name: Install R and its dependencies
       shell: bash
       run: |
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
         rig add 4.4.0
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
 
     - name: Install Quarto CLI
@@ -55,43 +76,3 @@ runs:
 
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2.0.2
-
-    # Download requirements.txt and DESCRIPTION files for cache key calculation
-    # Python: needed for e2e tests
-    # R: needed for integration and e2e tests
-    - name: Download dependency files
-      shell: bash
-      run: |
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-
-    # Cache Python dependencies based on the requirements.txt hash
-    - name: Cache Python dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pip
-        key: python-v0-${{ hashFiles('requirements.txt') }}
-
-    # Install Python dependencies only if the cache is not hit
-    - name: Install python dependencies
-      shell: bash
-      run: |
-        python -m site
-        python -m pip install --upgrade pip
-        python -m pip install -r requirements.txt
-        python -m pip install ipykernel trcli
-
-    # Cache R dependencies based on the DESCRIPTION file hash
-    - name: Cache R dependencies
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/R
-        key: R-v0-${{ hashFiles('DESCRIPTION') }}
-
-    # Install R and its dependencies only if the cache is not hit
-    - name: Install rig and R
-      shell: bash
-      run: |
-        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-        rig add 4.4.0
-        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
