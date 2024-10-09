@@ -12,7 +12,7 @@ runs:
       shell: bash
       run: |
         # Extract Python version from input
-        PYTHON_VERSION="${{ inputs.python-version }}"
+        PYTHON_VERSION="${{ inputs.version }}"
 
         # Add the deadsnakes PPA repository and update apt
         sudo add-apt-repository -y ppa:deadsnakes/ppa
