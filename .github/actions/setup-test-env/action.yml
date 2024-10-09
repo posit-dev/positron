@@ -49,8 +49,9 @@ runs:
       shell: bash
       run: |
         curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # Cache Python dependencies based on the requirements.txt hash
+    # Install Python and Python dependencies with cache
     - name: Install System Level Python
       uses: actions/setup-python@v5
       with:
@@ -62,7 +63,6 @@ runs:
         path: ~/.cache/pip
         key: python-v2-${{ hashFiles('requirements.txt') }}
 
-    # Install Python dependencies only if the cache is not hit
     - name: Install Python dependencies
       shell: bash
       run: |
@@ -70,6 +70,7 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
+    # Install R and R pkgs with cache
     - name: Install rig, R
       shell: bash
       env:
