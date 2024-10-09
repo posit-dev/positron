@@ -415,12 +415,12 @@ export class DataExplorerRpcHandler {
 						return;
 					}
 
-					const profResult = result.getChildAt(resultIndex)?.get(0) as any;
+					const profResult = result.getChildAt(outputIndex)?.get(0) as any;
 
 					// Now copy the result into its intended place
 					switch (spec.profile_type) {
 						case ColumnProfileType.NullCount:
-							requestResult.null_count = profResult;
+							requestResult.null_count = Number(profResult);
 							break;
 						default:
 							break;

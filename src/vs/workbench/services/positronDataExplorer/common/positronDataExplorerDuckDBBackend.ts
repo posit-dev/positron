@@ -83,13 +83,11 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	private readonly _onDidDataUpdateEmitter = this._register(new Emitter<DataUpdateEvent>);
 	private readonly _onDidReturnColumnProfilesEmitter = this._register(
 		new Emitter<ReturnColumnProfilesEvent>);
-	readonly onUiEventEmitter = this._register(new Emitter<DataExplorerUiEvent>);
 
 	readonly onDidClose = this._onDidCloseEmitter.event;
 	readonly onDidSchemaUpdate = this._onDidSchemaUpdateEmitter.event;
 	readonly onDidDataUpdate = this._onDidDataUpdateEmitter.event;
 	readonly onDidReturnColumnProfiles = this._onDidReturnColumnProfilesEmitter.event;
-	readonly onUiEvent = this.onUiEventEmitter.event;
 
 	private readonly initialSetup: Promise<any>;
 
@@ -100,19 +98,19 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		super();
 		this.clientId = `duckdb:${this.filePath}`;
 		this.initialSetup = this.openDataset();
+	}
 
-		this._register(this.onUiEvent(async (event: DataExplorerUiEvent) => {
-			// Route UI event from extension to the correct emitter
-			if (event.method === DataExplorerFrontendEvent.ReturnColumnProfiles) {
-				this._onDidReturnColumnProfilesEmitter.fire(
-					event.params as ReturnColumnProfilesEvent
-				);
-			} else if (event.method === DataExplorerFrontendEvent.DataUpdate) {
-				this._onDidDataUpdateEmitter.fire({});
-			} else if (event.method === DataExplorerFrontendEvent.SchemaUpdate) {
-				this._onDidSchemaUpdateEmitter.fire(event.params as SchemaUpdateEvent);
-			}
-		}));
+	handleUiEvent(event: DataExplorerUiEvent) {
+		// Route UI event from extension to the correct emitter
+		if (event.method === DataExplorerFrontendEvent.ReturnColumnProfiles) {
+			this._onDidReturnColumnProfilesEmitter.fire(
+				event.params as ReturnColumnProfilesEvent
+			);
+		} else if (event.method === DataExplorerFrontendEvent.DataUpdate) {
+			this._onDidDataUpdateEmitter.fire({});
+		} else if (event.method === DataExplorerFrontendEvent.SchemaUpdate) {
+			this._onDidSchemaUpdateEmitter.fire(event.params as SchemaUpdateEvent);
+		}
 	}
 
 	private async _execRpc<Type>(rpc: DataExplorerRpc): Promise<Type> {

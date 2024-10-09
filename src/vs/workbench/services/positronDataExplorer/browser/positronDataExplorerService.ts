@@ -319,7 +319,9 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// Associate UI events (like ReturnColumnProfiles) for this file path
 		// with this backend. We're presuming only one backend per file path, so
 		// if we need multiple backends per file path we can extend
-		this._uiEventCommandHandlers.set(filePath, backend.onUiEventEmitter.fire);
+		this._uiEventCommandHandlers.set(filePath, (event) => {
+			backend.handleUiEvent(event);
+		});
 
 		// TODO: error handling if opening the file failed
 
