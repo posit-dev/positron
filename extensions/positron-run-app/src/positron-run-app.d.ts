@@ -65,14 +65,12 @@ export interface DebugAppOptions {
 	 *
 	 * @param runtime The language runtime metadata for the document's language.
 	 * @param document The document to debug.
-	 * @param port The port to run the application on, if known.
 	 * @param urlPrefix The URL prefix to use, if known.
 	 * @returns The debug configuration for debugging the application. Return `undefined` to abort debugging.
 	 */
 	getDebugConfiguration(
 		runtime: positron.LanguageRuntimeMetadata,
 		document: vscode.TextDocument,
-		port?: string,
 		urlPrefix?: string,
 	): vscode.DebugConfiguration | undefined | Promise<vscode.DebugConfiguration | undefined>;
 

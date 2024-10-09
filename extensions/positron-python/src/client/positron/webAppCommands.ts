@@ -16,43 +16,43 @@ import { Commands } from '../common/constants';
 
 export function activateWebAppCommands(serviceContainer: IServiceContainer, disposables: vscode.Disposable[]): void {
     disposables.push(
-        registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, port, urlPrefix) =>
-            getDashDebugConfig(document, port, urlPrefix),
+        registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
+            getDashDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, port, urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document, port, urlPrefix),
+        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, port, urlPrefix) =>
-            getFlaskDebugConfig(document, port, urlPrefix),
+        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, urlPrefix) =>
+            getFlaskDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, port, urlPrefix) =>
-            getGradioDebugConfig(document, port, urlPrefix),
+        registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
+            getGradioDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, port, _urlPrefix) =>
-            getShinyDebugConfig(document, port),
+        registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
+            getShinyDebugConfig(document),
         ),
-        registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, port, _urlPrefix) =>
-            getStreamlitDebugConfig(document, port),
+        registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
+            getStreamlitDebugConfig(document),
         ),
-        registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, port, urlPrefix) =>
-            getDashDebugConfig(document, port, urlPrefix),
+        registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
+            getDashDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, port, urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document, port, urlPrefix),
+        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, port, urlPrefix) =>
-            getFlaskDebugConfig(document, port, urlPrefix),
+        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, urlPrefix) =>
+            getFlaskDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, port, urlPrefix) =>
-            getGradioDebugConfig(document, port, urlPrefix),
+        registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
+            getGradioDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, port, _urlPrefix) =>
-            getShinyDebugConfig(document, port),
+        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
+            getShinyDebugConfig(document),
         ),
         registerDebugCommand(
             Commands.Debug_Streamlit_In_Terminal,
             'Streamlit',
-            (_runtime, document, port, _urlPrefix) => getStreamlitDebugConfig(document, port),
+            (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
         ),
     );
 }
@@ -63,7 +63,6 @@ function registerExecCommand(
     getDebugConfiguration: (
         runtime: positron.LanguageRuntimeMetadata,
         document: vscode.TextDocument,
-        port?: string,
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
@@ -72,8 +71,8 @@ function registerExecCommand(
         const runAppApi = await getPositronRunAppApi();
         await runAppApi.runApplication({
             name,
-            async getTerminalOptions(runtime, document, port, urlPrefix) {
-                const config = await getDebugConfiguration(runtime, document, port, urlPrefix);
+            async getTerminalOptions(runtime, document, urlPrefix) {
+                const config = await getDebugConfiguration(runtime, document, urlPrefix);
                 if (!config) {
                     return undefined;
                 }
@@ -108,7 +107,6 @@ function registerDebugCommand(
     getPythonDebugConfiguration: (
         runtime: positron.LanguageRuntimeMetadata,
         document: vscode.TextDocument,
-        port?: string,
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
 ): vscode.Disposable {
@@ -116,8 +114,8 @@ function registerDebugCommand(
         const runAppApi = await getPositronRunAppApi();
         await runAppApi.debugApplication({
             name,
-            async getDebugConfiguration(runtime, document, port, urlPrefix) {
-                const config = await getPythonDebugConfiguration(runtime, document, port, urlPrefix);
+            async getDebugConfiguration(runtime, document, urlPrefix) {
+                const config = await getPythonDebugConfiguration(runtime, document, urlPrefix);
                 if (!config) {
                     return undefined;
                 }
@@ -149,13 +147,10 @@ interface ProgramDebugConfiguration extends BaseDebugConfiguration {
 
 type DebugConfiguration = ModuleDebugConfiguration | ProgramDebugConfiguration;
 
-function getDashDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+function getDashDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
     const env: { [key: string]: string | null | undefined } = {
         PYTHONPATH: path.dirname(document.uri.fsPath),
     };
-    if (port) {
-        env.DASH_PORT = port;
-    }
     if (urlPrefix) {
         env.DASH_URL_PREFIX = urlPrefix;
     }
@@ -167,7 +162,6 @@ async function getFastAPIDebugConfig(
     serviceContainer: IServiceContainer,
     runtime: positron.LanguageRuntimeMetadata,
     document: vscode.TextDocument,
-    port?: string,
     urlPrefix?: string,
 ): Promise<DebugConfiguration | undefined> {
     let mod: string | undefined;
@@ -184,9 +178,6 @@ async function getFastAPIDebugConfig(
         args = ['--reload', `${pathToModule(document.uri.fsPath)}:${appName}`];
     }
 
-    if (port) {
-        args.push('--port', port);
-    }
     if (urlPrefix) {
         args.push('--root-path', urlPrefix);
     }
@@ -204,11 +195,8 @@ async function isFastAPICLIInstalled(serviceContainer: IServiceContainer, python
     return installer.isInstalled(Product.fastapiCli, interpreter);
 }
 
-function getFlaskDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+function getFlaskDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
     const args = ['--app', document.uri.fsPath, 'run'];
-    if (port) {
-        args.push('--port', port);
-    }
     const env: { [key: string]: string } = {};
     if (urlPrefix) {
         env.SCRIPT_NAME = urlPrefix;
@@ -216,30 +204,21 @@ function getFlaskDebugConfig(document: vscode.TextDocument, port?: string, urlPr
     return { module: 'flask', args, env };
 }
 
-function getGradioDebugConfig(document: vscode.TextDocument, port?: string, urlPrefix?: string): DebugConfiguration {
+function getGradioDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
     const env: { [key: string]: string } = {};
-    if (port) {
-        env.GRADIO_SERVER_PORT = port;
-    }
     if (urlPrefix) {
         env.GRADIO_ROOT_PATH = urlPrefix;
     }
     return { program: document.uri.fsPath, env };
 }
 
-function getShinyDebugConfig(document: vscode.TextDocument, port?: string): DebugConfiguration {
+function getShinyDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const args = ['run', '--reload', document.uri.fsPath];
-    if (port) {
-        args.push('--port', port);
-    }
     return { module: 'shiny', args };
 }
 
-function getStreamlitDebugConfig(document: vscode.TextDocument, port?: string): DebugConfiguration {
+function getStreamlitDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const args = ['run', document.uri.fsPath, '--server.headless', 'true'];
-    if (port) {
-        args.push('--port', port);
-    }
     return { module: 'streamlit', args };
 }
 

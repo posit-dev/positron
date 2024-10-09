@@ -23,7 +23,6 @@ suite('Web app commands', () => {
     const runtimePath = path.join('path', 'to', 'python');
     const workspacePath = path.join('path', 'to', 'workspace');
     const documentPath = path.join(workspacePath, 'file.py');
-    const port = '8080';
     const urlPrefix = 'http://new-url-prefix';
 
     const disposables: IDisposableRegistry = [];
@@ -124,7 +123,7 @@ suite('Web app commands', () => {
     async function verifyRunAppCommand(
         command: string,
         expectedTerminalOptions: RunAppTerminalOptions | undefined,
-        options?: { documentText?: string; port?: string; urlPrefix?: string },
+        options?: { documentText?: string; urlPrefix?: string },
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
@@ -143,31 +142,29 @@ suite('Web app commands', () => {
         const terminalOptions = await runAppOptions.getTerminalOptions(
             runtime,
             document,
-            options?.port,
             options?.urlPrefix,
         );
         assert.deepStrictEqual(terminalOptions, expectedTerminalOptions);
     }
 
-    test('Exec Dash in terminal - without port and urlPrefix', async () => {
+    test('Exec Dash in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Dash_In_Terminal, {
             commandLine: `${runtimePath} ${documentPath}`,
             env: { PYTHONPATH: workspacePath },
         });
     });
 
-    test('Exec Dash in terminal - with port and urlPrefix', async () => {
+    test('Exec Dash in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_Dash_In_Terminal,
             {
                 commandLine: `${runtimePath} ${documentPath}`,
                 env: {
                     PYTHONPATH: workspacePath,
-                    DASH_PORT: port,
                     DASH_URL_PREFIX: urlPrefix,
                 },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
@@ -197,84 +194,84 @@ suite('Web app commands', () => {
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
 
-    test('Exec FastAPI in terminal - with port and urlPrefix', async () => {
+    test('Exec FastAPI in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_FastAPI_In_Terminal,
-            { commandLine: `${runtimePath} -m fastapi dev ${documentPath} --port ${port} --root-path ${urlPrefix}` },
-            { port, urlPrefix },
+            { commandLine: `${runtimePath} -m fastapi dev ${documentPath} --root-path ${urlPrefix}` },
+            { urlPrefix },
         );
     });
 
-    test('Exec Flask in terminal - without port and urlPrefix', async () => {
+    test('Exec Flask in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Flask_In_Terminal, {
             commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
         });
     });
 
-    test('Exec Flask in terminal - with port and urlPrefix', async () => {
+    test('Exec Flask in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_Flask_In_Terminal,
             {
-                commandLine: `${runtimePath} -m flask --app ${documentPath} run --port ${port}`,
+                commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
                 env: { SCRIPT_NAME: urlPrefix },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Exec Gradio in terminal - without port and urlPrefix', async () => {
+    test('Exec Gradio in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Gradio_In_Terminal, {
             commandLine: `${runtimePath} ${documentPath}`,
         });
     });
 
-    test('Exec Gradio in terminal - with port and urlPrefix', async () => {
+    test('Exec Gradio in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_Gradio_In_Terminal,
             {
                 commandLine: `${runtimePath} ${documentPath}`,
-                env: { GRADIO_SERVER_PORT: port, GRADIO_ROOT_PATH: urlPrefix },
+                env: { GRADIO_ROOT_PATH: urlPrefix },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Exec Shiny in terminal - without port and urlPrefix', async () => {
+    test('Exec Shiny in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Shiny_In_Terminal, {
             commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
         });
     });
 
-    test('Exec Shiny in terminal - with port and urlPrefix', async () => {
+    test('Exec Shiny in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_Shiny_In_Terminal,
             {
-                commandLine: `${runtimePath} -m shiny run --reload ${documentPath} --port ${port}`,
+                commandLine: `${runtimePath} -m shiny run --reload ${documentPath}`,
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Exec Streamlit in terminal - without port and urlPrefix', async () => {
+    test('Exec Streamlit in terminal - without urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Streamlit_In_Terminal, {
             commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
         });
     });
 
-    test('Exec Streamlit in terminal - with port and urlPrefix', async () => {
+    test('Exec Streamlit in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_Streamlit_In_Terminal,
             {
-                commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true --port ${port}`,
+                commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true`,
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
     async function verifyDebugAppCommand(
         command: string,
         expectedDebugConfig: vscode.DebugConfiguration | undefined,
-        options?: { documentText?: string; port?: string; urlPrefix?: string },
+        options?: { documentText?: string; urlPrefix?: string },
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
@@ -293,13 +290,12 @@ suite('Web app commands', () => {
         const terminalOptions = await debugAppOptions.getDebugConfiguration(
             runtime,
             document,
-            options?.port,
             options?.urlPrefix,
         );
         assert.deepStrictEqual(terminalOptions, expectedDebugConfig);
     }
 
-    test('Debug Dash in terminal - with port and urlPrefix', async () => {
+    test('Debug Dash in terminal - with urlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_Dash_In_Terminal,
             {
@@ -309,13 +305,13 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 program: documentPath,
-                env: { PYTHONPATH: workspacePath, DASH_PORT: port, DASH_URL_PREFIX: urlPrefix },
+                env: { PYTHONPATH: workspacePath, DASH_URL_PREFIX: urlPrefix },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Debug FastAPI in terminal - with port and urlPrefix', async () => {
+    test('Debug FastAPI in terminal - with urlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_FastAPI_In_Terminal,
             {
@@ -325,13 +321,13 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 module: 'fastapi',
-                args: ['dev', documentPath, '--port', port, '--root-path', urlPrefix],
+                args: ['dev', documentPath, '--root-path', urlPrefix],
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Debug Flask in terminal - without port and urlPrefix', async () => {
+    test('Debug Flask in terminal - without urlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_Flask_In_Terminal,
             {
@@ -341,14 +337,14 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 module: 'flask',
-                args: ['--app', documentPath, 'run', '--port', port],
+                args: ['--app', documentPath, 'run'],
                 env: { SCRIPT_NAME: urlPrefix },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Debug Gradio in terminal - without port and urlPrefix', async () => {
+    test('Debug Gradio in terminal - without urlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_Gradio_In_Terminal,
             {
@@ -358,13 +354,13 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 program: documentPath,
-                env: { GRADIO_SERVER_PORT: port, GRADIO_ROOT_PATH: urlPrefix },
+                env: { GRADIO_ROOT_PATH: urlPrefix },
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Debug Shiny in terminal - with port and urlPrefix', async () => {
+    test('Debug Shiny in terminal - with purlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_Shiny_In_Terminal,
             {
@@ -374,13 +370,13 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 module: 'shiny',
-                args: ['run', '--reload', documentPath, '--port', port],
+                args: ['run', '--reload', documentPath],
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 
-    test('Debug Streamlit in terminal - with port and urlPrefix', async () => {
+    test('Debug Streamlit in terminal - with urlPrefix', async () => {
         await verifyDebugAppCommand(
             Commands.Debug_Streamlit_In_Terminal,
             {
@@ -390,9 +386,9 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 module: 'streamlit',
-                args: ['run', documentPath, '--server.headless', 'true', '--port', port],
+                args: ['run', documentPath, '--server.headless', 'true'],
             },
-            { port, urlPrefix },
+            { urlPrefix },
         );
     });
 });
