@@ -21,10 +21,9 @@ runs:
         git clone https://${{ inputs.github-token }}@github.com/posit-dev/positron-license.git .
 
     - name: Install Rust latest nightly
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@stable
       with:
         toolchain: nightly
-        override: true
 
     - name: Build licensing tool
       shell: bash
