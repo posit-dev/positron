@@ -29,6 +29,23 @@ export interface DataExplorerRpc {
 	{};
 }
 
+export interface DataExplorerUiEvent {
+	/**
+	 * Unique resource identifier for routing method calls.
+	 */
+	uri: string;
+
+	/**
+	 * Method name, as defined
+	 */
+	method: DataExplorerFrontendEvent;
+
+	/**
+	 * Data for event
+	 */
+	params: ReturnColumnProfilesEvent | DataUpdateEvent | SchemaUpdateEvent;
+}
+
 /**
  * Opaque backend response containing corresponding RPC result
  * or an error message in the case of failure.

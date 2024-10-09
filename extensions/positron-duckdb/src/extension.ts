@@ -7,10 +7,13 @@ import * as vscode from 'vscode';
 import {
 	BackendState,
 	ColumnDisplayType,
+	ColumnProfileResult,
 	ColumnProfileType,
 	DataExplorerBackendRequest,
+	DataExplorerFrontendEvent,
 	DataExplorerResponse,
 	DataExplorerRpc,
+	DataExplorerUiEvent,
 	FilterResult,
 	GetColumnProfilesParams,
 	GetDataValuesParams,
@@ -18,6 +21,7 @@ import {
 	GetSchemaParams,
 	OpenDatasetParams,
 	OpenDatasetResult,
+	ReturnColumnProfilesEvent,
 	SetRowFiltersParams,
 	SupportStatus,
 	TableData,
@@ -27,7 +31,7 @@ import {
 import * as duckdb from '@duckdb/duckdb-wasm';
 import Worker from 'web-worker';
 import { resolve, dirname, basename, extname } from 'path';
-import { Table, Vector } from 'apache-arrow';
+import { Schema, Table, Vector } from 'apache-arrow';
 
 class DuckDBInstance {
 	constructor(private db: duckdb.AsyncDuckDB, private con: duckdb.AsyncDuckDBConnection) { }
@@ -174,10 +178,7 @@ export class DataExplorerRpcHandler {
 	}
 
 	async getSchema(uri: string, params: GetSchemaParams): RpcResponse<TableSchema> {
-		const schema = this._uriToSchema.get(uri);
-		if (schema === undefined) {
-			return 'schema was not cached';
-		}
+		const schema = this.getCachedSchema(uri);
 		return {
 			columns: params.column_indices.map((index) => {
 				const entry = schema[index];
@@ -196,10 +197,7 @@ export class DataExplorerRpcHandler {
 	}
 
 	async getDataValues(uri: string, params: GetDataValuesParams): RpcResponse<TableData> {
-		const fullSchema = this._uriToSchema.get(uri);
-		if (fullSchema === undefined) {
-			return 'schema was not cached';
-		}
+		const fullSchema = this.getCachedSchema(uri);
 
 		// Because DuckDB is a SQL engine, we opt to always select a row range of
 		// formatted data for a range of rows, and then return the requested selections
@@ -359,9 +357,95 @@ export class DataExplorerRpcHandler {
 		};
 	}
 
+	async getColumnProfiles(uri: string, params: GetColumnProfilesParams): RpcResponse<void> {
+		// Initiate but do not await profile evaluations
+		this._evaluateColumnProfiles(uri, params);
+	}
+
+	private async _evaluateColumnProfiles(uri: string, params: GetColumnProfilesParams) {
+		const tableName = this.getTableName(uri);
+		const fullSchema = this.getCachedSchema(uri);
+
+		const profileExprs: Array<string> = [];
+		const queryResultIds: Array<Array<number | undefined>> = [];
+
+		let resultIndex = 0;
+		for (const request of params.profiles) {
+			const columnSchema = fullSchema[request.column_index];
+			const quotedName = `"${columnSchema.column_name}"`;
+			const resultIds: Array<number | undefined> = [];
+			request.profiles.map((profile, index) => {
+				let profileExpr;
+				switch (profile.profile_type) {
+					case ColumnProfileType.NullCount:
+						profileExpr = `COUNT(*) - COUNT(${quotedName})`;
+						break;
+					default:
+						// signal that no result is expected
+						resultIds.push(undefined);
+						return;
+				}
+				profileExprs.push(`${profileExpr} AS profile_${resultIndex}`);
+				resultIds.push(resultIndex++);
+			});
+			queryResultIds.push(resultIds);
+		}
+
+		const profileQuery = `
+		SELECT ${profileExprs.join(',\n    ')}
+		FROM ${tableName}`;
+
+		const result = await this.runQuery(profileQuery);
+		if (typeof result === 'string') {
+			// Query failed for some reason, need to return to UI
+			return;
+		}
+
+		// Now need to populate the result
+		const response: ReturnColumnProfilesEvent = {
+			callback_id: params.callback_id,
+			profiles: params.profiles.map((request, requestIndex) => {
+				const outputIds = queryResultIds[requestIndex];
+				const requestResult: ColumnProfileResult = {};
+				request.profiles.map((spec, profIndex) => {
+					const outputIndex = outputIds[profIndex];
+
+					// A requested profile was not implemented, so we just skip it
+					if (outputIndex === undefined) {
+						return;
+					}
+
+					const profResult = result.getChildAt(resultIndex)?.get(0) as any;
+
+					// Now copy the result into its intended place
+					switch (spec.profile_type) {
+						case ColumnProfileType.NullCount:
+							requestResult.null_count = profResult;
+							break;
+						default:
+							break;
+					}
+				});
+				return requestResult;
+			})
+		};
+
+		await vscode.commands.executeCommand(
+			'positron-data-explorer.sendUiEvent', {
+				uri,
+				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
+				params: response
+			} satisfies DataExplorerUiEvent
+		);
+	}
+
+	async setRowFilters(uri: string, params: SetRowFiltersParams): RpcResponse<FilterResult> {
+		return 'not implemented';
+	}
+
 	private async _getUnfilteredShape(uri: string) {
-		const schema = this._uriToSchema.get(uri);
-		const numColumns = schema === undefined ? 0 : schema.length;
+		const schema = this.getCachedSchema(uri);
+		const numColumns = schema.length;
 
 		const tableName = this.getTableName(uri);
 		const countStar = `SELECT count(*) AS num_rows FROM ${tableName} `;
@@ -379,12 +463,11 @@ export class DataExplorerRpcHandler {
 	}
 
 	getTableName(uri: string): string {
-		const tableName = this._uriToTableName.get(uri);
-		return tableName === undefined ? 'unknown-table' : tableName;
+		return this._uriToTableName.get(uri) as string;
 	}
 
-	async setRowFilters(uri: string, params: SetRowFiltersParams): RpcResponse<FilterResult> {
-		return 'not implemented';
+	private getCachedSchema(uri: string): Array<SchemaEntry> {
+		return this._uriToSchema.get(uri) as Array<SchemaEntry>;
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
