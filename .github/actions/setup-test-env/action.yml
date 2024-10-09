@@ -27,12 +27,15 @@ runs:
         sudo dpkg -i "$TEMP_DEB"
         rm -f "$TEMP_DEB"
 
-    - name: Install TinyTeX
-      shell: bash
-      run: quarto install tinytex
-
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2.0.2
+
+    - name: Setup Quarto
+      uses: quarto-dev/quarto-actions/setup@v2
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tinytex: true
 
     - name: Install Conda (Miniforge3)
       shell: bash
