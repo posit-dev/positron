@@ -63,6 +63,15 @@ jobs:
         id: browser-unit-tests
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
+      - name: "Send Slack notification"
+        if: failure()
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: D07KSCRU0SZ
+          suite_name: Unit Tests
+
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -130,6 +139,15 @@ jobs:
         if: success() || failure()
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+
+      - name: "Send Slack notification"
+        if: failure()
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: D07KSCRU0SZ
+          suite_name: Integration Tests
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
@@ -220,6 +238,15 @@ jobs:
           name: run-artifacts-electron
           path: .build/logs/smoke-tests-electron/
 
+      - name: "Send Slack notification"
+        if: failure()
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: D07KSCRU0SZ
+          suite_name: Smoke Tests | Electron
+
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
     timeout-minutes: 30
@@ -309,17 +336,25 @@ jobs:
           name: run-artifacts-browser
           path: .build/logs/smoke-tests-browser/
 
-  report-test-rail:
+      - name: "Send Slack notification"
+        if: failure()
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: D07KSCRU0SZ
+          suite_name: Smoke Tests | Browser
+
+  report-results:
     runs-on: ubuntu-latest
     if: success() || failure()
     timeout-minutes: 10
     needs: [e2e-electron-tests, e2e-browser-tests]
     steps:
-      - name: Download Test Logs
+      - name: Download Electron Test Results
         uses: actions/download-artifact@v4
         with:
-          name: logs
-          path: .build/logs
+          name: run-artifacts-electron
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
@@ -331,16 +366,11 @@ jobs:
         if: always()
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-  # slack-notification:
-  #   name: "Send Slack notification"
-  #   runs-on: ubuntu-latest
-  #   needs: linux
-  #   if: ${{ failure() && github.ref == 'refs/heads/main' }}
-  #   steps:
-  #     - name: "Send Slack notification"
-  #       uses: testlabauto/action-test-results-to-slack@v0.0.6
-  #       with:
-  #         github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-  #         slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-  #         slack_channel: C07FR1JNZNJ #positron-test-results channel
-  #         suite_name: Positron Full Test Suite
+      # - name: "Send Slack notification"
+      #   if: ${{ failure() && github.ref == 'refs/heads/main' }}
+      #   uses: testlabauto/action-test-results-to-slack@v0.0.6
+      #   with:
+      #     github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+      #     slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+      #     slack_channel: C07FR1JNZNJ #positron-test-results channel
+      #     suite_name: Positron Full Test Suite
