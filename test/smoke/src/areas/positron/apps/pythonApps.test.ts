@@ -80,6 +80,7 @@ describe('Python Applications #pr #win', () => {
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await expect(headerLocator).toHaveText('Deploy', { timeout: 45000 });
 			await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
 
 		});
 	});
