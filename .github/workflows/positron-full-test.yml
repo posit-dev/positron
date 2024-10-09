@@ -63,15 +63,6 @@ jobs:
         id: browser-unit-tests
         run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
-      - name: "Send Slack notification"
-        if: failure()
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: D07KSCRU0SZ
-          suite_name: Unit Tests
-
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -140,15 +131,6 @@ jobs:
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-      - name: "Send Slack notification"
-        if: failure()
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: D07KSCRU0SZ
-          suite_name: Integration Tests
-
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 30
@@ -209,13 +191,13 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup
 
-      # - name: Convert XUnit to JUnit
-      #   id: xunit-to-junit
-      #   if: success() || failure()
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y libxml2-utils
-      #     yarn xunit-to-junit smoke-tests-electron
+      - name: Convert XUnit to JUnit
+        id: xunit-to-junit
+        if: success() || failure()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          yarn xunit-to-junit smoke-tests-electron
 
       - name: Clean up license files
         if: always()
@@ -231,21 +213,22 @@ jobs:
           check_name: "Electron Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: always()
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail (Electron ONLY)
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+
       - name: Upload run artifacts - electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: run-artifacts-electron
           path: .build/logs/smoke-tests-electron/
-
-      - name: "Send Slack notification"
-        if: failure()
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: D07KSCRU0SZ
-          suite_name: Smoke Tests | Electron
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
@@ -300,6 +283,7 @@ jobs:
 
       - name: Compile and Download
         run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
       - name: Run Web Smoke Tests
         env:
           POSITRON_PY_VER_SEL: 3.10.12
@@ -307,19 +291,13 @@ jobs:
         id: electron-web-smoke-tests
         run: DISPLAY=:10 yarn smoketest-web --tracing
 
-      # - name: Convert XUnit to JUnit
-      #   id: xunit-to-junit
-      #   if: success() || failure()
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y libxml2-utils
-      #     yarn xunit-to-junit smoke-tests-browser
-
-      - name: Clean up license files
-        if: always()
+      - name: Convert XUnit to JUnit
+        id: xunit-to-junit
+        if: success() || failure()
         run: |
-          cd ..
-          rm -rf positron-license
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          yarn xunit-to-junit smoke-tests-browser
 
       - name: Publish Web Test Report
         uses: mikepenz/action-junit-report@v4
@@ -329,6 +307,12 @@ jobs:
           check_name: "Web Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Clean up license files
+        if: always()
+        run: |
+          cd ..
+          rm -rf positron-license
+
       - name: Upload run artifacts - browser
         if: always()
         uses: actions/upload-artifact@v4
@@ -336,41 +320,22 @@ jobs:
           name: run-artifacts-browser
           path: .build/logs/smoke-tests-browser/
 
+  slack-notification:
+    name: "Send Slack notification"
+    runs-on: ubuntu-latest
+    needs:
+      [
+        "unit-tests",
+        "integration-tests",
+        "e2e-electron-tests",
+        "e2e-browser-tests",
+      ]
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
+    steps:
       - name: "Send Slack notification"
-        if: failure()
         uses: testlabauto/action-test-results-to-slack@v0.0.6
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: D07KSCRU0SZ
-          suite_name: Smoke Tests | Browser
-
-  report-results:
-    runs-on: ubuntu-latest
-    if: success() || failure()
-    timeout-minutes: 10
-    needs: [e2e-electron-tests, e2e-browser-tests]
-    steps:
-      - name: Download Electron Test Results
-        uses: actions/download-artifact@v4
-        with:
-          name: run-artifacts-electron
-
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: always()
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-      # - name: "Send Slack notification"
-      #   if: ${{ failure() && github.ref == 'refs/heads/main' }}
-      #   uses: testlabauto/action-test-results-to-slack@v0.0.6
-      #   with:
-      #     github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-      #     slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-      #     slack_channel: C07FR1JNZNJ #positron-test-results channel
-      #     suite_name: Positron Full Test Suite
+          slack_channel: C07FR1JNZNJ #positron-test-results channel
+          suite_name: Positron Full Test Suite
