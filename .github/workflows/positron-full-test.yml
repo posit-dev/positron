@@ -28,28 +28,8 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build Environment
+      - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -79,47 +59,20 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
-
-      # - name: Setup Test Environment
-      #   uses: ./.github/actions/setup-test-env
-      #   with:
-      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-      #     aws-region: ${{ secrets.QA_AWS_REGION }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup R
         uses: ./.github/actions/install-r
         with:
           r-version: "4.4.0"
           install-pkgs: "true"
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -154,14 +107,14 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
-
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
 
       - name: Setup Test Environment
         uses: ./.github/actions/setup-test-env
@@ -169,28 +122,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Tests (Electron)
         env:
@@ -255,14 +186,14 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
-
-      - name: Setup Build Environment
-        uses: ./.github/actions/setup-build-env
 
       - name: Setup Test Environment
         uses: ./.github/actions/setup-test-env
@@ -270,28 +201,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
-
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
-
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Web Smoke Tests
         env:
