@@ -45,31 +45,41 @@ runs:
         path: ./remote/**/node_modules
         key: cache-nested-remote-v2-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}
 
-    # # Setup R Environment Path
-    # - name: Create R Library Path
-    #   shell: bash
-    #   run: |
-    #     mkdir -p ~/.R/library
-    #     echo "R_LIBS_USER=~/.R/library" >> ~/.Renviron
+    # Download requirements.txt and DESCRIPTION files for cache key calculation
+    # Python: needed for e2e tests
+    # R: needed for integration and e2e tests
+    - name: Download dependency files
+      shell: bash
+      run: |
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
 
-    # # Cache for R packages
-    # - name: Cache R packages
-    #   id: cache-r-packages
-    #   uses: actions/cache@v4
-    #   with:
-    #     path: ~/.R/library
-    #     key: cache-r-packages-v1-${{ runner.os }}-${{ hashFiles('DESCRIPTION') }}
-    #     restore-keys: |
-    #       cache-r-packages-v1-${{ runner.os }}-
+    # Cache Python dependencies based on the requirements.txt hash
+    - name: Cache Python dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: python-${{ hashFiles('requirements.txt') }}
 
-    # # Download DESCRIPTION file for R dependencies
-    # - name: Download DESCRIPTION
-    #   shell: bash
-    #   run: curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+    # Install Python dependencies only if the cache is not hit
+    - name: Install python dependencies
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install ipykernel trcli
 
-    # # Install R dependencies, including pak
-    # - name: Install R Development Dependencies
-    #   shell: bash
-    #   run: |
-    #     Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://r-lib.github.io/p/pak/dev/')"
-    #     Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+    # Cache R dependencies based on the DESCRIPTION file hash
+    - name: Cache R dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/R
+        key: R-${{ hashFiles('DESCRIPTION') }}
+
+    # Install R and its dependencies only if the cache is not hit
+    - name: Install rig and R
+      shell: bash
+      run: |
+        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
+        rig add 4.4.0
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
