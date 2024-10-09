@@ -12,58 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
-
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          corepack enable
-          yarn --immutable --network-timeout 120000
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      - name: Upload Compiled Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: compiled-app
-          include-hidden-files: true
-          path: |
-            ./out/**
-            ./.build/**
-            ./.vscode/**
-            ./.vscode-test/**
-            ./.*
-
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -97,35 +48,8 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      # - name: Compile and Download
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      # - name: Download Electron, Playwright, and Extensions
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
-
-      - name: Download Compiled Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: compiled-app
-          path: ./
-
-      # Debugging step to confirm file locations in multiple directories
-      - name: List directory contents
-        run: |
-          echo "Listing contents of current directory:"
-          ls .
-
-          echo "Listing contents of .build directory:"
-          ls .build || echo ".build directory does not exist"
-
-          echo "Listing contents of out directory:"
-          ls out || echo "out directory does not exist"
-
-      # Fix permissions for .build directory
-      - name: Set execute permissions
-        run: |
-          chmod -R +x .build
-          chmod -R +x ./scripts
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -142,7 +66,6 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -196,23 +119,8 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      # - name: Compile and Download
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      # - name: Download Electron, Playwright, and Extensions
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
-
-      - name: Download Compiled Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: compiled-app
-          path: ./
-
-      - name: Set execute permissions
-        run: |
-          chmod -R +x .build
-          chmod -R +x ./scripts
-
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -234,7 +142,6 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 30
-    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -282,29 +189,8 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      # - name: Compile and Download
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      # - name: Download Electron, Playwright, and Extensions
-      #   run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
-
-      - name: Download Compiled Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: compiled-app
-          path: ./
-
-      # Debugging step to confirm file locations in multiple directories
-      - name: List directory contents
-        run: |
-          echo "Listing contents of current directory:"
-          ls .
-
-          echo "Listing contents of .build directory:"
-          ls .build || echo ".build directory does not exist"
-
-          echo "Listing contents of out directory:"
-          ls out || echo "out directory does not exist"
+      - name: Compile and Download
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
       # Fix permissions for .build directory
       - name: Set execute permissions
@@ -341,17 +227,17 @@ jobs:
           check_name: "Electron Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Test Logs
+      - name: Upload run artifacts - electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs
-          path: .build/logs
+          name: run-artifacts-electron
+          path: .build/logs/smoke-tests-electron/
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
     timeout-minutes: 30
-#    needs: setup
+    #    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -430,12 +316,12 @@ jobs:
           check_name: "Web Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Test Logs
+      - name: Upload run artifacts - browser
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: logs
-          path: .build/logs
+          name: run-artifacts-browser
+          path: .build/logs/smoke-tests-browser/
 
   report:
     runs-on: ubuntu-latest
