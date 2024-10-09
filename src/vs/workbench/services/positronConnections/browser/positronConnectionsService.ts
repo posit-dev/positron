@@ -82,7 +82,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 		session.listClients().then((clients) => {
 			clients.forEach(async (client) => {
-				console.log("Client", client.getClientType());
 				if (client.getClientType() !== RuntimeClientType.Connection) {
 					return;
 				}
