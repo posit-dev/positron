@@ -14,31 +14,39 @@ import * as assert from 'assert';
 import { IDisposableRegistry, IInstaller } from '../../client/common/types';
 import { activateWebAppCommands } from '../../client/positron/webAppCommands';
 import { IServiceContainer } from '../../client/ioc/types';
-import { PositronRunApp, RunAppOptions, RunAppTerminalOptions } from '../../client/positron-run-app.d';
+import { DebugAppOptions, PositronRunApp, RunAppOptions, RunAppTerminalOptions } from '../../client/positron-run-app.d';
 import { Commands } from '../../client/common/constants';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 
 suite('Web app commands', () => {
-    const runtimePath = '/path/to/python';
-    const workspacePath = '/path/to';
+    const runtimePath = path.join('path', 'to', 'python');
+    const workspacePath = path.join('path', 'to', 'workspace');
     const documentPath = path.join(workspacePath, 'file.py');
     const port = '8080';
     const urlPrefix = 'http://new-url-prefix';
 
     const disposables: IDisposableRegistry = [];
     let runAppOptions: RunAppOptions | undefined;
+    let debugAppOptions: DebugAppOptions | undefined;
     const commands = new Map<string, () => Promise<void>>();
     let isFastAPICliInstalled: boolean;
 
     setup(() => {
         // Stub `vscode.extensions.getExtension('vscode.positron-run-app')` to return an extension
-        // with a `runApplication` that records the last `options` that it was called with.
+        // with:
+        // 1. `runApplication` that records the last `options` that it was called with.
+        // 2. `debugApplication` that records the last `options` that it was called with.
         runAppOptions = undefined;
+        debugAppOptions = undefined;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
                 assert(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
+            },
+            async debugApplication(_options) {
+                assert(!debugAppOptions, 'debugApplication called more than once');
+                debugAppOptions = _options;
             },
         };
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
@@ -144,6 +152,7 @@ suite('Web app commands', () => {
     test('Exec Dash in terminal - without port and urlPrefix', async () => {
         await verifyRunAppCommand(Commands.Exec_Dash_In_Terminal, {
             commandLine: `${runtimePath} ${documentPath}`,
+            env: { PYTHONPATH: workspacePath },
         });
     });
 
@@ -153,6 +162,7 @@ suite('Web app commands', () => {
             {
                 commandLine: `${runtimePath} ${documentPath}`,
                 env: {
+                    PYTHONPATH: workspacePath,
                     DASH_PORT: port,
                     DASH_URL_PREFIX: urlPrefix,
                 },
@@ -256,6 +266,131 @@ suite('Web app commands', () => {
             Commands.Exec_Streamlit_In_Terminal,
             {
                 commandLine: `${runtimePath} -m streamlit run ${documentPath} --server.headless true --port ${port}`,
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    async function verifyDebugAppCommand(
+        command: string,
+        expectedDebugConfig: vscode.DebugConfiguration | undefined,
+        options?: { documentText?: string; port?: string; urlPrefix?: string },
+    ) {
+        // Call the command callback and ensure that it sets runAppOptions.
+        const callback = commands.get(command);
+        assert(callback, `Command not registered for: ${command}`);
+        await callback();
+        assert(debugAppOptions, `debugAppOptions not set for command: ${command}`);
+
+        // Test `getDebugConfiguration`.
+        const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
+        const document = {
+            uri: { fsPath: documentPath },
+            getText() {
+                return options?.documentText ?? '';
+            },
+        } as vscode.TextDocument;
+        const terminalOptions = await debugAppOptions.getDebugConfiguration(
+            runtime,
+            document,
+            options?.port,
+            options?.urlPrefix,
+        );
+        assert.deepStrictEqual(terminalOptions, expectedDebugConfig);
+    }
+
+    test('Debug Dash in terminal - with port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_Dash_In_Terminal,
+            {
+                type: 'python',
+                name: 'Dash',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                program: documentPath,
+                env: { PYTHONPATH: workspacePath, DASH_PORT: port, DASH_URL_PREFIX: urlPrefix },
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Debug FastAPI in terminal - with port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_FastAPI_In_Terminal,
+            {
+                type: 'python',
+                name: 'FastAPI',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                module: 'fastapi',
+                args: ['dev', documentPath, '--port', port, '--root-path', urlPrefix],
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Debug Flask in terminal - without port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_Flask_In_Terminal,
+            {
+                type: 'python',
+                name: 'Flask',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                module: 'flask',
+                args: ['--app', documentPath, 'run', '--port', port],
+                env: { SCRIPT_NAME: urlPrefix },
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Debug Gradio in terminal - without port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_Gradio_In_Terminal,
+            {
+                type: 'python',
+                name: 'Gradio',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                program: documentPath,
+                env: { GRADIO_SERVER_PORT: port, GRADIO_ROOT_PATH: urlPrefix },
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Debug Shiny in terminal - with port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_Shiny_In_Terminal,
+            {
+                type: 'python',
+                name: 'Shiny',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                module: 'shiny',
+                args: ['run', '--reload', documentPath, '--port', port],
+            },
+            { port, urlPrefix },
+        );
+    });
+
+    test('Debug Streamlit in terminal - with port and urlPrefix', async () => {
+        await verifyDebugAppCommand(
+            Commands.Debug_Streamlit_In_Terminal,
+            {
+                type: 'python',
+                name: 'Streamlit',
+                request: 'launch',
+                jinja: true,
+                stopOnEntry: false,
+                module: 'streamlit',
+                args: ['run', documentPath, '--server.headless', 'true', '--port', port],
             },
             { port, urlPrefix },
         );

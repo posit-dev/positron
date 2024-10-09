@@ -350,6 +350,48 @@
             },
             {
                 "category": "Python",
+                "command": "python.debugDashInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugDashInTerminal.title%",
+                "enablement": "pythonAppFramework == dash"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugFastAPIInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugFastAPIInTerminal.title%",
+                "enablement": "pythonAppFramework == fastapi"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugFlaskInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugFlaskInTerminal.title%",
+                "enablement": "pythonAppFramework == flask"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugGradioInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugGradioInTerminal.title%",
+                "enablement": "pythonAppFramework == gradio"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugShinyInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugShinyInTerminal.title%",
+                "enablement": "pythonAppFramework == shiny"
+            },
+            {
+                "category": "Python",
+                "command": "python.debugStreamlitInTerminal",
+                "icon": "$(debug-alt)",
+                "title": "%python.command.python.debugStreamlitInTerminal.title%",
+                "enablement": "pythonAppFramework == streamlit"
+            },
+            {
+                "category": "Python",
                 "command": "python.debugInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugInTerminal.title%"
@@ -1600,8 +1642,44 @@
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 },
                 {
-                    "command": "python.debugInTerminal",
+                    "command": "python.debugDashInTerminal",
                     "group": "navigation@3",
+                    "title": "%python.command.python.debugDashInTerminal.title%",
+                    "when": "pythonAppFramework == dash"
+                },
+                {
+                    "command": "python.debugGradioInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugGradioInTerminal.title%",
+                    "when": "pythonAppFramework == gradio"
+                },
+                {
+                    "command": "python.debugShinyInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugShinyInTerminal.title%",
+                    "when": "pythonAppFramework == shiny"
+                },
+                {
+                    "command": "python.debugFastAPIInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugFastAPIInTerminal.title%",
+                    "when": "pythonAppFramework == fastapi"
+                },
+                {
+                    "command": "python.debugFlaskInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugFlaskInTerminal.title%",
+                    "when": "pythonAppFramework == flask"
+                },
+                {
+                    "command": "python.debugStreamlitInTerminal",
+                    "group": "navigation@3",
+                    "title": "%python.command.python.debugStreamlitInTerminal.title%",
+                    "when": "pythonAppFramework == streamlit"
+                },
+                {
+                    "command": "python.debugInTerminal",
+                    "group": "navigation@4",
                     "title": "%python.command.python.debugInTerminal.title%",
                     "when": "resourceLangId == python && !isInDiffEditor && !virtualWorkspace && shellExecutionSupported"
                 }
