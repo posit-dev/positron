@@ -11,11 +11,28 @@ inputs:
 runs:
   using: "composite"
   steps:
+    # --- Needed by E2E Tests ---
+
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
+
+    - name: Install Quarto CLI
+      shell: bash
+      run: |
+        TEMP_DEB="$(mktemp)" &&
+        wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
+        sudo dpkg -i "$TEMP_DEB"
+        rm -f "$TEMP_DEB"
+
+    - name: Install TinyTeX
+      shell: bash
+      run: quarto install tinytex
+
+    - name: Setup Graphviz
+      uses: ts-graphviz/setup-graphviz@v2.0.2
 
     - name: Install Conda (Miniforge3)
       shell: bash
@@ -47,6 +64,8 @@ runs:
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
 
+    # --- Needed by E2E AND Integration Tests ---
+
     # Cache R dependencies based on the DESCRIPTION file hash
     - name: Cache R dependencies
       uses: actions/cache@v4
@@ -61,18 +80,3 @@ runs:
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
         rig add 4.4.0
         Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-    - name: Install Quarto CLI
-      shell: bash
-      run: |
-        TEMP_DEB="$(mktemp)" &&
-        wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-        sudo dpkg -i "$TEMP_DEB"
-        rm -f "$TEMP_DEB"
-
-    - name: Install TinyTeX
-      shell: bash
-      run: quarto install tinytex
-
-    - name: Setup Graphviz
-      uses: ts-graphviz/setup-graphviz@v2.0.2

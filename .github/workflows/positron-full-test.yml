@@ -85,20 +85,14 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # Cache R dependencies based on the DESCRIPTION file hash
-      - name: Cache R dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/R
-          key: R-v2-${{ hashFiles('DESCRIPTION') }}
+      - name: Setup Build Environment
+        uses: ./.github/actions/setup-build-env
 
-      # Install rig and R only if the cache is not hit
-      - name: Install R and its dependencies
-        shell: bash
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+      - name: Setup Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Execute yarn
         env:
