@@ -93,6 +93,7 @@ jobs:
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Execute yarn
         env:
@@ -161,6 +162,7 @@ jobs:
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Execute yarn
         env:
@@ -261,6 +263,7 @@ jobs:
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Execute yarn
         env:

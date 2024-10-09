@@ -7,6 +7,9 @@ inputs:
   aws-region:
     description: "The AWS region for S3"
     required: true
+  github-token:
+    description: "GitHub Token for accessing private repositories or APIs"
+    required: true
 
 runs:
   using: "composite"
@@ -25,7 +28,7 @@ runs:
     - name: Setup Quarto
       uses: quarto-dev/quarto-actions/setup@v2
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ inputs.github-token }}
       with:
         tinytex: true
 
