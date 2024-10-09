@@ -91,9 +91,8 @@ export class PositronRunAppApiImpl implements PositronRunApp {
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
 		// Start the proxy server
 		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
-		const port = undefined;
 		const urlPrefix = proxyInfo.proxyPath;
-		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
+		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
 		if (!terminalOptions) {
 			return;
 		}

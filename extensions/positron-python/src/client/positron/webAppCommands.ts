@@ -18,7 +18,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Dash',
-                getTerminalOptions(runtime, document, _port, urlPrefix) {
+                getTerminalOptions(runtime, document, urlPrefix) {
                     const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
                     };
@@ -36,7 +36,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'FastAPI',
-                async getTerminalOptions(runtime, document, _port, _urlPrefix) {
+                async getTerminalOptions(runtime, document, _urlPrefix) {
                     let hasFastapiCli = false;
 
                     const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -76,7 +76,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Flask',
-                async getTerminalOptions(runtime, document, _port, _urlPrefix) {
+                async getTerminalOptions(runtime, document, _urlPrefix) {
                     const args = [runtime.runtimePath, '-m', 'flask', 'run'];
                     const terminalOptions: RunAppTerminalOptions = { commandLine: args.join(' ') };
                     terminalOptions.env = {};
@@ -90,7 +90,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Gradio',
-                getTerminalOptions(runtime, document, _port, urlPrefix) {
+                getTerminalOptions(runtime, document, urlPrefix) {
                     const terminalOptions: RunAppTerminalOptions = {
                         commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
                     };
@@ -113,7 +113,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Shiny',
-                getTerminalOptions(runtime, document, _port, _urlPrefix) {
+                getTerminalOptions(runtime, document, _urlPrefix) {
                     const args = [runtime.runtimePath, '-m', 'shiny', 'run', '--reload', document.uri.fsPath];
                     return { commandLine: args.join(' ') };
                 },
@@ -124,7 +124,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             const runAppApi = await getPositronRunAppApi();
             await runAppApi.runApplication({
                 name: 'Streamlit',
-                getTerminalOptions(runtime, document, _port, _urlPrefix) {
+                getTerminalOptions(runtime, document, _urlPrefix) {
                     const args = [
                         runtime.runtimePath,
                         '-m',

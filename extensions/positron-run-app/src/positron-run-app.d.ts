@@ -36,14 +36,12 @@ export interface RunAppOptions {
 	 *
 	 * @param runtime The language runtime metadata for the document's language.
 	 * @param document The document to run.
-	 * @param port The port to run the application on, if known.
 	 * @param urlPrefix The URL prefix to use, if known.
 	 * @returns The terminal options for running the application. Return `undefined` to abort the run.
 	 */
 	getTerminalOptions: (
 		runtime: positron.LanguageRuntimeMetadata,
 		document: vscode.TextDocument,
-		port?: string,
 		urlPrefix?: string,
 	) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
 

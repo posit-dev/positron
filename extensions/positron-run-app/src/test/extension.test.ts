@@ -21,7 +21,7 @@ suite('PositronRunApp', () => {
 	// Options for running the test application.
 	const options: RunAppOptions = {
 		name: 'Test App',
-		async getTerminalOptions(runtime, document, _port, _urlPrefix) {
+		async getTerminalOptions(runtime, document, _urlPrefix) {
 			return {
 				commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
 			};
