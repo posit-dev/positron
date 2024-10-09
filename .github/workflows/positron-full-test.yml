@@ -12,25 +12,55 @@ permissions:
   contents: read
 
 jobs:
-  # setup:
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  #     POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-  #   steps:
-  #     - uses: actions/checkout@v4
+  setup:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+    steps:
+      - uses: actions/checkout@v4
 
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version-file: .nvmrc
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
 
-  #     - name: Cache node_modules, build, extensions, and remote
-  #       uses: ./.github/actions/cache-multi-paths
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Execute yarn
+        env:
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+          POSITRON_GITHUB_PAT: ${{ github.token }}
+        run: |
+          corepack enable
+          yarn --immutable --network-timeout 120000
+
+      - name: Compile
+        run: yarn npm-run-all --max_old_space_size=4095 -lp compile
+
+      - name: Upload Compiled Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: compiled-app
+          include-hidden-files: true
+          path: |
+            ./out/**
+            ./.build/**
 
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-#    needs: setup
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -64,8 +94,17 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      # - name: Compile and Download
+      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Electron, Playwright, and Extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
+          path: ./
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -82,7 +121,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-#    needs: setup
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -130,8 +169,17 @@ jobs:
           # dependencies
           yarn --immutable --network-timeout 120000
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      # - name: Compile and Download
+      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Electron, Playwright, and Extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
+          path: ./
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -153,7 +201,7 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 30
-#    needs: setup
+    needs: setup
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -201,8 +249,17 @@ jobs:
           yarn --cwd test/automation install --frozen-lockfile
           yarn --cwd test/smoke install --frozen-lockfile
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      # - name: Compile and Download
+      #   run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Electron, Playwright, and Extensions
+        run: yarn npm-run-all --max_old_space_size=4095 -lp "electron x64" playwright-install download-builtin-extensions
+
+      - name: Download Compiled Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: compiled-app
+          path: ./
 
       - name: Run Tests (Electron)
         env:
@@ -211,13 +268,13 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup
 
-      - name: Convert XUnit to JUnit
-        id: xunit-to-junit
-        if: success() || failure()
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-          yarn xunit-to-junit smoke-tests-electron
+      # - name: Convert XUnit to JUnit
+      #   id: xunit-to-junit
+      #   if: success() || failure()
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y libxml2-utils
+      #     yarn xunit-to-junit smoke-tests-electron
 
       - name: Clean up license files
         if: always()
