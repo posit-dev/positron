@@ -79,13 +79,13 @@ runs:
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
         rig add "$R_VERSION"
 
-    - name: Cache R Dependencies
-      uses: actions/cache@v3
-      with:
-        path: |
-          ~/.R
-          ~/.cache/R
-        key: R-v2-${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/DESCRIPTION') }}
+    # - name: Cache R Dependencies
+    #   uses: actions/cache@v3
+    #   with:
+    #     path: |
+    #       ~/.R
+    #       ~/.cache/R
+    #     key: R-v2-${{ runner.os }}-r-${{ env.R_VERSION }}-${{ hashFiles('**/DESCRIPTION') }}
 
     - name: Install R packages
       shell: bash
