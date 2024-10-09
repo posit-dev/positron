@@ -195,7 +195,7 @@ jobs:
 
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
-        if: success() || failure()
+        if: steps.electron-smoke-tests.outcome == 'success' || steps.electron-smoke-tests.outcome == 'failure'
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils
@@ -217,12 +217,12 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
-        if: always()
+        if: steps.xunit-to-junit == 'success'
         run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
 
       - name: Upload Test Results to TestRail (Electron ONLY)
         id: testrail-upload
-        if: always()
+        if: steps.xunit-to-junit == 'success'
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload run artifacts - electron
