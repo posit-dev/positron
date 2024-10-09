@@ -24,9 +24,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
-
       - name: Setup Build Environment
         run: |
           sudo apt-get update
@@ -35,6 +32,9 @@ jobs:
           sudo chmod +x /etc/init.d/xvfb
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Execute yarn
         env:

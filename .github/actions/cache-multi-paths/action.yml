@@ -65,6 +65,7 @@ runs:
     - name: Install python dependencies
       shell: bash
       run: |
+        python -m site
         python -m pip install --upgrade pip
         python -m pip install -r requirements.txt
         python -m pip install ipykernel trcli
