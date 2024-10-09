@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, MouseEvent } from 'react';
 
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -38,7 +38,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 
 	// This allows us to introspect the size of the component. Which then allows
 	// us to efficiently only render items that are in view.
-	const [, setWidth] = React.useState(props.reactComponentContainer.width);
+	const [_, setWidth] = React.useState(props.reactComponentContainer.width);
 	const [height, setHeight] = React.useState(props.reactComponentContainer.height);
 
 	useEffect(() => {
@@ -72,7 +72,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		return () => disposableStore.dispose();
 	}, []);
 
-	const [items, setItems] = useState<PositronConnectionsItemProps[]>(props.connectionsService.getConnectionEntries);
+	const [items, setItems] = useState<IPositronConnectionEntry[]>(props.connectionsService.getConnectionEntries);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(props.connectionsService.onDidChangeEntries((entries) => {
@@ -82,9 +82,10 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		return () => disposableStore.dispose();
 	}, []);
 
+	const [selectedId, setSelectedId] = useState<string>();
+
 	const ItemEntry = (props: ItemEntryProps) => {
 		const itemProps = items[props.index];
-
 
 		return (
 			<PositronConnectionsItem
@@ -96,6 +97,8 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				icon={itemProps.icon}
 				kind={itemProps.kind}
 				active={itemProps.active}
+				selected={itemProps.id === selectedId}
+				onSelectedHandler={() => setSelectedId(itemProps.id)}
 				style={props.style}>
 			</PositronConnectionsItem>
 		);
@@ -109,7 +112,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 					itemCount={items.length}
 					itemSize={26}
 					height={height - kActionBarHeight}
-					width={'100%'}
+					width={'calc(100% - 2px)'}
 					itemKey={index => items[index].id}
 					innerRef={innerRef}
 				>
@@ -127,6 +130,8 @@ interface ItemEntryProps {
 
 interface PositronConnectionsItemProps extends IPositronConnectionEntry {
 	style?: any;
+	selected: boolean;
+	onSelectedHandler: () => void;
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
@@ -167,8 +172,29 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		});
 	}, []);
 
+	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Handle the event.
+		switch (e.button) {
+			// Main button.
+			case 0:
+				// TODO: handle ctrl+ click, etc.
+				props.onSelectedHandler();
+				break;
+
+			// Secondary button.
+			case 2:
+				// TODO: more options here
+				props.onSelectedHandler();
+				break;
+		}
+	};
+
 	return (
-		<div className='connections-item' style={props.style}>
+		<div className={`connections-item ${props.selected ? 'selected' : ''}`} style={props.style}>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
 			{
 				props.expanded === undefined ?
@@ -185,7 +211,10 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						</div>
 					</div>
 			}
-			<div className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}>
+			<div
+				className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}
+				onMouseDown={rowMouseDownHandler}
+			>
 				{props.name}
 			</div>
 			<div className={`connections-icon codicon codicon-${icon}`}></div>

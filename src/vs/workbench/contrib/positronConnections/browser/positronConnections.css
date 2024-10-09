@@ -28,6 +28,8 @@
 
 .connections-items-container {
 	height: 100%;
+	position: relative;
+	left: 0.5px;
 }
 
 .connections-item {
@@ -49,6 +51,7 @@
 	flex-shrink: 0;
 	flex-grow: 0;
 	padding-right: 5px;
+	padding-left: 5px;
 }
 
 .connections-item .expand-collapse-area {
@@ -56,6 +59,13 @@
 	display: flex;
 	align-items: center;
 	justify-content: center;
+}
+
+.connections-item.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+	outline: 1px;
+	outline-offset: -1px;
 }
 
 .connection-disabled {
