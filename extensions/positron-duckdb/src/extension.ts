@@ -60,6 +60,7 @@ class DuckDBInstance {
 		await db.instantiate(bundle.mainModule);
 
 		const con = await db.connect();
+		await con.query('LOAD icu; SET TIMEZONE=\'UTC\';');
 		return new DuckDBInstance(db, con);
 	}
 
@@ -124,7 +125,6 @@ export class DataExplorerRpcHandler {
 		console.log(query);
 		try {
 			const result = await this.db.runQuery(query);
-			// console.log(result.toArray());
 			return result;
 		} catch (error) {
 			console.log(error);
@@ -226,10 +226,16 @@ export class DataExplorerRpcHandler {
 
 			// Build column selector. Just casting to string for now
 			let columnSelector;
-			if (columnSchema.column_type === 'VARCHAR') {
-				columnSelector = quotedName;
-			} else {
-				columnSelector = `CAST(${quotedName} AS VARCHAR)`;
+			switch (columnSchema.column_type) {
+				case 'VARCHAR':
+					columnSelector = quotedName;
+					break;
+				case 'TIMESTAMP':
+					columnSelector = `strftime(${quotedName} AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S')`;
+					break;
+				default:
+					columnSelector = `CAST(${quotedName} AS VARCHAR)`;
+					break;
 			}
 			columnSelectors.push(columnSelector);
 		}
@@ -391,14 +397,19 @@ export class DataExplorerRpcHandler {
 			queryResultIds.push(resultIds);
 		}
 
-		const profileQuery = `
-		SELECT ${profileExprs.join(',\n    ')}
-		FROM ${tableName}`;
-
-		const result = await this.runQuery(profileQuery);
-		if (typeof result === 'string') {
-			// Query failed for some reason, need to return to UI
-			return;
+		let result;
+		if (profileExprs.length > 0) {
+			const profileQuery = `
+			SELECT ${profileExprs.join(',\n    ')}
+			FROM ${tableName}`;
+			result = await this.runQuery(profileQuery);
+			if (typeof result === 'string') {
+				// Query failed for some reason, need to return to UI
+				return;
+			}
+		} else {
+			// Do not run any malformed queries
+			result = undefined;
 		}
 
 		// Now need to populate the result
@@ -411,7 +422,7 @@ export class DataExplorerRpcHandler {
 					const outputIndex = outputIds[profIndex];
 
 					// A requested profile was not implemented, so we just skip it
-					if (outputIndex === undefined) {
+					if (outputIndex === undefined || result === undefined) {
 						return;
 					}
 

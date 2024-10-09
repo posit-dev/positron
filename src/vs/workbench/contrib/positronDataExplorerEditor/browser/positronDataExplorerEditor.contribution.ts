@@ -76,12 +76,16 @@ class PositronDataExplorerContribution extends Disposable {
 			}
 		));
 
+		const DUCKDB_SUPPORTED_EXTENSIONS = ['parquet', 'parq', 'csv', 'tsv'];
+
 		this._register(editorResolverService.registerEditor(
-			'*.parquet',
+			`*.{${DUCKDB_SUPPORTED_EXTENSIONS.join(',')}}`,
 			editorInfo,
 			{
 				singlePerResource: true,
-				canSupportResource: resource => (extname(resource) === '.parquet')
+				canSupportResource: resource => {
+					return DUCKDB_SUPPORTED_EXTENSIONS.includes(extname(resource).substring(1));
+				}
 			},
 			{
 				createEditorInput: async ({ resource, options }, group) => {
