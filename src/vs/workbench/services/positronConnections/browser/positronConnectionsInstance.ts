@@ -8,6 +8,8 @@ import { Emitter, Event } from 'vs/base/common/event';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
@@ -24,6 +26,7 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 
 	constructor(
 		readonly onDidChangeDataEmitter: Emitter<void>,
+		private readonly runtimeSessionService: IRuntimeSessionService,
 		private readonly client: ConnectionsClientInstance,
 		private readonly metadata: ConnectionMetadata
 	) {
@@ -45,6 +48,12 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 		return this.client.getClientId();
 	}
 
+	get id() {
+		// We use host, type and language_id to identify a unique connection.
+		const { host, type, language_id } = this.metadata;
+		return `host-${host}-type-${type}-language_id-${language_id}`;
+	}
+
 	getMetadata() {
 		return this.metadata;
 	}
@@ -53,6 +62,34 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 		// We don't need to send the DidDataChange event because it will be triggered
 		// when the client is actually closed.
 		this.client.dispose();
+	}
+
+	get connect() {
+		if (!this.metadata.code) {
+			// No code, no connect method.
+			return undefined;
+		}
+
+		return () => {
+			const language_id = this.metadata.language_id;
+			const session = this.runtimeSessionService.getConsoleSessionForLanguage(language_id);
+
+			if (!session) {
+				throw new Error(`No console session for language ${language_id}`);
+			}
+
+			// We have checked that before, but it might have been removed somehow.
+			if (!this.metadata.code) {
+				throw new Error('No code to execute');
+			}
+
+			session.execute(
+				this.metadata.code,
+				this.metadata.name,
+				RuntimeCodeExecutionMode.Interactive,
+				RuntimeErrorBehavior.Continue
+			);
+		};
 	}
 
 	async getChildren() {
