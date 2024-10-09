@@ -19,11 +19,12 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
             getDashDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document, urlPrefix),
+        registerExecCommand(Commands.Exec_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document),
+            '/docs'
         ),
-        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, urlPrefix) =>
-            getFlaskDebugConfig(document, urlPrefix),
+        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
+            getFlaskDebugConfig(document),
         ),
         registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
@@ -37,11 +38,11 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
             getDashDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document, urlPrefix),
+        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
+            getFastAPIDebugConfig(serviceContainer, runtime, document),
         ),
-        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, urlPrefix) =>
-            getFlaskDebugConfig(document, urlPrefix),
+        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
+            getFlaskDebugConfig(document),
         ),
         registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
@@ -152,7 +153,8 @@ function getDashDebugConfig(document: vscode.TextDocument, urlPrefix?: string): 
         PYTHONPATH: path.dirname(document.uri.fsPath),
     };
     if (urlPrefix) {
-        env.DASH_URL_PREFIX = urlPrefix;
+        // Note that this will result in the app being run at http://localhost:APP_PORT/proxy/PROXY_PORT/
+        env.DASH_URL_BASE_PATHNAME = urlPrefix;
     }
 
     return { program: document.uri.fsPath, env };
@@ -162,7 +164,6 @@ async function getFastAPIDebugConfig(
     serviceContainer: IServiceContainer,
     runtime: positron.LanguageRuntimeMetadata,
     document: vscode.TextDocument,
-    urlPrefix?: string,
 ): Promise<DebugConfiguration | undefined> {
     let mod: string | undefined;
     let args: string[];
@@ -178,10 +179,6 @@ async function getFastAPIDebugConfig(
         args = ['--reload', `${pathToModule(document.uri.fsPath)}:${appName}`];
     }
 
-    if (urlPrefix) {
-        args.push('--root-path', urlPrefix);
-    }
-
     return { module: mod, args };
 }
 
@@ -195,18 +192,19 @@ async function isFastAPICLIInstalled(serviceContainer: IServiceContainer, python
     return installer.isInstalled(Product.fastapiCli, interpreter);
 }
 
-function getFlaskDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
+function getFlaskDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const args = ['--app', document.uri.fsPath, 'run'];
     const env: { [key: string]: string } = {};
-    if (urlPrefix) {
-        env.SCRIPT_NAME = urlPrefix;
-    }
     return { module: 'flask', args, env };
 }
 
 function getGradioDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
     const env: { [key: string]: string } = {};
     if (urlPrefix) {
+        // Gradio doc: https://www.gradio.app/guides/environment-variables#7-gradio-root-path
+        // Issue with Gradio not loading assets when Gradio is run via proxy:
+        //     https://github.com/gradio-app/gradio/issues/9529
+        // Gradio works if we use these versions: gradio==3.3.1 fastapi==0.85.2 httpx==0.24.1
         env.GRADIO_ROOT_PATH = urlPrefix;
     }
     return { program: document.uri.fsPath, env };
