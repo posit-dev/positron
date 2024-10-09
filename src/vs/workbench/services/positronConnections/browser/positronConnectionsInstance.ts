@@ -58,7 +58,7 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 		return this.metadata;
 	}
 
-	disconnect(): void {
+	async disconnect() {
 		// We don't need to send the DidDataChange event because it will be triggered
 		// when the client is actually closed.
 		this.client.dispose();
@@ -70,7 +70,7 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 			return undefined;
 		}
 
-		return () => {
+		return async () => {
 			const language_id = this.metadata.language_id;
 			const session = this.runtimeSessionService.getConsoleSessionForLanguage(language_id);
 
@@ -143,6 +143,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	readonly active: boolean = true;
 
 	_expanded: boolean | undefined;
+	_has_viewer: boolean | undefined;
 	_icon: string | undefined;
 	_children: IPositronConnectionItem[] | undefined;
 	_has_children: boolean | undefined;
@@ -159,6 +160,11 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		} else {
 			object._expanded = undefined;
 		}
+
+		// Calling object.hasViewer() would be enough to set that flag the internal
+		// _has_viwer flag, because it's used as a cache. But we wanted to make this
+		// explicit.
+		object._has_viewer = await object.hasViewer();
 
 		return object;
 	}
@@ -228,7 +234,24 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		return this._has_children;
 	}
 
+	async hasViewer() {
+		if (this._has_viewer === undefined) {
+			this._has_viewer = await this.client.containsData(this.path);
+		}
+		return this._has_viewer;
+	}
+
 	get expanded() {
 		return this._expanded;
+	}
+
+	get preview() {
+		if (!this._has_viewer) {
+			return undefined;
+		}
+
+		return async () => {
+			await this.client.previewObject(this.path);
+		};
 	}
 }

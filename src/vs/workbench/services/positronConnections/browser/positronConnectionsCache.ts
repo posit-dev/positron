@@ -44,12 +44,18 @@ export interface IPositronConnectionEntry {
 	/**
 	 * Causes the item to disconnect.
 	 */
-	disconnect?(): void;
+	disconnect?(): Promise<void>;
 
 	/**
 	 * Cause the item to connect.
 	 */
-	connect?(): void;
+	connect?(): Promise<void>;
+
+	/**
+	 * Causes the a viewer to open for that item.
+	 * Currently, used to open tables and views in the data explorer.
+	 */
+	preview?(): Promise<void>;
 }
 
 /**
@@ -94,16 +100,26 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return this.item.onToggleExpandEmitter;
 	}
 
-	disconnect() {
+	async disconnect() {
 		if (this.item.disconnect) {
 			this.item.disconnect();
 		}
 	}
 
-	connect() {
+	async connect() {
 		if (this.item.connect) {
 			this.item.connect();
 		}
+	}
+
+	get preview() {
+		if (!this.item.preview) {
+			return undefined;
+		}
+
+		return async () => {
+			await this.item.preview?.();
+		};
 	}
 }
 

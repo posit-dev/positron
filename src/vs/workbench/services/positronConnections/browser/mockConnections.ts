@@ -76,7 +76,7 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return this.clientId;
 	}
 
-	connect() {
+	async connect() {
 		// Dummy reconnection. Just creates a new instance with the same id.
 		this.connectionsService.addConnection(new MockedConnectionInstance(
 			this.clientId,
@@ -99,7 +99,7 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return this._active;
 	}
 
-	disconnect(): void {
+	async disconnect() {
 		this._active = false;
 		this._expanded = false;
 		this.onDidChangeDataEmitter.fire();

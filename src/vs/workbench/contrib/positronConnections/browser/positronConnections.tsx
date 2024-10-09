@@ -97,6 +97,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				icon={itemProps.icon}
 				kind={itemProps.kind}
 				active={itemProps.active}
+				preview={itemProps.preview ? async () => itemProps.preview?.() : undefined}
 				selected={itemProps.id === selectedId}
 				onSelectedHandler={() => setSelectedId(itemProps.id)}
 				style={props.style}>
@@ -135,6 +136,10 @@ interface ItemEntryProps {
 interface PositronConnectionsItemProps extends IPositronConnectionEntry {
 	style?: any;
 	selected: boolean;
+
+	/**
+	 * What happens when a row is selected?
+	 */
 	onSelectedHandler: () => void;
 }
 
@@ -167,9 +172,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 
 	useEffect(() => {
 		props.icon.then((i) => {
-			console.log(i);
 			if (i === undefined) {
-				console.log('icon is undefined!');
 				return;
 			}
 			setIcon(i);
@@ -221,7 +224,11 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			>
 				{props.name}
 			</div>
-			<div className={`connections-icon codicon codicon-${icon}`}></div>
+			<div
+				className={`connections-icon codicon codicon-${icon}`}
+				onClick={() => props.preview?.()}
+			>
+			</div>
 		</div>
 	);
 };
