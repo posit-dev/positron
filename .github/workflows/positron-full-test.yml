@@ -106,6 +106,24 @@ jobs:
           name: compiled-app
           path: ./
 
+      # Debugging step to confirm file locations in multiple directories
+      - name: List directory contents
+        run: |
+          echo "Listing contents of current directory:"
+          ls -R .
+
+          echo "Listing contents of .build directory:"
+          ls -R .build || echo ".build directory does not exist"
+
+          echo "Listing contents of out directory:"
+          ls -R out || echo "out directory does not exist"
+
+      # Fix permissions for .build directory
+      - name: Set execute permissions
+        run: |
+          chmod -R +x .build
+          chmod -R +x ./scripts
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
@@ -260,6 +278,24 @@ jobs:
         with:
           name: compiled-app
           path: ./
+
+      # Debugging step to confirm file locations in multiple directories
+      - name: List directory contents
+        run: |
+          echo "Listing contents of current directory:"
+          ls -R .
+
+          echo "Listing contents of .build directory:"
+          ls -R .build || echo ".build directory does not exist"
+
+          echo "Listing contents of out directory:"
+          ls -R out || echo "out directory does not exist"
+
+      # Fix permissions for .build directory
+      - name: Set execute permissions
+        run: |
+          chmod -R +x .build
+          chmod -R +x ./scripts
 
       - name: Run Tests (Electron)
         env:
