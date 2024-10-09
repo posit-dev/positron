@@ -158,11 +158,13 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 		await interpreterDropdown.closeInterpreterDropdown();
 
 		// The interpreter dropdown should show the expected running indicators
-		expect(
-			await interpreterDropdown.primaryInterpreterShowsRunning(
-				interpreterInfo!.path
-			)
-		).toBe(true);
+		await expect(async () => {
+			expect(
+				await interpreterDropdown.primaryInterpreterShowsRunning(
+					interpreterInfo!.path
+				)
+			).toBe(true);
+		}).toPass({ timeout: 30_000 });
 
 		// Close the interpreter dropdown.
 		await interpreterDropdown.closeInterpreterDropdown();
