@@ -23,7 +23,7 @@ jobs:
 
       - name: Compile tests
         run: |
-          npm install typescript
+          npm install -g typescript
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
           yarn --cwd test/automation compile
