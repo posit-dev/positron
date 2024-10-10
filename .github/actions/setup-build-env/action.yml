@@ -1,0 +1,46 @@
+name: "Setup Build Environment, Install Dependencies, and Compile App"
+description: "Installs necessary system dependencies."
+runs:
+  using: "composite"
+  steps:
+    - name: Install Build Dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          vim curl build-essential clang make cmake git \
+          libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
+          libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
+          libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+
+    - name: Configure xvfb Service
+      shell: bash
+      run: |
+        sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+        sudo chmod +x /etc/init.d/xvfb
+        sudo update-rc.d xvfb defaults
+        sudo service xvfb start
+
+    - name: Execute yarn
+      shell: bash
+      env:
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        POSITRON_GITHUB_PAT: ${{ github.token }}
+      run: |
+        # Enable corepack (for yarn)
+        corepack enable
+
+        # Install node-gyp; this is required by some packages, and yarn
+        # sometimes fails to automatically install it.
+        yarn global add node-gyp
+
+        # Perform the main yarn command; this installs all Node packages and
+        # dependencies
+        yarn --immutable --network-timeout 120000
+        yarn --cwd test/automation install --frozen-lockfile
+        yarn --cwd test/smoke install --frozen-lockfile
+
+    - name: Compile and Download
+      shell: bash
+      run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions

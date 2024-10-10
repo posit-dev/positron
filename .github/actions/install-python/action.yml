@@ -1,0 +1,41 @@
+name: "Setup Python"
+description: "Install specified Python version."
+inputs:
+  version:
+    description: "The version of Python to install (e.g., 3.10)"
+    required: true
+    default: "3.10"
+runs:
+  using: "composite"
+  steps:
+    - name: Install Specified Python Version
+      shell: bash
+      run: |
+        # Extract Python version from input
+        PYTHON_VERSION="${{ inputs.version }}"
+
+        # Add the deadsnakes PPA repository and update apt
+        sudo add-apt-repository -y ppa:deadsnakes/ppa
+        sudo apt-get update
+
+        # Install the specific Python version and necessary packages
+        sudo apt-get install -y \
+          python${PYTHON_VERSION} \
+          python${PYTHON_VERSION}-dev \
+          python${PYTHON_VERSION}-venv
+
+        # Set up update-alternatives for managing multiple Python versions
+        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1
+
+    - name: Install Python dependencies
+      shell: bash
+      run: |
+        curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip install ipykernel trcli
+
+    - name: Verify Python Version
+      shell: bash
+      run: |
+        python3 --version
