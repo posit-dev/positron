@@ -12,7 +12,7 @@ import {
 
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Interpreter Dropdown in Top Action Bar #web', () => {
+describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	setupAndStartApp();
 	let app: Application;
 	let interpreterDropdown: PositronInterpreterDropdown;
@@ -155,12 +155,6 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 		const expectedPrompt = options.interpreterType === 'Python' ? '>>>' : '>';
 		const interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		const positronConsole = app.workbench.positronConsole;
-
-		// Ensure that the interpreter dropdown is closed before interacting. This becomes
-		// problematic when the dropdown was left open from a previous test or failed/retried test
-		if (await interpreterDropdown.isDropdownOpen()) {
-			await interpreterDropdown.closeInterpreterDropdown();
-		}
 
 		// Start the desired interpreter using the dropdown
 		await expect(

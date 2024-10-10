@@ -25,14 +25,6 @@ export class PositronInterpreterDropdown {
 	constructor(private code: Code) { }
 
 	/**
-	 * Check if the interpreter dropdown is currently open.
-	 * @returns A promise that resolves to true if the dropdown is open, otherwise false.
-	 */
-	async isDropdownOpen(): Promise<boolean> {
-		return await this.interpreterGroups.isVisible();
-	}
-
-	/**
 	 * Get the interpreter name from the interpreter element.
 	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
 	 * @param interpreterLocator The locator for the interpreter element.
@@ -67,11 +59,25 @@ export class PositronInterpreterDropdown {
 	 * @returns The primary interpreter element if found, otherwise undefined.
 	 */
 	private async getPrimaryInterpreter(description: string | InterpreterType) {
+		this.code.logger.log(`~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ MARIE START`);
+		this.code.logger.log(`Looking for primary interpreter with description: ${description}`);
 		// Wait for the primary interpreters to load
 		await this.code.waitForElements('.primary-interpreter', false);
 		const allPrimaryInterpreters = await this.interpreterGroups
 			.locator('.primary-interpreter')
 			.all();
+
+		// Log the count of primary interpreters found
+		console.log(`Number of primary interpreters found: ${allPrimaryInterpreters.length}`);
+		this.code.logger.log(`Number of primary interpreters found: ${allPrimaryInterpreters.length}`);
+
+		// Log each interpreter's name and path, if available
+		for (const [index, interpreter] of allPrimaryInterpreters.entries()) {
+			const name = await this.getInterpreterName(interpreter);
+			const path = await this.getInterpreterPath(interpreter);
+			console.log(`Primary Interpreter ${index + 1}: Name = ${name || 'N/A'}, Path = ${path || 'N/A'}`);
+			this.code.logger.log(`Primary Interpreter ${index + 1}: Name = ${name || 'N/A'}, Path = ${path || 'N/A'}`);
+		}
 		if (allPrimaryInterpreters.length === 0) {
 			this.code.logger.log('Failed to locate primary interpreters');
 			return undefined;
@@ -83,6 +89,7 @@ export class PositronInterpreterDropdown {
 			const interpreterName = await this.getInterpreterName(interpreter);
 			if (!interpreterName) {
 				// Shouldn't happen, but if it does, proceed to the next interpreter
+				this.code.logger.log('WARNING: could not retrieve interpreter name');
 				continue;
 			}
 			if (description in InterpreterType) {
@@ -90,11 +97,13 @@ export class PositronInterpreterDropdown {
 				// - starts with Python - 'Python 3.10.4 (Pyenv)'
 				// - starts with R - 'R 4.4.0'
 				if (interpreterName.startsWith(`${description} `)) {
+					this.code.logger.log('Found primary interpreter by type');
 					return interpreter;
 				}
 			}
 			if (interpreterName.includes(description)) {
 				// Example: includes 3.10.4 - 'Python 3.10.4 (Pyenv)'
+				this.code.logger.log('Found primary interpreter by description');
 				return interpreter;
 			}
 
@@ -102,10 +111,12 @@ export class PositronInterpreterDropdown {
 			const interpreterPath = await this.getInterpreterPath(interpreter);
 			if (!interpreterPath) {
 				// Shouldn't happen, but if it does, proceed to the next interpreter
+				this.code.logger.log('WARNING: could not retrieve interpreter path');
 				continue;
 			}
 			if (interpreterPath.includes(description)) {
 				// Example: includes /opt/homebrew/bin/python3
+				this.code.logger.log('Found primary interpreter by path');
 				return interpreter;
 			}
 		}
