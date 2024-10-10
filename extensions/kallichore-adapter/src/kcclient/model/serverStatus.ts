@@ -16,6 +16,14 @@ export class ServerStatus {
     'sessions': number;
     'active': number;
     'busy': boolean;
+    /**
+    * The number of seconds all sessions have been idle, or 0 if any session is busy
+    */
+    'idleSeconds': number;
+    /**
+    * The number of seconds any session has been busy, or 0 if all sessions are idle
+    */
+    'busySeconds': number;
     'version': string;
 
     static discriminator: string | undefined = undefined;
@@ -35,6 +43,16 @@ export class ServerStatus {
             "name": "busy",
             "baseName": "busy",
             "type": "boolean"
+        },
+        {
+            "name": "idleSeconds",
+            "baseName": "idle_seconds",
+            "type": "number"
+        },
+        {
+            "name": "busySeconds",
+            "baseName": "busy_seconds",
+            "type": "number"
         },
         {
             "name": "version",
