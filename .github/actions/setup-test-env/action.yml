@@ -1,0 +1,49 @@
+name: "Setup E2E Test Environment"
+description: "Install necessary dependencies for E2E testing"
+inputs:
+  aws-role-to-assume:
+    description: "The AWS role to assume for S3 access"
+    required: true
+  aws-region:
+    description: "The AWS region for S3"
+    required: true
+  github-token:
+    description: "GitHub Token for accessing private repositories or APIs"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup AWS S3 Access
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.aws-role-to-assume }}
+        aws-region: ${{ inputs.aws-region }}
+
+    - name: Setup Graphviz
+      uses: ts-graphviz/setup-graphviz@v2.0.2
+
+    - name: Setup Quarto
+      uses: quarto-dev/quarto-actions/setup@v2
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      with:
+        tinytex: true
+
+    - name: Setup Conda (Miniforge3)
+      shell: bash
+      run: |
+        wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
+        sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+        echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
+        source "${HOME}/conda/etc/profile.d/conda.sh"
+
+    - name: Setup Python
+      uses: ./.github/actions/install-python
+      with:
+        version: "3.10"
+
+    - name: Setup R
+      uses: ./.github/actions/install-r
+      with:
+        version: "4.4.0"

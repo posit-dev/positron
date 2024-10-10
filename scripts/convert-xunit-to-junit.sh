@@ -11,6 +11,7 @@ DIR_NAME="$1"
 
 # Input and output file paths, dynamically using the specified directory
 XUNIT_FILE="./.build/logs/$DIR_NAME/test-results/xunit-results.xml"
+CLEAN_XUNIT_FILE="./.build/logs/$DIR_NAME/test-results/xunit-results-clean.xml"
 JUNIT_FILE="./.build/logs/$DIR_NAME/test-results/results.xml"
 
 # Create the output directory if it doesn't exist
@@ -29,9 +30,16 @@ if [ ! -s "$XUNIT_FILE" ]; then
 	exit 1
 fi
 
+# When we started logging stack traces in middle of test results ANSI escape codes were added to the XML file
+# These escape codes are not valid XML and cause xmllint to fail. So we need to strip them out.
+# - `&#x1B;` sequences represent ANSI escape codes in XML (used for colors and formatting).
+# - `\u001b` is the raw representation of the escape code in other formats.
+# Create a cleaned copy of the input file without escape sequences.
+sed -E 's/&#x1B;\[[0-9;]*[a-zA-Z]//g' "$XUNIT_FILE" | sed -E 's/\u001b\[[0-9;]*[a-zA-Z]//g' > "$CLEAN_XUNIT_FILE"
+
 # Validate the input XML file format before proceeding
-if ! /usr/bin/xmllint --noout "$XUNIT_FILE" 2>/dev/null; then
-	echo "Error: $XUNIT_FILE is not a well-formed XML file."
+if ! /usr/bin/xmllint --noout "$CLEAN_XUNIT_FILE" 2>/dev/null; then
+	echo "Error: $CLEAN_XUNIT_FILE is not a well-formed XML file."
 	exit 1
 fi
 
@@ -40,7 +48,7 @@ echo '<?xml version="1.0" encoding="UTF-8"?>' > "$JUNIT_FILE"
 echo '<testsuites name="test suites root">' >> "$JUNIT_FILE"
 
 # Extract the entire <testsuite> block from the XUnit file
-TESTSUITE=$(/usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$XUNIT_FILE" 2>/dev/null)
+TESTSUITE=$(/usr/bin/xmllint --xpath '//*[local-name()="testsuite"]' "$CLEAN_XUNIT_FILE" 2>/dev/null)
 
 # If no <testsuite> elements were found, output an error and exit
 if [ -z "$TESTSUITE" ]; then
