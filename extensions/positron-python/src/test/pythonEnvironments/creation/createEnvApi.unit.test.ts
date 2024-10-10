@@ -19,7 +19,7 @@ import { CreateEnvironmentProvider } from '../../../client/pythonEnvironments/cr
 import { IPythonRuntimeManager } from '../../../client/positron/manager';
 // --- End Positron ---
 
-chaiUse(chaiAsPromised);
+chaiUse(chaiAsPromised.default);
 
 suite('Create Environment APIs', () => {
     let registerCommandStub: sinon.SinonStub;

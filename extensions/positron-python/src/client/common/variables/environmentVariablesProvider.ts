@@ -4,7 +4,7 @@
 /* eslint-disable import/no-duplicates */
 // --- End Positron ---
 
-import { inject, injectable, optional } from 'inversify';
+import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, FileSystemWatcher, Uri } from 'vscode';
 import { traceError, traceVerbose } from '../../logging';
@@ -44,7 +44,7 @@ export class EnvironmentVariablesProvider implements IEnvironmentVariablesProvid
         @inject(IExtensionContext) private context: IExtensionContext,
         @inject(IFileSystem) private fs: IFileSystem,
         // --- End Positron ---
-        @optional() private cacheDuration: number = CACHE_DURATION,
+        private cacheDuration: number = CACHE_DURATION,
     ) {
         disposableRegistry.push(this);
         this.changeEventEmitter = new EventEmitter();

@@ -49,9 +49,7 @@ const testExecution = isTestExecution();
 export class ImportTracker implements IExtensionSingleActivationService {
     public readonly supportedWorkspaceTypes = { untrustedWorkspace: false, virtualWorkspace: true };
 
-    // --- Start Positron ---
     private pendingChecks = new Map<string, NodeJS.Timeout>();
-    // --- End Positron ---
 
     private static sentMatches: Set<string> = new Set<string>();
 

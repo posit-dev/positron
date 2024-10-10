@@ -1,6 +1,6 @@
 import { inject, injectable, named } from 'inversify';
 import * as path from 'path';
-import { DebugConfiguration, l10n, Uri, WorkspaceFolder } from 'vscode';
+import { DebugConfiguration, l10n, Uri, WorkspaceFolder, DebugSession } from 'vscode';
 import { IApplicationShell, IDebugService } from '../../common/application/types';
 import { EXTENSION_ROOT_DIR } from '../../common/constants';
 import * as internalScripts from '../../common/process/internal/scripts';
@@ -9,7 +9,7 @@ import { DebuggerTypeName, PythonDebuggerTypeName } from '../../debugger/constan
 import { IDebugConfigurationResolver } from '../../debugger/extension/configuration/types';
 import { DebugPurpose, LaunchRequestArguments } from '../../debugger/types';
 import { IServiceContainer } from '../../ioc/types';
-import { traceError } from '../../logging';
+import { traceError, traceVerbose } from '../../logging';
 import { TestProvider } from '../types';
 import { ITestDebugLauncher, LaunchOptions } from './types';
 import { getConfigurationsForWorkspace } from '../../debugger/extension/configuration/launch.json/launchJsonReader';
@@ -34,11 +34,19 @@ export class DebugLauncher implements ITestDebugLauncher {
 
     public async launchDebugger(options: LaunchOptions, callback?: () => void): Promise<void> {
         const deferred = createDeferred<void>();
+        let hasCallbackBeenCalled = false;
         if (options.token && options.token.isCancellationRequested) {
+            hasCallbackBeenCalled = true;
             return undefined;
             deferred.resolve();
             callback?.();
         }
+
+        options.token?.onCancellationRequested(() => {
+            deferred.resolve();
+            callback?.();
+            hasCallbackBeenCalled = true;
+        });
 
         const workspaceFolder = DebugLauncher.resolveWorkspaceFolder(options.cwd);
         const launchArgs = await this.getLaunchArgs(
@@ -48,11 +56,23 @@ export class DebugLauncher implements ITestDebugLauncher {
         );
         const debugManager = this.serviceContainer.get<IDebugService>(IDebugService);
 
-        debugManager.onDidTerminateDebugSession(() => {
-            deferred.resolve();
-            callback?.();
+        let activatedDebugSession: DebugSession | undefined;
+        debugManager.startDebugging(workspaceFolder, launchArgs).then(() => {
+            // Save the debug session after it is started so we can check if it is the one that was terminated.
+            activatedDebugSession = debugManager.activeDebugSession;
         });
-        debugManager.startDebugging(workspaceFolder, launchArgs);
+        debugManager.onDidTerminateDebugSession((session) => {
+            traceVerbose(`Debug session terminated. sessionId: ${session.id}`);
+            // Only resolve no callback has been made and the session is the one that was started.
+            if (
+                !hasCallbackBeenCalled &&
+                activatedDebugSession !== undefined &&
+                session.id === activatedDebugSession?.id
+            ) {
+                deferred.resolve();
+                callback?.();
+            }
+        });
         return deferred.promise;
     }
 
@@ -143,8 +163,6 @@ export class DebugLauncher implements ITestDebugLauncher {
     ) {
         // cfg.pythonPath is handled by LaunchConfigurationResolver.
 
-        // Default value of justMyCode is not provided intentionally, for now we derive its value required for launchArgs using debugStdLib
-        // Have to provide it if and when we remove complete support for debugStdLib
         if (!cfg.console) {
             cfg.console = 'internalConsole';
         }

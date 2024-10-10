@@ -10,6 +10,7 @@ from urllib.request import urlopen
 import numpy as np
 import pandas as pd
 import pytest
+
 from positron_ipykernel.help import HelpService, help
 from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent
 

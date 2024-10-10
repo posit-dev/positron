@@ -6,10 +6,9 @@ import enum
 import json
 import os
 import pathlib
-import socket
 import sys
-import traceback
 import sysconfig
+import traceback
 import unittest
 from types import TracebackType
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -20,19 +19,19 @@ os.environ[path_var_name] = (
     sysconfig.get_paths()["scripts"] + os.pathsep + os.environ[path_var_name]
 )
 
-
-script_dir = pathlib.Path(__file__).parent.parent
+script_dir = pathlib.Path(__file__).parent
 sys.path.append(os.fspath(script_dir))
-sys.path.insert(0, os.fspath(script_dir / "lib" / "python"))
+
+from django_handler import django_execution_runner  # noqa: E402
 
 from testing_tools import process_json_util, socket_manager  # noqa: E402
 from unittestadapter.pvsc_utils import (  # noqa: E402
+    EOTPayloadDict,
+    ExecutionPayloadDict,
+    TestExecutionStatus,
     VSCodeUnittestError,
     parse_unittest_args,
     send_post_request,
-    ExecutionPayloadDict,
-    EOTPayloadDict,
-    TestExecutionStatus,
 )
 
 ErrorType = Union[Tuple[Type[BaseException], BaseException, TracebackType], Tuple[None, None, None]]
@@ -53,51 +52,69 @@ class TestOutcomeEnum(str, enum.Enum):
 
 class UnittestTestResult(unittest.TextTestResult):
     def __init__(self, *args, **kwargs):
-        self.formatted: Dict[str, Dict[str, Union[str, None]]] = dict()
-        super(UnittestTestResult, self).__init__(*args, **kwargs)
+        self.formatted: Dict[str, Dict[str, Union[str, None]]] = {}
+        super().__init__(*args, **kwargs)
 
-    def startTest(self, test: unittest.TestCase):
-        super(UnittestTestResult, self).startTest(test)
+    def startTest(self, test: unittest.TestCase):  # noqa: N802
+        super().startTest(test)
 
-    def addError(
+    def stopTestRun(self):  # noqa: N802
+        super().stopTestRun()
+        # After stopping the test run, send EOT
+        test_run_pipe = os.getenv("TEST_RUN_PIPE")
+        if os.getenv("MANAGE_PY_PATH"):
+            # only send this if it is a Django run
+            if not test_run_pipe:
+                print(
+                    "UNITTEST ERROR: TEST_RUN_PIPE is not set at the time of unittest trying to send data. "
+                    f"TEST_RUN_PIPE = {test_run_pipe}\n",
+                    file=sys.stderr,
+                )
+                raise VSCodeUnittestError(
+                    "UNITTEST ERROR: TEST_RUN_PIPE is not set at the time of unittest trying to send data. "
+                )
+            eot_payload: EOTPayloadDict = {"command_type": "execution", "eot": True}
+            send_post_request(eot_payload, test_run_pipe)
+
+    def addError(  # noqa: N802
         self,
         test: unittest.TestCase,
         err: ErrorType,
     ):
-        super(UnittestTestResult, self).addError(test, err)
+        super().addError(test, err)
         self.formatResult(test, TestOutcomeEnum.error, err)
 
-    def addFailure(
+    def addFailure(  # noqa: N802
         self,
         test: unittest.TestCase,
         err: ErrorType,
     ):
-        super(UnittestTestResult, self).addFailure(test, err)
+        super().addFailure(test, err)
         self.formatResult(test, TestOutcomeEnum.failure, err)
 
-    def addSuccess(self, test: unittest.TestCase):
-        super(UnittestTestResult, self).addSuccess(test)
+    def addSuccess(self, test: unittest.TestCase):  # noqa: N802
+        super().addSuccess(test)
         self.formatResult(test, TestOutcomeEnum.success)
 
-    def addSkip(self, test: unittest.TestCase, reason: str):
-        super(UnittestTestResult, self).addSkip(test, reason)
+    def addSkip(self, test: unittest.TestCase, reason: str):  # noqa: N802
+        super().addSkip(test, reason)
         self.formatResult(test, TestOutcomeEnum.skipped)
 
-    def addExpectedFailure(self, test: unittest.TestCase, err: ErrorType):
-        super(UnittestTestResult, self).addExpectedFailure(test, err)
+    def addExpectedFailure(self, test: unittest.TestCase, err: ErrorType):  # noqa: N802
+        super().addExpectedFailure(test, err)
         self.formatResult(test, TestOutcomeEnum.expected_failure, err)
 
-    def addUnexpectedSuccess(self, test: unittest.TestCase):
-        super(UnittestTestResult, self).addUnexpectedSuccess(test)
+    def addUnexpectedSuccess(self, test: unittest.TestCase):  # noqa: N802
+        super().addUnexpectedSuccess(test)
         self.formatResult(test, TestOutcomeEnum.unexpected_success)
 
-    def addSubTest(
+    def addSubTest(  # noqa: N802
         self,
         test: unittest.TestCase,
         subtest: unittest.TestCase,
         err: Union[ErrorType, None],
     ):
-        super(UnittestTestResult, self).addSubTest(test, subtest, err)
+        super().addSubTest(test, subtest, err)
         self.formatResult(
             test,
             TestOutcomeEnum.subtest_failure if err else TestOutcomeEnum.subtest_success,
@@ -105,7 +122,7 @@ class UnittestTestResult(unittest.TextTestResult):
             subtest,
         )
 
-    def formatResult(
+    def formatResult(  # noqa: N802
         self,
         test: unittest.TestCase,
         outcome: str,
@@ -125,10 +142,7 @@ class UnittestTestResult(unittest.TextTestResult):
             tb = "".join(formatted)
             # Remove the 'Traceback (most recent call last)'
             formatted = formatted[1:]
-        if subtest:
-            test_id = subtest.id()
-        else:
-            test_id = test.id()
+        test_id = subtest.id() if subtest else test.id()
 
         result = {
             "test": test.id(),
@@ -192,11 +206,11 @@ def run_tests(
     top_level_dir: Optional[str],
     verbosity: int,
     failfast: Optional[bool],
-    locals: Optional[bool] = None,
+    locals_: Optional[bool] = None,
 ) -> ExecutionPayloadDict:
-    cwd = os.path.abspath(start_dir)
+    cwd = os.path.abspath(start_dir)  # noqa: PTH100
     if "/" in start_dir:  #  is a subdir
-        parent_dir = os.path.dirname(start_dir)
+        parent_dir = os.path.dirname(start_dir)  # noqa: PTH120
         sys.path.insert(0, parent_dir)
     else:
         sys.path.insert(0, cwd)
@@ -208,18 +222,18 @@ def run_tests(
         # If it's a file, split path and file name.
         start_dir = cwd
         if cwd.endswith(".py"):
-            start_dir = os.path.dirname(cwd)
-            pattern = os.path.basename(cwd)
+            start_dir = os.path.dirname(cwd)  # noqa: PTH120
+            pattern = os.path.basename(cwd)  # noqa: PTH119
 
         if failfast is None:
             failfast = False
-        if locals is None:
-            locals = False
+        if locals_ is None:
+            locals_ = False
         if verbosity is None:
             verbosity = 1
         runner = unittest.TextTestRunner(
             resultclass=UnittestTestResult,
-            tb_locals=locals,
+            tb_locals=locals_,
             failfast=failfast,
             verbosity=verbosity,
         )
@@ -261,11 +275,8 @@ atexit.register(lambda: __socket.close() if __socket else None)
 
 def send_run_data(raw_data, test_run_pipe):
     status = raw_data["outcome"]
-    cwd = os.path.abspath(START_DIR)
-    if raw_data["subtest"]:
-        test_id = raw_data["subtest"]
-    else:
-        test_id = raw_data["test"]
+    cwd = os.path.abspath(START_DIR)  # noqa: PTH100
+    test_id = raw_data["subtest"] or raw_data["test"]
     test_dict = {}
     test_dict[test_id] = raw_data
     payload: ExecutionPayloadDict = {"cwd": cwd, "status": status, "result": test_dict}
@@ -283,7 +294,7 @@ if __name__ == "__main__":
         top_level_dir,
         verbosity,
         failfast,
-        locals,
+        locals_,
     ) = parse_unittest_args(argv[index + 1 :])
 
     run_test_ids_pipe = os.environ.get("RUN_TEST_IDS_PIPE")
@@ -319,15 +330,20 @@ if __name__ == "__main__":
                 except json.JSONDecodeError:
                     # JSON decoding error, the complete JSON object is not yet received
                     continue
-    except socket.error as e:
+    except OSError as e:
         msg = f"Error: Could not connect to RUN_TEST_IDS_PIPE: {e}"
         print(msg)
-        raise VSCodeUnittestError(msg)
+        raise VSCodeUnittestError(msg) from e
 
     try:
-        if raw_json and "params" in raw_json:
+        if raw_json and "params" in raw_json and raw_json["params"]:
             test_ids_from_buffer = raw_json["params"]
-            if test_ids_from_buffer:
+            # Check to see if we are running django tests.
+            if manage_py_path := os.environ.get("MANAGE_PY_PATH"):
+                args = argv[index + 1 :] or []
+                django_execution_runner(manage_py_path, test_ids_from_buffer, args)
+                # the django run subprocesses sends the eot payload.
+            else:
                 # Perform test execution.
                 payload = run_tests(
                     start_dir,
@@ -336,11 +352,13 @@ if __name__ == "__main__":
                     top_level_dir,
                     verbosity,
                     failfast,
-                    locals,
+                    locals_,
                 )
+                eot_payload: EOTPayloadDict = {"command_type": "execution", "eot": True}
+                send_post_request(eot_payload, test_run_pipe)
         else:
             # No test ids received from buffer
-            cwd = os.path.abspath(start_dir)
+            cwd = os.path.abspath(start_dir)  # noqa: PTH100
             status = TestExecutionStatus.error
             payload: ExecutionPayloadDict = {
                 "cwd": cwd,
@@ -349,9 +367,9 @@ if __name__ == "__main__":
                 "result": None,
             }
             send_post_request(payload, test_run_pipe)
-    except json.JSONDecodeError:
+            eot_payload: EOTPayloadDict = {"command_type": "execution", "eot": True}
+            send_post_request(eot_payload, test_run_pipe)
+    except json.JSONDecodeError as exc:
         msg = "Error: Could not parse test ids from stdin"
         print(msg)
-        raise VSCodeUnittestError(msg)
-    eot_payload: EOTPayloadDict = {"command_type": "execution", "eot": True}
-    send_post_request(eot_payload, test_run_pipe)
+        raise VSCodeUnittestError(msg) from exc

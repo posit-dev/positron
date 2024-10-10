@@ -19,7 +19,7 @@ if (!tty.getWindowSize) {
     };
 }
 
-let mocha = new Mocha(<any>{
+let mocha = new Mocha.default(<any>{
     ui: 'tdd',
     colors: true,
 });
@@ -40,7 +40,7 @@ export function configure(setupOptions: SetupOptions): void {
     }
     // Force Mocha to exit.
     (setupOptions as any).exit = true;
-    mocha = new Mocha(setupOptions);
+    mocha = new Mocha.default(setupOptions);
 }
 
 export async function run(): Promise<void> {
@@ -59,10 +59,7 @@ export async function run(): Promise<void> {
      */
     function initializationScript() {
         const ex = new Error('Failed to initialize Python extension for tests after 3 minutes');
-        // --- Start Positron ---
-        // Use NodeJS.Timeout instead of NodeJS.Timer since we're using a later @types/node version.
         let timer: NodeJS.Timeout | undefined;
-        // --- End Positron ---
         const failed = new Promise((_, reject) => {
             timer = setTimeout(() => reject(ex), MAX_EXTENSION_ACTIVATION_TIME);
         });
@@ -72,7 +69,7 @@ export async function run(): Promise<void> {
     }
     // Run the tests.
     await new Promise<void>((resolve, reject) => {
-        glob(
+        glob.default(
             `**/**.${testFilesGlob}.js`,
             { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'], cwd: testsRoot },
             (error, files) => {

@@ -8,6 +8,7 @@ from typing import Tuple
 
 import pytest
 import sqlalchemy
+
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.connections import ConnectionsService
 

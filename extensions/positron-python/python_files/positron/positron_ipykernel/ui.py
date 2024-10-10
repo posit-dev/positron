@@ -8,9 +8,9 @@ import logging
 import os
 import sys
 import webbrowser
-from urllib.parse import urlparse
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
 

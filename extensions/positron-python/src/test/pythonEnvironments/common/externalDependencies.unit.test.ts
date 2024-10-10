@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as path from 'path';
 import * as sinon from 'sinon';
-import * as fsapi from 'fs-extra';
+import * as fsapi from '../../../client/common/platform/fs-paths';
 import { checkParentDirs } from '../../../client/pythonEnvironments/common/externalDependencies';
 
 suite('checkParentDirs tests', () => {

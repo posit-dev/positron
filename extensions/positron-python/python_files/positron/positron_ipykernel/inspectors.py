@@ -46,9 +46,9 @@ from .utils import (
     JsonData,
     get_qualname,
     not_none,
+    numpy_numeric_scalars,
     pretty_format,
     safe_isinstance,
-    numpy_numeric_scalars,
 )
 
 if TYPE_CHECKING:

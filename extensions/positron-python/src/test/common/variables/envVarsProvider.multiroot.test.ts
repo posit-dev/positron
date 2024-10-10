@@ -29,7 +29,7 @@ import { UnitTestIocContainer } from '../../testing/serviceRegistry';
 import { IExtensionContext } from '../../../client/common/types';
 // --- End Positron ---
 
-use(chaiAsPromised);
+use(chaiAsPromised.default);
 
 const multirootPath = path.join(__dirname, '..', '..', '..', '..', 'src', 'testMultiRootWkspc');
 const workspace4Path = Uri.file(path.join(multirootPath, 'workspace4'));

@@ -8,9 +8,9 @@ import * as chaiAsPromised from 'chai-as-promised';
 import * as path from 'path';
 import * as sinon from 'sinon';
 import * as TypeMoq from 'typemoq';
-import * as fs from 'fs-extra';
+import * as fs from '../../../client/common/platform/fs-paths';
 import * as workspaceApis from '../../../client/common/vscodeApis/workspaceApis';
-import { CancellationTokenSource, DebugConfiguration, Uri, WorkspaceFolder } from 'vscode';
+import { CancellationTokenSource, DebugConfiguration, DebugSession, Uri, WorkspaceFolder } from 'vscode';
 import { IInvalidPythonPathInDebuggerService } from '../../../client/application/diagnostics/types';
 import { IApplicationShell, IDebugService } from '../../../client/common/application/types';
 import { EXTENSION_ROOT_DIR } from '../../../client/common/constants';
@@ -30,8 +30,9 @@ import { TestProvider } from '../../../client/testing/types';
 import { isOs, OSType } from '../../common';
 import { IEnvironmentActivationService } from '../../../client/interpreter/activation/types';
 import * as util from '../../../client/testing/testController/common/utils';
+import { createDeferred } from '../../../client/common/utils/async';
 
-use(chaiAsPromised);
+use(chaiAsPromised.default);
 
 suite('Unit Tests - Debug Launcher', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
@@ -125,17 +126,31 @@ suite('Unit Tests - Debug Launcher', () => {
             .setup((x) => x.getEnvironmentVariables(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
             .returns(() => Promise.resolve(expected.env));
 
+        const deferred = createDeferred<void>();
+
         debugService
             .setup((d) => d.startDebugging(TypeMoq.It.isValue(workspaceFolder), TypeMoq.It.isValue(expected)))
             .returns((_wspc: WorkspaceFolder, _expectedParam: DebugConfiguration) => {
+                deferred.resolve();
                 return Promise.resolve(undefined as any);
-            })
+            });
+
+        // create a fake debug session that the debug service will return on terminate
+        const fakeDebugSession = TypeMoq.Mock.ofType<DebugSession>();
+        fakeDebugSession.setup((ds) => ds.id).returns(() => 'id-val');
+        const debugSessionInstance = fakeDebugSession.object;
+
+        debugService
+            .setup((d) => d.activeDebugSession)
+            .returns(() => debugSessionInstance)
             .verifiable(TypeMoq.Times.once());
 
         debugService
             .setup((d) => d.onDidTerminateDebugSession(TypeMoq.It.isAny()))
             .returns((callback) => {
-                callback();
+                deferred.promise.then(() => {
+                    callback(debugSessionInstance);
+                });
                 return undefined as any;
             })
             .verifiable(TypeMoq.Times.once());
@@ -234,13 +249,6 @@ suite('Unit Tests - Debug Launcher', () => {
         }
         expected.workspaceFolder = workspaceFolders[0].uri.fsPath;
         expected.debugOptions = [];
-        if (expected.justMyCode === undefined) {
-            // Populate justMyCode using debugStdLib
-            expected.justMyCode = !expected.debugStdLib;
-        }
-        if (!expected.justMyCode) {
-            expected.debugOptions.push(DebugOptions.DebugStdLib);
-        }
         if (expected.stopOnEntry) {
             expected.debugOptions.push(DebugOptions.StopOnEntry);
         }
@@ -379,7 +387,6 @@ suite('Unit Tests - Debug Launcher', () => {
             envFile: 'some/dir/.env',
             redirectOutput: false,
             debugStdLib: true,
-            justMyCode: false,
             // added by LaunchConfigurationResolver:
             internalConsoleOptions: 'neverOpen',
             subProcess: true,
@@ -399,7 +406,6 @@ suite('Unit Tests - Debug Launcher', () => {
                 envFile: expected.envFile,
                 redirectOutput: expected.redirectOutput,
                 debugStdLib: expected.debugStdLib,
-                justMyCode: undefined,
             },
         ]);
 

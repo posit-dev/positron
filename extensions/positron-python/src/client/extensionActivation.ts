@@ -52,7 +52,8 @@ import { initializePersistentStateForTriggers } from './common/persistentState';
 import { logAndNotifyOnLegacySettings } from './logging/settingLogs';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';
-import { registerReplCommands, registerReplExecuteOnEnter } from './repl/replCommands';
+import { registerReplCommands, registerReplExecuteOnEnter, registerStartNativeReplCommand } from './repl/replCommands';
+import { registerTriggerForTerminalREPL } from './terminals/codeExecution/terminalReplWatcher';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
@@ -123,8 +124,11 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
         // --- End Positron ---
     );
     const executionHelper = ext.legacyIOC.serviceContainer.get<ICodeExecutionHelper>(ICodeExecutionHelper);
-    registerReplCommands(ext.disposables, interpreterService, executionHelper);
-    registerReplExecuteOnEnter(ext.disposables, interpreterService);
+    const commandManager = ext.legacyIOC.serviceContainer.get<ICommandManager>(ICommandManager);
+    registerTriggerForTerminalREPL(ext.disposables);
+    registerStartNativeReplCommand(ext.disposables, interpreterService);
+    registerReplCommands(ext.disposables, interpreterService, executionHelper, commandManager);
+    registerReplExecuteOnEnter(ext.disposables, interpreterService, commandManager);
 }
 
 /// //////////////////////////
