@@ -25,6 +25,14 @@ export class PositronInterpreterDropdown {
 	constructor(private code: Code) { }
 
 	/**
+	 * Check if the interpreter dropdown is currently open.
+	 * @returns A promise that resolves to true if the dropdown is open, otherwise false.
+	 */
+	async isDropdownOpen(): Promise<boolean> {
+		return await this.interpreterGroups.isVisible();
+	}
+
+	/**
 	 * Get the interpreter name from the interpreter element.
 	 * Examples: 'Python 3.10.4 (Pyenv)', 'R 4.4.0'.
 	 * @param interpreterLocator The locator for the interpreter element.

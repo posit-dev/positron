@@ -28,6 +28,13 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 		desiredR = process.env.POSITRON_R_VER_SEL!;
 	});
 
+	beforeEach(async () => {
+		// Ensure that the interpreter dropdown is closed before each test
+		if (await interpreterDropdown.isDropdownOpen()) {
+			await interpreterDropdown.closeInterpreterDropdown();
+		}
+	});
+
 	it('Python interpreter starts and shows running [C707212]', async function () {
 		await startInterpreter(app, {
 			interpreterType: 'Python',
