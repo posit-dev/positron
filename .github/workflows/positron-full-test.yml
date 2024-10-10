@@ -107,6 +107,8 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
+      - run: python3 --version
+
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
@@ -122,6 +124,8 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: python3 --version
 
       - name: Run Tests (Electron)
         env:
