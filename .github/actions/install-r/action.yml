@@ -1,9 +1,9 @@
 name: "Setup Rig, R, and R Packages"
 description: "Install a specified R version using rig, with an option to install additional R packages."
 inputs:
-  r-version:
+  version:
     description: "The R version to install (e.g., 4.4.0)"
-    required: true
+    required: false
     default: "4.4.0"
 runs:
   using: "composite"
@@ -11,7 +11,7 @@ runs:
     - name: Install Rig and R
       shell: bash
       env:
-        R_VERSION: "${{ inputs.r-version }}"
+        R_VERSION: "${{ inputs.version }}"
       run: |
         echo "Installing R version $R_VERSION using Rig..."
         curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | sudo tar xz -C /usr/local

@@ -14,9 +14,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    # --- Needed by E2E Tests ---
-    # AWS S3 Access, Graphviz, Quarto, Conda, Python + Python Deps, R + R Deps
-
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -49,5 +46,4 @@ runs:
     - name: Setup R
       uses: ./.github/actions/install-r
       with:
-        r-version: "4.4.0"
-        install-pkgs: "true"
+        version: "4.4.0"

@@ -71,7 +71,7 @@ jobs:
       - name: Setup R
         uses: ./.github/actions/install-r
         with:
-          r-version: "4.4.0"
+          version: "4.4.0"
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -81,18 +81,18 @@ jobs:
         run: DISPLAY=:10 ./scripts/test-integration.sh
 
       - name: Run Integration Tests (Remote)
-        if: success() || failure()
+        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: electron-remote-integration-tests
         run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
       - name: Run Integration Tests (Browser, Chromium)
-        if: success() || failure()
+        if: ${{ job.status != 'cancelled' && (success() || failure()) }}
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 30
+    timeout-minutes: 35
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -129,17 +129,17 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup
 
+      - name: Clean up license files
+        if: always()
+        run: cd .. && rm -rf positron-license
+
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
-        if: steps.electron-smoke-tests.outcome == 'success' || steps.electron-smoke-tests.outcome == 'failure'
+        if: success() || failure()
         run: |
           sudo apt-get update
           sudo apt-get install -y libxml2-utils
           yarn xunit-to-junit smoke-tests-electron
-
-      - name: Clean up license files
-        if: always()
-        run: cd .. && rm -rf positron-license
 
       - name: Publish Electron Test Report
         uses: mikepenz/action-junit-report@v4
@@ -159,7 +159,7 @@ jobs:
         if: steps.xunit-to-junit == 'success'
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload logs - smoke-tests-electron
+      - name: Upload Artifacts - Electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -168,8 +168,7 @@ jobs:
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
-    timeout-minutes: 30
-    #    needs: setup
+    timeout-minutes: 35
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -206,6 +205,10 @@ jobs:
         id: electron-web-smoke-tests
         run: DISPLAY=:10 yarn smoketest-web --tracing
 
+      - name: Clean up license files
+        if: always()
+        run: cd .. && rm -rf positron-license
+
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
         if: success() || failure()
@@ -222,11 +225,7 @@ jobs:
           check_name: "Web Test Results"
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Clean up license files
-        if: always()
-        run: cd .. && rm -rf positron-license
-
-      - name: Upload run artifacts - browser
+      - name: Upload Artifacts - Browser
         if: always()
         uses: actions/upload-artifact@v4
         with:
