@@ -1,4 +1,4 @@
-name: "Positron: Full Test Suite"
+name: "Positron: Run smoke tests against latest release"
 
 on:
   workflow_dispatch:
