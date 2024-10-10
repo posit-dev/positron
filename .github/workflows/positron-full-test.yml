@@ -89,10 +89,6 @@ jobs:
         id: browser-integration-tests
         run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-      - name: Clean up license files
-        if: always()
-        run: cd .. && rm -rf positron-license
-
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 35
@@ -112,12 +108,6 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
-      - name: Install Positron License
-        uses: ./.github/actions/install-license
-        with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
-
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
@@ -131,10 +121,6 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup
-
-      - name: Clean up license files
-        if: always()
-        run: cd .. && rm -rf positron-license
 
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
@@ -188,6 +174,12 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
@@ -201,6 +193,10 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-web-smoke-tests
         run: DISPLAY=:10 yarn smoketest-web --tracing
+
+      - name: Clean up license files
+        if: always()
+        run: cd .. && rm -rf positron-license
 
       - name: Convert XUnit to JUnit
         id: xunit-to-junit
