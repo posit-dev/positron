@@ -96,6 +96,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				id={itemProps.id}
 				icon={itemProps.icon}
 				kind={itemProps.kind}
+				dtype={itemProps.dtype}
 				active={itemProps.active}
 				preview={itemProps.preview ? async () => itemProps.preview?.() : undefined}
 				selected={itemProps.id === selectedId}
@@ -219,10 +220,15 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					</div>
 			}
 			<div
-				className={`connections-name ${!props.active ? 'connection-disabled' : ''}`}
+				className={`connections-details ${!props.active ? 'connection-disabled' : ''}`}
 				onMouseDown={rowMouseDownHandler}
 			>
-				{props.name}
+				<span className='connections-name'>{props.name}</span>
+				{
+					props.dtype ?
+						<span className='connections-dtype'>{props.dtype}</span> :
+						<></>
+				}
 			</div>
 			<div
 				className={`connections-icon codicon codicon-${icon}`}

@@ -21,6 +21,7 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 export interface IPositronConnectionItem {
 	name: string;
 	kind?: string;
+	dtype?: string;
 
 	/**
 	 * Those endpoints must make an API call to obtain their values
