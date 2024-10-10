@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import * as fs from 'fs/promises'; // Import only fs/promises for consistency
+// eslint-disable-next-line local/code-import-patterns
+import * as fs from 'fs/promises';
 const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
