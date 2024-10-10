@@ -48,7 +48,8 @@ export function prepareTestEnv() {
 /**
  * Sets up the test environment for Electron or Web smoke tests.
  */
-function initializeTestEnvironment(logger: Logger) {
+function initializeTestEnvironment(logger: Logger): string | null {
+	let version: string | null = null;
 
 	//
 	// #### Electron Smoke Tests ####
@@ -60,6 +61,8 @@ function initializeTestEnvironment(logger: Logger) {
 
 		if (testCodePath) {
 			electronPath = getBuildElectronPath(testCodePath);
+			version = getPositronVersion(testCodePath);
+			console.log('POSITRON VERSION:', version);
 		} else {
 			testCodePath = getDevElectronPath();
 			electronPath = testCodePath;
@@ -101,6 +104,7 @@ function initializeTestEnvironment(logger: Logger) {
 			logger.log(`Running web smoke out of sources`);
 		}
 	}
+	return version;
 }
 
 /**
@@ -111,4 +115,32 @@ function prepareTestDataDirectory() {
 		rimraf.sync(TEST_DATA_PATH);
 	}
 	mkdirp.sync(TEST_DATA_PATH);
+}
+
+function getPositronVersion(testCodePath: string): string | null {
+	let productJsonPath;
+	switch (process.platform) {
+		case 'darwin':
+			productJsonPath = join(testCodePath, 'Contents', 'Resources', 'app', 'product.json');
+			break;
+		case 'linux':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		case 'win32':
+			productJsonPath = join(testCodePath, 'resources', 'app', 'product.json');
+			break;
+		default:
+			return null;
+	}
+
+	// Read and parse the JSON file
+	const productJson = JSON.parse(fs.readFileSync(productJsonPath, 'utf8'));
+
+	// Return the `positronVersion` property if it exists, otherwise log an error
+	if (productJson.positronVersion) {
+		return productJson.positronVersion;
+	} else {
+		console.error('positronVersion not found in product.json.');
+		return null;
+	}
 }
