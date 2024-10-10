@@ -129,6 +129,11 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 	get active() {
 		return this._active;
 	}
+
+	async refresh() {
+		this._children = undefined;
+		this.onDidChangeDataEmitter.fire();
+	}
 }
 
 interface ConnectionMetadata {
@@ -263,5 +268,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		return async () => {
 			await this.client.previewObject(this.path);
 		};
+	}
+
+	async refresh() {
+		this._children = undefined;
+		this.onDidChangeDataEmitter.fire();
 	}
 }
