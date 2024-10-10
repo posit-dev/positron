@@ -22,7 +22,7 @@ runs:
       run: |
         R --version
 
-    - name: Conditionally Install R Packages
+    - name: Install R Packages
       shell: bash
       run: |
         echo "Installing R development packages..."
