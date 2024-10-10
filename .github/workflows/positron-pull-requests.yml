@@ -1,13 +1,9 @@
 name: "Positron: CI - Pull Request"
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-# on:
-#   pull_request:
-#     branches:
-#       - main
 
 jobs:
   positron-ci:

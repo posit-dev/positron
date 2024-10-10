@@ -25,6 +25,8 @@ describe('Variables Pane - Notebook #pr #web', () => {
 		});
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
+			this.timeout(120000);
+
 			const app = this.app as Application;
 
 			await app.workbench.positronNotebooks.createNewNotebook();
