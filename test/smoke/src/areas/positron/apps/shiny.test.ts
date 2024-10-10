@@ -8,7 +8,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { expect } from '@playwright/test';
 import { join } from 'path';
 
-describe('Shiny Application', () => {
+describe('Shiny Application #win', () => {
 	setupAndStartApp();
 
 	before(async function () {
