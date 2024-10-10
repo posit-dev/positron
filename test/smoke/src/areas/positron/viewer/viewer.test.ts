@@ -17,8 +17,7 @@ describe('Viewer', () => {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		// Currently there is an open bug for this test
-		it.skip('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
+		it('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
 
 			this.timeout(120000);
 
@@ -47,7 +46,8 @@ VetiverAPI(v).run()`;
 
 		});
 
-		it('Python - Verify Viewer functionality with great-tables [C784888]', async function () {
+		// This randomly fails only in CI
+		it.skip('Python - Verify Viewer functionality with great-tables [C784888]', async function () {
 
 			this.timeout(120000);
 
