@@ -7,7 +7,7 @@
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Console Output', () => {
+describe('Console Output #win', () => {
 	setupAndStartApp();
 
 	describe('Console Output - R', () => {
