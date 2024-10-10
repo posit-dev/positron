@@ -20,8 +20,9 @@ export interface IPositronConnectionEntry {
 	 * Used to indentify unique connection entries.
 	 */
 	id: string;
-
 	name: string;
+	language_id?: string;
+
 	active: boolean;
 
 	icon: Promise<string | undefined>;
@@ -124,6 +125,10 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return async () => {
 			await this.item.preview?.();
 		};
+	}
+
+	get language_id() {
+		return this.item.language_id;
 	}
 }
 

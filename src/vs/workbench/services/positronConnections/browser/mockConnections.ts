@@ -76,6 +76,10 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		return this.clientId;
 	}
 
+	get language_id() {
+		return 'mock';
+	}
+
 	async connect() {
 		// Dummy reconnection. Just creates a new instance with the same id.
 		this.connectionsService.addConnection(new MockedConnectionInstance(

@@ -94,6 +94,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				onToggleExpandEmitter={itemProps.onToggleExpandEmitter}
 				level={itemProps.level}
 				id={itemProps.id}
+				language_id={itemProps.language_id}
 				icon={itemProps.icon}
 				kind={itemProps.kind}
 				dtype={itemProps.dtype}
@@ -225,6 +226,11 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			>
 				<span className='connections-name'>{props.name}</span>
 				{
+					props.language_id ?
+						<span className='connections-language'>{languageIdToName(props.language_id)}</span> :
+						<></>
+				}
+				{
 					props.dtype ?
 						<span className='connections-dtype'>{props.dtype}</span> :
 						<></>
@@ -238,3 +244,14 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		</div>
 	);
 };
+
+function languageIdToName(id: string) {
+	switch (id) {
+		case 'py':
+			return 'Python';
+		case 'r':
+			return 'R';
+		default:
+			return id;
+	}
+}

@@ -54,6 +54,10 @@ export class PositronConnectionsInstance extends Disposable implements IPositron
 		return `host-${host}-type-${type}-language_id-${language_id}`;
 	}
 
+	get language_id() {
+		return this.metadata.language_id;
+	}
+
 	getMetadata() {
 		return this.metadata;
 	}
