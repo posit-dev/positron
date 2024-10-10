@@ -108,6 +108,11 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		this._expanded = false;
 		this.onDidChangeDataEmitter.fire();
 	}
+
+	async refresh() {
+		this.children.pop();
+		this.onDidChangeDataEmitter.fire();
+	}
 }
 
 class MockedConnectionItem implements IPositronConnectionItem {

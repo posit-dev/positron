@@ -16,6 +16,11 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 	 * Connection instances can implement this method to launch a connection.
 	 */
 	connect?(): Promise<void>;
+
+	/**
+	 * Refresh the connection data, cleaning its cache.
+	 */
+	refresh(): Promise<void>;
 }
 
 // This is the interface the front-end needs from a connection instance
@@ -77,4 +82,10 @@ export interface IPositronConnectionItem {
 	 * Currently only used to open the data explorer for a table or a view.
 	 */
 	preview?(): Promise<void>;
+
+	/**
+	 * Refresh the connection data. Typically only implemented by root connection
+	 * items.
+	 */
+	refresh?(): Promise<void>;
 }

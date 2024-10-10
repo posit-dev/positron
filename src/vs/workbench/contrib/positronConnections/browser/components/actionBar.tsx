@@ -90,6 +90,8 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarButton
 							align='left'
 							iconId='refresh'
+							onPressed={() => props.selectedEntry?.refresh?.()}
+							disabled={props.selectedEntry === undefined || props.selectedEntry.refresh === undefined}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

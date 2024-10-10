@@ -57,6 +57,11 @@ export interface IPositronConnectionEntry {
 	 * Currently, used to open tables and views in the data explorer.
 	 */
 	preview?(): Promise<void>;
+
+	/**
+	 * Refresh the connection data, by cleaning all the cached children.
+	 */
+	refresh?(): Promise<void>;
 }
 
 /**
@@ -124,6 +129,16 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 
 		return async () => {
 			await this.item.preview?.();
+		};
+	}
+
+	get refresh() {
+		if (!this.item.refresh) {
+			return undefined;
+		}
+
+		return async () => {
+			await this.item.refresh?.();
 		};
 	}
 
