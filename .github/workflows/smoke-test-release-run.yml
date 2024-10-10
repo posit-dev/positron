@@ -21,11 +21,18 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Compile tests
-        run: |
-          yarn install
-          yarn --cwd test/automation compile
-          yarn --cwd test/smoke compile
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get & install latest release
         id: get_latest_release
