@@ -156,7 +156,8 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		const interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		const positronConsole = app.workbench.positronConsole;
 
-		// Ensure that the interpreter dropdown is closed before interacting with the dropdown
+		// Ensure that the interpreter dropdown is closed before interacting. This becomes
+		// problematic when the dropdown was left open from a previous test or failed/retried test
 		if (await interpreterDropdown.isDropdownOpen()) {
 			await interpreterDropdown.closeInterpreterDropdown();
 		}
