@@ -23,6 +23,8 @@ jobs:
 
       - name: Compile tests
         run: |
+          corepack enable
+          yarn global add node-gyp
           yarn install
           yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
