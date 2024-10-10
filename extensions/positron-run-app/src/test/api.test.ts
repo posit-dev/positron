@@ -21,7 +21,7 @@ suite('PositronRunApp', () => {
 	// Options for running the test application.
 	const runAppOptions: RunAppOptions = {
 		name: 'Test App',
-		getTerminalOptions(runtime, document, _port, _urlPrefix) {
+		getTerminalOptions(runtime, document, _urlPrefix) {
 			return {
 				commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
 			};
@@ -31,7 +31,7 @@ suite('PositronRunApp', () => {
 	// Options for debugging the test application.
 	const debugAppOptions: DebugAppOptions = {
 		name: 'Test App',
-		getDebugConfiguration(_runtime, document, _port, _urlPrefix) {
+		getDebugConfiguration(_runtime, document, _urlPrefix) {
 			return {
 				name: 'Launch Test App',
 				type: 'node',
