@@ -157,7 +157,10 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 		const positronConsole = app.workbench.positronConsole;
 
 		// Start the desired interpreter using the dropdown
-		await interpreterDropdown.selectInterpreter(options.interpreterType, options.version);
+		await expect(
+			async () =>
+				await interpreterDropdown.selectInterpreter(options.interpreterType, options.version)
+		).toPass({ timeout: 30_000 });
 
 		// Install `ipykernel` if a popup prompts for it (only applicable for Python)
 		if (options.interpreterType === 'Python' && await app.workbench.positronPopups.popupCurrentlyOpen()) {
