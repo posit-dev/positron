@@ -278,3 +278,31 @@ fig
     assert params["title"] == ""
     assert params["is_plot"]
     assert params["height"] == 0
+
+
+def test_is_not_plot_url_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
+    """
+    Test that opening a URL that is not a plot sends the expected UI events.
+    Checks that the `is_plot` parameter is not sent or is `False`.
+    """
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+webbrowser.open("http://127.0.0.1:8000")
+webbrowser.open("file://file.html")
+"""
+    )
+    assert len(ui_comm.messages) == 2
+    params = ui_comm.messages[0]["data"]["params"]
+    assert params["url"] == "http://127.0.0.1:8000"
+    assert "is_plot" not in params
+
+    params = ui_comm.messages[1]["data"]["params"]
+    assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
+    assert params["is_plot"] is False
