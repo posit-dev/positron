@@ -36,6 +36,8 @@ jobs:
           corepack enable
           yarn global add node-gyp
           yarn install
+          yarn --cwd test/automation install
+          yarn --cwd test/smoke install
           yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
 
