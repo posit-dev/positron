@@ -20,27 +20,7 @@ runs:
         sudo chmod +x /etc/init.d/xvfb
         sudo update-rc.d xvfb defaults
         sudo service xvfb start
-    ### Surely not?
-    - name: Install Specified Python Version
-      shell: bash
-      env:
-        PYTHON_VERSION: "3.10"
-      run: |
-        # Add the deadsnakes PPA repository and update apt
-        sudo add-apt-repository -y ppa:deadsnakes/ppa
-        sudo apt-get update
 
-        # Install the specific Python version and necessary packages
-        sudo apt-get install -y python${PYTHON_VERSION} python${PYTHON_VERSION}-dev python${PYTHON_VERSION}-venv
-
-        # Set up update-alternatives for managing multiple Python versions
-        sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python${PYTHON_VERSION} 1
-
-    - name: Verify Python Version
-      shell: bash
-      run: python3 --version
-
-    ###
     - name: Execute yarn
       shell: bash
       env:
