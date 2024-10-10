@@ -73,6 +73,10 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup --build /usr/bin/positron
+        run: |
+          cd test/smoke
+          export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron
+          export DISPLAY=:10
+          node run-tests.js --tracing --parallel --jobs 2 --skip-cleanup --build /usr/bin/positron
 
 
