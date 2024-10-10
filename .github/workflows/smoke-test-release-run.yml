@@ -23,6 +23,7 @@ jobs:
 
       - name: Compile tests
         run: |
+          yarn install
           yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
 
