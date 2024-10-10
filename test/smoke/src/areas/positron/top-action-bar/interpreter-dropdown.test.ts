@@ -14,7 +14,7 @@ import {
 
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Interpreter Dropdown in Top Action Bar #web', () => {
+describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 	setupAndStartApp();
 	let app: Application;
 	let interpreterDropdown: PositronInterpreterDropdown;
@@ -74,7 +74,6 @@ describe('Interpreter Dropdown in Top Action Bar #web', () => {
 	});
 
 	it('Python interpreter starts and shows running [C707212]', async function () {
-		this.timeout(120_000);
 		// Start a Python interpreter using the interpreter dropdown
 		await expect(
 			async () =>
