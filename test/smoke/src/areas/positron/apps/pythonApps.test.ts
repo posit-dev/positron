@@ -8,7 +8,7 @@ import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-describe('Python Applications #pr', () => {
+describe('Python Applications #pr #win', () => {
 	setupAndStartApp();
 
 	describe('Python Applications', () => {
@@ -77,7 +77,10 @@ describe('Python Applications #pr', () => {
 
 			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stAppDeployButton', this.app.web);
 
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await expect(headerLocator).toHaveText('Deploy', { timeout: 45000 });
+			await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
 
 		});
 	});
