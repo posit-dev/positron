@@ -72,6 +72,14 @@ jobs:
         with:
           version: "4.4.0"
 
+      - name: Configure xvfb Service
+        shell: bash
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
