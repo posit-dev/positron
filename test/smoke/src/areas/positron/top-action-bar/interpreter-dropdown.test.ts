@@ -12,7 +12,7 @@ import {
 
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
+describe('Interpreter Dropdown in Top Action Bar #web', () => {
 	setupAndStartApp();
 	let app: Application;
 	let interpreterDropdown: PositronInterpreterDropdown;
