@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import * as fs from 'fs';
-const rimraf = require('rimraf');
+import * as fs from 'fs/promises'; // Import only fs/promises for consistency
 const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
@@ -14,7 +13,7 @@ const REPORT_PATH = process.env.REPORT_PATH || 'REPORT_PATH not set';
 /**
  * Runs Mocha tests.
  */
-export function runMochaTests(OPTS) {
+export async function runMochaTests(OPTS: any) {
 	const mocha = new Mocha({
 		color: true,
 		timeout: 1 * 60 * 1000,  // 1 minute
@@ -34,23 +33,19 @@ export function runMochaTests(OPTS) {
 	applyTestFilters(mocha);
 
 	// Add test files to the Mocha runner
-	const testFiles = findTestFilesRecursive(path.resolve('out/areas/positron'));
+	const testFiles = await findTestFilesRecursive(path.resolve('out/areas/positron'));
 	testFiles.forEach(file => mocha.addFile(file));
 
 	// Run the Mocha tests
-	const runner = mocha.run(failures => {
+	const runner = mocha.run(async failures => {
 		if (failures) {
 			console.log(getFailureLogs());
 		} else {
 			console.log('All tests passed.');
 		}
-		cleanupTestData(err => {
-			if (err) {
-				console.log('Error cleaning up test data:', err);
-			} else {
-				process.exit(failures ? 1 : 0);
-			}
-		});
+
+		await cleanupTestData();
+		process.exit(failures ? 1 : 0);
 	});
 
 	// Attach the 'retry' event listener to the runner
@@ -86,20 +81,22 @@ function applyTestFilters(mocha: Mocha): void {
 /**
  * Recursively finds all test files in child directories.
  */
-function findTestFilesRecursive(dirPath: string): string[] {
+async function findTestFilesRecursive(dirPath: string): Promise<string[]> {
 	let testFiles: string[] = [];
-	const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 
-	entries.forEach(entry => {
+	const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+	for (const entry of entries) {
 		const fullPath = path.join(dirPath, entry.name);
 		if (entry.isDirectory()) {
 			// If it's a directory, recursively search within it
-			testFiles = testFiles.concat(findTestFilesRecursive(fullPath));
+			const subDirFiles = await findTestFilesRecursive(fullPath);
+			testFiles = testFiles.concat(subDirFiles);
 		} else if (entry.isFile() && entry.name.endsWith('.js') && !entry.name.startsWith('example.test.js')) {
 			// If it's a file, add it if it matches the criteria
 			testFiles.push(fullPath);
 		}
-	});
+	}
 
 	return testFiles;
 }
@@ -107,18 +104,18 @@ function findTestFilesRecursive(dirPath: string): string[] {
 /**
  * Cleans up the test data directory.
  */
-function cleanupTestData(callback: (error: Error | null) => void) {
+async function cleanupTestData(): Promise<void> {
 	if (process.env.SKIP_CLEANUP) {
-		callback(null);
-	} else {
-		rimraf(TEST_DATA_PATH, { maxBusyTries: 10 }, error => {
-			if (error) {
-				console.error('Error cleaning up test data:', error);
-				return callback(error);
-			}
-			console.log('Test data cleaned up successfully.');
-			callback(null);
-		});
+		console.log('Skipping test data cleanup.');
+		return;
+	}
+
+	try {
+		console.log('Cleaning up test data directory. FYI: This can be bypassed with --skip-cleanup');
+		await fs.rm(TEST_DATA_PATH, { recursive: true, force: true });
+		console.log('Cleanup completed successfully.');
+	} catch (error) {
+		console.error(`Error cleaning up test data: ${error}`);
 	}
 }
 
