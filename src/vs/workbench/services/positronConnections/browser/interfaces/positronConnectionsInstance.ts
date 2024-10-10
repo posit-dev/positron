@@ -6,8 +6,10 @@
 import { Emitter } from 'vs/base/common/event';
 
 export interface IPositronConnectionInstance extends IPositronConnectionItem {
-	getClientId(): string | undefined;
 	id: string;
+	language_id: string;
+
+	getClientId(): string | undefined;
 	disconnect(): Promise<void>;
 
 	/**
@@ -22,6 +24,7 @@ export interface IPositronConnectionItem {
 	name: string;
 	kind?: string;
 	dtype?: string;
+	language_id?: string;
 
 	/**
 	 * Those endpoints must make an API call to obtain their values
