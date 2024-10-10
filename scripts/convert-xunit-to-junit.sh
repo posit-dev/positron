@@ -63,32 +63,38 @@ fi
 # Extract the opening <testsuite> tag and its attributes
 TESTSUITE_OPENING=$(echo "$TESTSUITE" | sed -n 's/^\(<testsuite[^>]*>\).*/\1/p')
 
-# If a valid opening tag is found, proceed
-if [ -n "$TESTSUITE_OPENING" ]; then
-	# Add the <testsuite> opening tag to the JUnit file
-	echo "$TESTSUITE_OPENING" >> "$JUNIT_FILE"
 
-	# Extract and add the <testcase> elements for this <testsuite>
-	# This will capture all the nested <testcase> elements correctly
-	TESTCASES=$(echo "$TESTSUITE" | xmllint --xpath '//*[local-name()="testcase"]' - 2>/dev/null)
-
-	# Debug: Print the extracted <testcase> elements
-	# echo "Extracted testcases:"
-	# echo "$TESTCASES"
-
-	# Add the <testcase> elements to the JUnit file
-	if [ -n "$TESTCASES" ]; then
-		echo "$TESTCASES" | sed 's#<testcase \(.*\)\/>#<testcase \1></testcase>#g' >> "$JUNIT_FILE"
-	else
-		echo "Warning: No <testcase> elements found in this testsuite."
-	fi
-
-	# Close the <testsuite> tag after processing its test cases
-	echo '</testsuite>' >> "$JUNIT_FILE"
+# Calculate updated failures count by adding errors to failures
+if [[ "$TESTSUITE_OPENING" =~ failures=\"([0-9]+)\" && "$TESTSUITE_OPENING" =~ errors=\"([0-9]+)\" ]]; then
+	FAILURES_COUNT=${BASH_REMATCH[1]}
+	ERRORS_COUNT=${BASH_REMATCH[2]}
+	UPDATED_FAILURES=$((FAILURES_COUNT + ERRORS_COUNT))
+	UPDATED_TESTSUITE=$(echo "$TESTSUITE_OPENING" | sed -E "s/failures=\"[0-9]+\"/failures=\"$UPDATED_FAILURES\"/" | sed -E "s/errors=\"[0-9]+\"/errors=\"0\"/")
 else
-	echo "Error: Malformed testsuite element."
+	echo "Error: Failed to parse failures or errors attribute."
 	exit 1
 fi
+
+# Add the modified <testsuite> opening tag to the JUnit file
+echo "$UPDATED_TESTSUITE" >> "$JUNIT_FILE"
+
+# Extract and add the <testcase> elements for this <testsuite>
+# This will capture all the nested <testcase> elements correctly
+TESTCASES=$(echo "$TESTSUITE" | xmllint --xpath '//*[local-name()="testcase"]' - 2>/dev/null)
+
+# Debug: Print the extracted <testcase> elements
+# echo "Extracted testcases:"
+# echo "$TESTCASES"
+
+# Add the <testcase> elements to the JUnit file
+if [ -n "$TESTCASES" ]; then
+	echo "$TESTCASES" | sed 's#<testcase \(.*\)\/>#<testcase \1></testcase>#g' >> "$JUNIT_FILE"
+else
+	echo "Warning: No <testcase> elements found in this testsuite."
+fi
+
+# Close the <testsuite> tag after processing its test cases
+echo '</testsuite>' >> "$JUNIT_FILE"
 
 # Close the <testsuites> root element
 echo '</testsuites>' >> "$JUNIT_FILE"
