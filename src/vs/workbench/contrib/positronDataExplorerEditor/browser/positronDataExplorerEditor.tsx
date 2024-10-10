@@ -310,6 +310,22 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			// If the Positron data explorer instance was found, render the PositronDataExplorer
 			// component. Otherwise, render the PositronDataExplorerClosed component.
 			if (positronDataExplorerInstance) {
+				const client = positronDataExplorerInstance.dataExplorerClientInstance;
+
+				client.getBackendState().then((backendState) => {
+					if (input !== undefined && backendState.display_name !== undefined) {
+						// We truncate the `display_name` to a reasonable length as
+						// the editor tab title has limited space.
+						const maxTabSize = 30;
+						let display_name = backendState.display_name;
+						if (backendState.display_name.length > maxTabSize) {
+							display_name = backendState.display_name.substring(0, maxTabSize - 3) + '...';
+						}
+
+						input.setName?.(`Data: ${display_name}`);
+					}
+				});
+
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer

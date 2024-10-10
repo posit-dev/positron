@@ -1250,6 +1250,47 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 			}
 			yield '}\n\n';
 		});
+
+		// Create parameter objects for each method
+		for (const method of source.methods) {
+			if (method.params.length > 0) {
+				yield '/**\n';
+				yield formatComment(` * `,
+					`Parameters for the ` +
+					snakeCaseToSentenceCase(method.name) + ` ` +
+					`method.`);
+				yield ' */\n';
+				yield `export interface ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+				for (let i = 0; i < method.params.length; i++) {
+					const param = method.params[i];
+					if (param.description) {
+						yield '\t/**\n';
+						yield formatComment('\t * ', param.description);
+						yield '\t */\n';
+					}
+					if (param.schema.enum) {
+						// Use an enum type if the schema has an enum
+						yield `\t${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)};\n`;
+					} else if (param.schema.type === 'object' && Object.keys(param.schema.properties).length === 0) {
+						// Handle the "any" type
+						yield `\t${param.name}: any;\n`;
+					} else {
+						// Otherwise use the type directly
+						yield `\t${param.name}`;
+						if (isOptional(param)) {
+							yield `?`;
+						}
+						yield `: `;
+						yield deriveType(contracts, TypescriptTypeMap, [param.name], param.schema);
+						yield `;\n`;
+					}
+					if (i < method.params.length - 1) {
+						yield '\n';
+					}
+				}
+				yield `}\n\n`;
+			}
+		}
 	}
 
 	if (frontend) {

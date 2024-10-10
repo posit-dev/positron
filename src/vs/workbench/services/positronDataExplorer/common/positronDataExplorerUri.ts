@@ -17,7 +17,7 @@ export class PositronDataExplorerUri {
 
 	/**
 	 * Generates a Positron data explorer URI.
-	 * @param identifier The identifier.
+	 * @param identifier The identifier, which may refer to a Jupyter comm or file path
 	 * @returns The Positron data explorer URI.
 	 */
 	public static generate(identifier: string): URI {
@@ -38,14 +38,22 @@ export class PositronDataExplorerUri {
 			return undefined;
 		}
 
-		// Parse the resource.
-		const match = resource.path.match(/^positron-data-explorer-([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})$/);
-		const identifier = match?.[1];
-		if (typeof identifier !== 'string') {
+		// Parse the resource. Either it's a runtime comm id or a duckdb:$PATH identifier
+		const match = resource.path.match(
+			/^positron-data-explorer-(?:([0-9a-fA-F]{8}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{4}\b-[0-9a-fA-F]{12})|(duckdb:.+))$/
+		);
+
+		const uuid = match?.[1];
+		const duckdbPath = match?.[2];
+
+		if (typeof uuid === 'string') {
+			// UUID
+			return uuid;
+		} else if (typeof duckdbPath === 'string') {
+			// duckdb:path/to/file
+			return duckdbPath;
+		} else {
 			return undefined;
 		}
-
-		// Return the identifier.
-		return identifier;
 	}
 }
