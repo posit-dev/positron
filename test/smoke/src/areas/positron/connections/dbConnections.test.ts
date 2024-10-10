@@ -12,7 +12,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 let logger;
 const tables = ['tracks', 'playlist_track', 'playlists', 'media_types', 'invoice_items', 'invoices', 'genres', 'employees', 'customers', 'artists', 'albums'];
 
-describe('Connections Pane #web', () => {
+describe('Connections Pane #web #win', () => {
 	logger = setupAndStartApp();
 
 	describe('Python - SQLite DB', () => {
