@@ -79,6 +79,10 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return this.item.kind;
 	}
 
+	get dtype() {
+		return this.item.dtype;
+	}
+
 	get icon() {
 		return this.item.getIcon().then((icon) => {
 			if (icon === '') {

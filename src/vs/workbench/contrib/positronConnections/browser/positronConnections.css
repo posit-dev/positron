@@ -39,12 +39,24 @@
 	height: 26px;
 }
 
-.connections-name {
+.connections-details {
 	flex-grow: 1;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-family: monospace;
+}
+
+.connections-dtype {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+	font-weight: 300;
+}
+
+.connections-dtype::before {
+	content: ":";
+	color: var(--vscode-positronVariables-foreground);
+	margin-left: 3px;
+	margin-right: 3px;
 }
 
 .connections-icon {

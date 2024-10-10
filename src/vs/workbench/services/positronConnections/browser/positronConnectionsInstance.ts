@@ -140,6 +140,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	readonly _name: string;
 	readonly _kind: string;
+	readonly _dtype?: string;
 	readonly active: boolean = true;
 
 	_expanded: boolean | undefined;
@@ -181,6 +182,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		const last_elt = this.path.at(-1)!;
 		this._name = last_elt.name;
 		this._kind = last_elt.kind;
+		this._dtype = last_elt.dtype;
 
 		this.onToggleExpand(() => {
 			if (!(this._expanded === undefined)) {
@@ -197,6 +199,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	get kind() {
 		return this._kind;
+	}
+
+	get dtype() {
+		return this._dtype;
 	}
 
 	async getIcon() {
