@@ -5,10 +5,6 @@ inputs:
     description: "The R version to install (e.g., 4.4.0)"
     required: true
     default: "4.4.0"
-  install-pkgs:
-    description: "Set to 'true' to install additional R packages. Default is 'false'."
-    required: false
-    default: "false"
 runs:
   using: "composite"
   steps:
@@ -27,7 +23,6 @@ runs:
         R --version
 
     - name: Conditionally Install R Packages
-      if: ${{ inputs.install-pkgs == 'true' }}
       shell: bash
       run: |
         echo "Installing R development packages..."
