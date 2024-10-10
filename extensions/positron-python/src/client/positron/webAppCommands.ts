@@ -194,8 +194,7 @@ async function isFastAPICLIInstalled(serviceContainer: IServiceContainer, python
 
 function getFlaskDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const args = ['--app', document.uri.fsPath, 'run'];
-    const env: { [key: string]: string } = {};
-    return { module: 'flask', args, env };
+    return { module: 'flask', args };
 }
 
 function getGradioDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {

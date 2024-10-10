@@ -157,7 +157,7 @@ suite('Web app commands', () => {
                 commandLine: `${runtimePath} ${documentPath}`,
                 env: {
                     PYTHONPATH: workspacePath,
-                    DASH_URL_PREFIX: urlPrefix,
+                    DASH_URL_BASE_PATHNAME: urlPrefix,
                 },
             },
             { urlPrefix },
@@ -193,7 +193,7 @@ suite('Web app commands', () => {
     test('Exec FastAPI in terminal - with urlPrefix', async () => {
         await verifyRunAppCommand(
             Commands.Exec_FastAPI_In_Terminal,
-            { commandLine: `${runtimePath} -m fastapi dev ${documentPath} --root-path ${urlPrefix}` },
+            { commandLine: `${runtimePath} -m fastapi dev ${documentPath}` },
             { urlPrefix },
         );
     });
@@ -209,7 +209,6 @@ suite('Web app commands', () => {
             Commands.Exec_Flask_In_Terminal,
             {
                 commandLine: `${runtimePath} -m flask --app ${documentPath} run`,
-                env: { SCRIPT_NAME: urlPrefix },
             },
             { urlPrefix },
         );
@@ -297,7 +296,7 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 program: documentPath,
-                env: { PYTHONPATH: workspacePath, DASH_URL_PREFIX: urlPrefix },
+                env: { PYTHONPATH: workspacePath, DASH_URL_BASE_PATHNAME: urlPrefix },
             },
             { urlPrefix },
         );
@@ -313,7 +312,7 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 module: 'fastapi',
-                args: ['dev', documentPath, '--root-path', urlPrefix],
+                args: ['dev', documentPath],
             },
             { urlPrefix },
         );
@@ -330,7 +329,6 @@ suite('Web app commands', () => {
                 stopOnEntry: false,
                 module: 'flask',
                 args: ['--app', documentPath, 'run'],
-                env: { SCRIPT_NAME: urlPrefix },
             },
             { urlPrefix },
         );
