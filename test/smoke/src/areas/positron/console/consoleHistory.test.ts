@@ -48,6 +48,7 @@ describe('Console History #web #win', () => {
 			}).toPass({ timeout: 40000 });
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 			await app.workbench.positronConsole.barClearButton.click();
 
 			await app.workbench.positronConsole.sendKeyboardKey('ArrowUp');
