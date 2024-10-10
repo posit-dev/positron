@@ -72,7 +72,7 @@ jobs:
         uses: ./.github/actions/install-r
         with:
           r-version: "4.4.0"
-          install-pkgs: "false"
+          install-pkgs: "true"
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
