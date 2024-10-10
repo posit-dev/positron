@@ -138,13 +138,13 @@ configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	properties: {
 		'positron.interpreters.restartOnCrash': {
-			scope: ConfigurationScope.MACHINE,
+			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 			type: 'boolean',
 			default: true,
 			description: nls.localize('positron.runtime.restartOnCrash', "When enabled, interpreters are automatically restarted after a crash.")
 		},
 		'positron.interpreters.automaticStartup': {
-			scope: ConfigurationScope.MACHINE,
+			scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 			type: 'boolean',
 			default: true,
 			description: nls.localize('positron.runtime.automaticStartup', "When enabled, interpreters can start automatically.")
