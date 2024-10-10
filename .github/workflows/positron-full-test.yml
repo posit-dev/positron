@@ -107,8 +107,6 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - run: python3 --version
-
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
@@ -118,14 +116,12 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup Test Environment
+      - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - run: python3 --version
 
       - name: Run Tests (Electron)
         env:
@@ -144,9 +140,7 @@ jobs:
 
       - name: Clean up license files
         if: always()
-        run: |
-          cd ..
-          rm -rf positron-license
+        run: cd .. && rm -rf positron-license
 
       - name: Publish Electron Test Report
         uses: mikepenz/action-junit-report@v4
@@ -166,7 +160,7 @@ jobs:
         if: steps.xunit-to-junit == 'success'
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload run artifacts - electron
+      - name: Upload logs - smoke-tests-electron
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -199,7 +193,7 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup Test Environment
+      - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
@@ -231,9 +225,7 @@ jobs:
 
       - name: Clean up license files
         if: always()
-        run: |
-          cd ..
-          rm -rf positron-license
+        run: cd .. && rm -rf positron-license
 
       - name: Upload run artifacts - browser
         if: always()
