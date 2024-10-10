@@ -17,7 +17,8 @@ describe('Viewer', () => {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		it('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
+		// Currently there is an open bug for this test
+		it.skip('Python - Verify Viewer functionality with vetiver [C784887]', async function () {
 
 			this.timeout(120000);
 

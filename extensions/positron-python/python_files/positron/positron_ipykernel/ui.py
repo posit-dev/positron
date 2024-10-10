@@ -210,18 +210,19 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         return False
 
     @staticmethod
-    def _is_module_function(module_name: str, function_name: str = None) -> bool:
+    def _is_module_function(module_name: str, function_name: Union[str, None] = None) -> bool:
         module = sys.modules.get(module_name)
         if module:
-            if function_name:
-                for frame_info in inspect.stack():
+            for frame_info in inspect.stack():
+                if function_name:
                     if (
                         inspect.getmodule(frame_info.frame, frame_info.filename) == module
                         and frame_info.function == function_name
                     ):
                         return True
-            else:
-                return True
+                else:
+                    if inspect.getmodule(frame_info.frame) == module:
+                        return True
         return False
 
     def _send_show_html_event(self, url: str, is_plot: bool) -> bool:

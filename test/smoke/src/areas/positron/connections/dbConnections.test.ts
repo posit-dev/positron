@@ -33,7 +33,7 @@ describe('Connections Pane #web', () => {
 		it('Python - SQLite DB Connection [C628636]', async function () {
 
 			const app = this.app as Application;
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'sqlite.py'));
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 			await expect(async () => {
@@ -70,7 +70,7 @@ describe('Connections Pane #web', () => {
 		it('R - SQLite DB Connection [C628637]', async function () {
 
 			const app = this.app as Application;
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'sqlite.r'));
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 			await expect(async () => {
