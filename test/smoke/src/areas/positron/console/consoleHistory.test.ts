@@ -9,7 +9,7 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 
-describe('Console History #web', () => {
+describe('Console History #web #win', () => {
 	setupAndStartApp();
 
 	describe('Console History - Python', () => {
