@@ -2,7 +2,6 @@ name: "Positron: Full Test Suite"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
-  pull_request:
   schedule:
     - cron: "0 4 * * 1-5"
   workflow_dispatch:
