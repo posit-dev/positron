@@ -334,11 +334,21 @@ export class PositronProxy implements Disposable {
 			}
 
 			// We don't have an existing proxy server for the target origin, so start a new one.
-			this.startNewProxyServer(contentRewriter).then(({ externalUri, finishProxySetup }) => {
-				finishProxySetup(targetOrigin).then(() => {
-					resolve(externalUri.toString());
+			this.startNewProxyServer(contentRewriter)
+				.then(({ externalUri, finishProxySetup }) => {
+					finishProxySetup(targetOrigin)
+						.then(() => {
+							resolve(externalUri.toString());
+						})
+						.catch(error => {
+							console.error(`Failed to finish setting up the proxy server at ${externalUri} for target: ${targetOrigin}.`);
+							reject(error);
+						});
+				})
+				.catch(error => {
+					console.error(`Failed to start the proxy server for ${targetOrigin}.`);
+					reject(error);
 				});
-			});
 		});
 	}
 
