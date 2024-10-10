@@ -53,4 +53,26 @@ jobs:
           curl -L -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.POSITRON_GITHUB_PAT }}" "${asset_url}" -o "${filename}"
           sudo dpkg -i "${filename}"
 
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure xvfb Service
+        shell: bash
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Run Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-smoke-tests
+        run: DISPLAY=:10 yarn smoketest-all --tracing --parallel --jobs 2 --skip-cleanup --build /usr/bin/positron
+
 
