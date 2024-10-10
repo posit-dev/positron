@@ -64,12 +64,17 @@ type PendingProxyServer = {
 };
 
 /**
+ * MaybeAddressInfo type.
+ */
+type MaybeAddressInfo = AddressInfo | string | null | undefined;
+
+/**
  * Custom type guard for AddressInfo.
  * @param addressInfo The value to type guard.
  * @returns true if the value is an AddressInfo; otherwise, false.
  */
 export const isAddressInfo = (
-	addressInfo: string | AddressInfo | null
+	addressInfo: MaybeAddressInfo
 ): addressInfo is AddressInfo =>
 	(addressInfo as AddressInfo).address !== undefined &&
 	(addressInfo as AddressInfo).family !== undefined &&
@@ -322,34 +327,34 @@ export class PositronProxy implements Disposable {
 	 * @param contentRewriter The content rewriter.
 	 * @returns The server origin, resolved to an external uri if applicable.
 	 */
-	private startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		// Return a promise.
-		return new Promise((resolve, reject) => {
-			// See if we have an existing proxy server for target origin. If there is, return the
-			// server origin.
-			const proxyServer = this._proxyServers.get(targetOrigin);
-			if (proxyServer) {
-				resolve(proxyServer.serverOrigin);
-				return;
-			}
+	private async startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		// See if we have an existing proxy server for target origin. If there is, return the
+		// server origin.
+		const proxyServer = this._proxyServers.get(targetOrigin);
+		if (proxyServer) {
+			console.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${targetOrigin}.`);
+			return proxyServer.serverOrigin;
+		}
 
+		let pendingProxy: PendingProxyServer;
+		try {
 			// We don't have an existing proxy server for the target origin, so start a new one.
-			this.startNewProxyServer(contentRewriter)
-				.then(({ externalUri, finishProxySetup }) => {
-					finishProxySetup(targetOrigin)
-						.then(() => {
-							resolve(externalUri.toString());
-						})
-						.catch(error => {
-							console.error(`Failed to finish setting up the proxy server at ${externalUri} for target: ${targetOrigin}.`);
-							reject(error);
-						});
-				})
-				.catch(error => {
-					console.error(`Failed to start the proxy server for ${targetOrigin}.`);
-					reject(error);
-				});
-		});
+			pendingProxy = await this.startNewProxyServer(contentRewriter);
+		} catch (error) {
+			console.error(`Failed to start a proxy server for ${targetOrigin}.`);
+			throw error;
+		}
+
+		try {
+			// Finish setting up the proxy server.
+			await pendingProxy.finishProxySetup(targetOrigin);
+		} catch (error) {
+			console.error(`Failed to finish setting up the proxy server at ${pendingProxy.externalUri} for target: ${targetOrigin}.`);
+			throw error;
+		}
+
+		// Return the external URI.
+		return pendingProxy.externalUri.toString();
 	}
 
 	/**
@@ -357,45 +362,47 @@ export class PositronProxy implements Disposable {
 	 * This is used to create a server and app that will be used to add middleware later.
 	 * @returns The server origin and the proxy path.
 	 */
-	private startNewProxyServer(contentRewriter: ContentRewriter): Promise<PendingProxyServer> {
-		return new Promise((resolve, reject) => {
-			// Create the app and start listening on a random port.
-			const app = express();
-			const server = app.listen(0, HOST, async () => {
+	private async startNewProxyServer(contentRewriter: ContentRewriter): Promise<PendingProxyServer> {
+		// Create the app and start listening on a random port.
+		const app = express();
+		let address: MaybeAddressInfo;
+		const server = await new Promise<Server>((resolve, reject) => {
+			const srv = app.listen(0, HOST, () => {
 				// Get the server address.
-				const address = server.address();
-
-				// Ensure that we have the address info of the server.
-				if (!isAddressInfo(address)) {
-					server.close();
-					reject();
-					return;
-				}
-
-				// Create the server origin.
-				const serverOrigin = `http://${address.address}:${address.port}`;
-
-				// Convert the server origin to an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				const externalUri = await vscode.env.asExternalUri(originUri);
-
-				// Resolve the proxy info.
-				resolve({
-					externalUri: externalUri,
-					proxyPath: externalUri.path,
-					finishProxySetup: (targetOrigin: string) => {
-						return this.finishProxySetup(
-							targetOrigin,
-							serverOrigin,
-							externalUri,
-							server,
-							app,
-							contentRewriter
-						);
-					}
-				});
+				address = srv.address();
+				resolve(srv);
 			});
+			srv.on('error', reject);
 		});
+
+		// Ensure the address is an AddressInfo.
+		if (!isAddressInfo(address)) {
+			server.close();
+			throw new Error(`Failed to get the address info ${JSON.stringify(address)} for the server.`);
+		}
+
+		// Create the server origin.
+		const serverOrigin = `http://${address.address}:${address.port}`;
+
+		// Convert the server origin to an external URI.
+		const originUri = vscode.Uri.parse(serverOrigin);
+		const externalUri = await vscode.env.asExternalUri(originUri);
+
+		// Return the pending proxy info.
+		return {
+			externalUri: externalUri,
+			proxyPath: externalUri.path,
+			finishProxySetup: (targetOrigin: string) => {
+				return this.finishProxySetup(
+					targetOrigin,
+					serverOrigin,
+					externalUri,
+					server,
+					app,
+					contentRewriter
+				);
+			}
+		} satisfies PendingProxyServer;
 	}
 
 	/**
@@ -408,7 +415,14 @@ export class PositronProxy implements Disposable {
 	 * @param contentRewriter The content rewriter.
 	 * @returns A promise that resolves when the proxy setup is complete.
 	 */
-	private async finishProxySetup(targetOrigin: string, serverOrigin: string, externalUri: vscode.Uri, server: Server, app: express.Express, contentRewriter: ContentRewriter) {
+	private async finishProxySetup(
+		targetOrigin: string,
+		serverOrigin: string,
+		externalUri: vscode.Uri,
+		server: Server,
+		app: express.Express,
+		contentRewriter: ContentRewriter
+	) {
 		// Add the proxy server.
 		this._proxyServers.set(targetOrigin, new ProxyServer(
 			serverOrigin,
