@@ -28,13 +28,6 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		desiredR = process.env.POSITRON_R_VER_SEL!;
 	});
 
-	beforeEach(async () => {
-		// Ensure that the interpreter dropdown is closed before each test
-		if (await interpreterDropdown.isDropdownOpen()) {
-			await interpreterDropdown.closeInterpreterDropdown();
-		}
-	});
-
 	it('Python interpreter starts and shows running [C707212]', async function () {
 		await startInterpreter(app, {
 			interpreterType: 'Python',
@@ -162,6 +155,11 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		const expectedPrompt = options.interpreterType === 'Python' ? '>>>' : '>';
 		const interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		const positronConsole = app.workbench.positronConsole;
+
+		// Ensure that the interpreter dropdown is closed before interacting with the dropdown
+		if (await interpreterDropdown.isDropdownOpen()) {
+			await interpreterDropdown.closeInterpreterDropdown();
+		}
 
 		// Start the desired interpreter using the dropdown
 		await expect(
