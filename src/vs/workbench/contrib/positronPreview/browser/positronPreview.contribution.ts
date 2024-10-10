@@ -18,7 +18,7 @@ import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
 import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { PositronOpenUrlInViewerAction } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewActions';
+import { PositronOpenUrlInViewerAction, PreviewEditorAction } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewActions';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from 'vs/platform/configuration/common/configurationRegistry';
 
 // The Positron preview view icon.
@@ -71,6 +71,7 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 
 	private registerActions(): void {
 		registerAction2(PositronOpenUrlInViewerAction);
+		registerAction2(PreviewEditorAction);
 	}
 }
 
