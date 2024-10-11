@@ -5,7 +5,6 @@
 
 import * as path from 'path';
 import * as fs from 'fs';
-// eslint-disable-next-line local/code-import-patterns
 import mkdirp = require('mkdirp');
 import { ConsoleLogger, FileLogger, Logger, MultiLogger } from '../../../automation';
 
@@ -33,16 +32,19 @@ export function createLogger(logsRootPath: string): Logger {
 	return new MultiLogger(loggers);
 }
 
-function logToFile(testLogDir: string, message: string): void {
-	const logFilePath = path.join(testLogDir, 'retry.log');
+/**
+ * Logs a message to the file specified
+ *
+ * @param logFile the directory where the log file is saved
+ * @param message the message to log
+ */
+function logToFile(logFilePath: string, message: string): void {
+	const logDir = path.dirname(logFilePath);  // Get the directory part of the path
 
 	// Ensure the directory exists
-	if (!fs.existsSync(testLogDir)) {
-		fs.mkdirSync(testLogDir, { recursive: true });
+	if (!fs.existsSync(logDir)) {
+		fs.mkdirSync(logDir, { recursive: true });
 	}
-
-	console.log(`Writing log to ${logFilePath}`);
-
 
 	const ansiRegex = /\u001b\[[0-9;]*m/g;
 	const cleanMessage = message.replace(ansiRegex, '');  // Remove ANSI codes
@@ -64,7 +66,7 @@ export function logErrorToFile(test: any, err: Error): void {
 	const RETRY_LOG_PATH = process.env.RETRY_LOG_PATH || 'RETRY_LOG_PATH not set';
 
 	const fileName = path.basename(test.file);
-	const testLogPath = path.join(RETRY_LOG_PATH, fileName);
+	const testLogPath = path.join(RETRY_LOG_PATH, fileName, 'retry.log');
 
 	const title = `[RUN #${test.currentRetry()}] ${test.fullTitle()}`;
 	const dashes = printDashes(title.length);
