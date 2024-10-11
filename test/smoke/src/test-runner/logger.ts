@@ -39,15 +39,16 @@ export function createLogger(logsRootPath: string): Logger {
  * @param message the message to log
  */
 function logToFile(logFilePath: string, message: string): void {
-	const logDir = path.dirname(logFilePath);  // Get the directory part of the path
+	const logDir = path.dirname(logFilePath);
 
 	// Ensure the directory exists
 	if (!fs.existsSync(logDir)) {
 		fs.mkdirSync(logDir, { recursive: true });
 	}
 
+	// Remove ANSI escape codes from the message
 	const ansiRegex = /\u001b\[[0-9;]*m/g;
-	const cleanMessage = message.replace(ansiRegex, '');  // Remove ANSI codes
+	const cleanMessage = message.replace(ansiRegex, '');
 
 	try {
 		fs.appendFileSync(logFilePath, cleanMessage + '\n', 'utf-8');
@@ -79,7 +80,7 @@ export function logErrorToFile(test: any, err: Error): void {
  * Returns a string of dashes based on the length.
  *
  * @param length number of dashes to print
- * @returns
+ * @returns string of dashes
  */
 function printDashes(length: number): string {
 	const minLength = 45;
