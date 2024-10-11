@@ -21,32 +21,23 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      #- name: Install Build Dependencies
-      #  shell: bash
-      #  run: |
-      #    sudo apt-get update
-      #    sudo apt-get install -y \
-      #      vim curl build-essential clang make cmake git \
-      #      libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
-      #      libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
-      #      libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            vim curl build-essential clang make cmake git \
+            libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
+            libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
+            libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
       - name: Compile tests
         run: |
-          mkdir -p node_modules/typescript/bin
-          npm install -g typescript
-          TSC_PATH=$(which tsc)
-          ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
-
-          cd test/automation
-          rm yarn.lock
-          npm install @playwright/test@^1.46.1
-          yarn playwright install
-          cd ../..
-
+          corepack enable
+          yarn global add node-gyp
+          yarn install
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
-
           yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
 
@@ -88,4 +79,25 @@ jobs:
           export DISPLAY=:10
           node run-tests.js --tracing --parallel --jobs 2 --skip-cleanup --build /usr/share/positron
 
+      - name: Convert XUnit to JUnit
+        id: xunit-to-junit
+        if: success() || failure()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          yarn xunit-to-junit smoke-tests-electron
 
+      - name: Publish Electron Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: "**/.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
+          check_name: "Electron Test Results"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts - Electron
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts-electron
+          path: .build/logs/smoke-tests-electron/
