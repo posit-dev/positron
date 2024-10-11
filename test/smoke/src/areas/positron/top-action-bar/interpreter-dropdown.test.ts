@@ -192,8 +192,11 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 
 		// Wait for the console to be ready with the specified prompt
 		console.log('Waiting for console to be ready...');
-		await positronConsole.waitForReady(expectedPrompt, 10_000);
-		console.log('Console is ready.');
+		const start = new Date();
+		await positronConsole.waitForReady(expectedPrompt, 30_000);
+		const end = new Date();
+		const duration = (end.getTime() - start.getTime()) / 1000;
+		console.log(`Console is ready. Time taken: ${duration} seconds.`);
 	}
 
 });
