@@ -40,8 +40,8 @@ jobs:
 
           cd test/automation
           rm yarn.lock
-          npm install @playwright/test
-          npm install playwright-core
+          npm install @playwright/test@^1.46.1
+          yarn playwright install
           cd ../..
 
           yarn --cwd test/automation install
