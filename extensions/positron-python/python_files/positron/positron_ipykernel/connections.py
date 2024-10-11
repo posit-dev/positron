@@ -21,7 +21,7 @@ from .connections_comm import (
     ObjectSchema,
     PreviewObjectRequest,
     MetadataSchema,
-    GetMetadataRequest
+    GetMetadataRequest,
 )
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .third_party import pd_, sqlalchemy_
@@ -461,7 +461,7 @@ class ConnectionsService:
             self.handle_preview_object_request(connection, request)
             result = None
         elif isinstance(request, GetMetadataRequest):
-            result = self.handle_get_metadata_request(connection, request) # type: ignore
+            result = self.handle_get_metadata_request(connection, request)  # type: ignore
         else:
             raise NotImplementedError(f"Unhandled request: {request}")
 
@@ -513,8 +513,10 @@ class ConnectionsService:
         title = request.params.path[-1].name
         self._kernel.data_explorer_service.register_table(res, title)
 
-    def handle_get_metadata_request(self, conn: Connection, request: GetMetadataRequest) -> MetadataSchema :
-        res =  conn.get_metadata()
+    def handle_get_metadata_request(
+        self, conn: Connection, request: GetMetadataRequest
+    ) -> MetadataSchema:
+        res = conn.get_metadata()
         return res
 
 
