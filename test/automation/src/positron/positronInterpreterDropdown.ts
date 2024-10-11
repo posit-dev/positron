@@ -366,6 +366,7 @@ export class PositronInterpreterDropdown {
 			this.code.logger.log(
 				`Found primary interpreter: ${primaryInterpreterName}`
 			);
+			await this.openInterpreterDropdown();
 			await primaryInterpreter.click();
 			return;
 		}
@@ -399,6 +400,7 @@ export class PositronInterpreterDropdown {
 				this.code.logger.log(
 					`Found secondary interpreter: ${secondaryInterpreterName}`
 				);
+				await this.openInterpreterDropdown();
 				await secondaryInterpreter.scrollIntoViewIfNeeded();
 				await secondaryInterpreter.isVisible();
 				await secondaryInterpreter.click();
