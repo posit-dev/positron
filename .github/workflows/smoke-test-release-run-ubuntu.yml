@@ -1,4 +1,4 @@
-name: "Positron: Run smoke tests against latest release"
+name: "Latest Release: E2E Electron Tests"
 
 on:
   workflow_dispatch:
@@ -9,8 +9,8 @@ permissions:
 
 jobs:
   linux:
-    name: Tests on Linux
-    runs-on: ubuntu-latest-8x
+    name: e2e-electron-tests
+    runs-on: ubuntu-latest-4x
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
