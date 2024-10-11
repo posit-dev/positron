@@ -21,6 +21,7 @@ import { NewSession } from '../model/newSession';
 import { NewSession200Response } from '../model/newSession200Response';
 import { ServerStatus } from '../model/serverStatus';
 import { SessionList } from '../model/sessionList';
+import { StartupError } from '../model/startupError';
 
 import { ObjectSerializer, Authentication, VoidAuth, Interceptor } from '../model/models';
 import { HttpBasicAuth, HttpBearerAuth, ApiKeyAuth, OAuth } from '../model/models';

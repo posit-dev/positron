@@ -8,6 +8,7 @@ export * from './newSession';
 export * from './newSession200Response';
 export * from './serverStatus';
 export * from './sessionList';
+export * from './startupError';
 export * from './status';
 
 import * as fs from 'fs';
@@ -31,6 +32,7 @@ import { NewSession } from './newSession';
 import { NewSession200Response } from './newSession200Response';
 import { ServerStatus } from './serverStatus';
 import { SessionList } from './sessionList';
+import { StartupError } from './startupError';
 import { Status } from './status';
 
 /* tslint:disable:no-unused-variable */
@@ -58,6 +60,7 @@ let typeMap: {[index: string]: any} = {
     "NewSession200Response": NewSession200Response,
     "ServerStatus": ServerStatus,
     "SessionList": SessionList,
+    "StartupError": StartupError,
 }
 
 export class ObjectSerializer {
