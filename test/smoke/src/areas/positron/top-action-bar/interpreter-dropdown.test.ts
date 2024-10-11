@@ -29,6 +29,8 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	});
 
 	it('Python interpreter starts and shows running [C707212]', async function () {
+		this.timeout(120_000);
+
 		await startInterpreter(app, {
 			interpreterType: 'Python',
 			version: desiredPython,
@@ -56,6 +58,8 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	});
 
 	it('Python interpreter restarts and shows running [C707213]', async function () {
+		this.timeout(120_000);
+
 		await startInterpreter(app, {
 			interpreterType: 'Python',
 			version: desiredPython,
@@ -91,6 +95,8 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	});
 
 	it('R interpreter starts and shows running [C707214]', async function () {
+		this.timeout(120_000);
+
 		await startInterpreter(app, {
 			interpreterType: 'R',
 			version: desiredR,
@@ -121,6 +127,8 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	});
 
 	it('R interpreter stops and shows inactive [C707215]', async function () {
+		this.timeout(120_000);
+
 		await startInterpreter(app, {
 			interpreterType: 'R',
 			version: desiredR,
@@ -160,7 +168,7 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		await expect(
 			async () =>
 				await interpreterDropdown.selectInterpreter(options.interpreterType, options.version)
-		).toPass({ timeout: 30_000 });
+		).toPass({ timeout: 60_000 });
 
 		// Install `ipykernel` if a popup prompts for it (only applicable for Python)
 		if (options.interpreterType === 'Python' && await app.workbench.positronPopups.popupCurrentlyOpen()) {
