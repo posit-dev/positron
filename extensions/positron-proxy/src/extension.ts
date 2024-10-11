@@ -6,7 +6,6 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { PositronProxy } from './positronProxy';
-import path from 'path';
 
 /**
  * ProxyServerStyles type.
@@ -42,6 +41,14 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(
 			'positronProxy.startHttpProxyServer',
 			async (targetOrigin: string) => await positronProxy.startHttpProxyServer(targetOrigin)
+		)
+	);
+
+	// Register the positronProxy.startPendingProxyServer command and add its disposable.
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			'positronProxy.startPendingProxyServer',
+			async () => await positronProxy.startPendingHttpProxyServer()
 		)
 	);
 

@@ -45,3 +45,15 @@ export class SequencerByKey<TKey> {
 		return newPromise;
 	}
 }
+
+/* Utilities copied from ../../../src/vs/base/common/strings.ts */
+
+const CSI_SEQUENCE = /(?:(?:\x1b\[|\x9B)[=?>!]?[\d;:]*["$#'* ]?[a-zA-Z@^`{}|~])|(:?\x1b\].*?\x07)/g;
+
+export function removeAnsiEscapeCodes(str: string): string {
+	if (str) {
+		str = str.replace(CSI_SEQUENCE, '');
+	}
+
+	return str;
+}
