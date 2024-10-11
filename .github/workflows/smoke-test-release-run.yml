@@ -39,9 +39,8 @@ jobs:
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
-          RELATIVE_PATH="test/automation/tsconfig.json"
-          ABSOLUTE_PATH=$(realpath "$RELATIVE_PATH")
-          yarn --cwd test/automation compile -p "$ABSOLUTE_PATH"
+          cp test/automation/tsconfig.json .
+          yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
 
       - name: Get & install latest release
