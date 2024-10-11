@@ -8,7 +8,7 @@ import { RuntimeSessionService } from 'vs/workbench/services/runtimeSession/comm
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IOpener, IOpenerService } from 'vs/platform/opener/common/opener';
 import { IDisposable } from 'vs/base/common/lifecycle';
 import { ILanguageService } from 'vs/editor/common/languages/language';
@@ -91,17 +91,18 @@ suite('Positron - RuntimeSessionService', () => {
 		const languageRuntimeService = instantiationService.stub(ILanguageRuntimeService, disposables.add(instantiationService.createInstance(LanguageRuntimeService)));
 		runtimeSessionService = disposables.add(instantiationService.createInstance(RuntimeSessionService));
 
-		// Register a test runtime.
+		// Register the test runtime.
 		runtime = testLanguageRuntimeMetadata();
 		disposables.add(languageRuntimeService.registerRuntime(runtime));
 
+		// Register the test runtime manager.
 		const manager = new TestRuntimeSessionManager();
 		disposables.add(runtimeSessionService.registerSessionManager(manager));
 
 		notebookUri = URI.file('some-notebook');
 	});
 
-	test('should start and shutdown runtime session', async () => {
+	test('start and shutdown runtime session', async () => {
 		const sessionId = await runtimeSessionService.startNewRuntimeSession(
 			runtime.runtimeId,
 			basename(notebookUri.fsPath),
@@ -112,5 +113,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const session = runtimeSessionService.getSession(sessionId);
 		assert.ok(session, `Session with ID ${sessionId} not found after being started`);
 		disposables.add(session);
+
+		assert.equal(session.getRuntimeState(), RuntimeState.Ready);
 	});
 });
