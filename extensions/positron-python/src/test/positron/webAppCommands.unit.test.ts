@@ -44,7 +44,7 @@ suite('Web app commands', () => {
                 runAppOptions = _options;
             },
             async debugApplication(_options) {
-                assert(!debugAppOptions, 'debugApplication called more than once');
+                assert.ok(!debugAppOptions, 'debugApplication called more than once');
                 debugAppOptions = _options;
             },
         };
@@ -265,9 +265,9 @@ suite('Web app commands', () => {
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
-        assert(callback, `Command not registered for: ${command}`);
-        await callback();
-        assert(debugAppOptions, `debugAppOptions not set for command: ${command}`);
+        assert.ok(callback, `Command not registered for: ${command}`);
+        await callback!();
+        assert.ok(debugAppOptions, `debugAppOptions not set for command: ${command}`);
 
         // Test `getDebugConfiguration`.
         const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
@@ -277,7 +277,7 @@ suite('Web app commands', () => {
                 return options?.documentText ?? '';
             },
         } as vscode.TextDocument;
-        const terminalOptions = await debugAppOptions.getDebugConfiguration(runtime, document, options?.urlPrefix);
+        const terminalOptions = await debugAppOptions!.getDebugConfiguration(runtime, document, options?.urlPrefix);
         assert.deepStrictEqual(terminalOptions, expectedDebugConfig);
     }
 
