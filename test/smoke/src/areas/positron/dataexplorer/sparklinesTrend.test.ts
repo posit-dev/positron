@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Data Explorer #web', () => {
+describe('Data Explorer #web #win', () => {
 	setupAndStartApp();
 
 	describe('Sparklines', () => {
