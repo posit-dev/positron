@@ -30,14 +30,6 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
-      - name: Configure xvfb Service
-        shell: bash
-        run: |
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
-
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
@@ -79,14 +71,6 @@ jobs:
         uses: ./.github/actions/install-r
         with:
           version: "4.4.0"
-
-      - name: Configure xvfb Service
-        shell: bash
-        run: |
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile

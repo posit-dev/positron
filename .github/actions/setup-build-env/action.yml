@@ -36,3 +36,12 @@ runs:
     - name: Compile and Download
       shell: bash
       run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+
+    # Although not directly part of the build environment, this configuration is essential for running unit, integration, and e2e tests.
+    - name: Configure xvfb Service
+      shell: bash
+      run: |
+        sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+        sudo chmod +x /etc/init.d/xvfb
+        sudo update-rc.d xvfb defaults
+        sudo service xvfb start
