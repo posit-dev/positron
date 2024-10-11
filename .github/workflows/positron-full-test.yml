@@ -30,6 +30,14 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
+      - name: Configure xvfb Service
+        shell: bash
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
