@@ -20,6 +20,8 @@ from .connections_comm import (
     ListObjectsRequest,
     ObjectSchema,
     PreviewObjectRequest,
+    MetadataSchema,
+    GetMetadataRequest
 )
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
 from .third_party import pd_, sqlalchemy_
@@ -136,6 +138,25 @@ class Connection:
             path: The path to the object.
         """
         raise NotImplementedError()
+
+    def get_metadata(self) -> MetadataSchema:
+        """
+        Returns metadata about the connection.
+
+        The metadata object must contain the following properties:
+        - name: The name of the connection.
+        - language_id: The language ID for the connection. Essentially just R or python.
+        - host: The host of the connection.
+        - type: The type of the connection.
+        - code: The code used to recreate the connection.
+        """
+        return MetadataSchema(
+            name=self.display_name,
+            language_id="python",
+            host=self.host,
+            type=self.type,
+            code=self.code,
+        )
 
 
 class ConnectionsService:
@@ -439,6 +460,8 @@ class ConnectionsService:
         elif isinstance(request, PreviewObjectRequest):
             self.handle_preview_object_request(connection, request)
             result = None
+        elif isinstance(request, GetMetadataRequest):
+            result = self.handle_get_metadata_request(connection, request) # type: ignore
         else:
             raise NotImplementedError(f"Unhandled request: {request}")
 
@@ -450,7 +473,10 @@ class ConnectionsService:
             return False
 
         object_types: Dict[str, Any] = conn.list_object_types()
-        contains = object_types[path[-1].kind].get("contains", "not_data")
+        try:
+            contains = object_types[path[-1].kind].get("contains", "not_data")
+        except KeyError:
+            contains = "not_data"
         return isinstance(contains, str) and contains == "data"
 
     def handle_get_icon_request(self, conn: Connection, request: GetIconRequest) -> str:
@@ -461,7 +487,10 @@ class ConnectionsService:
             icon = getattr(conn, "icon", None)
         else:
             object_types: Dict[str, Any] = conn.list_object_types()
-            icon = object_types[path[-1].kind].get("icon", "")
+            try:
+                icon = object_types[path[-1].kind].get("icon", None)
+            except KeyError:
+                pass
 
         if icon is None:
             return ""
@@ -483,6 +512,10 @@ class ConnectionsService:
         res = conn.preview_object(request.params.path)
         title = request.params.path[-1].name
         self._kernel.data_explorer_service.register_table(res, title)
+
+    def handle_get_metadata_request(self, conn: Connection, request: GetMetadataRequest) -> MetadataSchema :
+        res =  conn.get_metadata()
+        return res
 
 
 class SQLite3Connection(Connection):

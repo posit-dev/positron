@@ -173,13 +173,11 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
-		console.log('refreshing entries?');
 		const entries = await this.getConnectionsEntries(this.service.getConnections());
 		this._entries = entries;
 	}
 
 	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
-		console.log('level', level, 'root items', items);
 
 		const entries: IPositronConnectionEntry[] = [];
 		for (const item of items) {
