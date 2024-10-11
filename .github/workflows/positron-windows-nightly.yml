@@ -96,8 +96,8 @@ jobs:
       - name: Setup AWS S3 Access
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.aws-role-to-assume }}
-          aws-region: ${{ secrets.aws-region }}
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Run Smoke Tests (Electron)
         env:
