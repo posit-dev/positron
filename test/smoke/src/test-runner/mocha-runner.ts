@@ -25,7 +25,7 @@ export async function runMochaTests(OPTS: any) {
 		reporter: 'mocha-multi',
 		reporterOptions: {
 			spec: '-',  // Console output
-			xunit: REPORT_PATH,
+			xunit: REPORT_PATH + 'xunit-results.xml',
 		},
 		retries: 1,
 	});
@@ -49,10 +49,34 @@ export async function runMochaTests(OPTS: any) {
 		process.exit(failures ? 1 : 0);
 	});
 
+
+	// Create a writable stream for retry logs
+	const retryLogFile = fs.createWriteStream(path.resolve(REPORT_PATH, 'retry-logs.txt'), { flags: 'a' });
+
+	// Regex pattern to remove ANSI characters
+	const ansiRegex = /\u001b\[[0-9;]*m/g;
+
+	// Helper function to write logs to file, removing ANSI codes using regex
+	function logToFile(message: string) {
+		const cleanMessage = message.replace(ansiRegex, '');  // Remove ANSI codes
+		retryLogFile.write(cleanMessage + '\n');
+	}
+
 	// Attach the 'retry' event listener to the runner
 	runner.on('retry', (test, err) => {
-		console.error('Test failed, retrying:', test.fullTitle());
-		console.error(err);
+		logToFile(`-----------------------------------------------`);
+		logToFile(`[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
+		logToFile(`-----------------------------------------------`);
+		if (err) { logToFile(`${err.stack || err.message}`); }
+		logToFile('');
+	});
+
+	runner.on('fail', (test, err) => {
+		logToFile(`-----------------------------------------------`);
+		logToFile(`[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
+		logToFile(`-----------------------------------------------`);
+		if (err) { logToFile(`${err.stack || err.message}`); }
+		logToFile('');
 	});
 }
 
