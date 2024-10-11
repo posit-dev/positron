@@ -2,8 +2,6 @@ name: "Positron: Run smoke tests against latest release"
 
 on:
   workflow_dispatch:
-  push:
-    branches: ['cmead/run-smokes-against-release']
 
 permissions:
   id-token: write
