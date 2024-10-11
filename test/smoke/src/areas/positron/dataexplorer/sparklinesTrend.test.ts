@@ -47,10 +47,10 @@ describe('Data Explorer #web #win', () => {
 			await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
 		}).toPass();
 
-		await app.workbench.positronDataExplorer.getDataExplorerTableData();
-		await app.workbench.positronSideBar.closeSecondarySideBar();
-		await app.workbench.positronDataExplorer.expandColumnProfile(0);
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.positronSideBar.closeSecondarySideBar();
+		await app.workbench.positronDataExplorer.getDataExplorerTableData();
+		await app.workbench.positronDataExplorer.expandColumnProfile(0);
 	}
 
 	async function verifyGraphBarHeights(app: Application) {
