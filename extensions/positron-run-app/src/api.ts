@@ -343,9 +343,9 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 				}
 			}
 			log.warn('URL not found in terminal output');
-			return false;
+			return undefined;
 		})(),
-		10_000,
+		15_000,
 	);
 
 	if (url === undefined) {
