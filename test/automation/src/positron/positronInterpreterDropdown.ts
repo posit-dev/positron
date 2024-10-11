@@ -342,6 +342,7 @@ export class PositronInterpreterDropdown {
 		desiredInterpreterString: string
 	) {
 		// Open the interpreter dropdown
+		await this.closeInterpreterDropdown();
 		await this.openInterpreterDropdown();
 
 		// Get the primary interpreter element corresponding to the desired interpreter type

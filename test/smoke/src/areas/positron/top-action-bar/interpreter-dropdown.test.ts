@@ -168,37 +168,39 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		const interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		const positronConsole = app.workbench.positronConsole;
 
-		// Start the desired interpreter using the dropdown
-		console.log(`Selecting ${options.interpreterType} interpreter...`);
-		await expect(
-			async () =>
-				await interpreterDropdown.selectInterpreter(options.interpreterType, options.version)
-		).toPass({ timeout: 60_000 });
-		console.log(`${options.interpreterType} interpreter selected.`);
+		await expect(async () => {
+			// Start the desired interpreter using the dropdown
+			console.log(`*** Selecting ${options.interpreterType} interpreter...`);
+			await expect(
+				async () =>
+					await interpreterDropdown.selectInterpreter(options.interpreterType, options.version)
+			).toPass({ timeout: 60_000 });
+			console.log(`${options.interpreterType} interpreter selected.`);
 
-		// Install `ipykernel` if a popup prompts for it (only applicable for Python)
-		if (options.interpreterType === 'Python' && await app.workbench.positronPopups.popupCurrentlyOpen()) {
-			console.log('Installing IPyKernel...');
-			await app.workbench.positronPopups.installIPyKernel();
-			console.log('IPyKernel installed.');
-		}
+			// Install `ipykernel` if a popup prompts for it (only applicable for Python)
+			if (options.interpreterType === 'Python' && await app.workbench.positronPopups.popupCurrentlyOpen()) {
+				console.log('Installing IPyKernel...');
+				await app.workbench.positronPopups.installIPyKernel();
+				console.log('IPyKernel installed.');
+			}
 
-		// Close the interpreter dropdown if specified
-		if (options.closeDropdown) {
-			console.log('Closing interpreter dropdown...');
-			await interpreterDropdown.closeInterpreterDropdown();
-			console.log('Interpreter dropdown closed.');
-		}
+			// Close the interpreter dropdown if specified
+			if (options.closeDropdown) {
+				console.log('Closing interpreter dropdown...');
+				await interpreterDropdown.closeInterpreterDropdown();
+				console.log('Interpreter dropdown closed.');
+			}
 
-		// Wait for the console to be ready with the specified prompt
-		console.log('Waiting for console to be ready...');
-		const start = new Date();
-		await app.code.driver.takeScreenshot(`before_wait_for_ready_${Date.now()}`);
-		await positronConsole.waitForReady(expectedPrompt, 30_000);
-		await app.code.driver.takeScreenshot(`after_wait_for_ready_${Date.now()}`);
-		const end = new Date();
-		const duration = (end.getTime() - start.getTime()) / 1000;
-		console.log(`Console is ready. Time taken: ${duration} seconds.`);
+			// Wait for the console to be ready with the specified prompt
+			console.log('Waiting for console to be ready...');
+			const start = new Date();
+			await app.code.driver.takeScreenshot(`before_wait_for_ready_${Date.now()}`);
+			await positronConsole.waitForReady(expectedPrompt, 30_000);
+			await app.code.driver.takeScreenshot(`after_wait_for_ready_${Date.now()}`);
+			const end = new Date();
+			const duration = (end.getTime() - start.getTime()) / 1000;
+			console.log(`Console is ready. Time taken: ${duration} seconds.`);
+		}).toPass({ timeout: 60_000 });
 	}
 
 });
