@@ -39,3 +39,4 @@ runs:
       shell: bash
       run: |
         python3 --version
+        which python
