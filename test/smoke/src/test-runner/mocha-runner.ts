@@ -6,6 +6,7 @@
 import * as path from 'path';
 // eslint-disable-next-line local/code-import-patterns
 import * as fs from 'fs/promises';
+import { logToFile } from './logger';
 const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
@@ -49,34 +50,20 @@ export async function runMochaTests(OPTS: any) {
 		process.exit(failures ? 1 : 0);
 	});
 
-
-	// Create a writable stream for retry logs
-	const retryLogFile = fs.createWriteStream(path.resolve(REPORT_PATH, 'retry-logs.txt'), { flags: 'a' });
-
-	// Regex pattern to remove ANSI characters
-	const ansiRegex = /\u001b\[[0-9;]*m/g;
-
-	// Helper function to write logs to file, removing ANSI codes using regex
-	function logToFile(message: string) {
-		const cleanMessage = message.replace(ansiRegex, '');  // Remove ANSI codes
-		retryLogFile.write(cleanMessage + '\n');
-	}
-
 	// Attach the 'retry' event listener to the runner
+	const retryLogs = path.resolve(REPORT_PATH, 'retry-logs.txt');
 	runner.on('retry', (test, err) => {
-		logToFile(`-----------------------------------------------`);
-		logToFile(`[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
-		logToFile(`-----------------------------------------------`);
-		if (err) { logToFile(`${err.stack || err.message}`); }
-		logToFile('');
+		logToFile(retryLogs, `-----------------------------------------------`);
+		logToFile(retryLogs, `[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
+		logToFile(retryLogs, `-----------------------------------------------`);
+		if (err) { logToFile(retryLogs, `${err.stack || err.message}\n`); }
 	});
 
 	runner.on('fail', (test, err) => {
-		logToFile(`-----------------------------------------------`);
-		logToFile(`[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
-		logToFile(`-----------------------------------------------`);
-		if (err) { logToFile(`${err.stack || err.message}`); }
-		logToFile('');
+		logToFile(retryLogs, `-----------------------------------------------`);
+		logToFile(retryLogs, `[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
+		logToFile(retryLogs, `-----------------------------------------------`);
+		if (err) { logToFile(retryLogs, `${err.stack || err.message}\n`); }
 	});
 }
 
