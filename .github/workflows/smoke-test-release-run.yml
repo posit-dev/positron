@@ -36,10 +36,11 @@ jobs:
           mkdir -p node_modules/typescript/bin
           npm install -g typescript
           TSC_PATH=$(which tsc)
+          TSC_DIR=$(dirname "$TSC_PATH")
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
-          cp test/automation/tsconfig.json node_modules/typescript/bin
+          cp test/automation/tsconfig.json "$TSC_DIR"
           yarn --cwd test/automation compile
           yarn --cwd test/smoke compile
 
