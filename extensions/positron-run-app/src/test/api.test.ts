@@ -64,6 +64,15 @@ suite('PositronRunApp', () => {
 		// Stub the runtime API to return the test runtime.
 		sinon.stub(positron.runtime, 'getPreferredRuntime').callsFake(async (_languageId) => runtime);
 
+		// Stub the positron proxy API.
+		sinon.stub(vscode.commands, 'executeCommand')
+			.withArgs('positronProxy.startPendingProxyServer')
+			.resolves({
+			proxyPath: '/proxy/path',
+			externalUri: vscode.Uri.parse('http://localhost:1234'),
+			finishProxySetup: () => {},
+		});
+
 		// Stub the preview URL function.
 		previewUrlStub = sinon.stub(positron.window, 'previewUrl');
 
