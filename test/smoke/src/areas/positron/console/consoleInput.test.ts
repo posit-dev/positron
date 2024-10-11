@@ -8,7 +8,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Console Input #web #pr', () => {
+describe('Console Input #web #pr #win', () => {
 	setupAndStartApp();
 
 	describe('Console Input - Python', () => {
