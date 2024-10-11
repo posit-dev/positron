@@ -50,6 +50,7 @@ describe('Data Explorer #web #win', () => {
 		await app.workbench.positronDataExplorer.getDataExplorerTableData();
 		await app.workbench.positronSideBar.closeSecondarySideBar();
 		await app.workbench.positronDataExplorer.expandColumnProfile(0);
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	}
 
 	async function verifyGraphBarHeights(app: Application) {
