@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
+import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, StartupError, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -647,28 +647,40 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Attempt to start the session
 			await this.tryStart();
 		} catch (err) {
-			// Get the message from the error, if possible; otherwise, just
-			// deserialize the error to a string
-			const message =
-				err instanceof HttpError ? err.body.message :
-					err instanceof Error ? err.message : JSON.stringify(err);
+			if (err instanceof HttpError && err.statusCode === 500) {
+				// When the server returns a 500 error, it means the startup
+				// failed. In this case the API returns a structured startup
+				// error we can use to report the problem with more detail.
+				const startupErr = err.body;
+				let message = startupErr.error.message;
+				if (startupErr.output) {
+					message += `\n${startupErr.output}`;
+				}
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: startupErr.exit_code ?? 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message
+				};
+				this._exit.fire(event);
+			} else {
+				// This indicates that startup failed due to a problem on the
+				// client side. We still need to report an exit so that the UI
+				// treats the runtime as exited.
 
-			// Emit an exit event so the caller knows the runtime failed to
-			// start.
-			//
-			// Consider: It'd be really nice to have a structured error message
-			// here that named an exit code if there is one. For that, the
-			// supervisor's API would need to supply it as a separate, optional
-			// field (startups can fail for many reasons other than process
-			// termination, such as failure to connect to underlying 0MQ
-			// sockets, etc.).
-			const event: positron.LanguageRuntimeExit = {
-				runtime_name: this.runtimeMetadata.runtimeName,
-				exit_code: 1,
-				reason: positron.RuntimeExitReason.StartupFailed,
-				message
-			};
-			this._exit.fire(event);
+				// Attempt to extract a message from the error, or just
+				// stringify it if it's not an Error
+				const message =
+					err instanceof Error ? err.message : JSON.stringify(err);
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message
+				};
+				this._exit.fire(event);
+			}
+
 			this.onStateChange(positron.RuntimeState.Exited);
 			throw err;
 		}
