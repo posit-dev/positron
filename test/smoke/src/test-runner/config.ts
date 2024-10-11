@@ -28,6 +28,7 @@ Object.assign(process.env, {
 	EXTENSIONS_PATH: path.join(TEST_DATA_PATH, 'extensions-dir'),
 	WORKSPACE_PATH: path.join(TEST_DATA_PATH, 'qa-example-content'),
 	REPORT_PATH: path.join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || '', 'test-results/'),
+	RETRY_LOG_PATH: path.join(process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || ''),
 	LOGS_DIR: process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default',
 });
 

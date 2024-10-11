@@ -6,7 +6,7 @@
 import * as path from 'path';
 // eslint-disable-next-line local/code-import-patterns
 import * as fs from 'fs/promises';
-import { logToFile } from './logger';
+import { logErrorToFile } from './logger';
 const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
@@ -50,20 +50,12 @@ export async function runMochaTests(OPTS: any) {
 		process.exit(failures ? 1 : 0);
 	});
 
-	// Attach the 'retry' event listener to the runner
-	const retryLogs = path.resolve(REPORT_PATH, 'retry-logs.txt');
 	runner.on('retry', (test, err) => {
-		logToFile(retryLogs, `-----------------------------------------------`);
-		logToFile(retryLogs, `[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
-		logToFile(retryLogs, `-----------------------------------------------`);
-		if (err) { logToFile(retryLogs, `${err.stack || err.message}\n`); }
+		logErrorToFile(test, err);
 	});
 
 	runner.on('fail', (test, err) => {
-		logToFile(retryLogs, `-----------------------------------------------`);
-		logToFile(retryLogs, `[RUN #${test.currentRetry()}] ${test.fullTitle()}`);
-		logToFile(retryLogs, `-----------------------------------------------`);
-		if (err) { logToFile(retryLogs, `${err.stack || err.message}\n`); }
+		logErrorToFile(test, err);
 	});
 }
 

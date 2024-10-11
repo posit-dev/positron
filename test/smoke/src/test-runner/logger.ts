@@ -6,7 +6,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
 // eslint-disable-next-line local/code-import-patterns
-import * as fsp from 'fs/promises';
 import mkdirp = require('mkdirp');
 import { ConsoleLogger, FileLogger, Logger, MultiLogger } from '../../../automation';
 
@@ -34,32 +33,53 @@ export function createLogger(logsRootPath: string): Logger {
 	return new MultiLogger(loggers);
 }
 
-// Log queue to ensure writes happen sequentially
-const logQueue: Array<Promise<void>> = [];
+function logToFile(testLogDir: string, message: string): void {
+	const logFilePath = path.join(testLogDir, 'retry.log');
 
-/**
- * Log a message to a file using fs.promises and a queue.
- *
- * @param filePath the file path
- * @param message the message to log
- * @returns Promise<void>
- */
-export async function logToFile(filePath: string, message: string): Promise<void> {
+	// Ensure the directory exists
+	if (!fs.existsSync(testLogDir)) {
+		fs.mkdirSync(testLogDir, { recursive: true });
+	}
+
+	console.log(`Writing log to ${logFilePath}`);
+
+
 	const ansiRegex = /\u001b\[[0-9;]*m/g;
 	const cleanMessage = message.replace(ansiRegex, '');  // Remove ANSI codes
 
-	// Write operation that appends the message to the log file
-	const writeOperation = async () => {
-		await fsp.appendFile(filePath, cleanMessage + '\n', 'utf-8');
-	};
+	try {
+		fs.appendFileSync(logFilePath, cleanMessage + '\n', 'utf-8');
+	} catch (err) {
+		console.error(`Error writing log to ${logFilePath}: ${(err as Error).message}`);
+	}
+}
 
-	// Add the current write operation to the queue
-	const lastOperation = logQueue.length > 0 ? logQueue[logQueue.length - 1] : Promise.resolve();
+/**
+ * Logs the error to the test log file: logs/smoke-tests-electron/<test-file-name>/retry.log
+ *
+ * @param test mocha test
+ * @param err error
+ */
+export function logErrorToFile(test: any, err: Error): void {
+	const RETRY_LOG_PATH = process.env.RETRY_LOG_PATH || 'RETRY_LOG_PATH not set';
 
-	// Chain the new write operation after the last one
-	const newOperation = lastOperation.then(writeOperation);
-	logQueue.push(newOperation);
+	const fileName = path.basename(test.file);
+	const testLogPath = path.join(RETRY_LOG_PATH, fileName);
 
-	// Wait for the new operation to complete
-	await newOperation;
+	const title = `[RUN #${test.currentRetry()}] ${test.fullTitle()}`;
+	const dashes = printDashes(title.length);
+	const error = err.stack || err.message;
+
+	logToFile(testLogPath, `${dashes}\n${title}\n${dashes}\n${error}\n`);
+}
+
+/**
+ * Returns a string of dashes based on the length.
+ *
+ * @param length number of dashes to print
+ * @returns
+ */
+function printDashes(length: number): string {
+	const minLength = 45;
+	return '-'.repeat(Math.max(length, minLength));
 }
