@@ -7,9 +7,8 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -63,46 +62,17 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		busy: false,
 	};
 
-	private readonly _languageVersion = '0.0.1';
-	readonly runtimeMetadata: ILanguageRuntimeMetadata = {
-		base64EncodedIconSvg: '',
-		extensionId: new ExtensionIdentifier('test-extension'),
-		extraRuntimeData: {},
-		languageId: 'test',
-		languageName: 'Test',
-		languageVersion: this._languageVersion,
-		runtimeId: '00000000-0000-0000-0000-100000000000',
-		runtimeName: `Test ${this._languageVersion}`,
-		runtimePath: '/test',
-		runtimeShortName: this._languageVersion,
-		runtimeSource: 'Test',
-		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
-	};
-
-	readonly metadata: IRuntimeSessionMetadata;
-
 	readonly sessionId: string;
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
 	constructor(
-		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console,
-		notebookUri?: URI,
+		readonly metadata: IRuntimeSessionMetadata,
+		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 	) {
 		super();
 
-		this.sessionId = 'session-id';
-
-		this.metadata = {
-			createdTimestamp: Date.now(),
-			sessionId: this.sessionId,
-			sessionMode,
-			sessionName: 'session-name',
-			startReason: 'test',
-			notebookUri,
-		};
+		this.sessionId = this.metadata.sessionId;
 
 	}
 
