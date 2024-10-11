@@ -35,7 +35,7 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	if (enabled) {
-		activateImpl(context);
+		return activateImpl(context);
 	}
 }
 
