@@ -35,7 +35,8 @@ jobs:
         run: |
           mkdir -p node_modules/typescript/bin
           npm install -g typescript
-          npx playwright install
+          npm install @playwright/test
+          npm install playwright-core
           TSC_PATH=$(which tsc)
 
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
