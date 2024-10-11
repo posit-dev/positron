@@ -39,6 +39,7 @@ jobs:
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
 
           cd test/automation
+          rm yarn.lock
           npm install @playwright/test
           npm install playwright-core
           cd ../..
