@@ -39,10 +39,9 @@ jobs:
           ln -s "$TSC_PATH" node_modules/typescript/bin/tsc
           yarn --cwd test/automation install
           yarn --cwd test/smoke install
-          cd test/automation
-          yarn compile
-          cd ../smoke
-          yarn compile
+          cp test/automation/tsconfig.json node_modules/typescript/bin
+          yarn --cwd test/automation compile
+          yarn --cwd test/smoke compile
 
       - name: Get & install latest release
         id: get_latest_release
