@@ -643,6 +643,44 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The kernel info for the session.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
+		try {
+			// Attempt to start the session
+			await this.tryStart();
+		} catch (err) {
+			// Get the message from the error, if possible; otherwise, just
+			// deserialize the error to a string
+			const message =
+				err instanceof HttpError ? err.body.message :
+					err instanceof Error ? err.message : JSON.stringify(err);
+
+			// Emit an exit event so the caller knows the runtime failed to
+			// start.
+			//
+			// Consider: It'd be really nice to have a structured error message
+			// here that named an exit code if there is one. For that, the
+			// supervisor's API would need to supply it as a separate, optional
+			// field (startups can fail for many reasons other than process
+			// termination, such as failure to connect to underlying 0MQ
+			// sockets, etc.).
+			const event: positron.LanguageRuntimeExit = {
+				runtime_name: this.runtimeMetadata.runtimeName,
+				exit_code: 1,
+				reason: positron.RuntimeExitReason.StartupFailed,
+				message
+			};
+			this._exit.fire(event);
+			this.onStateChange(positron.RuntimeState.Exited);
+			throw err;
+		}
+
+		return this.getKernelInfo();
+	}
+
+	/**
+	 * Attempts to start the session; returns a promise that resolves when the
+	 * session is ready to use.
+	 */
+	private async tryStart(): Promise<void> {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
@@ -650,18 +688,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
-
-			// Wait for the session to start
-			try {
-				await this._api.startSession(this.metadata.sessionId);
-			} catch (err) {
-				if (err instanceof HttpError) {
-					throw new Error(err.body.message);
-				} else {
-					// Rethrow the error as-is if it's not an HTTP error
-					throw err;
-				}
-			}
+			await this._api.startSession(this.metadata.sessionId);
 		}
 
 		// Before connecting, check if we should attach to the session on
@@ -707,8 +734,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this._state.fire(positron.RuntimeState.Ready);
 			}
 		}
-
-		return this.getKernelInfo();
 	}
 
 	/**
