@@ -6,6 +6,7 @@
 import * as path from 'path';
 // eslint-disable-next-line local/code-import-patterns
 import * as fs from 'fs/promises';
+import { logErrorToFile } from './logger';
 const Mocha = require('mocha');
 
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
@@ -25,7 +26,7 @@ export async function runMochaTests(OPTS: any) {
 		reporter: 'mocha-multi',
 		reporterOptions: {
 			spec: '-',  // Console output
-			xunit: REPORT_PATH,
+			xunit: REPORT_PATH + 'xunit-results.xml',
 		},
 		retries: 1,
 	});
@@ -49,10 +50,12 @@ export async function runMochaTests(OPTS: any) {
 		process.exit(failures ? 1 : 0);
 	});
 
-	// Attach the 'retry' event listener to the runner
 	runner.on('retry', (test, err) => {
-		console.error('Test failed, retrying:', test.fullTitle());
-		console.error(err);
+		logErrorToFile(test, err);
+	});
+
+	runner.on('fail', (test, err) => {
+		logErrorToFile(test, err);
 	});
 }
 
