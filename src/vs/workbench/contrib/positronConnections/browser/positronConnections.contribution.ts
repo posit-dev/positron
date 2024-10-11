@@ -24,8 +24,8 @@ const VIEW_CONTAINER = Registry.as<IViewContainersRegistry>(Extensions.ViewConta
 	{
 		id: POSITRON_CONNECTIONS_VIEW_ID,
 		title: {
-			value: nls.localize('positron.connections', "Connections Core"),
-			original: 'Connections Core'
+			value: nls.localize('positron.connections', "Connections"),
+			original: 'Connections'
 		},
 		icon: positronConnectionsViewIcon,
 		order: 2,
