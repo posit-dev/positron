@@ -159,6 +159,7 @@ export class PositronInterpreterDropdown {
 		// Open the interpreter dropdown.
 		await this.interpreterDropdown.click({ timeout: 10_000 });
 		await this.interpreterGroups.waitFor({ state: 'attached', timeout: 10_000 });
+		await this.code.driver.takeScreenshot(`open_InterpreterDropdown`);
 	}
 
 	/**
@@ -170,6 +171,7 @@ export class PositronInterpreterDropdown {
 			await this.code.driver.getKeyboard().press('Escape');
 			await this.interpreterGroups.waitFor({ state: 'detached', timeout: 10_000 });
 		}
+		await this.code.driver.takeScreenshot(`close_InterpreterDropdown`);
 	}
 
 	/**
@@ -366,8 +368,9 @@ export class PositronInterpreterDropdown {
 			this.code.logger.log(
 				`Found primary interpreter: ${primaryInterpreterName}`
 			);
-			await this.openInterpreterDropdown();
+			await this.code.driver.takeScreenshot(`click_before_primary`);
 			await primaryInterpreter.click();
+			await this.code.driver.takeScreenshot(`click_after_primary`);
 			return;
 		}
 
@@ -403,7 +406,9 @@ export class PositronInterpreterDropdown {
 				await this.openInterpreterDropdown();
 				await secondaryInterpreter.scrollIntoViewIfNeeded();
 				await secondaryInterpreter.isVisible();
+				await this.code.driver.takeScreenshot(`click_before_secondary`);
 				await secondaryInterpreter.click();
+				await this.code.driver.takeScreenshot(`click_after_secondary`);
 				return;
 			}
 		}

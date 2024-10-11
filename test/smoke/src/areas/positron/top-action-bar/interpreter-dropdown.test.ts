@@ -193,7 +193,9 @@ describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 		// Wait for the console to be ready with the specified prompt
 		console.log('Waiting for console to be ready...');
 		const start = new Date();
+		await app.code.driver.takeScreenshot(`before_wait_for_ready_${Date.now()}`);
 		await positronConsole.waitForReady(expectedPrompt, 30_000);
+		await app.code.driver.takeScreenshot(`after_wait_for_ready_${Date.now()}`);
 		const end = new Date();
 		const duration = (end.getTime() - start.getTime()) / 1000;
 		console.log(`Console is ready. Time taken: ${duration} seconds.`);
