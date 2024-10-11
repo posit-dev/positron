@@ -74,6 +74,8 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 		this.sessionId = this.metadata.sessionId;
 
+		// Track the runtime state.
+		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
 	getRuntimeState(): RuntimeState {
@@ -140,7 +142,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async start(): Promise<ILanguageRuntimeInfo> {
-		throw new Error('Not implemented.');
+		this._onDidChangeRuntimeState.fire(RuntimeState.Ready);
+		return {
+			banner: 'Test runtime started',
+			implementation_version: this.runtimeMetadata.runtimeVersion,
+			language_version: this.runtimeMetadata.languageVersion,
+		};
 	}
 
 	async interrupt(): Promise<void> {
@@ -148,11 +155,18 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async restart(): Promise<void> {
-		throw new Error('Not implemented.');
+		await this.shutdown(RuntimeExitReason.Restart);
+		await this.start();
 	}
 
-	async shutdown(_exitReason: RuntimeExitReason): Promise<void> {
-		throw new Error('Not implemented.');
+	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
+		this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
+		this._onDidEndSession.fire({
+			runtime_name: this.runtimeMetadata.runtimeName,
+			exit_code: 0,
+			reason: exitReason,
+			message: '',
+		});
 	}
 
 	async forceQuit(): Promise<void> {
@@ -174,7 +188,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	// Test helpers
 
 	setRuntimeState(state: RuntimeState) {
-		this._currentState = state;
 		this._onDidChangeRuntimeState.fire(state);
 	}
 
