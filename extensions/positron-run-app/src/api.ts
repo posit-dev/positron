@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { Config, log } from './extension';
 import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
-import { raceTimeout, SequencerByKey } from './utils';
+import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 
 // Regex to match a URL with the format http://localhost:1234/path
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
@@ -92,6 +92,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
 		// Start the proxy server
 		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+		log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
 		const urlPrefix = proxyInfo.proxyPath;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
 		if (!terminalOptions) {
@@ -334,7 +335,9 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 		(async () => {
 			for await (const data of stream) {
 				log.warn('Execution:', execution.commandLine.value, data);
-				const match = data.match(localUrlRegex)?.[0];
+				// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
+				const dataCleaned = removeAnsiEscapeCodes(data);
+				const match = dataCleaned.match(localUrlRegex)?.[0];
 				if (match) {
 					return new URL(match.trim());
 				}
@@ -354,6 +357,8 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 	const localBaseUri = vscode.Uri.parse(url.toString());
 	const localUri = urlPath ?
 		vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
+
+	log.debug(`Viewing app at local uri: ${localUri} with external uri ${proxyInfo.externalUri.toString()}`);
 
 	// Finish the Positron proxy setup so that proxy middleware is hooked up.
 	await proxyInfo.finishProxySetup(localUri.toString());
