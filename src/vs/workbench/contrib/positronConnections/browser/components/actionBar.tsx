@@ -37,6 +37,7 @@ interface ActionBarProps {
 
 interface ConnectionActionBarProps extends ActionBarProps {
 	selectedEntry: IPositronConnectionEntry | undefined;
+	clearAllHandler: () => void;
 }
 
 export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProps>) => {
@@ -91,7 +92,13 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 							align='left'
 							iconId='refresh'
 							onPressed={() => props.selectedEntry?.refresh?.()}
-							disabled={props.selectedEntry === undefined || props.selectedEntry.refresh === undefined}
+							disabled={props.selectedEntry === undefined || props.selectedEntry.refresh === undefined || !props.selectedEntry.active}
+						/>
+						<ActionBarSeparator />
+						<ActionBarButton
+							align='left'
+							iconId='clear-all'
+							onPressed={() => props.clearAllHandler()}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

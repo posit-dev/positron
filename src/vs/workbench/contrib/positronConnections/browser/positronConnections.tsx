@@ -99,7 +99,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				kind={itemProps.kind}
 				dtype={itemProps.dtype}
 				active={itemProps.active}
-				preview={itemProps.preview ? async () => itemProps.preview?.() : undefined}
+				preview={itemProps.preview}
 				selected={itemProps.id === selectedId}
 				onSelectedHandler={() => setSelectedId(itemProps.id)}
 				style={props.style}>
@@ -112,6 +112,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			<ActionBar
 				{...props}
 				selectedEntry={items.find((item) => item.id === selectedId)}
+				clearAllHandler={() => props.connectionsService.clearAllConnections()}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
@@ -155,7 +156,12 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 	};
 
-	const [icon, setIcon] = useState(() => {
+	const icon = (() => {
+
+		if (props.icon) {
+			return props.icon;
+		}
+
 		if (props.kind) {
 			switch (props.kind) {
 				case 'table':
@@ -170,16 +176,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 		// If kind is not known, then no icon is dplsayed by default.
 		return '';
-	});
-
-	useEffect(() => {
-		props.icon.then((i) => {
-			if (i === undefined) {
-				return;
-			}
-			setIcon(i);
-		});
-	}, []);
+	})();
 
 	const rowMouseDownHandler = (e: MouseEvent<HTMLElement>) => {
 		// Consume the event.

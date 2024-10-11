@@ -18,16 +18,14 @@ export interface IPositronConnectionEntry {
 
 	/***
 	 * Used to indentify unique connection entries.
+	 * Connections and children of connections must all have unique ids.
 	 */
 	id: string;
-	name: string;
-	language_id?: string;
 
+	/**
+	 * Wether the connection entry is currently active.
+	 */
 	active: boolean;
-
-	icon: Promise<string | undefined>;
-	dtype?: string;
-	kind?: string;
 
 	/**
 	 * Wether the connection is expanded or not. Undefined
@@ -42,39 +40,68 @@ export interface IPositronConnectionEntry {
 	 */
 	onToggleExpandEmitter?: Emitter<void>;
 
+
+	// Entry properties that may be displayed in the UI.
+	name: string;
+	kind?: string;
+	dtype?: string;
+	language_id?: string;
+	icon?: string;
+
+	/**
+	 * Enables the behavior of the connect button. Only
+	 * enabled when the entry is not active.
+	 */
+	connect?(): Promise<void>;
+
 	/**
 	 * Causes the item to disconnect.
 	 */
 	disconnect?(): Promise<void>;
 
 	/**
-	 * Cause the item to connect.
+	 * Refresh the connection data.
 	 */
-	connect?(): Promise<void>;
+	refresh?(): Promise<void>;
 
 	/**
 	 * Causes the a viewer to open for that item.
 	 * Currently, used to open tables and views in the data explorer.
 	 */
 	preview?(): Promise<void>;
-
-	/**
-	 * Refresh the connection data, by cleaning all the cached children.
-	 */
-	refresh?(): Promise<void>;
 }
 
 /**
- * Mosly wraps a PositronConnectionItem adding level and id fields
- * and removing access to getChildren() and hasChildren() methods.
+ * Wraps ConnectionInstance or ConnectionItems to provide a flat list of entries.
  */
 class PositronConnectionEntry extends Disposable implements IPositronConnectionEntry {
 	constructor(
-		readonly item: IPositronConnectionItem,
+		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
 		readonly level: number,
-		readonly id: string
 	) {
 		super();
+	}
+
+	get id() {
+		const id = this.item.id;
+		return id;
+	}
+
+	get active() {
+		if ('active' in this.item) {
+			return this.item.active;
+		}
+
+		// Child objects are always 'active'.
+		return true;
+	}
+
+	get expanded() {
+		return this.item.expanded;
+	}
+
+	get onToggleExpandEmitter() {
+		return this.item.onToggleExpandEmitter;
 	}
 
 	get name() {
@@ -89,61 +116,47 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return this.item.dtype;
 	}
 
+	get language_id() {
+		if ('language_id' in this.item) {
+			return this.item.language_id;
+		}
+
+		return undefined;
+	}
+
 	get icon() {
-		return this.item.getIcon().then((icon) => {
-			if (icon === '') {
-				return undefined;
-			}
-			return icon;
-		});
+		return this.item.icon;
 	}
 
-	get active() {
-		return this.item.active;
-	}
-
-	get expanded() {
-		return this.item.expanded;
-	}
-
-	get onToggleExpandEmitter() {
-		return this.item.onToggleExpandEmitter;
-	}
-
-	async disconnect() {
-		if (this.item.disconnect) {
-			this.item.disconnect();
+	get disconnect() {
+		if ('disconnect' in this.item) {
+			const instance = this.item;
+			return async () => { instance.disconnect?.(); };
 		}
+
+		return undefined;
 	}
 
-	async connect() {
-		if (this.item.connect) {
-			this.item.connect();
+	get connect() {
+		if ('connect' in this.item) {
+			const instance = this.item;
+			return async () => { instance.connect?.(); }
 		}
+
+		return undefined;
 	}
 
 	get preview() {
-		if (!this.item.preview) {
-			return undefined;
-		}
-
-		return async () => {
-			await this.item.preview?.();
-		};
+		return this.item.preview;
 	}
 
 	get refresh() {
-		if (!this.item.refresh) {
-			return undefined;
+		if ('refresh' in this.item) {
+			const instance = this.item;
+			return async () => { instance.refresh?.(); };
 		}
 
-		return async () => {
-			await this.item.refresh?.();
-		};
-	}
-
-	get language_id() {
-		return this.item.language_id;
+		return undefined;
 	}
 }
 
@@ -160,45 +173,33 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
+		console.log('refreshing entries?');
 		const entries = await this.getConnectionsEntries(this.service.getConnections());
 		this._entries = entries;
 	}
 
-	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0, parent = '') {
-		return await items.reduce<Promise<IPositronConnectionEntry[]>>(async (entries, item, index) => {
-			const _entries = await entries;
+	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
+		console.log('level', level, 'root items', items);
 
-			let id: string | undefined;
-
-			if (level === 0) {
-				// When level === 0 we have a root connection instance, and they
-				// might have a clientId which we can use as Id.
-				// This id is then used ton close the connection.
-				id = (item as IPositronConnectionInstance).getClientId();
-			}
-
-			if (!id) {
-				id = `${parent}-${level}-${index}`;
-			}
-
-			_entries.push(new PositronConnectionEntry(
+		const entries: IPositronConnectionEntry[] = [];
+		for (const item of items) {
+			entries.push(new PositronConnectionEntry(
 				item,
 				level,
-				id,
 			));
 
 			const expanded = item.expanded;
-			const active = item.active;
+			const active = 'active' in item ? item.active : true;
 
 			// To show children, the connection must be expanded, have a getChildren() method
 			// and be active.
 			if (expanded && item.getChildren && active) {
 				const children = await item.getChildren();
-				const newItems = await this.getConnectionsEntries(children, level + 1, `${parent}-${index}`);
-				_entries.push(...newItems);
+				const newItems = await this.getConnectionsEntries(children, level + 1);
+				entries.push(...newItems);
 			}
+		}
 
-			return _entries;
-		}, Promise.resolve([]));
+		return entries;
 	}
 }

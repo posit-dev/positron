@@ -5,52 +5,42 @@
 
 import { Emitter } from 'vs/base/common/event';
 
-export interface IPositronConnectionInstance extends IPositronConnectionItem {
-	id: string;
+export interface ConnectionMetadata {
+	name: string;
 	language_id: string;
-
-	getClientId(): string | undefined;
-	disconnect(): Promise<void>;
-
-	/**
-	 * Connection instances can implement this method to launch a connection.
-	 */
-	connect?(): Promise<void>;
-
-	/**
-	 * Refresh the connection data, cleaning its cache.
-	 */
-	refresh(): Promise<void>;
+	host?: string;
+	type?: string;
+	code?: string;
+	icon?: string;
 }
 
-// This is the interface the front-end needs from a connection instance
-// in order to be able to render it nicely.
-export interface IPositronConnectionItem {
-	name: string;
-	kind?: string;
-	dtype?: string;
-	language_id?: string;
-
-	/**
-	 * Those endpoints must make an API call to obtain their values
-	 * thus they are async.
-	 */
-	getIcon(): Promise<string>;
-	hasChildren(): Promise<boolean>;
-	getChildren?(): Promise<IPositronConnectionItem[]>;
-
-	/**
-	 * Wether the connection item is currently expanded.
-	 * Should return undefined if the item is not expandable
-	 */
-	expanded: boolean | undefined;
-
-	/**
-	 * Wether the connection item is currently active.
-	 * In general it only makes sense for connection roots
-	 * that might be in a disconnected state.
-	 */
+/***
+ * A Connection Instance represents the root of a connection to a data
+ * source. Children of a connection instance are tables, views, and other
+ * objects that can be queried and are represented by Connection Items.
+ */
+export interface IPositronConnectionInstance extends IPositronConnectionItem {
+	language_id: string;
 	active: boolean;
+	metadata: ConnectionMetadata;
+
+	connect?(): Promise<void>;
+	disconnect?(): Promise<void>;
+	refresh?(): Promise<void>;
+}
+
+/***
+ * A connection item represents a child object of a connection instance, such as a schema,
+ * catalog, table, or view.
+ */
+export interface IPositronConnectionItem {
+	id: string; // An id is essential for rendering with React
+	name: string; // Every item needs a name in order for it to be displayed
+	kind: string; // The kind of the item, eg. table, view, schema, catalog, etc.
+	dtype?: string; // The data type of the item, usually only implemented if kind == field
+	icon?: string; // The icon that should be displayed next to the item
+
+	expanded: boolean | undefined; // Wether the item is currently expanded
 
 	/**
 	 * Front-end may fire this event whenever the user clicks the
@@ -62,30 +52,15 @@ export interface IPositronConnectionItem {
 	/**
 	 * Items fire this event whenever their data has changed.
 	 * Eg. The connections is turned off, or some child was expanded.
+	 * It's used to notify the renderer that the item has changed.
 	 */
-	onDidChangeDataEmitter?: Emitter<void>;
-
-	/***
-	 * Items could implement disconnect - but this method is only called
-	 * with top level connections.
-	 */
-	disconnect?(): Promise<void>;
-
-	/***
-	 * Similarly to `disconnect`. Any might implement it, but we currently
-	 * will only evaluate if it's implemented in the connections instance.
-	 */
-	connect?(): Promise<void>;
+	onDidChangeDataEmitter: Emitter<void>;
 
 	/**
-	 * Opens the viewer for the item.
-	 * Currently only used to open the data explorer for a table or a view.
+	 * If the item can be previewed, it should implement this method.
 	 */
 	preview?(): Promise<void>;
 
-	/**
-	 * Refresh the connection data. Typically only implemented by root connection
-	 * items.
-	 */
-	refresh?(): Promise<void>;
+	hasChildren?(): Promise<boolean>;
+	getChildren?(): Promise<IPositronConnectionItem[]>;
 }

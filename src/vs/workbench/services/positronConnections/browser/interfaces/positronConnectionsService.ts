@@ -17,6 +17,7 @@ export interface IPositronConnectionsService {
 	addConnection(instance: IPositronConnectionInstance): void;
 	getConnections(): IPositronConnectionItem[];
 	closeConnection(id: string): void;
+	clearAllConnections(): void;
 
 	/**
 	 * Returns a flattended list of entries that the service is currently displaying.
