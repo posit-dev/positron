@@ -8,29 +8,60 @@ import * as positron from 'positron';
 import { ConnectionItem, ConnectionItemsProvider, isActiveConnectionItem, DatabaseConnectionItem, DisconnectedConnectionItem } from './connection';
 import { PositronConnectionsComm } from './comms/ConnectionsComms';
 
+
+export function activate(context: vscode.ExtensionContext) {
+
+	const config = vscode.workspace.getConfiguration('positron');
+	const enabled = !config.get<boolean>('connections', false);
+	vscode.commands.executeCommand('setContext', 'positron-connections.connectionsEnabled', enabled);
+
+	vscode.workspace.onDidChangeConfiguration((e) => {
+		console.log('config changed');
+		if (e.affectsConfiguration('positron.connections')) {
+			const config = vscode.workspace.getConfiguration('positron');
+			const enabled = !config.get<boolean>('connections', false);
+			console.log('config changed!', enabled);
+			if (enabled) {
+				activateImpl(context);
+			} else {
+				deactivate(context);
+			}
+			vscode.commands.executeCommand(
+				'setContext',
+				'positron-connections.connectionsEnabled',
+				enabled
+			);
+		}
+	});
+
+	if (enabled) {
+		activateImpl(context);
+	}
+}
+
 /**
  * Activates the extension.
  *
  * @param context An ExtensionContext that contains the extention context.
  */
-export function activate(context: vscode.ExtensionContext) {
+export function activateImpl(context: vscode.ExtensionContext) {
 	const viewId = 'connections';
 	const connectionProvider = new ConnectionItemsProvider(context);
 	const connectionTreeView = vscode.window.createTreeView(viewId, { treeDataProvider: connectionProvider });
 
 	// Register a handler for the positron.connection client type. This client
 	// represents an active, queryable database connection.
-	// context.subscriptions.push(
-	// 	positron.runtime.registerClientHandler({
-	// 		clientType: 'positron.connection',
-	// 		callback: (client, params: any) => {
-	// 			connectionProvider.addConnection(
-	// 				new PositronConnectionsComm(client),
-	// 				params
-	// 			);
-	// 			return false;
-	// 		}
-	// 	}));
+	context.subscriptions.push(
+		positron.runtime.registerClientHandler({
+			clientType: 'positron.connection',
+			callback: (client, params: any) => {
+				connectionProvider.addConnection(
+					new PositronConnectionsComm(client),
+					params
+				);
+				return true;
+			}
+		}));
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
@@ -105,4 +136,10 @@ export function activate(context: vscode.ExtensionContext) {
 	// this allows vscode.extensions.getExtension('vscode.positron-connections').exports
 	// to acccess the ConnectionItemsProvider instance
 	return connectionProvider;
+}
+
+function deactivate(context: vscode.ExtensionContext) {
+	context.subscriptions.forEach((e) => {
+		e.dispose();
+	});
 }

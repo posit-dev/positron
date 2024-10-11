@@ -531,6 +531,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/services/positronConnections",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/services/positronDataExplorer",
 			"project": "vscode-workbench"
 		},

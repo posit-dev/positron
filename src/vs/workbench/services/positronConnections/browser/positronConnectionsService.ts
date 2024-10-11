@@ -14,6 +14,9 @@ import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } 
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
+import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -27,12 +30,18 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	private onDidChangeData = this.onDidChangeDataEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
+	private readonly viewEnabled: IContextKey<boolean>;
 
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) {
 		super();
+		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this._contextKeyService);
+		const enabled = this._configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
+		this.viewEnabled.set(enabled);
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.
@@ -68,6 +77,18 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		this.addConnection(
 			new MockedConnectionInstance('Hello world', this.onDidChangeDataEmitter, this)
 		);
+
+		this._register(this._configurationService.onDidChangeConfiguration((e) => {
+			this.handleConfigChange(e);
+		}));
+
+	}
+
+	private handleConfigChange(e: IConfigurationChangeEvent) {
+		if (e.affectsConfiguration(USE_POSITRON_CONNECTIONS_KEY)) {
+			const enabled = this._configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
+			this.viewEnabled.set(enabled);
+		}
 	}
 
 	getConnectionEntries() {
@@ -76,7 +97,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	async refreshConnectionEntries() {
-		console.log('regenerating entries', this.connections);
 		await this._cache.refreshConnectionEntries();
 		this.onDidChangeEntriesEmitter.fire(this._cache.entries);
 	}
@@ -187,7 +207,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	private removeConnection(id: string) {
-		console.log('Removing connection', id);
 		const index = this.connections.findIndex((con) => {
 			return con.id === id;
 		});
@@ -199,9 +218,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		const [connection] = this.connections.splice(index, 1);
 		this.saveConnectionsState();
 
-		console.log('connections', this.connections);
-
-		console.log('connection', connection);
 		if (connection.disconnect) {
 			// if a disconnect method is implemented, we expect it to run onDidChangeDataEmitter
 			// otherwise, we run it ourselves.

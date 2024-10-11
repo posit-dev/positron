@@ -12,7 +12,7 @@ import { POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConn
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
 import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
 import { PositronConnectionsView } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsView';
-
+import { POSITRON_CONNECTIONS_VIEW_ENABLED } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
 
 const positronConnectionsViewIcon = registerIcon(
 	'positron-connections-view-icon',
@@ -51,6 +51,7 @@ Registry.as<IViewsRegistry>(Extensions.ViewsRegistry).registerViews([{
 	canToggleVisibility: false,
 	ctorDescriptor: new SyncDescriptor(PositronConnectionsView),
 	positronAlwaysOpenView: true,
+	when: POSITRON_CONNECTIONS_VIEW_ENABLED,
 	// openCommandActionDescriptor: {
 	// 	id: 'workbench.action.positron.openHelp',
 	// 	keybindings: {
