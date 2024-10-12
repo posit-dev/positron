@@ -196,6 +196,10 @@ export class PositronConnectionsCache {
 			);
 			entries.push(entry);
 
+			if (item.error) {
+				entry.error = item.error;
+			}
+
 			const expanded = item.expanded;
 			const active = 'active' in item ? item.active : true;
 

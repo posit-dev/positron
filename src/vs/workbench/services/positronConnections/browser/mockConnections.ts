@@ -19,6 +19,7 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 		private readonly clientId: string,
 		readonly onDidChangeDataEmitter: Emitter<void>,
 		readonly connectionsService: IPositronConnectionsService,
+		readonly error = 'error initializing'
 	) {
 		this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
@@ -105,10 +106,6 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 			this.onDidChangeDataEmitter,
 			this.connectionsService
 		));
-	}
-
-	async getIcon() {
-		return 'database';
 	}
 
 	get expanded() {

@@ -10,6 +10,7 @@ import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionIte
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILogService } from 'vs/platform/log/common/log';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
@@ -17,6 +18,7 @@ interface PathSchema extends ObjectSchema {
 
 interface ConnectionsService {
 	runtimeSessionService: IRuntimeSessionService;
+	logService: ILogService;
 	onDidFocusEmitter: Emitter<void>;
 	onDidChangeDataEmitter: Emitter<void>;
 }
@@ -63,7 +65,13 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: ConnectionsService) {
 		const object = new PositronConnectionsInstance(metadata, client, service);
 		if (!object.metadata.icon) {
-			object.metadata.icon = await object.getIcon();
+			try {
+				// Failing to acquire the icon is fine
+				// We just log the error
+				object.metadata.icon = await object.getIcon();
+			} catch (err: any) {
+				service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
+			}
 		}
 		return object;
 	}
@@ -104,10 +112,10 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			const children = await this.client.listObjects([]);
 			this._children = await Promise.all(children.map(async (item) => {
 				return await PositronConnectionItem.init(
-					this.onDidChangeDataEmitter,
 					[item],
 					this.client,
-					this.id
+					this.id,
+					this.service
 				);
 			}));
 		}
@@ -235,12 +243,25 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	private _children: IPositronConnectionItem[] | undefined;
 	private _has_children: boolean | undefined;
 
+	public error?: string;
+
 	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
-	static async init(onDidChangeDataEmitter: Emitter<void>, path: PathSchema[], client: ConnectionsClientInstance, parent_id: string) {
-		const object = new PositronConnectionItem(onDidChangeDataEmitter, path, client, parent_id);
-		const expandable = await object.hasChildren();
+	onDidChangeDataEmitter: Emitter<void>;
+
+	static async init(path: PathSchema[], client: ConnectionsClientInstance, parent_id: string, service: ConnectionsService) {
+		const object = new PositronConnectionItem(path, client, parent_id, service);
+
+		let expandable;
+		try {
+			// Failing to check if the object is expandable should not be fatal.
+			// We'll mark it as 'errored' and keep is non-expandable.
+			// The user might want to refresh to retry if this happens.
+			expandable = await object.hasChildren();
+		} catch (err: any) {
+			object.error = err.message;
+		}
 
 		if (expandable) {
 			object._expanded = false;
@@ -249,7 +270,13 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		}
 
 		if (!object._icon) {
-			object._icon = await object.getIcon();
+			// Failing to get the icon is OK.
+			// We only log it.
+			try {
+				object._icon = await object.getIcon();
+			} catch (err: any) {
+				service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
+			}
 		}
 
 		// Calling object.hasViewer() would be enough to set that flag the internal
@@ -260,14 +287,16 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	}
 
 	private constructor(
-		readonly onDidChangeDataEmitter: Emitter<void>,
 		private readonly path: PathSchema[],
 		private readonly client: ConnectionsClientInstance,
-		private readonly parent_id: string
+		private readonly parent_id: string,
+		private readonly service: ConnectionsService
 	) {
 		if (this.path.length === 0) {
 			throw new Error('path must be length > 0');
 		}
+
+		this.onDidChangeDataEmitter = this.service.onDidChangeDataEmitter;
 
 		const last_elt = this.path.at(-1)!;
 		this._name = last_elt.name;
@@ -340,10 +369,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 			this._children = await Promise.all(children.map(async (item) => {
 				return await PositronConnectionItem.init(
-					this.onDidChangeDataEmitter,
 					[...this.path, item],
 					this.client,
-					this.id
+					this.id,
+					this.service
 				);
 			}));
 		}

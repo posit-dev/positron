@@ -39,6 +39,7 @@ export interface IPositronConnectionItem {
 	kind: string; // The kind of the item, eg. table, view, schema, catalog, etc.
 	dtype?: string; // The data type of the item, usually only implemented if kind == field
 	icon?: string; // The icon that should be displayed next to the item
+	error?: string; // Any initialization error for the item.
 
 	expanded: boolean | undefined; // Wether the item is currently expanded
 
