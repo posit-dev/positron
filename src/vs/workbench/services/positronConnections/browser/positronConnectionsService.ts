@@ -18,6 +18,7 @@ import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from 
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
+//import { INotificationService } from 'vs/platform/notification/common/notification';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -42,6 +43,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IViewsService private readonly viewsService: IViewsService,
+		//@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super();
 		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this.contextKeyService);

@@ -45,6 +45,8 @@
 	text-overflow: ellipsis;
 	white-space: nowrap;
 	font-family: monospace;
+	display: flex;
+	align-items: center;
 }
 
 .connections-dtype {
@@ -89,4 +91,12 @@
 
 .connection-disabled {
 	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.connections-error {
+	margin-left: 5px;
+}
+
+.connections-error.codicon {
+	color: var(--vscode-debugConsole-errorForeground);
 }

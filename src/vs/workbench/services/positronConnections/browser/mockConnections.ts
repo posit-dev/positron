@@ -69,6 +69,9 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 	}
 
 	async getChildren() {
+		if (Math.random() > 0.5) {
+			throw new Error('cannot parse');
+		}
 		return this.children;
 	}
 

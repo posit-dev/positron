@@ -5,6 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+//import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
@@ -69,12 +70,19 @@ export interface IPositronConnectionEntry {
 	 * Currently, used to open tables and views in the data explorer.
 	 */
 	preview?(): Promise<void>;
+
+	// If an error happens during soem evaluation for that element
+	// we try to display some information .
+	error?: string;
 }
 
 /**
  * Wraps ConnectionInstance or ConnectionItems to provide a flat list of entries.
  */
 class PositronConnectionEntry extends Disposable implements IPositronConnectionEntry {
+
+	error?: string;
+
 	constructor(
 		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
 		readonly level: number,
@@ -181,10 +189,12 @@ export class PositronConnectionsCache {
 
 		const entries: IPositronConnectionEntry[] = [];
 		for (const item of items) {
-			entries.push(new PositronConnectionEntry(
+
+			const entry = new PositronConnectionEntry(
 				item,
 				level,
-			));
+			);
+			entries.push(entry);
 
 			const expanded = item.expanded;
 			const active = 'active' in item ? item.active : true;
@@ -192,7 +202,15 @@ export class PositronConnectionsCache {
 			// To show children, the connection must be expanded, have a getChildren() method
 			// and be active.
 			if (expanded && item.getChildren && active) {
-				const children = await item.getChildren();
+				let children;
+				try {
+					children = await item.getChildren();
+				} catch (err: any) {
+					// If some error happened we want to be able
+					// display it for users.
+					entry.error = err.message;
+					continue;
+				}
 				const newItems = await this.getConnectionsEntries(children, level + 1);
 				entries.push(...newItems);
 			}

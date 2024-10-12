@@ -78,6 +78,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		disposableStore.add(props.connectionsService.onDidChangeEntries((entries) => {
 			setItems(entries);
 		}));
+		// First entries refresh - on component mount.
 		props.connectionsService.refreshConnectionEntries();
 		return () => disposableStore.dispose();
 	}, []);
@@ -99,6 +100,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 				kind={itemProps.kind}
 				dtype={itemProps.dtype}
 				active={itemProps.active}
+				error={itemProps.error}
 				preview={itemProps.preview}
 				selected={itemProps.id === selectedId}
 				onSelectedHandler={() => setSelectedId(itemProps.id)}
@@ -230,6 +232,11 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				{
 					props.dtype ?
 						<span className='connections-dtype'>{props.dtype}</span> :
+						<></>
+				}
+				{
+					props.error ?
+						<span className='connections-error codicon codicon-error' title={props.error}></span> :
 						<></>
 				}
 			</div>
