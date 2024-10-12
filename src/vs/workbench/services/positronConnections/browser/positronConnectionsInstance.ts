@@ -14,6 +14,13 @@ import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/ser
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
 }
+
+interface ConnectionsService {
+	runtimeSessionService: IRuntimeSessionService;
+	onDidFocusEmitter: Emitter<void>;
+	onDidChangeDataEmitter: Emitter<void>;
+}
+
 class BaseConnectionsInstance extends Disposable {
 	constructor(
 		readonly metadata: ConnectionMetadata
@@ -47,12 +54,14 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	readonly onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
+	readonly onDidChangeDataEmitter: Emitter<void>;
+
 	private _expanded: boolean = false;
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
 
-	static async init(metadata: ConnectionMetadata, onDidChangeDataEmitter: Emitter<void>, client: ConnectionsClientInstance, runtimeSessionService: IRuntimeSessionService) {
-		const object = new PositronConnectionsInstance(metadata, onDidChangeDataEmitter, client, runtimeSessionService);
+	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: ConnectionsService) {
+		const object = new PositronConnectionsInstance(metadata, client, service);
 		if (!object.metadata.icon) {
 			object.metadata.icon = await object.getIcon();
 		}
@@ -61,21 +70,26 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	private constructor(
 		metadata: ConnectionMetadata,
-		readonly onDidChangeDataEmitter: Emitter<void>,
 		private readonly client: ConnectionsClientInstance,
-		private readonly runtimeSessionService: IRuntimeSessionService,
+		private readonly service: ConnectionsService,
 	) {
 		super(metadata);
 
+		this.onDidChangeDataEmitter = service.onDidChangeDataEmitter;
+
 		this._register(this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
-			this.onDidChangeDataEmitter.fire();
+			this.service.onDidChangeDataEmitter.fire();
 		}));
 
 		this._register(this.client.onDidClose(() => {
 			this._active = false;
 			this._expanded = false;
-			this.onDidChangeDataEmitter.fire();
+			this.service.onDidChangeDataEmitter.fire();
+		}));
+
+		this._register(this.client.onDidFocus(() => {
+			this.service.onDidFocusEmitter.fire();
 		}));
 	}
 
@@ -116,7 +130,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 		return async () => {
 			const language_id = this.metadata.language_id;
-			const session = this.runtimeSessionService.getConsoleSessionForLanguage(language_id);
+			const session = this.service.runtimeSessionService.getConsoleSessionForLanguage(language_id);
 
 			if (!session) {
 				throw new Error(`No console session for language ${language_id}`);

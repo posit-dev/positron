@@ -48,4 +48,8 @@ export class ConnectionsClientInstance extends Disposable {
 	get onDidClose() {
 		return this._positronConnectionsComm.onDidClose;
 	}
+
+	get onDidFocus() {
+		return this._positronConnectionsComm.onDidFocus;
+	}
 }

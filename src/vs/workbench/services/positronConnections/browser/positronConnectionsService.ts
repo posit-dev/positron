@@ -8,7 +8,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IPositronConnectionEntry, PositronConnectionsCache } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
 import { ConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { MockedConnectionInstance } from 'vs/workbench/services/positronConnections/browser/mockConnections';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -17,6 +17,7 @@ import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storag
 import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -26,36 +27,40 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	private onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>;
 	onDidChangeEntries: Event<IPositronConnectionEntry[]> = this.onDidChangeEntriesEmitter.event;
 
-	private onDidChangeDataEmitter = new Emitter<void>;
+	public onDidChangeDataEmitter = new Emitter<void>;
 	private onDidChangeData = this.onDidChangeDataEmitter.event;
+
+	public onDidFocusEmitter = new Emitter<void>;
+	private onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
 	private readonly viewEnabled: IContextKey<boolean>;
 
 	constructor(
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
-		@IStorageService private readonly _storageService: IStorageService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
+		@IStorageService private readonly storageService: IStorageService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IViewsService private readonly viewsService: IViewsService,
 	) {
 		super();
-		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this._contextKeyService);
-		const enabled = this._configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
+		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this.contextKeyService);
+		const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
 		this.viewEnabled.set(enabled);
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.
-		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
+		this._register(this.runtimeSessionService.onDidStartRuntime((runtime) => {
 			this.attachRuntime(runtime);
 		}));
 
 		this._cache = new PositronConnectionsCache(this);
-		this.onDidChangeData(() => {
+		this._register(this.onDidChangeData(() => {
 			this.refreshConnectionEntries();
-		});
+		}));
 
 		const storedConnections: ConnectionMetadata[] = JSON.parse(
-			this._storageService.get('positron-connections', StorageScope.WORKSPACE, '[]')
+			this.storageService.get('positron-connections', StorageScope.WORKSPACE, '[]')
 		);
 		storedConnections.forEach((metadata) => {
 			if (metadata === null) {
@@ -65,7 +70,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			const instance = new DisconnectedPositronConnectionsInstance(
 				metadata,
 				this.onDidChangeDataEmitter,
-				this._runtimeSessionService
+				this.runtimeSessionService
 			);
 
 			this.addConnection(instance);
@@ -78,15 +83,18 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			new MockedConnectionInstance('Hello world', this.onDidChangeDataEmitter, this)
 		);
 
-		this._register(this._configurationService.onDidChangeConfiguration((e) => {
+		this._register(this.configurationService.onDidChangeConfiguration((e) => {
 			this.handleConfigChange(e);
 		}));
 
+		this._register(this.onDidFocus(() => {
+			this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
+		}));
 	}
 
 	private handleConfigChange(e: IConfigurationChangeEvent) {
 		if (e.affectsConfiguration(USE_POSITRON_CONNECTIONS_KEY)) {
-			const enabled = this._configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
+			const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
 			this.viewEnabled.set(enabled);
 		}
 	}
@@ -120,9 +128,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 			const instance = await PositronConnectionsInstance.init(
 				message.data as ConnectionMetadata,
-				this.onDidChangeDataEmitter,
 				new ConnectionsClientInstance(client),
-				this._runtimeSessionService
+				this
 			);
 
 			this.addConnection(instance);
@@ -139,9 +146,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 				const instance = await PositronConnectionsInstance.init(
 					metadata,
-					this.onDidChangeDataEmitter,
 					connectionsClient,
-					this._runtimeSessionService
+					this
 				);
 
 				this.addConnection(instance);
@@ -196,7 +202,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	private saveConnectionsState() {
-		this._storageService.store(
+		this.storageService.store(
 			'positron-connections',
 			this.connections.map((con) => {
 				return con.metadata;
