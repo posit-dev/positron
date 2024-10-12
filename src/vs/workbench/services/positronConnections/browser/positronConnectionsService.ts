@@ -19,7 +19,7 @@ import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/c
 import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ILogService } from 'vs/platform/log/common/log';
-//import { INotificationService } from 'vs/platform/notification/common/notification';
+import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -45,7 +45,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IViewsService private readonly viewsService: IViewsService,
 		@ILogService public readonly logService: ILogService,
-		//@INotificationService private readonly notificationService: INotificationService,
+		@INotificationService private readonly notificationService: INotificationService,
 	) {
 		super();
 		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this.contextKeyService);
@@ -203,6 +203,14 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	hasConnection(clientId: string) {
 		return this.getConnection(clientId) !== undefined;
+	}
+
+	notify(message: string, severity: Severity) {
+		return this.notificationService.notify({
+			message: message,
+			severity: severity,
+			source: 'Connections Pane'
+		});
 	}
 
 	private saveConnectionsState() {

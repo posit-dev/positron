@@ -7,6 +7,8 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 import { Event } from 'vs/base/common/event';
+import Severity from 'vs/base/common/severity';
+import { INotificationHandle } from 'vs/platform/notification/common/notification';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
@@ -34,4 +36,6 @@ export interface IPositronConnectionsService {
 	 * of entries changes.
 	 */
 	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+
+	notify(message: string, severity: Severity): INotificationHandle;
 }

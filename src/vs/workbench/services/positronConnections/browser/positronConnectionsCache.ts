@@ -5,7 +5,8 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
-//import { INotificationService } from 'vs/platform/notification/common/notification';
+import Severity from 'vs/base/common/severity';
+import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
@@ -85,6 +86,7 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 
 	constructor(
 		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
+		private notify: (message: string, severity: Severity) => INotificationHandle,
 		readonly level: number,
 	) {
 		super();
@@ -139,7 +141,18 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	get disconnect() {
 		if ('disconnect' in this.item) {
 			const instance = this.item;
-			return async () => { instance.disconnect?.(); };
+			return async () => {
+				try {
+					return await instance.disconnect?.();
+				} catch (err: any) {
+					// An error that happens during disconnected should be shown
+					// as a notification to users.
+					this.notify(
+						`Error disconnecting ${this.id}: ${err.message}`,
+						Severity.Error
+					);
+				}
+			};
 		}
 
 		return undefined;
@@ -148,20 +161,52 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	get connect() {
 		if ('connect' in this.item) {
 			const instance = this.item;
-			return async () => { instance.connect?.(); }
+			return async () => {
+				try {
+					return await instance.connect?.();
+				} catch (err: any) {
+					this.notify(
+						`Error creating connection ${this.id}: ${err.message}`,
+						Severity.Error
+					);
+				}
+			};
 		}
 
 		return undefined;
 	}
 
 	get preview() {
-		return this.item.preview;
+		if (this.item.preview) {
+			return undefined;
+		}
+
+
+		return async () => {
+			try {
+				this.item.preview?.();
+			} catch (err: any) {
+				this.notify(
+					`Error previewing object ${this.id}: ${err.message}`,
+					Severity.Error
+				);
+			}
+		};
 	}
 
 	get refresh() {
 		if ('refresh' in this.item) {
 			const instance = this.item;
-			return async () => { instance.refresh?.(); };
+			return async () => {
+				try {
+					instance.refresh?.();
+				} catch (err: any) {
+					this.notify(
+						`Error refreshing connection ${this.id}: ${err.message}`,
+						Severity.Error
+					);
+				}
+			};
 		}
 
 		return undefined;
@@ -192,6 +237,7 @@ export class PositronConnectionsCache {
 
 			const entry = new PositronConnectionEntry(
 				item,
+				(message, severity) => this.service.notify(message, severity),
 				level,
 			);
 			entries.push(entry);
