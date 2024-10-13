@@ -154,7 +154,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const didStartRuntimeStub = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
 			try {
 				// Check the session state.
-				assert.equal(session.getRuntimeState(), RuntimeState.Idle);
+				assert.equal(session.getRuntimeState(), RuntimeState.Ready);
 
 				// Check the runtime session service state.
 				assertRuntimeSessionServiceState(runtime, true, session);
