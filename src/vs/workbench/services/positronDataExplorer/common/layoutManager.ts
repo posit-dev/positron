@@ -232,7 +232,6 @@ export class LayoutManager {
 				);
 			}
 
-
 			// Binary search layout entries.
 			let leftIndex = 0;
 			let rightIndex = this._layoutEntries - 1;
