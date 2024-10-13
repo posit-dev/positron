@@ -100,6 +100,12 @@ export class LayoutRegions {
 		this._layoutRegions.push(layoutRegion);
 	}
 
+	// return this._columnLayoutRegions?.getRegion(columnIndex)?.size ?? this._defaultColumnWidth;
+
+	getRegion(index: number): LayoutRegion | undefined {
+		return this._layoutRegions[index];
+	}
+
 	/**
 	 * Finds a layout region by value.
 	 * @param value The value to find.

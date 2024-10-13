@@ -155,7 +155,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 							)}
 							style={{ fontSize: 16 }}
 						/>
-						<div className='sort-index'>{columnSortKey.sortIndex + 1}</div>
+						<div className='sort-index'>{columnSortKey.sortIndex + 90}</div>
 					</div>
 				}
 				<Button
@@ -177,8 +177,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 						maximumWidth: context.instance.maximumColumnWidth,
 						columnsWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
-					onResize={async width =>
-						await context.instance.setColumnWidth(props.columnIndex, width)
+					onResize={async columnWidth =>
+						await context.instance.setColumnWidth(props.columnIndex, columnWidth)
 					}
 				/>
 			}

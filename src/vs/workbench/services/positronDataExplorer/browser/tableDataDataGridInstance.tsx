@@ -13,17 +13,17 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+// import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { SORTING_BUTTON_WIDTH } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeader';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
-import { InvalidateCacheFlags, TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
+import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -40,10 +40,10 @@ const addFilterTitle = localize('positron.addFilter', "Add Filter");
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
-	/**
-	 * Gets or sets the sort index width calculator.
-	 */
-	private _sortIndexWidthCalculator?: (sortIndex: number) => number;
+	// /**
+	//  * Gets or sets the sort index width calculator.
+	//  */
+	// private _sortIndexWidthCalculator?: (sortIndex: number) => number;
 
 	/**
 	 * The onAddFilter event emitter.
@@ -170,47 +170,50 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	//#region DataGridInstance Methods
 
-	/**
-	 * Gets a column width.
-	 * @param columnIndex The column index.
-	 * @returns The column width.
-	 */
-	override getColumnWidth(columnIndex: number): number {
-		// If we have a user-defined column width, return it.
-		const userDefinedColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
-		if (userDefinedColumnWidth !== undefined) {
-			return Math.min(userDefinedColumnWidth, this.maximumColumnWidth);
-		}
+	// /**
+	//  * Gets a column width.
+	//  * @param columnIndex The column index.
+	//  * @returns The column width.
+	//  */
+	// override getColumnWidth(columnIndex: number): number {
+	// 	// If we have a column width, return it.
+	// 	const columnWidth = this._columnWidths.get(columnIndex);
+	// 	if (columnWidth !== undefined) {
+	// 		return Math.min(columnWidth, this.maximumColumnWidth);
+	// 	}
 
-		// Get the column header width and the column value width.
-		let columnHeaderWidth = this._tableDataCache.getColumnHeaderWidth(columnIndex);
-		if (columnHeaderWidth !== undefined) {
-			const columnSortKeyDescriptor = this._columnSortKeys.get(columnIndex);
-			if (!columnSortKeyDescriptor) {
-				columnHeaderWidth += 2;
-			} else {
-				columnHeaderWidth += SORTING_BUTTON_WIDTH;
-				if (this._sortIndexWidthCalculator) {
-					columnHeaderWidth += this._sortIndexWidthCalculator(
-						columnSortKeyDescriptor.sortIndex + 80
-					) + 6; // +6 for left and right 3px margin.
-				}
-			}
-		}
-		const columnValueWidth = this._tableDataCache.getColumnValueWidth(columnIndex);
+	// 	// Return the default column width.
+	// 	return this.defaultColumnWidth;
 
-		// If we have a column header width and / or a column value width, return the column width.
-		if (columnHeaderWidth && columnValueWidth) {
-			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), this.maximumColumnWidth);
-		} else if (columnHeaderWidth) {
-			return Math.min(columnHeaderWidth, this.maximumColumnWidth);
-		} else if (columnValueWidth) {
-			return Math.min(columnValueWidth, this.maximumColumnWidth);
-		}
+	// 	// // Get the column header width and the column value width.
+	// 	// let columnHeaderWidth = this._tableDataCache.getColumnHeaderWidth(columnIndex);
+	// 	// if (columnHeaderWidth !== undefined) {
+	// 	// 	const columnSortKeyDescriptor = this._columnSortKeys.get(columnIndex);
+	// 	// 	if (!columnSortKeyDescriptor) {
+	// 	// 		columnHeaderWidth += 2;
+	// 	// 	} else {
+	// 	// 		columnHeaderWidth += SORTING_BUTTON_WIDTH;
+	// 	// 		if (this._sortIndexWidthCalculator) {
+	// 	// 			columnHeaderWidth += this._sortIndexWidthCalculator(
+	// 	// 				columnSortKeyDescriptor.sortIndex + 80
+	// 	// 			) + 6; // +6 for left and right 3px margin.
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+	// 	// const columnValueWidth = this._tableDataCache.getColumnValueWidth(columnIndex);
 
-		// Return the default column width.
-		return this.defaultColumnWidth;
-	}
+	// 	// // If we have a column header width and / or a column value width, return the column width.
+	// 	// if (columnHeaderWidth && columnValueWidth) {
+	// 	// 	return Math.min(Math.max(columnHeaderWidth, columnValueWidth), this.maximumColumnWidth);
+	// 	// } else if (columnHeaderWidth) {
+	// 	// 	return Math.min(columnHeaderWidth, this.maximumColumnWidth);
+	// 	// } else if (columnValueWidth) {
+	// 	// 	return Math.min(columnValueWidth, this.maximumColumnWidth);
+	// 	// }
+
+	// 	// // Return the default column width.
+	// 	// return this.defaultColumnWidth;
+	// }
 
 	/**
 	 * Sorts the data.
@@ -463,97 +466,100 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint: AnchorPoint
 	): Promise<void> {
-		/**
-		 * Get the column sort key for the column.
-		 */
-		const columnSortKey = this.columnSortKey(columnIndex);
+		await this.calculateColumnLayoutRegions();
+		return;
 
-		const features = this._dataExplorerClientInstance.getSupportedFeatures();
-		const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
-		const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
-		const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
+		// /**
+		//  * Get the column sort key for the column.
+		//  */
+		// const columnSortKey = this.columnSortKey(columnIndex);
 
-		// Build the entries.
-		const entries: CustomContextMenuEntry[] = [];
-		entries.push(new CustomContextMenuItem({
-			checked: false,
-			disabled: !copySupported,
-			commandId: PositronDataExplorerCommandId.CopyAction,
-			icon: 'copy',
-			label: localize('positron.dataExplorer.copy', "Copy"),
-			onSelected: () => console.log('Copy')
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
-			checked: false,
-			icon: 'positron-select-column',
-			label: localize('positron.dataExplorer.selectColumn', "Select Column"),
-			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
-			onSelected: () => this.selectColumn(columnIndex)
-		}));
-		entries.push(new CustomContextMenuItem({
-			checked: false,
-			icon: 'positron-select-row',
-			label: localize('positron.dataExplorer.selectRow', "Select Row"),
-			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
-			onSelected: () => this.selectRow(rowIndex)
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
-			checked: columnSortKey !== undefined && columnSortKey.ascending,
-			icon: 'arrow-up',
-			disabled: !sortSupported,
-			label: localize('positron.sortAscending', "Sort Ascending"),
-			onSelected: async () => this.setColumnSortKey(
-				columnIndex,
-				true
-			)
-		}));
-		entries.push(new CustomContextMenuItem({
-			checked: columnSortKey !== undefined && !columnSortKey.ascending,
-			icon: 'arrow-down',
-			disabled: !sortSupported,
-			label: localize('positron.sortDescending', "Sort Descending"),
-			onSelected: async () => this.setColumnSortKey(
-				columnIndex,
-				false
-			)
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
-			checked: false,
-			icon: 'positron-clear-sorting',
-			label: localize('positron.clearSorting', "Clear Sorting"),
-			disabled: !columnSortKey,
-			onSelected: async () =>
-				this.removeColumnSortKey(columnIndex)
-		}));
-		entries.push(new CustomContextMenuSeparator());
-		entries.push(new CustomContextMenuItem({
-			checked: false,
-			icon: 'positron-add-filter',
-			label: addFilterTitle,
-			disabled: !filterSupported,
-			onSelected: () => {
-				const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
-				if (columnSchema) {
-					this._onAddFilterEmitter.fire(columnSchema);
-				}
-			}
-		}));
+		// const features = this._dataExplorerClientInstance.getSupportedFeatures();
+		// const copySupported = this.isFeatureEnabled(features.export_data_selection.support_status);
+		// const sortSupported = this.isFeatureEnabled(features.set_sort_columns.support_status);
+		// const filterSupported = this.isFeatureEnabled(features.set_row_filters.support_status);
 
-		// Show the context menu.
-		await showCustomContextMenu({
-			commandService: this._commandService,
-			keybindingService: this._keybindingService,
-			layoutService: this._layoutService,
-			anchorElement,
-			anchorPoint,
-			popupPosition: 'auto',
-			popupAlignment: 'auto',
-			width: 200,
-			entries
-		});
+		// // Build the entries.
+		// const entries: CustomContextMenuEntry[] = [];
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: false,
+		// 	disabled: !copySupported,
+		// 	commandId: PositronDataExplorerCommandId.CopyAction,
+		// 	icon: 'copy',
+		// 	label: localize('positron.dataExplorer.copy', "Copy"),
+		// 	onSelected: () => console.log('Copy')
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: false,
+		// 	icon: 'positron-select-column',
+		// 	label: localize('positron.dataExplorer.selectColumn', "Select Column"),
+		// 	disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
+		// 	onSelected: () => this.selectColumn(columnIndex)
+		// }));
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: false,
+		// 	icon: 'positron-select-row',
+		// 	label: localize('positron.dataExplorer.selectRow', "Select Row"),
+		// 	disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
+		// 	onSelected: () => this.selectRow(rowIndex)
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: columnSortKey !== undefined && columnSortKey.ascending,
+		// 	icon: 'arrow-up',
+		// 	disabled: !sortSupported,
+		// 	label: localize('positron.sortAscending', "Sort Ascending"),
+		// 	onSelected: async () => this.setColumnSortKey(
+		// 		columnIndex,
+		// 		true
+		// 	)
+		// }));
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: columnSortKey !== undefined && !columnSortKey.ascending,
+		// 	icon: 'arrow-down',
+		// 	disabled: !sortSupported,
+		// 	label: localize('positron.sortDescending', "Sort Descending"),
+		// 	onSelected: async () => this.setColumnSortKey(
+		// 		columnIndex,
+		// 		false
+		// 	)
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: false,
+		// 	icon: 'positron-clear-sorting',
+		// 	label: localize('positron.clearSorting', "Clear Sorting"),
+		// 	disabled: !columnSortKey,
+		// 	onSelected: async () =>
+		// 		this.removeColumnSortKey(columnIndex)
+		// }));
+		// entries.push(new CustomContextMenuSeparator());
+		// entries.push(new CustomContextMenuItem({
+		// 	checked: false,
+		// 	icon: 'positron-add-filter',
+		// 	label: addFilterTitle,
+		// 	disabled: !filterSupported,
+		// 	onSelected: () => {
+		// 		const columnSchema = this._tableDataCache.getColumnSchema(columnIndex);
+		// 		if (columnSchema) {
+		// 			this._onAddFilterEmitter.fire(columnSchema);
+		// 		}
+		// 	}
+		// }));
+
+		// // Show the context menu.
+		// await showCustomContextMenu({
+		// 	commandService: this._commandService,
+		// 	keybindingService: this._keybindingService,
+		// 	layoutService: this._layoutService,
+		// 	anchorElement,
+		// 	anchorPoint,
+		// 	popupPosition: 'auto',
+		// 	popupAlignment: 'auto',
+		// 	width: 200,
+		// 	entries
+		// });
 	}
 
 	//#endregion DataGridInstance Methods
@@ -568,28 +574,36 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Public Methods
 
 	/**
-	 * Sets the column header width calculator.
-	 * @param calculator The column header width calculator.
+	 * Sets the width calculators.
+	 * @param widthCalculators The width calculators.
 	 */
-	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
-		this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
+	setWidthCalculators(widthCalculators?: WidthCalculators) {
+		this._tableDataCache.setWidthCalculators(widthCalculators);
 	}
 
-	/**
-	 * Sets the sort index width calculator.
-	 * @param calculator The sort index width calculator.
-	 */
-	setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
-		this._sortIndexWidthCalculator = calculator;
-	}
+	// /**
+	//  * Sets the column header width calculator.
+	//  * @param calculator The column header width calculator.
+	//  */
+	// setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
+	// 	this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
+	// }
 
-	/**
-	 * Sets the column value width calculator.
-	 * @param calculator The column value width calculator.
-	 */
-	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
-		this._tableDataCache.setColumnValueWidthCalculator(calculator);
-	}
+	// /**
+	//  * Sets the sort index width calculator.
+	//  * @param calculator The sort index width calculator.
+	//  */
+	// setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
+	// 	this._tableDataCache.setSortIndexWidthCalculator(calculator);
+	// }
+
+	// /**
+	//  * Sets the column value width calculator.
+	//  * @param calculator The column value width calculator.
+	//  */
+	// setColumnValueWidthCalculator(calculator?: (length: number) => number) {
+	// 	this._tableDataCache.setColumnValueWidthCalculator(calculator);
+	// }
 
 	/**
 	 * Copies the specified clipboard data.
@@ -698,4 +712,21 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion Public Methods
+
+	//#region Protected Methods
+
+	/**
+	 * Calculates the column layout regions.
+	 */
+	protected override async calculateColumnLayoutRegions(): Promise<void> {
+		const start = new Date().getTime();
+
+		this._columnLayoutRegions = await this._tableDataCache.calculateColumnLayoutRegions();
+
+		const end = new Date().getTime();
+
+		console.log(`calculateColumnWidths time: ${end - start}ms`);
+	}
+
+	//#endregion Protected Methods
 }
