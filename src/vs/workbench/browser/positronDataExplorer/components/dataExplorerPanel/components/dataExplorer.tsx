@@ -61,99 +61,107 @@ export const DataExplorer = () => {
 		// Calculate the horizontal cell padding. This is a setting, so it doesn't change over the
 		// lifetime of the table data data grid instance.
 		const horizontalCellPadding =
-			(context.instance.tableDataDataGridInstance.horizontalCellPadding * 2);
-
-		// Set the column header width calculator. Column header widths are measured using the font
-		// information from the column name exemplar and the type name exemplar. These exemplars
-		// must be styled the same as the data grid title and description.
-		context.instance.tableDataDataGridInstance.setColumnHeaderWidthCalculator(
-			(columnName: string, typeName: string) => {
-				// Calculate the basic column header width. This allows for horizontal cell padding,
-				// the sorting button, and the border to be displayed, at a minimum.
-				const basicColumnHeaderWidth =
-					horizontalCellPadding +
-					SORTING_BUTTON_WIDTH +
-					1; // +1 for the border.
-
-				// If the column header is empty, return the basic column header width.
-				if (!columnName && !typeName) {
-					return basicColumnHeaderWidth;
-				}
-
-				// Create a canvas and create a 2D rendering context for it to measure text.
-				const canvas = window.document.createElement('canvas');
-				const canvasRenderingContext2D = canvas.getContext('2d');
-
-				// If the 2D canvas rendering context couldn't be created, return the basic column
-				// header width.
-				if (!canvasRenderingContext2D) {
-					return basicColumnHeaderWidth;
-				}
-
-				// Set the column name width.
-				let columnNameWidth;
-				if (!columnName) {
-					columnNameWidth = 0;
-				} else {
-					// Measure the column name width using the font of the column name exemplar.
-					const columnNameExemplarStyle =
-						DOM.getComputedStyle(columnNameExemplar.current);
-					canvasRenderingContext2D.font = columnNameExemplarStyle.font;
-					columnNameWidth = canvasRenderingContext2D.measureText(columnName).width;
-				}
-
-				// Set the type name width.
-				let typeNameWidth;
-				if (!typeName) {
-					typeNameWidth = 0;
-				} else {
-					// Measure the type name width using the font of the type name exemplar.
-					const typeNameExemplarStyle = DOM.getComputedStyle(typeNameExemplar.current);
-					canvasRenderingContext2D.font = typeNameExemplarStyle.font;
-					typeNameWidth = canvasRenderingContext2D.measureText(typeName).width;
-				}
-
-				// Calculate return the column header width.
-				return Math.ceil(Math.max(columnNameWidth, typeNameWidth) + basicColumnHeaderWidth);
-			}
-		);
+			context.instance.tableDataDataGridInstance.horizontalCellPadding * 2;
 
 		// Calculate the width of a sort digit. The sort index is styled with font-variant-numeric
 		// tabular-nums, so we can calculate the width of the sort index by multiplying the width of
-		// a sort digit by the length of the sort index.
+		// a sort digit by 2.
 		const canvas = window.document.createElement('canvas');
 		const canvasRenderingContext2D = canvas.getContext('2d');
-		let sortIndexDigitWidth;
+		let sortIndexWidth;
 		if (!canvasRenderingContext2D) {
-			sortIndexDigitWidth = 0;
+			sortIndexWidth = 0;
 		} else {
 			const sortIndexExemplarStyle = DOM.getComputedStyle(sortIndexExemplar.current);
 			canvasRenderingContext2D.font = sortIndexExemplarStyle.font;
-			sortIndexDigitWidth = canvasRenderingContext2D.measureText('1').width;
+			sortIndexWidth = canvasRenderingContext2D.measureText('99').width;
 		}
 
-		// Set the sort index width calculator. Sort index widths are calculated.
-		context.instance.tableDataDataGridInstance.setSortIndexWidthCalculator(sortIndex =>
-			Math.ceil(sortIndex.toString().length * sortIndexDigitWidth)
-		);
+		/**
+		 * The column header width calculator.
+		 * @param columnName The column name.
+		 * @param typeName The type name.
+		 * @returns The column header width.
+		 */
+		const columnHeaderWidthCalculator = (columnName: string, typeName: string) => {
+			// Calculate the basic column header width. This allows for horizontal cell padding,
+			// the sorting button, the sort indicator, the sort index, and the border to be
+			// displayed, at a minimum.
+			const basicColumnHeaderWidth =
+				horizontalCellPadding +	// Horizontal cell padding.
+				sortIndexWidth +		// The sort index width.
+				6 +						// The sort index padding.
+				20 + 					// The sort indicator width
+				SORTING_BUTTON_WIDTH +	// The sorting button width.
+				1;						// +1 for the border.
 
-		// Calculate the editor font space width.
-		const editorFontSpaceWidth = FontMeasurements.readFontInfo(
+			// If the column header is empty, return the basic column header width.
+			if (!columnName && !typeName) {
+				return basicColumnHeaderWidth;
+			}
+
+			// Create a canvas and create a 2D rendering context for it to measure text.
+			const canvas = window.document.createElement('canvas');
+			const canvasRenderingContext2D = canvas.getContext('2d');
+
+			// If the 2D canvas rendering context couldn't be created, return the basic column
+			// header width.
+			if (!canvasRenderingContext2D) {
+				return basicColumnHeaderWidth;
+			}
+
+			// Set the column name width.
+			let columnNameWidth;
+			if (!columnName) {
+				columnNameWidth = 0;
+			} else {
+				// Measure the column name width using the font of the column name exemplar.
+				const columnNameExemplarStyle =
+					DOM.getComputedStyle(columnNameExemplar.current);
+				canvasRenderingContext2D.font = columnNameExemplarStyle.font;
+				columnNameWidth = canvasRenderingContext2D.measureText(columnName).width;
+			}
+
+			// Set the type name width.
+			let typeNameWidth;
+			if (!typeName) {
+				typeNameWidth = 0;
+			} else {
+				// Measure the type name width using the font of the type name exemplar.
+				const typeNameExemplarStyle = DOM.getComputedStyle(typeNameExemplar.current);
+				canvasRenderingContext2D.font = typeNameExemplarStyle.font;
+				typeNameWidth = canvasRenderingContext2D.measureText(typeName).width;
+			}
+
+			// Calculate return the column header width.
+			return Math.ceil(Math.max(columnNameWidth, typeNameWidth) + basicColumnHeaderWidth);
+		};
+
+
+		// /**
+		//  * The sort index width calculator.
+		//  * @returns The sort index width.
+		//  */
+		// const sortIndexWidthCalculator = () =>
+		// 	Math.ceil(SORTING_BUTTON_WIDTH + (2 * sortIndexDigitWidth));
+
+		// Get the editor font space width.
+		const { spaceWidth } = FontMeasurements.readFontInfo(
 			window,
 			BareFontInfo.createFromRawSettings(
 				context.configurationService.getValue<IEditorOptions>('editor'),
 				PixelRatio.getInstance(window).value
 			)
-		).spaceWidth;
-
-		// Set the column value width calculator. Column value widths are calculated.
-		context.instance.tableDataDataGridInstance.setColumnValueWidthCalculator(length =>
-			Math.ceil(
-				(editorFontSpaceWidth * length) +
-				horizontalCellPadding +
-				+ 1 // +1 for the border.
-			)
 		);
+
+		context.instance.tableDataDataGridInstance.setWidthCalculators({
+			columnHeaderWidthCalculator,
+			columnValueWidthCalculator: length => Math.ceil(
+				(spaceWidth * length) +
+				horizontalCellPadding +
+				1 // For the border.
+			)
+		});
 
 		// Add the onDidChangeConfiguration event handler.
 		context.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
@@ -168,35 +176,30 @@ export const DataExplorer = () => {
 					configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
 					configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
 				) {
-					// Set the column value width calculator.
-					context.instance.tableDataDataGridInstance.setColumnValueWidthCalculator(
-						length => {
-							// Calculate the editor font space width.
-							const editorFontSpaceWidth = FontMeasurements.readFontInfo(
-								window,
-								BareFontInfo.createFromRawSettings(
-									context.configurationService.getValue<IEditorOptions>('editor'),
-									PixelRatio.getInstance(window).value
-								)
-							).spaceWidth;
-
-							// Calculate the column value width using the font editor font.
-							return Math.ceil(
-								(editorFontSpaceWidth * length) +
-								horizontalCellPadding +
-								+ 1 // +1 for the border.
-							);
-						}
+					// Get the editor font space width.
+					const { spaceWidth } = FontMeasurements.readFontInfo(
+						window,
+						BareFontInfo.createFromRawSettings(
+							context.configurationService.getValue<IEditorOptions>('editor'),
+							PixelRatio.getInstance(window).value
+						)
 					);
+
+					context.instance.tableDataDataGridInstance.setWidthCalculators({
+						columnHeaderWidthCalculator,
+						columnValueWidthCalculator: length => Math.ceil(
+							(spaceWidth * length) +
+							horizontalCellPadding +
+							1 // For the border.
+						)
+					});
 				}
 			}
 		});
 
 		// Return the cleanup function.
 		return () => {
-			context.instance.tableDataDataGridInstance.setColumnHeaderWidthCalculator(undefined);
-			context.instance.tableDataDataGridInstance.setSortIndexWidthCalculator(undefined);
-			context.instance.tableDataDataGridInstance.setColumnValueWidthCalculator(undefined);
+			context.instance.tableDataDataGridInstance.setWidthCalculators(undefined);
 		};
 	}, [context.configurationService, context.instance.tableDataDataGridInstance]);
 
