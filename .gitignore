@@ -26,4 +26,6 @@ product.overrides.json
 # --- Start Positron ---
 .Rproj.user
 # --- End Positron ---
-
+/playwright-report/
+/blob-report/
+/playwright/.cache/
