@@ -109,7 +109,7 @@ export class UiClientInstance extends Disposable {
 		super();
 		this._register(this._client);
 
-		this._comm = new PositronUiCommInstance(this._client);
+		this._comm = this._register(new PositronUiCommInstance(this._client));
 		this.onDidBusy = this._comm.onDidBusy;
 		this.onDidClearConsole = this._comm.onDidClearConsole;
 		this.onDidSetEditorSelections = this._comm.onDidSetEditorSelections;
