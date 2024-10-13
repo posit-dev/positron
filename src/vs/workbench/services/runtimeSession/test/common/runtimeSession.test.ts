@@ -135,7 +135,7 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 
 		// Listen to the onWillStartSession event.
-		const willStartSessionDeferred = new DeferredPromise<void>();
+		let willStartSessionError: Error | undefined;
 		const willStartSessionStub = sinon.stub<[e: IRuntimeSessionWillStartEvent]>().callsFake(({ session }) => {
 			try {
 				// Check the session state.
@@ -143,27 +143,23 @@ suite('Positron - RuntimeSessionService', () => {
 
 				// Check the runtime session service state.
 				assertRuntimeSessionServiceState(runtime, true, undefined);
-
-				willStartSessionDeferred.complete();
 			} catch (error) {
-				willStartSessionDeferred.error(error);
+				willStartSessionError = error;
 			}
 		});
 		disposables.add(runtimeSessionService.onWillStartSession(willStartSessionStub));
 
 		// Listen to the onDidStartRuntime event.
-		const didStartRuntimeDeferred = new DeferredPromise<void>();
+		let didStartRuntimeError: Error | undefined;
 		const didStartRuntimeStub = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
 			try {
 				// Check the session state.
-				assert.equal(session.getRuntimeState(), RuntimeState.Ready);
+				assert.equal(session.getRuntimeState(), RuntimeState.Idle);
 
 				// Check the runtime session service state.
 				assertRuntimeSessionServiceState(runtime, true, session);
-
-				didStartRuntimeDeferred.complete();
 			} catch (error) {
-				didStartRuntimeDeferred.error(error);
+				didStartRuntimeError = error;
 			}
 		});
 		disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntimeStub));
@@ -189,8 +185,8 @@ suite('Positron - RuntimeSessionService', () => {
 		sinon.assert.callOrder(willStartSessionStub, didStartRuntimeStub);
 
 		// Throw any errors that occurred during the event handlers.
-		await willStartSessionDeferred.p;
-		await didStartRuntimeDeferred.p;
+		assert.ifError(willStartSessionError);
+		assert.ifError(didStartRuntimeError);
 
 		// Cleanup.
 		session.dispose();
