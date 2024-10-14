@@ -480,7 +480,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				deltaY *= 10;
 			}
 
-
 			// Set the vertical scroll offset.
 			await context.instance.setVerticalScrollOffset(pinToRange(
 				context.instance.verticalScrollOffset + deltaY,
@@ -506,7 +505,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 	const dataGridRows: JSX.Element[] = [];
 	while (top - context.instance.verticalScrollOffset < height && rowIndex < context.instance.rows) {
-
 		// Render the data grid row.
 		dataGridRows.push(
 			<DataGridRow
@@ -517,29 +515,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			/>
 		);
 
-		top += context.instance.getRowHeight(rowIndex);
-		rowIndex++;
+		const rowHeight = context.instance.getRowHeight(rowIndex);
+		if (!rowHeight) {
+			break;
+		} else {
+			top += rowHeight;
+			rowIndex++;
+		}
 	}
-
-	// // Render the data grid rows.
-	// const dataGridRows: JSX.Element[] = [];
-	// for (let rowIndex = context.instance.firstRowIndex, top = 0;
-	// 	rowIndex < context.instance.rows && top < height;
-	// 	rowIndex++
-	// ) {
-	// 	// Render the data grid row.
-	// 	dataGridRows.push(
-	// 		<DataGridRow
-	// 			key={`row-${rowIndex}`}
-	// 			width={width}
-	// 			top={top}
-	// 			rowIndex={rowIndex}
-	// 		/>
-	// 	);
-
-	// 	// Adjust the top for the next row.
-	// 	top += context.instance.getRowHeight(rowIndex);
-	// }
 
 	// Render.
 	return (
@@ -559,20 +542,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}}
 				/>
 			}
-
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
 					width={width - context.instance.rowHeadersWidth}
 					height={context.instance.columnHeadersHeight}
 				/>
 			}
-
 			{context.instance.rowHeaders &&
 				<DataGridRowHeaders
 					height={height - context.instance.columnHeadersHeight}
 				/>
 			}
-
 			{context.instance.horizontalScrollbar &&
 				<DataGridSmoothScrollbar
 					containerWidth={width}
@@ -592,7 +572,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}}
 				/>
 			}
-
 			{context.instance.verticalScrollbar &&
 				<DataGridSmoothScrollbar
 					containerWidth={width}
@@ -612,7 +591,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}}
 				/>
 			}
-
 			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
 				<DataGridScrollbarCorner
 					onClick={async () => {
@@ -623,7 +601,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					}}
 				/>
 			}
-
 			<div
 				ref={dataGridRowsRef}
 				className='data-grid-rows'
@@ -633,14 +610,12 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 					overflow: 'hidden'
 				}}
 			>
-
 				<div style={{
 					position: 'relative',
 					margin: context.instance.rowsMargin
 				}}>
 					{dataGridRows}
 				</div>
-
 			</div>
 		</div>
 	);
