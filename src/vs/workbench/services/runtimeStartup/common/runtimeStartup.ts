@@ -463,11 +463,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
-				if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
+				if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
 						`is affiliated with this workspace, but won't be started because its ` +
-						`startup behavior is explicit.`);
+						`startup behavior is manual.`);
 					return;
 				}
 
@@ -666,11 +666,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 			if (autoStart) {
 
-				if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
+				if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
 					this._logService.info(`Language runtime ` +
 						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
 						`is affiliated with this workspace, but won't be started because it's startup ` +
-						`behavior is explicit.`);
+						`behavior is manual.`);
 					return;
 				}
 

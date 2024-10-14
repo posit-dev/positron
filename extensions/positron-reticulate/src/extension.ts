@@ -617,7 +617,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	runtimeVersion: string = '1.0';
 	runtimeSource: string = 'reticulate';
 	languageVersion = '1.0';
-	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Explicit;
+	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Manual;
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;
 }
 
