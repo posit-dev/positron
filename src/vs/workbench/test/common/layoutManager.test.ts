@@ -246,13 +246,13 @@ suite('LayoutManager', () => {
 		}
 
 		// Override the first entry.
-		const d = Math.ceil(entrySize / 2);
-		layoutManager.setLayoutOverride(0, d);
+		const layoutOverride = Math.ceil(entrySize / 2);
+		layoutManager.setLayoutOverride(0, layoutOverride);
 
 		// Verify that every entry is correct.
 		for (let entry = 0, start = 0; entry < entries; entry++) {
 			// Get the size of the entry.
-			const size = !entry ? d : entrySize;
+			const size = !entry ? layoutOverride : entrySize;
 
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
@@ -335,7 +335,6 @@ suite('LayoutManager', () => {
 		size: number
 	) => {
 		// Verify that entries outside the range are not found.
-		assert(!layoutManager.findLayoutEntry(100.1));
 		assert(!layoutManager.findLayoutEntry(-1));
 		assert(!layoutManager.findLayoutEntry(entries * size));
 		assert(!layoutManager.findLayoutEntry((entries * size) + 100));

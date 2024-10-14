@@ -76,9 +76,9 @@ class LayoutEntry implements ILayoutEntry {
 }
 
 /**
- * LayoutOverride interface.
+ * ILayoutOverride interface.
  */
-interface LayoutOverride {
+interface ILayoutOverride {
 	index: number;
 	size: number;
 }
@@ -95,7 +95,8 @@ export class LayoutManager {
 	private readonly _defaultSize: number = 0;
 
 	/**
-	 * Gets or sets the layout entries.
+	 * Gets or sets the layout entries. This is either a count of the layout entries or an array of
+	 * the layout entries.
 	 */
 	private _layoutEntries: number | LayoutEntry[] = 0;
 
@@ -122,6 +123,35 @@ export class LayoutManager {
 	}
 
 	//#endregion Constructor
+
+	//#region Public Properties
+
+	/**
+	 * Gets the size of the layout entries.
+	 */
+	get size() {
+		// If the layout entries is an array, return the end of the last layout entry.
+		if (Array.isArray(this._layoutEntries)) {
+			return this._layoutEntries[this._layoutEntries.length - 1].end;
+		} else {
+			// Calculate the size of the layout entries.
+			let size = this._layoutEntries * this._defaultSize;
+			const sortedLayoutOverrides = this.getSortedLayoutOverrides();
+			for (let index = 0; index < sortedLayoutOverrides.length; index++) {
+				const layoutOverride = sortedLayoutOverrides[index];
+				if (layoutOverride.index < this._layoutEntries) {
+					size = size - this._defaultSize + layoutOverride.size;
+				} else {
+					break;
+				}
+			}
+
+			// Return the size.
+			return size;
+		}
+	}
+
+	//#endregion Public Properties
 
 	//#region Public Methods
 
@@ -196,13 +226,80 @@ export class LayoutManager {
 	}
 
 	/**
+	 * Gets a layout entry by index
+	 * @param index The index.
+	 * @returns The layout entry at the specified index, if found; otherwise, undefined.
+	 */
+	getLayoutEntry(index: number): ILayoutEntry | undefined {
+		// Sanity check the index.
+		if (index < 0) {
+			return undefined;
+		}
+
+		// If we have the layout entry cached, return it.
+		if (this._cachedLayoutEntry && this._cachedLayoutEntry.index === index) {
+			return this._cachedLayoutEntry;
+		}
+
+		// If layout entries is an array, return the layout entry at the specified index.
+		if (Array.isArray(this._layoutEntries)) {
+			// Sanity check the index.
+			if (index >= this._layoutEntries.length) {
+				return undefined;
+			}
+
+			// Cache and return the layout entry.
+			return this._cachedLayoutEntry = this._layoutEntries[index];
+		}
+
+		// Sanity check the index.
+		if (index >= this._layoutEntries) {
+			return undefined;
+		}
+
+		// If there are no layout overrides, we can calculate which layout entry to return.
+		// Cache and return the layout entry.
+		if (!this._layoutOverrides.size) {
+			// Cache and return the layout entry.
+			return this._cachedLayoutEntry = new LayoutEntry(
+				index,
+				index * this._defaultSize,
+				this._defaultSize
+			);
+		}
+
+		// Calculate the start and size of the layout entry to return.
+		const sortedLayoutOverrides = this.getSortedLayoutOverrides();
+		let start = index * this._defaultSize;
+		sortedLayoutOverrides.some(layoutOverride => {
+			// If the layout override index is less than the index, adjust the start and return
+			// false to continue the search.
+			if (layoutOverride.index < index) {
+				start = start - this._defaultSize + layoutOverride.size;
+				return false;
+			}
+
+			// Return true to stop the search.
+			return true;
+		});
+		const size = this._layoutOverrides.get(index) ?? this._defaultSize;
+
+		// Cache and return the layout entry.
+		return this._cachedLayoutEntry = new LayoutEntry(
+			index,
+			start,
+			size
+		);
+	}
+
+	/**
 	 * Finds a layout entry.
 	 * @param offset The offset of the layout entry to find.
 	 * @returns The layout entry, if found; otherwise, undefined.
 	 */
 	findLayoutEntry(offset: number): ILayoutEntry | undefined {
 		// Sanity check the offset.
-		if (!Number.isInteger(offset) || offset < 0) {
+		if (offset < 0) {
 			return undefined;
 		}
 
@@ -232,21 +329,19 @@ export class LayoutManager {
 				);
 			}
 
-			// Binary search layout entries.
+			// Binary search the layout entries.
 			let leftIndex = 0;
 			let rightIndex = this._layoutEntries - 1;
-			const layoutOverrides = Array.from(this._layoutOverrides).
-				map<LayoutOverride>(([index, size]) => ({ index, size })).
-				sort((a, b) => a.index - b.index);
+			const sortedLayoutOverrides = this.getSortedLayoutOverrides();
 			while (leftIndex <= rightIndex) {
 				// Calculate the middle index.
 				const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
 
 				// Calculate the start and size of the middle layout entry.
 				let start = middleIndex * this._defaultSize;
-				layoutOverrides.some(layoutOverride => {
-					// If the index is less than the middle index, adjust the start and return false
-					// to continue the search.
+				sortedLayoutOverrides.some(layoutOverride => {
+					// If the layout override index is less than the middle index, adjust the start
+					// and return false to continue the search.
 					if (layoutOverride.index < middleIndex) {
 						start = start - this._defaultSize + layoutOverride.size;
 						return false;
@@ -304,4 +399,19 @@ export class LayoutManager {
 			return undefined;
 		}
 	}
+
+	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Gets the sorted layout overrides.
+	 */
+	private getSortedLayoutOverrides(): ILayoutOverride[] {
+		return Array.from(this._layoutOverrides).
+			map(([index, size]): ILayoutOverride => ({ index, size })).
+			sort((a, b) => a.index - b.index);
+	}
+
+	//#endregion Private Methods
 }

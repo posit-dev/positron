@@ -33,15 +33,18 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 
 	const rowHeaders: JSX.Element[] = [];
 	while (top - context.instance.verticalScrollOffset < props.height && rowIndex < context.instance.rows) {
-
 		// Render the data grid row.
 		rowHeaders.push(
 			<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top - context.instance.verticalScrollOffset} />
 		);
 
-		top += context.instance.getRowHeight(rowIndex);
-		rowIndex++;
-
+		const rowHeight = context.instance.getRowHeight(rowIndex);
+		if (!rowHeight) {
+			break;
+		} else {
+			top += rowHeight;
+			rowIndex++;
+		}
 	}
 
 	// // Render the row headers.

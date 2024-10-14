@@ -7,9 +7,8 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
-import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 import { LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
+import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
 
 /**
  * ColumnHeaderOptions type.
@@ -723,24 +722,14 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Protected Properties
 
 	/**
-	 * Gets the column widths.
-	 */
-	protected readonly _columnWidths = new Map<number, number>();
-
-	/**
 	 * Gets the column layout manager.
 	 */
 	protected readonly _columnLayoutManager: LayoutManager;
 
 	/**
-	 * Gets the column layout regions.
+	 * Gets the row layout manager.
 	 */
-	protected _columnLayoutRegions?: LayoutRegions = undefined;
-
-	/**
-	 * Gets the row heights.
-	 */
-	protected readonly _rowHeights = new Map<number, number>();
+	protected readonly _rowLayoutManager: LayoutManager;
 
 	/**
 	 * Gets the column sort keys.
@@ -818,8 +807,9 @@ export abstract class DataGridInstance extends Disposable {
 		// SelectionOptions.
 		this._selection = options.selection ?? true;
 
+		// Allocate and initialize the layout managers.
 		this._columnLayoutManager = new LayoutManager(this._defaultColumnWidth);
-
+		this._rowLayoutManager = new LayoutManager(this._defaultRowHeight);
 	}
 
 	//#endregion Constructor & Dispose
@@ -1026,24 +1016,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {
-		return (
-			!this._columnResize ?
-				this.columns * this._defaultColumnWidth :
-				this.columns * this._defaultColumnWidth
-			// this._columnLayoutRegions.extent
-		) + this._scrollbarOverscroll;
+		return this._columnLayoutManager.size + this._scrollbarOverscroll;
 	}
 
 	/**
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		return (
-			!this._rowResize ?
-				this.rows * this._defaultRowHeight :
-				this.rows * this._defaultRowHeight
-			// this._rowLayoutRegions.extent
-		) + this._scrollbarOverscroll;
+		return this._rowLayoutManager.size + this._scrollbarOverscroll;
 	}
 
 	/**
@@ -1130,137 +1110,42 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the first column.
 	 */
 	get firstColumn(): ColumnDescriptor {
-		// When column resize is disabled, we can calculate the first column.
-		if (!this.columnResize) {
-			const columnIndex = Math.floor(this.horizontalScrollOffset / this.defaultColumnWidth);
+		// Get the column layout entry for the horizontal scroll offset. If it was found, return a
+		// column descriptor for it.
+		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+		if (layoutEntry) {
 			return {
-				columnIndex,
-				left: columnIndex * this.defaultColumnWidth,
+				columnIndex: layoutEntry.index,
+				left: layoutEntry.start
 			};
 		}
 
-		const start = new Date().getTime();
-
-		// If there are no column layout regions, find the first column.
-		if (!this._columnLayoutRegions) {
-			// Loop over the columns and find the first column.
-			for (let columnIndex = 0, left = 0; columnIndex < this.columns; columnIndex++) {
-				// Get the column width.
-				const columnWidth = this.getColumnWidth(columnIndex);
-
-				if (left >= this.horizontalScrollOffset - columnWidth &&
-					left < this.horizontalScrollOffset + columnWidth
-				) {
-					const end = new Date().getTime();
-
-					console.log(`Find firstColumn for horizontalScrollOffset ${this.horizontalScrollOffset} took ${end - start}ms`);
-
-					return {
-						columnIndex,
-						left
-					};
-				}
-
-				left += columnWidth;
-			}
-
-			// Return the first column.
-			return {
-				columnIndex: 0,
-				left: 0
-			};
-		}
-
-		const dd = this._columnLayoutRegions.find(this.horizontalScrollOffset);
-
-		console.log(`firstColumn is ${dd?.index} at ${dd?.start}`);
-
+		// Return a column descriptor for the first column.
 		return {
-			columnIndex: dd?.index ?? 0,
-			left: dd?.start ?? 0,
+			columnIndex: 0,
+			left: 0
 		};
-
-		// const columnIndex = Math.floor(this.horizontalScrollOffset / this.defaultColumnWidth);
-		// return {
-		// 	columnIndex,
-		// 	left: columnIndex * this.defaultColumnWidth,
-		// };
-
-		// // Recompute the column layout regions.
-		// this._columnLayoutRegions.clear();
-		// for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
-		// 	const columnWidth = this.getColumnWidth(columnIndex);
-		// 	this._columnLayoutRegions.append({
-		// 		start: left,
-		// 		size: columnWidth,
-		// 		index: columnIndex
-		// 	});
-		// 	left += columnWidth;
-		// }
-
-		// // Get the column layout region.
-		// const columnLayoutRegion = this._columnLayoutRegions.find(this.horizontalScrollOffset);
-
-		// // Return the column layout region.
-		// if (columnLayoutRegion) {
-		// 	return {
-		// 		columnIndex: columnLayoutRegion.index,
-		// 		left: columnLayoutRegion.start
-		// 	};
-		// } else {
-		// 	return {
-		// 		columnIndex: 0,
-		// 		left: 0
-		// 	};
-		// }
 	}
 
 	/**
 	 * Gets the first row.
 	 */
 	get firstRow(): RowDescriptor {
-		// When row resize is disabled, we can calculate the first row.
-		if (!this.rowResize) {
-			const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
+		// Get the row layout entry for the vertical scroll offset. If it was found, return a row
+		// descriptor for it.
+		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (layoutEntry) {
 			return {
-				rowIndex,
-				top: rowIndex * this.defaultRowHeight
+				rowIndex: layoutEntry.index,
+				top: layoutEntry.start
 			};
 		}
 
-		const rowIndex = Math.floor(this.verticalScrollOffset / this.defaultRowHeight);
+		// Return a row descriptor for the first row.
 		return {
-			rowIndex,
-			top: rowIndex * this.defaultRowHeight
+			rowIndex: 0,
+			top: 0
 		};
-
-		// // Recompute the row layout regions.
-		// this._rowLayoutRegions.clear();
-		// for (let top = 0, rowIndex = 0; rowIndex < this.rows; rowIndex++) {
-		// 	const rowHeight = this._rowHeights.get(rowIndex) || this.defaultRowHeight;
-		// 	this._rowLayoutRegions.append({
-		// 		start: top,
-		// 		size: rowHeight,
-		// 		index: rowIndex
-		// 	});
-		// 	top += rowHeight;
-		// }
-
-		// // Get the row layout region.
-		// const rowLayoutRegion = this._rowLayoutRegions.find(this.verticalScrollOffset);
-
-		// // Return the row layout region.
-		// if (rowLayoutRegion) {
-		// 	return {
-		// 		rowIndex: rowLayoutRegion.index,
-		// 		top: rowLayoutRegion.start
-		// 	};
-		// } else {
-		// 	return {
-		// 		rowIndex: 0,
-		// 		top: 0
-		// 	};
-		// }
 	}
 
 	/**
@@ -1341,15 +1226,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 */
 	getColumnWidth(columnIndex: number): number {
-		// If the column width is set, return it.
-		const columnWidth = this._columnWidths.get(columnIndex);
-		if (columnWidth !== undefined) {
-			return columnWidth;
+		// Get the column layout entry. If it wasn't found, return 0.
+		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!layoutEntry) {
+			return 0;
 		}
 
-		return this._columnLayoutRegions?.getRegion(columnIndex)?.size ?? this._defaultColumnWidth;
-
-		// return this._defaultColumnWidth;
+		// Return the column width.
+		return layoutEntry.size;
 	}
 
 	/**
@@ -1364,14 +1248,8 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
-		// If the column width hasn't changed, return.
-		const currentColumnWidth = this._columnWidths.get(columnIndex);
-		if (columnWidth === currentColumnWidth) {
-			return;
-		}
-
-		// Set the column width.
-		this._columnWidths.set(columnIndex, columnWidth);
+		// Set the column width override.
+		this._columnLayoutManager.setLayoutOverride(columnIndex, columnWidth);
 
 		// Fetch data.
 		await this.fetchData();
@@ -1385,12 +1263,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	getRowHeight(rowIndex: number) {
-		const rowHeight = this._rowHeights.get(rowIndex);
-		if (rowHeight !== undefined) {
-			return rowHeight;
-		} else {
-			return this._defaultRowHeight;
+		// Get the row layout entry. If it wasn't found, return 0.
+		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!layoutEntry) {
+			return undefined;
 		}
+
+		// Return the row height.
+		return layoutEntry.size;
 	}
 
 	/**
@@ -1405,14 +1285,8 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
-		// If the row height hasn't changed, return.
-		const currentRowHeight = this._rowHeights.get(rowIndex);
-		if (rowHeight === currentRowHeight) {
-			return;
-		}
-
-		// Set the row height.
-		this._rowHeights.set(rowIndex, rowHeight);
+		// Set the row height override.
+		this._rowLayoutManager.setLayoutOverride(rowIndex, rowHeight);
 
 		// Fetch data.
 		await this.fetchData();
@@ -2645,10 +2519,9 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Protected Methods
 
 	/**
-	 * Performs a reset of the data grid.
+	 * Performs a soft reset of the data grid.
 	 */
 	protected softReset() {
-		// Reset the display.
 		this._horizontalScrollOffset = 0;
 		this._verticalScrollOffset = 0;
 		if (this._cursorInitiallyHidden) {
@@ -2664,7 +2537,7 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Resets the selection.
+	 * Resets the selection of the data grid.
 	 */
 	protected resetSelection() {
 		this._cellSelectionRange = undefined;
@@ -2672,18 +2545,6 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes = undefined;
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
-	}
-
-	/**
-	 * Calculates the column layout regions.
-	 */
-	protected async calculateColumnLayoutRegions(): Promise<void> {
-	}
-
-	/**
-	 * Calculates the row heights.
-	 */
-	protected async calculateRowHeights(): Promise<void> {
 	}
 
 	//#endregion Protected Methods
