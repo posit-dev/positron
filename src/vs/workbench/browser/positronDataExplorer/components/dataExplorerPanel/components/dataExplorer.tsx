@@ -137,14 +137,6 @@ export const DataExplorer = () => {
 			return Math.ceil(Math.max(columnNameWidth, typeNameWidth) + basicColumnHeaderWidth);
 		};
 
-
-		// /**
-		//  * The sort index width calculator.
-		//  * @returns The sort index width.
-		//  */
-		// const sortIndexWidthCalculator = () =>
-		// 	Math.ceil(SORTING_BUTTON_WIDTH + (2 * sortIndexDigitWidth));
-
 		// Get the editor font space width.
 		const { spaceWidth } = FontMeasurements.readFontInfo(
 			window,

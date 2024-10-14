@@ -5,6 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { pinToRange } from 'vs/base/common/positronUtilities';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -12,8 +13,8 @@ import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, Da
 /**
  * Constants.
  */
-const MAX_AUTO_SIZE_COLUMNS = 1_000;
-const AUTO_SIZE_COLUMNS_PAGE_SIZE = 500;
+const MAX_AUTO_SIZE_COLUMNS = 10_000;
+const AUTO_SIZE_COLUMNS_PAGE_SIZE = 1_000;
 const TRIM_CACHE_TIMEOUT = 3_000;
 const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 4_096;
@@ -152,21 +153,6 @@ export class TableDataCache extends Disposable {
 	 */
 	private _widthCalculators?: WidthCalculators;
 
-	// /**
-	//  * Gets or sets the column header width calculator.
-	//  */
-	// private _columnHeaderWidthCalculator?: (columnName: string, typeName: string) => number;
-
-	// /**
-	//  * Gets or sets the sort index width calculator.
-	//  */
-	// private _sortIndexWidthCalculator?: (sortIndex: number) => number;
-
-	// /**
-	//  * Gets or sets the column value width calculator.
-	//  */
-	// private _columnValueWidthCalculator?: (length: number) => number;
-
 	/**
 	 * Gets the column schema cache.
 	 */
@@ -261,17 +247,22 @@ export class TableDataCache extends Disposable {
 	}
 
 	/**
-	 * Calculates the column layout widths.
-	 * @returns An array of column layout widths, if successful; otherwise, undefined.
+	 * Calculates the column layout entries.
+	 * @param minimumColumnWidth The minimum column width.
+	 * @param maximumColumnWidth The maximum column width.
+	 * @returns An array of column layout layout entries, if successful; otherwise, undefined.
 	 */
-	async calculateColumnLayoutWidths(): Promise<number[] | undefined> {
-		// If the width calculators are not set, return an empty column widths array.
+	async calculateColumnLayoutEntries(
+		minimumColumnWidth: number,
+		maximumColumnWidth: number
+	): Promise<number[] | undefined> {
+		// If the width calculators are not set, return undefined.
 		if (!this._widthCalculators) {
 			return undefined;
 		}
 
-		// Get the number of columns. If there are no columns, or too many columns, return an empty
-		// column widths array.
+		// Get the number of columns. If there are no columns, or too many columns, return
+		// undefined.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		const { num_columns: numColumns } = tableState.table_shape;
 		if (!numColumns || numColumns > MAX_AUTO_SIZE_COLUMNS) {
@@ -282,41 +273,46 @@ export class TableDataCache extends Disposable {
 		let columnIndex = 0;
 		const columnWidths: number[] = [];
 		while (columnIndex < numColumns) {
-			// Calculate the page size.
+			// Calculate the page size of the page of schema and the page of data to load.
 			const pageSize = Math.min(AUTO_SIZE_COLUMNS_PAGE_SIZE, numColumns - columnIndex);
 
-			// Build the column indicies to load.
-			const columnIndices = Array.from({ length: pageSize }, (_, i) => columnIndex + i);
+			// Load the page of schema.
+			let start = new Date().getTime();
+			const tableSchema = await this._dataExplorerClientInstance.getSchema(
+				Array.from({ length: pageSize }, (_, i) => columnIndex + i)
+			);
+			let end = new Date().getTime();
+			console.log(`+++ Schema load page time: ${end - start} ms`);
 
-			// Load the schema for the column indicies to load.
-			console.log(`Loading schema for columns ${columnIndices[0]} to ${columnIndices[pageSize - 1]}`);
-			const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
-
-			// Calculate the column header widths for the schema that was returned.
+			// Calculate the column header widths for the page of schema that was returned.
 			for (let i = 0; i < tableSchema.columns.length; i++) {
-				columnWidths[columnIndex + i] = this._widthCalculators.columnHeaderWidthCalculator(
-					tableSchema.columns[i].column_name,
-					tableSchema.columns[i].type_name
+				const columnSchema = tableSchema.columns[i];
+				columnWidths[columnIndex + i] = pinToRange(
+					this._widthCalculators.columnHeaderWidthCalculator(
+						columnSchema.column_name,
+						columnSchema.type_name
+					),
+					minimumColumnWidth,
+					maximumColumnWidth
 				);
 			}
 
-			// Build the column selections to load.
-			const columnSelections = Array.from({ length: pageSize }, (_, i): ColumnSelection => ({
-				column_index: columnIndex + i,
-				spec: {
-					first_index: 0,
-					last_index: 9
-				}
-			}));
-
-			// Load the data for the column indicies to load.
+			// Load the page of data.
+			start = new Date().getTime();
 			const tableData = await this._dataExplorerClientInstance.getDataValues(
-				columnSelections
+				Array.from({ length: pageSize }, (_, i): ColumnSelection => ({
+					column_index: columnIndex + i,
+					spec: {
+						first_index: 0,
+						last_index: 9
+					}
+				}))
 			);
+			end = new Date().getTime();
+			console.log(`+++ Data load page time: ${end - start} ms`);
 
-			// Update the data column cache.
+			// Calculate the column value widths for the page of data that was returned.
 			for (let column = 0; column < tableData.columns.length; column++) {
-				// Update the cell values.
 				for (let row = 0; row < tableData.columns[column].length; row++) {
 					// Get the cell value.
 					const value = tableData.columns[column][row];
@@ -332,10 +328,17 @@ export class TableDataCache extends Disposable {
 						};
 					}
 
-					const columnValueWidth = this._widthCalculators.columnValueWidthCalculator(
-						dataCell.formatted.length
+					// Calculate the column value width.
+					const columnValueWidth = pinToRange(
+						this._widthCalculators.columnValueWidthCalculator(
+							dataCell.formatted.length
+						),
+						minimumColumnWidth,
+						maximumColumnWidth
 					);
 
+					// If the column value width is larger than the column header width, set it as
+					// the column width.
 					if (columnValueWidth > columnWidths[columnIndex + column]) {
 						columnWidths[columnIndex + column] = columnValueWidth;
 					}
