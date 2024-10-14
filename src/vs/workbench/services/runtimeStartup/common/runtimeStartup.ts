@@ -463,6 +463,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
+				if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
+					this._logService.info(`Language runtime ` +
+						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`is affiliated with this workspace, but won't be started because its ` +
+						`startup behavior is explicit.`);
+					return;
+				}
+
 				this._runtimeSessionService.startNewRuntimeSession(metadata.runtimeId,
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
@@ -655,7 +663,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Check the setting to see if we should be auto-starting.
 			const autoStart = this._configurationService.getValue<boolean>(
 				'positron.interpreters.automaticStartup');
+
 			if (autoStart) {
+
+				if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Explicit) {
+					this._logService.info(`Language runtime ` +
+						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`is affiliated with this workspace, but won't be started because it's startup ` +
+						`behavior is explicit.`);
+					return;
+				}
+
 				this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
 					`Affiliated ${languageId} runtime for workspace`);
 			} else {
