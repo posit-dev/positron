@@ -8,13 +8,12 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { LayoutRegions } from 'vs/workbench/services/positronDataExplorer/common/layoutRegions';
 
 /**
  * Constants.
  */
-const MAX_AUTO_SIZE_COLUMNS = 10_000;
-const AUTO_SIZE_COLUMNS_PAGE_SIZE = 2_500;
+const MAX_AUTO_SIZE_COLUMNS = 1_000;
+const AUTO_SIZE_COLUMNS_PAGE_SIZE = 500;
 const TRIM_CACHE_TIMEOUT = 3_000;
 const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 4_096;
@@ -261,85 +260,14 @@ export class TableDataCache extends Disposable {
 		this._widthCalculators = widthCalculators;
 	}
 
-	// /**
-	//  * Sets the column header width calculator.
-	//  * @param calculator The column header width calculator.
-	//  */
-	// setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
-	// 	// Set the column header width calculator.
-	// 	this._columnHeaderWidthCalculator = calculator;
-
-	// 	// Refresh the column header width cache, if the column header width calculator is non-null.
-	// 	if (this._columnHeaderWidthCalculator) {
-	// 		// Clear the existing column header width cache.
-	// 		this._columnHeaderWidthCache.clear();
-
-	// 		// Refresh the column header width cache.
-	// 		for (const [columnIndex, columnSchema] of this._columnSchemaCache.entries()) {
-	// 			// Calculate the column header width.
-	// 			const columnHeaderWidth = this._columnHeaderWidthCalculator(
-	// 				columnSchema.column_name,
-	// 				columnSchema.type_name
-	// 			);
-
-	// 			// If the column header width is non-zero, cache its width.
-	// 			if (columnHeaderWidth) {
-	// 				this._columnHeaderWidthCache.set(columnIndex, columnHeaderWidth);
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	// /**
-	//  * Sets the sort index width calculator.
-	//  * @param calculator The sort index width calculator.
-	//  */
-	// setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
-	// 	this._sortIndexWidthCalculator = calculator;
-	// }
-
-	// /**
-	//  * Sets the column value width calculator.
-	//  * @param calculator The column value width calculator.
-	//  */
-	// setColumnValueWidthCalculator(calculator?: (length: number) => number) {
-	// 	// Set the column value width calculator.
-	// 	this._columnValueWidthCalculator = calculator;
-
-	// 	// Refresh the column value width cache, if the column value width calculator is non-null.
-	// 	if (this._columnValueWidthCalculator) {
-	// 		// Clear the existing column value width cache.
-	// 		this._columnValueWidthCache.clear();
-
-	// 		// Refresh the column value width cache.
-	// 		for (const [columnIndex, dataColumn] of this._dataColumnCache.entries()) {
-	// 			// Find the longest data cell.
-	// 			let longestDataCell = 0;
-	// 			for (const dataCell of dataColumn.values()) {
-	// 				if (dataCell.formatted.length > longestDataCell) {
-	// 					longestDataCell = dataCell.formatted.length;
-	// 				}
-	// 			}
-
-	// 			// If the longest data cell is non-zero, calculate and cache its width.
-	// 			this._columnValueWidthCache.set(
-	// 				columnIndex,
-	// 				this._columnValueWidthCalculator(longestDataCell)
-	// 			);
-	// 		}
-	// 	}
-	// }
-
 	/**
-	 * Calculates the column layout regions.
+	 * Calculates the column layout widths.
+	 * @returns An array of column layout widths, if successful; otherwise, undefined.
 	 */
-	async calculateColumnLayoutRegions(): Promise<LayoutRegions> {
-		// Create a new layout regions instance.
-		const layoutRegions = new LayoutRegions();
-
+	async calculateColumnLayoutWidths(): Promise<number[] | undefined> {
 		// If the width calculators are not set, return an empty column widths array.
 		if (!this._widthCalculators) {
-			return layoutRegions;
+			return undefined;
 		}
 
 		// Get the number of columns. If there are no columns, or too many columns, return an empty
@@ -347,7 +275,7 @@ export class TableDataCache extends Disposable {
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		const { num_columns: numColumns } = tableState.table_shape;
 		if (!numColumns || numColumns > MAX_AUTO_SIZE_COLUMNS) {
-			return layoutRegions;
+			return undefined;
 		}
 
 		// Page in schema and data for column width calculations.
@@ -361,6 +289,7 @@ export class TableDataCache extends Disposable {
 			const columnIndices = Array.from({ length: pageSize }, (_, i) => columnIndex + i);
 
 			// Load the schema for the column indicies to load.
+			console.log(`Loading schema for columns ${columnIndices[0]} to ${columnIndices[pageSize - 1]}`);
 			const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
 			// Calculate the column header widths for the schema that was returned.
@@ -387,9 +316,6 @@ export class TableDataCache extends Disposable {
 
 			// Update the data column cache.
 			for (let column = 0; column < tableData.columns.length; column++) {
-				// Get the column selection.
-				// const columnSelection = columnSelections[column];
-
 				// Update the cell values.
 				for (let row = 0; row < tableData.columns[column].length; row++) {
 					// Get the cell value.
@@ -406,16 +332,6 @@ export class TableDataCache extends Disposable {
 						};
 					}
 
-					// // Set the row index.
-					// let rowIndex: number;
-					// if (isDataSelectionRange(columnSelection.spec)) {
-					// 	rowIndex = columnSelection.spec.first_index + row;
-					// } else if (isDataSelectionIndices(columnSelection.spec)) {
-					// 	rowIndex = columnSelection.spec.indices[row];
-					// } else {
-					// 	continue;
-					// }
-
 					const columnValueWidth = this._widthCalculators.columnValueWidthCalculator(
 						dataCell.formatted.length
 					);
@@ -430,34 +346,8 @@ export class TableDataCache extends Disposable {
 			columnIndex += pageSize;
 		}
 
-		// /**
-		//  * Gets the X or Y coordinate of the column or row.
-		//  */
-		// readonly start: number;
-
-		// /**
-		//  * Gets the width or the height of the column or row.
-		//  */
-		// readonly size: number;
-
-		// /**
-		//  * Gets index of the column or row.
-		//  */
-		// readonly index: number;
-
-		let start = 0;
-		columnWidths.forEach((size, index) => {
-			layoutRegions.append({
-				start,
-				size,
-				index
-			});
-
-			start += size;
-		});
-
-		// Return the column layout regions.
-		return layoutRegions;
+		// Return the column widths.
+		return columnWidths;
 	}
 
 	/**
@@ -541,14 +431,6 @@ export class TableDataCache extends Disposable {
 
 			// Cache the column schema.
 			this._columnSchemaCache.set(columnIndex, columnSchema);
-
-			// // Update the column header width cache.
-			// if (this._columnHeaderWidthCalculator) {
-			// 	this._columnHeaderWidthCache.set(columnIndex, this._columnHeaderWidthCalculator(
-			// 		columnSchema.column_name,
-			// 		columnSchema.type_name
-			// 	));
-			// }
 		}
 
 		// Fire the onDidUpdate event.
@@ -729,22 +611,6 @@ export class TableDataCache extends Disposable {
 
 				// Cache the cell.
 				dataColumn.set(rowIndex, dataCell);
-
-				// // Update the column value width cache.
-				// if (dataCell.formatted.length && this._columnValueWidthCalculator) {
-				// 	// Get the cached column value width and the column value width.
-				// 	const cachedColumnValueWidth = this._columnValueWidthCache.get(
-				// 		columnSelection.column_index
-				// 	);
-				// 	const columnValueWidth = this._columnValueWidthCalculator(
-				// 		dataCell.formatted.length
-				// 	);
-
-				// 	// Update the column value width cache as needed.
-				// 	if (!cachedColumnValueWidth || columnValueWidth > cachedColumnValueWidth) {
-				// 		this._columnValueWidthCache.set(columnSelection.column_index, columnValueWidth);
-				// 	}
-				// }
 			}
 		}
 

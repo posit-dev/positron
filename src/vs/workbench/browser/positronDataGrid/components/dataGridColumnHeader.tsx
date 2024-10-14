@@ -155,7 +155,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 							)}
 							style={{ fontSize: 16 }}
 						/>
-						<div className='sort-index'>{columnSortKey.sortIndex + 90}</div>
+						<div className='sort-index'>{columnSortKey.sortIndex}</div>
 					</div>
 				}
 				<Button

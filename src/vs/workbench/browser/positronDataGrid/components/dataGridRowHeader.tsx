@@ -130,7 +130,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					onBeginResize={() => ({
 						minimumHeight: context.instance.minimumRowHeight,
 						maximumHeight: 90,
-						startingHeight: context.instance.getRowHeight(props.rowIndex)
+						startingHeight: context.instance.getRowHeight(props.rowIndex)!
 					})}
 					onResize={async rowHeight =>
 						await context.instance.setRowHeight(props.rowIndex, rowHeight)
