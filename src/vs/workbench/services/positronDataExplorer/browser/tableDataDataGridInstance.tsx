@@ -75,8 +75,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			defaultColumnWidth: 200,
 			defaultRowHeight: 24,
 			columnResize: true,
-			minimumColumnWidth: 20,
-			maximumColumnWidth: 400,
+			minimumColumnWidth: 80,
+			maximumColumnWidth: 800,
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
@@ -116,33 +116,24 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			const start = new Date().getTime();
-			const yack = await this._tableDataCache.calculateColumnLayoutWidths();
-			const end = new Date().getTime();
+			// Calculate the column layout entries.
+			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
+				this.minimumColumnWidth,
+				this.maximumColumnWidth
+			);
 
-			console.log(`calculateColumnWidths time: ${end - start}ms`);
-
-			//
-			this._columnLayoutManager.setLayoutEntries(yack ?? state.table_shape.num_columns);
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_rows);
-
-			// // Recompute the column layout regions.
-			// this._columnLayoutRegions.clear();
-			// for (let left = 0, columnIndex = 0; columnIndex < this.columns; columnIndex++) {
-			// 	const columnWidth = this.getColumnWidth(columnIndex);
-			// 	this._columnLayoutRegions.append({
-			// 		start: left,
-			// 		size: columnWidth,
-			// 		index: columnIndex
-			// 	});
-			// 	left += columnWidth;
-			// }
-
+			// Set the layout entries.
+			this._columnLayoutManager.setLayoutEntries(
+				layoutEntries ?? state.table_shape.num_columns
+			);
+			this._rowLayoutManager.setLayoutEntries(
+				state.table_shape.num_rows
+			);
 
 			// Clear column sort keys.
 			this._columnSortKeys.clear();
 
-			// Update the column sort keys.
+			// Update the column sort keys from the state.
 			state.sort_keys.forEach((key, sortIndex) => {
 				this._columnSortKeys.set(
 					key.column_index,
@@ -550,30 +541,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	setWidthCalculators(widthCalculators?: WidthCalculators) {
 		this._tableDataCache.setWidthCalculators(widthCalculators);
 	}
-
-	// /**
-	//  * Sets the column header width calculator.
-	//  * @param calculator The column header width calculator.
-	//  */
-	// setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
-	// 	this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
-	// }
-
-	// /**
-	//  * Sets the sort index width calculator.
-	//  * @param calculator The sort index width calculator.
-	//  */
-	// setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
-	// 	this._tableDataCache.setSortIndexWidthCalculator(calculator);
-	// }
-
-	// /**
-	//  * Sets the column value width calculator.
-	//  * @param calculator The column value width calculator.
-	//  */
-	// setColumnValueWidthCalculator(calculator?: (length: number) => number) {
-	// 	this._tableDataCache.setColumnValueWidthCalculator(calculator);
-	// }
 
 	/**
 	 * Copies the specified clipboard data.
