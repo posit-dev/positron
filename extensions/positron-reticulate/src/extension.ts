@@ -484,20 +484,45 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// tied to the R session.
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
 		// command to it.
-		this.pythonSession.shutdown(positron.RuntimeExitReason.Restart);
-		await this.rSession.restart();
-		const rSession = await getRSession();
-		rSession.execute(
-			'reticulate::repl_python()',
-			'start-reticulate',
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue
+		const restart = await positron.window.showSimpleModalDialogPrompt(
+			'Restarting reticulate',
+			'This is will also restart the parent R session. Are you sure you want to continue?',
+			'Yes',
+			'No'
 		);
+
+		if (!restart) {
+			return;
+		}
+
+		// The events below will make sure that things occure in the right order:
+		// 1. shutdown the current reticulate session
+		// 2. restart the attached R session
+		// 3. start a new reticulate session.
+		this.pythonSession.onDidEndSession((sess) => {
+			this.rSession.restart();
+		});
+
+		const disposeListener = this.rSession.onDidChangeRuntimeState(async (e) => {
+			if (e === positron.RuntimeState.Ready) {
+				this.rSession.execute(
+					'reticulate::repl_python()',
+					'start-reticulate',
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Continue
+				);
+				// This should only happen once, so we dispose of this event as soon
+				// as we have started reticulate.
+				disposeListener.dispose();
+			}
+		});
+
+		await this.shutdown(positron.RuntimeExitReason.SwitchRuntime);
 		return;
 	}
 
-	public async shutdown() {
-		await this.pythonSession.shutdown(positron.RuntimeExitReason.Shutdown);
+	public async shutdown(exitReason: positron.RuntimeExitReason) {
+		await this.pythonSession.shutdown(exitReason);
 		// Tell Positron that the kernel has exit. When launching IPykernel from a standalone
 		// process, when the kernel exits, then all of it's threads, specially the IOPub thread
 		// holding the ZeroMQ sockets will cease to exist, and thus Positron identifies that the
