@@ -4,44 +4,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { raceTimeout, timeout } from 'vs/base/common/async';
+import { raceTimeout } from 'vs/base/common/async';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
-import { PositronPlotsService } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsService';
-import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
+import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
+import { PositronTestServiceAccessor, positronWorkbenchInstantiationService as positronWorkbenchInstantiationService } from 'vs/workbench/test/browser/positronWorkbenchTestServices';
 import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { HistoryPolicy, IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
-import { IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { HistoryPolicy, IPositronPlotClient, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { TestViewsService, workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 
 suite('Positron - Plots Service', () => {
 
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	let plotsService: PositronPlotsService;
-	let runtimeSessionService: TestRuntimeSessionService;
+	let instantiationService: TestInstantiationService;
+	let plotsService: IPositronPlotsService;
 
 	setup(() => {
-		const instantiationService = workbenchInstantiationService(undefined, disposables);
-		runtimeSessionService = disposables.add(instantiationService.createInstance(TestRuntimeSessionService));
-		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-		instantiationService.stub(IPositronWebviewPreloadService, disposables.add(instantiationService.createInstance(PositronWebviewPreloadService)));
-		instantiationService.stub(IPositronIPyWidgetsService, disposables.add(instantiationService.createInstance(PositronIPyWidgetsService)));
-		instantiationService.stub(IViewsService, new TestViewsService());
-
-		plotsService = disposables.add(instantiationService.createInstance(PositronPlotsService));
+		instantiationService = positronWorkbenchInstantiationService(disposables);
+		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		plotsService = accessor.positronPlotsService;
 	});
 
 	async function createSession() {
-		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
-		runtimeSessionService.startSession(session);
-
-		await timeout(0);
+		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
 
 		const out: {
 			session: TestLanguageRuntimeSession;
