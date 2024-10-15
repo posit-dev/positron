@@ -80,13 +80,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.addConnection(instance);
 		});
 
-		this.addConnection(
-			new MockedConnectionInstance('hello_world', this.onDidChangeDataEmitter, this)
-		);
-		this.addConnection(
-			new MockedConnectionInstance('Hello world', this.onDidChangeDataEmitter, this)
-		);
-
 		this._register(this.configurationService.onDidChangeConfiguration((e) => {
 			this.handleConfigChange(e);
 		}));
