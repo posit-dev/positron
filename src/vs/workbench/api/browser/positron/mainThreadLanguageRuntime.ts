@@ -897,6 +897,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	static clientCounter = 0;
+
+	dispose(): void {
+		// Do nothing.
+	}
 }
 
 /**

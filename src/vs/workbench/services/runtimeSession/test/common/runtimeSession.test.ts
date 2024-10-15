@@ -5,56 +5,11 @@
 
 import { strict as assert } from 'assert';
 import * as sinon from 'sinon';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { generateUuid } from 'vs/base/common/uuid';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { createRuntimeServices } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-
-const TestRuntimeLanguageVersion = '0.0.1';
-const TestRuntimeShortName = TestRuntimeLanguageVersion;
-const TestRuntimeName = `Test ${TestRuntimeShortName}`;
-
-class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager {
-	async managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean> {
-		return true;
-	}
-
-	async createSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: IRuntimeSessionMetadata): Promise<ILanguageRuntimeSession> {
-		return new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata);
-	}
-
-	restoreSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: IRuntimeSessionMetadata): Promise<ILanguageRuntimeSession> {
-		throw new Error('Not implemented');
-	}
-
-	validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
-		throw new Error('Not implemented');
-	}
-}
-
-function testLanguageRuntimeMetadata(): ILanguageRuntimeMetadata {
-	const runtimeId = generateUuid();
-	return {
-		extensionId: new ExtensionIdentifier('test-extension'),
-		base64EncodedIconSvg: '',
-		extraRuntimeData: {},
-		languageId: 'test',
-		languageName: 'Test',
-		languageVersion: TestRuntimeLanguageVersion,
-		runtimeId,
-		runtimeName: TestRuntimeName,
-		runtimePath: '/test',
-		runtimeShortName: TestRuntimeShortName,
-		runtimeSource: 'Test',
-		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
-	};
-}
+import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { createRuntimeServices, createTestLanguageRuntimeMetadata } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 
 suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -62,17 +17,10 @@ suite('Positron - RuntimeSessionService', () => {
 	let runtime: ILanguageRuntimeMetadata;
 
 	setup(() => {
-		const instantiationService = createRuntimeServices(disposables as DisposableStore);
-		const languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
+		const instantiationService = disposables.add(new TestInstantiationService());
+		createRuntimeServices(instantiationService, disposables);
 		runtimeSessionService = instantiationService.get(IRuntimeSessionService);
-
-		// Register the test runtime.
-		runtime = testLanguageRuntimeMetadata();
-		disposables.add(languageRuntimeService.registerRuntime(runtime));
-
-		// Register the test runtime manager.
-		const manager = new TestRuntimeSessionManager();
-		disposables.add(runtimeSessionService.registerSessionManager(manager));
+		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 	});
 
 	// TODO: start while starting
@@ -167,4 +115,82 @@ suite('Positron - RuntimeSessionService', () => {
 		// Cleanup.
 		session.dispose();
 	});
+
+	test.skip('restart a console session', async () => {
+		// Start a new session.
+		const sessionMode = LanguageRuntimeSessionMode.Console;
+		const startReason = 'Test requested a runtime session';
+		const sessionId = await runtimeSessionService.startNewRuntimeSession(
+			runtime.runtimeId,
+			runtime.runtimeName,
+			sessionMode,
+			undefined,
+			startReason,
+		);
+		const session = runtimeSessionService.getSession(sessionId);
+		assert.ok(session);
+
+		// Check the initial runtime session service state.
+		assertRuntimeSessionServiceState(runtime, true, session);
+
+		// Listen to the onDidChangeForegroundSession event.
+		const didChangeForegroundSessionStub = sinon.stub<[e: ILanguageRuntimeSession | undefined]>();
+		disposables.add(runtimeSessionService.onDidChangeForegroundSession(didChangeForegroundSessionStub));
+
+		// Restart the session.
+		const restartReason = 'Test requested a runtime session restart';
+		await runtimeSessionService.restartSession(sessionId, restartReason);
+		const newSessionId = await runtimeSessionService.startNewRuntimeSession(
+			runtime.runtimeId,
+			runtime.runtimeName,
+			sessionMode,
+			undefined,
+			startReason,
+		);
+		const newSession = runtimeSessionService.getSession(newSessionId);
+		assert.ok(newSession);
+
+		// Check the runtime session service state after restart.
+		assertRuntimeSessionServiceState(runtime, true, newSession);
+
+		// Check the event handlers.
+		sinon.assert.calledTwice(didChangeForegroundSessionStub);
+		sinon.assert.calledWithExactly(didChangeForegroundSessionStub.firstCall, undefined);
+		sinon.assert.calledWithExactly(didChangeForegroundSessionStub.secondCall, newSession);
+
+		// Cleanup.
+		newSession.dispose();
+	});
+
+	// test('shutdown a console session', async () => {
+	// 	// Start a new session.
+	// 	const sessionMode = LanguageRuntimeSessionMode.Console;
+	// 	const startReason = 'Test requested a runtime session';
+	// 	const sessionId = await runtimeSessionService.startNewRuntimeSession(
+	// 		runtime.runtimeId,
+	// 		runtime.runtimeName,
+	// 		sessionMode,
+	// 		undefined,
+	// 		startReason,
+	// 	);
+	// 	const session = runtimeSessionService.getSession(sessionId);
+	// 	assert.ok(session);
+
+	// 	// Check the initial runtime session service state.
+	// 	assertRuntimeSessionServiceState(runtime, true, session);
+
+	// 	// Listen to the onDidChangeForegroundSession event.
+	// 	const didChangeForegroundSessionStub = sinon.stub<[e: ILanguageRuntimeSession | undefined]>();
+	// 	disposables.add(runtimeSessionService.onDidChangeForegroundSession(didChangeForegroundSessionStub));
+
+	// 	// Shutdown the session.
+	// 	const exitReason = RuntimeExitReason.Shutdown;
+	// 	await runtimeSessionService.shutdownRuntimeSession(session, exitReason);
+
+	// 	// Check the runtime session service state after shutdown.
+	// 	assertRuntimeSessionServiceState(runtime, false, undefined);
+
+	// 	// Check the event handlers.
+	// 	sinon.assert.calledOnceWithExactly(didChangeForegroundSessionStub, undefined);
+	// });
 });
