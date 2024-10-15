@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.2",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -86,6 +86,12 @@
         "category": "R",
         "title": "%r.command.packageTest.title%",
         "shortTitle": "%r.menu.packageTest.title%"
+      },
+      {
+        "command": "r.cliHyperlinks",
+        "category": "R",
+        "title": "%r.command.cliHyperlinks.title%",
+        "shortTitle": "%r.menu.cliHyperlinks.title%"
       },
       {
         "command": "r.useTestthat",
@@ -674,5 +680,8 @@
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
-  }
+  },
+  "enabledApiProposals": [
+    "terminalDataWriteEvent"
+  ]
 }

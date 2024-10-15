@@ -53,7 +53,37 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
 			rcode: 'devtools::test()',
 			package: 'devtools',
-			envVars: await getEnvVars(['TESTTHAT_MAX_FAILS'])
+			envVars: {
+				...await getEnvVars(['TESTTHAT_MAX_FAILS']),
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINKS: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_RUN: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_HELP: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_VIGNETTE: "TRUE"
+			}
+		},
+		{
+			task: 'r.task.cliHyperlinks',
+			message: vscode.l10n.t('{taskName}', { taskName: 'Emit a cli run hyperlink' }),
+			rcode: 'cli::cli_text("{.run usethis::proj_sitrep()}")',
+			package: 'cli',
+			envVars: {
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINKS: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_RUN: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_HELP: "TRUE",
+				// eslint-disable-next-line @typescript-eslint/naming-convention
+				R_CLI_HYPERLINK_VIGNETTE: "TRUE"
+			}
 		},
 		{
 			task: 'r.task.rmarkdownRender',

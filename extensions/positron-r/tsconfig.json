@@ -25,5 +25,6 @@
 		"src/**/*",
 		"../../src/positron-dts/positron.d.ts",
 		"../../src/vscode-dts/vscode.d.ts",
+		"../../src/vscode-dts/vscode.proposed.terminalDataWriteEvent.d.ts"
 	]
 }
