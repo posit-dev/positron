@@ -1404,25 +1404,12 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setScreenSize(width: number, height: number): Promise<void> {
-		// A flag that is set to true when the screen size changed.
-		let screenSizeChanged = false;
-
-		// Set the width, if it changed.
-		if (width !== this._width) {
-			this._width = width;
-			this.optimizeFirstColumn();
-			screenSizeChanged = true;
-		}
-
-		// Set the height, if it changed.
-		if (height !== this._height) {
-			this._height = height;
-			this.optimizeFirstRow();
-			screenSizeChanged = true;
-		}
-
 		// If the screen size changed, fetch data and fire the onDidUpdate event.
-		if (screenSizeChanged) {
+		if (width !== this._width || width !== this._width) {
+			// Update the width and height.
+			this._width = width;
+			this._height = height;
+
 			// Fetch data.
 			await this.fetchData();
 
@@ -2550,90 +2537,6 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Protected Methods
 
 	//#region Private Methods
-
-	/**
-	 * Optimizes the first column.
-	 */
-	private optimizeFirstColumn() {
-		// // If the waffle isn't scrolled horizontally, return.
-		// if (!this.firstColumnIndexXX) {
-		// 	return;
-		// }
-
-		// // Calculate the layout width.
-		// let layoutWidth = this.layoutWidth;
-		// for (let i = this.firstColumnIndexXX; i < this.columns; i++) {
-		// 	// Adjust the layout width.
-		// 	layoutWidth -= this.getColumnWidth(i);
-
-		// 	// If the layout width has been exhausted, return.
-		// 	if (layoutWidth <= 0) {
-		// 		return;
-		// 	}
-		// }
-
-		// // See if we can optimize the first column.
-		// let firstColumnIndex: number | undefined = undefined;
-		// for (let i = this.firstColumnIndexXX - 1; i >= 0 && layoutWidth > 0; i--) {
-		// 	// Get the column width.
-		// 	const columnWidth = this.getColumnWidth(i);
-
-		// 	// If the column will fit, make it the first column index.
-		// 	if (columnWidth <= layoutWidth) {
-		// 		firstColumnIndex = i;
-		// 	}
-
-		// 	// Adjust the layout width.
-		// 	layoutWidth -= columnWidth;
-		// }
-
-		// // Set the first column, if it was adjusted.
-		// if (firstColumnIndex) {
-		// 	this._firstColumnIndexXX = firstColumnIndex;
-		// }
-	}
-
-	/**
-	 * Optimizes the first row.
-	 */
-	private optimizeFirstRow() {
-		// // If the waffle isn't scrolled vertically, return.
-		// if (!this.firstRowIndexXX) {
-		// 	return;
-		// }
-
-		// // Calculate the layout height.
-		// let layoutHeight = this.layoutHeight;
-		// for (let i = this.firstRowIndexXX; i < this.rows; i++) {
-		// 	// Adjust the layout height.
-		// 	layoutHeight -= this.getRowHeight(i);
-
-		// 	// If the layout height has been exhausted, return.
-		// 	if (layoutHeight <= 0) {
-		// 		return;
-		// 	}
-		// }
-
-		// // See if we can optimize the first column.
-		// let firstRowIndex: number | undefined = undefined;
-		// for (let i = this.firstRowIndexXX - 1; i >= 0 && layoutHeight > 0; i--) {
-		// 	// Get the row height.
-		// 	const rowHeight = this.getRowHeight(i);
-
-		// 	// If the row will fit, make it the first row index.
-		// 	if (rowHeight <= layoutHeight) {
-		// 		firstRowIndex = i;
-		// 	}
-
-		// 	// Adjust the layout height.
-		// 	layoutHeight -= rowHeight;
-		// }
-
-		// // Set the first row, if it was adjusted.
-		// if (firstRowIndex) {
-		// 	this._firstRowIndexXX = firstRowIndex;
-		// }
-	}
 
 	/**
 	 * Sorts the data.

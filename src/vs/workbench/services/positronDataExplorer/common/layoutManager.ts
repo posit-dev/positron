@@ -184,8 +184,8 @@ export class LayoutManager {
 
 	/**
 	 * Sets a layout override.
-	 * @param index The index of the layout entry.
-	 * @param size The size of the layout entry.
+	 * @param index The index of the layout override.
+	 * @param size The size of the layout override.
 	 */
 	setLayoutOverride(index: number, size: number) {
 		// Sanity check the index and size.
@@ -209,7 +209,7 @@ export class LayoutManager {
 
 		// Adjust the layout entries.
 		if (index < this._layoutEntries.length) {
-			// Update the size of the layout entry that was overridden.
+			// Get the layout entry that was overridden.
 			const layoutEntry = this._layoutEntries[index];
 			layoutEntry.size = size;
 
@@ -223,6 +223,21 @@ export class LayoutManager {
 				start += layoutEntry.size;
 			}
 		}
+	}
+
+	/**
+	 * Clears a layout override.
+	 * @param index The index of the layout override.
+	 */
+	clearLayoutOverride(index: number) {
+		// Discard the cached layout entry, if it exists and its index is greater than the index of
+		// the layout override being cleared.
+		if (this._cachedLayoutEntry && this._cachedLayoutEntry.index >= index) {
+			this._cachedLayoutEntry = undefined;
+		}
+
+		// Clear the layout override.
+		this._layoutOverrides.delete(index);
 	}
 
 	/**
@@ -248,8 +263,8 @@ export class LayoutManager {
 				return undefined;
 			}
 
-			// Cache and return the layout entry.
-			return this._cachedLayoutEntry = this._layoutEntries[index];
+			// Return the layout entry.
+			return this._layoutEntries[index];
 		}
 
 		// Sanity check the index.
@@ -260,8 +275,8 @@ export class LayoutManager {
 		// If there are no layout overrides, we can calculate which layout entry to return.
 		// Cache and return the layout entry.
 		if (!this._layoutOverrides.size) {
-			// Cache and return the layout entry.
-			return this._cachedLayoutEntry = new LayoutEntry(
+			// Return the layout entry.
+			return new LayoutEntry(
 				index,
 				index * this._defaultSize,
 				this._defaultSize
@@ -284,8 +299,8 @@ export class LayoutManager {
 		});
 		const size = this._layoutOverrides.get(index) ?? this._defaultSize;
 
-		// Cache and return the layout entry.
-		return this._cachedLayoutEntry = new LayoutEntry(
+		// Return the layout entry.
+		return new LayoutEntry(
 			index,
 			start,
 			size

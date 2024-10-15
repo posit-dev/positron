@@ -13,8 +13,8 @@ import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, Da
 /**
  * Constants.
  */
-const MAX_AUTO_SIZE_COLUMNS = 10_000;
-const AUTO_SIZE_COLUMNS_PAGE_SIZE = 1_000;
+const MAX_AUTO_SIZE_COLUMNS = 1_000;
+const AUTO_SIZE_COLUMNS_PAGE_SIZE = 250;
 const TRIM_CACHE_TIMEOUT = 3_000;
 const OVERSCAN_FACTOR = 3;
 const CHUNK_SIZE = 4_096;
@@ -159,11 +159,6 @@ export class TableDataCache extends Disposable {
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * Gets the column header width cache.
-	 */
-	private readonly _columnHeaderWidthCache = new Map<number, number>();
-
-	/**
 	 * Gets the row label cache.
 	 */
 	private readonly _rowLabelCache = new Map<number, string>();
@@ -172,11 +167,6 @@ export class TableDataCache extends Disposable {
 	 * Gets the data column cache.
 	 */
 	private readonly _dataColumnCache = new Map<number, Map<number, DataCell>>();
-
-	/**
-	 * Gets the column value width cache.
-	 */
-	private readonly _columnValueWidthCache = new Map<number, number>();
 
 	/**
 	 * The onDidUpdate event emitter.
@@ -423,7 +413,6 @@ export class TableDataCache extends Disposable {
 		// Clear the column schema cache, if we're supposed to.
 		if (invalidateColumnSchemaCache) {
 			this._columnSchemaCache.clear();
-			this._columnHeaderWidthCache.clear();
 		}
 
 		// Cache the column schemas that were returned.
@@ -571,7 +560,6 @@ export class TableDataCache extends Disposable {
 		if (invalidateDataCache) {
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
-			this._columnValueWidthCache.clear();
 		}
 
 		// Update the data column cache.
@@ -683,24 +671,6 @@ export class TableDataCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the column header width for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column header width for the specified column index
-	 */
-	getColumnHeaderWidth(columnIndex: number) {
-		return this._columnHeaderWidthCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the column value width for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column value width for the specified column index
-	 */
-	getColumnValueWidth(columnIndex: number) {
-		return this._columnValueWidthCache.get(columnIndex);
 	}
 
 	/**
