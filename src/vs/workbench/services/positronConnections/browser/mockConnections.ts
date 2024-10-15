@@ -14,17 +14,20 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 	onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 	children: IPositronConnectionItem[] = [];
 	metadata: ConnectionMetadata;
+	error?: string = undefined;
 
 	constructor(
 		private readonly clientId: string,
 		readonly onDidChangeDataEmitter: Emitter<void>,
 		readonly connectionsService: IPositronConnectionsService,
-		readonly error = 'error initializing'
+		error = 'error initializing'
 	) {
 		this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
 			this.onDidChangeDataEmitter.fire();
 		});
+
+		this.error = error;
 
 		this.children = [
 			new MockedConnectionItem(this.onDidChangeDataEmitter),
@@ -121,6 +124,7 @@ export class MockedConnectionInstance implements IPositronConnectionInstance {
 	async disconnect() {
 		this._active = false;
 		this._expanded = false;
+		this.error = undefined;
 		this.onDidChangeDataEmitter.fire();
 	}
 
