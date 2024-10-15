@@ -9,7 +9,7 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-describe('Data Explorer 100x100', function () {
+describe('Data Explorer 100x100 #win', function () {
 	setupAndStartApp();
 
 	/**
