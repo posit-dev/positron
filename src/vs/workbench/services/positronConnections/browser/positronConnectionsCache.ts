@@ -177,14 +177,13 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	}
 
 	get preview() {
-		if (this.item.preview) {
+		if (!this.item.preview) {
 			return undefined;
 		}
 
-
 		return async () => {
 			try {
-				this.item.preview?.();
+				await this.item.preview?.();
 			} catch (err: any) {
 				this.notify(
 					`Error previewing object ${this.id}: ${err.message}`,
