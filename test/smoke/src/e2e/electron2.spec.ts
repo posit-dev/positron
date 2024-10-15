@@ -72,10 +72,7 @@ const test = base.extend<{
 	},
 
 	logger: async ({ defaultOptions }, use) => {
-		const logger = defaultOptions.logger;
-		logger.log('>>> Suite start <<<');
 		await use(defaultOptions.logger);
-		logger.log('>>> Suite end <<<');
 	},
 
 	tracing: [async ({ app }, use, testInfo) => {
@@ -83,21 +80,19 @@ const test = base.extend<{
 		const context = driver.getContext();
 
 		// Start tracing
-		console.log('Start tracing...');
 		await context.tracing.start({ screenshots: true, snapshots: true });
 
 		// Execute the test
 		await use();
 
 		// Stop tracing and save trace to file
-		const tracePath = testInfo.outputPath('trace.zip');
-		console.log('Stop tracing and save trace to file:', tracePath);
+		const tracePath = testInfo.outputPath(`electron-trace${Date.now()}.zip`);
 		await context.tracing.stop({ path: tracePath });
 
 		// Attach the trace to the test report
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 
-	}, { auto: false }],
+	}, { auto: true }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		const page = app.code.driver.getPage();
@@ -126,28 +121,20 @@ const test = base.extend<{
 	}, { auto: true }],
 });
 
-test.beforeEach(async ({ app }, testInfo) => {
-	console.log('Start tracing >>>');
-	const context = app.code.driver.getContext();
-	await context.tracing.start({ screenshots: true, snapshots: true });
+test.beforeEach(async ({ logger, app }) => {
+	logger.log('>>> Test start <<<');
 });
 
-test.afterEach(async ({ app }, testInfo) => {
-	console.log('Stop tracing >>>');
-	const context = app.code.driver.getContext();
-	const testPath = testInfo.outputPath('trace2.zip');
-	await context.tracing.stop({ path: testPath });
-
-	testInfo.attachments.push({ name: 'trace2', path: testPath, contentType: 'application/zip' });
-
+test.afterEach(async ({ logger, app }) => {
+	logger.log('>>> Test end <<<');
 });
 
 
 test('has title', async ({ app }) => {
 	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-	// await app.code.driver.takeScreenshot('screen 1');
+	await app.code.driver.takeScreenshot('marie-screen1');
 	await renderQuartoDocument(app, 'html');
-	// await app.code.driver.takeScreenshot('screen 2');
+	await app.code.driver.takeScreenshot('marie-screen2');
 	await verifyDocumentExists(app, 'html');
 	app.code.wait(5000);
 	expect(1).toBe(2);
