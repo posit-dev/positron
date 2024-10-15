@@ -187,7 +187,9 @@ export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, op
 	}
 	// Version Info
 	if (args.version) {
-		console.log(buildVersionMessage(product.version, product.commit));
+		// --- Start Positron ---
+		console.log(buildVersionMessage(product.positronVersion, product.commit));
+		// --- End Positron ---
 		return;
 	}
 
