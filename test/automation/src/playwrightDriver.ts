@@ -64,7 +64,7 @@ export class PlaywrightDriver {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
 				// --- Start Positron ---
-				persistPath = join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}_${Date.now()}.zip`);
+				persistPath = join(this.options.logsPath, `${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
 				// --- End Positron ---
 			}
 
@@ -169,7 +169,7 @@ export class PlaywrightDriver {
 	async takeScreenshot(name: string): Promise<void> {
 		// --- End Positron ---
 		try {
-			const persistPath = join(this.options.logsPath, `playwright-screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
+			const persistPath = join(this.options.logsPath, `${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
 
 			await measureAndLog(() => this.page.screenshot({ path: persistPath, type: 'png' }), 'takeScreenshot', this.options.logger);
 		} catch (error) {
