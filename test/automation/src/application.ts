@@ -70,6 +70,7 @@ export class Application {
 
 	async start(): Promise<void> {
 		await this._start();
+		// await this.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await this.code.waitForElement('.explorer-folders-view');
 	}
 
@@ -113,7 +114,6 @@ export class Application {
 			...this.options,
 			extraArgs: [...(this.options.extraArgs || []), ...extraArgs],
 		});
-
 		this._workbench = new Workbench(this._code);
 		this._profiler = new Profiler(this.code);
 
