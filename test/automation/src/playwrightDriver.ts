@@ -64,6 +64,7 @@ export class PlaywrightDriver {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
 				// --- Start Positron ---
+				// Positron: Windows has issues with long paths, shortened the name
 				persistPath = join(this.options.logsPath, `${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
 				// --- End Positron ---
 			}
@@ -76,7 +77,7 @@ export class PlaywrightDriver {
 			// some driver action ran before.
 			if (persist) {
 				// --- Start Positron ---
-				await this.takeScreenshot(`${name}_${Date.now()}`);
+				await this.takeScreenshot(`${name}`);
 				// --- End Positron ---
 			}
 		} catch (error) {
@@ -167,9 +168,10 @@ export class PlaywrightDriver {
 	// --- Start Positron ---
 	// Positron: make this method public for access from R/Python fixtures
 	async takeScreenshot(name: string): Promise<void> {
-		// --- End Positron ---
 		try {
+			// Positron: Windows has issues with long paths, shortened the name
 			const persistPath = join(this.options.logsPath, `${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
+			// --- End Positron ---
 
 			await measureAndLog(() => this.page.screenshot({ path: persistPath, type: 'png' }), 'takeScreenshot', this.options.logger);
 		} catch (error) {
