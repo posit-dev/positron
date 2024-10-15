@@ -485,14 +485,14 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
 		// command to it.
 		const restart = await positron.window.showSimpleModalDialogPrompt(
-			'Restarting reticulate',
-			'This is will also restart the parent R session. Are you sure you want to continue?',
-			'Yes',
-			'No'
+			vscode.l10n.t('Restarting reticulate'),
+			vscode.l10n.t('This is will also restart the parent R session. Are you sure you want to continue?'),
+			vscode.l10n.t('Yes'),
+			vscode.l10n.t('No')
 		);
 
 		if (!restart) {
-			return;
+			throw new Error('Restart cancelled.');
 		}
 
 		// The events below will make sure that things occure in the right order:
@@ -517,7 +517,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			}
 		});
 
-		await this.shutdown(positron.RuntimeExitReason.SwitchRuntime);
+		await this.shutdown(positron.RuntimeExitReason.Restart);
 		return;
 	}
 
