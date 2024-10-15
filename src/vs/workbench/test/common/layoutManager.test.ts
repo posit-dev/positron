@@ -52,7 +52,6 @@ suite('LayoutManager', () => {
 		testRandomlySizedPredefinedEntries(10);
 		testRandomlySizedPredefinedEntries(1_000);
 		testRandomlySizedPredefinedEntries(20_000);
-		// testRandomlySizedPredefinedEntries(50_000);
 	});
 
 	/**
@@ -69,7 +68,7 @@ suite('LayoutManager', () => {
 		for (let entry = 0; entry < entries; entry++) {
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < defaultSize; offset++) {
-				const start = entry * defaultSize;
+				const start = defaultSize * entry;
 				const layoutEntry = layoutManager.findLayoutEntry(start + offset);
 				assert(layoutEntry);
 				assert.strictEqual(layoutEntry!.index, entry);
@@ -80,6 +79,43 @@ suite('LayoutManager', () => {
 
 		// Verify entries that should not be found.
 		testEntriesThatShouldNotBeFound(layoutManager, entries, defaultSize);
+
+		// Verify the size.
+		assert.strictEqual(layoutManager.size, defaultSize * entries);
+
+		// Verify getting a layout entry with an invalid index.
+		assert(!layoutManager.getLayoutEntry(-1));
+		assert(!layoutManager.getLayoutEntry(entries));
+
+		// Verify getting the layout entry at index 0 twice, for test coverage.
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize
+		});
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize
+		});
+
+		// Set a layout override.
+		layoutManager.setLayoutOverride(0, defaultSize + 1);
+
+		// Verify getting the layout entry at index 0 twice, for test coverage.
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize + 1
+		});
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize + 1
+		});
+
+		// Verify getting the layout entry past the last index, for test coverage.
+		assert(!layoutManager.getLayoutEntry(entries));
 	};
 
 	/**
@@ -96,13 +132,13 @@ suite('LayoutManager', () => {
 		overrideEntries: number
 	) => {
 		// Define test parameters.
-		const overridesStartAt = entries / 2;
+		const overridesStartAt = Math.floor(entries / 2);
 
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
 		layoutManager.setLayoutEntries(entries);
 
-		// Add a bogus layout overrides for test coverage.
+		// Add a bogus layout overrides.
 		layoutManager.setLayoutOverride(100.1, 1);
 		layoutManager.setLayoutOverride(1, 100.1);
 		layoutManager.setLayoutOverride(-1, 1);
@@ -113,44 +149,51 @@ suite('LayoutManager', () => {
 			layoutManager.setLayoutOverride(overridesStartAt + i, overrideSize);
 		}
 
+		// Add a layout override beyond the end for test coverage.
+		layoutManager.setLayoutOverride(entries, overrideSize);
+
+		// Test adding and removing a layout override.
+		layoutManager.setLayoutOverride(1, 1);
+		layoutManager.clearLayoutOverride(1);
+
 		/**
-		 * Checks a layout entry before the overrides.
-		 * @param index The index of the layout entry to check.
+		 * Verifies a layout entry before the overrides.
+		 * @param index The index of the layout entry to verify.
 		 */
-		const checkLayoutEntryBeforeOverrides = (index: number) => {
+		const verifyLayoutEntryBeforeOverrides = (index: number) => {
 			// Assert that the index is within the range.
 			assert(index < overridesStartAt);
 
-			// Check the layout entry.
-			let layoutEntry = layoutManager.findLayoutEntry(index * defaultSize);
+			// Verify the layout entry.
+			let layoutEntry = layoutManager.findLayoutEntry(defaultSize * index);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, index * defaultSize);
+			assert.strictEqual(layoutEntry!.start, defaultSize * index);
 			assert.strictEqual(layoutEntry!.size, defaultSize);
 
-			// Check the layout entry.
+			// Verify the layout entry.
 			layoutEntry = layoutManager.findLayoutEntry(
-				(index * defaultSize) + Math.floor(defaultSize / 2)
+				(defaultSize * index) + Math.floor(defaultSize / 2)
 			);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
-			assert.strictEqual(layoutEntry!.start, index * defaultSize);
+			assert.strictEqual(layoutEntry!.start, defaultSize * index);
 			assert.strictEqual(layoutEntry!.size, defaultSize);
 		};
 
 		// Verify a subset of the layout entries before the overrides.
-		checkLayoutEntryBeforeOverrides(0);
+		verifyLayoutEntryBeforeOverrides(0);
 		for (let i = 0; i < 100; i++) {
-			checkLayoutEntryBeforeOverrides(getRandomIntInclusive(1, overridesStartAt - 2));
+			verifyLayoutEntryBeforeOverrides(getRandomIntInclusive(1, overridesStartAt - 2));
 		}
-		checkLayoutEntryBeforeOverrides(overridesStartAt - 1);
+		verifyLayoutEntryBeforeOverrides(overridesStartAt - 1);
 
 		/**
-		 * Checks a layout entry in the overrides.
+		 * Verifies a layout entry in the overrides.
 		 * @param testIndex The test index.
 		 */
-		let startingOffset = overridesStartAt * defaultSize;
-		const checkLayoutEntryInOverrides = (testIndex: number) => {
+		let startingOffset = defaultSize * overridesStartAt;
+		const verifyLayoutEntryInOverrides = (testIndex: number) => {
 			// Calculate the index.
 			const index = testIndex + overridesStartAt;
 
@@ -158,7 +201,7 @@ suite('LayoutManager', () => {
 			assert(index >= overridesStartAt);
 			assert(index < overridesStartAt + overrideEntries);
 
-			// Check the layout entry.
+			// Verify the layout entry.
 			const start = startingOffset + (testIndex * overrideSize);
 			let layoutEntry = layoutManager.findLayoutEntry(start);
 			assert(layoutEntry);
@@ -166,7 +209,7 @@ suite('LayoutManager', () => {
 			assert.strictEqual(layoutEntry!.start, start);
 			assert.strictEqual(layoutEntry!.size, overrideSize);
 
-			// Check the layout entry.
+			// Verify the layout entry.
 			layoutEntry = layoutManager.findLayoutEntry(start + Math.floor(overrideSize / 2));
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
@@ -175,18 +218,18 @@ suite('LayoutManager', () => {
 		};
 
 		// Verify a subset of the layout entries in the overrides.
-		checkLayoutEntryInOverrides(0);
+		verifyLayoutEntryInOverrides(0);
 		for (let i = 0; i < 100; i++) {
-			checkLayoutEntryInOverrides(getRandomIntInclusive(1, overrideEntries - 2));
+			verifyLayoutEntryInOverrides(getRandomIntInclusive(1, overrideEntries - 2));
 		}
-		checkLayoutEntryInOverrides(overrideEntries - 1);
+		verifyLayoutEntryInOverrides(overrideEntries - 1);
 
 		/**
-		 * Checks a layout entry after the overrides.
-		 * @param index The index of the layout entry to check.
+		 * Verifies a layout entry after the overrides.
+		 * @param index The index of the layout entry to verify.
 		 */
 		startingOffset += overrideEntries * overrideSize;
-		const checkLayoutEntryAfterOverrides = (testIndex: number) => {
+		const verifyLayoutEntryAfterOverrides = (testIndex: number) => {
 			// Calculate the index.
 			const index = testIndex + overridesStartAt + overrideEntries;
 
@@ -194,15 +237,15 @@ suite('LayoutManager', () => {
 			assert(index >= overridesStartAt + overrideEntries);
 			assert(index < entries);
 
-			// Check the layout entry.
-			const start = startingOffset + (testIndex * defaultSize);
+			// Verify the layout entry.
+			const start = startingOffset + (defaultSize * testIndex);
 			let layoutEntry = layoutManager.findLayoutEntry(start);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, start);
 			assert.strictEqual(layoutEntry!.size, defaultSize);
 
-			// Check the layout entry.
+			// Verify the layout entry.
 			layoutEntry = layoutManager.findLayoutEntry(start + Math.floor(defaultSize / 2));
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
@@ -211,15 +254,42 @@ suite('LayoutManager', () => {
 		};
 
 		// Verify a random subset of the layout entries after the overrides.
-		checkLayoutEntryAfterOverrides(0);
+		verifyLayoutEntryAfterOverrides(0);
 		for (let i = 0; i < 100; i++) {
-			checkLayoutEntryAfterOverrides(
+			verifyLayoutEntryAfterOverrides(
 				getRandomIntInclusive(1, entries - overridesStartAt - overrideEntries - 2)
 			);
 		}
-		checkLayoutEntryAfterOverrides(entries - overridesStartAt - overrideEntries - 1);
+		verifyLayoutEntryAfterOverrides(entries - overridesStartAt - overrideEntries - 1);
 
+		// Verify finding a layout entry that should not be found.
 		assert(!layoutManager.findLayoutEntry(Number.MAX_SAFE_INTEGER));
+		assert(!layoutManager.findLayoutEntry(Number.MIN_SAFE_INTEGER));
+
+		// Verify the size.
+		assert.strictEqual(
+			layoutManager.size,
+			(defaultSize * (entries - overrideEntries)) + (overrideSize * overrideEntries)
+		);
+
+		// Verify getting a layout entry with an invalid index.
+		assert(!layoutManager.getLayoutEntry(-1));
+		assert(!layoutManager.getLayoutEntry(entries));
+
+		// Verify getting the layout entry at index 0 twice, for test coverage.
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize
+		});
+		assert.deepEqual(layoutManager.getLayoutEntry(0), {
+			index: 0,
+			start: 0,
+			size: defaultSize
+		});
+
+		// Verify getting the layout entry past the last index, for test coverage.
+		assert(!layoutManager.getLayoutEntry(entries));
 	};
 
 	/**
@@ -245,6 +315,26 @@ suite('LayoutManager', () => {
 			}
 		}
 
+		// Test getting various layout entries.
+		assert(!layoutManager.getLayoutEntry(-1));
+		assert(!layoutManager.getLayoutEntry(entries));
+		assert.deepEqual(
+			layoutManager.getLayoutEntry(0),
+			{
+				index: 0,
+				start: 0,
+				size: entrySize
+			}
+		);
+		assert.deepEqual(
+			layoutManager.getLayoutEntry(entries - 1),
+			{
+				index: entries - 1,
+				start: (entries - 1) * entrySize,
+				size: entrySize
+			}
+		);
+
 		// Override the first entry.
 		const layoutOverride = Math.ceil(entrySize / 2);
 		layoutManager.setLayoutOverride(0, layoutOverride);
@@ -269,6 +359,9 @@ suite('LayoutManager', () => {
 
 		// Verify entries that should not be found.
 		testEntriesThatShouldNotBeFound(layoutManager, entries, entrySize);
+
+		// Verify the size.
+		assert.strictEqual(layoutManager.size, (entrySize * (entries - 1)) + layoutOverride);
 	};
 
 	/**
