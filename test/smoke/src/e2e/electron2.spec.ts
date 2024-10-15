@@ -95,11 +95,13 @@ const test = base.extend<{
 	}, { auto: true }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
+		let screenShotCounter = 1;
 		const page = app.code.driver.getPage();
 		const screenshots: string[] = [];
 
 		app.code.driver.takeScreenshot = async function (name: string) {
-			const screenshotPath = testInfo.outputPath(`${name}.png`);
+
+			const screenshotPath = testInfo.outputPath(`${screenShotCounter++}-${name}.png`);
 			page.screenshot({ path: screenshotPath });
 			screenshots.push(screenshotPath);
 		};
@@ -132,9 +134,9 @@ test.afterEach(async ({ logger, app }) => {
 
 test('has title', async ({ app }) => {
 	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-	await app.code.driver.takeScreenshot('marie-screen1');
+	await app.code.driver.takeScreenshot('marie-screen');
 	await renderQuartoDocument(app, 'html');
-	await app.code.driver.takeScreenshot('marie-screen2');
+	await app.code.driver.takeScreenshot('marie-screen');
 	await verifyDocumentExists(app, 'html');
 	app.code.wait(5000);
 	expect(1).toBe(2);

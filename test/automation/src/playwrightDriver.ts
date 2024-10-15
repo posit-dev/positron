@@ -57,7 +57,6 @@ export class PlaywrightDriver {
 		}
 
 		try {
-			console.log('@@@@ startTracing', name);
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
 		} catch (error) {
 			// Ignore
@@ -73,9 +72,7 @@ export class PlaywrightDriver {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
 				// --- Start Positron ---
-				console.log('@@@@ stopTracing', name, persist);
 				persistPath = join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}_${Date.now()}.zip`);
-				console.log(persistPath);
 				// --- End Positron ---
 			}
 
