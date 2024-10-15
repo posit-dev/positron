@@ -495,7 +495,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			throw new Error('Restart cancelled.');
 		}
 
-		// The events below will make sure that things occure in the right order:
+		// The events below will make sure that things occur in the right order:
 		// 1. shutdown the current reticulate session
 		// 2. restart the attached R session
 		// 3. start a new reticulate session.
