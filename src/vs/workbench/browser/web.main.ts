@@ -463,7 +463,9 @@ export class BrowserMain extends Disposable {
 		const logsStore = 'vscode-logs-store';
 		const handlesStore = 'vscode-filehandles-store';
 		try {
-			indexedDB = await IndexedDB.create('vscode-web-db', 3, [userDataStore, logsStore, handlesStore]);
+			// --- Start Positron ---
+			indexedDB = await IndexedDB.create('positron-web-db', 3, [userDataStore, logsStore, handlesStore]);
+			// --- End Positron ---
 
 			// Close onWillShutdown
 			this.onWillShutdownDisposables.add(toDisposable(() => indexedDB?.close()));
