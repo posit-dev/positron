@@ -16,6 +16,10 @@ test('has title', async ({ trace }) => {
 
 	// Direct Electron console to Node terminal.
 	window.on('console', console.log);
+	await window.getByRole('checkbox').check();
+	await window.waitForTimeout(5000);
+	await window.getByRole('checkbox').uncheck();
+	await window.getByRole('checkbox').check();
 
 	await window.goto('https://playwright.dev/');
 

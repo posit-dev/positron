@@ -11,7 +11,7 @@ app.whenReady().then(() => {
 		width: 800,
 		height: 600,
 	});
-	win.loadURL('about:blank');
+	win.loadURL('data:text/html,<input type=checkbox></input>');
 });
 
 app.on('window-all-closed', e => e.preventDefault());
