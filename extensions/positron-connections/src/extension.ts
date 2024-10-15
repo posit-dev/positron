@@ -16,11 +16,9 @@ export function activate(context: vscode.ExtensionContext) {
 	vscode.commands.executeCommand('setContext', 'positron-connections.connectionsEnabled', enabled);
 
 	vscode.workspace.onDidChangeConfiguration((e) => {
-		console.log('config changed');
 		if (e.affectsConfiguration('positron.connections')) {
 			const config = vscode.workspace.getConfiguration('positron');
 			const enabled = !config.get<boolean>('connections', false);
-			console.log('config changed!', enabled);
 			if (enabled) {
 				activateImpl(context);
 			} else {
