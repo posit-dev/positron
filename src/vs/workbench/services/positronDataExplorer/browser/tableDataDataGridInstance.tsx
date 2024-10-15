@@ -649,28 +649,4 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion Public Methods
-
-	// //#region Protected Methods
-
-	// /**
-	//  * Calculates the column layout regions.
-	//  */
-	// protected override async calculateColumnLayoutWidths(): Promise<void> {
-	// 	//
-	// 	const start = new Date().getTime();
-
-
-	// 	const yack = await this._tableDataCache.calculateColumnLayoutWidths();
-	// 	if (!yack) {
-	// 		this._columnLayoutManager.setLayoutEntries(this.columns);
-	// 	} else {
-	// 		this._columnLayoutManager.setLayoutEntries(yack);
-	// 	}
-
-	// 	//
-	// 	const end = new Date().getTime();
-	// 	console.log(`calculateColumnWidths time: ${end - start}ms`);
-	// }
-
-	// //#endregion Protected Methods
 }

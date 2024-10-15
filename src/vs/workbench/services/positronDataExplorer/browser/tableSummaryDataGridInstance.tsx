@@ -12,8 +12,8 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
+import { ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
-import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDate';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNumber';
@@ -96,18 +96,21 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}));
 
 		// Add the data explorer client instance onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
-			async (state: BackendState) => {
-				// Stringify the row filters.
-				const rowFilters = JSON.stringify(state.row_filters);
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			// Set the layout entries.
+			this._rowLayoutManager.setLayoutEntries(
+				state.table_shape.num_columns
+			);
 
-				// If the row filters have changed, refresh the column profiles.
-				if (this._lastRowFilters !== rowFilters) {
-					this._lastRowFilters = rowFilters;
-					await this._tableSummaryCache.refreshColumnProfiles();
-				}
-			})
-		);
+			// Stringify the row filters.
+			const rowFilters = JSON.stringify(state.row_filters);
+
+			// If the row filters have changed, refresh the column profiles.
+			if (this._lastRowFilters !== rowFilters) {
+				this._lastRowFilters = rowFilters;
+				await this._tableSummaryCache.refreshColumnProfiles();
+			}
+		}));
 
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() => {
@@ -173,97 +176,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	override getColumnWidth(columnIndex: number): number {
 		return this.layoutWidth;
-	}
-
-	/**
-	 * Gets the height of a row.
-	 * @param rowIndex The row index.
-	 */
-	override getRowHeight(rowIndex: number): number {
-		// If the column isn't expanded, return the summary height.
-		if (!this.isColumnExpanded(rowIndex)) {
-			return SUMMARY_HEIGHT;
-		}
-
-		// Get the column schema. If it hasn't been loaded yet, return the summary height.
-		const columnSchema = this._tableSummaryCache.getColumnSchema(rowIndex);
-		if (!columnSchema) {
-			return SUMMARY_HEIGHT;
-		}
-
-		/**
-		 * Returns the row height with the specified number of lines.
-		 * @param profileLines
-		 * @returns
-		 */
-		const rowHeight = (displaySparkline: boolean, profileLines: number) => {
-			// Every row displays the column summary.
-			let rowHeight = SUMMARY_HEIGHT;
-
-			// Account for the sparkline.
-			if (displaySparkline) {
-				rowHeight += 50 + 10;
-			}
-
-			// Account for the profile lines.
-			if (profileLines) {
-				rowHeight += (profileLines * PROFILE_LINE_HEIGHT) + 12;
-			}
-
-			// Return the row height.
-			return rowHeight;
-		};
-
-		// Return the row height.
-		switch (columnSchema.type_display) {
-			// Number.
-			case ColumnDisplayType.Number: {
-				return rowHeight(
-					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.large_histogram,
-					COLUMN_PROFILE_NUMBER_LINE_COUNT
-				);
-			}
-
-			// Boolean.
-			case ColumnDisplayType.Boolean: {
-				return rowHeight(
-					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.small_frequency_table,
-					COLUMN_PROFILE_BOOLEAN_LINE_COUNT
-				);
-			}
-
-			// String.
-			case ColumnDisplayType.String: {
-				return rowHeight(
-					!!this._tableSummaryCache.getColumnProfile(rowIndex)?.large_frequency_table,
-					COLUMN_PROFILE_STRING_LINE_COUNT
-				);
-			}
-
-			// Date.
-			case ColumnDisplayType.Date: {
-				return rowHeight(false, COLUMN_PROFILE_DATE_LINE_COUNT);
-			}
-
-			// Datetime.
-			case ColumnDisplayType.Datetime: {
-				return rowHeight(false, COLUMN_PROFILE_DATE_TIME_LINE_COUNT);
-			}
-
-			// Column display types that do not render a profile.
-			case ColumnDisplayType.Time:
-			case ColumnDisplayType.Object:
-			case ColumnDisplayType.Array:
-			case ColumnDisplayType.Struct:
-			case ColumnDisplayType.Unknown: {
-				return rowHeight(false, 0);
-			}
-
-			// This shouldn't ever happen.
-			default: {
-				return rowHeight(false, 0);
-			}
-		}
 	}
 
 	/**
@@ -342,6 +254,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @param columnIndex The columm index.
 	 */
 	async toggleExpandColumn(columnIndex: number) {
+		if (this._tableSummaryCache.isColumnExpanded(columnIndex)) {
+			this._rowLayoutManager.clearLayoutOverride(columnIndex);
+		} else {
+			this._rowLayoutManager.setLayoutOverride(columnIndex, this.expandedRowHeight(columnIndex));
+		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
 	}
 
@@ -423,4 +340,85 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	//#endregion Public Methods
+
+	//#region Private Methods
+
+	/**
+	 * Gets an expanded row height.
+	 * @param rowIndex The row index of the expanded row height to return.
+	 * @returns The expanded row height.
+	 */
+	private expandedRowHeight(rowIndex: number): number {
+		// Get the column schema. If it hasn't been loaded yet, return the summary height.
+		const columnSchema = this._tableSummaryCache.getColumnSchema(rowIndex);
+		if (!columnSchema) {
+			return SUMMARY_HEIGHT;
+		}
+
+		/**
+		 * Calculates the row height.
+		 * @param displaySparkline A value which indicates whether the sparkline will be displayed.
+		 * @param profileLines The number of profile lines.
+		 * @returns The row height.
+		 */
+		const rowHeight = (displaySparkline: boolean, profileLines: number) => {
+			// Every row displays the column summary.
+			let rowHeight = SUMMARY_HEIGHT;
+
+			// Account for the sparkline.
+			if (displaySparkline) {
+				rowHeight += 50 + 10;
+			}
+
+			// Account for the profile lines.
+			if (profileLines) {
+				rowHeight += (profileLines * PROFILE_LINE_HEIGHT) + 12;
+			}
+
+			// Return the row height.
+			return rowHeight;
+		};
+
+		// Return the row height.
+		switch (columnSchema.type_display) {
+			// Number.
+			case ColumnDisplayType.Number:
+				return rowHeight(true, COLUMN_PROFILE_NUMBER_LINE_COUNT);
+
+			// Boolean.
+			case ColumnDisplayType.Boolean:
+				return rowHeight(true, COLUMN_PROFILE_BOOLEAN_LINE_COUNT);
+
+			// String.
+			case ColumnDisplayType.String: {
+				return rowHeight(true, COLUMN_PROFILE_STRING_LINE_COUNT);
+			}
+
+			// Date.
+			case ColumnDisplayType.Date: {
+				return rowHeight(false, COLUMN_PROFILE_DATE_LINE_COUNT);
+			}
+
+			// Datetime.
+			case ColumnDisplayType.Datetime: {
+				return rowHeight(false, COLUMN_PROFILE_DATE_TIME_LINE_COUNT);
+			}
+
+			// Column display types that do not render a profile.
+			case ColumnDisplayType.Time:
+			case ColumnDisplayType.Object:
+			case ColumnDisplayType.Array:
+			case ColumnDisplayType.Struct:
+			case ColumnDisplayType.Unknown: {
+				return rowHeight(false, 0);
+			}
+
+			// This shouldn't ever happen.
+			default: {
+				return rowHeight(false, 0);
+			}
+		}
+	}
+
+	//#endregion Private Methods
 }
