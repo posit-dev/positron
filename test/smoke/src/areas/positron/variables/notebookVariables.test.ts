@@ -28,7 +28,6 @@ describe('Variables Pane - Notebook #pr #web', () => {
 			this.timeout(120000);
 
 			const app = this.app as Application;
-			expect(1).toBe(2);
 
 			await app.workbench.positronNotebooks.createNewNotebook();
 
