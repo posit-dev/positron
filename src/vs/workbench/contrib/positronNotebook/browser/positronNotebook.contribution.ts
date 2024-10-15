@@ -35,7 +35,7 @@ import { IPositronNotebookInstance } from 'vs/workbench/services/positronNoteboo
 /**
  * Key for the configuration setting that determines whether to use the Positron Notebook editor
  */
-const USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY = 'positron.notebooks.usePositronNotebooks';
+const USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY = 'positron.notebooks.usePositronNotebooksExperimental';
 
 /**
  * Retrieve the value of the configuration setting that determines whether to use the Positron
@@ -55,7 +55,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		[USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY]: {
 			type: 'boolean',
 			default: false,
-			markdownDescription: localize('positron.usePositronNotebooks', "Should the Positron Notebook editor be used instead of the default one?"),
+			markdownDescription: localize(
+				'positron.usePositronNotebooks',
+				"Use experimental Positron Notebook editor.\n\n**CAUTION**: The Positron Notebook editor is experimental and does not yet support all notebook features."
+			),
 		}
 	}
 });
