@@ -199,6 +199,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		ids.forEach((id) => {
 			this.removeConnection(id);
 		});
+		this.onDidChangeDataEmitter.fire();
 	}
 
 	hasConnection(clientId: string) {
