@@ -165,15 +165,30 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		}
 
 		if (props.kind) {
+			// TODO: we'll probably want backends to implement the casting to a set of known
+			// types or provide their own icon.
 			switch (props.kind) {
 				case 'table':
-					return 'table';
+				case 'view':
+					return 'positron-table-connection';
 				case 'field':
-					return 'symbol-field';
+					switch (props.dtype) {
+						case 'character':
+							return 'positron-data-type-string';
+						case 'integer':
+						case 'numeric':
+							return 'positron-data-type-number';
+						case 'boolean':
+						case 'bool':
+							return 'positron-data-type-boolean';
+						default:
+							return 'positron-data-type-unknown';
+					}
 				case 'database':
-					return 'database';
-				// TODO: handle other kinds suuch as schema, catalog, etc that are common
-				// in other dbs. Will need to add our own codicons.
+					return 'positron-database-connection';
+				case 'schema':
+				case 'catalog':
+					return 'positron-schema-connection';
 			}
 		}
 		// If kind is not known, then no icon is dplsayed by default.

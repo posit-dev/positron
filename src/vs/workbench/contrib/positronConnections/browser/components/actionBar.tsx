@@ -74,7 +74,7 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarButton
 							align='left'
 							// TODO: should have a connect-icon
-							iconId='debug-disconnect'
+							iconId='positron-new-connection'
 							tooltip={() => 'Connect'}
 							disabled={connectDisabled}
 							onPressed={() => props.selectedEntry?.connect?.()}
@@ -82,7 +82,7 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
-							iconId='debug-disconnect'
+							iconId='positron-disconnect-connection'
 							text='Disconnect'
 							disabled={disconnectDisabled}
 							onPressed={() => props.selectedEntry?.disconnect?.()}
