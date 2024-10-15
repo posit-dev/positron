@@ -48,8 +48,7 @@ print(f'Hello {val}!')`;
 		});
 	});
 
-	//Skipping due to https://github.com/posit-dev/positron/issues/4901
-	describe.skip('Console Input - R', () => {
+	describe('Console Input - R', () => {
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
 			await this.app.workbench.positronLayouts.enterLayout('fullSizedPanel');
