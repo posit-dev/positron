@@ -5,35 +5,18 @@
 
 import { strict as assert } from 'assert';
 import * as sinon from 'sinon';
-import { DeferredPromise } from 'vs/base/common/async';
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { LanguageService } from 'vs/editor/common/services/languageService';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
-import { ILogService, NullLogService } from 'vs/platform/log/common/log';
-import { IOpener, IOpenerService } from 'vs/platform/opener/common/opener';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { LanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSession';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService } from 'vs/workbench/test/common/workbenchTestServices';
+import { createRuntimeServices } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 
 const TestRuntimeLanguageVersion = '0.0.1';
 const TestRuntimeShortName = TestRuntimeLanguageVersion;
 const TestRuntimeName = `Test ${TestRuntimeShortName}`;
-
-class TestOpenerService implements Partial<IOpenerService> {
-	registerOpener(opener: IOpener): IDisposable {
-		return { dispose() { } };
-	}
-}
 
 class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager {
 	async managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean> {
@@ -74,21 +57,14 @@ function testLanguageRuntimeMetadata(): ILanguageRuntimeMetadata {
 }
 
 suite('Positron - RuntimeSessionService', () => {
-	let runtimeSessionService: RuntimeSessionService;
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	let runtimeSessionService: IRuntimeSessionService;
 	let runtime: ILanguageRuntimeMetadata;
 
-	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-
 	setup(() => {
-		const instantiationService = disposables.add(new TestInstantiationService());
-		instantiationService.stub(IOpenerService, new TestOpenerService());
-		instantiationService.stub(ILanguageService, disposables.add(instantiationService.createInstance(LanguageService)));
-		instantiationService.stub(IExtensionService, new TestExtensionService());
-		instantiationService.stub(IStorageService, disposables.add(new TestStorageService()));
-		instantiationService.stub(ILogService, new NullLogService());
-		instantiationService.stub(IWorkspaceTrustManagementService, disposables.add(new TestWorkspaceTrustManagementService()));
-		const languageRuntimeService = instantiationService.stub(ILanguageRuntimeService, disposables.add(instantiationService.createInstance(LanguageRuntimeService)));
-		runtimeSessionService = disposables.add(instantiationService.createInstance(RuntimeSessionService));
+		const instantiationService = createRuntimeServices(disposables as DisposableStore);
+		const languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
+		runtimeSessionService = instantiationService.get(IRuntimeSessionService);
 
 		// Register the test runtime.
 		runtime = testLanguageRuntimeMetadata();
