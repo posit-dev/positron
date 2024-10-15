@@ -9,9 +9,16 @@ import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { Config, log } from './extension';
 import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
-import { raceTimeout, SequencerByKey } from './utils';
+import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 
-const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})/;
+// Regex to match a URL with the format http://localhost:1234/path
+const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
+
+type PositronProxyInfo = {
+	proxyPath: string;
+	externalUri: vscode.Uri;
+	finishProxySetup: (targetOrigin: string) => Promise<void>;
+};
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
 	private readonly _debugApplicationSequencerByName = new SequencerByKey<string>();
@@ -82,12 +89,12 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		// Get the terminal options for the application.
-		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
-		//       Some application frameworks need to know the URL prefix when running behind a proxy.
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
-		const port = undefined;
-		const urlPrefix = undefined;
-		const terminalOptions = await options.getTerminalOptions(runtime, document, port, urlPrefix);
+		// Start the proxy server
+		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+		log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
+		const urlPrefix = proxyInfo.proxyPath;
+		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
 		if (!terminalOptions) {
 			return;
 		}
@@ -146,7 +153,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 					await this.setShellIntegrationSupported(true);
 
 					if (e.terminal === terminal) {
-						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, options.urlPath);
+						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, proxyInfo, options.urlPath);
 						if (didPreviewUrl) {
 							resolve(didPreviewUrl);
 						}
@@ -215,12 +222,11 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		// Get the debug config for the application.
-		// TODO: If we're in Posit Workbench find a free port and corresponding URL prefix.
-		//       Some application frameworks need to know the URL prefix when running behind a proxy.
 		progress.report({ message: vscode.l10n.t('Getting debug configuration...') });
-		const port = undefined;
-		const urlPrefix = undefined;
-		const debugConfig = await options.getDebugConfiguration(runtime, document, port, urlPrefix);
+		// Start the proxy server
+		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+		const urlPrefix = proxyInfo.proxyPath;
+		const debugConfig = await options.getDebugConfiguration(runtime, document, urlPrefix);
 		if (!debugConfig) {
 			return;
 		}
@@ -257,7 +263,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 							await this.setShellIntegrationSupported(true);
 
 							if (await e.terminal.processId === processId) {
-								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, options.urlPath);
+								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, proxyInfo, options.urlPath);
 								if (didPreviewUrl) {
 									resolve(didPreviewUrl);
 								}
@@ -322,22 +328,24 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 }
 
-async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, urlPath?: string) {
+async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, proxyInfo: PositronProxyInfo, urlPath?: string) {
 	// Wait for the server URL to appear in the terminal output, or a timeout.
 	const stream = execution.read();
 	const url = await raceTimeout(
 		(async () => {
 			for await (const data of stream) {
 				log.warn('Execution:', execution.commandLine.value, data);
-				const match = data.match(localUrlRegex)?.[0];
+				// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
+				const dataCleaned = removeAnsiEscapeCodes(data);
+				const match = dataCleaned.match(localUrlRegex)?.[0];
 				if (match) {
-					return new URL(match);
+					return new URL(match.trim());
 				}
 			}
 			log.warn('URL not found in terminal output');
-			return false;
+			return undefined;
 		})(),
-		5_000,
+		15_000,
 	);
 
 	if (url === undefined) {
@@ -349,10 +357,14 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 	const localBaseUri = vscode.Uri.parse(url.toString());
 	const localUri = urlPath ?
 		vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
-	const externalUri = await vscode.env.asExternalUri(localUri);
+
+	log.debug(`Viewing app at local uri: ${localUri} with external uri ${proxyInfo.externalUri.toString()}`);
+
+	// Finish the Positron proxy setup so that proxy middleware is hooked up.
+	await proxyInfo.finishProxySetup(localUri.toString());
 
 	// Preview the external URI.
-	positron.window.previewUrl(externalUri);
+	positron.window.previewUrl(proxyInfo.externalUri);
 
 	return true;
 }

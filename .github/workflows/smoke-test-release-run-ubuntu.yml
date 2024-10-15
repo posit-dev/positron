@@ -1,0 +1,101 @@
+name: "Latest Release: E2E Electron Tests"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  linux:
+    name: e2e-electron-tests
+    runs-on: ubuntu-latest-4x
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install Build Dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            vim curl build-essential clang make cmake git \
+            libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
+            libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
+            libsdl-pango-dev libjpeg-dev libgif-dev pandoc
+
+      - name: Compile tests
+        run: |
+          corepack enable
+          yarn global add node-gyp
+          yarn install
+          yarn --cwd test/automation install
+          yarn --cwd test/smoke install
+          yarn --cwd test/automation compile
+          yarn --cwd test/smoke compile
+
+      - name: Get & install latest release
+        id: get_latest_release
+        run: |
+          response=$(curl -s -H "Authorization: token ${{ secrets.POSITRON_GITHUB_PAT }}" "https://api.github.com/repos/posit-dev/positron-builds/releases")
+          latest_tag=$(echo "${response}" | jq -r '.[0].tag_name')
+          asset_url=$(echo "${response}" | jq -r '.[0].assets[] | select(.name|match("deb")) | .url')
+          filename=$(echo "${response}" | jq -r '.[0].assets[] | select(.name|match("deb")) | .name')
+          echo "Latest release: ${latest_tag}"
+          echo "Downloading ${filename} from ${asset_url}..."
+          curl -L -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.POSITRON_GITHUB_PAT }}" "${asset_url}" -o "${filename}"
+          sudo dpkg -i "${filename}"
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure xvfb Service
+        shell: bash
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
+
+      - name: Run Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: electron-smoke-tests
+        run: |
+          cd test/smoke
+          export BUILD_ARTIFACTSTAGINGDIRECTORY=../../.build/logs/smoke-tests-electron
+          export DISPLAY=:10
+          node run-tests.js --tracing --parallel --jobs 2 --skip-cleanup --build /usr/share/positron
+
+      - name: Convert XUnit to JUnit
+        id: xunit-to-junit
+        if: success() || failure()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          yarn xunit-to-junit smoke-tests-electron
+
+      - name: Publish Electron Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure()
+        with:
+          report_paths: "**/.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
+          check_name: "Electron Test Results"
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Artifacts - Electron
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts-electron
+          path: .build/logs/smoke-tests-electron/

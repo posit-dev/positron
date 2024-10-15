@@ -616,10 +616,17 @@ function readCookie(name: string): string | undefined {
 							.replace('/p/', '/proxy/')
 							.replace('{{port}}', localhostMatch.port.toString());
 					}
-					// Update the authority and path of the URI to point to the proxy server. This
-					// retains the original query and fragment, while updating the authority and
-					// path to the proxy server.
+
+					// Use the same scheme as the main window, to ensure that the proxy server is
+					// accessed using http if the main window is accessed using http or https if the
+					// main window is accessed using https. Otherwise we'll get a mixed content error.
+					// We need to slice the protocol to remove the colon at the end.
+					const resolvedScheme = mainWindow.location.protocol.slice(0, -1);
+
+					// Update the URI to point to the proxy server. This retains the original query
+					// and fragment, while updating the scheme, authority and path to the proxy server.
 					resolvedUri = resolvedUri.with({
+						scheme: resolvedScheme,
 						authority: mainWindow.location.host,
 						path: join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
 					});

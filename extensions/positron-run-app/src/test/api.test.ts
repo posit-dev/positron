@@ -21,7 +21,7 @@ suite('PositronRunApp', () => {
 	// Options for running the test application.
 	const runAppOptions: RunAppOptions = {
 		name: 'Test App',
-		getTerminalOptions(runtime, document, _port, _urlPrefix) {
+		getTerminalOptions(runtime, document, _urlPrefix) {
 			return {
 				commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
 			};
@@ -31,7 +31,7 @@ suite('PositronRunApp', () => {
 	// Options for debugging the test application.
 	const debugAppOptions: DebugAppOptions = {
 		name: 'Test App',
-		getDebugConfiguration(_runtime, document, _port, _urlPrefix) {
+		getDebugConfiguration(_runtime, document, _urlPrefix) {
 			return {
 				name: 'Launch Test App',
 				type: 'node',
@@ -63,6 +63,15 @@ suite('PositronRunApp', () => {
 
 		// Stub the runtime API to return the test runtime.
 		sinon.stub(positron.runtime, 'getPreferredRuntime').callsFake(async (_languageId) => runtime);
+
+		// Stub the positron proxy API.
+		sinon.stub(vscode.commands, 'executeCommand')
+			.withArgs('positronProxy.startPendingProxyServer')
+			.resolves({
+			proxyPath: '/proxy/path',
+			externalUri: vscode.Uri.parse('http://localhost:1234'),
+			finishProxySetup: () => {},
+		});
 
 		// Stub the preview URL function.
 		previewUrlStub = sinon.stub(positron.window, 'previewUrl');

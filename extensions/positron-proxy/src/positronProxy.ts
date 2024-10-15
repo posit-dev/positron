@@ -12,6 +12,7 @@ import { ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
+import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
 
 /**
  * Constants.
@@ -54,12 +55,26 @@ type ContentRewriter = (
 ) => Promise<Buffer | string>;
 
 /**
+ * PendingProxyServer type.
+ */
+type PendingProxyServer = {
+	externalUri: vscode.Uri;
+	proxyPath: string;
+	finishProxySetup: (targetOrigin: string) => Promise<void>;
+};
+
+/**
+ * MaybeAddressInfo type.
+ */
+type MaybeAddressInfo = AddressInfo | string | null | undefined;
+
+/**
  * Custom type guard for AddressInfo.
  * @param addressInfo The value to type guard.
  * @returns true if the value is an AddressInfo; otherwise, false.
  */
 export const isAddressInfo = (
-	addressInfo: string | AddressInfo | null
+	addressInfo: MaybeAddressInfo
 ): addressInfo is AddressInfo =>
 	(addressInfo as AddressInfo).address !== undefined &&
 	(addressInfo as AddressInfo).family !== undefined &&
@@ -190,7 +205,7 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
+			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
 				// If this isn't 'text/html' content, just return the response buffer.
 				if (!contentType.includes('text/html')) {
 					return responseBuffer;
@@ -228,7 +243,7 @@ export class PositronProxy implements Disposable {
 				);
 
 				// Rewrite the URLs with the proxy path.
-				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
+				response = rewriteUrlsWithProxyPath(response, proxyPath);
 
 				// Return the response.
 				return response;
@@ -285,23 +300,21 @@ export class PositronProxy implements Disposable {
 	 */
 	startHttpProxyServer(targetOrigin: string): Promise<string> {
 		// Start the proxy server.
-		return this.startProxyServer(
-			targetOrigin,
-			async (serverOrigin, proxyPath, url, contentType, responseBuffer) => {
-				// If this isn't 'text/html' content, just return the response buffer.
-				if (!contentType.includes('text/html')) {
-					return responseBuffer;
-				}
+		return this.startProxyServer(targetOrigin, htmlContentRewriter);
+	}
 
-				// Get the response.
-				let response = responseBuffer.toString('utf8');
-
-				// Rewrite the URLs with the proxy path.
-				response = this.rewriteUrlsWithProxyPath(response, proxyPath);
-
-				// Return the response.
-				return response;
-			});
+	/**
+	 * Starts an HTTP proxy server that is pending middleware setup.
+	 * Use this instead of startHttpProxyServer if you need to set up a proxy in steps instead of
+	 * all at once. For example, you may want to start the proxy server and pass the proxy path to
+	 * an application framework, start the app and get the targetOrigin, and then add the middleware
+	 * to the proxy server.
+	 * @returns The pending proxy server info.
+	 */
+	startPendingHttpProxyServer(): Promise<PendingProxyServer> {
+		// Start the proxy server and return the pending proxy server info. The caller will need to
+		// call finishProxySetup to complete the proxy setup.
+		return this.startNewProxyServer(htmlContentRewriter);
 	}
 
 	//#endregion Public Methods
@@ -312,103 +325,135 @@ export class PositronProxy implements Disposable {
 	 * Starts a proxy server.
 	 * @param targetOrigin The target origin.
 	 * @param contentRewriter The content rewriter.
-	 * @returns The server origin.
+	 * @returns The server origin, resolved to an external uri if applicable.
 	 */
-	startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
-		// Return a promise.
-		return new Promise((resolve, reject) => {
-			// See if we have an existing proxy server for target origin. If there is, return the
-			// server origin.
-			const proxyServer = this._proxyServers.get(targetOrigin);
-			if (proxyServer) {
-				resolve(proxyServer.serverOrigin);
-				return;
-			}
+	private async startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		// See if we have an existing proxy server for target origin. If there is, return the
+		// server origin.
+		const proxyServer = this._proxyServers.get(targetOrigin);
+		if (proxyServer) {
+			console.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${targetOrigin}.`);
+			return proxyServer.serverOrigin;
+		}
 
-			// Create the app and start listening on a random port.
-			const app = express();
-			const server = app.listen(0, HOST, async () => {
-				// Get the server address.
-				const address = server.address();
+		let pendingProxy: PendingProxyServer;
+		try {
+			// We don't have an existing proxy server for the target origin, so start a new one.
+			pendingProxy = await this.startNewProxyServer(contentRewriter);
+		} catch (error) {
+			console.error(`Failed to start a proxy server for ${targetOrigin}.`);
+			throw error;
+		}
 
-				// Ensure that we have the address info of the server.
-				if (!isAddressInfo(address)) {
-					server.close();
-					reject();
-					return;
-				}
+		try {
+			// Finish setting up the proxy server.
+			await pendingProxy.finishProxySetup(targetOrigin);
+		} catch (error) {
+			console.error(`Failed to finish setting up the proxy server at ${pendingProxy.externalUri} for target: ${targetOrigin}.`);
+			throw error;
+		}
 
-				// Create the server origin.
-				const serverOrigin = `http://${address.address}:${address.port}`;
-
-				// Add the proxy server.
-				this._proxyServers.set(targetOrigin, new ProxyServer(
-					serverOrigin,
-					targetOrigin,
-					server
-				));
-
-				// Convert the server origin to an external URI.
-				const originUri = vscode.Uri.parse(serverOrigin);
-				const externalUri = await vscode.env.asExternalUri(originUri);
-
-				// Add the proxy middleware.
-				app.use('*', createProxyMiddleware({
-					target: targetOrigin,
-					changeOrigin: true,
-					selfHandleResponse: true,
-					// Logging for development work.
-					// onProxyReq: (proxyReq, req, res, options) => {
-					// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-					// },
-					onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, res) => {
-						// Get the URL and the content type. These must be present to call the
-						// content rewriter. Also, the scripts must be loaded.
-						const url = req.url;
-						const contentType = proxyRes.headers['content-type'];
-						if (!url || !contentType || !this._scriptsFileLoaded) {
-							// Don't process the response.
-							return responseBuffer;
-						}
-
-						// Rewrite the content.
-						return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
-					})
-				}));
-
-				// Resolve the server origin external URI.
-				resolve(externalUri.toString());
-			});
-		});
+		// Return the external URI.
+		return pendingProxy.externalUri.toString();
 	}
 
 	/**
-	 * Rewrites the URLs in the content.
-	 * @param content The content.
-	 * @param proxyPath The proxy path.
-	 * @returns The content with the URLs rewritten.
+	 * Starts a proxy server that is pending middleware setup.
+	 * This is used to create a server and app that will be used to add middleware later.
+	 * @returns The server origin and the proxy path.
 	 */
-	rewriteUrlsWithProxyPath(content: string, proxyPath: string): string {
-		// When running on Web, we need to prepend root-relative URLs with the proxy path,
-		// because the help proxy server is running at a different origin than the target origin.
-		// When running on Desktop, we don't need to do this, because the help proxy server is
-		// running at the same origin as the target origin (localhost).
-		if (vscode.env.uiKind === vscode.UIKind.Web) {
-			// Prepend root-relative URLs with the proxy path. The proxy path may look like
-			// /proxy/<PORT> or a different proxy path if an external uri is used.
-			return content.replace(
-				// This is icky and we should use a proper HTML parser, but it works for now.
-				// Possible sources of error are: whitespace differences, single vs. double
-				// quotes, etc., which are not covered in this regex.
-				// Regex translation: look for src="/ or href="/ and replace it with
-				// src="<PROXY_PATH> or href="<PROXY_PATH> respectively.
-				/(src|href)="\/([^"]+)"/g,
-				`$1="${proxyPath}/$2"`
-			);
+	private async startNewProxyServer(contentRewriter: ContentRewriter): Promise<PendingProxyServer> {
+		// Create the app and start listening on a random port.
+		const app = express();
+		let address: MaybeAddressInfo;
+		const server = await new Promise<Server>((resolve, reject) => {
+			const srv = app.listen(0, HOST, () => {
+				// Get the server address.
+				address = srv.address();
+				resolve(srv);
+			});
+			srv.on('error', reject);
+		});
+
+		// Ensure the address is an AddressInfo.
+		if (!isAddressInfo(address)) {
+			server.close();
+			throw new Error(`Failed to get the address info ${JSON.stringify(address)} for the server.`);
 		}
 
-		// Return the content as-is.
-		return content;
+		// Create the server origin.
+		const serverOrigin = `http://${address.address}:${address.port}`;
+
+		// Convert the server origin to an external URI.
+		const originUri = vscode.Uri.parse(serverOrigin);
+		const externalUri = await vscode.env.asExternalUri(originUri);
+
+		// Return the pending proxy info.
+		return {
+			externalUri: externalUri,
+			proxyPath: externalUri.path,
+			finishProxySetup: (targetOrigin: string) => {
+				return this.finishProxySetup(
+					targetOrigin,
+					serverOrigin,
+					externalUri,
+					server,
+					app,
+					contentRewriter
+				);
+			}
+		} satisfies PendingProxyServer;
+	}
+
+	/**
+	 * Finishes setting up the proxy server by adding the proxy middleware.
+	 * @param targetOrigin The target origin.
+	 * @param serverOrigin The server origin.
+	 * @param externalUri The external URI.
+	 * @param server The server.
+	 * @param app The express app.
+	 * @param contentRewriter The content rewriter.
+	 * @returns A promise that resolves when the proxy setup is complete.
+	 */
+	private async finishProxySetup(
+		targetOrigin: string,
+		serverOrigin: string,
+		externalUri: vscode.Uri,
+		server: Server,
+		app: express.Express,
+		contentRewriter: ContentRewriter
+	) {
+		// Add the proxy server.
+		this._proxyServers.set(targetOrigin, new ProxyServer(
+			serverOrigin,
+			targetOrigin,
+			server
+		));
+
+		// Add the proxy middleware.
+		app.use('*', createProxyMiddleware({
+			target: targetOrigin,
+			changeOrigin: true,
+			selfHandleResponse: true,
+			ws: true,
+			// Logging for development work.
+			// onProxyReq: (proxyReq, req, res, options) => {
+			// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
+			// },
+			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
+				// Get the URL and the content type. These must be present to call the
+				// content rewriter. Also, the scripts must be loaded.
+				const url = req.url;
+				const contentType = proxyRes.headers['content-type'];
+				if (!url || !contentType || !this._scriptsFileLoaded) {
+					// Don't process the response.
+					return responseBuffer;
+				}
+
+				// Rewrite the content.
+				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
+			})
+		}));
 	}
 
 	//#endregion Private Methods

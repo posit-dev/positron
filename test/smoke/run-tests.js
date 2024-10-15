@@ -11,8 +11,8 @@ const minimist = require('minimist');
 const { prepareTestEnv, cloneTestRepo, runMochaTests } = require('./out/test-runner');
 const OPTS = minimist(process.argv.slice(2));
 
-(function main() {
+(async function main() {
 	prepareTestEnv();
 	cloneTestRepo();
-	runMochaTests(OPTS);
+	await runMochaTests(OPTS);
 })();

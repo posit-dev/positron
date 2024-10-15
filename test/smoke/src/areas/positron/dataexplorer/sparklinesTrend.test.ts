@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Data Explorer #web', () => {
+describe('Data Explorer #web #win', () => {
 	setupAndStartApp();
 
 	describe('Sparklines', () => {
@@ -47,8 +47,9 @@ describe('Data Explorer #web', () => {
 			await app.code.driver.getLocator(`.label-name:has-text("Data: ${variableName}")`).innerText();
 		}).toPass();
 
-		await app.workbench.positronDataExplorer.getDataExplorerTableData();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.workbench.positronSideBar.closeSecondarySideBar();
+		await app.workbench.positronDataExplorer.getDataExplorerTableData();
 		await app.workbench.positronDataExplorer.expandColumnProfile(0);
 	}
 
