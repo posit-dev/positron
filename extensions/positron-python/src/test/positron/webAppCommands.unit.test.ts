@@ -40,11 +40,11 @@ suite('Web app commands', () => {
         debugAppOptions = undefined;
         const runAppApi: PositronRunApp = {
             async runApplication(_options) {
-                assert(!runAppOptions, 'runApplication called more than once');
+                assert.ok(!runAppOptions, 'runApplication called more than once');
                 runAppOptions = _options;
             },
             async debugApplication(_options) {
-                assert(!debugAppOptions, 'debugApplication called more than once');
+                assert.ok(!debugAppOptions, 'debugApplication called more than once');
                 debugAppOptions = _options;
             },
         };
@@ -66,17 +66,16 @@ suite('Web app commands', () => {
 
         // Stub `vscode.commands.registerCommand` to record registered command callbacks.
         vscode.commands.registerCommand = (command, callback) => {
-            assert(!commands.has(command), `Command registered more than once: ${command}`);
+            assert.ok(!commands.has(command), `Command registered more than once: ${command}`);
             commands.set(command, callback);
             return { dispose: () => undefined };
         };
 
         // Stub `vscode.workspace.asRelativePath`.
-        sinon.stub(vscode, 'workspace').get(() => ({
-            asRelativePath(fsPath: string) {
-                return path.relative(workspacePath, fsPath);
-            },
-        }));
+        vscode.workspace.asRelativePath = (pathOrUri: string | vscode.Uri) => {
+            const fsPath = typeof pathOrUri === 'string' ? pathOrUri : pathOrUri.fsPath;
+            return path.relative(workspacePath, fsPath);
+        };
 
         // Stub the interpreter service and installer services.
         // Tests can set `isFastAPICliInstalled` to control whether the FastAPI CLI is installed.
@@ -127,9 +126,9 @@ suite('Web app commands', () => {
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
-        assert(callback, `Command not registered for: ${command}`);
+        assert.ok(callback, `Command not registered for: ${command}`);
         await callback();
-        assert(runAppOptions, `runAppOptions not set for command: ${command}`);
+        assert.ok(runAppOptions, `runAppOptions not set for command: ${command}`);
 
         // Test `getTerminalOptions`.
         const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
@@ -182,10 +181,6 @@ suite('Web app commands', () => {
 
     test('Exec FastAPI in terminal - fastapi-cli not installed, could not infer app name', async () => {
         isFastAPICliInstalled = false;
-
-        sinon.stub(vscode, 'workspace').get(() => ({
-            workspaceFolders: [{ uri: { fsPath: '/path/to' } }],
-        }));
 
         await verifyRunAppCommand(Commands.Exec_FastAPI_In_Terminal, undefined);
     });
@@ -270,9 +265,9 @@ suite('Web app commands', () => {
     ) {
         // Call the command callback and ensure that it sets runAppOptions.
         const callback = commands.get(command);
-        assert(callback, `Command not registered for: ${command}`);
-        await callback();
-        assert(debugAppOptions, `debugAppOptions not set for command: ${command}`);
+        assert.ok(callback, `Command not registered for: ${command}`);
+        await callback!();
+        assert.ok(debugAppOptions, `debugAppOptions not set for command: ${command}`);
 
         // Test `getDebugConfiguration`.
         const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
@@ -282,7 +277,7 @@ suite('Web app commands', () => {
                 return options?.documentText ?? '';
             },
         } as vscode.TextDocument;
-        const terminalOptions = await debugAppOptions.getDebugConfiguration(runtime, document, options?.urlPrefix);
+        const terminalOptions = await debugAppOptions!.getDebugConfiguration(runtime, document, options?.urlPrefix);
         assert.deepStrictEqual(terminalOptions, expectedDebugConfig);
     }
 

@@ -378,7 +378,6 @@ export class PythonTestController implements ITestController, IExtensionSingleAc
             `Running Tests for Workspace(s): ${workspaces.map((w) => w.uri.fsPath).join(';')}`,
             true,
         );
-
         const dispose = token.onCancellationRequested(() => {
             runInstance.appendOutput(`\nRun instance cancelled.\r\n`);
             runInstance.end();

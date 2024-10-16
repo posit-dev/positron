@@ -110,10 +110,7 @@ function configure(): SetupOptions {
  */
 function activatePythonExtensionScript() {
     const ex = new Error('Failed to initialize Python extension for tests after 3 minutes');
-    // --- Start Positron ---
-    // Use NodeJS.Timeout instead of NodeJS.Timer since we're using a later @types/node version.
     let timer: NodeJS.Timeout | undefined;
-    // --- End Positron ---
     const failed = new Promise((_, reject) => {
         timer = setTimeout(() => reject(ex), MAX_EXTENSION_ACTIVATION_TIME);
     });
@@ -133,7 +130,7 @@ function activatePythonExtensionScript() {
  */
 export async function run(): Promise<void> {
     const options = configure();
-    const mocha = new Mocha(options);
+    const mocha = new Mocha.default(options);
     const testsRoot = path.join(__dirname);
 
     // Enable source map support.
@@ -142,7 +139,7 @@ export async function run(): Promise<void> {
     // Ignore `ds.test.js` test files when running other tests.
     const ignoreGlob = options.testFilesSuffix.toLowerCase() === 'ds.test' ? [] : ['**/**.ds.test.js'];
     const testFiles = await new Promise<string[]>((resolve, reject) => {
-        glob(
+        glob.default(
             `**/**.${options.testFilesSuffix}.js`,
             { ignore: ['**/**.unit.test.js', '**/**.functional.test.js'].concat(ignoreGlob), cwd: testsRoot },
             (error, files) => {

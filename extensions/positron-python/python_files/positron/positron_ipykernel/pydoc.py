@@ -17,8 +17,14 @@ import sys
 import warnings
 from dataclasses import dataclass
 from functools import partial
-from pydoc import _is_bound_method  # type: ignore
-from pydoc import ModuleScanner, describe, isdata, locate, visiblename
+from pydoc import (
+    ModuleScanner,
+    _is_bound_method,  # type: ignore
+    describe,
+    isdata,
+    locate,
+    visiblename,
+)
 from traceback import format_exception_only
 from types import ModuleType
 from typing import Any, Dict, List, Optional, Type, cast
