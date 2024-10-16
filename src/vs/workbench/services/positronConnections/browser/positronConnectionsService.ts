@@ -101,8 +101,12 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	async refreshConnectionEntries() {
-		await this._cache.refreshConnectionEntries();
-		this.onDidChangeEntriesEmitter.fire(this._cache.entries);
+		try {
+			await this._cache.refreshConnectionEntries();
+			this.onDidChangeEntriesEmitter.fire(this._cache.entries);
+		} catch (err) {
+			this.notificationService.error(`Failed to refresh connection entries: ${err.message}`);
+		}
 	}
 
 	getConnections() {
