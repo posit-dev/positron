@@ -1386,7 +1386,7 @@ export abstract class DataGridInstance extends Disposable {
 	async setRowHeadersWidth(rowHeadersWidth: number): Promise<void> {
 		// If the row headers width has changed, update it.
 		if (rowHeadersWidth !== this._rowHeadersWidth) {
-			// Set the row headers width..
+			// Set the row headers width.
 			this._rowHeadersWidth = rowHeadersWidth;
 
 			// Fetch data.
@@ -1405,7 +1405,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async setScreenSize(width: number, height: number): Promise<void> {
 		// If the screen size changed, fetch data and fire the onDidUpdate event.
-		if (width !== this._width || width !== this._width) {
+		if (width !== this._width || height !== this._height) {
 			// Update the width and height.
 			this._width = width;
 			this._height = height;
@@ -1445,14 +1445,10 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Sets the horizontal scroll offset.
 	 * @param horizontalScrollOffset The horizontal scroll offset.
-	 * @param force A value which indicates whether to force the operation.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setHorizontalScrollOffset(
-		horizontalScrollOffset: number,
-		force: boolean = false
-	): Promise<void> {
-		if (force || horizontalScrollOffset !== this._horizontalScrollOffset) {
+	async setHorizontalScrollOffset(horizontalScrollOffset: number): Promise<void> {
+		if (horizontalScrollOffset !== this._horizontalScrollOffset) {
 			// Set the horizontal scroll offset.
 			this._horizontalScrollOffset = horizontalScrollOffset;
 
@@ -1467,14 +1463,10 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Sets the vertical scroll offset.
 	 * @param verticalScrollOffset The vertical scroll offset.
-	 * @param force A value which indicates whether to force the operation.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setVerticalScrollOffset(
-		verticalScrollOffset: number,
-		force: boolean = false
-	): Promise<void> {
-		if (force || verticalScrollOffset !== this._verticalScrollOffset) {
+	async setVerticalScrollOffset(verticalScrollOffset: number): Promise<void> {
+		if (verticalScrollOffset !== this._verticalScrollOffset) {
 			// Set the vertical scroll offset.
 			this._verticalScrollOffset = verticalScrollOffset;
 
@@ -1548,8 +1540,45 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToCell(columnIndex: number, rowIndex: number) {
-		await this.scrollToColumn(columnIndex);
-		await this.scrollToRow(rowIndex);
+		// Get the column layout entry. If it wasn't found, return.
+		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!columnLayoutEntry) {
+			return;
+		}
+
+		// Get the row layout entry. If it wasn't found, return.
+		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!rowLayoutEntry) {
+			return;
+		}
+
+		// If the column isn't visible, adjust the horizontal scroll offset to scroll to it.
+		let scrollOffsetUpdated = false;
+		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
+			this._horizontalScrollOffset = columnLayoutEntry.start;
+			scrollOffsetUpdated = true;
+		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
+			this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
+			scrollOffsetUpdated = true;
+		}
+
+		// If the row isn't visible, adjust the vertical scroll offset to scroll to it.
+		if (rowLayoutEntry.start < this._verticalScrollOffset) {
+			this._verticalScrollOffset = rowLayoutEntry.start;
+			scrollOffsetUpdated = true;
+		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
+			this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
+			scrollOffsetUpdated = true;
+		}
+
+		// If scroll offset was updated, fetch data and fire the onDidUpdate event.
+		if (scrollOffsetUpdated) {
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
 	}
 
 	/**
@@ -1558,13 +1587,18 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToColumn(columnIndex: number): Promise<void> {
-		// if (columnIndex < this._firstColumnIndexXX) {
-		// 	await this.setFirstColumn(columnIndex);
-		// } else if (columnIndex >= this._firstColumnIndexXX + this.visibleColumns) {
-		// 	do {
-		// 		await this.setFirstColumn(this._firstColumnIndexXX + 1);
-		// 	} while (columnIndex >= this._firstColumnIndexXX + this.visibleColumns);
-		// }
+		// Get the column layout entry. If it wasn't found, return.
+		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!columnLayoutEntry) {
+			return;
+		}
+
+		// If the column isn't visible, scroll to it.
+		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
+			await this.setHorizontalScrollOffset(columnLayoutEntry.start);
+		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
+			await this.setHorizontalScrollOffset(columnLayoutEntry.end - this.layoutWidth);
+		}
 	}
 
 	/**
@@ -1572,13 +1606,18 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	async scrollToRow(rowIndex: number) {
-		// if (rowIndex < this.firstRowIndexXX) {
-		// 	await this.setFirstRow(rowIndex);
-		// } else if (rowIndex >= this.firstRowIndexXX + this.visibleRows) {
-		// 	do {
-		// 		await this.setFirstRow(this.firstRowIndexXX + 1);
-		// 	} while (rowIndex >= this.firstRowIndexXX + this.visibleRows);
-		// }
+		// Get the row layout entry. If it wasn't found, return.
+		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!rowLayoutEntry) {
+			return;
+		}
+
+		// If the row isn't visible, scroll to it.
+		if (rowLayoutEntry.start < this._verticalScrollOffset) {
+			await this.setVerticalScrollOffset(rowLayoutEntry.start);
+		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
+			await this.setVerticalScrollOffset(rowLayoutEntry.end - this.layoutHeight);
+		}
 	}
 
 	/**
