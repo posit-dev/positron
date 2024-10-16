@@ -22,9 +22,9 @@ import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/component
 import 'vs/css!./actionBar';
 import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 
-const kPaddingLeft = 8;
-const kPaddingRight = 8;
-export const kHeight = 32;
+const ACTION_BAR_PADDING_LEFT = 8;
+const ACTION_BAR_PADDING_RIGHT = 8;
+export const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps {
 	readonly commandService: ICommandService;
@@ -61,14 +61,14 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 		props.selectedEntry.connect === undefined;
 
 	return (
-		<div style={{ height: kHeight }}>
+		<div style={{ height: ACTION_BAR_HEIGHT }}>
 			<PositronActionBarContextProvider {...props}>
 				<PositronActionBar
 					size='small'
 					borderTop={true}
 					borderBottom={true}
-					paddingLeft={kPaddingLeft}
-					paddingRight={kPaddingRight}
+					paddingLeft={ACTION_BAR_PADDING_LEFT}
+					paddingRight={ACTION_BAR_PADDING_RIGHT}
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton

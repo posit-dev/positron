@@ -11,7 +11,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ActionBar, kHeight as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
+import { ActionBar, ACTION_BAR_HEIGHT as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
 
 import { FixedSizeList as List } from 'react-window';
 
