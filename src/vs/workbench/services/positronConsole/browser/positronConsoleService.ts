@@ -1695,9 +1695,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Add a message explaining that the exit occurred, and why.
+			let message = this.formatExit(exit);
+			if (exit.message) {
+				message += `\n\n${exit.message}`;
+			}
 			const exited = new RuntimeItemExited(generateUuid(),
 				exit.reason,
-				this.formatExit(exit));
+				message);
 			this.addRuntimeItem(exited);
 
 			// Show restart button if crashed and user has disabled automatic restarts

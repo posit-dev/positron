@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
+import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, StartupError, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
@@ -643,6 +643,56 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns The kernel info for the session.
 	 */
 	async start(): Promise<positron.LanguageRuntimeInfo> {
+		try {
+			// Attempt to start the session
+			await this.tryStart();
+		} catch (err) {
+			if (err instanceof HttpError && err.statusCode === 500) {
+				// When the server returns a 500 error, it means the startup
+				// failed. In this case the API returns a structured startup
+				// error we can use to report the problem with more detail.
+				const startupErr = err.body;
+				let message = startupErr.error.message;
+				if (startupErr.output) {
+					message += `\n${startupErr.output}`;
+				}
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: startupErr.exit_code ?? 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message
+				};
+				this._exit.fire(event);
+			} else {
+				// This indicates that startup failed due to a problem on the
+				// client side. We still need to report an exit so that the UI
+				// treats the runtime as exited.
+
+				// Attempt to extract a message from the error, or just
+				// stringify it if it's not an Error
+				const message =
+					err instanceof Error ? err.message : JSON.stringify(err);
+				const event: positron.LanguageRuntimeExit = {
+					runtime_name: this.runtimeMetadata.runtimeName,
+					exit_code: 0,
+					reason: positron.RuntimeExitReason.StartupFailed,
+					message
+				};
+				this._exit.fire(event);
+			}
+
+			this.onStateChange(positron.RuntimeState.Exited);
+			throw err;
+		}
+
+		return this.getKernelInfo();
+	}
+
+	/**
+	 * Attempts to start the session; returns a promise that resolves when the
+	 * session is ready to use.
+	 */
+	private async tryStart(): Promise<void> {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
@@ -650,18 +700,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
-
-			// Wait for the session to start
-			try {
-				await this._api.startSession(this.metadata.sessionId);
-			} catch (err) {
-				if (err instanceof HttpError) {
-					throw new Error(err.body.message);
-				} else {
-					// Rethrow the error as-is if it's not an HTTP error
-					throw err;
-				}
-			}
+			await this._api.startSession(this.metadata.sessionId);
 		}
 
 		// Before connecting, check if we should attach to the session on
@@ -707,8 +746,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this._state.fire(positron.RuntimeState.Ready);
 			}
 		}
-
-		return this.getKernelInfo();
 	}
 
 	/**
