@@ -46,6 +46,35 @@ class FieldSchema(BaseModel):
     )
 
 
+class MetadataSchema(BaseModel):
+    """
+    MetadataSchema in Schemas
+    """
+
+    name: StrictStr = Field(
+        description="Connection name",
+    )
+
+    language_id: StrictStr = Field(
+        description="Language ID for the connections. Essentially just R or python",
+    )
+
+    host: Optional[StrictStr] = Field(
+        default=None,
+        description="Connection host",
+    )
+
+    type: Optional[StrictStr] = Field(
+        default=None,
+        description="Connection type",
+    )
+
+    code: Optional[StrictStr] = Field(
+        default=None,
+        description="Code used to re-create the connection",
+    )
+
+
 @enum.unique
 class ConnectionsBackendRequest(str, enum.Enum):
     """
@@ -66,6 +95,9 @@ class ConnectionsBackendRequest(str, enum.Enum):
 
     # Preview object data
     PreviewObject = "preview_object"
+
+    # Gets metadata from the connections
+    GetMetadata = "get_metadata"
 
 
 class ListObjectsParams(BaseModel):
@@ -215,6 +247,35 @@ class PreviewObjectRequest(BaseModel):
     )
 
 
+class GetMetadataParams(BaseModel):
+    """
+    A connection has tied metadata such as an icon, the host, etc.
+    """
+
+    comm_id: StrictStr = Field(
+        description="The comm_id of the client we want to retrieve metdata for.",
+    )
+
+
+class GetMetadataRequest(BaseModel):
+    """
+    A connection has tied metadata such as an icon, the host, etc.
+    """
+
+    params: GetMetadataParams = Field(
+        description="Parameters to the GetMetadata method",
+    )
+
+    method: Literal[ConnectionsBackendRequest.GetMetadata] = Field(
+        description="The JSON-RPC method name (get_metadata)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class ConnectionsBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -223,6 +284,7 @@ class ConnectionsBackendMessageContent(BaseModel):
         ContainsDataRequest,
         GetIconRequest,
         PreviewObjectRequest,
+        GetMetadataRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -243,6 +305,8 @@ ObjectSchema.update_forward_refs()
 
 FieldSchema.update_forward_refs()
 
+MetadataSchema.update_forward_refs()
+
 ListObjectsParams.update_forward_refs()
 
 ListObjectsRequest.update_forward_refs()
@@ -262,3 +326,7 @@ GetIconRequest.update_forward_refs()
 PreviewObjectParams.update_forward_refs()
 
 PreviewObjectRequest.update_forward_refs()
+
+GetMetadataParams.update_forward_refs()
+
+GetMetadataRequest.update_forward_refs()
