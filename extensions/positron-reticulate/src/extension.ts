@@ -517,7 +517,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			}
 		});
 
-		await this.shutdown(positron.RuntimeExitReason.Restart);
+		await this.shutdown(positron.RuntimeExitReason.Shutdown);
 		return;
 	}
 
