@@ -570,7 +570,7 @@ suite('LayoutManager', () => {
 			}
 		}
 
-		// Test getting various layout entries.
+		// Verify getting various layout entries.
 		assert(!layoutManager.getLayoutEntry(-1));
 		assert(!layoutManager.getLayoutEntry(entries));
 		assert.deepEqual(
