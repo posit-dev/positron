@@ -132,6 +132,9 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 		return;
 	}
 	if (parsedArgs.version) {
+		// --- Start Positron ---
+		// The version passed into the server-cli will be the positron version.
+		// --- End Positron ---
 		console.log(buildVersionMessage(desc.version, desc.commit));
 		return;
 	}

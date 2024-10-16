@@ -222,7 +222,9 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@NAME@@', product.applicationName))
 					.pipe(replace('@@NAME_LONG@@', product.nameLong))
 					.pipe(replace('@@ICON@@', product.linuxIconName))
-					.pipe(replace('@@VERSION@@', packageJson.version))
+					// --- Start Positron ---
+					.pipe(replace('@@VERSION@@', product.positronVersion))
+					// --- End Positron ---
 					.pipe(replace('@@RELEASE@@', linuxPackageRevision))
 					.pipe(replace('@@ARCHITECTURE@@', rpmArch))
 					.pipe(replace('@@LICENSE@@', product.licenseName))
@@ -302,6 +304,7 @@ function prepareSnapPackage(arch) {
 
 		const snapcraft = gulp.src('resources/linux/snap/snapcraft.yaml', { base: '.' })
 			.pipe(replace('@@NAME@@', product.applicationName))
+			// here?
 			.pipe(replace('@@VERSION@@', commit.substr(0, 8)))
 			// Possible run-on values https://snapcraft.io/docs/architectures
 			.pipe(replace('@@ARCHITECTURE@@', arch === 'x64' ? 'amd64' : arch))
