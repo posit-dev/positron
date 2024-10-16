@@ -8,7 +8,6 @@ import * as portfinder from 'portfinder';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
-import * as fs from 'fs-extra';
 import * as os from 'os';
 
 import { Event, EventEmitter } from 'vscode';
