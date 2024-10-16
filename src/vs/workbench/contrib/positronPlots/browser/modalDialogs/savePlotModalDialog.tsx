@@ -165,12 +165,12 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		setDpi({ value: newDpi, valid: newDpi >= 1 && newDpi <= 300 && !isNaN(newDpi) });
 	};
 
-	const updatePath = (pathString: string) => {
+	const updatePath = (path: URI) => {
 		try {
-			const newPath = URI.file(pathString);
-			props.fileService.exists(newPath).then(exists => {
+			props.fileService.exists(path).then(exists => {
 				setDirectory({
-					value: newPath, valid: exists,
+					value: path,
+					valid: exists,
 					errorMessage: exists ? undefined : localize('positron.savePlotModalDialog.pathDoesNotExist', "Path does not exist.")
 				});
 			});
@@ -190,7 +190,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		});
 
 		if (uri && uri.length > 0) {
-			updatePath(uri[0].fsPath);
+			updatePath(uri[0]);
 		}
 	};
 
@@ -301,7 +301,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									"Directory"
 								))()}
 								value={directory.value.fsPath}
-								onChange={e => updatePath(e.target.value)}
+								onChange={e => updatePath(directory.value.with({ path: e.target.value }))}
 								onBrowse={browseHandler}
 								readOnlyInput={false}
 								error={!directory.valid}
