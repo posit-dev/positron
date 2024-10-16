@@ -54,7 +54,7 @@ import { ExplorerView } from 'vs/workbench/contrib/files/browser/views/explorerV
 import { IListService } from 'vs/platform/list/browser/listService';
 
 // --- Start Positron ---
-import { SAVE_ALL_TITLED_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
+import { SAVE_ALL_TITLED_COMMAND_ID, SET_DEFAULT_EDITOR_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
 // --- End Positron ---
 
 export const openWindowCommand = (accessor: ServicesAccessor, toOpen: IWindowOpenable[], options?: IOpenWindowOptions) => {
@@ -363,6 +363,22 @@ CommandsRegistry.registerCommand({
 		return undefined;
 	}
 });
+
+// --- Start Positron ---
+CommandsRegistry.registerCommand({
+	id: SET_DEFAULT_EDITOR_COMMAND_ID,
+	handler: async (accessor, resource: URI | object, editorType: string) => {
+		const editorService = accessor.get(IEditorService);
+		const listService = accessor.get(IListService);
+		const uri = getResourceForCommand(resource, editorService, listService);
+		if (uri) {
+			return editorService.setDefaultEditor({ resource: uri, options: { override: EditorResolution.PICK, source: EditorOpenSource.USER } }, editorType);
+		}
+
+		return undefined;
+	}
+});
+// --- End Positron ---
 
 // Save / Save As / Save All / Revert
 

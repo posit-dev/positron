@@ -1072,6 +1072,10 @@ export class TestEditorService extends Disposable implements EditorServiceImpl {
 	saveAll(options?: ISaveEditorsOptions): Promise<ISaveEditorsResult> { throw new Error('Method not implemented.'); }
 	revert(editors: IEditorIdentifier[], options?: IRevertOptions): Promise<boolean> { throw new Error('Method not implemented.'); }
 	revertAll(options?: IRevertAllEditorsOptions): Promise<boolean> { throw new Error('Method not implemented.'); }
+	// --- Start Positron ---
+	setDefaultEditor(editor: IUntypedEditorInput, editorOpener: string): void {
+	}
+	// --- End Positron ---
 }
 
 export class TestFileService implements IFileService {

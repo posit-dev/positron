@@ -357,4 +357,13 @@ export interface IEditorService {
 	 * to the main editor group container of the main window.
 	 */
 	createScoped(editorGroupsContainer: IEditorGroupsContainer | 'main', disposables: DisposableStore): IEditorService;
+
+	// --- Start Positron ---
+	/**
+	 * Set a default editor for type
+	 * @param editor
+	 * @param editorOpener
+	 */
+	setDefaultEditor(editor: IUntypedEditorInput, editorOpener: string): void;
+	// --- End Positron ---
 }
