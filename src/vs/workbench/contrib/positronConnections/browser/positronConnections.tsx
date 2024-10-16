@@ -90,18 +90,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 
 		return (
 			<PositronConnectionsItem
-				name={itemProps.name}
-				expanded={itemProps.expanded}
-				onToggleExpandEmitter={itemProps.onToggleExpandEmitter}
-				level={itemProps.level}
-				id={itemProps.id}
-				language_id={itemProps.language_id}
-				icon={itemProps.icon}
-				kind={itemProps.kind}
-				dtype={itemProps.dtype}
-				active={itemProps.active}
-				error={itemProps.error}
-				preview={itemProps.preview}
+				item={itemProps}
 				selected={itemProps.id === selectedId}
 				onSelectedHandler={() => setSelectedId(itemProps.id)}
 				style={props.style}>
@@ -138,7 +127,8 @@ interface ItemEntryProps {
 	style: any;
 }
 
-interface PositronConnectionsItemProps extends IPositronConnectionEntry {
+interface PositronConnectionsItemProps {
+	item: IPositronConnectionEntry;
 	style?: any;
 	selected: boolean;
 
@@ -151,28 +141,28 @@ interface PositronConnectionsItemProps extends IPositronConnectionEntry {
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
 
 	// If the connection is not expandable, we add some more padding.
-	const padding = props.level * 10 + (props.expanded === undefined ? 26 : 0);
+	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
 	const handleExpand = () => {
-		if (props.onToggleExpandEmitter) {
-			props.onToggleExpandEmitter.fire();
+		if (props.item.onToggleExpandEmitter) {
+			props.item.onToggleExpandEmitter.fire();
 		}
 	};
 
 	const icon = (() => {
 
-		if (props.icon) {
-			return props.icon;
+		if (props.item.icon) {
+			return props.item.icon;
 		}
 
-		if (props.kind) {
+		if (props.item.kind) {
 			// TODO: we'll probably want backends to implement the casting to a set of known
 			// types or provide their own icon.
-			switch (props.kind) {
+			switch (props.item.kind) {
 				case 'table':
 				case 'view':
 					return 'positron-table-connection';
 				case 'field':
-					switch (props.dtype) {
+					switch (props.item.dtype) {
 						case 'character':
 							return 'positron-data-type-string';
 						case 'integer':
@@ -220,44 +210,44 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 		<div className={`connections-item ${props.selected ? 'selected' : ''}`} style={props.style}>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
 			{
-				props.expanded === undefined ?
+				props.item.expanded === undefined ?
 					<></> :
 					<div
 						className='expand-collapse-area'
 						onClick={handleExpand}
 						// Disable clicking when the connection is not active
-						style={{ pointerEvents: props.active ? undefined : 'none' }}
+						style={{ pointerEvents: props.item.active ? undefined : 'none' }}
 					>
 						<div
-							className={`codicon codicon-chevron-${props.expanded ? 'down' : 'right'}`}
+							className={`codicon codicon-chevron-${props.item.expanded ? 'down' : 'right'}`}
 						>
 						</div>
 					</div>
 			}
 			<div
-				className={`connections-details ${!props.active ? 'connection-disabled' : ''}`}
+				className={`connections-details ${!props.item.active ? 'connection-disabled' : ''}`}
 				onMouseDown={rowMouseDownHandler}
 			>
-				<span className='connections-name'>{props.name}</span>
+				<span className='connections-name'>{props.item.name}</span>
 				{
-					props.language_id ?
-						<span className='connections-language'>{languageIdToName(props.language_id)}</span> :
+					props.item.language_id ?
+						<span className='connections-language'>{languageIdToName(props.item.language_id)}</span> :
 						<></>
 				}
 				{
-					props.dtype ?
-						<span className='connections-dtype'>{props.dtype}</span> :
+					props.item.dtype ?
+						<span className='connections-dtype'>{props.item.dtype}</span> :
 						<></>
 				}
 				{
-					props.error ?
-						<span className='connections-error codicon codicon-error' title={props.error}></span> :
+					props.item.error ?
+						<span className='connections-error codicon codicon-error' title={props.item.error}></span> :
 						<></>
 				}
 			</div>
 			<div
 				className={`connections-icon codicon codicon-${icon}`}
-				onClick={() => props.preview?.()}
+				onClick={() => props.item.preview?.()}
 			>
 			</div>
 		</div>
