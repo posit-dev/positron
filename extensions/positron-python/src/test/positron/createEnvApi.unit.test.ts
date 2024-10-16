@@ -26,7 +26,7 @@ import { IPythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterQuickPick } from '../../client/interpreter/configuration/types';
 import { createEnvironmentAndRegister } from '../../client/positron/createEnvApi';
 
-chaiUse(chaiAsPromised);
+chaiUse(chaiAsPromised.default);
 
 suite('Positron Create Environment APIs', () => {
     let registerCommandStub: sinon.SinonStub;

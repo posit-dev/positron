@@ -5,12 +5,12 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import * as assert from 'assert';
-import * as fs from 'fs-extra';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import { verify } from 'ts-mockito';
 import * as TypeMoq from 'typemoq';
+import * as fs from '../../client/common/platform/fs-paths';
 import * as runtime from '../../client/positron/runtime';
 import * as session from '../../client/positron/session';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';

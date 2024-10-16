@@ -11,8 +11,8 @@ import subprocess
 import sys
 import tempfile
 import threading
-from typing import Any, Dict, List, Optional, Tuple
 import uuid
+from typing import Any, Dict, List, Optional, Tuple
 
 if sys.platform == "win32":
     from namedpipe import NPopen
@@ -41,7 +41,7 @@ def text_to_python_file(text_file_path: pathlib.Path):
         yield python_file
     finally:
         if python_file:
-            os.unlink(os.fspath(python_file))
+            python_file.unlink()
 
 
 @contextlib.contextmanager
@@ -64,13 +64,14 @@ def create_symlink(root: pathlib.Path, target_ext: str, destination_ext: str):
 
 
 def process_data_received(data: str) -> List[Dict[str, Any]]:
-    """Process the all JSON data which comes from the server. After listen is finished, this function will be called.
+    """Process the all JSON data which comes from the server.
+
+    After listen is finished, this function will be called.
     Here the data must be split into individual JSON messages and then parsed.
 
     This function also:
     - Checks that the jsonrpc value is 2.0
     - Checks that the last JSON message contains the `eot` token.
-
     """
     json_messages = []
     remaining = data
@@ -99,7 +100,8 @@ def parse_rpc_message(data: str) -> Tuple[Dict[str, str], str]:
 
     returns:
     json_data: A single rpc payload of JSON data from the server.
-    remaining: The remaining data after the JSON data."""
+    remaining: The remaining data after the JSON data.
+    """
     str_stream: io.StringIO = io.StringIO(data)
 
     length: int = 0
@@ -133,6 +135,7 @@ def parse_rpc_message(data: str) -> Tuple[Dict[str, str], str]:
 
 def _listen_on_pipe_new(listener, result: List[str], completed: threading.Event):
     """Listen on the named pipe or Unix domain socket for JSON data from the server.
+
     Created as a separate function for clarity in threading context.
     """
     # Windows design
@@ -190,24 +193,35 @@ def _run_test_code(proc_args: List[str], proc_env, proc_cwd: str, completed: thr
 
 
 def runner(args: List[str]) -> Optional[List[Dict[str, Any]]]:
-    """Run the pytest discovery and return the JSON data from the server."""
+    """Run a subprocess and a named-pipe to listen for messages at the same time with threading."""
     print("\n Running python test subprocess with cwd set to: ", TEST_DATA_PATH)
     return runner_with_cwd(args, TEST_DATA_PATH)
 
 
 def runner_with_cwd(args: List[str], path: pathlib.Path) -> Optional[List[Dict[str, Any]]]:
-    """Run the pytest discovery and return the JSON data from the server."""
-    process_args: List[str] = [
-        sys.executable,
-        "-m",
-        "pytest",
-        "-p",
-        "vscode_pytest",
-        "-s",
-    ] + args
+    """Run a subprocess and a named-pipe to listen for messages at the same time with threading."""
+    return runner_with_cwd_env(args, path, {})
+
+
+def runner_with_cwd_env(
+    args: List[str], path: pathlib.Path, env_add: Dict[str, str]
+) -> Optional[List[Dict[str, Any]]]:
+    """
+    Run a subprocess and a named-pipe to listen for messages at the same time with threading.
+
+    Includes environment variables to add to the test environment.
+    """
+    process_args: List[str]
+    pipe_name: str
+    if "MANAGE_PY_PATH" in env_add:
+        # If we are running Django, generate a unittest-specific pipe name.
+        process_args = [sys.executable, *args]
+        pipe_name = generate_random_pipe_name("unittest-discovery-test")
+    else:
+        process_args = [sys.executable, "-m", "pytest", "-p", "vscode_pytest", "-s", *args]
+        pipe_name = generate_random_pipe_name("pytest-discovery-test")
 
     # Generate pipe name, pipe name specific per OS type.
-    pipe_name = generate_random_pipe_name("pytest-discovery-test")
 
     # Windows design
     if sys.platform == "win32":
@@ -220,6 +234,9 @@ def runner_with_cwd(args: List[str], path: pathlib.Path) -> Optional[List[Dict[s
                     "PYTHONPATH": os.fspath(pathlib.Path(__file__).parent.parent.parent),
                 }
             )
+            # if additional environment variables are passed, add them to the environment
+            if env_add:
+                env.update(env_add)
 
             completed = threading.Event()
 
@@ -248,6 +265,9 @@ def runner_with_cwd(args: List[str], path: pathlib.Path) -> Optional[List[Dict[s
                 "PYTHONPATH": os.fspath(pathlib.Path(__file__).parent.parent.parent),
             }
         )
+        # if additional environment variables are passed, add them to the environment
+        if env_add:
+            env.update(env_add)
         server = UnixPipeServer(pipe_name)
         server.start()
 
@@ -259,10 +279,11 @@ def runner_with_cwd(args: List[str], path: pathlib.Path) -> Optional[List[Dict[s
         )
         t1.start()
 
-        t2 = threading.Thread(
+        t2: threading.Thread = threading.Thread(
             target=_run_test_code,
             args=(process_args, env, path, completed),
         )
+
         t2.start()
 
         t1.join()
@@ -281,7 +302,7 @@ def find_test_line_number(test_name: str, test_file_path) -> str:
     test_file_path: The path to the test file where the test is located.
     """
     test_file_unique_id: str = "test_marker--" + test_name.split("[")[0]
-    with open(test_file_path) as f:
+    with open(test_file_path) as f:  # noqa: PTH123
         for i, line in enumerate(f):
             if test_file_unique_id in line:
                 return str(i + 1)
@@ -289,11 +310,10 @@ def find_test_line_number(test_name: str, test_file_path) -> str:
     raise ValueError(error_str)
 
 
-def get_absolute_test_id(test_id: str, testPath: pathlib.Path) -> str:
+def get_absolute_test_id(test_id: str, test_path: pathlib.Path) -> str:
     """Get the absolute test id by joining the testPath with the test_id."""
     split_id = test_id.split("::")[1:]
-    absolute_test_id = "::".join([str(testPath), *split_id])
-    return absolute_test_id
+    return "::".join([str(test_path), *split_id])
 
 
 def generate_random_pipe_name(prefix=""):
@@ -310,9 +330,9 @@ def generate_random_pipe_name(prefix=""):
     # For Unix-like systems, use either the XDG_RUNTIME_DIR or a temporary directory.
     xdg_runtime_dir = os.getenv("XDG_RUNTIME_DIR")
     if xdg_runtime_dir:
-        return os.path.join(xdg_runtime_dir, f"{prefix}-{random_suffix}.sock")
+        return os.path.join(xdg_runtime_dir, f"{prefix}-{random_suffix}.sock")  # noqa: PTH118
     else:
-        return os.path.join(tempfile.gettempdir(), f"{prefix}-{random_suffix}.sock")
+        return os.path.join(tempfile.gettempdir(), f"{prefix}-{random_suffix}.sock")  # noqa: PTH118
 
 
 class UnixPipeServer:
@@ -328,9 +348,9 @@ class UnixPipeServer:
             self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
             # Ensure the socket does not already exist
             try:
-                os.unlink(self.name)
+                os.unlink(self.name)  # noqa: PTH108
             except OSError:
-                if os.path.exists(self.name):
+                if os.path.exists(self.name):  # noqa: PTH110
                     raise
 
     def start(self):

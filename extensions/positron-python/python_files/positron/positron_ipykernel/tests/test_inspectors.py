@@ -11,13 +11,13 @@ import string
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
-from shapely.geometry import Polygon
-import numpy as np
 import geopandas
+import numpy as np
 import pandas as pd
 import polars as pl
 import pytest
 from fastcore.foundation import L
+from shapely.geometry import Polygon
 
 from positron_ipykernel.inspectors import (
     PRINT_WIDTH,

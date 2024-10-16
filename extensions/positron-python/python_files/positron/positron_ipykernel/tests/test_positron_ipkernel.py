@@ -3,15 +3,15 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-import os
 import logging
+import os
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
-from IPython.utils.syspathcontext import prepended_to_syspath
 from ipykernel.compiler import get_tmp_directory
+from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron_ipykernel.access_keys import encode_access_key
 from positron_ipykernel.help import help
