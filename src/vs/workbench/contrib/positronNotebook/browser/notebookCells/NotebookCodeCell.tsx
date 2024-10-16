@@ -67,6 +67,8 @@ function CellOutput({ outputs, outputId }: NotebookCellOutputs) {
 			return <img src={parsed.dataUrl} alt='output image' />;
 		case 'html':
 			return <NotebookHTMLContent content={parsed.content} outputId={outputId} />;
+		case 'asset':
+			return null;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', preferredOutput.mime)}

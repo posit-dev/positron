@@ -29,23 +29,26 @@ export function gatherOutputContents(cell: NotebookCellTextModel): CellOutputInf
 /**
  * The MIME types we know how to render in-house.
  */
-export type OutputMimeTypes = |
+type KnownTextOutputMimeTypes = |
 	'application/vnd.code.notebook.stdout' |
 	'application/vnd.code.notebook.stderr' |
 	'application/vnd.code.notebook.error';
 
+const assetMimes = [
+	'application/javascript',
+	// 'application/vnd.holoviews_exec.v0+json',
+	'application/vnd.holoviews_load.v0+json',
+];
+
 /**
  * The MIME types we know how to render in-house.
  */
-export const outputMimeTypes: string[] = [
+const knownTextOutputMimeTypes: string[] = [
 	'application/vnd.code.notebook.stdout',
 	'application/vnd.code.notebook.stderr',
 	'application/vnd.code.notebook.error'
-] satisfies OutputMimeTypes[];
+] satisfies KnownTextOutputMimeTypes[];
 
-export function isKnownMimeType(mimeType: string): mimeType is OutputMimeTypes {
-	return outputMimeTypes.includes(mimeType);
-}
 
 /**
  * Display the contents of a notebook cell output.
@@ -70,7 +73,12 @@ function getOutputContents(output: ICellOutput): string {
  */
 function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	return output.outputs.map(({ data, mime }) => {
-		return outputMimeTypes.includes(mime) ? data.toString() : `Cant handle mime type yet: ${mime}`;
+
+		if (knownTextOutputMimeTypes.includes(mime)) {
+			return data.toString();
+		}
+
+		return `Cant handle mime type yet: ${mime}`;
 	}).join('\n');
 }
 
@@ -103,6 +111,10 @@ type ParsedOutput = ParsedTextOutput |
 } |
 {
 	type: 'unknown';
+	contents: string;
+} |
+{
+	type: 'asset';
 	contents: string;
 };
 
@@ -154,6 +166,10 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 			type: 'image',
 			dataUrl: `data:image/png;base64,${uint8ToBase64(data.buffer)}`
 		};
+	}
+
+	if (assetMimes.includes(mime)) {
+		return { type: 'asset', contents: message };
 	}
 
 	return { type: 'unknown', contents: message };
