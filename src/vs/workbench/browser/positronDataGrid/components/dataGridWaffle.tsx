@@ -268,6 +268,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// PageUp clears the selection and moves up by one page, positioning the cursor at
 				// the top left of the page.
 				context.instance.clearSelection();
+
 				// const firstRowIndex = Math.max(
 				// 	context.instance.firstRowIndexXX - (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
 				// 	0
@@ -301,10 +302,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// PageDown clears the selection and moves down by one page, positioning the cursor
 				// at the bottom left of the page.
 				context.instance.clearSelection();
+
+				console.log(`First row index ${context.instance.firstRow.rowIndex} first row top ${context.instance.firstRow.top}`);
+
 				// const firstRowIndex = Math.min(
 				// 	context.instance.firstRowIndexXX + (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
 				// 	context.instance.maximumVerticalScrollOffset
 				// );
+
 				// await context.instance.setFirstRow(firstRowIndex);
 				// context.instance.setCursorRow(firstRowIndex);
 				break;
