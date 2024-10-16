@@ -7,23 +7,38 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { RunAppOptions } from '../positron-run-app';
+import { DebugAppOptions, RunAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
-import { PositronRunAppApiImpl } from '../extension';
+import { PositronRunAppApiImpl } from '../api';
 
 suite('PositronRunApp', () => {
 	// Use a test runtime with a runtimePath of `cat` so that executing a file
 	// will simply print its contents to the terminal.
 	const runtime = {
-		runtimePath: 'cat',
+		runtimePath: 'node',
 	} as positron.LanguageRuntimeMetadata;
 
 	// Options for running the test application.
-	const options: RunAppOptions = {
+	const runAppOptions: RunAppOptions = {
 		name: 'Test App',
-		async getTerminalOptions(runtime, document, _port, _urlPrefix) {
+		getTerminalOptions(runtime, document, _urlPrefix) {
 			return {
 				commandLine: [runtime.runtimePath, document.uri.fsPath].join(' '),
+			};
+		},
+	};
+
+	// Options for debugging the test application.
+	const debugAppOptions: DebugAppOptions = {
+		name: 'Test App',
+		getDebugConfiguration(_runtime, document, _urlPrefix) {
+			return {
+				name: 'Launch Test App',
+				type: 'node',
+				request: 'launch',
+				program: document.uri.fsPath,
+				// Use the terminal since we rely on shell integration.
+				console: 'integratedTerminal',
 			};
 		},
 	};
@@ -37,18 +52,26 @@ suite('PositronRunApp', () => {
 	let uri: vscode.Uri;
 	let previewUrlStub: sinon.SinonStub;
 	let sendTextSpy: sinon.SinonSpy | undefined;
-	let executedCommandLine: string | undefined;
 	let runAppApi: PositronRunAppApiImpl;
 
 	setup(async () => {
 		// Open the test app. Assumes that the tests are run in the ../test-workspace workspace.
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		assert(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
-		uri = vscode.Uri.joinPath(workspaceFolder.uri, 'app.sh');
+		uri = vscode.Uri.joinPath(workspaceFolder.uri, 'app.js');
 		await vscode.window.showTextDocument(uri);
 
 		// Stub the runtime API to return the test runtime.
 		sinon.stub(positron.runtime, 'getPreferredRuntime').callsFake(async (_languageId) => runtime);
+
+		// Stub the positron proxy API.
+		sinon.stub(vscode.commands, 'executeCommand')
+			.withArgs('positronProxy.startPendingProxyServer')
+			.resolves({
+			proxyPath: '/proxy/path',
+			externalUri: vscode.Uri.parse('http://localhost:1234'),
+			finishProxySetup: () => {},
+		});
 
 		// Stub the preview URL function.
 		previewUrlStub = sinon.stub(positron.window, 'previewUrl');
@@ -65,15 +88,6 @@ suite('PositronRunApp', () => {
 
 		// Enable shell integration.
 		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', true);
-
-		// Capture executions in the app's terminal while shell integration enabled.
-		executedCommandLine = undefined;
-		disposables.push(vscode.window.onDidStartTerminalShellExecution(e => {
-			if (e.terminal.name === options.name) {
-				assert(!executedCommandLine, 'Multiple terminal shell executions started');
-				executedCommandLine = e.execution.commandLine.value;
-			}
-		}));
 
 		runAppApi = await getRunAppApi();
 		runAppApi.setShellIntegrationSupported(true);
@@ -96,28 +110,23 @@ suite('PositronRunApp', () => {
 	}
 
 	async function verifyRunTestApplication(): Promise<void> {
-		await runAppApi.runApplication(options);
+		await runAppApi.runApplication(runAppOptions);
 
 		// Check that a terminal was created for the application.
-		const terminal = vscode.window.terminals.find((t) => t.name === options.name);
+		const terminal = vscode.window.terminals.find((t) => t.name === runAppOptions.name);
 		assert(terminal, 'Terminal not found');
-
-		// Check that the viewer pane was cleared before any other URL was previewed.
-		sinon.assert.called(previewUrlStub);
-		sinon.assert.calledWith(previewUrlStub.getCall(0), vscode.Uri.parse('about:blank'));
 	}
 
 	test('runApplication: shell integration supported', async () => {
 		// Run the application.
 		await verifyRunTestApplication();
 
-		// Check that the expected command line was executed in the terminal.
-		assert(executedCommandLine, 'No terminal shell execution started');
-		assert.strictEqual(executedCommandLine, `${runtime.runtimePath} ${uri.fsPath}`, 'Unexpected command line executed');
+		// Check that the expected text was sent to the terminal.
+		assert(sendTextSpy, 'Terminal.sendText spy not created');
+		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
 
 		// Check that the expected URL was previewed.
-		sinon.assert.calledTwice(previewUrlStub);
-		sinon.assert.calledWith(previewUrlStub.getCall(1), localhostUriMatch);
+		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
 	});
 
 	test('runApplication: shell integration disabled, user enables and reruns', async () => {
@@ -145,9 +154,7 @@ suite('PositronRunApp', () => {
 		// Check that the expected text was sent to the terminal.
 		assert(sendTextSpy, 'Terminal.sendText spy not created');
 		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
-
-		// Check that the server URL was not previewed yet (only a single call to clear the viewer pane).
-		sinon.assert.calledOnce(previewUrlStub);
+		sendTextSpy = undefined;
 
 		// Wait for the expected URL to be previewed.
 		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
@@ -159,13 +166,46 @@ suite('PositronRunApp', () => {
 			'Shell integration not enabled',
 		);
 
-		// Check that the expected command line was executed in the terminal i.e. the app was rerun with shell integration.
-		assert(executedCommandLine, 'No terminal shell execution started');
-		assert.strictEqual(executedCommandLine, `${runtime.runtimePath} ${uri.fsPath}`, 'Unexpected command line executed');
+		// Check that the expected text was sent to the terminal again.
+		assert(sendTextSpy, 'Terminal.sendText spy not created');
+		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
+	});
 
-		// Check that the viewer pane was cleared again, and the expected URL was previewed.
-		sinon.assert.calledThrice(previewUrlStub);
-		sinon.assert.calledWith(previewUrlStub.getCall(1), vscode.Uri.parse('about:blank'));
-		sinon.assert.calledWith(previewUrlStub.getCall(2), localhostUriMatch);
+	test('debugApplication: shell integration supported', async () => {
+		// Debug the test application.
+		await runAppApi.debugApplication(debugAppOptions);
+
+		// Check that the expected URL was previewed.
+		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+	});
+
+	test('debugApplication: shell integration disabled, user enables and reruns', async () => {
+		// Disable shell integration.
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', false);
+
+		// Stub `vscode.window.showInformationMessage` to simulate the user:
+		// 1. Enabling shell integration.
+		// 2. Rerunning the app.
+		const showInformationMessageStub = sinon.stub(vscode.window, 'showInformationMessage');
+		showInformationMessageStub.onFirstCall().resolves('Enable Shell Integration' as any);
+		showInformationMessageStub.onSecondCall().resolves('Rerun Application' as any);
+
+		// Stub positron.window.previewUrl and create a promise that resolves when its called with
+		// the expected URL.
+		const didPreviewExpectedUrlPromise = new Promise<boolean>(resolve => {
+			previewUrlStub.withArgs(localhostUriMatch).callsFake(() => {
+				resolve(true);
+			});
+		});
+
+		// Run the debug application.
+		await runAppApi.debugApplication(debugAppOptions);
+
+		// Wait for the expected URL to be previewed.
+		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
+		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
+
+		// Check that shell integration was enabled.
+		vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled', false);
 	});
 });

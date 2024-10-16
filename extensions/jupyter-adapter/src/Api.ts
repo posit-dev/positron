@@ -13,7 +13,7 @@ import { JupyterSerializedSession, workspaceStateKey } from './JupyterSessionSer
 
 export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	constructor(private readonly _context: vscode.ExtensionContext,
-		private readonly _channel: vscode.OutputChannel) {
+		private readonly _channel: vscode.LogOutputChannel) {
 	}
 
 	/**
@@ -35,8 +35,8 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra: JupyterKernelExtra,
-	): JupyterLanguageRuntimeSession {
-		return new LanguageRuntimeSessionAdapter(
+	): Promise<JupyterLanguageRuntimeSession> {
+		return Promise.resolve(new LanguageRuntimeSessionAdapter(
 			runtimeMetadata,
 			sessionMetadata,
 			this._context,
@@ -44,7 +44,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 			kernel,
 			dynState,
 			extra
-		);
+		));
 	}
 
 	/**
@@ -59,7 +59,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
-	): JupyterLanguageRuntimeSession {
+	): Promise<JupyterLanguageRuntimeSession> {
 
 		// Get the serialized session from the workspace state. This state
 		// contains the information we need to reconnect to the session, such as
@@ -90,7 +90,7 @@ export class JupyterAdapterApiImpl implements JupyterAdapterApi {
 		// happens later when the session is started.
 		adapter.restoreSession(serialized.sessionState);
 
-		return adapter;
+		return Promise.resolve(adapter);
 	}
 
 	/**

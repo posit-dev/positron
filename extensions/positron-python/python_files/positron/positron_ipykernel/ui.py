@@ -182,46 +182,64 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         self.name = name
         self._comm = comm
 
-    def open(self, url, new=0, autoraise=True):
+    def open(self, url, new=0, autoraise=True) -> bool:
         if not self._comm:
             return False
 
+        is_plot = False
         # If url is pointing to an HTML file, route to the ShowHtmlFile comm
         if is_local_html_file(url):
-            is_plot = False
-
             # Send bokeh plots to the plots pane.
             # Identify bokeh plots by checking the stack for the bokeh.io.showing.show function.
             # This is not great but currently the only information we have.
-            bokeh_io_showing = sys.modules.get("bokeh.io.showing")
-            if bokeh_io_showing:
-                for frame_info in inspect.stack():
-                    if (
-                        inspect.getmodule(frame_info.frame, frame_info.filename) == bokeh_io_showing
-                        and frame_info.function == "show"
-                    ):
-                        is_plot = True
-                        break
-                if os.name == "nt":
-                    url = urlparse(url).netloc or urlparse(url).path
+            is_plot = self._is_module_function("bokeh.io.showing", "show")
 
-            self._comm.send_event(
-                name=UiFrontendEvent.ShowHtmlFile,
-                payload=ShowHtmlFileParams(
-                    path=url,
-                    # Use the HTML file's title.
-                    title="",
-                    is_plot=is_plot,
-                    # No particular height is required.
-                    height=0,
-                ).dict(),
-            )
-            return True
+            return self._send_show_html_event(url, is_plot)
 
         for addr in _localhosts:
             if addr in url:
-                event = ShowUrlParams(url=url)
-                self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+                is_plot = self._is_module_function("plotly.basedatatypes")
+                if is_plot:
+                    return self._send_show_html_event(url, is_plot)
+                else:
+                    event = ShowUrlParams(url=url)
+                    self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+
                 return True
         # pass back to webbrowser's list of browsers to open up the link
         return False
+
+    @staticmethod
+    def _is_module_function(module_name: str, function_name: Union[str, None] = None) -> bool:
+        module = sys.modules.get(module_name)
+        if module:
+            for frame_info in inspect.stack():
+                if function_name:
+                    if (
+                        inspect.getmodule(frame_info.frame, frame_info.filename) == module
+                        and frame_info.function == function_name
+                    ):
+                        return True
+                else:
+                    if inspect.getmodule(frame_info.frame) == module:
+                        return True
+        return False
+
+    def _send_show_html_event(self, url: str, is_plot: bool) -> bool:
+        if self._comm is None:
+            logger.warning("No comm available to send ShowHtmlFile event")
+            return False
+        if os.name == "nt":
+            url = urlparse(url).netloc or urlparse(url).path
+        self._comm.send_event(
+            name=UiFrontendEvent.ShowHtmlFile,
+            payload=ShowHtmlFileParams(
+                path=url,
+                # Use the URL's title.
+                title="",
+                is_plot=is_plot,
+                # No particular height is required.
+                height=0,
+            ).dict(),
+        )
+        return True

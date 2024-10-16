@@ -19,7 +19,8 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      BUILD_ARTIFACTSTAGINGDIRECTORY: ../../.build/logs/smoke-tests-electron
+      BUILD_ARTIFACTSTAGINGDIRECTORY: ..\..\.build\logs\smoke-tests-electron
+
     steps:
       - uses: actions/checkout@v4
 
@@ -27,15 +28,14 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          
-      - uses: actions/setup-python@v5
+
+      - name: Install System Level Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10.10"
 
-      - name: Install miniconda
-        uses: conda-incubator/setup-miniconda@v3
-        with:
-          miniconda-version: "latest"
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Install node dependencies with yarn
         env:
@@ -60,9 +60,6 @@ jobs:
       - name: Compile and Download
         run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
 
-      # - name: Run Unit Tests (Electron)
-      #   run: .\scripts\test.bat
-
       - name: Compile Smoke Tests
         run: |
           yarn --cwd test/automation compile
@@ -74,7 +71,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           python -m pip install ipykernel trcli
-
 
       - name: Set up R
         uses: r-lib/actions/setup-r@v2
@@ -97,26 +93,54 @@ jobs:
         with:
           tinytex: true
 
+      - name: Setup AWS S3 Access
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+
       - name: Run Smoke Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         run: |
+          Write-Output $env:BUILD_ARTIFACTSTAGINGDIRECTORY # debug
           cd test\smoke
-          node test/index.js --tracing
+          node run-tests.js --tracing --win
+          Get-ChildItem -Recurse -Filter "*results.xml" # debug
+
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: success() || failure()
+        run: echo "TESTRAIL_TITLE=$(Get-Date -Format 'yyyy-MM-dd') Nightly Smoke Tests - $env:GITHUB_REF_NAME" >> $env:GITHUB_ENV
+        shell: pwsh
+
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: success() || failure()
+        shell: pwsh
+        run: |
+          trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
 
 
-  # slack-notification:
-  #   name: "Send Slack notification"
-  #   runs-on: ubuntu-latest
-  #   needs: linux
-  #   if: ${{ failure() }}
-  #   steps:
-  #     - name: "Send Slack notification"
-  #       uses: testlabauto/action-test-results-to-slack@v0.0.6
-  #       with:
-  #         github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-  #         slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-  #         slack_channel: C07FR1JNZNJ #positron-test-results channel
-  #         suite_name: Positron Full Test Suite
+      - name: Upload run artifacts - electron
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-artifacts-electron
+          path: .build/logs/smoke-tests-electron/
+
+  slack-notification:
+    name: "Send Slack notification"
+    runs-on: ubuntu-latest
+    needs: windows
+    if: ${{ failure() && github.ref == 'refs/heads/main' }}
+    steps:
+      - name: "Send Slack notification"
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: C07FR1JNZNJ #positron-test-results channel
+          suite_name: Positron Full Test Suite (Windows)

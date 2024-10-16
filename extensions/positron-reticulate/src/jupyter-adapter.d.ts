@@ -65,7 +65,7 @@ export interface JupyterKernelSpec {
 	 *  This is used to start the kernel if it's provided. In this case `argv`
 	 *  is ignored.
 	*/
-	startKernel?: (session: JupyterSession, self: any) => Promise<void>;
+	startKernel?: (session: JupyterSession, kernel: JupyterKernel) => Promise<void>;
 }
 
 /**
@@ -100,8 +100,9 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * channel.
 	 *
 	 * @param message A message to emit to the Jupyter log.
+	 * @param logLevel Optionally, the log level of the message.
 	 */
-	emitJupyterLog(message: string): void;
+	emitJupyterLog(message: string, logLevel?: vscode.LogLevel): void;
 
 	/**
 	 * A Jupyter kernel is guaranteed to have a `showOutput()`
@@ -146,7 +147,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 		kernel: JupyterKernelSpec,
 		dynState: positron.LanguageRuntimeDynState,
 		extra?: JupyterKernelExtra | undefined,
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
 	 * Restore a session for a Jupyter-compatible kernel.
@@ -160,7 +161,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
 		sessionMetadata: positron.RuntimeSessionMetadata
-	): JupyterLanguageRuntimeSession;
+	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
 	 * Finds an available TCP port for a server

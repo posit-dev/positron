@@ -8,6 +8,32 @@ import * as vscode from 'vscode';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
+export interface JupyterSessionState {
+    /** The Jupyter session identifier; sent as part of every message */
+    sessionId: string;
+
+    /** The log file the kernel is writing to */
+    logFile: string;
+
+    /** The profile file the kernel is writing to */
+    profileFile?: string;
+
+    /** The connection file specifying the ZeroMQ ports, signing keys, etc. */
+    connectionFile: string;
+
+    /** The ID of the kernel's process, or 0 if the process is not running */
+    processId: number;
+}
+
+export interface JupyterSession {
+    readonly state: JupyterSessionState;
+}
+
+export interface JupyterKernel {
+    connectToSession(session: JupyterSession): Promise<void>;
+    log(msg: string): void;
+}
+
 /**
  * This set of type definitions defines the interfaces used by the Positron
  * Jupyter Adapter extension.
@@ -34,6 +60,12 @@ export interface JupyterKernelSpec {
 
     /** Environment variables to set when starting the kernel */
     env?: NodeJS.ProcessEnv;
+
+    /** Function that starts the kernel given a JupyterSession object.
+     *  This is used to start the kernel if it's provided. In this case `argv`
+     *  is ignored.
+     */
+    startKernel?: (session: JupyterSession, kernel: JupyterKernel) => Promise<void>;
 }
 
 /**
@@ -64,8 +96,9 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * channel.
      *
      * @param message A message to emit to the Jupyter log.
+     * @param logLevel Optionally, the log level of the message.
      */
-    emitJupyterLog(message: string): void;
+    emitJupyterLog(message: string, logLevel?: vscode.LogLevel): void;
 
     /**
      * A Jupyter kernel is guaranteed to have a `showOutput()`
@@ -109,7 +142,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
         kernel: JupyterKernelSpec,
         dynState: positron.LanguageRuntimeDynState,
         extra?: JupyterKernelExtra | undefined,
-    ): JupyterLanguageRuntimeSession;
+    ): Promise<JupyterLanguageRuntimeSession>;
 
     /**
      * Restore a session for a Jupyter-compatible kernel.
@@ -123,7 +156,7 @@ export interface JupyterAdapterApi extends vscode.Disposable {
     restoreSession(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
-    ): JupyterLanguageRuntimeSession;
+    ): Promise<JupyterLanguageRuntimeSession>;
 
     /**
      * Finds an available TCP port for a server

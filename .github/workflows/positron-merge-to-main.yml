@@ -8,19 +8,19 @@ on:
     inputs:
       smoketest_target:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
-        default: "smoketest-merge-to-main"
+        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
+        default: "smoketest-all"
         type: string
   workflow_dispatch:
     inputs:
       smoketest_target:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-merge-to-main or smoketest-pr"
-        default: "smoketest-merge-to-main"
+        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
+        default: "smoketest-all"
         type: string
 
 env:
-  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-merge-to-main' }}
+  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-all' }}
 
 permissions:
   id-token: write
@@ -29,7 +29,7 @@ permissions:
 jobs:
   linux:
     name: Tests on Linux
-    runs-on: ubuntu-latest-4x
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 45
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -37,82 +37,31 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Build Environment
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y vim curl build-essential clang make cmake git python3-pip python-is-python3 libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev libsdl-pango-dev libjpeg-dev libgif-dev
-          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
-          sudo chmod +x /etc/init.d/xvfb
-          sudo update-rc.d xvfb defaults
-          sudo service xvfb start
-
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
 
-      - name: AWS S3 Access Setup
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-
-      - name: Install Quarto CLI
-        run: |
-          TEMP_DEB="$(mktemp)" &&
-          wget -O "$TEMP_DEB" 'https://github.com/quarto-dev/quarto-cli/releases/download/v1.5.57/quarto-1.5.57-linux-amd64.deb' &&
-          sudo dpkg -i "$TEMP_DEB"
-          rm -f "$TEMP_DEB"
-
-      - name: Install Tinytex
-        run: quarto install tinytex
-
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Execute yarn
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: |
-          # Enable corepack (for yarn)
-          corepack enable
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
 
-          # Install node-gyp; this is required by some packages, and yarn
-          # sometimes fails to automatically install it.
-          yarn global add node-gyp
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-          # Perform the main yarn command; this installs all Node packages and
-          # dependencies
-          yarn --immutable --network-timeout 120000
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/smoke install --frozen-lockfile
-
-      - name: Compile and Download
-        run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
-
-      - name: Compile Smoke Tests
-        run: yarn --cwd test/smoke compile
-
-      - name: Install rig, R, and R packages
-        run: |
-          curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | $(which sudo) tar xz -C /usr/local
-          rig add 4.4.0
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -123,12 +72,21 @@ jobs:
         run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
-        if: always()
+        if: success() || failure()
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing
+        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 2 --skip-cleanup
+
+      - name: Convert XUnit to JUnit
+        id: xunit-to-junit
+        if: success() || failure()
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+          /usr/bin/xmllint --version
+          yarn xunit-to-junit smoke-tests-electron
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
@@ -153,7 +111,7 @@ jobs:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: linux
-    if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-merge-to-main' }}
+    if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-all' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6

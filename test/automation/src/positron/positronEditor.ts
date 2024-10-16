@@ -8,11 +8,16 @@ import { Code } from '../code';
 // currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
 const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
+const PLAY_BUTTON = '.codicon-play';
 
 
 export class PositronEditor {
 
 	constructor(private code: Code) { }
+
+	async pressPlay(): Promise<void> {
+		await this.code.driver.getLocator(PLAY_BUTTON).click();
+	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {
 		const editor = EDITOR(filename);

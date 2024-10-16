@@ -1,0 +1,33 @@
+name: "Setup Rig, R, and R Packages"
+description: "Install a specified R version using rig, with an option to install additional R packages."
+inputs:
+  version:
+    description: "The R version to install (e.g., 4.4.0)"
+    required: false
+    default: "4.4.0"
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rig and R
+      shell: bash
+      env:
+        R_VERSION: "${{ inputs.version }}"
+      run: |
+        echo "Installing R version $R_VERSION using Rig..."
+        curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-"$(arch)"-latest.tar.gz | sudo tar xz -C /usr/local
+        rig add "$R_VERSION"
+
+    - name: Check R Installation
+      shell: bash
+      run: |
+        R --version
+
+    - name: Install R Packages
+      shell: bash
+      run: |
+        echo "Installing R development packages..."
+        # Download a sample DESCRIPTION file if not provided
+        curl -s https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
+        # Install development dependencies using pak
+        Rscript -e "if (!requireNamespace('pak', quietly = TRUE)) install.packages('pak', repos = 'https://cran.rstudio.com')"
+        Rscript -e "pak::local_install_dev_deps(ask = FALSE)"

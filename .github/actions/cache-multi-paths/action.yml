@@ -3,30 +3,44 @@ description: "Restores/Saves cache for node_modules, build, extensions, and remo
 runs:
   using: "composite"
   steps:
-    - name: Cache node_modules
-      id: cache-node-modules
+    - name: Cache root
+      id: cache-root
       uses: actions/cache@v4
       with:
         path: ./node_modules
-        key: root-node-modules-v7-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+        key: cache-root-v3-${{ runner.os }}-${{ hashFiles('./yarn.lock') }}
 
     - name: Cache build
       id: cache-build
       uses: actions/cache@v4
       with:
         path: ./build/node_modules
-        key: build-node-modules-v7-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
+        key: cache-build-v3-${{ runner.os }}-${{ hashFiles('build/yarn.lock') }}
 
     - name: Cache extensions
       id: cache-extensions
       uses: actions/cache@v4
       with:
         path: ./extensions/node_modules
-        key: extensions-v7-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+        key: cache-extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/yarn.lock') }}
+
+    - name: Cache nested extensions
+      id: cache-nested-extensions
+      uses: actions/cache@v4
+      with:
+        path: ./extensions/**/node_modules
+        key: cache-nested-extensions-v3-${{ runner.os }}-${{ hashFiles('extensions/**/yarn.lock') }}
 
     - name: Cache remote
       id: cache-remote
       uses: actions/cache@v4
       with:
         path: ./remote/node_modules
-        key: remote-node-modules-v7-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+        key: cache-remote-v3-${{ runner.os }}-${{ hashFiles('remote/yarn.lock') }}
+
+    - name: Cache nested remote
+      id: cache-nested-remote
+      uses: actions/cache@v4
+      with:
+        path: ./remote/**/node_modules
+        key: cache-nested-remote-v3-${{ runner.os }}-${{ hashFiles('remote/**/yarn.lock') }}

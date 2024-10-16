@@ -24,6 +24,8 @@ import { create } from 'vs/workbench/workbench.web.main';
 // --- Start PWB: proxy port url ---
 import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from 'vs/platform/tunnel/common/tunnel';
 import { transformPort } from './urlPorts';
+// eslint-disable-next-line no-duplicate-imports
+import { join } from 'vs/base/common/path';
 // --- End PWB ---
 
 interface ISecretStorageCrypto {
@@ -614,7 +616,20 @@ function readCookie(name: string): string | undefined {
 							.replace('/p/', '/proxy/')
 							.replace('{{port}}', localhostMatch.port.toString());
 					}
-					resolvedUri = URI.parse(new URL(renderedTemplate, mainWindow.location.href).toString());
+
+					// Use the same scheme as the main window, to ensure that the proxy server is
+					// accessed using http if the main window is accessed using http or https if the
+					// main window is accessed using https. Otherwise we'll get a mixed content error.
+					// We need to slice the protocol to remove the colon at the end.
+					const resolvedScheme = mainWindow.location.protocol.slice(0, -1);
+
+					// Update the URI to point to the proxy server. This retains the original query
+					// and fragment, while updating the scheme, authority and path to the proxy server.
+					resolvedUri = resolvedUri.with({
+						scheme: resolvedScheme,
+						authority: mainWindow.location.host,
+						path: join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
+					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
 				}

@@ -26,6 +26,7 @@ from .utils import (
     json_rpc_response,
     preserve_working_directory,
 )
+from unittest.mock import Mock
 
 try:
     import torch  # type: ignore [reportMissingImports] for 3.12
@@ -240,3 +241,68 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 
     assert len(ui_comm.messages) == 1
     assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
+
+
+def test_plotly_show_sends_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+    mock_handle_request: Mock,
+) -> None:
+    """
+    Test that showing a Plotly plot sends the expected UI events when using `fig.show()` and `fig`.
+    """
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+# override default renderer as is done in manager.ts with setting PLOTLY_RENDERER
+import plotly.io as pio
+pio.renderers.default = "browser"
+
+import plotly.express as px
+
+fig = px.bar(x=["a", "b", "c"], y=[1, 3, 2])
+fig.show()
+fig
+"""
+    )
+    mock_handle_request.assert_called()
+    assert len(ui_comm.messages) == 2
+    params = ui_comm.messages[0]["data"]["params"]
+    assert params["title"] == ""
+    assert params["is_plot"]
+    assert params["height"] == 0
+    params = ui_comm.messages[1]["data"]["params"]
+    assert params["title"] == ""
+    assert params["is_plot"]
+    assert params["height"] == 0
+
+
+def test_is_not_plot_url_events(
+    shell: PositronShell,
+    ui_comm: DummyComm,
+) -> None:
+    """
+    Test that opening a URL that is not a plot sends the expected UI events.
+    Checks that the `is_plot` parameter is not sent or is `False`.
+    """
+    shell.run_cell(
+        """\
+import webbrowser
+# Only enable the positron viewer browser; avoids system browsers opening during tests.
+webbrowser._tryorder = ["positron_viewer"]
+
+webbrowser.open("http://127.0.0.1:8000")
+webbrowser.open("file://file.html")
+"""
+    )
+    assert len(ui_comm.messages) == 2
+    params = ui_comm.messages[0]["data"]["params"]
+    assert params["url"] == "http://127.0.0.1:8000"
+    assert "is_plot" not in params
+
+    params = ui_comm.messages[1]["data"]["params"]
+    assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
+    assert params["is_plot"] is False

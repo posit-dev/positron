@@ -19,7 +19,7 @@ export class ActivityItemStream {
 	/**
 	 * Gets the ActivityItemStream array.
 	 */
-	private activityItemStreams: ActivityItemStream[] = [];
+	private activityItemStreams: this[] = [];
 
 	/**
 	 * Gets the ANSIOutput that is processing this ActivityItemStream.
@@ -47,12 +47,17 @@ export class ActivityItemStream {
 
 	/**
 	 * Constructor.
+	 *
+	 * Never to be called directly.
+	 * Internally, use `newActivityItemStream()` instead.
+	 * Externally, use `ActivityItemOutputStream` or `ActivityItemErrorStream` constructors instead.
+	 *
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param text The text.
 	 */
-	constructor(
+	protected constructor(
 		readonly id: string,
 		readonly parentId: string,
 		readonly when: Date,
@@ -70,9 +75,7 @@ export class ActivityItemStream {
 	 * @param activityItemStream The ActivityItemStream to add.
 	 * @returns The remainder ActivityItemStream, or undefined.
 	 */
-	public addActivityItemStream(
-		activityItemStream: ActivityItemStream
-	): ActivityItemStream | undefined {
+	public addActivityItemStream(activityItemStream: this): this | undefined {
 		// If this ActivityItemStream is terminated, copy its styles to the ActivityItemStream being
 		// added and return it as the remainder ActivityItemStream to be processed.
 		if (this.terminated) {
@@ -95,7 +98,7 @@ export class ActivityItemStream {
 		const remainderText = activityItemStream.text.substring(newlineIndex + 1);
 
 		// Add an ActivityItemStream with the text containing the newline.
-		this.activityItemStreams.push(new ActivityItemStream(
+		this.activityItemStreams.push(this.newActivityItemStream(
 			activityItemStream.id,
 			activityItemStream.parentId,
 			activityItemStream.when,
@@ -116,7 +119,7 @@ export class ActivityItemStream {
 		}
 
 		// Create the remainder ActivityItemStream.
-		activityItemStream = new ActivityItemStream(
+		activityItemStream = this.newActivityItemStream(
 			activityItemStream.id,
 			activityItemStream.parentId,
 			activityItemStream.when,
@@ -153,15 +156,53 @@ export class ActivityItemStream {
 		}
 	}
 
+	/**
+	 * Polymorphic constructor for internal creation of new `ActivityItemStream`s
+	 *
+	 * Uses polymorphic `this` to actually return extension class types, like
+	 * `ActivityItemOutputStream` and `ActivityItemErrorStream`.
+	 *
+	 * Note that we have to manually cast `this.constructor()` to the right type, as otherwise
+	 * it is just a generic `Function`.
+	 * https://github.com/microsoft/TypeScript/issues/3841
+	 * https://stackoverflow.com/questions/64638771/how-can-i-create-a-new-instance-of-a-class-using-this-from-within-method
+	 *
+	 * @param id The identifier.
+	 * @param parentId The parent identifier.
+	 * @param when The date.
+	 * @param text The text.
+	 * @returns A newly constructed activity item stream of type `this`.
+	 */
+	private newActivityItemStream(
+		id: string,
+		parentId: string,
+		when: Date,
+		text: string
+	): this {
+		const constructor = (
+			this.constructor as
+			new (id: string, parentId: string, when: Date, text: string) => this
+		);
+		return new constructor(id, parentId, when, text);
+	}
+
 	//#endregion Private Methods
 }
 
 /**
  * ActivityItemOutputStream class.
  */
-export class ActivityItemOutputStream extends ActivityItemStream { }
+export class ActivityItemOutputStream extends ActivityItemStream {
+	constructor(id: string, parentId: string, when: Date, text: string) {
+		super(id, parentId, when, text);
+	}
+}
 
 /**
  * ActivityItemErrorStream class.
  */
-export class ActivityItemErrorStream extends ActivityItemStream { }
+export class ActivityItemErrorStream extends ActivityItemStream {
+	constructor(id: string, parentId: string, when: Date, text: string) {
+		super(id, parentId, when, text);
+	}
+}

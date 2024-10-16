@@ -8,6 +8,8 @@ import * as portfinder from 'portfinder';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as path from 'path';
+import * as fs from 'fs-extra';
+import * as os from 'os';
 
 import { Event, EventEmitter } from 'vscode';
 import { inject, injectable } from 'inversify';
@@ -177,10 +179,18 @@ export class PythonRuntimeManager implements IPythonRuntimeManager {
         // only provided for new sessions; existing (restored) sessions already
         // have one.
         const env = await environmentVariablesProvider.getEnvironmentVariables();
+        if (sessionMetadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+            // Workaround to use Plotly's browser renderer. Ensures the plot is
+            // displayed to fill the webview.
+            env.PLOTLY_RENDERER = 'browser';
+        }
         const kernelSpec: JupyterKernelSpec = {
             argv: args,
             display_name: `${runtimeMetadata.runtimeName}`,
             language: 'Python',
+            // On Windows, we need to use the 'signal' interrupt mode since 'message' is
+            // not supported.
+            interrupt_mode: os.platform() === 'win32' ? 'signal' : 'message',
             env,
         };
 
