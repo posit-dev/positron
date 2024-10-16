@@ -1,5 +1,10 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
+on:
+  workflow_call:
+    secrets:
+      POSITRON_GITHUB_PAT:
+        required: true
 runs:
   using: "composite"
   steps:
@@ -13,20 +18,12 @@ runs:
           libgtk-3-0 libgbm1 libnss3 libnspr4 libasound2 libkrb5-dev libcairo-dev \
           libsdl-pango-dev libjpeg-dev libgif-dev pandoc
 
-    - name: "Generate access token"
-      id: access-token
-      uses: actions/create-github-app-token@v1
-      with:
-        app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-        private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-        owner: ${{ github.repository_owner }}
-
     - name: Execute yarn
       shell: bash
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-        POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
+        POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
       run: |
         # Enable corepack (for yarn)
         corepack enable
