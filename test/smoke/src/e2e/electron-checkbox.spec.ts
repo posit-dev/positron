@@ -5,7 +5,7 @@
 
 import { _electron, test, expect } from '@playwright/test';
 
-test('has title', async ({ trace }) => {
+test('should toggle checkbox', async ({ trace }) => {
 	const electronApp = await _electron.launch({ args: ['main.js'] });
 
 	// Get the first window that the app opens, wait if necessary.
@@ -32,10 +32,10 @@ test('has title', async ({ trace }) => {
 
 
 	// TRACE: manually stop trace
-	const path = test.info().outputPath('electron-trace.zip');
+	const tracePath = test.info().outputPath('electron-trace.zip');
 	if (trace) {
-		await window.context().tracing.stop({ path });
-		test.info().attachments.push({ name: 'trace', path, contentType: 'application/zip' });
+		await window.context().tracing.stop({ path: tracePath });
+		test.info().attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 	}
 
 	// Exit app.

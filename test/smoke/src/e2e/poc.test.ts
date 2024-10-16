@@ -72,16 +72,16 @@ export const test = base.extend<{
 	app: async ({ defaultOptions, reuseApp }, use) => {
 		const app = createApp(defaultOptions);
 
-		// Conditionally start the app based on reuseApp flag
-		if (!reuseApp) {
-			// Start and stop app for each test
-			await app.start();
-			await use(app);
-			await app.stop();
-		} else {
-			// App lifecycle will be managed in beforeAll/afterAll
-			await use(app);
-		}
+		// // Conditionally start the app based on reuseApp flag
+		// if (!reuseApp) {
+		// Start and stop app for each test
+		await app.start();
+		await use(app);
+		await app.stop();
+		// } else {
+		// 	// App lifecycle will be managed in beforeAll/afterAll
+		// 	await use(app);
+		// }
 	},
 
 	page: async ({ app }, use) => {
@@ -100,17 +100,12 @@ export const test = base.extend<{
 		const driver = app.code.driver;
 		const context = driver.getContext();
 
-		// Start tracing
 		await context.tracing.start({ screenshots: true, snapshots: true });
 
-		// Execute the test
 		await use();
 
-		// Stop tracing and save trace to file
 		const tracePath = testInfo.outputPath(`electron-trace${Date.now()}.zip`);
 		await context.tracing.stop({ path: tracePath });
-
-		// Attach the trace to the test report
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 
 	}, { auto: true }],
@@ -126,7 +121,6 @@ export const test = base.extend<{
 			screenshots.push(screenshotPath);
 		};
 
-		// Execute the test
 		await use();
 
 		// After the test we can check whether the test passed or failed.
@@ -144,54 +138,46 @@ export const test = base.extend<{
 });
 
 
-test.beforeAll(async ({ app, reuseApp }) => {
-	// If reuseApp is true, the app will be started in beforeAll
-	console.log('beforeAll reuseApp:', reuseApp);
-	if (reuseApp) {
-		await app.start();
-	}
-});
-
-test.afterAll(async ({ app, reuseApp }) => {
-	// If reuseApp is true, the app will be stopped after all tests
-	console.log('afterAll reuseApp:', reuseApp);
-	if (reuseApp) {
-		await app.stop();
-	}
-});
-
-test.beforeEach(async ({ logger, app }) => {
-	logger.log('>>> Test start <<<');
-});
-
-test.afterEach(async ({ logger, app }) => {
-	logger.log('>>> Test end <<<');
-});
-
-
-// test('has title', async ({ app }) => {
-// 	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-// 	await app.code.driver.takeScreenshot('marie-screen');
-// 	await renderQuartoDocument(app, 'html');
-// 	await app.code.driver.takeScreenshot('marie-screen');
-// 	await verifyDocumentExists(app, 'html');
-// 	app.code.wait(5000);
-// 	expect(1).toBe(2);
+// test.beforeAll(async ({ app, reuseApp }) => {
+// 	// If reuseApp is true, the app will be started in beforeAll
+// 	console.log('beforeAll reuseApp:', reuseApp);
+// 	if (reuseApp) {
+// 		await app.start();
+// 	}
 // });
 
-// const renderQuartoDocument = async (app: Application, fileExtension: string) => {
-// 	await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-// 	await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
-// };
+// test.afterAll(async ({ app, reuseApp }) => {
+// 	// If reuseApp is true, the app will be stopped after all tests
+// 	console.log('afterAll reuseApp:', reuseApp);
+// 	if (reuseApp) {
+// 		await app.stop();
+// 	}
+// });
 
-// const verifyDocumentExists = async (app: Application, fileExtension: string) => {
-// 	await expect(async () => {
-// 		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
-// 		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
-// 	}).toPass();
-// };
 
-// const fileExists = (app: Application, file: String) => {
-// 	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
-// 	return fs.pathExists(filePath);
-// };
+test('poc test', async ({ app }) => {
+	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+	await app.code.driver.takeScreenshot('marie-screen');
+	await renderQuartoDocument(app, 'html');
+	// await app.code.driver.takeScreenshot('marie-screen');
+	await verifyDocumentExists(app, 'html');
+	app.code.wait(5000);
+	// expect(1).toBe(2);
+});
+
+const renderQuartoDocument = async (app: Application, fileExtension: string) => {
+	await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+	await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+};
+
+const verifyDocumentExists = async (app: Application, fileExtension: string) => {
+	await expect(async () => {
+		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
+		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
+	}).toPass();
+};
+
+const fileExists = (app: Application, file: String) => {
+	const filePath = path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', file);
+	return fs.pathExists(filePath);
+};
