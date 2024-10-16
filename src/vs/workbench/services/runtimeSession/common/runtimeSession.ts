@@ -1007,8 +1007,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		this._register(session.onDidEndSession(async exit => {
-			// Note that we need to do this on the next tick since we need to
-			// ensure all the event handlers for the state change we are
+			// The session is no longer running, so if it's the active console
+			// session, clear it.
+			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
+				if (consoleSession?.sessionId === session.sessionId) {
+					this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+				}
+			}
+
+			// Note that we need to do the following on the next tick since we
+			// need to ensure all the event handlers for the state change we are
 			// currently processing have been called (i.e. everyone knows it has
 			// exited)
 			setTimeout(() => {
