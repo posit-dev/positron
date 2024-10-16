@@ -48,7 +48,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			setHeight(size.height);
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer]);
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -70,7 +70,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 			}
 		}));
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.reactComponentContainer, scrollStateRef, setScrollState]);
 
 	const [items, setItems] = useState<IPositronConnectionEntry[]>(props.connectionsService.getConnectionEntries);
 	useEffect(() => {
@@ -81,7 +81,7 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		// First entries refresh - on component mount.
 		props.connectionsService.refreshConnectionEntries();
 		return () => disposableStore.dispose();
-	}, []);
+	}, [props.connectionsService]);
 
 	const [selectedId, setSelectedId] = useState<string>();
 
