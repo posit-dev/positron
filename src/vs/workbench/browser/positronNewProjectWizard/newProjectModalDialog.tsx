@@ -19,7 +19,6 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { URI } from 'vs/base/common/uri';
 import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -74,14 +73,14 @@ export const showNewProjectModalDialog = async (
 				runtimeSessionService,
 				runtimeStartupService,
 			}}
-			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			parentFolder={await fileDialogService.defaultFolderPath()}
 			initialStep={NewProjectWizardStep.ProjectTypeSelection}
 		>
 			<NewProjectModalDialog
 				renderer={renderer}
 				createProject={async result => {
 					// Create the new project folder if it doesn't already exist.
-					const folder = URI.file((await pathService.path).join(result.parentFolder, result.projectName));
+					const folder = result.parentFolder.with({ path: (await pathService.path).join(result.parentFolder.fsPath, result.projectName) });
 					const existingFolder = await fileService.exists(folder);
 					if (!existingFolder) {
 						await fileService.createFolder(folder);

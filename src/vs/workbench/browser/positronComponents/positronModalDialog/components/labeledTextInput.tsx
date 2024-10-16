@@ -29,7 +29,7 @@ export interface LabeledTextInputProps {
 	 * Custom error message. Will override the validator error message if present.
 	 */
 	errorMsg?: string;
-	validator?: ValidatorFn;
+	validator?: ValidatorFn<string | number>;
 	onChange: ChangeEventHandler<HTMLInputElement>;
 	/**
 	 * Maximum allowed number of characters in the input field.

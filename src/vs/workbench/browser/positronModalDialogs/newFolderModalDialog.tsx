@@ -133,6 +133,10 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 		}
 	};
 
+	function validatorCallback(x: string | number): string | undefined {
+		return checkIfPathValid(x, { parentPath: result.parentFolder });
+	}
+
 	// Render.
 	return (
 		<OKCancelModalDialog
@@ -153,7 +157,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 					autoFocus
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
-					validator={x => checkIfPathValid(x, { parentPath: result.parentFolder })}
+					validator={validatorCallback}
 				/>
 				<LabeledFolderInput
 					label={(() => localize(
