@@ -98,6 +98,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the data explorer client instance onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
 			// Set the layout entries.
+			this._columnLayoutManager.setLayoutEntries(1);
 			this._rowLayoutManager.setLayoutEntries(
 				state.table_shape.num_columns
 			);
