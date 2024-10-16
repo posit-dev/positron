@@ -30,36 +30,31 @@ import {
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import Worker from 'web-worker';
-import { basename, extname } from 'path';
+import { basename, extname, join } from 'path';
 import { Table } from 'apache-arrow';
 
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
 
-	static async create(): Promise<DuckDBInstance> {
-		const bundles = await this.getBundles();
-		const bundle = await duckdb.selectBundle(bundles);
+	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
+		// Create the path to the DuckDB WASM bundle. Note that only the MVP
+		// bundle for Node is supported for now as we don't support Positron
+		// extensions running in a browser context yet.
+		const distPath = join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
+		const bundle = {
+			mainModule: join(distPath, 'duckdb-mvp.wasm'),
+			mainWorker: join(distPath, 'duckdb-node-mvp.worker.cjs')
+		};
 		const logger = new duckdb.VoidLogger();
 
 		const worker = new Worker(bundle.mainWorker);
 
 		const db = new duckdb.AsyncDuckDB(logger, worker);
-		await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+		await db.instantiate(bundle.mainModule, null);
 
 		const con = await db.connect();
 		await con.query('LOAD icu; SET TIMEZONE=\'UTC\';');
 		return new DuckDBInstance(db, con);
-	}
-
-	// Method to dynamically load the bundles based on environment
-	private static async getBundles(): Promise<duckdb.DuckDBBundles> {
-		if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-			const duckdb_node = await import('./duckdb-node');
-			return duckdb_node.getDuckDBNodeBundles();
-		} else {
-			const duckdb_webpack = await import('./duckdb-webpack');
-			return duckdb_webpack.getDuckDBWebpackBundles();
-		}
 	}
 
 	public async runQuery(query: string) {
@@ -527,7 +522,7 @@ export class DataExplorerRpcHandler {
  */
 export async function activate(context: vscode.ExtensionContext) {
 	// Register a simple command that runs a DuckDB-Wasm query
-	const db = await DuckDBInstance.create();
+	const db = await DuckDBInstance.create(context);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-duckdb.runQuery',

@@ -17,5 +17,10 @@ module.exports = withDefaults({
 	},
 	node: {
 		__dirname: false
+	},
+	externals: {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		'@duckdb/duckdb-wasm': 'commonjs @duckdb/duckdb-wasm',
+		'web-worker': 'commonjs web-worker',
 	}
 });
