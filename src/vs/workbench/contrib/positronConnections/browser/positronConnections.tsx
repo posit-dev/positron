@@ -159,8 +159,15 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			// types or provide their own icon.
 			switch (props.item.kind) {
 				case 'table':
-				case 'view':
 					return 'positron-table-connection';
+				case 'view':
+					return 'positron-view-connection';
+				case 'database':
+					return 'positron-database-connection';
+				case 'schema':
+					return 'positron-schema-connection';
+				case 'catalog':
+					return 'positron-catalog-connection';
 				case 'field':
 					switch (props.item.dtype) {
 						case 'character':
@@ -174,11 +181,6 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 						default:
 							return 'positron-data-type-unknown';
 					}
-				case 'database':
-					return 'positron-database-connection';
-				case 'schema':
-				case 'catalog':
-					return 'positron-schema-connection';
 			}
 		}
 		// If kind is not known, then no icon is dplsayed by default.

@@ -668,4 +668,6 @@ export const codiconsLibrary = {
 	positronNewConnection: register('positron-new-connection', 0xf286),
 	positronSchemaConnection: register('positron-schema-connection', 0xf287),
 	positronTableConnection: register('positron-table-connection', 0xf288),
+	positronCatalogConnection: register('positron-catalog-connection', 0xf289),
+	positronViewConnection: register('positron-view-connection', 0xf28a),
 } as const;
