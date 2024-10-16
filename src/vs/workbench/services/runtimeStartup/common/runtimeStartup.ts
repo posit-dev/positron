@@ -351,6 +351,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		if (session.runtimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
+			return;
+		}
+
 		// Save this runtime as the affiliated runtime for the current workspace.
 		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
 			JSON.stringify(session.runtimeMetadata),
@@ -773,7 +777,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				session.getRuntimeState() !== RuntimeState.Uninitialized &&
 				session.getRuntimeState() !== RuntimeState.Initializing &&
 				session.getRuntimeState() !== RuntimeState.Exited &&
-				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
+				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace
+			)
 			.map(session => {
 				const metadata: SerializedSessionMetadata = {
 					metadata: session.metadata,
