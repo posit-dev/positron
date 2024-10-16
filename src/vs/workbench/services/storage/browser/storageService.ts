@@ -339,7 +339,9 @@ export class IndexedDBStorageDatabase extends Disposable implements IIndexedDBSt
 		}
 	}
 
-	private static readonly STORAGE_DATABASE_PREFIX = 'vscode-web-state-db-';
+	// --- Start Positron ---
+	private static readonly STORAGE_DATABASE_PREFIX = 'positron-web-state-db-';
+	// --- End Positron ---
 	private static readonly STORAGE_OBJECT_STORE = 'ItemTable';
 
 	private readonly _onDidChangeItemsExternal = this._register(new Emitter<IStorageItemsChangeEvent>());

@@ -459,11 +459,15 @@ export class BrowserMain extends Disposable {
 
 		// IndexedDB is used for logging and user data
 		let indexedDB: IndexedDB | undefined;
-		const userDataStore = 'vscode-userdata-store';
-		const logsStore = 'vscode-logs-store';
-		const handlesStore = 'vscode-filehandles-store';
+		// --- Start Positron ---
+		const userDataStore = 'positron-userdata-store';
+		const logsStore = 'positron-logs-store';
+		const handlesStore = 'positron-filehandles-store';
+		// --- End Positron ---
 		try {
-			indexedDB = await IndexedDB.create('vscode-web-db', 3, [userDataStore, logsStore, handlesStore]);
+			// --- Start Positron ---
+			indexedDB = await IndexedDB.create('positron-web-db', 3, [userDataStore, logsStore, handlesStore]);
+			// --- End Positron ---
 
 			// Close onWillShutdown
 			this.onWillShutdownDisposables.add(toDisposable(() => indexedDB?.close()));
