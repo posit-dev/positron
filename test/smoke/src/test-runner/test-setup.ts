@@ -22,8 +22,8 @@ const BUILD = process.env.BUILD;
  *   2. initializes the test environment
  *   3. prepares the test data directory
  */
-export function prepareTestEnv() {
-	const logsRootPath = join(ROOT_PATH, '.build', 'logs', 'test-setup');
+export function prepareTestEnv(rootPath = ROOT_PATH) {
+	const logsRootPath = join(rootPath, '.build', 'logs', 'test-setup');
 	const logger = createLogger(logsRootPath);
 
 	try {
