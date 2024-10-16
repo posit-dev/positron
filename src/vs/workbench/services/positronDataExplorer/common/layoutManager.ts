@@ -45,9 +45,21 @@ class LayoutEntry implements ILayoutEntry {
 	start: number;
 
 	/**
-	 * Gets or sets the width or the height of the column or row.
+	 * Gets or sets the default width or the height of the column or row.
 	 */
-	size: number;
+	defaultSize: number;
+
+	/**
+	 * Gets or sets the override width or the height of the column or row.
+	 */
+	overrideSize?: number;
+
+	/**
+	 * Gets the size of the column or row.
+	 */
+	get size() {
+		return this.overrideSize ?? this.defaultSize;
+	}
 
 	/**
 	 * Gets the end of the column or row.
@@ -64,12 +76,14 @@ class LayoutEntry implements ILayoutEntry {
 	 * Constructor.
 	 * @param index The index of the column or row.
 	 * @param start The X or Y coordinate of the column or row.
-	 * @param size The width or the height of the column or row.
+	 * @param defaultSize The default width or the height of the column or row.
+	 * @param overrideSize The override width or the height of the column or row.
 	 */
-	constructor(index: number, start: number, size: number) {
+	constructor(index: number, start: number, defaultSize: number, overrideSize?: number) {
 		this.index = index;
 		this.start = start;
-		this.size = size;
+		this.defaultSize = defaultSize;
+		this.overrideSize = overrideSize;
 	}
 
 	//#endregion Constructor
@@ -79,8 +93,15 @@ class LayoutEntry implements ILayoutEntry {
  * ILayoutOverride interface.
  */
 interface ILayoutOverride {
-	index: number;
-	size: number;
+	/**
+	 * Gets index of the column or row.
+	 */
+	readonly index: number;
+
+	/**
+	 * Gets the override size.
+	 */
+	readonly overrideSize: number;
 }
 
 /**
@@ -133,22 +154,22 @@ export class LayoutManager {
 		// If the layout entries is an array, return the end of the last layout entry.
 		if (Array.isArray(this._layoutEntries)) {
 			return this._layoutEntries[this._layoutEntries.length - 1].end;
-		} else {
-			// Calculate the size of the layout entries.
-			let size = this._layoutEntries * this._defaultSize;
-			const sortedLayoutOverrides = this.getSortedLayoutOverrides();
-			for (let index = 0; index < sortedLayoutOverrides.length; index++) {
-				const layoutOverride = sortedLayoutOverrides[index];
-				if (layoutOverride.index < this._layoutEntries) {
-					size = size - this._defaultSize + layoutOverride.size;
-				} else {
-					break;
-				}
-			}
-
-			// Return the size.
-			return size;
 		}
+
+		// Calculate the size of the layout entries.
+		let size = this._layoutEntries * this._defaultSize;
+		const sortedLayoutOverrides = this.getSortedLayoutOverrides();
+		for (let index = 0; index < sortedLayoutOverrides.length; index++) {
+			const layoutOverride = sortedLayoutOverrides[index];
+			if (layoutOverride.index < this._layoutEntries) {
+				size = size - this._defaultSize + layoutOverride.overrideSize;
+			} else {
+				break;
+			}
+		}
+
+		// Return the size of the layout entries.
+		return size;
 	}
 
 	//#endregion Public Properties
@@ -164,64 +185,27 @@ export class LayoutManager {
 		// array from the supplied layout entries.
 		if (!Array.isArray(layoutEntries)) {
 			this._layoutEntries = layoutEntries;
-		} else {
-			// Create the layout entries array.
-			this._layoutEntries = new Array<LayoutEntry>(layoutEntries.length);
-
-			// Add the layout entries to the layout entries array.
-			for (let index = 0, start = 0; index < layoutEntries.length; index++) {
-				// Get the size of the layout entry.
-				const size = this._layoutOverrides.get(index) ?? layoutEntries[index];
-
-				// Set the layout entry.
-				this._layoutEntries[index] = new LayoutEntry(index, start, size);
-
-				// Update the start for the next layout entry.
-				start += size;
-			}
-		}
-	}
-
-	/**
-	 * Sets a layout override.
-	 * @param index The index of the layout override.
-	 * @param size The size of the layout override.
-	 */
-	setLayoutOverride(index: number, size: number) {
-		// Sanity check the index and size.
-		if (!Number.isInteger(index) || index < 0 || !Number.isInteger(size) || size <= 0) {
 			return;
 		}
 
-		// Discard the cached layout entry, if it exists and its index is greater than the index of
-		// the layout override.
-		if (this._cachedLayoutEntry && this._cachedLayoutEntry.index >= index) {
-			this._cachedLayoutEntry = undefined;
-		}
+		// Create the layout entries array.
+		this._layoutEntries = new Array<LayoutEntry>(layoutEntries.length);
 
-		// Set the layout override.
-		this._layoutOverrides.set(index, size);
+		// Set the layout entries in the layout entries array.
+		for (let index = 0, start = 0; index < layoutEntries.length; index++) {
+			// Create the layout entry.
+			const layoutEntry = new LayoutEntry(
+				index,
+				start,
+				layoutEntries[index],
+				this._layoutOverrides.get(index)
+			);
 
-		// If layout entries is a number, return.
-		if (!Array.isArray(this._layoutEntries)) {
-			return;
-		}
+			// Set the layout entry.
+			this._layoutEntries[index] = layoutEntry;
 
-		// Adjust the layout entries.
-		if (index < this._layoutEntries.length) {
-			// Get the layout entry that was overridden.
-			const layoutEntry = this._layoutEntries[index];
-			layoutEntry.size = size;
-
-			// Adjust the start of the remaining layout entries.
-			for (let i = index + 1, start = layoutEntry.end; i < this._layoutEntries.length; i++) {
-				// Update the start of the layout entry.
-				const layoutEntry = this._layoutEntries[i];
-				layoutEntry.start = start;
-
-				// Adjust the start for the next layout entry.
-				start += layoutEntry.size;
-			}
+			// Update the start for the next layout entry.
+			start = layoutEntry.end;
 		}
 	}
 
@@ -238,6 +222,62 @@ export class LayoutManager {
 
 		// Clear the layout override.
 		this._layoutOverrides.delete(index);
+
+		// Adjust the layout entries.
+		if (Array.isArray(this._layoutEntries) && index < this._layoutEntries.length) {
+			// Get the layout entry for the layout override being cleared and clear its override
+			// size.
+			const layoutEntry = this._layoutEntries[index];
+			layoutEntry.overrideSize = undefined;
+
+			// Adjust the start of the remaining layout entries.
+			for (let i = index + 1, start = layoutEntry.end; i < this._layoutEntries.length; i++) {
+				// Update the start of the layout entry.
+				const layoutEntry = this._layoutEntries[i];
+				layoutEntry.start = start;
+
+				// Adjust the start for the next layout entry.
+				start = layoutEntry.end;
+			}
+		}
+	}
+
+	/**
+	 * Sets a layout override.
+	 * @param index The index of the layout entry.
+	 * @param overrideSize The override size of the layout entry.
+	 */
+	setLayoutOverride(index: number, overrideSize: number) {
+		// Sanity check the index and size.
+		if (!Number.isInteger(index) || index < 0 || overrideSize <= 0) {
+			return;
+		}
+
+		// Discard the cached layout entry, if it exists and its index is greater than the index of
+		// the layout override.
+		if (this._cachedLayoutEntry && this._cachedLayoutEntry.index >= index) {
+			this._cachedLayoutEntry = undefined;
+		}
+
+		// Set the layout override.
+		this._layoutOverrides.set(index, overrideSize);
+
+		// Adjust the layout entries.
+		if (Array.isArray(this._layoutEntries) && index < this._layoutEntries.length) {
+			// Get the layout entry that was overridden and set its override size.
+			const layoutEntry = this._layoutEntries[index];
+			layoutEntry.overrideSize = overrideSize;
+
+			// Adjust the start of the remaining layout entries.
+			for (let i = index + 1, start = layoutEntry.end; i < this._layoutEntries.length; i++) {
+				// Update the start of the layout entry.
+				const layoutEntry = this._layoutEntries[i];
+				layoutEntry.start = start;
+
+				// Adjust the start for the next layout entry.
+				start = layoutEntry.end;
+			}
+		}
 	}
 
 	/**
@@ -290,20 +330,20 @@ export class LayoutManager {
 			// If the layout override index is less than the index, adjust the start and return
 			// false to continue the search.
 			if (layoutOverride.index < index) {
-				start = start - this._defaultSize + layoutOverride.size;
+				start = start - this._defaultSize + layoutOverride.overrideSize;
 				return false;
 			}
 
 			// Return true to stop the search.
 			return true;
 		});
-		const size = this._layoutOverrides.get(index) ?? this._defaultSize;
 
 		// Return the layout entry.
 		return new LayoutEntry(
 			index,
 			start,
-			size
+			this._defaultSize,
+			this._layoutOverrides.get(index)
 		);
 	}
 
@@ -358,22 +398,22 @@ export class LayoutManager {
 					// If the layout override index is less than the middle index, adjust the start
 					// and return false to continue the search.
 					if (layoutOverride.index < middleIndex) {
-						start = start - this._defaultSize + layoutOverride.size;
+						start = start - this._defaultSize + layoutOverride.overrideSize;
 						return false;
 					}
 
 					// Return true to stop the search.
 					return true;
 				});
-				const size = this._layoutOverrides.get(middleIndex) ?? this._defaultSize;
 
 				// Check if the middle layout entry contains the offset. If so, cache and return it.
-				if (offset >= start && offset < start + size) {
+				if (offset >= start && offset < start + (this._layoutOverrides.get(middleIndex) ?? this._defaultSize)) {
 					// Cache and return the layout entry.
 					return this._cachedLayoutEntry = new LayoutEntry(
 						middleIndex,
 						start,
-						size
+						this._defaultSize,
+						this._layoutOverrides.get(middleIndex)
 					);
 				}
 
@@ -424,7 +464,7 @@ export class LayoutManager {
 	 */
 	private getSortedLayoutOverrides(): ILayoutOverride[] {
 		return Array.from(this._layoutOverrides).
-			map(([index, size]): ILayoutOverride => ({ index, size })).
+			map(([index, size]): ILayoutOverride => ({ index, overrideSize: size })).
 			sort((a, b) => a.index - b.index);
 	}
 
