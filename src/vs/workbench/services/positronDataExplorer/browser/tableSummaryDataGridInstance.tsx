@@ -64,7 +64,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		super({
 			columnHeaders: false,
 			rowHeaders: false,
-			defaultColumnWidth: 200,
+			defaultColumnWidth: 0,
 			defaultRowHeight: SUMMARY_HEIGHT,
 			columnResize: false,
 			rowResize: false,
