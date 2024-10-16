@@ -388,14 +388,6 @@ async function main() {
 	await downloadAndReplaceKallichore(packageJsonVersion, githubPat, gitCredential);
 }
 
-// Disable downloading if running inside a Github action on the public
-// posit-dev/positron repository, which doesn't currently have access to the
-// private Kallichore repository.
-if (process.env.GITHUB_ACTIONS && process.env.GITHUB_REPOSITORY === 'posit-dev/positron') {
-	console.log('Skipping Kallichore download on public repository.');
-} else {
-
-	main().catch((error) => {
-		console.error('An error occurred:', error);
-	});
-}
+main().catch((error) => {
+	console.error('An error occurred:', error);
+});
