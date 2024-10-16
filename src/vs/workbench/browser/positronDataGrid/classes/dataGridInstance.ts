@@ -1552,13 +1552,17 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
-		// If the column isn't visible, adjust the horizontal scroll offset to scroll to it.
+		// Initialize the scroll offset updated flag.
 		let scrollOffsetUpdated = false;
+
+		// If the column isn't visible, adjust the horizontal scroll offset to scroll to it.
 		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
 			this._horizontalScrollOffset = columnLayoutEntry.start;
 			scrollOffsetUpdated = true;
 		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
-			this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
+			this._horizontalScrollOffset = columnIndex === this.columns - 1 ?
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset :
+				this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
 			scrollOffsetUpdated = true;
 		}
 
@@ -1567,7 +1571,9 @@ export abstract class DataGridInstance extends Disposable {
 			this._verticalScrollOffset = rowLayoutEntry.start;
 			scrollOffsetUpdated = true;
 		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
-			this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
+			this._verticalScrollOffset = rowIndex === this.rows - 1 ?
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset :
+				this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
 			scrollOffsetUpdated = true;
 		}
 
