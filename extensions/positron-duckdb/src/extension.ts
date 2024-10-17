@@ -103,7 +103,9 @@ export class DataExplorerRpcHandler {
 		['UUID', ColumnDisplayType.String],
 		['DATE', ColumnDisplayType.Date],
 		['TIMESTAMP', ColumnDisplayType.Datetime],
+		['TIMESTAMP_NS', ColumnDisplayType.Datetime],
 		['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
+		['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
 		['TIME', ColumnDisplayType.Time]
 	]);
 

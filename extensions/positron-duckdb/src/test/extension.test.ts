@@ -226,7 +226,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			{
 				column_name: 'time_hour',
 				column_index: 18,
-				type_name: 'TIMESTAMP',
+				type_name: 'TIMESTAMP_NS',
 				type_display: ColumnDisplayType.Datetime
 			}
 		];
