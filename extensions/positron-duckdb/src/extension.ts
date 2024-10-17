@@ -47,16 +47,22 @@ class DuckDBInstance {
 		// bundle for Node is used for now as we don't support Positron
 		// extensions running in a browser context yet.
 		const distPath = join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
-		const bundle = {
-			mainModule: join(distPath, 'duckdb-eh.wasm'),
-			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
+		const MANUAL_BUNDLES = {
+			mvp: {
+				mainModule: join(distPath, 'duckdb-mvp.wasm'),
+				mainWorker: join(distPath, 'duckdb-node-mvp.worker.cjs')
+			},
+			eh: {
+				mainModule: join(distPath, 'duckdb-eh.wasm'),
+				mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
+			}
 		};
+		const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+		const worker = new Worker(bundle.mainWorker!);
+
 		const logger = new duckdb.VoidLogger();
-
-		const worker = new Worker(bundle.mainWorker);
-
 		const db = new duckdb.AsyncDuckDB(logger, worker);
-		await db.instantiate(bundle.mainModule);
+		await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
 		const con = await db.connect();
 		await con.query('LOAD icu; SET TIMEZONE=\'UTC\';');
@@ -212,7 +218,7 @@ END`;
 					break;
 				}
 				case 'VARCHAR':
-					columnSelector = `SUBSTRING(quotedName, 1, ${varcharLimit})`;
+					columnSelector = `SUBSTRING(${quotedName}, 1, ${varcharLimit})`;
 					break;
 				case 'TIMESTAMP':
 					columnSelector = `strftime(${quotedName} AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S')`;
@@ -480,7 +486,7 @@ export class DataExplorerRpcHandler {
 		const tableName = `positron_${this._tableIndex++}`;
 		const fileExt = extname(params.uri);
 
-		console.log(`Opening ${params.uri}`);
+		// console.log(`Opening ${params.uri}`);
 
 		let scanOperation;
 		switch (fileExt) {
