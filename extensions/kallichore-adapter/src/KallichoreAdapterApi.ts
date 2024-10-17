@@ -211,9 +211,10 @@ export class KCApi implements KallichoreAdapterApi {
 				this._log.info(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
 				break;
 			} catch (err) {
-				// ECONNREFUSED is a normal condition; the server isn't ready
-				// yet. Keep trying until we hit the retry limit, about 2
-				// seconds from the time we got a process ID established.
+				// ECONNREFUSED is a normal condition during startup; the server
+				// isn't ready yet. Keep trying until we hit the retry limit,
+				// about 2 seconds from the time we got a process ID
+				// established.
 				if (err.code === 'ECONNREFUSED') {
 					if (retry < 19) {
 						// Wait a bit and try again
@@ -308,7 +309,19 @@ export class KCApi implements KallichoreAdapterApi {
 		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session on the server
-		await session.create(kernel);
+		try {
+			await session.create(kernel);
+		} catch (err) {
+			// If the connection was refused, check the server status; this
+			// suggests that the server may have exited
+			if (err.code === 'ECONNREFUSED') {
+				this._log.warn(`Connection refused while attempting to create session; checking server status`);
+				await this.testServerExited();
+			}
+
+			// Rethrow the error for the caller to handle
+			throw err;
+		}
 
 		// Save the session now that it has been created on the server
 		this.addDisconnectHandler(session);
@@ -327,21 +340,28 @@ export class KCApi implements KallichoreAdapterApi {
 		session.disconnected.event(async (state: positron.RuntimeState) => {
 			if (state !== positron.RuntimeState.Exited) {
 				// The websocket disconnected while the session was still
-				// running. This could signal a problem with the supervisor.
+				// running. This could signal a problem with the supervisor; we
+				// should see if it's still running.
 				this._log.info(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
-				await this.testDisconnected();
+				await this.testServerExited();
 			}
 		});
 	}
 
 	/**
-	 * Tests the server after a session disconnects to see if it is still running.
-	 * If it isn't, marks all sessions as exited and restarts the server.
+	 * Tests the server after a session disconnects, or after an RPC fails with
+	 * ECONNREFUSED, to see if it is still running.  If it isn't, marks all
+	 * sessions as exited and restarts the server.
+	 *
+	 * Consider: This only tests the server's local process ID, not the server
+	 * itself.  We can't use this technique on a remote server, and it doesn't
+	 * handle the case where the server process is running but it's become
+	 * unresponsive.
 	 *
 	 * @returns A promise that resolves when the server has been confirmed to be
 	 * running or has been restarted.
 	 */
-	private async testDisconnected() {
+	private async testServerExited() {
 		// If we're currently starting, it doesn't make sense to test the
 		// server status since we're already in the process of starting it.
 		if (this._starting) {
@@ -433,6 +453,10 @@ export class KCApi implements KallichoreAdapterApi {
 					session.restore(kcSession);
 				} catch (err) {
 					this._log.error(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+					if (err.code === 'ECONNREFUSED') {
+						this._log.warn(`Connection refused while attempting to restore session; checking server status`);
+						await this.testServerExited();
+					}
 					reject(err);
 				}
 				// Save the session
