@@ -51,6 +51,10 @@ export class PlaywrightDriver {
 		return this.page;
 	}
 
+	public getApplication(): playwright.Browser | playwright.ElectronApplication {
+		return this.application;
+	}
+
 	async startTracing(name: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
@@ -63,7 +67,7 @@ export class PlaywrightDriver {
 		}
 	}
 
-	async stopTracing(name: string, persist: boolean = true): Promise<void> {
+	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -72,7 +76,7 @@ export class PlaywrightDriver {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
 				// --- Start Positron ---
-				persistPath = join(this.options.logsPath, `playwright-trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}_${Date.now()}.zip`);
+				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}}.zip`);
 				// --- End Positron ---
 			}
 

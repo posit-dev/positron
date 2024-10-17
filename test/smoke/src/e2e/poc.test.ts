@@ -5,6 +5,7 @@
 
 // Playwright and testing imports
 import { _electron, test as base, expect } from '@playwright/test';
+import * as playwright from '@playwright/test';
 
 // Node.js built-in modules
 import { join } from 'path';
@@ -24,12 +25,13 @@ import { cloneTestRepo, prepareTestEnv } from '../test-runner';
 
 export const test = base.extend<{
 	app: Application;
+	application: playwright.Browser | playwright.ElectronApplication;
 	reuseApp: boolean;
 	defaultOptions: any;
 	logger: Logger;
 	tracing: any;
-	page: any;
-	context: any;
+	page: playwright.Page;
+	context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
 }>({
 	defaultOptions: async ({ }, use) => {
@@ -54,7 +56,7 @@ export const test = base.extend<{
 			verbose: OPTS.verbose,
 			remote: OPTS.remote,
 			web: OPTS.web,
-			// tracing: false,
+			tracing: true,
 			headless: OPTS.headless,
 			browser: OPTS.browser,
 			extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
@@ -69,15 +71,21 @@ export const test = base.extend<{
 
 	reuseApp: [true, { option: true }],
 
-	app: async ({ defaultOptions, reuseApp }, use) => {
+	app: async ({ defaultOptions, reuseApp }, use, testInfo) => {
+		// Create and start the app
 		const app = createApp(defaultOptions);
+		await app.start();
 
 		// // Conditionally start the app based on reuseApp flag
 		// if (!reuseApp) {
 		// Start and stop app for each test
-		await app.start();
+
+		// Run the test
 		await use(app);
+
+		// Stop the app
 		await app.stop();
+
 		// } else {
 		// 	// App lifecycle will be managed in beforeAll/afterAll
 		// 	await use(app);
@@ -91,24 +99,6 @@ export const test = base.extend<{
 	context: async ({ app }, use) => {
 		await use(app.code.driver.getContext());
 	},
-
-	logger: async ({ defaultOptions }, use) => {
-		await use(defaultOptions.logger);
-	},
-
-	tracing: [async ({ app }, use, testInfo) => {
-		const driver = app.code.driver;
-		const context = driver.getContext();
-
-		await context.tracing.start({ screenshots: true, snapshots: true });
-
-		await use();
-
-		const tracePath = testInfo.outputPath(`electron-trace${Date.now()}.zip`);
-		await context.tracing.stop({ path: tracePath });
-		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-
-	}, { auto: true }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -135,6 +125,27 @@ export const test = base.extend<{
 		}
 
 	}, { auto: true }],
+
+	tracing: [async ({ app }, use, testInfo) => {
+		// Start tracing
+		await app.startTracing('test');
+
+		// Run the test
+		await use(app);
+
+		// Stop tracing
+		const tracePath = testInfo.outputPath('trace.zip');
+		await app.stopTracing('test', true, tracePath);
+		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+	}, { auto: true }],
+
+	application: async ({ app }, use) => {
+		await use(app.code.driver.getApplication());
+	},
+
+	logger: async ({ defaultOptions }, use) => {
+		await use(defaultOptions.logger);
+	},
 });
 
 
@@ -155,14 +166,14 @@ export const test = base.extend<{
 // });
 
 
-test('poc test', async ({ app }) => {
+test.only('poc test', async ({ app }) => {
 	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 	await app.code.driver.takeScreenshot('marie-screen');
 	await renderQuartoDocument(app, 'html');
 	// await app.code.driver.takeScreenshot('marie-screen');
-	await verifyDocumentExists(app, 'html');
+	// await verifyDocumentExists(app, 'html');
 	app.code.wait(5000);
-	// expect(1).toBe(2);
+	expect(1).toBe(2);
 });
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {

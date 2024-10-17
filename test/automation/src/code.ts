@@ -121,8 +121,8 @@ export class Code {
 		return await this.driver.startTracing(name);
 	}
 
-	async stopTracing(name: string, persist: boolean): Promise<void> {
-		return await this.driver.stopTracing(name, persist);
+	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
+		return await this.driver.stopTracing(name, persist, customPath);
 	}
 
 	async dispatchKeybinding(keybinding: string): Promise<void> {
