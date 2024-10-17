@@ -69,6 +69,12 @@ const SizingPolicyStorageKey = 'positron.plots.sizingPolicy';
 /** The key used to store the custom plot size */
 const CustomPlotSizeStorageKey = 'positron.plots.customPlotSize';
 
+interface DataUri {
+	mime: string;
+	data: string;
+	type: string;
+}
+
 /**
  * PositronPlotsService class.
  */
@@ -864,13 +870,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private savePlotAs = (options: SavePlotOptions) => {
 		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
-		const matches = this.splitPlotDataUri(options.uri);
+		const dataUri = this.splitPlotDataUri(options.uri);
 
-		if (!matches) {
+		if (!dataUri) {
 			return;
 		}
 
-		const data = matches[2];
+		const data = dataUri.data;
 
 		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
 			.catch((error: Error) => {
@@ -881,9 +887,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/**
 	 * Splits an image data URI into its MIME, type, and data.
 	 * @param plotDataUri the data URI
-	 * @returns an array containing the MIME type, the type of the image, and the image data
+	 * @returns the `DataUri`.
 	 */
-	private splitPlotDataUri(plotDataUri: string) {
+	private splitPlotDataUri(plotDataUri: string): DataUri | null {
 		// match the data URI scheme
 		// the data portion isn't matched because of javascript regex performance with large stringszs
 		const mimeAndData = plotDataUri.split('base64,');
@@ -894,17 +900,21 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const mime = mimeAndData[0].split('data:')[1];
 		const imageData = mimeAndData[1];
 
-		return [mime, mime.split('/')[1], imageData];
+		return {
+			mime: mime,
+			data: imageData,
+			type: mime.split('/')[1]
+		};
 	}
 
 	showSavePlotDialog(uri: string) {
-		const matches = this.splitPlotDataUri(uri);
+		const dataUri = this.splitPlotDataUri(uri);
 
-		if (!matches) {
+		if (!dataUri) {
 			return;
 		}
 
-		const extension = matches[1];
+		const extension = dataUri.type;
 
 		this._fileDialogService.showSaveDialog({
 			title: 'Save Plot',
