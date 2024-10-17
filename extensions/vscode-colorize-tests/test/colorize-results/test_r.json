@@ -81,12 +81,12 @@
 	},
 	{
 		"c": "x",
-		"t": "source.r entity.name.tag",
+		"t": "source.r variable.parameter",
 		"r": {
-			"hc_black": "entity.name.tag: #569CD6",
-			"positron_dark": "entity.name.tag: #569CD6",
-			"positron_light": "entity.name.tag: #800000",
-			"hc_light": "entity.name.tag: #0F4A85"
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
@@ -151,12 +151,12 @@
 	},
 	{
 		"c": "y",
-		"t": "source.r entity.name.tag",
+		"t": "source.r variable.parameter",
 		"r": {
-			"hc_black": "entity.name.tag: #569CD6",
-			"positron_dark": "entity.name.tag: #569CD6",
-			"positron_light": "entity.name.tag: #800000",
-			"hc_light": "entity.name.tag: #0F4A85"
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
@@ -311,7 +311,7 @@
 	},
 	{
 		"c": "add",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -321,12 +321,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -371,12 +371,12 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -401,7 +401,7 @@
 	},
 	{
 		"c": "add",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -411,12 +411,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -461,22 +461,22 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
-		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
-		}
-	},
-	{
-		"c": "add",
-		"t": "source.r constant.other",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
 			"positron_light": "default: #3B3B3B",
 			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "add",
+		"t": "source.r variable.object",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
@@ -511,7 +511,7 @@
 	},
 	{
 		"c": "function",
-		"t": "source.r keyword keyword",
+		"t": "source.r meta.function.definition keyword.other",
 		"r": {
 			"hc_black": "keyword: #569CD6",
 			"positron_dark": "keyword: #569CD6",
@@ -521,27 +521,27 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword keyword.operator",
+		"t": "source.r meta.function.definition meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "x",
-		"t": "source.r keyword entity.name.tag",
+		"t": "source.r meta.function.definition variable.parameter",
 		"r": {
-			"hc_black": "entity.name.tag: #569CD6",
-			"positron_dark": "entity.name.tag: #569CD6",
-			"positron_light": "entity.name.tag: #800000",
-			"hc_light": "entity.name.tag: #0F4A85"
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword keyword.operator",
+		"t": "source.r meta.function.definition keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -551,32 +551,32 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r keyword",
+		"t": "source.r meta.function.definition",
 		"r": {
-			"hc_black": "keyword: #569CD6",
-			"positron_dark": "keyword: #569CD6",
-			"positron_light": "keyword: #0000FF",
-			"hc_light": "keyword: #0F4A85"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "y",
-		"t": "source.r keyword entity.name.tag",
+		"t": "source.r meta.function.definition variable.parameter",
 		"r": {
-			"hc_black": "entity.name.tag: #569CD6",
-			"positron_dark": "entity.name.tag: #569CD6",
-			"positron_light": "entity.name.tag: #800000",
-			"hc_light": "entity.name.tag: #0F4A85"
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword keyword.operator",
+		"t": "source.r meta.function.definition meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -591,12 +591,12 @@
 	},
 	{
 		"c": "{",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -611,12 +611,12 @@
 	},
 	{
 		"c": "x",
-		"t": "source.r constant.other",
+		"t": "source.r variable.object",
 		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
@@ -651,7 +651,17 @@
 	},
 	{
 		"c": "y",
-		"t": "source.r constant.other",
+		"t": "source.r variable.object",
+		"r": {
+			"hc_black": "variable: #9CDCFE",
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
+		}
+	},
+	{
+		"c": "}",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -660,18 +670,8 @@
 		}
 	},
 	{
-		"c": "}",
-		"t": "source.r keyword.operator",
-		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
-		}
-	},
-	{
 		"c": "add",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -681,12 +681,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -771,17 +771,17 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "add",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -791,12 +791,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -841,17 +841,17 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "paste",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -861,12 +861,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -911,17 +911,17 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "paste",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -931,12 +931,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -981,17 +981,17 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "paste",
-		"t": "source.r entity.name.function",
+		"t": "source.r meta.function-call entity.name.function",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -1001,12 +1001,12 @@
 	},
 	{
 		"c": "(",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -1071,12 +1071,12 @@
 	},
 	{
 		"c": ")",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	}
 ]
