@@ -21,8 +21,6 @@ import { createLogger } from '../test-runner/logger';
 import { ROOT_PATH } from '../test-runner/test-hooks';
 import { Application, Logger } from '../../../automation';
 import { createApp } from '../utils';
-import { cloneTestRepo, prepareTestEnv } from '../test-runner';
-
 export const test = base.extend<{
 	app: Application;
 	application: playwright.Browser | playwright.ElectronApplication;
@@ -62,33 +60,24 @@ export const test = base.extend<{
 			extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
 		};
 
-		// need to move into global setup
-		prepareTestEnv();
-		cloneTestRepo(WORKSPACE_PATH);
-
 		await use(options);
 	},
 
 	reuseApp: [true, { option: true }],
 
-	app: async ({ defaultOptions, reuseApp }, use, testInfo) => {
-		// Create and start the app
+	// Application fixture
+	app: async ({ defaultOptions, reuseApp }, use) => {
+		// if (reuseApp && appInstance) {
+		// 	console.log('Reusing the existing app instance');
+		// 	// Reuse the existing app instance
+		// 	await use(appInstance);
+		// } else {
+		// 	console.log('Creating a new app instance');
+		// 	// Create a new app instance
 		const app = createApp(defaultOptions);
 		await app.start();
-
-		// // Conditionally start the app based on reuseApp flag
-		// if (!reuseApp) {
-		// Start and stop app for each test
-
-		// Run the test
 		await use(app);
-
-		// Stop the app
 		await app.stop();
-
-		// } else {
-		// 	// App lifecycle will be managed in beforeAll/afterAll
-		// 	await use(app);
 		// }
 	},
 
@@ -149,31 +138,20 @@ export const test = base.extend<{
 });
 
 
-// test.beforeAll(async ({ app, reuseApp }) => {
-// 	// If reuseApp is true, the app will be started in beforeAll
-// 	console.log('beforeAll reuseApp:', reuseApp);
-// 	if (reuseApp) {
-// 		await app.start();
-// 	}
-// });
+test.describe.only('poc suite', () => {
+	// test.use({ reuseApp: true });
 
-// test.afterAll(async ({ app, reuseApp }) => {
-// 	// If reuseApp is true, the app will be stopped after all tests
-// 	console.log('afterAll reuseApp:', reuseApp);
-// 	if (reuseApp) {
-// 		await app.stop();
-// 	}
-// });
+	test('poc test 1', async ({ app }) => {
+		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await app.code.driver.takeScreenshot('screen 1');
+		await renderQuartoDocument(app, 'html');
+		expect(1).toBe(2);
+	});
 
-
-test.only('poc test', async ({ app }) => {
-	await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
-	await app.code.driver.takeScreenshot('marie-screen');
-	await renderQuartoDocument(app, 'html');
-	// await app.code.driver.takeScreenshot('marie-screen');
-	// await verifyDocumentExists(app, 'html');
-	app.code.wait(5000);
-	expect(1).toBe(2);
+	test('poc test 2', async ({ app }) => {
+		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		await app.code.driver.takeScreenshot('screen 2');
+	});
 });
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
