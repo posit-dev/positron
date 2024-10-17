@@ -95,7 +95,49 @@ export class QuickInputController extends Disposable {
 		}
 	}
 
+	// --- Start Positron ---
+	/**
+	 * Special handling for Positron modals because they create an overlay to prevent interaction with anything
+	 * below. This reparents the quick input to the modal if needed. Unnecessarily reparenting causes
+	 * focus problems with the quick input.
+	 *
+	 * TODO: The quick pick still allows interaction with the modal. It should probably prevent modal
+	 * interaction while the quick pick is open.
+	 */
+	private handlePositronModal() {
+		const modal = this.layoutService.activeContainer.getElementsByClassName('positron-modal-dialog-box');
+		if (modal.length && dom.isHTMLElement(modal.item(0)) && this.ui) {
+			const modalContainer = modal.item(0) as HTMLElement;
+			if (!modalContainer.isSameNode(this.ui.container.parentNode)) {
+				// a Positron modal is open, the quick pick will need to set its parent to it
+				dom.append(modalContainer, this.ui.container);
+				this.ui.container.style.position = 'fixed'; // modal hides overflow so this positions it so that nothing is hidden
+				this.ui.container.style.zIndex = 'auto'; // sets it above the modal since it is a child
+				// close the quick pick if the modal closed
+				new MutationObserver((_mutations, observer) => {
+					if (this.ui && !modalContainer.contains(this.ui.container)) {
+						this.hide();
+						observer.disconnect();
+					}
+				}).observe(modalContainer, { childList: true });
+			}
+		} else {
+			if (this.ui) {
+				// restore parent
+				if (!this._container.isSameNode(this.ui.container.parentNode)) {
+					this._container.appendChild(this.ui.container);
+					this.ui.container.style.zIndex = '';
+					this.ui.container.style.position = 'absolute';
+				}
+			}
+		}
+	}
+	// --- End Positron ---
+
 	private getUI(showInActiveContainer?: boolean) {
+		// --- Start Positron ---
+		this.handlePositronModal();
+		// --- End Positron ---
 		if (this.ui) {
 			// In order to support aux windows, re-parent the controller
 			// if the original event is from a different document
