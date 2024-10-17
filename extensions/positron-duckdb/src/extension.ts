@@ -37,20 +37,20 @@ class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
 
 	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
-		// Create the path to the DuckDB WASM bundle. Note that only the MVP
-		// bundle for Node is supported for now as we don't support Positron
+		// Create the path to the DuckDB WASM bundle. Note that only the EH
+		// bundle for Node is used for now as we don't support Positron
 		// extensions running in a browser context yet.
 		const distPath = join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
 		const bundle = {
-			mainModule: join(distPath, 'duckdb-mvp.wasm'),
-			mainWorker: join(distPath, 'duckdb-node-mvp.worker.cjs')
+			mainModule: join(distPath, 'duckdb-eh.wasm'),
+			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
 		};
 		const logger = new duckdb.VoidLogger();
 
 		const worker = new Worker(bundle.mainWorker);
 
 		const db = new duckdb.AsyncDuckDB(logger, worker);
-		await db.instantiate(bundle.mainModule, null);
+		await db.instantiate(bundle.mainModule);
 
 		const con = await db.connect();
 		await con.query('LOAD icu; SET TIMEZONE=\'UTC\';');
