@@ -47,7 +47,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 	/** A barrier that opens when the Kallichore server has successfully started;
 	 * used to hold operations until we're online */
-	private readonly _started: Barrier = new Barrier();
+	private _started: Barrier = new Barrier();
 
 	/**
 	 * If we're currently starting, this is the promise that resolves when the
@@ -311,9 +311,89 @@ export class KCApi implements KallichoreAdapterApi {
 		await session.create(kernel);
 
 		// Save the session now that it has been created on the server
+		this.addDisconnectHandler(session);
 		this._sessions.push(session);
 
 		return session;
+	}
+
+	/**
+	 * Adds a disconnect handler to a session that will check the server status
+	 * when the session's websocket disconnects.
+	 *
+	 * @param session The session to add the disconnect handler to
+	 */
+	private addDisconnectHandler(session: KallichoreSession) {
+		session.disconnected.event(async (state: positron.RuntimeState) => {
+			if (state !== positron.RuntimeState.Exited) {
+				// The websocket disconnected while the session was still
+				// running. This could signal a problem with the supervisor.
+				this._log.info(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
+				await this.testDisconnected();
+			}
+		});
+	}
+
+	/**
+	 * Tests the server after a session disconnects to see if it is still running.
+	 * If it isn't, marks all sessions as exited and restarts the server.
+	 *
+	 * @returns A promise that resolves when the server has been confirmed to be
+	 * running or has been restarted.
+	 */
+	private async testDisconnected() {
+		// If we're currently starting, it doesn't make sense to test the
+		// server status since we're already in the process of starting it.
+		if (this._starting) {
+			return this._starting.promise;
+		}
+
+		// Load the server state so we can check the process ID
+		const serverState =
+			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
+
+		// Test the process ID to see if the server is still running.
+		let serverRunning = true;
+		if (serverState?.server_pid) {
+			try {
+				process.kill(serverState.server_pid, 0);
+				this._log.info(`Kallichore server PID ${serverState.server_pid} is still running`);
+			} catch (err) {
+				this._log.warn(`Kallichore server PID ${serverState.server_pid} is not running`);
+				serverRunning = false;
+			}
+		} else {
+			this._log.warn(`No Kallichore server state found; cannot test server process`);
+		}
+
+		// If the server is still running, we're done
+		if (serverRunning) {
+			return;
+		}
+
+		// Clean up the state so we don't try to reconnect to a server that
+		// isn't running.
+		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+
+		// We need to mark all sessions as exited since (at least right now)
+		// they cannot live without the supervisor.
+		for (const session of this._sessions) {
+			session.markExited(1, positron.RuntimeExitReason.Error);
+		}
+
+		// Reset the start barrier and start the server again.
+		this._started = new Barrier();
+		try {
+			// Start the server again
+			await this.ensureStarted();
+
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
+
+		} catch (err) {
+			vscode.window.showInformationMessage(
+				vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and could not automatically restarted: ' + err));
+		}
 	}
 
 	/**
@@ -356,6 +436,7 @@ export class KCApi implements KallichoreAdapterApi {
 					reject(err);
 				}
 				// Save the session
+				this.addDisconnectHandler(session);
 				this._sessions.push(session);
 				resolve(session);
 			}).catch((err) => {

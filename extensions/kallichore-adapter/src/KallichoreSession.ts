@@ -50,6 +50,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Emitter for runtime exit events */
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 
+	/** Emitter for disconnection events  */
+	readonly disconnected: vscode.EventEmitter<positron.RuntimeState>;
+
 	/** Barrier: opens when the session has been established on Kallichore */
 	private readonly _established: Barrier = new Barrier();
 
@@ -130,6 +133,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
+		this.disconnected = new vscode.EventEmitter<positron.RuntimeState>();
+
+		// Ensure the emitters are disposed when the session is disposed
+		this._disposables.push(this._state);
+		this._disposables.push(this._exit);
+		this._disposables.push(this.disconnected);
 
 		this.onDidReceiveRuntimeMessage = this._messages.event;
 
@@ -815,7 +824,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 			};
 
-			this._socket.ws.onclose = (_evt: any) => {
+			this._socket.ws.onclose = (evt: any) => {
+				this.log(`Websocket closed with kernel in status ${this._runtimeState}: ${JSON.stringify(evt)}`, vscode.LogLevel.Info);
+				this.disconnected.fire(this._runtimeState);
 				// When the socket is closed, reset the connected barrier and
 				// clear the websocket instance.
 				this._connected = new Barrier();
@@ -966,6 +977,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/**
+	 * Gets the current runtime state of the kernel.
+	 */
+	get runtimeState(): positron.RuntimeState {
+		return this._runtimeState;
+	}
+
 	private onStateChange(newState: positron.RuntimeState) {
 		// If the kernel is ready, open the ready barrier
 		if (newState === positron.RuntimeState.Ready) {
@@ -991,6 +1009,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 		this._runtimeState = newState;
 		this._state.fire(newState);
+	}
+
+	/**
+	 * Marks the kernel as exited.
+	 *
+	 * @param exitCode The exit code
+	 * @param reason The reason for the exit
+	 */
+	markExited(exitCode: number, reason: positron.RuntimeExitReason) {
+		this._exitReason = reason;
+		this.onStateChange(positron.RuntimeState.Exited);
+		this.onExited(exitCode);
 	}
 
 	private onExited(exitCode: number) {
