@@ -57,11 +57,11 @@ export const showNewFolderModalDialog = async (
 		<NewFolderModalDialog
 			fileDialogService={fileDialogService}
 			renderer={renderer}
-			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				// Create the folder path.
 				const path = await pathService.path;
-				const folderURI = URI.file(path.join(result.parentFolder, result.folder));
+				const folderURI = result.parentFolder.with({ path: path.join(result.parentFolder.path, result.folder) });
 
 				// Create the new folder, if it doesn't already exist.
 				if (!(await fileService.exists(folderURI))) {
@@ -87,7 +87,7 @@ export const showNewFolderModalDialog = async (
  */
 interface NewFolderResult {
 	readonly folder: string;
-	readonly parentFolder: string;
+	readonly parentFolder: URI;
 	readonly newWindow: boolean;
 }
 
@@ -97,7 +97,7 @@ interface NewFolderResult {
 interface NewFolderModalDialogProps {
 	fileDialogService: IFileDialogService;
 	renderer: PositronModalReactRenderer;
-	parentFolder: string;
+	parentFolder: URI;
 	createFolder: (result: NewFolderResult) => Promise<void>;
 }
 
@@ -121,14 +121,14 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 	const browseHandler = async () => {
 		// Show the open dialog.
 		const uri = await props.fileDialogService.showOpenDialog({
-			defaultUri: result.parentFolder ? URI.file(result.parentFolder) : undefined,
+			defaultUri: result.parentFolder ? result.parentFolder : await props.fileDialogService.defaultFolderPath(),
 			canSelectFiles: false,
 			canSelectFolders: true
 		});
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			setResult({ ...result, parentFolder: uri[0].fsPath });
+			setResult({ ...result, parentFolder: uri[0] });
 			folderNameRef.current.focus();
 		}
 	};
@@ -153,16 +153,16 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 					autoFocus
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
-					validator={(x: string | number) => checkIfPathValid(x, { parentPath: result.parentFolder })}
+					validator={(x: string | number) => checkIfPathValid(x, { parentPath: result.parentFolder.path })}
 				/>
 				<LabeledFolderInput
 					label={(() => localize(
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder}
+					value={result.parentFolder.path}
 					onBrowse={browseHandler}
-					onChange={e => setResult({ ...result, parentFolder: e.target.value })}
+					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>
