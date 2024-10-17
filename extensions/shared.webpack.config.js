@@ -29,9 +29,6 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 		node: {
 			__dirname: false // leave the __dirname-behaviour intact
 		},
-		infrastructureLogging: {
-			level: 'verbose',
-		},
 		resolve: {
 			conditionNames: ['import', 'require', 'node-addons', 'node'],
 			mainFields: ['module', 'main'],
@@ -140,9 +137,6 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 				'path': require.resolve('path-browserify'),
 				'util': require.resolve('util')
 			}
-		},
-		infrastructureLogging: {
-			level: 'verbose',
 		},
 		module: {
 			rules: [{
