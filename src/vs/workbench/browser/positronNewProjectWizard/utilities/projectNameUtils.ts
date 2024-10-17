@@ -19,7 +19,7 @@ import { IPathService } from 'vs/workbench/services/path/common/pathService';
  */
 export const checkProjectName = async (
 	projectName: string,
-	parentFolder: string,
+	parentFolder: URI,
 	pathService: IPathService,
 	fileService: IFileService
 ) => {
@@ -37,9 +37,7 @@ export const checkProjectName = async (
 	// TODO: Additional project name validation (i.e. unsupported characters, length, etc.)
 
 	// The project directory can't already exist.
-	const folderPath = URI.file(
-		(await pathService.path).join(parentFolder, projectName)
-	);
+	const folderPath = parentFolder.with({ path: (await pathService.path).join(parentFolder.fsPath, projectName) });
 	if (await fileService.exists(folderPath)) {
 		return {
 			type: WizardFormattedTextType.Error,
