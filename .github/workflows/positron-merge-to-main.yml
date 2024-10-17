@@ -54,7 +54,7 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-        secrets:
+        with:
           POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
 
       - name: Install Positron License

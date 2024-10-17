@@ -1,10 +1,9 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
-on:
-  workflow_call:
-    secrets:
-      POSITRON_GITHUB_PAT:
-        required: true
+inputs:
+  POSITRON_GITHUB_PAT:
+    description: "Github Personal Access Token"
+    required: true
 runs:
   using: "composite"
   steps:

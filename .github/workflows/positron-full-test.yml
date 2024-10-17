@@ -37,7 +37,7 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-        secrets:
+        with:
           POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
 
       - name: Run Unit Tests (Electron)
@@ -78,7 +78,7 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-        secrets:
+        with:
           POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
 
       - name: Install Positron License
@@ -139,7 +139,7 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-        secrets:
+        with:
           POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
 
       - name: Setup E2E Test Environment
@@ -215,7 +215,7 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
-        secrets:
+        with:
           POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
 
       - name: Install Positron License
