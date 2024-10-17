@@ -214,7 +214,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
 				.catch((error) => {
-					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", error.toString()));
+					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
 				})
 				.finally(() => {
 					setRendering(false);
