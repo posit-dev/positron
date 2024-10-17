@@ -76,7 +76,8 @@ export enum RenderFormat {
 	Png = 'png',
 	Jpeg = 'jpeg',
 	Svg = 'svg',
-	Pdf = 'pdf'
+	Pdf = 'pdf',
+	Tiff = 'tiff'
 }
 
 /**
