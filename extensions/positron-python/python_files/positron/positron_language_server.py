@@ -9,7 +9,11 @@ import logging
 import os
 import sys
 
-from positron_ipykernel.positron_ipkernel import PositronIPKernelApp, PositronIPyKernel, PositronShell
+from positron_ipykernel.positron_ipkernel import (
+    PositronIPKernelApp,
+    PositronIPyKernel,
+    PositronShell,
+)
 from positron_ipykernel.positron_jedilsp import POSITRON
 from positron_ipykernel.session_mode import SessionMode
 
