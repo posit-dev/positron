@@ -4,11 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DeferredPromise } from 'vs/base/common/async';
-import { Emitter } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { generateUuid } from 'vs/base/common/uuid';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { ArraySelection, BackendState, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, ExportedData, ExportFormat, FilterResult, FormatOptions, PositronDataExplorerComm, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ArraySelection, BackendState, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -33,6 +32,79 @@ export enum DataExplorerClientStatus {
 	Error
 }
 
+export interface DataExplorerUiEvent {
+	/**
+	 * Unique resource identifier for routing method calls.
+	 */
+	uri: string;
+
+	/**
+	 * Method name, as defined
+	 */
+	method: DataExplorerFrontendEvent;
+
+	/**
+	 * Data for event
+	 */
+	params: ReturnColumnProfilesEvent | DataUpdateEvent | SchemaUpdateEvent;
+}
+
+/**
+ * An instance of a data explorer backend implementation, whether provided by
+ * a language runtime, in-application embedded database (i.e. DuckDB), remote
+ * connection, etc.
+ */
+export interface IDataExplorerBackendClient extends Disposable {
+	clientId: string;
+	onDidClose: Event<void>;
+	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
+	onDidDataUpdate: Event<DataUpdateEvent>;
+	onDidReturnColumnProfiles: Event<ReturnColumnProfilesEvent>;
+	getState(): Promise<BackendState>;
+	getSchema(columnIndices: Array<number>): Promise<TableSchema>;
+	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
+	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
+	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
+	setColumnFilters(filters: Array<ColumnFilter>): Promise<void>;
+	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
+	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
+	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void>;
+}
+
+export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
+	display_name: 'disconnected',
+	table_shape: { num_rows: 0, num_columns: 0 },
+	table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
+	has_row_labels: false,
+	column_filters: [],
+	row_filters: [],
+	sort_keys: [],
+	supported_features: {
+		search_schema: {
+			support_status: SupportStatus.Unsupported,
+			supported_types: []
+		},
+		set_column_filters: {
+			support_status: SupportStatus.Unsupported,
+			supported_types: []
+		},
+		set_row_filters: {
+			support_status: SupportStatus.Unsupported,
+			supports_conditions: SupportStatus.Unsupported,
+			supported_types: []
+		},
+		get_column_profiles: {
+			support_status: SupportStatus.Unsupported,
+			supported_types: []
+		},
+		set_sort_columns: { support_status: SupportStatus.Unsupported, },
+		export_data_selection: {
+			support_status: SupportStatus.Unsupported,
+			supported_formats: []
+		}
+	}
+};
+
 /**
  * A data explorer client instance.
  */
@@ -55,9 +127,9 @@ export class DataExplorerClientInstance extends Disposable {
 	private _backendPromise: Promise<BackendState> | undefined = undefined;
 
 	/**
-	 * Gets the PositronDataExplorerComm.
+	 * Gets the IDataExplorerBackendClient.
 	 */
-	private readonly _positronDataExplorerComm: PositronDataExplorerComm;
+	private readonly _backendClient: IDataExplorerBackendClient;
 
 	/**
 	 * The onDidClose event emitter.
@@ -113,9 +185,9 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Creates a new data explorer client instance.
-	 * @param client The runtime client instance.
+	 * @param backendClient The data explorer backend client instance.
 	 */
-	constructor(client: IRuntimeClientInstance<any, any>) {
+	constructor(backendClient: IDataExplorerBackendClient) {
 		// Call the disposable constructor.
 		super();
 
@@ -136,17 +208,17 @@ export class DataExplorerClientInstance extends Disposable {
 		};
 
 		// Create and register the PositronDataExplorerComm on the client.
-		this._positronDataExplorerComm = new PositronDataExplorerComm(client);
-		this._register(this._positronDataExplorerComm);
+		this._backendClient = backendClient;
+		this._register(this._backendClient);
 
 		// Register the onDidClose event handler.
-		this._register(this._positronDataExplorerComm.onDidClose(() => {
+		this._register(this._backendClient.onDidClose(() => {
 			this.setStatus(DataExplorerClientStatus.Disconnected);
 			this._onDidCloseEmitter.fire();
 		}));
 
 		// Register the onDidSchemaUpdate event handler.
-		this._register(this._positronDataExplorerComm.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
+		this._register(this._backendClient.onDidSchemaUpdate(async (e: SchemaUpdateEvent) => {
 			// Refresh the cached backend state.
 			await this.updateBackendState();
 
@@ -155,7 +227,7 @@ export class DataExplorerClientInstance extends Disposable {
 		}));
 
 		// Register the onDidDataUpdate event handler.
-		this._register(this._positronDataExplorerComm.onDidDataUpdate(async () => {
+		this._register(this._backendClient.onDidDataUpdate(async () => {
 			// Refresh the cached backend state.
 			await this.updateBackendState();
 
@@ -164,7 +236,7 @@ export class DataExplorerClientInstance extends Disposable {
 		}));
 
 		// Register the onDidReturnColumnProfiles event handler.
-		this._register(this._positronDataExplorerComm.onDidReturnColumnProfiles(async (e: ReturnColumnProfilesEvent) => {
+		this._register(this._backendClient.onDidReturnColumnProfiles(async (e: ReturnColumnProfilesEvent) => {
 			if (this._asyncTasks.has(e.callback_id)) {
 				const promise = this._asyncTasks.get(e.callback_id);
 				promise?.complete(e.profiles);
@@ -191,7 +263,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Gets the identifier.
 	 */
 	get identifier() {
-		return this._positronDataExplorerComm.clientId;
+		return this._backendClient.clientId;
 	}
 
 	//#endregion Public Properties
@@ -225,40 +297,8 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 
 		this._backendPromise = this.runBackendTask(
-			() => this._positronDataExplorerComm.getState(),
-			() => ({
-				display_name: 'disconnected',
-				table_shape: { num_rows: 0, num_columns: 0 },
-				table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
-				has_row_labels: false,
-				column_filters: [],
-				row_filters: [],
-				sort_keys: [],
-				supported_features: {
-					search_schema: {
-						support_status: SupportStatus.Unsupported,
-						supported_types: []
-					},
-					set_column_filters: {
-						support_status: SupportStatus.Unsupported,
-						supported_types: []
-					},
-					set_row_filters: {
-						support_status: SupportStatus.Unsupported,
-						supports_conditions: SupportStatus.Unsupported,
-						supported_types: []
-					},
-					get_column_profiles: {
-						support_status: SupportStatus.Unsupported,
-						supported_types: []
-					},
-					set_sort_columns: { support_status: SupportStatus.Unsupported, },
-					export_data_selection: {
-						support_status: SupportStatus.Unsupported,
-						supported_formats: []
-					}
-				}
-			})
+			() => this._backendClient.getState(),
+			() => DATA_EXPLORER_DISCONNECTED_STATE
 		);
 
 		this.cachedBackendState = await this._backendPromise;
@@ -278,7 +318,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async getSchema(columnIndices: Array<number>): Promise<TableSchema> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getSchema(columnIndices),
+			() => this._backendClient.getSchema(columnIndices),
 			() => ({ columns: [] })
 		);
 	}
@@ -303,7 +343,7 @@ export class DataExplorerClientInstance extends Disposable {
 		const tableState = await this.getBackendState();
 
 		// Load the entire schema of the table so it can be searched.
-		const tableSchema = await this._positronDataExplorerComm.getSchema(
+		const tableSchema = await this._backendClient.getSchema(
 			[...Array(tableState.table_shape.num_columns).keys()]
 		);
 
@@ -326,7 +366,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async getDataValues(columns: Array<ColumnSelection>): Promise<TableData> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getDataValues(columns, this._dataFormatOptions),
+			() => this._backendClient.getDataValues(columns, this._dataFormatOptions),
 			() => ({ columns: [[]] })
 		);
 	}
@@ -340,7 +380,7 @@ export class DataExplorerClientInstance extends Disposable {
 		selection: ArraySelection,
 	): Promise<TableRowLabels> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.getRowLabels(selection,
+			() => this._backendClient.getRowLabels(selection,
 				this._dataFormatOptions
 			),
 			() => ({ row_labels: [[]] })
@@ -360,7 +400,7 @@ export class DataExplorerClientInstance extends Disposable {
 				const callbackId = generateUuid();
 				const promise = new DeferredPromise<Array<ColumnProfileResult>>();
 				this._asyncTasks.set(callbackId, promise);
-				await this._positronDataExplorerComm.getColumnProfiles(callbackId, profiles, this._profileFormatOptions);
+				await this._backendClient.getColumnProfiles(callbackId, profiles, this._profileFormatOptions);
 
 				const timeout = 10000;
 
@@ -397,7 +437,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.exportDataSelection(selection, format),
+			() => this._backendClient.exportDataSelection(selection, format),
 			() => ({
 				data: '',
 				format
@@ -412,7 +452,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.setRowFilters(filters),
+			() => this._backendClient.setRowFilters(filters),
 			() => ({ selected_num_rows: 0 })
 		);
 	}
@@ -424,7 +464,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
 		return this.runBackendTask(
-			() => this._positronDataExplorerComm.setSortColumns(sortKeys),
+			() => this._backendClient.setSortColumns(sortKeys),
 			() => { }
 		);
 	}
@@ -432,30 +472,7 @@ export class DataExplorerClientInstance extends Disposable {
 	getSupportedFeatures(): SupportedFeatures {
 		if (this.cachedBackendState === undefined) {
 			// Until the backend state is available, we disable features.
-			return {
-				search_schema: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
-				},
-				set_column_filters: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
-				},
-				set_row_filters: {
-					support_status: SupportStatus.Unsupported,
-					supports_conditions: SupportStatus.Unsupported,
-					supported_types: []
-				},
-				get_column_profiles: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
-				},
-				set_sort_columns: { support_status: SupportStatus.Unsupported },
-				export_data_selection: {
-					support_status: SupportStatus.Unsupported,
-					supported_formats: []
-				}
-			};
+			return DATA_EXPLORER_DISCONNECTED_STATE.supported_features;
 		} else {
 			return this.cachedBackendState.supported_features;
 		}

@@ -3,13 +3,60 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-//
+// Interfaces copied from main UI data explorer codebase. Do not manually edit.
+
+/**
+ * Descriptor for backend method invocation in via extension command.
+ */
+export interface DataExplorerRpc {
+	/**
+	 * Resource locator. Must be specified for all methods except for
+	 * OpenDataset (which is invoked with the uri as a parameter before
+	 * other methods can be invoked).
+	 */
+	method: DataExplorerBackendRequest;
+	uri?: string;
+	params: OpenDatasetParams |
+	GetSchemaParams |
+	GetDataValuesParams |
+	GetRowLabelsParams |
+	GetColumnProfilesParams |
+	SetRowFiltersParams |
+	SetColumnFiltersParams |
+	SetSortColumnsParams |
+	GetColumnProfilesParams |
+	ExportDataSelectionParams |
+	{};
+}
+
+export interface DataExplorerUiEvent {
+	/**
+	 * Unique resource identifier for routing method calls.
+	 */
+	uri: string;
+
+	/**
+	 * Method name, as defined
+	 */
+	method: DataExplorerFrontendEvent;
+
+	/**
+	 * Data for event
+	 */
+	params: ReturnColumnProfilesEvent | DataUpdateEvent | SchemaUpdateEvent;
+}
+
+/**
+ * Opaque backend response containing corresponding RPC result
+ * or an error message in the case of failure.
+ */
+export interface DataExplorerResponse {
+	result?: any;
+	error_message?: string;
+}
+
 // AUTO-GENERATED from data_explorer.json; do not edit.
 //
-
-import { Event } from 'vs/base/common/event';
-import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
  * Result in Methods
@@ -1369,196 +1416,3 @@ export enum DataExplorerBackendRequest {
 	GetColumnProfiles = 'get_column_profiles',
 	GetState = 'get_state'
 }
-
-export class PositronDataExplorerComm extends PositronBaseComm {
-	constructor(
-		instance: IRuntimeClientInstance<any, any>,
-		options?: PositronCommOptions<DataExplorerBackendRequest>,
-	) {
-		super(instance, options);
-		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
-		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
-		this.onDidReturnColumnProfiles = super.createEventEmitter('return_column_profiles', ['callback_id', 'profiles']);
-	}
-
-	/**
-	 * Request to open a dataset given a URI
-	 *
-	 * Request to open a dataset given a URI
-	 *
-	 * @param uri The resource locator or file path
-	 *
-	 * @returns undefined
-	 */
-	openDataset(uri: string): Promise<OpenDatasetResult> {
-		return super.performRpc('open_dataset', ['uri'], [uri]);
-	}
-
-	/**
-	 * Request schema
-	 *
-	 * Request subset of column schemas for a table-like object
-	 *
-	 * @param columnIndices The column indices (relative to the
-	 * filtered/selected columns) to fetch
-	 *
-	 * @returns undefined
-	 */
-	getSchema(columnIndices: Array<number>): Promise<TableSchema> {
-		return super.performRpc('get_schema', ['column_indices'], [columnIndices]);
-	}
-
-	/**
-	 * Search full, unfiltered table schema with column filters
-	 *
-	 * Search full, unfiltered table schema for column names matching one or
-	 * more column filters
-	 *
-	 * @param filters Column filters to apply when searching
-	 * @param startIndex Index (starting from zero) of first result to fetch
-	 * (for paging)
-	 * @param maxResults Maximum number of resulting column schemas to fetch
-	 * from the start index
-	 *
-	 * @returns undefined
-	 */
-	searchSchema(filters: Array<ColumnFilter>, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
-		return super.performRpc('search_schema', ['filters', 'start_index', 'max_results'], [filters, startIndex, maxResults]);
-	}
-
-	/**
-	 * Request formatted values from table columns
-	 *
-	 * Request data from table columns with values formatted as strings
-	 *
-	 * @param columns Array of column selections
-	 * @param formatOptions Formatting options for returning data values as
-	 * strings
-	 *
-	 * @returns Requested values formatted as strings
-	 */
-	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData> {
-		return super.performRpc('get_data_values', ['columns', 'format_options'], [columns, formatOptions]);
-	}
-
-	/**
-	 * Request formatted row labels from table
-	 *
-	 * Request formatted row labels from table
-	 *
-	 * @param selection Selection of row labels
-	 * @param formatOptions Formatting options for returning labels as
-	 * strings
-	 *
-	 * @returns Requested formatted row labels
-	 */
-	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels> {
-		return super.performRpc('get_row_labels', ['selection', 'format_options'], [selection, formatOptions]);
-	}
-
-	/**
-	 * Export data selection as a string in different formats
-	 *
-	 * Export data selection as a string in different formats like CSV, TSV,
-	 * HTML
-	 *
-	 * @param selection The data selection
-	 * @param format Result string format
-	 *
-	 * @returns Exported result
-	 */
-	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
-		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
-	}
-
-	/**
-	 * Set column filters to select subset of table columns
-	 *
-	 * Set or clear column filters on table, replacing any previous filters
-	 *
-	 * @param filters Column filters to apply (or pass empty array to clear
-	 * column filters)
-	 *
-	 */
-	setColumnFilters(filters: Array<ColumnFilter>): Promise<void> {
-		return super.performRpc('set_column_filters', ['filters'], [filters]);
-	}
-
-	/**
-	 * Set row filters based on column values
-	 *
-	 * Row filters to apply (or pass empty array to clear row filters)
-	 *
-	 * @param filters Zero or more filters to apply
-	 *
-	 * @returns The result of applying filters to a table
-	 */
-	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
-		return super.performRpc('set_row_filters', ['filters'], [filters]);
-	}
-
-	/**
-	 * Set or clear sort-by-column(s)
-	 *
-	 * Set or clear the columns(s) to sort by, replacing any previous sort
-	 * columns
-	 *
-	 * @param sortKeys Pass zero or more keys to sort by. Clears any existing
-	 * keys
-	 *
-	 */
-	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
-		return super.performRpc('set_sort_columns', ['sort_keys'], [sortKeys]);
-	}
-
-	/**
-	 * Async request a batch of column profiles
-	 *
-	 * Async request for a statistical summary or data profile for batch of
-	 * columns
-	 *
-	 * @param callbackId Async callback unique identifier
-	 * @param profiles Array of requested profiles
-	 * @param formatOptions Formatting options for returning data values as
-	 * strings
-	 *
-	 */
-	getColumnProfiles(callbackId: string, profiles: Array<ColumnProfileRequest>, formatOptions: FormatOptions): Promise<void> {
-		return super.performRpc('get_column_profiles', ['callback_id', 'profiles', 'format_options'], [callbackId, profiles, formatOptions]);
-	}
-
-	/**
-	 * Get the state
-	 *
-	 * Request the current backend state (table metadata, explorer state, and
-	 * features)
-	 *
-	 *
-	 * @returns The current backend state for the data explorer
-	 */
-	getState(): Promise<BackendState> {
-		return super.performRpc('get_state', [], []);
-	}
-
-
-	/**
-	 * Request to sync after a schema change
-	 *
-	 * Notify the data explorer to do a state sync after a schema change.
-	 */
-	onDidSchemaUpdate: Event<SchemaUpdateEvent>;
-	/**
-	 * Clear cache and request fresh data
-	 *
-	 * Triggered when there is any data change detected, clearing cache data
-	 * and triggering a refresh/redraw.
-	 */
-	onDidDataUpdate: Event<DataUpdateEvent>;
-	/**
-	 * Return async result of get_column_profiles request
-	 *
-	 * Return async result of get_column_profiles request
-	 */
-	onDidReturnColumnProfiles: Event<ReturnColumnProfilesEvent>;
-}
-
