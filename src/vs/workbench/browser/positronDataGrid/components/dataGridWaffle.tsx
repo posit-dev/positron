@@ -83,7 +83,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		 */
 		const setScreenSize = async (width: number, height: number) => {
 			// Set the screen size.
-			await context.instance.setScreenSize(width, height);
+			await context.instance.setSize(width, height);
 		};
 
 		// Set the initial screen size.

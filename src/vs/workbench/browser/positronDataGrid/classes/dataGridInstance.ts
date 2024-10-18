@@ -1474,13 +1474,14 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the screen size.
+	 * Sets the size.
 	 * @param width The width.
 	 * @param height The height.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setScreenSize(width: number, height: number): Promise<void> {
-		// If the screen size changed, fetch data and fire the onDidUpdate event.
+	async setSize(width: number, height: number): Promise<void> {
+		// If the size changed, optmize the vertical scroll offset, fetch data and fire the
+		// onDidUpdate event.
 		if (width !== this._width || height !== this._height) {
 			// Update the width and height.
 			this._width = width;
