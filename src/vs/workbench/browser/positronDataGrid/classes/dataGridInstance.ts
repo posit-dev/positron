@@ -1207,10 +1207,20 @@ export abstract class DataGridInstance extends Disposable {
 		return false;
 	}
 
+	/**
+	 * Gets a column layout entry.
+	 * @param columnIndex The column index.
+	 * @returns The column layout entry, if found; otherwise, undefined.
+	 */
 	getColumnLayoutEntry(columnIndex: number) {
 		return this._columnLayoutManager.getLayoutEntry(columnIndex);
 	}
 
+	/**
+	 * Gets a row layout entry.
+	 * @param columnIndex The row index.
+	 * @returns The row layout entry, if found; otherwise, undefined.
+	 */
 	getRowLayoutEntry(rowIndex: number) {
 		return this._rowLayoutManager.getLayoutEntry(rowIndex);
 	}
