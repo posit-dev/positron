@@ -6,7 +6,6 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
-import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
 import { localize } from 'vs/nls';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -68,6 +67,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		if (existingInstance) {
 			// Update input
 			existingInstance._input = input;
+			// Make sure we're starting with a fresh view
+			existingInstance.detachView();
 			existingInstance._creationOptions = creationOptions;
 			return existingInstance;
 		}
@@ -216,14 +217,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		}
 		this._logService.info(this.id, 'Generating new notebook options');
 
-		this._notebookOptions = this._creationOptions?.options ?? new NotebookOptions(
-			DOM.getActiveWindow(),
-			this.isReadOnly,
-			undefined,
-			this.configurationService,
-			this.notebookExecutionStateService,
-			this._codeEditorService
-		);
+		this._notebookOptions = this._instantiationService.createInstance(NotebookOptions, DOM.getActiveWindow(), this.isReadOnly, undefined);
 
 		return this._notebookOptions;
 	}
@@ -245,7 +239,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@ICodeEditorService private readonly _codeEditorService: ICodeEditorService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
 	) {
@@ -499,6 +492,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._logService.info(this.id, 'detachView');
 		this._clearKeyboardNavigation?.();
 		this._notebookOptions?.dispose();
+		this._notebookOptions = undefined;
 		this._detachModel();
 	}
 

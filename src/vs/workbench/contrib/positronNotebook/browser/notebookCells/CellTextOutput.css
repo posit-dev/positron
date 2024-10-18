@@ -11,3 +11,9 @@
 	font-size: var(--vscode-positronNotebook-text-output-font-size);
 	white-space: pre-wrap;
 }
+
+.positron-notebook-text-output.long-output-scroll {
+	/* TODO: This should match the height of the output if truncated */
+	max-height: 400px;
+	overflow: scroll;
+}
