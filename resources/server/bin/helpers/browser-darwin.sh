@@ -23,4 +23,6 @@ VERSION="@@VERSION@@"
 COMMIT="@@COMMIT@@"
 EXEC_NAME="@@APPNAME@@"
 CLI_SCRIPT="$ROOT/out/server-cli.js"
+# --- Start Positron ---
 "$ROOT/node" "$CLI_SCRIPT" "$APP_NAME" "$POSITRON_VERSION" "$BUILD_NUMBER" "$VERSION" "$COMMIT" "$EXEC_NAME" "--openExternal" "$@"
+# --- End Positron ---
