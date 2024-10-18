@@ -548,7 +548,10 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
 				// --- Start Positron ---
-				.pipe(replace('@@VERSION@@', positronVersion))
+				// These are commented out since they're not currently used in 'resources/win32/bin/code.sh'
+				// .pipe(replace('@@VERSION@@', version))
+				// .pipe(replace('@@POSITRONVERSION@@', positronVersion))
+				// .pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 				// --- End Positron ---
 				.pipe(replace('@@COMMIT@@', commit))
 				.pipe(replace('@@APPNAME@@', product.applicationName))
