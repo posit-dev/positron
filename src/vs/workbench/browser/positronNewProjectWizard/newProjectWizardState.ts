@@ -23,6 +23,7 @@ import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProject
 import { LanguageIds, NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * NewProjectWizardServices interface.
@@ -49,7 +50,7 @@ interface NewProjectWizardServices {
  */
 export interface NewProjectWizardStateConfig {
 	readonly services: NewProjectWizardServices;
-	readonly parentFolder: string;
+	readonly parentFolder: URI;
 	readonly initialStep: NewProjectWizardStep;
 	readonly steps?: NewProjectWizardStep[];
 }
@@ -62,7 +63,7 @@ export interface NewProjectWizardState {
 	selectedRuntime: ILanguageRuntimeMetadata | undefined;
 	projectType: NewProjectType | undefined;
 	projectName: string;
-	parentFolder: string;
+	parentFolder: URI;
 	initGitRepo: boolean;
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
@@ -106,7 +107,7 @@ export class NewProjectWizardStateManager
 	private _projectType: NewProjectType | undefined;
 	private _projectName: string;
 	private _projectNameFeedback: WizardFormattedTextItem | undefined;
-	private _parentFolder: string;
+	private _parentFolder: URI;
 	private _initGitRepo: boolean;
 	private _openInNewWindow: boolean;
 	// Python-specific state.
@@ -282,7 +283,7 @@ export class NewProjectWizardStateManager
 	 * Gets the parent folder.
 	 * @returns The parent folder.
 	 */
-	get parentFolder(): string {
+	get parentFolder(): URI {
 		return this._parentFolder;
 	}
 
@@ -290,7 +291,7 @@ export class NewProjectWizardStateManager
 	 * Sets the parent folder.
 	 * @param value The parent folder.
 	 */
-	set parentFolder(value: string) {
+	set parentFolder(value: URI) {
 		this._parentFolder = value;
 		this._onUpdateProjectDirectoryEmitter.fire();
 	}

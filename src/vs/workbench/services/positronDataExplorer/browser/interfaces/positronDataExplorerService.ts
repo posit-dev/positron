@@ -68,4 +68,11 @@ export interface IPositronDataExplorerService {
 	 * @param identifier The identifier of the focused Positron data explorer to clear.
 	 */
 	clearFocusedPositronDataExplorer(identifier: string): void;
+
+	/**
+	 * Open a workspace file using the positron-duckdb extension for use with
+	 * the data explorer.
+	 * @param filePath Path to file to open with positron-duckdb extension
+	 */
+	openWithDuckDB(filePath: string): Promise<void>;
 }

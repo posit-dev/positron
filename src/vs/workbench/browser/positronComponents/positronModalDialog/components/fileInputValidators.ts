@@ -93,6 +93,25 @@ export async function checkIfPathExists(path: string | number, fileService: IFil
 	return undefined;
 }
 
+/**
+ * Check if the current URI exists. For use with Positron web.
+ *
+ * @see `checkIfPathValid` `useDebouncedValidator` `LabeledTextInput` `LabeledFolderInput`
+ * @returns Promise with error message if path doesn't exist or undefined if it does.
+ */
+export async function checkIfURIExists(path: URI, fileService: IFileService): Promise<string | undefined> {
+	try {
+		const pathExists = await fileService.exists(path);
+
+		if (!pathExists) {
+			return localize('pathDoesNotExistError', "The path {0} does not exist.", sanitizePathForDisplay(path.path));
+		}
+	} catch (e) {
+		return localize('errorCheckingIfPathExists', "An error occurred while checking if the path {0} exists.", sanitizePathForDisplay(path.path));
+	}
+
+	return undefined;
+}
 
 /**
  * Helper function to print paths in a more readable format.

@@ -32,6 +32,7 @@ function getQuartoWindows(version) {
     return (0, fetch_1.fetchUrls)([`${basename}.zip`], {
         base: getBaseUrl(version),
         verbose: true,
+        timeoutSeconds: 90,
     })
         .pipe(unzip());
 }
@@ -47,6 +48,7 @@ function getQuartoMacOS(version) {
     return (0, fetch_1.fetchUrls)([`quarto-${version}-macos.tar.gz`], {
         base: getBaseUrl(version),
         verbose: true,
+        timeoutSeconds: 90,
     })
         // Unzip, then untar
         .pipe(gunzip())
@@ -67,6 +69,7 @@ function getQuartoLinux(version) {
     return (0, fetch_1.fetchUrls)([`${basename}.tar.gz`], {
         base: getBaseUrl(version),
         verbose: true,
+        timeoutSeconds: 90,
     })
         // Unzip, then untar
         .pipe(gunzip())

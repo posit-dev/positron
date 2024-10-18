@@ -29,11 +29,10 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 		node: {
 			__dirname: false // leave the __dirname-behaviour intact
 		},
-
 		resolve: {
 			conditionNames: ['import', 'require', 'node-addons', 'node'],
 			mainFields: ['module', 'main'],
-			extensions: ['.ts', '.js'] // support ts-files and js-files
+			extensions: ['.ts', '.js', '.wasm'] // support ts-files and js-files
 		},
 		module: {
 			rules: [{
@@ -57,6 +56,14 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 						configFile: path.join(extConfig.context, 'tsconfig.json')
 					},
 				},]
+			}
+				,
+			{
+				test: /\.wasm$/,
+				type: 'asset/resource',
+				generator: {
+					filename: '[name].[hash][ext]',
+				},
 			}]
 		},
 		externals: {
@@ -77,6 +84,10 @@ function withNodeDefaults(/**@type WebpackConfig & { context: string }*/extConfi
 			filename: '[name].js',
 			path: path.join(extConfig.context, 'dist'),
 			libraryTarget: 'commonjs',
+			webassemblyModuleFilename: '[hash].wasm'
+		},
+		experiments: {
+			asyncWebAssembly: true,
 		},
 		// yes, really source maps
 		devtool: 'source-map',
@@ -121,7 +132,7 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 		target: 'webworker', // extensions run in a webworker context
 		resolve: {
 			mainFields: ['browser', 'module', 'main'],
-			extensions: ['.ts', '.js'], // support ts-files and js-files
+			extensions: ['.ts', '.js', '.wasm'], // support ts-files and js-files
 			fallback: {
 				'path': require.resolve('path-browserify'),
 				'util': require.resolve('util')
@@ -148,9 +159,13 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 						},
 					},
 				]
-			}, {
+			},
+			{
 				test: /\.wasm$/,
-				type: 'asset/inline'
+				type: 'asset/resource',
+				generator: {
+					filename: '[name].[hash][ext]',
+				},
 			}]
 		},
 		externals: {
@@ -170,6 +185,10 @@ function withBrowserDefaults(/**@type WebpackConfig & { context: string }*/extCo
 			filename: '[name].js',
 			path: path.join(extConfig.context, 'dist', 'browser'),
 			libraryTarget: 'commonjs',
+			webassemblyModuleFilename: '[hash].wasm'
+		},
+		experiments: {
+			asyncWebAssembly: true,
 		},
 		// yes, really source maps
 		devtool: 'source-map',

@@ -75,6 +75,66 @@ export interface MetadataSchema {
 }
 
 /**
+ * Parameters for the ListObjects method.
+ */
+export interface ListObjectsParams {
+	/**
+	 * The path to object that we want to list children.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the ListFields method.
+ */
+export interface ListFieldsParams {
+	/**
+	 * The path to object that we want to list fields.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the ContainsData method.
+ */
+export interface ContainsDataParams {
+	/**
+	 * The path to object that we want to check if it contains data.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the GetIcon method.
+ */
+export interface GetIconParams {
+	/**
+	 * The path to object that we want to get the icon.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the PreviewObject method.
+ */
+export interface PreviewObjectParams {
+	/**
+	 * The path to object that we want to preview.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the GetMetadata method.
+ */
+export interface GetMetadataParams {
+	/**
+	 * The comm_id of the client we want to retrieve metdata for.
+	 */
+	comm_id: string;
+}
+
+/**
  * Event: Request to focus the Connections pane
  */
 export interface FocusEvent {
