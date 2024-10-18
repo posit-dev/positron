@@ -133,8 +133,7 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 
 	if (parsedArgs.help) {
 		// --- Start Positron ---
-		const positronVersionAndBuild = `${desc.positronVersion} build ${desc.positronBuildNumber}`;
-		console.log(buildHelpMessage(desc.productName, desc.executableName, positronVersionAndBuild, options));
+		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.positronVersion, options));
 		// --- End Positron ---
 		return;
 	}

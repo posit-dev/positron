@@ -90,7 +90,9 @@ export async function main(argv: string[]): Promise<any> {
 	// Help
 	if (args.help) {
 		const executable = `${product.applicationName}${isWindows ? '.exe' : ''}`;
-		console.log(buildHelpMessage(product.nameLong, executable, product.version, OPTIONS));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(product.nameLong, executable, product.positronVersion, OPTIONS));
+		// --- End Positron ---
 	}
 
 	// Version Info
