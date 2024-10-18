@@ -293,6 +293,7 @@ import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
 // import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';  Disabled for Private Alpha
 // import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';  Disabled for Private Alpha
 import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
+import 'vs/workbench/contrib/positronPreviewEditor/browser/positronPreviewEditor.contribution'
 import 'vs/workbench/contrib/positronPlots/browser/positronPlots.contribution';
 import 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution';
 import 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview.contribution';
