@@ -106,6 +106,7 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 					// window.ts#registerListeners() discards the wheel event to prevent back/forward gestures
 					// send it to the div so it is not lost
 					e.currentTarget.scrollBy(e.deltaX, e.deltaY);
+					e.stopPropagation();
 				}}>
 					{props.interpreterGroup.alternateRuntimes.map(runtime =>
 						<SecondaryInterpreter
