@@ -1,9 +1,5 @@
 name: "Setup Build Environment, Install Dependencies, and Compile App"
 description: "Installs necessary system dependencies."
-inputs:
-  POSITRON_GITHUB_PAT:
-    description: "Github Personal Access Token"
-    required: true
 runs:
   using: "composite"
   steps:
@@ -22,7 +18,7 @@ runs:
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-        POSITRON_GITHUB_PAT: ${{ inputs.POSITRON_GITHUB_PAT }}
+        POSITRON_GITHUB_PAT: ${{ github.token }}
       run: |
         # Enable corepack (for yarn)
         corepack enable

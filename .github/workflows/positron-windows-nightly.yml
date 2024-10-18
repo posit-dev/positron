@@ -37,20 +37,12 @@ jobs:
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: "Generate access token"
-        id: access-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
       - name: Install node dependencies with yarn
         env:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #

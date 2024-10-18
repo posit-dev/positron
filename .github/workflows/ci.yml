@@ -188,13 +188,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: "Generate access token"
-        id: access-token
-        uses: actions/create-github-app-token@v1
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
       - name: Compute node modules cache key
         id: nodeModulesCacheKey
         run: echo "value=$(node build/azure-pipelines/common/computeNodeModulesCacheKey.js)" >> $GITHUB_OUTPUT
@@ -220,7 +213,6 @@ jobs:
         env:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ steps.access-token.outputs.token }}
         run: yarn --frozen-lockfile --network-timeout 180000
 
       - name: Compile and Download
