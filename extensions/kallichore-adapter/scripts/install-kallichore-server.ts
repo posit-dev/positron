@@ -123,7 +123,7 @@ async function downloadAndReplaceKallichore(version: string,
 			method: 'GET',
 			protocol: 'https:',
 			hostname: 'api.github.com',
-			path: `/repos/posit-dev/kallichore/releases`
+			path: `/repos/posit-dev/kallichore-builds/releases`
 		};
 
 		const response = await httpsGetAsync(requestOptions as any) as any;
@@ -138,7 +138,7 @@ async function downloadAndReplaceKallichore(version: string,
 				await executeCommand('git credential approve',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/posit-dev/kallichore/releases\n` +
+					`path=/repos/posit-dev/kallichore-builds/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -155,7 +155,7 @@ async function downloadAndReplaceKallichore(version: string,
 				await executeCommand('git credential reject',
 					`protocol=https\n` +
 					`host=github.com\n` +
-					`path=/repos/posit-dev/kallichore/releases\n` +
+					`path=/repos/posit-dev/kallichore-builds/releases\n` +
 					`username=\n` +
 					`password=${githubPat}\n`);
 			console.log(stdout);
@@ -366,7 +366,7 @@ async function main() {
 			await executeCommand('git credential fill',
 				`protocol=https\n` +
 				`host=github.com\n` +
-				`path=/repos/posit-dev/kallichore/releases\n`);
+				`path=/repos/posit-dev/kallichore-builds/releases\n`);
 
 		gitCredential = true;
 		// Extract the `password = ` line from the output.
