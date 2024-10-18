@@ -1486,6 +1486,11 @@ export abstract class DataGridInstance extends Disposable {
 			this._width = width;
 			this._height = height;
 
+			// Optimimize the vertical scroll offset.
+			if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
 			// Fetch data.
 			await this.fetchData();
 
