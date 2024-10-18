@@ -189,7 +189,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// top left.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					await context.instance.setScreenPosition(0, 0);
+					await context.instance.setScrollOffsets(0, 0);
 					context.instance.setCursorPosition(0, 0);
 					return;
 				}
@@ -226,7 +226,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// bottom right.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					await context.instance.setScreenPosition(
+					await context.instance.setScrollOffsets(
 						context.instance.maximumHorizontalScrollOffset,
 						context.instance.maximumVerticalScrollOffset
 					);
@@ -266,15 +266,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// PageUp clears the selection and moves up by one page, positioning the cursor at
-				// the top left of the page.
+				// the top of the page.
 				context.instance.clearSelection();
 
-				// const firstRowIndex = Math.max(
-				// 	context.instance.firstRowIndexXX - (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
-				// 	0
-				// );
-				// await context.instance.setFirstRow(firstRowIndex);
-				// context.instance.setCursorRow(firstRowIndex);
+				// Scroll page up.
+				context.instance.scrollPageUp();
 				break;
 			}
 
@@ -300,18 +296,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// PageDown clears the selection and moves down by one page, positioning the cursor
-				// at the bottom left of the page.
+				// at the top of the page
 				context.instance.clearSelection();
 
-				console.log(`First row index ${context.instance.firstRow.rowIndex} first row top ${context.instance.firstRow.top}`);
-
-				// const firstRowIndex = Math.min(
-				// 	context.instance.firstRowIndexXX + (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
-				// 	context.instance.maximumVerticalScrollOffset
-				// );
-
-				// await context.instance.setFirstRow(firstRowIndex);
-				// context.instance.setCursorRow(firstRowIndex);
+				// Scroll page down.
+				context.instance.scrollPageDown();
 				break;
 			}
 
@@ -476,56 +465,57 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			[deltaX, deltaY] = [deltaY, deltaX];
 		}
 
-		// The predominant axis is vertical scrolling, so check for that first. When delta Y is
-		// greater than or equal to delta X, ignore the delta X and scroll vertically. Otherwise,
-		// when delta X is greater than or equal to delta Y, ignore delta Y and scroll horizontally.
-		if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-			// If the alt key is pressed, scroll by 10 times the delta Y.
-			if (e.altKey) {
-				deltaY *= 10;
-			}
+		// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
+		if (e.altKey) {
+			deltaX *= 10;
+			deltaY *= 10;
+		}
 
-			// Set the vertical scroll offset.
-			await context.instance.setVerticalScrollOffset(pinToRange(
-				context.instance.verticalScrollOffset + deltaY,
-				0,
-				context.instance.maximumVerticalScrollOffset
-			));
-		} else if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-			// If the alt key is pressed, scroll by 10 times the delta X.
-			if (e.altKey) {
-				deltaX *= 10;
-			}
-
-			// Set the horizontal scroll offset.
-			await context.instance.setHorizontalScrollOffset(pinToRange(
+		/**
+		 * Sets the scroll offsets.
+		 */
+		await context.instance.setScrollOffsets(
+			pinToRange(
 				context.instance.horizontalScrollOffset + deltaX,
 				0,
 				context.instance.maximumHorizontalScrollOffset
-			));
-		}
+			),
+			pinToRange(
+				context.instance.verticalScrollOffset + deltaY,
+				0,
+				context.instance.maximumVerticalScrollOffset
+			)
+		);
 	};
 
-	let { top, rowIndex } = context.instance.firstRow;
-
+	// Create the data grid rows.
 	const dataGridRows: JSX.Element[] = [];
-	while (top - context.instance.verticalScrollOffset < height && rowIndex < context.instance.rows) {
-		// Render the data grid row.
-		dataGridRows.push(
-			<DataGridRow
-				key={`row-${rowIndex}`}
-				width={width}
-				top={top - context.instance.verticalScrollOffset}
-				rowIndex={rowIndex}
-			/>
-		);
+	if (context.instance.rows) {
+		// Get the first row.
+		let { rowIndex, top } = context.instance.firstRow;
 
-		const rowHeight = context.instance.getRowHeight(rowIndex);
-		if (!rowHeight) {
-			break;
-		} else {
-			top += rowHeight;
+		// Create the data grid rows.
+		const bottom = context.instance.verticalScrollOffset + context.instance.layoutHeight;
+		while (rowIndex < context.instance.rows && top < bottom) {
+			// Create and add the data grid row.
+			dataGridRows.push(
+				<DataGridRow
+					key={`row-${rowIndex}`}
+					width={width}
+					top={top - context.instance.verticalScrollOffset}
+					rowIndex={rowIndex}
+				/>
+			);
+
+			// Get the row height
+			const rowHeight = context.instance.getRowHeight(rowIndex);
+			if (!rowHeight) {
+				break;
+			}
+
+			// Advance to the next data grid row.
 			rowIndex++;
+			top += rowHeight;
 		}
 	}
 
@@ -543,7 +533,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
 					onClick={async () => {
-						await context.instance.setScreenPosition(0, 0);
+						await context.instance.setScrollOffsets(0, 0);
 					}}
 				/>
 			}
@@ -599,7 +589,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
 				<DataGridScrollbarCorner
 					onClick={async () => {
-						await context.instance.setScreenPosition(
+						await context.instance.setScrollOffsets(
 							context.instance.maximumHorizontalScrollOffset,
 							context.instance.maximumVerticalScrollOffset
 						);

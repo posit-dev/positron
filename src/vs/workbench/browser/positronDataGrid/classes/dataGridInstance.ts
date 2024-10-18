@@ -7,8 +7,8 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { ILayoutEntry, LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
 
 /**
  * ColumnHeaderOptions type.
@@ -1120,6 +1120,9 @@ export abstract class DataGridInstance extends Disposable {
 			};
 		}
 
+		// Scroll to the left.
+		this.setHorizontalScrollOffset(0);
+
 		// Return a column descriptor for the first column.
 		return {
 			columnIndex: 0,
@@ -1140,6 +1143,9 @@ export abstract class DataGridInstance extends Disposable {
 				top: layoutEntry.start
 			};
 		}
+
+		// Scroll to the top.
+		this.setVerticalScrollOffset(0);
 
 		// Return a row descriptor for the first row.
 		return {
@@ -1296,6 +1302,88 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Scrolls the page up.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async scrollPageUp() {
+		// Get the first row layout entry for the vertical scroll offset.
+		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
+			// Find the layout entry that will be to first layout entry for the previous page.
+			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
+			for (let index = firstLayoutEntry.index - 1; index >= 0; index--) {
+				// Get the layout entry.
+				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+				if (layoutEntry) {
+					if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
+						lastFullyVisibleLayoutEntry = layoutEntry;
+					} else {
+						// Set the vertical scroll offset.
+						this.setVerticalScrollOffset(
+							lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start
+						);
+
+						// Fetch data.
+						await this.fetchData();
+
+						// Fire the onDidUpdate event.
+						this._onDidUpdateEmitter.fire();
+
+						// Done.
+						return;
+					}
+				}
+			}
+		}
+
+		// Scroll to the top.
+		this.setVerticalScrollOffset(0);
+		await this.fetchData();
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Scrolls the page down.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async scrollPageDown() {
+		// Get the first row layout entry for the vertical scroll offset.
+		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
+
+			// Find the layout entry that will be to first layout entry for the next page.
+			// let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
+			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
+				// Get the layout entry.
+				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+				if (layoutEntry) {
+					if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
+						// Set the vertical scroll offset.
+						this.setVerticalScrollOffset(Math.min(
+							layoutEntry.start,
+							this.maximumVerticalScrollOffset
+						));
+
+						// Fetch data.
+						await this.fetchData();
+
+						// Fire the onDidUpdate event.
+						this._onDidUpdateEmitter.fire();
+
+						// Done.
+						return;
+					}
+				}
+			}
+		}
+
+		// Scroll to the bottom.
+		this.setVerticalScrollOffset(this.maximumVerticalScrollOffset);
+		await this.fetchData();
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
 	 * Sets a column sort key.
 	 * @param columnIndex The column index.
 	 * @param ascending The sort order; true for ascending, false for descending.
@@ -1419,17 +1507,19 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the screen position.
+	 * Sets the scroll offsets.
 	 * @param horizontalScrollOffset The horizontal scroll offset.
 	 * @param verticalScrollOffset The vertical scroll offset.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setScreenPosition(
+	async setScrollOffsets(
 		horizontalScrollOffset: number,
 		verticalScrollOffset: number
 	): Promise<void> {
 		// If the screen position has changed, update the data grid.
-		if (horizontalScrollOffset !== this._horizontalScrollOffset || verticalScrollOffset !== this._verticalScrollOffset) {
+		if (horizontalScrollOffset !== this._horizontalScrollOffset ||
+			verticalScrollOffset !== this._verticalScrollOffset
+		) {
 			// Set the screen position.
 			this._horizontalScrollOffset = horizontalScrollOffset;
 			this._verticalScrollOffset = verticalScrollOffset;
