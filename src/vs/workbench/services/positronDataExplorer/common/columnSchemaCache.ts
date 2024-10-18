@@ -115,7 +115,7 @@ export class ColumnSchemaCache extends Disposable {
 	 * @param cacheUpdateDescriptor The cache update descriptor.
 	 * @returns A Promise<void> that resolves when the update is complete.
 	 */
-	async updateCache(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
+	async update(cacheUpdateDescriptor: CacheUpdateDescriptor): Promise<void> {
 		// Update the cache.
 		await this.doUpdateCache(cacheUpdateDescriptor);
 
