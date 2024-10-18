@@ -59,7 +59,8 @@ import { IFileService } from 'vs/platform/files/common/files';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { SAVE_ALL_TITLED_COMMAND_ID, SAVE_ALL_TITLED_LABEL } from 'vs/workbench/contrib/files/browser/fileConstants';
+import { SET_DEFAULT_EDITOR_COMMAND_TITLE, SET_DEFAULT_EDITOR_COMMAND_ID, SAVE_ALL_TITLED_COMMAND_ID, SAVE_ALL_TITLED_LABEL } from 'vs/workbench/contrib/files/browser/fileConstants';
+import { Uri } from 'vscode';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -915,6 +916,21 @@ registerAction2(class extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const commandService = accessor.get(ICommandService);
 		await commandService.executeCommand(SAVE_ALL_TITLED_COMMAND_ID);
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: SET_DEFAULT_EDITOR_COMMAND_ID,
+			title: SET_DEFAULT_EDITOR_COMMAND_TITLE,
+			f1: false,
+		});
+	}
+
+	async run(accessor: ServicesAccessor, editor: Uri, editorType: string): Promise<void> {
+		const commandService = accessor.get(ICommandService);
+		await commandService.executeCommand(SET_DEFAULT_EDITOR_COMMAND_ID, editor, editorType);
 	}
 });
 // --- End Positron ---

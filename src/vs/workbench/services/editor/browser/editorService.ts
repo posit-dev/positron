@@ -573,6 +573,12 @@ export class EditorService extends Disposable implements EditorServiceImpl {
 		return group.openEditor(typedEditor, options);
 	}
 
+	// --- Start Positron ---
+	async setDefaultEditor(editor: EditorInput | IUntypedEditorInput, prefferedEditor: string) {
+		this.editorResolverService.setDefaultEditor(editor, prefferedEditor);
+	}
+	// --- End Positron ---
+
 	//#endregion
 
 	//#region openEditors()

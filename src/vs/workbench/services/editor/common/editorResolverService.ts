@@ -187,6 +187,13 @@ export interface IEditorResolverService {
 	 * Get a complete list of editor associations.
 	 */
 	getAllUserAssociations(): EditorAssociations;
+
+	// --- Start Positron ---
+	/**
+	 * Set default editor
+	 */
+	setDefaultEditor(editor: IUntypedEditorInput, editorOpener: string): void;
+	// --- End Positron ---
 }
 
 //#endregion

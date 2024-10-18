@@ -809,6 +809,18 @@ export class EditorResolverService extends Disposable implements IEditorResolver
 		}
 	}
 
+	// --- Start Positron ---
+	public setDefaultEditor(editor: IUntypedEditorInput, editorOpener: string) {
+		let resource = EditorResourceAccessor.getOriginalUri(editor, { supportSideBySide: SideBySideEditor.PRIMARY });
+
+		if (resource === undefined) {
+			resource = URI.from({ scheme: Schemas.untitled });
+		}
+
+		this.updateUserAssociations(`*${extname(resource)}`, editorOpener);
+	}
+	// --- End Positron ---
+
 	private cacheEditors() {
 		// Create a set to store glob patterns
 		const cacheStorage: Set<string> = new Set<string>();
