@@ -267,12 +267,9 @@ export class TableDataCache extends Disposable {
 			const pageSize = Math.min(AUTO_SIZE_COLUMNS_PAGE_SIZE, numColumns - columnIndex);
 
 			// Load the page of schema.
-			let start = new Date().getTime();
 			const tableSchema = await this._dataExplorerClientInstance.getSchema(
 				Array.from({ length: pageSize }, (_, i) => columnIndex + i)
 			);
-			let end = new Date().getTime();
-			console.log(`+++ Schema load page time: ${end - start} ms`);
 
 			// Calculate the column header widths for the page of schema that was returned.
 			for (let i = 0; i < tableSchema.columns.length; i++) {
@@ -288,7 +285,6 @@ export class TableDataCache extends Disposable {
 			}
 
 			// Load the page of data.
-			start = new Date().getTime();
 			const tableData = await this._dataExplorerClientInstance.getDataValues(
 				Array.from({ length: pageSize }, (_, i): ColumnSelection => ({
 					column_index: columnIndex + i,
@@ -298,8 +294,6 @@ export class TableDataCache extends Disposable {
 					}
 				}))
 			);
-			end = new Date().getTime();
-			console.log(`+++ Data load page time: ${end - start} ms`);
 
 			// Calculate the column value widths for the page of data that was returned.
 			for (let column = 0; column < tableData.columns.length; column++) {

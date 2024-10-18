@@ -86,7 +86,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 
 		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			await this.setScreenPosition(0, 0);
+			await this.setScrollOffsets(0, 0);
 		}));
 	}
 

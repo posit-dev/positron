@@ -29,43 +29,40 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	let { top, rowIndex } = context.instance.firstRow;
+	// Create the data grid row headers.
+	const dataGridRowHeaders: JSX.Element[] = [];
+	if (context.instance.rows) {
+		// Get the first row.
+		let { rowIndex, top } = context.instance.firstRow;
 
-	const rowHeaders: JSX.Element[] = [];
-	while (top - context.instance.verticalScrollOffset < props.height && rowIndex < context.instance.rows) {
-		// Render the data grid row.
-		rowHeaders.push(
-			<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top - context.instance.verticalScrollOffset} />
-		);
+		// Create the data grid rows headers.
+		const bottom = context.instance.verticalScrollOffset + context.instance.layoutHeight;
+		while (rowIndex < context.instance.rows && top < bottom) {
+			// Create and add the data grid row header.
+			dataGridRowHeaders.push(
+				<DataGridRowHeader
+					key={rowIndex}
+					rowIndex={rowIndex}
+					top={top - context.instance.verticalScrollOffset}
+				/>
+			);
 
-		const rowHeight = context.instance.getRowHeight(rowIndex);
-		if (!rowHeight) {
-			break;
-		} else {
-			top += rowHeight;
+			// Get the row height and advance to the next data grid row.
+			const rowHeight = context.instance.getRowHeight(rowIndex);
+			if (!rowHeight) {
+				break;
+			}
+
+			// Advance to the next data grid row.
 			rowIndex++;
+			top += rowHeight;
 		}
 	}
-
-	// // Render the row headers.
-	// const rowHeaders: JSX.Element[] = [];
-	// for (let rowIndex = context.instance.firstRowIndex, top = 0;
-	// 	rowIndex < context.instance.rows && top < props.height;
-	// 	rowIndex++
-	// ) {
-	// 	// Push the row header component.
-	// 	rowHeaders.push(
-	// 		<DataGridRowHeader key={rowIndex} rowIndex={rowIndex} top={top} />
-	// 	);
-
-	// 	// Adjust the top offset for the next row.
-	// 	top += context.instance.getRowHeight(rowIndex);
-	// }
 
 	// Render.
 	return (
 		<div className='data-grid-row-headers' style={{ width: context.instance.rowHeadersWidth }}>
-			{rowHeaders}
+			{dataGridRowHeaders}
 		</div>
 	);
 };

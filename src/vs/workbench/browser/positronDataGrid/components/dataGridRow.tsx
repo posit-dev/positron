@@ -31,22 +31,35 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	let { left, columnIndex } = context.instance.firstColumn;
+	// Create the data grid row cells.
+	const dataGridRowCells: JSX.Element[] = [];
+	if (context.instance.columns) {
+		// Get the first column.
+		let { left, columnIndex } = context.instance.firstColumn;
 
-	// Render the visible row cells.
-	const rowCells: JSX.Element[] = [];
-	while (left - context.instance.horizontalScrollOffset < props.width && columnIndex < context.instance.columns) {
-		rowCells.push(
-			<DataGridRowCell
-				key={`row-cell-${props.rowIndex}-${columnIndex}`}
-				columnIndex={columnIndex}
-				rowIndex={props.rowIndex}
-				left={left - context.instance.horizontalScrollOffset}
-			/>
-		);
+		// Create the data grid row cells.
+		const right = context.instance.horizontalScrollOffset + context.instance.layoutWidth;
+		while (columnIndex < context.instance.columns && left < right) {
+			// Create and add the data grid row cell.
+			dataGridRowCells.push(
+				<DataGridRowCell
+					key={`row-cell-${props.rowIndex}-${columnIndex}`}
+					columnIndex={columnIndex}
+					rowIndex={props.rowIndex}
+					left={left - context.instance.horizontalScrollOffset}
+				/>
+			);
 
-		left += context.instance.getColumnWidth(columnIndex);
-		columnIndex++;
+			// Get the column width.
+			const columnWidth = context.instance.getColumnWidth(columnIndex);
+			if (!columnWidth) {
+				break;
+			}
+
+			// Advance to the next data grid row cell.
+			columnIndex++;
+			left += columnWidth;
+		}
 	}
 
 	// Render.
@@ -58,7 +71,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 		>
-			{rowCells}
+			{dataGridRowCells}
 		</div>
 	);
 };

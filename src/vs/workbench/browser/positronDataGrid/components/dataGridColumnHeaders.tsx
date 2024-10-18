@@ -32,33 +32,47 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	let { left, columnIndex } = context.instance.firstColumn;
+	// Create the data grid column headers.
+	const dataGridColumnHeaders: JSX.Element[] = [];
+	if (context.instance.columns) {
+		// Get the first column.
+		let { left, columnIndex } = context.instance.firstColumn;
 
-	// Render the visible column headers.
-	const columnHeaders: JSX.Element[] = [];
-	while (left - context.instance.horizontalScrollOffset < props.width && columnIndex < context.instance.columns) {
-		// Access the column.
-		const column = context.instance.column(columnIndex);
+		// Create the data grid column headers.
+		const right = context.instance.horizontalScrollOffset + context.instance.layoutWidth;
+		while (left < right && columnIndex < context.instance.columns) {
+			// Get the column.
+			const column = context.instance.column(columnIndex);
+			if (!column) {
+				break;
+			}
 
-		// Push the column header component.
-		columnHeaders.push(
-			<DataGridColumnHeader
-				key={columnIndex}
-				column={column}
-				columnIndex={columnIndex}
-				left={left - context.instance.horizontalScrollOffset}
-			/>
-		);
+			// Create and add the data grid column header.
+			dataGridColumnHeaders.push(
+				<DataGridColumnHeader
+					key={columnIndex}
+					column={column}
+					columnIndex={columnIndex}
+					left={left - context.instance.horizontalScrollOffset}
+				/>
+			);
 
-		// Adjust the left offset for the next column.
-		left += context.instance.getColumnWidth(columnIndex);
-		columnIndex++;
+			// Get the column width.
+			const columnWidth = context.instance.getColumnWidth(columnIndex);
+			if (!columnWidth) {
+				break;
+			}
+
+			// Advance to the next column.
+			columnIndex++;
+			left += columnWidth;
+		}
 	}
 
 	// Render.
 	return (
 		<div className='data-grid-column-headers' style={{ height: props.height }}>
-			{columnHeaders}
+			{dataGridColumnHeaders}
 		</div>
 	);
 };
