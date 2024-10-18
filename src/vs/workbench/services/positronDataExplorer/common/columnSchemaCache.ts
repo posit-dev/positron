@@ -80,10 +80,10 @@ export class ColumnSchemaCache extends Disposable {
 		super();
 
 		// Add the onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () =>
 			// Clear the column schema cache.
-			this._columnSchemaCache.clear();
-		}));
+			this._columnSchemaCache.clear()
+		));
 	}
 
 	//#endregion Constructor & Dispose
@@ -176,7 +176,9 @@ export class ColumnSchemaCache extends Disposable {
 			firstColumnIndex - (visibleColumns * OVERSCAN_FACTOR),
 			0
 		);
-		const endColumnIndex = startColumnIndex + visibleColumns + (visibleColumns * OVERSCAN_FACTOR * 2);
+		const endColumnIndex = startColumnIndex +
+			visibleColumns +
+			(visibleColumns * OVERSCAN_FACTOR * 2);
 
 		// Build an array of the column indices to cache.
 		const columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);

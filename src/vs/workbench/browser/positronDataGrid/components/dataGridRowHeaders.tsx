@@ -31,15 +31,15 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 
 	// Create the data grid rows headers.
 	const dataGridRowHeaders: JSX.Element[] = [];
-	for (let rowLayoutEntry = context.instance.firstRowLayoutEntry;
-		rowLayoutEntry && rowLayoutEntry.start < context.instance.layoutBottom;
-		rowLayoutEntry = context.instance.getRowLayoutEntry(rowLayoutEntry.index + 1)
+	for (let rowDescriptor = context.instance.firstRow;
+		rowDescriptor && rowDescriptor.top < context.instance.layoutBottom;
+		rowDescriptor = context.instance.getRow(rowDescriptor.rowIndex + 1)
 	) {
 		dataGridRowHeaders.push(
 			<DataGridRowHeader
-				key={rowLayoutEntry.index}
-				rowIndex={rowLayoutEntry.index}
-				top={rowLayoutEntry.start - context.instance.verticalScrollOffset}
+				key={rowDescriptor.rowIndex}
+				rowIndex={rowDescriptor.rowIndex}
+				top={rowDescriptor.top - context.instance.verticalScrollOffset}
 			/>
 		);
 	}

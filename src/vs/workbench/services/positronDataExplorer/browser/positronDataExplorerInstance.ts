@@ -166,6 +166,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * dispose override method.
 	 */
 	override dispose(): void {
+		// Dispose the table summary cache and the table data cache.
+		this._tableSummaryCache.dispose();
+		this._tableDataCache.dispose();
+
 		// Dispose the client instance.
 		this._dataExplorerClientInstance.dispose();
 

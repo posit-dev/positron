@@ -71,7 +71,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
-			scrollbarOverscroll: 14,
+			scrollbarOverscroll: 0,
 			useEditorFont: false,
 			automaticLayout: true,
 			cellBorders: false,
@@ -99,9 +99,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
 			// Set the layout entries.
 			this._columnLayoutManager.setLayoutEntries(1);
-			this._rowLayoutManager.setLayoutEntries(
-				state.table_shape.num_columns
-			);
+			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
 
 			// Stringify the row filters.
 			const rowFilters = JSON.stringify(state.row_filters);
@@ -120,10 +118,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
-		this._register(this._tableSummaryCache.onDidUpdate(() => {
+		this._register(this._tableSummaryCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
-		}));
+			this._onDidUpdateEmitter.fire()
+		));
 	}
 
 	//#endregion Constructor
@@ -152,14 +150,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the number of columns.
+	 * Gets the first column.
 	 */
-	override get firstColumnLayoutEntry() {
+	override get firstColumn() {
 		return {
-			index: 0,
-			start: 0,
-			size: this.layoutWidth,
-			end: this.layoutWidth
+			columnIndex: 0,
+			left: 0
 		};
 	}
 
@@ -172,11 +168,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		const rowLayoutEntry = this.firstRowLayoutEntry;
-		if (rowLayoutEntry) {
+		const rowDescriptor = this.firstRow;
+		if (rowDescriptor) {
 			await this._tableSummaryCache.update({
 				invalidateCache: false,
-				firstColumnIndex: rowLayoutEntry.index,
+				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});
 		}
