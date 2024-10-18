@@ -470,13 +470,13 @@ export function buildHelpMessage(productName: string, executableName: string, ve
 export function buildVersionMessage(
 	positronVersion: string | undefined,
 	positronBuildNumber: number | string | undefined,
-	codeOssVersion: string | undefined,
+	codeOSSVersion: string | undefined,
 	commit: string | undefined
 ): string {
 	const positronVersionString = `${positronVersion || localize('buildVersionMessage.unknownPositronVersion', "Unknown Positron version")}`;
 	const positronBuildString = `${positronBuildNumber === undefined ? localize('buildVersionMessage.unknownBuildNumber', "Unknown build number") : positronBuildNumber}`;
 	const positronCommitString = `${commit || localize('buildVersionMessage.unknownCommit', "Unknown commit")}`;
-	const codeOSSVersionString = `${codeOssVersion || localize('buildVersionMessage.unknownCodeOssVersion', "Unknown Code OSS version")}`;
+	const codeOSSVersionString = `${codeOSSVersion || localize('buildVersionMessage.unknownCodeOssVersion', "Unknown Code OSS version")}`;
 
 	/**
 	 * Preview of version string:
