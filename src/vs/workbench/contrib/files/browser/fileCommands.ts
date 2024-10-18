@@ -372,7 +372,7 @@ CommandsRegistry.registerCommand({
 		const listService = accessor.get(IListService);
 		const uri = getResourceForCommand(resource, editorService, listService);
 		if (uri) {
-			return editorService.setDefaultEditor({ resource: uri, options: { override: EditorResolution.PICK, source: EditorOpenSource.USER } }, editorType);
+			return editorService.setDefaultEditor({ resource: uri }, editorType);
 		}
 
 		return undefined;
