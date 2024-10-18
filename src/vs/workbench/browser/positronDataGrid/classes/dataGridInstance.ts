@@ -1023,7 +1023,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		return this._rowLayoutManager.size + this._scrollbarOverscroll;
+		return (this._rowsMargin * 2) + this._rowLayoutManager.size + this._scrollbarOverscroll;
 	}
 
 	/**
@@ -1123,15 +1123,35 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the first column.
 	 */
-	get firstColumnLayoutEntry(): ILayoutEntry | undefined {
-		return this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+	get firstColumn(): ColumnDescriptor | undefined {
+		// Get the first column layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the column descriptor for the first column.
+		return {
+			columnIndex: layoutEntry.index,
+			left: layoutEntry.start
+		};
 	}
 
 	/**
 	 * Gets the first row.
 	 */
-	get firstRowLayoutEntry() {
-		return this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+	get firstRow(): RowDescriptor | undefined {
+		// Get the first row layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the row descriptor for the first row.
+		return {
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start
+		};
 	}
 
 	/**
@@ -1208,21 +1228,41 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a column layout entry.
+	 * Gets a column descriptor.
 	 * @param columnIndex The column index.
-	 * @returns The column layout entry, if found; otherwise, undefined.
+	 * @returns The column descriptor, if found; otherwise, undefined.
 	 */
-	getColumnLayoutEntry(columnIndex: number) {
-		return this._columnLayoutManager.getLayoutEntry(columnIndex);
+	getColumn(columnIndex: number): ColumnDescriptor | undefined {
+		// Get the column layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the column descriptor for the column.
+		return {
+			columnIndex: layoutEntry.index,
+			left: layoutEntry.start
+		};
 	}
 
 	/**
-	 * Gets a row layout entry.
+	 * Gets a row descriptor.
 	 * @param columnIndex The row index.
-	 * @returns The row layout entry, if found; otherwise, undefined.
+	 * @returns The row descriptor, if found; otherwise, undefined.
 	 */
-	getRowLayoutEntry(rowIndex: number) {
-		return this._rowLayoutManager.getLayoutEntry(rowIndex);
+	getRow(rowIndex: number): RowDescriptor | undefined {
+		// Get the row layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the row descriptor for the row.
+		return {
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start
+		};
 	}
 
 	/**
@@ -1350,7 +1390,6 @@ export abstract class DataGridInstance extends Disposable {
 		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
 
 			// Find the layout entry that will be to first layout entry for the next page.
-			// let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
 			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
 				// Get the layout entry.
 				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);

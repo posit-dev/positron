@@ -205,15 +205,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Get the first column layout entry and the first row layout entry. If they were found,
 		// update the cache.
-		const columnLayoutEntry = this.firstColumnLayoutEntry;
-		const rowLayoutEntry = this.firstRowLayoutEntry;
-		if (columnLayoutEntry && rowLayoutEntry) {
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnLayoutEntry.index,
+				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
-				firstRowIndex: rowLayoutEntry.index,
+				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
 		}
@@ -224,14 +224,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		const columnLayoutEntry = this.firstColumnLayoutEntry;
-		const rowLayoutEntry = this.firstRowLayoutEntry;
-		if (columnLayoutEntry && rowLayoutEntry) {
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.None,
-				firstColumnIndex: columnLayoutEntry.index,
+				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
-				firstRowIndex: rowLayoutEntry.index,
+				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
 		}
@@ -653,15 +653,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Get the first column layout entry and the first row layout entry. If they were found,
 		// update the cache.
-		const columnLayoutEntry = this.firstColumnLayoutEntry;
-		const rowLayoutEntry = this.firstRowLayoutEntry;
-		if (columnLayoutEntry && rowLayoutEntry) {
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: columnLayoutEntry.index,
+				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
-				firstRowIndex: rowLayoutEntry.index,
+				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
 		}

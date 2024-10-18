@@ -33,16 +33,16 @@ export const DataGridRow = (props: DataGridRowProps) => {
 
 	// Create the data grid column headers.
 	const dataGridRowCells: JSX.Element[] = [];
-	for (let columnLayoutEntry = context.instance.firstColumnLayoutEntry;
-		columnLayoutEntry && columnLayoutEntry.start < context.instance.layoutRight;
-		columnLayoutEntry = context.instance.getColumnLayoutEntry(columnLayoutEntry.index + 1)
+	for (let columnDescriptor = context.instance.firstColumn;
+		columnDescriptor && columnDescriptor.left < context.instance.layoutRight;
+		columnDescriptor = context.instance.getColumn(columnDescriptor.columnIndex + 1)
 	) {
 		dataGridRowCells.push(
 			<DataGridRowCell
-				key={`row-cell-${props.rowIndex}-${columnLayoutEntry.index}`}
-				columnIndex={columnLayoutEntry.index}
+				key={`row-cell-${props.rowIndex}-${columnDescriptor.columnIndex}`}
+				columnIndex={columnDescriptor.columnIndex}
 				rowIndex={props.rowIndex}
-				left={columnLayoutEntry.start - context.instance.horizontalScrollOffset}
+				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
 			/>
 		);
 	}

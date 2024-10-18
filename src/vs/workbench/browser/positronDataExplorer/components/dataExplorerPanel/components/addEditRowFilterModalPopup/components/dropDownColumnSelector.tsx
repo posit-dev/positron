@@ -49,41 +49,45 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 	const [title, _setTitle] = useState(props.title);
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(props.selectedColumnSchema);
 
-	const onPressed = useCallback((focusInput?: boolean) => {
-		// Create the renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService: props.keybindingService,
-			layoutService: props.layoutService,
-			container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
-			disableCaptures: true, // permits the usage of the enter key where applicable
-			onDisposed: () => {
-				ref.current.focus();
-			}
-		});
-
+	const onPressed = useCallback(async (focusInput?: boolean) => {
 		// Create the column selector data grid instance.
-		const columnSelectorDataGridInstance = new ColumnSelectorDataGridInstance(
-			props.dataExplorerClientInstance
+		const columnSelectorDataGridInstance = await ColumnSelectorDataGridInstance.create(
+			props.dataExplorerClientInstance,
 		);
 
-		// Show the drop down list box modal popup.
-		renderer.render(
-			<ColumnSelectorModalPopup
-				configurationService={props.configurationService}
-				renderer={renderer}
-				columnSelectorDataGridInstance={columnSelectorDataGridInstance}
-				anchorElement={ref.current}
-				focusInput={focusInput}
-				onItemHighlighted={columnSchema => {
-					console.log(`onItemHighlighted ${columnSchema.column_name}`);
-				}}
-				onItemSelected={columnSchema => {
-					renderer.dispose();
-					setSelectedColumnSchema(columnSchema);
-					props.onSelectedColumnSchemaChanged(columnSchema);
-				}}
-			/>
-		);
+		// If the column selector data grid instance was created, then show the modal popup.
+		if (columnSelectorDataGridInstance) {
+			// Create the renderer.
+			const renderer = new PositronModalReactRenderer({
+				keybindingService: props.keybindingService,
+				layoutService: props.layoutService,
+				container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
+				disableCaptures: true, // permits the usage of the enter key where applicable
+				onDisposed: () => {
+					columnSelectorDataGridInstance.dispose();
+					ref.current.focus();
+				}
+			});
+
+			// Show the drop down list box modal popup.
+			renderer.render(
+				<ColumnSelectorModalPopup
+					configurationService={props.configurationService}
+					renderer={renderer}
+					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
+					anchorElement={ref.current}
+					focusInput={focusInput}
+					onItemHighlighted={columnSchema => {
+						console.log(`onItemHighlighted ${columnSchema.column_name}`);
+					}}
+					onItemSelected={columnSchema => {
+						renderer.dispose();
+						setSelectedColumnSchema(columnSchema);
+						props.onSelectedColumnSchemaChanged(columnSchema);
+					}}
+				/>
+			);
+		}
 	}, [props]);
 
 	const onKeyDown = useCallback((evt: KeyboardEvent) => {

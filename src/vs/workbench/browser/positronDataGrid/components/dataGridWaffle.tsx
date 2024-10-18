@@ -490,16 +490,16 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 	// Create the data grid rows.
 	const dataGridRows: JSX.Element[] = [];
-	for (let rowLayoutEntry = context.instance.firstRowLayoutEntry;
-		rowLayoutEntry && rowLayoutEntry.start < context.instance.layoutBottom;
-		rowLayoutEntry = context.instance.getRowLayoutEntry(rowLayoutEntry.index + 1)
+	for (let rowLayoutEntry = context.instance.firstRow;
+		rowLayoutEntry && rowLayoutEntry.top < context.instance.layoutBottom;
+		rowLayoutEntry = context.instance.getRow(rowLayoutEntry.rowIndex + 1)
 	) {
 		dataGridRows.push(
 			<DataGridRow
-				key={`row-${rowLayoutEntry.index}`}
+				key={`row-${rowLayoutEntry.rowIndex}`}
 				width={width}
-				top={rowLayoutEntry.start - context.instance.verticalScrollOffset}
-				rowIndex={rowLayoutEntry.index}
+				top={rowLayoutEntry.top - context.instance.verticalScrollOffset}
+				rowIndex={rowLayoutEntry.rowIndex}
 			/>
 		);
 	}
