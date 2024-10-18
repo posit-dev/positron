@@ -28,6 +28,10 @@ import { DeferredPromise } from 'vs/base/common/async';
 interface ProductDescription {
 	productName: string;
 	version: string;
+	// --- Start Positron ---
+	positronVersion: string;
+	positronBuildNumber: number | string;
+	// --- End Positron ---
 	commit: string;
 	executableName: string;
 }
@@ -128,14 +132,16 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 	const verbose = !!parsedArgs['verbose'];
 
 	if (parsedArgs.help) {
-		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.version, options));
+		// --- Start Positron ---
+		const positronVersionAndBuild = `${desc.positronVersion} build ${desc.positronBuildNumber}`;
+		console.log(buildHelpMessage(desc.productName, desc.executableName, positronVersionAndBuild, options));
+		// --- End Positron ---
 		return;
 	}
 	if (parsedArgs.version) {
 		// --- Start Positron ---
-		// The version passed into the server-cli will be the positron version.
+		console.log(buildVersionMessage(desc.positronVersion, desc.positronBuildNumber, desc.version, desc.commit));
 		// --- End Positron ---
-		console.log(buildVersionMessage(desc.version, desc.commit));
 		return;
 	}
 	if (parsedArgs['locate-shell-integration-path']) {
@@ -497,7 +503,11 @@ function mapFileToRemoteUri(uri: string): string {
 	return uri.replace(/^file:\/\//, 'vscode-remote://' + cliRemoteAuthority);
 }
 
-const [, , productName, version, commit, executableName, ...remainingArgs] = process.argv;
-main({ productName, version, commit, executableName }, remainingArgs).then(null, err => {
+// --- Start Positron ---
+// Call the CLI with the following argument order:
+// (node exe), (cli script), APPNAME, POSITRONVERSION, BUILDNUMBER, VERSION, COMMIT, EXEC NAME, ...
+const [, , productName, positronVersion, positronBuildNumber, version, commit, executableName, ...remainingArgs] = process.argv;
+main({ productName, positronVersion, positronBuildNumber, version, commit, executableName }, remainingArgs).then(null, err => {
+	// --- End Positron ---
 	console.error(err.message || err.stack || err);
 });

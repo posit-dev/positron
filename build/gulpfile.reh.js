@@ -445,15 +445,19 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		if (platform === 'win32') {
 			result = es.merge(result,
 				gulp.src('resources/server/bin/remote-cli/code.cmd', { base: '.' })
+					.pipe(replace('@@VERSION@@', version))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', positronVersion))
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/remote-cli/${product.applicationName}.cmd`)),
 				gulp.src('resources/server/bin/helpers/browser.cmd', { base: '.' })
+					.pipe(replace('@@VERSION@@', version))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', positronVersion))
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
@@ -464,16 +468,20 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		} else if (platform === 'linux' || platform === 'alpine' || platform === 'darwin') {
 			result = es.merge(result,
 				gulp.src(`resources/server/bin/remote-cli/${platform === 'darwin' ? 'code-darwin.sh' : 'code-linux.sh'}`, { base: '.' })
+					.pipe(replace('@@VERSION@@', version))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', positronVersion))
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/remote-cli/${product.applicationName}`))
 					.pipe(util.setExecutableBit()),
 				gulp.src(`resources/server/bin/helpers/${platform === 'darwin' ? 'browser-darwin.sh' : 'browser-linux.sh'}`, { base: '.' })
+					.pipe(replace('@@VERSION@@', version))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', positronVersion))
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))

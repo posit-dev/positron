@@ -96,7 +96,7 @@ export async function main(argv: string[]): Promise<any> {
 	// Version Info
 	else if (args.version) {
 		// --- Start Positron ---
-		console.log(buildVersionMessage(product.positronVersion, product.commit));
+		console.log(buildVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
 		// --- End Positron ---
 	}
 
