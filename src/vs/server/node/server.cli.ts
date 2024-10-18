@@ -28,6 +28,10 @@ import { DeferredPromise } from 'vs/base/common/async';
 interface ProductDescription {
 	productName: string;
 	version: string;
+	// --- Start Positron ---
+	positronVersion: string;
+	positronBuildNumber: number | string;
+	// --- End Positron ---
 	commit: string;
 	executableName: string;
 }
@@ -128,11 +132,15 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 	const verbose = !!parsedArgs['verbose'];
 
 	if (parsedArgs.help) {
-		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.version, options));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.positronVersion, options));
+		// --- End Positron ---
 		return;
 	}
 	if (parsedArgs.version) {
-		console.log(buildVersionMessage(desc.version, desc.commit));
+		// --- Start Positron ---
+		console.log(buildVersionMessage(desc.positronVersion, desc.positronBuildNumber, desc.version, desc.commit));
+		// --- End Positron ---
 		return;
 	}
 	if (parsedArgs['locate-shell-integration-path']) {
@@ -494,7 +502,11 @@ function mapFileToRemoteUri(uri: string): string {
 	return uri.replace(/^file:\/\//, 'vscode-remote://' + cliRemoteAuthority);
 }
 
-const [, , productName, version, commit, executableName, ...remainingArgs] = process.argv;
-main({ productName, version, commit, executableName }, remainingArgs).then(null, err => {
+// --- Start Positron ---
+// Call the CLI with the following argument order:
+// (node exe), (cli script), APPNAME, POSITRONVERSION, BUILDNUMBER, VERSION, COMMIT, EXEC NAME, ...
+const [, , productName, positronVersion, positronBuildNumber, version, commit, executableName, ...remainingArgs] = process.argv;
+main({ productName, positronVersion, positronBuildNumber, version, commit, executableName }, remainingArgs).then(null, err => {
+	// --- End Positron ---
 	console.error(err.message || err.stack || err);
 });

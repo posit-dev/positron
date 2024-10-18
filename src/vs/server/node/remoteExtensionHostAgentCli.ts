@@ -182,12 +182,16 @@ function eventuallyExit(code: number): void {
 export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, optionDescriptions: OptionDescriptions<ServerParsedArgs>): Promise<void> {
 	if (args.help) {
 		const executable = product.serverApplicationName + (isWindows ? '.cmd' : '');
-		console.log(buildHelpMessage(product.nameLong, executable, product.version, optionDescriptions, { noInputFiles: true, noPipe: true }));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(product.nameLong, executable, product.positronVersion, optionDescriptions, { noInputFiles: true, noPipe: true }));
+		// --- End Positron ---
 		return;
 	}
 	// Version Info
 	if (args.version) {
-		console.log(buildVersionMessage(product.version, product.commit));
+		// --- Start Positron ---
+		console.log(buildVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
+		// --- End Positron ---
 		return;
 	}
 
