@@ -20,6 +20,9 @@ export interface IFetchOptions {
 	nodeFetchOptions?: RequestInit;
 	verbose?: boolean;
 	checksumSha256?: string;
+	// --- Start Positron ---
+	timeoutSeconds?: number;
+	// --- End Positron ---
 }
 
 export function fetchUrls(urls: string[] | string, options: IFetchOptions): es.ThroughStream {
@@ -59,8 +62,8 @@ export async function fetchUrl(url: string, options: IFetchOptions, retries = 10
 		}
 		const controller = new AbortController();
 		// --- Start Positron ---
-		// Increase the timeout to 90 seconds to accommodate slower downloads.
-		const timeout = setTimeout(() => controller.abort(), 90 * 1000);
+		const timeoutSeconds = options.timeoutSeconds ?? 30;
+		const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
 		// --- End Positron ---
 		try {
 			const response = await fetch(url, {
