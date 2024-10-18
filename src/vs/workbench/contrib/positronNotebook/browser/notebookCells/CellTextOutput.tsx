@@ -10,6 +10,7 @@ import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLin
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import { ParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 
 
 function useLongOutputBehavior(): { mode: 'scroll' } | { mode: 'truncate'; outputLineLimit: number } {
@@ -27,35 +28,63 @@ function useLongOutputBehavior(): { mode: 'scroll' } | { mode: 'truncate'; outpu
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const { openerService, notificationService } = useServices();
+	const { openerService, notificationService, commandService } = useServices();
 	const longOutputBehavior = useLongOutputBehavior();
 
-	const { truncatedContent, wasTruncated } = truncateToNumberOfLines(content, longOutputBehavior.mode === 'truncate' ? longOutputBehavior.outputLineLimit : undefined);
-	const processedAnsi = ANSIOutput.processOutput(truncatedContent);
+	const { truncatedContentBefore, truncatedContentAfter, numLinesTruncated } = truncateToNumberOfLines(content, longOutputBehavior.mode === 'truncate' ? longOutputBehavior.outputLineLimit : undefined);
 
 	return <div className={`notebook-${type} positron-notebook-text-output long-output-${longOutputBehavior.mode}`}>
 		<OutputLines
-			outputLines={processedAnsi}
+			outputLines={ANSIOutput.processOutput(truncatedContentBefore)}
 			openerService={openerService}
-			notificationService={notificationService} />
+			notificationService={notificationService}
+		/>
 		{
-			wasTruncated ? <span>Long content truncated</span> : null
+			numLinesTruncated ? <TruncationMessage numLinesTruncated={numLinesTruncated} commandService={commandService} /> : null
+		}
+		{
+			truncatedContentAfter ? <OutputLines
+				outputLines={ANSIOutput.processOutput(truncatedContentAfter)}
+				openerService={openerService}
+				notificationService={notificationService}
+			/> : null
 		}
 	</div>;
 }
 
-function truncateToNumberOfLines(content: string, maxLines?: number): { truncatedContent: string; wasTruncated: boolean } {
-	if (!maxLines) { return { truncatedContent: content, wasTruncated: false }; }
+const TruncationMessage = ({ numLinesTruncated, commandService }: { numLinesTruncated: number; commandService: ICommandService }) => {
+
+	const linesTruncatedFormatted = numLinesTruncated.toLocaleString();
+	const openSettings = () => {
+		commandService.executeCommand(
+			'workbench.action.openSettings',
+			'notebook.output scroll'
+		);
+	};
+	return <i
+		className='notebook-output-truncation-message'
+	>... ({linesTruncatedFormatted} lines truncated.{' '}
+		<a
+			href=''
+			aria-label='notebook output settings'
+			onClick={openSettings}
+		>Change behavior.</a>
+		)</i>;
+};
+
+function truncateToNumberOfLines(content: string, maxLines?: number): {
+	truncatedContentBefore: string;
+	truncatedContentAfter?: string;
+	numLinesTruncated: number;
+} {
+	if (!maxLines) { return { truncatedContentBefore: content, numLinesTruncated: 0 }; }
 	const splitByLine = content.split('\n');
 	const numLines = splitByLine.length;
-	if (numLines <= maxLines) { return { truncatedContent: content, wasTruncated: false }; }
+	if (numLines <= maxLines) { return { truncatedContentBefore: content, numLinesTruncated: 0 }; }
 
 	return {
-		truncatedContent: [
-			...splitByLine.slice(0, maxLines - 1),
-			'...',
-			splitByLine[splitByLine.length - 1]
-		].join('\n'),
-		wasTruncated: true
+		truncatedContentBefore: splitByLine.slice(0, maxLines - 1).join('\n'),
+		truncatedContentAfter: splitByLine[splitByLine.length - 1],
+		numLinesTruncated: numLines - maxLines
 	};
 }

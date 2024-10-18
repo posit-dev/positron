@@ -17,3 +17,8 @@
 	max-height: 400px;
 	overflow: scroll;
 }
+
+.notebook-output-truncation-message {
+	font-size: 0.95em;
+	opacity: 0.8;
+}
