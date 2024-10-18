@@ -490,33 +490,18 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 	// Create the data grid rows.
 	const dataGridRows: JSX.Element[] = [];
-	if (context.instance.rows) {
-		// Get the first row.
-		let { rowIndex, top } = context.instance.firstRow;
-
-		// Create the data grid rows.
-		const bottom = context.instance.verticalScrollOffset + context.instance.layoutHeight;
-		while (rowIndex < context.instance.rows && top < bottom) {
-			// Create and add the data grid row.
-			dataGridRows.push(
-				<DataGridRow
-					key={`row-${rowIndex}`}
-					width={width}
-					top={top - context.instance.verticalScrollOffset}
-					rowIndex={rowIndex}
-				/>
-			);
-
-			// Get the row height
-			const rowHeight = context.instance.getRowHeight(rowIndex);
-			if (!rowHeight) {
-				break;
-			}
-
-			// Advance to the next data grid row.
-			rowIndex++;
-			top += rowHeight;
-		}
+	for (let rowLayoutEntry = context.instance.firstRowLayoutEntry;
+		rowLayoutEntry && rowLayoutEntry.start < context.instance.layoutBottom;
+		rowLayoutEntry = context.instance.getRowLayoutEntry(rowLayoutEntry.index + 1)
+	) {
+		dataGridRows.push(
+			<DataGridRow
+				key={`row-${rowLayoutEntry.index}`}
+				width={width}
+				top={rowLayoutEntry.start - context.instance.verticalScrollOffset}
+				rowIndex={rowLayoutEntry.index}
+			/>
+		);
 	}
 
 	// Render.

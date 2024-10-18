@@ -58,7 +58,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		super({
 			columnHeaders: false,
 			rowHeaders: false,
-			defaultColumnWidth: 100,
+			defaultColumnWidth: 0,
 			defaultRowHeight: ROW_HEIGHT,
 			columnResize: false,
 			rowResize: false,
@@ -125,26 +125,29 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the number of columns.
 	 */
-	override get firstColumn() {
+	override get firstColumnLayoutEntry() {
 		return {
-			columnIndex: 0,
-			left: 0
+			index: 0,
+			start: 0,
+			size: this.layoutWidth,
+			end: this.layoutWidth
 		};
 	}
 
 	/**
-	 * Gets the number of rows.
+	 * Gets the first row layout entry.
 	 */
-	override get firstRow() {
-		const rowIndex = Math.floor(
+	override get firstRowLayoutEntry() {
+		const index = Math.floor(
 			this.verticalScrollOffset / this.defaultRowHeight
 		);
 
-		const top = (rowIndex * this.defaultRowHeight) - this.verticalScrollOffset;
-
+		const start = (index * this.defaultRowHeight) - this.verticalScrollOffset;
 		return {
-			rowIndex,
-			top
+			index,
+			start,
+			size: this.defaultRowHeight,
+			end: start + this.defaultRowHeight
 		};
 	}
 
@@ -157,11 +160,14 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		await this._columnSchemaCache.updateCache({
-			searchText: this._searchText,
-			firstColumnIndex: this.firstRow.rowIndex,
-			visibleColumns: this.screenRows
-		});
+		const rowLayoutEntry = this.firstRowLayoutEntry;
+		if (rowLayoutEntry) {
+			await this._columnSchemaCache.update({
+				searchText: this._searchText,
+				firstColumnIndex: rowLayoutEntry.index,
+				visibleColumns: this.screenRows
+			});
+		}
 	}
 
 	/**

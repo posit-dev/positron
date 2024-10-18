@@ -84,7 +84,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Update the cache with invalidation.
 			await this._tableSummaryCache.update({
 				invalidateCache: true,
-				firstColumnIndex: this.firstColumn.columnIndex,
+				firstColumnIndex: 0,
 				screenColumns: this.screenRows
 			});
 		}));
@@ -111,6 +111,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 				this._lastRowFilters = rowFilters;
 				await this._tableSummaryCache.refreshColumnProfiles();
 			}
+
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
@@ -148,10 +154,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	/**
 	 * Gets the number of columns.
 	 */
-	override get firstColumn() {
+	override get firstColumnLayoutEntry() {
 		return {
-			columnIndex: 0,
-			left: 0
+			index: 0,
+			start: 0,
+			size: this.layoutWidth,
+			end: this.layoutWidth
 		};
 	}
 
@@ -164,11 +172,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		await this._tableSummaryCache.update({
-			invalidateCache: false,
-			firstColumnIndex: this.firstRow.rowIndex,
-			screenColumns: this.screenRows
-		});
+		const rowLayoutEntry = this.firstRowLayoutEntry;
+		if (rowLayoutEntry) {
+			await this._tableSummaryCache.update({
+				invalidateCache: false,
+				firstColumnIndex: rowLayoutEntry.index,
+				screenColumns: this.screenRows
+			});
+		}
 	}
 
 	/**

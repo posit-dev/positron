@@ -92,24 +92,32 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Set the screen position.
+			this._horizontalScrollOffset = 0;
+			this._verticalScrollOffset = 0;
+
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.All,
-				firstColumnIndex: this.firstColumn.columnIndex,
+				firstColumnIndex: 0,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRow.rowIndex,
+				firstRowIndex: 0,
 				screenRows: this.screenRows
 			});
 		}));
 
 		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Set the screen position.
+			this._horizontalScrollOffset = 0;
+			this._verticalScrollOffset = 0;
+
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: this.firstColumn.columnIndex,
+				firstColumnIndex: 0,
 				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRow.rowIndex,
+				firstRowIndex: 0,
 				screenRows: this.screenRows
 			});
 		}));
@@ -122,7 +130,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this.maximumColumnWidth
 			);
 
-			// Set the layout entries.
+			// Set the layout entries for the column and row layout managers.
 			this._columnLayoutManager.setLayoutEntries(
 				layoutEntries ?? state.table_shape.num_columns
 			);
@@ -140,6 +148,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 					new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
 				);
 			});
+
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
 			this._onDidUpdateEmitter.fire();
 		}));
 
@@ -185,21 +198,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
 		// Set the sort columns.
-		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => (
-			{
-				column_index: columnSort.columnIndex,
-				ascending: columnSort.ascending
-			}
-		)));
+		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
+			column_index: columnSort.columnIndex,
+			ascending: columnSort.ascending
+		})));
 
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumn.columnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRow.rowIndex,
-			screenRows: this.screenRows
-		});
+		// Get the first column layout entry and the first row layout entry. If they were found,
+		// update the cache.
+		const columnLayoutEntry = this.firstColumnLayoutEntry;
+		const rowLayoutEntry = this.firstRowLayoutEntry;
+		if (columnLayoutEntry && rowLayoutEntry) {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: columnLayoutEntry.index,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowLayoutEntry.index,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**
@@ -207,14 +224,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	override async fetchData() {
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.None,
-			firstColumnIndex: this.firstColumn.columnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRow.rowIndex,
-			screenRows: this.screenRows
-		});
+		const columnLayoutEntry = this.firstColumnLayoutEntry;
+		const rowLayoutEntry = this.firstRowLayoutEntry;
+		if (columnLayoutEntry && rowLayoutEntry) {
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.None,
+				firstColumnIndex: columnLayoutEntry.index,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowLayoutEntry.index,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**
@@ -631,14 +651,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumn.columnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRow.rowIndex,
-			screenRows: this.screenRows
-		});
+		// Get the first column layout entry and the first row layout entry. If they were found,
+		// update the cache.
+		const columnLayoutEntry = this.firstColumnLayoutEntry;
+		const rowLayoutEntry = this.firstRowLayoutEntry;
+		if (columnLayoutEntry && rowLayoutEntry) {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: columnLayoutEntry.index,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowLayoutEntry.index,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**

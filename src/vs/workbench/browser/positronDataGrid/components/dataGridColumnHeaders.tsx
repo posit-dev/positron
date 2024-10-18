@@ -34,39 +34,19 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 
 	// Create the data grid column headers.
 	const dataGridColumnHeaders: JSX.Element[] = [];
-	if (context.instance.columns) {
-		// Get the first column.
-		let { left, columnIndex } = context.instance.firstColumn;
-
-		// Create the data grid column headers.
-		const right = context.instance.horizontalScrollOffset + context.instance.layoutWidth;
-		while (left < right && columnIndex < context.instance.columns) {
-			// Get the column.
-			const column = context.instance.column(columnIndex);
-			if (!column) {
-				break;
-			}
-
-			// Create and add the data grid column header.
-			dataGridColumnHeaders.push(
-				<DataGridColumnHeader
-					key={columnIndex}
-					column={column}
-					columnIndex={columnIndex}
-					left={left - context.instance.horizontalScrollOffset}
-				/>
-			);
-
-			// Get the column width.
-			const columnWidth = context.instance.getColumnWidth(columnIndex);
-			if (!columnWidth) {
-				break;
-			}
-
-			// Advance to the next column.
-			columnIndex++;
-			left += columnWidth;
-		}
+	for (
+		let columnLayoutEntry = context.instance.firstColumnLayoutEntry;
+		columnLayoutEntry && columnLayoutEntry.start < context.instance.layoutRight;
+		columnLayoutEntry = context.instance.getColumnLayoutEntry(columnLayoutEntry.index + 1)
+	) {
+		dataGridColumnHeaders.push(
+			<DataGridColumnHeader
+				key={columnLayoutEntry.index}
+				column={context.instance.column(columnLayoutEntry.index)}
+				columnIndex={columnLayoutEntry.index}
+				left={columnLayoutEntry.start - context.instance.horizontalScrollOffset}
+			/>
+		);
 	}
 
 	// Render.

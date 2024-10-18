@@ -675,12 +675,12 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * The horizontal scroll offset.
 	 */
-	private _horizontalScrollOffset = 0;
+	protected _horizontalScrollOffset = 0;
 
 	/**
 	 * The vertical scroll offset.
 	 */
-	private _verticalScrollOffset = 0;
+	protected _verticalScrollOffset = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
@@ -1058,6 +1058,13 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the layout right.
+	 */
+	get layoutRight() {
+		return this.horizontalScrollOffset + this.layoutWidth;
+	}
+
+	/**
 	 * Gets the layout height.
 	 */
 	get layoutHeight() {
@@ -1072,6 +1079,13 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Done.
 		return layoutHeight;
+	}
+
+	/**
+	 * Gets the layout bottom.
+	 */
+	get layoutBottom() {
+		return this.verticalScrollOffset + this.layoutHeight;
 	}
 
 	/**
@@ -1109,49 +1123,15 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the first column.
 	 */
-	get firstColumn(): ColumnDescriptor {
-		// Get the column layout entry for the horizontal scroll offset. If it was found, return a
-		// column descriptor for it.
-		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
-		if (layoutEntry) {
-			return {
-				columnIndex: layoutEntry.index,
-				left: layoutEntry.start
-			};
-		}
-
-		// Scroll to the left.
-		this.setHorizontalScrollOffset(0);
-
-		// Return a column descriptor for the first column.
-		return {
-			columnIndex: 0,
-			left: 0
-		};
+	get firstColumnLayoutEntry(): ILayoutEntry | undefined {
+		return this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
 	}
 
 	/**
 	 * Gets the first row.
 	 */
-	get firstRow(): RowDescriptor {
-		// Get the row layout entry for the vertical scroll offset. If it was found, return a row
-		// descriptor for it.
-		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
-		if (layoutEntry) {
-			return {
-				rowIndex: layoutEntry.index,
-				top: layoutEntry.start
-			};
-		}
-
-		// Scroll to the top.
-		this.setVerticalScrollOffset(0);
-
-		// Return a row descriptor for the first row.
-		return {
-			rowIndex: 0,
-			top: 0
-		};
+	get firstRowLayoutEntry() {
+		return this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
 	}
 
 	/**
@@ -1225,6 +1205,14 @@ export abstract class DataGridInstance extends Disposable {
 
 		// Return false, indicating that the cursor was already showing.
 		return false;
+	}
+
+	getColumnLayoutEntry(columnIndex: number) {
+		return this._columnLayoutManager.getLayoutEntry(columnIndex);
+	}
+
+	getRowLayoutEntry(rowIndex: number) {
+		return this._rowLayoutManager.getLayoutEntry(rowIndex);
 	}
 
 	/**
