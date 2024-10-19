@@ -102,7 +102,9 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		});
 
 		// Create the column schema cache.
-		this._columnSchemaCache = new ColumnSchemaCache(this._dataExplorerClientInstance);
+		this._register(
+			this._columnSchemaCache = new ColumnSchemaCache(this._dataExplorerClientInstance)
+		);
 
 		// Set the initial layout entries in the row layout manager.
 		this._rowLayoutManager.setLayoutEntries(initialColumns);
@@ -111,7 +113,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		 * Updates the data grid instance.
 		 * @param state The state, if known; otherwise, undefined.
 		 */
-		const updateDataGridInstance = async (state: BackendState | undefined = undefined) => {
+		const updateDataGridInstance = async (state?: BackendState) => {
 			// Get the backend state, if it was not supplied.
 			if (!state) {
 				state = await this._dataExplorerClientInstance.getBackendState();

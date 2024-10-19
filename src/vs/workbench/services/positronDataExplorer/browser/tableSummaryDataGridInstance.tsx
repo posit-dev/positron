@@ -12,8 +12,8 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
-import { ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ColumnSummaryCell } from 'vs/workbench/services/positronDataExplorer/browser/components/columnSummaryCell';
+import { BackendState, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDate';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNumber';
@@ -79,42 +79,71 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			selection: false
 		});
 
-		// Add the data explorer client instance onDidSchemaUpdate event handler.
+		// Set the column layout entries. There is always one column.
+		this._columnLayoutManager.setLayoutEntries(1);
+
+		/**
+		 * Updates the layout entries.
+		 * @param state The backend state, if known; otherwise, undefined.
+		 */
+		const updateLayoutEntries = async (state?: BackendState) => {
+			// Get the backend state, if was not provided.
+			if (!state) {
+				state = await this._dataExplorerClientInstance.getBackendState();
+			}
+
+			// Set the layout entries.
+			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
+
+			// Adjust the vertical scroll offset, if needed.
+			if (!this.firstRow) {
+				this._verticalScrollOffset = 0;
+			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+		};
+
+		// Add the onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Update the cache with invalidation.
-			await this._tableSummaryCache.update({
-				invalidateCache: true,
-				firstColumnIndex: 0,
-				screenColumns: this.screenRows
-			});
+			// Update the layout entries.
+			await updateLayoutEntries();
+
+			// Perform a soft reset.
+			this.softReset();
+
+			// Fetch data.
+			await this.fetchData(true);
 		}));
 
-		// Add the data explorer client instance onDidDataUpdate event handler.
+		// Add the onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Update the layout entries.
+			await updateLayoutEntries();
+
 			// Refresh the column profiles because they rely on the data.
 			await this._tableSummaryCache.refreshColumnProfiles();
+
+			// Fetch data.
+			await this.fetchData(true);
 		}));
 
-		// Add the data explorer client instance onDidUpdateBackendState event handler.
+		// Add the onDidUpdateBackendState event handler.
 		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Set the layout entries.
-			this._columnLayoutManager.setLayoutEntries(1);
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
+			// Update the layout entries.
+			await updateLayoutEntries(state);
 
 			// Stringify the row filters.
 			const rowFilters = JSON.stringify(state.row_filters);
 
-			// If the row filters have changed, refresh the column profiles.
+			// If the row filters have changed, refresh the column profiles because they rely on the
+			// data
 			if (this._lastRowFilters !== rowFilters) {
 				this._lastRowFilters = rowFilters;
 				await this._tableSummaryCache.refreshColumnProfiles();
 			}
 
 			// Fetch data.
-			await this.fetchData();
-
-			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			await this.fetchData(true);
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
@@ -165,13 +194,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @param invalidateCache A value which indicates whether to invalidate the cache.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override async fetchData() {
+	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
 		if (rowDescriptor) {
 			await this._tableSummaryCache.update({
-				invalidateCache: false,
+				invalidateCache: !!invalidateCache,
 				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});

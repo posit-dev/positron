@@ -94,7 +94,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	//#endregion Private Properties
 
-	//#region Constructor & Dispose
+	//#region Constructor
 
 	/**
 	 * Constructor.
@@ -124,26 +124,35 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Call the base class's constructor.
 		super();
 
-		// Initialize.
-		this._tableSummaryCache = new TableSummaryCache(
+		// Take ownership of the client instance.
+		this._register(this._dataExplorerClientInstance);
+
+		// Create the table summary cache.
+		this._register(this._tableSummaryCache = new TableSummaryCache(
 			this._configurationService,
 			this._dataExplorerClientInstance
-		);
-		this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
+		));
+
+		// Create the table summary data grid instance.
+		this._register(this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
 			this._configurationService,
 			this._hoverService,
 			this._dataExplorerClientInstance,
 			this._tableSummaryCache
-		);
-		this._tableDataCache = new TableDataCache(this._dataExplorerClientInstance);
-		this._tableDataDataGridInstance = new TableDataDataGridInstance(
+		));
+
+		// Create the table data cache.
+		this._register(this._tableDataCache = new TableDataCache(this._dataExplorerClientInstance));
+
+		// Create the table data data grid instance.
+		this._register(this._tableDataDataGridInstance = new TableDataDataGridInstance(
 			this._commandService,
 			this._configurationService,
 			this._keybindingService,
 			this._layoutService,
 			this._dataExplorerClientInstance,
 			this._tableDataCache
-		);
+		));
 
 		// Add the onDidClose event handler.
 		this._register(this._dataExplorerClientInstance.onDidClose(() => {
@@ -156,28 +165,14 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 			this._tableDataDataGridInstance.scrollToColumn(columnIndex);
 		}));
 
+		// Add the onDidRequestFocus event handler.
 		this._register(this.onDidRequestFocus(() => {
 			const uri = PositronDataExplorerUri.generate(this._dataExplorerClientInstance.identifier);
 			this._editorService.openEditor({ resource: uri });
 		}));
 	}
 
-	/**
-	 * dispose override method.
-	 */
-	override dispose(): void {
-		// Dispose the table summary cache and the table data cache.
-		this._tableSummaryCache.dispose();
-		this._tableDataCache.dispose();
-
-		// Dispose the client instance.
-		this._dataExplorerClientInstance.dispose();
-
-		// Call the base class's dispose method.
-		super.dispose();
-	}
-
-	//#endregion Constructor & Dispose
+	//#endregion Constructor
 
 	//#region IPositronDataExplorerInstance Implementation
 
