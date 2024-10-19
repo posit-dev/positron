@@ -22,7 +22,7 @@ import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGri
 import { DataGridCornerTopLeft } from 'vs/workbench/browser/positronDataGrid/components/dataGridCornerTopLeft';
 import { DataGridColumnHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeaders';
 import { DataGridScrollbarCorner } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbarCorner';
-import { DataGridSmoothScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridSmoothScrollbar';
+import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
@@ -534,7 +534,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				/>
 			}
 			{context.instance.horizontalScrollbar &&
-				<DataGridSmoothScrollbar
+				<DataGridScrollbar
 					containerWidth={width}
 					containerHeight={height}
 					orientation='horizontal'
@@ -553,7 +553,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				/>
 			}
 			{context.instance.verticalScrollbar &&
-				<DataGridSmoothScrollbar
+				<DataGridScrollbar
 					containerWidth={width}
 					containerHeight={height}
 					orientation='vertical'
