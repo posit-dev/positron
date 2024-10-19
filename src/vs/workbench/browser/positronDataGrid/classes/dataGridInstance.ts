@@ -42,14 +42,6 @@ type DefaultSizeOptions = | {
 	readonly defaultRowHeight: number;
 };
 
-// /**
-//  *
-//  */
-// type SizeOptions = | {
-// 	readonly columnWidth: number;
-// 	readonly rowSizeHeight: number;
-// };
-
 /**
  * ColumnResizeOptions type.
  */
@@ -1879,9 +1871,9 @@ export abstract class DataGridInstance extends Disposable {
 		 * @param columnIndex The column index.
 		 */
 		const adjustCursor = async (columnIndex: number) => {
-			// // Adjust the cursor.
-			// this._cursorColumnIndex = columnIndex;
-			// this._cursorRowIndex = this._firstRowIndexXX;
+			// Adjust the cursor.
+			this._cursorColumnIndex = columnIndex;
+			this._cursorRowIndex = this.firstRow?.rowIndex ?? 0;
 		};
 
 		// Process the selection based on selection type.
@@ -2003,9 +1995,9 @@ export abstract class DataGridInstance extends Disposable {
 		 * @param rowIndex The row index.
 		 */
 		const adjustCursor = async (rowIndex: number) => {
-			// // Adjust the cursor.
-			// this._cursorColumnIndex = this._firstColumnIndexXX;
-			// this._cursorRowIndex = rowIndex;
+			// Adjust the cursor.
+			this._cursorColumnIndex = this.firstColumn?.columnIndex ?? 0;
+			this._cursorRowIndex = rowIndex;
 		};
 
 		// Process the selection based on selection type.
