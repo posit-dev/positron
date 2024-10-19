@@ -181,6 +181,9 @@ export class LayoutManager {
 	 * @param layoutEntries The layout entries.
 	 */
 	setLayoutEntries(layoutEntries: number | number[]) {
+		// Clear the cached layout entry.
+		this._cachedLayoutEntry = undefined;
+
 		// If layout entries is a number, set it; otherwise, create and populate the layout entries
 		// array from the supplied layout entries.
 		if (!Array.isArray(layoutEntries)) {

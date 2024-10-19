@@ -25,7 +25,7 @@ import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronData
 import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
-import { ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 
 /**
@@ -90,53 +90,70 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		// Add the data explorer client onDidSchemaUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
-			// Set the screen position.
-			this._horizontalScrollOffset = 0;
-			this._verticalScrollOffset = 0;
+		/**
+		 * Updates the layout entries.
+		 * @param state The backend state, if known; otherwise, undefined.
+		 */
+		const updateLayoutEntries = async (state?: BackendState) => {
+			// Get the backend state, if was not provided.
+			if (!state) {
+				state = await this._dataExplorerClientInstance.getBackendState();
+			}
 
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.All,
-				firstColumnIndex: 0,
-				screenColumns: this.screenColumns,
-				firstRowIndex: 0,
-				screenRows: this.screenRows
-			});
-		}));
-
-		// Add the data explorer client onDidDataUpdate event handler.
-		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
-			// Set the screen position.
-			this._horizontalScrollOffset = 0;
-			this._verticalScrollOffset = 0;
-
-			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: 0,
-				screenColumns: this.screenColumns,
-				firstRowIndex: 0,
-				screenRows: this.screenRows
-			});
-		}));
-
-		// Add the data explorer client onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
-			// Calculate the column layout entries.
+			// Calculate the layout entries.
 			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
 				this.minimumColumnWidth,
 				this.maximumColumnWidth
 			);
 
-			// Set the layout entries for the column and row layout managers.
+			// Set the layout entries.
 			this._columnLayoutManager.setLayoutEntries(
 				layoutEntries ?? state.table_shape.num_columns
 			);
 			this._rowLayoutManager.setLayoutEntries(
 				state.table_shape.num_rows
 			);
+
+			// Adjust the vertical scroll offset, if needed.
+			if (!this.firstRow) {
+				this._verticalScrollOffset = 0;
+			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
+			// Adjust the horizontal scroll offset, if needed.
+			if (!this.firstColumn) {
+				this._horizontalScrollOffset = 0;
+			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+			}
+		};
+
+		// Add the data explorer client onDidSchemaUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the layout entries.
+			await updateLayoutEntries();
+
+			// Perform a soft reset.
+			this.softReset();
+
+			// Update the cache.
+			await this.fetchData(InvalidateCacheFlags.All);
+		}));
+
+		// Add the data explorer client onDidDataUpdate event handler.
+		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Update the layout entries.
+			await updateLayoutEntries();
+
+			// Update the cache.
+			await this.fetchData(InvalidateCacheFlags.Data);
+		}));
+
+		// Add the data explorer client onDidUpdateBackendState event handler.
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			// Update the layout entries.
+			await updateLayoutEntries(state);
 
 			// Clear column sort keys.
 			this._columnSortKeys.clear();
@@ -150,17 +167,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			});
 
 			// Fetch data.
-			await this.fetchData();
-
-			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			await this.fetchData(InvalidateCacheFlags.Data);
 		}));
 
 		// Add the table data cache onDidUpdate event handler.
-		this._register(this._tableDataCache.onDidUpdate(() => {
+		this._register(this._tableDataCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
-		}));
+			this._onDidUpdateEmitter.fire()
+		));
 	}
 
 	//#endregion Constructor
@@ -221,14 +235,15 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Fetches data.
+	 * @param invalidateCacheFlags The invalidate cache flags.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override async fetchData() {
+	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
 		const columnDescriptor = this.firstColumn;
 		const rowDescriptor = this.firstRow;
 		if (columnDescriptor && rowDescriptor) {
 			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.None,
+				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
 				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
 				firstRowIndex: rowDescriptor.rowIndex,
