@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridSmoothScrollbar';
+import 'vs/css!./dataGridScrollbar';
 
 // React.
 import * as React from 'react';
@@ -20,9 +20,9 @@ import { pinToRange } from 'vs/base/common/positronUtilities';
 const MIN_SLIDER_SIZE = 20;
 
 /**
- * DataGridSmoothScrollbarProps interface.
+ * DataGridScrollbarProps interface.
  */
-interface DataGridSmoothScrollbarProps {
+interface DataGridScrollbarProps {
 	/**
 	 * Gets the container width for the scrollbar.
 	 */
@@ -116,11 +116,11 @@ interface ScrollbarState {
 }
 
 /**
- * DataGridSmoothScrollbar component.
- * @param props A DataGridSmoothScrollbarProps that contains the component properties.
+ * DataGridScrollbar component.
+ * @param props A DataGridScrollbarProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => {
+export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	// State hooks.
 	const [state, setState] = useState<ScrollbarState>({
 		scrollbarDisabled: true,
@@ -321,12 +321,12 @@ export const DataGridSmoothScrollbar = (props: DataGridSmoothScrollbarProps) => 
 	// Render.
 	return (
 		<div
-			className={`data-grid-smooth-scrollbar ${props.orientation}`}
+			className={`data-grid-scrollbar ${props.orientation}`}
 			style={scrollbarStyle}
 			onMouseDown={mouseDownHandler}
 		>
 			<div
-				className={`data-grid-smooth-scrollbar-slider ${props.orientation}`}
+				className={`data-grid-scrollbar-slider ${props.orientation}`}
 				style={sliderStyle}
 				onPointerDown={pointerDownHandler}
 			/>
