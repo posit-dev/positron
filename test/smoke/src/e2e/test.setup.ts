@@ -18,7 +18,7 @@ import minimist = require('minimist');
 // Local project modules
 import { createLogger } from '../test-runner/logger';
 import { ROOT_PATH } from '../test-runner/test-hooks';
-import { Application, Logger } from '../../../automation';
+import { Application, Logger } from '../../../automation/out';
 import { createApp } from '../utils';
 export const test = base.extend<{
 	app: Application;

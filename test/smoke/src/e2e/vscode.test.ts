@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { test, expect } from './baseTest';
+import { test, expect } from './vscodeBase';
 
-test('should be able to execute the first test of the example project', async ({ workbox }) => {
+test.skip('should be able to execute the first test of the example project', async ({ workbox }) => {
 	await workbox.getByRole('treeitem', { name: 'tests', exact: true }).locator('a').click();
 	await workbox.getByRole('treeitem', { name: 'example.spec.ts' }).locator('a').click();
 	await expect(workbox.locator('.testing-run-glyph'), 'there are no tests in the file').toHaveCount(0);

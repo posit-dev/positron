@@ -7,7 +7,7 @@
 import { expect } from '@playwright/test';
 
 import { PositronPythonFixtures } from '../../../automation';
-import { test } from './base-test';
+import { test } from './test.setup';
 
 test.describe('Python Notebooks', () => {
 

@@ -7,13 +7,13 @@
 import { _electron, expect } from '@playwright/test';
 
 import path = require('path');
-import { test } from './base-test';
+import { test } from './test.setup';
 import { Application } from '../../../automation';
 const fs = require('fs-extra');
 
 
 
-test.describe.only('poc suite', () => {
+test.describe('poc suite', () => {
 	// test.use({ reuseApp: true });
 	test.beforeEach(async ({ app }) => {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
