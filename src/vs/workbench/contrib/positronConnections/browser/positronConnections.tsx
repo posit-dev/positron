@@ -248,7 +248,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				}
 			</div>
 			<div
-				className={`connections-icon codicon codicon-${icon}`}
+				className={`connections-icon codicon codicon-${icon} ${props.item.preview ? '' : 'disabled'}`}
 				onClick={() => props.item.preview?.()}
 			>
 			</div>
