@@ -22,10 +22,12 @@ export interface ApplicationOptions extends LaunchOptions {
 }
 
 export class Application {
+	private _logger: Logger;
 
 	constructor(private options: ApplicationOptions) {
 		this._userDataPath = options.userDataDir;
 		this._workspacePathOrFolder = options.workspacePath;
+		this._logger = options.logger;
 	}
 
 	private _code: Code | undefined;
@@ -39,7 +41,13 @@ export class Application {
 	}
 
 	get logger(): Logger {
-		return this.options.logger;
+		// return this.options.logger;
+		return this._logger;
+	}
+
+	setLogger(newLogger: Logger): void {
+		this._logger = newLogger;
+
 	}
 
 	get remote(): boolean {
