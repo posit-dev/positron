@@ -226,7 +226,7 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@ICON@@', product.linuxIconName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.version))
-					.pipe(replace('@@POSITRONVERSION@@', product.positronVersion))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}`))
 					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@RELEASE@@', linuxPackageRevision))

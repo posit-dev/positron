@@ -1,5 +1,5 @@
 Name:     @@NAME@@
-Version:  @@POSITRONVERSION@@ build @@BUILDNUMBER@@
+Version:  @@POSITRONVERSION@@
 Release:  @@RELEASE@@.el8
 Summary:  A next-generation data science IDE.
 Group:    Development/Tools
