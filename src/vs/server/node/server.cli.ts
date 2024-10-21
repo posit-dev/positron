@@ -9,12 +9,20 @@ import * as cp from 'child_process';
 import * as http from 'http';
 import { cwd } from 'vs/base/common/process';
 import { dirname, extname, resolve, join } from 'vs/base/common/path';
+// --- Start Positron ---
+// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
+// --- End Positron ---
 import { parseArgs, buildHelpMessage, buildVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
 import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
 import { createWaitMarkerFileSync } from 'vs/platform/environment/node/wait';
 import { PipeCommand } from 'vs/workbench/api/node/extHostCLIServer';
 import { hasStdinWithoutTty, getStdinFilePath, readFromStdin } from 'vs/platform/environment/node/stdin';
 import { DeferredPromise } from 'vs/base/common/async';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+// --- End Positron ---
 
 /*
  * Implements a standalone CLI app that opens VS Code from a remote terminal.
@@ -28,6 +36,10 @@ import { DeferredPromise } from 'vs/base/common/async';
 interface ProductDescription {
 	productName: string;
 	version: string;
+	// --- Start Positron ---
+	positronVersion: string;
+	positronBuildNumber: number | string;
+	// --- End Positron ---
 	commit: string;
 	executableName: string;
 }
@@ -128,11 +140,15 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 	const verbose = !!parsedArgs['verbose'];
 
 	if (parsedArgs.help) {
-		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.version, options));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(desc.productName, desc.executableName, desc.positronVersion, options));
+		// --- End Positron ---
 		return;
 	}
 	if (parsedArgs.version) {
-		console.log(buildVersionMessage(desc.version, desc.commit));
+		// --- Start Positron ---
+		console.log(buildPositronVersionMessage(desc.positronVersion, desc.positronBuildNumber, desc.version, desc.commit));
+		// --- End Positron ---
 		return;
 	}
 	if (parsedArgs['locate-shell-integration-path']) {
@@ -494,7 +510,11 @@ function mapFileToRemoteUri(uri: string): string {
 	return uri.replace(/^file:\/\//, 'vscode-remote://' + cliRemoteAuthority);
 }
 
-const [, , productName, version, commit, executableName, ...remainingArgs] = process.argv;
-main({ productName, version, commit, executableName }, remainingArgs).then(null, err => {
+// --- Start Positron ---
+// Call the CLI with the following argument order:
+// (node exe), (cli script), APPNAME, POSITRONVERSION, BUILDNUMBER, VERSION, COMMIT, EXEC NAME, ...
+const [, , productName, positronVersion, positronBuildNumber, version, commit, executableName, ...remainingArgs] = process.argv;
+main({ productName, positronVersion, positronBuildNumber, version, commit, executableName }, remainingArgs).then(null, err => {
+	// --- End Positron ---
 	console.error(err.message || err.stack || err);
 });

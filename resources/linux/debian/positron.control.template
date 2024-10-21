@@ -1,5 +1,5 @@
 Package: @@NAME@@
-Version: @@VERSION@@
+Version: @@POSITRONVERSION@@
 Section: devel
 Depends: @@DEPENDS@@
 Recommends: @@RECOMMENDS@@

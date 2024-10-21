@@ -99,7 +99,9 @@ function prepareDebPackage(arch) {
 					// --- End Positron ---
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', product.positronVersion + '-' + linuxPackageRevision))
+					.pipe(replace('@@VERSION@@', product.version))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}-${linuxPackageRevision}`))
+					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@ARCHITECTURE@@', debArch))
 					.pipe(replace('@@DEPENDS@@', dependencies.join(', ')))
@@ -222,7 +224,11 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@NAME@@', product.applicationName))
 					.pipe(replace('@@NAME_LONG@@', product.nameLong))
 					.pipe(replace('@@ICON@@', product.linuxIconName))
-					.pipe(replace('@@VERSION@@', packageJson.version))
+					// --- Start Positron ---
+					.pipe(replace('@@VERSION@@', product.version))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}`))
+					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
+					// --- End Positron ---
 					.pipe(replace('@@RELEASE@@', linuxPackageRevision))
 					.pipe(replace('@@ARCHITECTURE@@', rpmArch))
 					.pipe(replace('@@LICENSE@@', product.licenseName))
@@ -302,7 +308,12 @@ function prepareSnapPackage(arch) {
 
 		const snapcraft = gulp.src('resources/linux/snap/snapcraft.yaml', { base: '.' })
 			.pipe(replace('@@NAME@@', product.applicationName))
-			.pipe(replace('@@VERSION@@', commit.substr(0, 8)))
+			// --- Start Positron ---
+			.pipe(replace('@@VERSION@@', product.version))
+			.pipe(replace('@@POSITRONVERSION@@', product.positronVersion))
+			.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+			.pipe(replace('@@LICENSE@@', product.licenseName))
+			// --- End Positron ---
 			// Possible run-on values https://snapcraft.io/docs/architectures
 			.pipe(replace('@@ARCHITECTURE@@', arch === 'x64' ? 'amd64' : arch))
 			.pipe(rename('snap/snapcraft.yaml'));

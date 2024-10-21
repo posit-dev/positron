@@ -37,6 +37,9 @@ import { DownloadService } from 'vs/platform/download/common/downloadService';
 import { IDownloadService } from 'vs/platform/download/common/download';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
 import { UriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentityService';
+// --- Start Positron ---
+// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
+// --- End Positron ---
 import { buildHelpMessage, buildVersionMessage, OptionDescriptions } from 'vs/platform/environment/node/argv';
 import { isWindows } from 'vs/base/common/platform';
 import { IExtensionsScannerService } from 'vs/platform/extensionManagement/common/extensionsScannerService';
@@ -50,6 +53,11 @@ import { LogService } from 'vs/platform/log/common/logService';
 import { LoggerService } from 'vs/platform/log/node/loggerService';
 import { localize } from 'vs/nls';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from 'vs/base/node/unc';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+// --- End Positron ---
 
 class CliMain extends Disposable {
 
@@ -182,12 +190,16 @@ function eventuallyExit(code: number): void {
 export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, optionDescriptions: OptionDescriptions<ServerParsedArgs>): Promise<void> {
 	if (args.help) {
 		const executable = product.serverApplicationName + (isWindows ? '.cmd' : '');
-		console.log(buildHelpMessage(product.nameLong, executable, product.version, optionDescriptions, { noInputFiles: true, noPipe: true }));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(product.nameLong, executable, product.positronVersion, optionDescriptions, { noInputFiles: true, noPipe: true }));
+		// --- End Positron ---
 		return;
 	}
 	// Version Info
 	if (args.version) {
-		console.log(buildVersionMessage(product.version, product.commit));
+		// --- Start Positron ---
+		console.log(buildPositronVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
+		// --- End Positron ---
 		return;
 	}
 
