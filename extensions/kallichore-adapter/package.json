@@ -31,7 +31,7 @@
       "properties": {
         "kallichoreSupervisor.enable": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%configuration.enable.description%"
         },
         "kallichoreSupervisor.logLevel": {
