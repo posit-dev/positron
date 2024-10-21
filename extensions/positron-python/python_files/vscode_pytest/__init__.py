@@ -1,13 +1,22 @@
 # Copyright (c) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+from __future__ import annotations
+
 import atexit
 import json
 import os
 import pathlib
 import sys
 import traceback
-
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generator,
+    Literal,
+    TypedDict,
+)
 
 import pytest
 
@@ -15,16 +24,9 @@ script_dir = pathlib.Path(__file__).parent.parent
 sys.path.append(os.fspath(script_dir))
 sys.path.append(os.fspath(script_dir / "lib" / "python"))
 from testing_tools import socket_manager  # noqa: E402
-from typing import (  # noqa: E402
-    Any,
-    Dict,
-    List,
-    Optional,
-    Union,
-    TypedDict,
-    Literal,
-    Generator,
-)
+
+if TYPE_CHECKING:
+    from pluggy import Result
 
 
 class TestData(TypedDict):
@@ -46,7 +48,7 @@ class TestItem(TestData):
 class TestNode(TestData):
     """A general class that handles all test data which contains children."""
 
-    children: "list[Union[TestNode, TestItem, None]]"
+    children: list[TestNode | TestItem | None]
 
 
 class VSCodePytestError(Exception):
@@ -58,13 +60,13 @@ class VSCodePytestError(Exception):
 
 ERRORS = []
 IS_DISCOVERY = False
-map_id_to_path = dict()
-collected_tests_so_far = list()
+map_id_to_path = {}
+collected_tests_so_far = []
 TEST_RUN_PIPE = os.getenv("TEST_RUN_PIPE")
 SYMLINK_PATH = None
 
 
-def pytest_load_initial_conftests(early_config, parser, args):
+def pytest_load_initial_conftests(early_config, parser, args):  # noqa: ARG001
     global TEST_RUN_PIPE
     TEST_RUN_PIPE = os.getenv("TEST_RUN_PIPE")
     error_string = (
@@ -82,32 +84,32 @@ def pytest_load_initial_conftests(early_config, parser, args):
     # check if --rootdir is in the args
     for arg in args:
         if "--rootdir=" in arg:
-            rootdir = arg.split("--rootdir=")[1]
-            if not os.path.exists(rootdir):
+            rootdir = pathlib.Path(arg.split("--rootdir=")[1])
+            if not rootdir.exists():
                 raise VSCodePytestError(
                     f"The path set in the argument --rootdir={rootdir} does not exist."
                 )
 
             # Check if the rootdir is a symlink or a child of a symlink to the current cwd.
-            isSymlink = False
+            is_symlink = False
 
-            if os.path.islink(rootdir):
-                isSymlink = True
+            if rootdir.is_symlink():
+                is_symlink = True
                 print(
                     f"Plugin info[vscode-pytest]: rootdir argument, {rootdir}, is identified as a symlink."
                 )
-            elif pathlib.Path(os.path.realpath(rootdir)) != rootdir:
+            elif rootdir.resolve() != rootdir:
                 print("Plugin info[vscode-pytest]: Checking if rootdir is a child of a symlink.")
-                isSymlink = has_symlink_parent(rootdir)
-            if isSymlink:
+                is_symlink = has_symlink_parent(rootdir)
+            if is_symlink:
                 print(
                     f"Plugin info[vscode-pytest]: rootdir argument, {rootdir}, is identified as a symlink or child of a symlink, adjusting pytest paths accordingly.",
                 )
                 global SYMLINK_PATH
-                SYMLINK_PATH = pathlib.Path(rootdir)
+                SYMLINK_PATH = rootdir
 
 
-def pytest_internalerror(excrepr, excinfo):
+def pytest_internalerror(excrepr, excinfo):  # noqa: ARG001
     """A pytest hook that is called when an internal error occurs.
 
     Keyword arguments:
@@ -150,7 +152,7 @@ def pytest_exception_interact(node, call, report):
                 "Test failed with exception",
                 report.longreprtext,
             )
-            collected_test = testRunResultDict()
+            collected_test = TestRunResultDict()
             collected_test[node_id] = item_result
             cwd = pathlib.Path.cwd()
             execution_post(
@@ -169,14 +171,16 @@ def has_symlink_parent(current_path):
     # Iterate over all parent directories
     for parent in curr_path.parents:
         # Check if the parent directory is a symlink
-        if os.path.islink(parent):
+        if parent.is_symlink():
             print(f"Symlink found at: {parent}")
             return True
     return False
 
 
-def get_absolute_test_id(test_id: str, testPath: pathlib.Path) -> str:
-    """A function that returns the absolute test id. This is necessary because testIds are relative to the rootdir.
+def get_absolute_test_id(test_id: str, test_path: pathlib.Path) -> str:
+    """A function that returns the absolute test id.
+
+    This is necessary because testIds are relative to the rootdir.
     This does not work for our case since testIds when referenced during run time are relative to the instantiation
     location. Absolute paths for testIds are necessary for the test tree ensures configurations that change the rootdir
     of pytest are handled correctly.
@@ -186,8 +190,7 @@ def get_absolute_test_id(test_id: str, testPath: pathlib.Path) -> str:
     testPath -- the path to the file the test is located in, as a pathlib.Path object.
     """
     split_id = test_id.split("::")[1:]
-    absolute_test_id = "::".join([str(testPath), *split_id])
-    return absolute_test_id
+    return "::".join([str(test_path), *split_id])
 
 
 def pytest_keyboard_interrupt(excinfo):
@@ -208,17 +211,17 @@ class TestOutcome(Dict):
 
     test: str
     outcome: Literal["success", "failure", "skipped", "error"]
-    message: Union[str, None]
-    traceback: Union[str, None]
-    subtest: Optional[str]
+    message: str | None
+    traceback: str | None
+    subtest: str | None
 
 
 def create_test_outcome(
     testid: str,
     outcome: str,
-    message: Union[str, None],
-    traceback: Union[str, None],
-    subtype: Optional[str] = None,
+    message: str | None,
+    traceback: str | None,
+    subtype: str | None = None,  # noqa: ARG001
 ) -> TestOutcome:
     """A function that creates a TestOutcome object."""
     return TestOutcome(
@@ -230,18 +233,19 @@ def create_test_outcome(
     )
 
 
-class testRunResultDict(Dict[str, Dict[str, TestOutcome]]):
+class TestRunResultDict(Dict[str, Dict[str, TestOutcome]]):
     """A class that stores all test run results."""
 
     outcome: str
-    tests: Dict[str, TestOutcome]
+    tests: dict[str, TestOutcome]
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_report_teststatus(report, config):
-    """
-    A pytest hook that is called when a test is called. It is called 3 times per test,
-      during setup, call, and teardown.
+def pytest_report_teststatus(report, config):  # noqa: ARG001
+    """A pytest hook that is called when a test is called.
+
+    It is called 3 times per test, during setup, call, and teardown.
+
     Keyword arguments:
     report -- the report on the test setup, call, and teardown.
     config -- configuration object.
@@ -273,7 +277,7 @@ def pytest_report_teststatus(report, config):
                 message,
                 traceback,
             )
-            collected_test = testRunResultDict()
+            collected_test = TestRunResultDict()
             collected_test[absolute_node_id] = item_result
             execution_post(
                 os.fsdecode(cwd),
@@ -292,7 +296,7 @@ ERROR_MESSAGE_CONST = {
 
 
 @pytest.hookimpl(hookwrapper=True, trylast=True)
-def pytest_runtest_protocol(item, nextitem):
+def pytest_runtest_protocol(item, nextitem):  # noqa: ARG001
     map_id_to_path[item.nodeid] = get_node_path(item)
     skipped = check_skipped_wrapper(item)
     if skipped:
@@ -307,7 +311,7 @@ def pytest_runtest_protocol(item, nextitem):
                 None,
                 None,
             )
-            collected_test = testRunResultDict()
+            collected_test = TestRunResultDict()
             collected_test[absolute_node_id] = item_result
             execution_post(
                 os.fsdecode(cwd),
@@ -325,14 +329,12 @@ def check_skipped_wrapper(item):
     Keyword arguments:
     item -- the pytest item object.
     """
-    if item.own_markers:
-        if check_skipped_condition(item):
-            return True
+    if item.own_markers and check_skipped_condition(item):
+        return True
     parent = item.parent
     while isinstance(parent, pytest.Class):
-        if parent.own_markers:
-            if check_skipped_condition(parent):
-                return True
+        if parent.own_markers and check_skipped_condition(parent):
+            return True
         parent = parent.parent
     return False
 
@@ -343,7 +345,6 @@ def check_skipped_condition(item):
     Keyword arguments:
     item -- the pytest item object.
     """
-
     for marker in item.own_markers:
         # If the test is marked with skip then it will not hit the pytest_report_teststatus hook,
         # therefore we need to handle it as skipped here.
@@ -376,16 +377,16 @@ def pytest_sessionfinish(session, exitstatus):
 
     if IS_DISCOVERY:
         if not (exitstatus == 0 or exitstatus == 1 or exitstatus == 5):
-            errorNode: TestNode = {
+            error_node: TestNode = {
                 "name": "",
                 "path": cwd,
                 "type_": "error",
                 "children": [],
                 "id_": "",
             }
-            post_response(os.fsdecode(cwd), errorNode)
+            post_response(os.fsdecode(cwd), error_node)
         try:
-            session_node: Union[TestNode, None] = build_test_tree(session)
+            session_node: TestNode | None = build_test_tree(session)
             if not session_node:
                 raise VSCodePytestError(
                     "Something went wrong following pytest finish, \
@@ -396,14 +397,14 @@ def pytest_sessionfinish(session, exitstatus):
             ERRORS.append(
                 f"Error Occurred, traceback: {(traceback.format_exc() if e.__traceback__ else '')}"
             )
-            errorNode: TestNode = {
+            error_node: TestNode = {
                 "name": "",
                 "path": cwd,
                 "type_": "error",
                 "children": [],
                 "id_": "",
             }
-            post_response(os.fsdecode(cwd), errorNode)
+            post_response(os.fsdecode(cwd), error_node)
     else:
         if exitstatus == 0 or exitstatus == 1:
             exitstatus_bool = "success"
@@ -431,10 +432,10 @@ def build_test_tree(session: pytest.Session) -> TestNode:
     session -- the pytest session object.
     """
     session_node = create_session_node(session)
-    session_children_dict: Dict[str, TestNode] = {}
-    file_nodes_dict: Dict[Any, TestNode] = {}
-    class_nodes_dict: Dict[str, TestNode] = {}
-    function_nodes_dict: Dict[str, TestNode] = {}
+    session_children_dict: dict[str, TestNode] = {}
+    file_nodes_dict: dict[Any, TestNode] = {}
+    class_nodes_dict: dict[str, TestNode] = {}
+    function_nodes_dict: dict[str, TestNode] = {}
 
     # Check to see if the global variable for symlink path is set
     if SYMLINK_PATH:
@@ -469,7 +470,9 @@ def build_test_tree(session: pytest.Session) -> TestNode:
                 ERRORS.append(
                     f"unable to find original name for {test_case.name} with parameterization detected."
                 )
-                raise VSCodePytestError("Unable to find original name for parameterized test case")
+                raise VSCodePytestError(
+                    "Unable to find original name for parameterized test case"
+                ) from None
             except KeyError:
                 function_test_node: TestNode = create_parameterized_function_node(
                     function_name, get_node_path(test_case), parent_id
@@ -491,7 +494,7 @@ def build_test_tree(session: pytest.Session) -> TestNode:
         if isinstance(test_case.parent, pytest.Class):
             case_iter = test_case.parent
             node_child_iter = test_node
-            test_class_node: Union[TestNode, None] = None
+            test_class_node: TestNode | None = None
             while isinstance(case_iter, pytest.Class):
                 # While the given node is a class, create a class and nest the previous node as a child.
                 try:
@@ -528,8 +531,8 @@ def build_test_tree(session: pytest.Session) -> TestNode:
                 parent_test_case = create_file_node(test_case.parent)
                 file_nodes_dict[test_case.parent] = parent_test_case
             parent_test_case["children"].append(test_node)
-    created_files_folders_dict: Dict[str, TestNode] = {}
-    for _, file_node in file_nodes_dict.items():
+    created_files_folders_dict: dict[str, TestNode] = {}
+    for file_node in file_nodes_dict.values():
         # Iterate through all the files that exist and construct them into nested folders.
         root_folder_node: TestNode
         try:
@@ -561,7 +564,7 @@ def build_test_tree(session: pytest.Session) -> TestNode:
 
 def build_nested_folders(
     file_node: TestNode,
-    created_files_folders_dict: Dict[str, TestNode],
+    created_files_folders_dict: dict[str, TestNode],
     session_node: TestNode,
 ) -> TestNode:
     """Takes a file or folder and builds the nested folder structure for it.
@@ -721,32 +724,30 @@ class DiscoveryPayloadDict(TypedDict):
 
     cwd: str
     status: Literal["success", "error"]
-    tests: Optional[TestNode]
-    error: Optional[List[str]]
+    tests: TestNode | None
+    error: list[str] | None
 
 
 class ExecutionPayloadDict(Dict):
-    """
-    A dictionary that is used to send a execution post request to the server.
-    """
+    """A dictionary that is used to send a execution post request to the server."""
 
     cwd: str
     status: Literal["success", "error"]
-    result: Union[testRunResultDict, None]
-    not_found: Union[List[str], None]  # Currently unused need to check
-    error: Union[str, None]  # Currently unused need to check
+    result: TestRunResultDict | None
+    not_found: list[str] | None  # Currently unused need to check
+    error: str | None  # Currently unused need to check
 
 
 class EOTPayloadDict(TypedDict):
     """A dictionary that is used to send a end of transmission post request to the server."""
 
-    command_type: Union[Literal["discovery"], Literal["execution"]]
+    command_type: Literal["discovery", "execution"]
     eot: bool
 
 
 def get_node_path(node: Any) -> pathlib.Path:
-    """
-    A function that returns the path of a node given the switch to pathlib.Path.
+    """A function that returns the path of a node given the switch to pathlib.Path.
+
     It also evaluates if the node is a symlink and returns the equivalent path.
     """
     node_path = getattr(node, "path", None) or pathlib.Path(node.fspath)
@@ -760,23 +761,22 @@ def get_node_path(node: Any) -> pathlib.Path:
     if SYMLINK_PATH and not isinstance(node, pytest.Session):
         # Get relative between the cwd (resolved path) and the node path.
         try:
-            # check to see if the node path contains the symlink root already
+            # Check to see if the node path contains the symlink root already
             common_path = os.path.commonpath([SYMLINK_PATH, node_path])
             if common_path == os.fsdecode(SYMLINK_PATH):
-                # node path is already relative to the SYMLINK_PATH root therefore return
+                # The node path is already relative to the SYMLINK_PATH root therefore return
                 return node_path
             else:
-                # if the node path is not a symlink, then we need to calculate the equivalent symlink path
-                # get the relative path between the cwd and the node path (as the node path is not a symlink)
+                # If the node path is not a symlink, then we need to calculate the equivalent symlink path
+                # get the relative path between the cwd and the node path (as the node path is not a symlink).
                 rel_path = node_path.relative_to(pathlib.Path.cwd())
                 # combine the difference between the cwd and the node path with the symlink path
-                sym_path = pathlib.Path(os.path.join(SYMLINK_PATH, rel_path))
-                return sym_path
+                return pathlib.Path(SYMLINK_PATH, rel_path)
         except Exception as e:
             raise VSCodePytestError(
                 f"Error occurred while calculating symlink equivalent from node path: {e}"
                 f"\n SYMLINK_PATH: {SYMLINK_PATH}, \n node path: {node_path}, \n cwd: {pathlib.Path.cwd()}"
-            )
+            ) from e
     return node_path
 
 
@@ -784,18 +784,14 @@ __writer = None
 atexit.register(lambda: __writer.close() if __writer else None)
 
 
-def execution_post(
-    cwd: str, status: Literal["success", "error"], tests: Union[testRunResultDict, None]
-):
-    """
-    Sends a POST request with execution payload details.
+def execution_post(cwd: str, status: Literal["success", "error"], tests: TestRunResultDict | None):
+    """Sends a POST request with execution payload details.
 
     Args:
         cwd (str): Current working directory.
         status (Literal["success", "error"]): Execution status indicating success or error.
         tests (Union[testRunResultDict, None]): Test run results, if available.
     """
-
     payload: ExecutionPayloadDict = ExecutionPayloadDict(
         cwd=cwd, status=status, result=tests, not_found=None, error=None
     )
@@ -833,7 +829,7 @@ class PathEncoder(json.JSONEncoder):
 
 
 def send_post_request(
-    payload: Union[ExecutionPayloadDict, DiscoveryPayloadDict, EOTPayloadDict],
+    payload: ExecutionPayloadDict | DiscoveryPayloadDict | EOTPayloadDict,
     cls_encoder=None,
 ):
     """
@@ -869,7 +865,7 @@ def send_post_request(
                 file=sys.stderr,
             )
             __writer = None
-            raise VSCodePytestError(error_msg)
+            raise VSCodePytestError(error_msg) from error
 
     rpc = {
         "jsonrpc": "2.0",
@@ -893,12 +889,26 @@ def send_post_request(
 
 
 class DeferPlugin:
-    @pytest.hookimpl(wrapper=True)
-    def pytest_xdist_auto_num_workers(self, config: pytest.Config) -> Generator[None, int, int]:
-        """determine how many workers to use based on how many tests were selected in the test explorer"""
-        return min((yield), len(config.option.file_or_dir))
+    @pytest.hookimpl(hookwrapper=True)
+    def pytest_xdist_auto_num_workers(
+        self, config: pytest.Config
+    ) -> Generator[None, Result[int], None]:
+        """Determine how many workers to use based on how many tests were selected in the test explorer."""
+        outcome = yield
+        result = min(outcome.get_result(), len(config.option.file_or_dir))
+        if result == 1:
+            result = 0
+        outcome.force_result(result)
 
 
 def pytest_plugin_registered(plugin: object, manager: pytest.PytestPluginManager):
-    if manager.hasplugin("xdist") and not isinstance(plugin, DeferPlugin):
-        manager.register(DeferPlugin())
+    plugin_name = "vscode_xdist"
+    if (
+        # only register the plugin if xdist is enabled:
+        manager.hasplugin("xdist")
+        # prevent infinite recursion:
+        and not isinstance(plugin, DeferPlugin)
+        # prevent this plugin from being registered multiple times:
+        and not manager.hasplugin(plugin_name)
+    ):
+        manager.register(DeferPlugin(), name=plugin_name)

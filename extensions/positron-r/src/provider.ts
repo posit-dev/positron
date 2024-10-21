@@ -11,11 +11,9 @@ import * as vscode from 'vscode';
 import * as which from 'which';
 import * as positron from 'positron';
 import * as crypto from 'crypto';
-import * as winreg from 'winreg';
 
 import { RInstallation, RMetadataExtra, getRHomePath } from './r-installation';
 import { LOGGER } from './extension';
-import { readLines } from './util';
 import { EXTENSION_ROOT_DIR, MINIMUM_R_VERSION } from './constants';
 
 // We don't give this a type so it's compatible with both the VS Code
@@ -30,6 +28,18 @@ export const R_DOCUMENT_SELECTORS = [
 ];
 
 /**
+ * Enum represents the source from which an R binary was discovered.
+ */
+enum BinarySource {
+	/* eslint-disable-next-line @typescript-eslint/naming-convention */
+	HQ = 'HQ',
+	adHoc = 'ad hoc locations',
+	registry = 'Windows registry',
+	/* eslint-disable-next-line @typescript-eslint/naming-convention */
+	PATH = 'PATH'
+}
+
+/**
  * Discovers R language runtimes for Positron; implements
  * positron.LanguageRuntimeDiscoverer.
  *
@@ -37,12 +47,12 @@ export const R_DOCUMENT_SELECTORS = [
  */
 export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRuntimeMetadata> {
 	let rInstallations: Array<RInstallation> = [];
-	const binaries = new Set<string>();
+	const binaries = new Map<string, BinarySource>();
 
 	// look for R executables in the well-known place(s) for R installations on this OS
 	const hqBinaries = discoverHQBinaries();
 	for (const b of hqBinaries) {
-		binaries.add(b);
+		binaries.set(b, BinarySource.HQ);
 	}
 
 	// other places we might find an R binary
@@ -56,12 +66,21 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b));
 	for (const b of moreBinaries) {
-		binaries.add(b);
+		if (!binaries.has(b)) {
+			binaries.set(b, BinarySource.adHoc);
+		}
+	}
+
+	const registryBinaries = await discoverRegistryBinaries();
+	for (const b of registryBinaries) {
+		if (!binaries.has(b)) {
+			binaries.set(b, BinarySource.registry);
+		}
 	}
 
 	const pathBinary = await findRBinaryFromPATH();
-	if (pathBinary) {
-		binaries.add(pathBinary);
+	if (pathBinary && !binaries.has(pathBinary)) {
+		binaries.set(pathBinary, BinarySource.PATH);
 	}
 
 	// make sure we include the "current" version of R, for some definition of "current"
@@ -73,8 +92,8 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		binaries.delete(curBin);
 	}
 
-	binaries.forEach((b: string) => {
-		rInstallations.push(new RInstallation(b));
+	binaries.forEach((source, bin) => {
+		rInstallations.push(new RInstallation(bin));
 	});
 
 	// TODO: possible location to tell the user why certain R installations are being omitted from
@@ -299,14 +318,91 @@ function binFragments(): string[] {
 	}
 }
 
+/**
+ * Generates all possible R versions that we might find recorded in the Windows registry.
+ * Sort of.
+ * Only considers the major version of Positron's current minimum R version and that major
+ * version plus one.
+ * Naively tacks " Pre-release" onto each version numbers, because that's how r-devel shows up.
+*/
+function generateVersions(): string[] {
+	const minimumSupportedVersion = semver.coerce(MINIMUM_R_VERSION)!;
+	const major = minimumSupportedVersion.major;
+	const minor = minimumSupportedVersion.minor;
+	const patch = minimumSupportedVersion.patch;
+
+	const versions: string[] = [];
+	for (let x = major; x <= major + 1; x++) {
+		for (let y = (x === major ? minor : 0); y <= 9; y++) {
+			for (let z = (x === major && y === minor ? patch : 0); z <= 9; z++) {
+				versions.push(`${x}.${y}.${z}`);
+				versions.push(`${x}.${y}.${z} Pre-release`);
+			}
+		}
+	}
+
+	return versions;
+}
+
+async function discoverRegistryBinaries(): Promise<string[]> {
+	if (os.platform() !== 'win32') {
+		LOGGER.info('Skipping registry check on non-Windows platform');
+		return [];
+	}
+
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	const Registry = await import('@vscode/windows-registry');
+
+	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
+	// R's install path is written to a WOW (Windows on Windows) node when e.g. an x86 build of
+	// R is installed on an ARM version of Windows.
+	const wows = ['', 'WOW6432Node'];
+
+	// The @vscode/windows-registry module is so minimalistic that it can't list the registry.
+	// Therefore we explicitly generate the R versions that might be there and check for each one.
+	const versions = generateVersions();
+
+	const discoveredKeys: string[] = [];
+
+	for (const hive of hives) {
+		for (const wow of wows) {
+			for (const version of versions) {
+				const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64\\${version}`;
+				try {
+					const key = Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
+					if (key) {
+						LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports an R installation at ${key}`);
+						discoveredKeys.push(key);
+					}
+				} catch { }
+			}
+		}
+	}
+
+	const binPaths = discoveredKeys
+		.map(installPath => firstExisting(installPath, binFragments()))
+		.filter(binPath => binPath !== undefined);
+
+	return binPaths;
+}
+
+let cachedRBinary: string | undefined;
+
 export async function findCurrentRBinary(): Promise<string | undefined> {
+	if (cachedRBinary !== undefined) {
+		return cachedRBinary;
+	}
+
 	if (os.platform() === 'win32') {
 		const registryBinary = await findCurrentRBinaryFromRegistry();
 		if (registryBinary) {
+			cachedRBinary = registryBinary;
 			return registryBinary;
 		}
 	}
-	return findRBinaryFromPATH();
+
+	cachedRBinary = await findRBinaryFromPATH();
+	return cachedRBinary;
 }
 
 async function findRBinaryFromPATH(): Promise<string | undefined> {
@@ -364,72 +460,45 @@ async function findRBinaryFromPATHNotWindows(whichR: string): Promise<string | u
 }
 
 async function findCurrentRBinaryFromRegistry(): Promise<string | undefined> {
-	let userPath = await getRegistryInstallPath(winreg.HKCU);
-	if (!userPath) {
-		// If we didn't find R in the default user location, check WOW64
-		userPath = await getRegistryInstallPath(winreg.HKCU, 'WOW6432Node');
-	}
-	let machinePath = await getRegistryInstallPath(winreg.HKLM);
-	if (!machinePath) {
-		// If we didn't find R in the default machine location, check WOW64
-		machinePath = await getRegistryInstallPath(winreg.HKLM, 'WOW6432Node');
-	}
-	if (!userPath && !machinePath) {
+	if (os.platform() !== 'win32') {
+		LOGGER.info('Skipping registry check on non-Windows platform');
 		return undefined;
 	}
-	const installPath = userPath || machinePath || '';
+
+	// eslint-disable-next-line @typescript-eslint/naming-convention
+	const Registry = await import('@vscode/windows-registry');
+
+	const hives: any[] = ['HKEY_CURRENT_USER', 'HKEY_LOCAL_MACHINE'];
+	const wows = ['', 'WOW6432Node'];
+
+	let installPath = undefined;
+
+	for (const hive of hives) {
+		for (const wow of wows) {
+			const R64_KEY: string = `SOFTWARE\\${wow ? wow + '\\' : ''}R-core\\R64`;
+			try {
+				const key = Registry.GetStringRegKey(hive, R64_KEY, 'InstallPath');
+				if (key) {
+					installPath = key;
+					LOGGER.info(`Registry key ${hive}\\${R64_KEY}\\InstallPath reports the current R installation is at ${key}`);
+					break;
+				}
+			} catch { }
+		}
+	}
+
+	if (installPath === undefined) {
+		LOGGER.info('Cannot determine current version of R from the registry.');
+		return undefined;
+	}
 
 	const binPath = firstExisting(installPath, binFragments());
 	if (!binPath) {
 		return undefined;
 	}
-	LOGGER.info(`Identified the current version of R from the registry: ${binPath}`);
+	LOGGER.info(`Identified the current R binary: ${binPath}`);
 
 	return binPath;
-}
-
-/**
- * Get the registry install path for R.
- *
- * @param hive The Windows registry hive to check -- HKCU or HKLM
- * @param wow Optionally, the WOW node to check under `Software`. R's install
- * path is written to a WOW (Windows on Windows) node when e.g. an x86 build of
- * R is installed on an ARM version of Windows.
- *
- * @returns The install path for R, or undefined if an R installation file could
- * not be found at the install path.
- */
-async function getRegistryInstallPath(hive: string, wow?: string | undefined): Promise<string | undefined> {
-	try {
-		const key = new winreg({
-			hive: hive as keyof typeof winreg,
-			// 'R64' here is another place where we explicitly ignore 32-bit R
-			// Amend a WOW path after "Software" if requested
-			key: `\\Software\\${wow ? wow + '\\' : ''}R-Core\\R64`,
-		});
-
-		LOGGER.info(`Checking for 'InstallPath' in registry key ${key.key} for hive ${key.hive}`);
-
-		const result = await new Promise<{ value: string }>((resolve, reject) => {
-			key.get('InstallPath', (error, result) => {
-				if (error) {
-					reject(error);
-				} else {
-					resolve(result);
-				}
-			});
-		});
-
-		if (!result || typeof result.value !== 'string') {
-			LOGGER.info(`Invalid value of 'InstallPath'`);
-			return undefined;
-		}
-
-		return result.value;
-	} catch (error: any) {
-		LOGGER.info(`Unable to get value of 'InstallPath': ${error.message}`);
-		return undefined;
-	}
 }
 
 // Should we recommend an R runtime for the workspace?

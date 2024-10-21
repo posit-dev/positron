@@ -63,8 +63,18 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
+		label: 'positron-duckdb',
+		workspaceFolder: path.join(os.tmpdir(), `positron-duckdb-${Math.floor(Math.random() * 100000)}`),
+		mocha: { timeout: 60_000 }
+	},
+	{
 		label: 'positron-run-app',
 		workspaceFolder: 'extensions/positron-run-app/test-workspace',
+		mocha: { timeout: 60_000 }
+	},
+	{
+		label: 'kallichore-adapter',
+		workspaceFolder: path.join(os.tmpdir(), `kallichore-adapter-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	// --- End Positron ---

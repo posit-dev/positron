@@ -48,7 +48,8 @@ export class PositronNotebooks {
 		}
 
 		// if select kernel appears, select the proper kernel
-		if (interpreterManagerText === SELECT_KERNEL_TEXT) {
+		// also if the wrong kernel has shown up, select the proper kernel
+		if (interpreterManagerText === SELECT_KERNEL_TEXT || !interpreterManagerText.includes(desiredKernel)) {
 			await this.code.waitAndClick(KERNEL_ACTION);
 			await this.quickinput.waitForQuickInputOpened();
 			// depending on random timing, it may or may not be necessary to select the kernel group

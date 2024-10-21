@@ -40,9 +40,7 @@ export const InvalidMacPythonInterpreterServiceId = 'InvalidMacPythonInterpreter
 export class InvalidMacPythonInterpreterService extends BaseDiagnosticsService {
     protected changeThrottleTimeout = 1000;
 
-    // --- Start Positron ---
     private timeOut?: NodeJS.Timeout | number;
-    // --- End Positron ---
 
     constructor(
         @inject(IServiceContainer) serviceContainer: IServiceContainer,

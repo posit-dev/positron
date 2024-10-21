@@ -22,7 +22,7 @@ import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/brows
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { checkIfPathExists, checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { checkIfPathValid, checkIfURIExists } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
 
@@ -46,12 +46,12 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	// function.
 	const nameValidationErrorMsg = useDebouncedValidator({
 		value: projectName,
-		validator: x => checkIfPathValid(x, { parentPath: parentFolder })
+		validator: x => checkIfPathValid(x, { parentPath: parentFolder.fsPath })
 	});
 	const isInvalidName = nameValidationErrorMsg !== undefined;
 	const parentPathErrorMsg = useDebouncedValidator({
 		value: parentFolder,
-		validator: (path: string | number) => checkIfPathExists(path, fileService)
+		validator: (path: URI) => checkIfURIExists(path, fileService)
 	});
 	const isInvalidParentPath = parentPathErrorMsg !== undefined;
 
@@ -75,7 +75,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const browseHandler = async () => {
 		// Show the open dialog.
 		const uri = await fileDialogService.showOpenDialog({
-			defaultUri: URI.file(parentFolder),
+			defaultUri: parentFolder,
 			canSelectFiles: false,
 			canSelectFolders: true,
 			canSelectMany: false,
@@ -83,7 +83,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			onChangeParentFolder(uri[0].fsPath);
+			onChangeParentFolder(uri[0]);
 		}
 	};
 
@@ -99,7 +99,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	};
 
 	// Update the parent folder and the project name feedback.
-	const onChangeParentFolder = async (folder: string) => {
+	const onChangeParentFolder = async (folder: URI) => {
 		context.parentFolder = folder;
 		context.projectNameFeedback = await checkProjectName(
 			projectName,
@@ -181,7 +181,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
 					// Don't let the user create a project with a location that is too long.
-					maxLength={255 - parentFolder.length}
+					maxLength={255 - parentFolder.fsPath.length}
 					error={
 						(projectNameFeedback &&
 							projectNameFeedback.type === WizardFormattedTextType.Error) ||
@@ -207,7 +207,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 									"Your project will be created at: "
 								))()}
 							<PathDisplay
-								pathComponents={[parentFolder, projectName]}
+								pathComponents={[parentFolder.fsPath, projectName]}
 								pathService={pathService}
 							/>
 						</WizardFormattedText>
@@ -219,11 +219,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={parentFolder}
+					value={parentFolder.fsPath}
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
-					onChange={(e) => onChangeParentFolder(e.target.value)}
+					onChange={(e) => onChangeParentFolder(parentFolder.with({ path: e.target.value }))}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep

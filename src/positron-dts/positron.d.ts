@@ -510,6 +510,14 @@ declare module 'positron' {
 		 * usually used for runtimes that only provide REPLs
 		 */
 		Explicit = 'explicit',
+
+		/**
+		 * The runtime only starts up if manually requested by the user.
+		 * The difference from Explicit, is that Manual startup never
+		 * starts automatically, even if the run time is affiliated to the
+		 * workspace.
+		 */
+		Manual = 'manual'
 	}
 
 	/**
@@ -544,6 +552,7 @@ declare module 'positron' {
 		Ui = 'positron.ui',
 		Help = 'positron.help',
 		Connection = 'positron.connection',
+		Reticulate = 'positron.reticulate',
 		IPyWidget = 'jupyter.widget',
 		IPyWidgetControl = 'jupyter.widget.control',
 
@@ -1292,7 +1301,6 @@ declare module 'positron' {
 		 * An event that fires when a new runtime is registered.
 		 */
 		export const onDidRegisterRuntime: vscode.Event<LanguageRuntimeMetadata>;
-
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)

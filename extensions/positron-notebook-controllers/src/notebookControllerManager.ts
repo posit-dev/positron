@@ -46,11 +46,12 @@ export class NotebookControllerManager implements vscode.Disposable {
 	 * @returns Promise that resolves when the notebook's affinity has been updated across all controllers.
 	 */
 	public async updateNotebookAffinity(notebook: vscode.NotebookDocument): Promise<void> {
-		if (notebook.uri.scheme === 'untitled') {
-			// If the notebook is untitled, wait for its data to be updated. This works around the fact
-			// that `vscode.openNotebookDocument(notebookType, content)` first creates a notebook
-			// (triggering `onDidOpenNotebookDocument`), and later updates its content (triggering
-			// `onDidChangeNotebookDocument`).
+		const cells = notebook.getCells();
+		if (cells.length === 1 && cells[0].document.getText() === '') {
+			// If its an empty notebook (i.e. it has a single empty cell), wait for its data to be
+			// updated. This works around the fact that `vscode.openNotebookDocument(notebookType, content)`
+			// first creates a notebook (triggering `onDidOpenNotebookDocument`), and later updates
+			// its content (triggering `onDidChangeNotebookDocument`).
 			const event = await new Promise<vscode.NotebookDocumentChangeEvent | undefined>((resolve) => {
 				// Apply a short timeout to avoid waiting indefinitely.
 				const timeout = setTimeout(() => {

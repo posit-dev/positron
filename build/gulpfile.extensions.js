@@ -29,9 +29,11 @@ const ext = require('./lib/extensions');
 // });
 const compilations = [
 	// --- Start Positron ---
+	'extensions/kallichore-adapter/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
+	'extensions/positron-duckdb/tsconfig.json',
 	'extensions/positron-ipywidgets/renderer/tsconfig.json',
 	'extensions/positron-javascript/tsconfig.json',
 	'extensions/positron-notebook-controllers/tsconfig.json',
@@ -43,6 +45,7 @@ const compilations = [
 	'extensions/positron-proxy/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',
+	'extensions/positron-reticulate/tsconfig.json',
 	'extensions/jupyter-adapter/tsconfig.json',
 	// --- End Positron ---
 	'extensions/configuration-editing/tsconfig.json',

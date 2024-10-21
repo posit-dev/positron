@@ -215,6 +215,10 @@
 			"project": "vscode-workbench"
 		},
 		{
+			"name": "vs/workbench/contrib/positronConnections",
+			"project": "vscode-workbench"
+		},
+		{
 			"name": "vs/workbench/contrib/positronOutputWebview",
 			"project": "vscode-workbench"
 		},
@@ -528,6 +532,10 @@
 		},
 		{
 			"name": "vs/workbench/services/positronConsole",
+			"project": "vscode-workbench"
+		},
+		{
+			"name": "vs/workbench/services/positronConnections",
 			"project": "vscode-workbench"
 		},
 		{

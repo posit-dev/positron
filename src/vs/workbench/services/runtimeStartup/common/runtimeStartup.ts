@@ -351,6 +351,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return;
 		}
 
+		if (session.runtimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
+			return;
+		}
+
 		// Save this runtime as the affiliated runtime for the current workspace.
 		this._storageService.store(this.storageKeyForRuntime(session.runtimeMetadata),
 			JSON.stringify(session.runtimeMetadata),
@@ -460,6 +464,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
 						`is affiliated with this workspace, but won't be started because automatic ` +
 						`startup is disabled in configuration.`);
+					return;
+				}
+
+				if (metadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
+					this._logService.info(`Language runtime ` +
+						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`is affiliated with this workspace, but won't be started because its ` +
+						`startup behavior is manual.`);
 					return;
 				}
 
@@ -655,7 +667,17 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Check the setting to see if we should be auto-starting.
 			const autoStart = this._configurationService.getValue<boolean>(
 				'positron.interpreters.automaticStartup');
+
 			if (autoStart) {
+
+				if (affiliatedRuntimeMetadata.startupBehavior === LanguageRuntimeStartupBehavior.Manual) {
+					this._logService.info(`Language runtime ` +
+						`${formatLanguageRuntimeMetadata(affiliatedRuntimeMetadata)} ` +
+						`is affiliated with this workspace, but won't be started because it's startup ` +
+						`behavior is manual.`);
+					return;
+				}
+
 				this._runtimeSessionService.autoStartRuntime(affiliatedRuntimeMetadata,
 					`Affiliated ${languageId} runtime for workspace`);
 			} else {
@@ -755,7 +777,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				session.getRuntimeState() !== RuntimeState.Uninitialized &&
 				session.getRuntimeState() !== RuntimeState.Initializing &&
 				session.getRuntimeState() !== RuntimeState.Exited &&
-				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace)
+				session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace
+			)
 			.map(session => {
 				const metadata: SerializedSessionMetadata = {
 					metadata: session.metadata,

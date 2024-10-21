@@ -211,6 +211,17 @@ class SupportStatus(str, enum.Enum):
     Experimental = "experimental"
 
 
+class OpenDatasetResult(BaseModel):
+    """
+    Result in Methods
+    """
+
+    error_message: Optional[StrictStr] = Field(
+        default=None,
+        description="An error message if opening the dataset failed",
+    )
+
+
 class SearchSchemaResult(BaseModel):
     """
     Result in Methods
@@ -744,23 +755,28 @@ class SummaryStatsDate(BaseModel):
     SummaryStatsDate in Schemas
     """
 
-    num_unique: StrictInt = Field(
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
         description="The exact number of distinct values",
     )
 
-    min_date: StrictStr = Field(
+    min_date: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum date value as string",
     )
 
-    mean_date: StrictStr = Field(
+    mean_date: Optional[StrictStr] = Field(
+        default=None,
         description="Average date value as string",
     )
 
-    median_date: StrictStr = Field(
+    median_date: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) date value as string",
     )
 
-    max_date: StrictStr = Field(
+    max_date: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum date value as string",
     )
 
@@ -770,23 +786,28 @@ class SummaryStatsDatetime(BaseModel):
     SummaryStatsDatetime in Schemas
     """
 
-    num_unique: StrictInt = Field(
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
         description="The exact number of distinct values",
     )
 
-    min_date: StrictStr = Field(
+    min_date: Optional[StrictStr] = Field(
+        default=None,
         description="Minimum date value as string",
     )
 
-    mean_date: StrictStr = Field(
+    mean_date: Optional[StrictStr] = Field(
+        default=None,
         description="Average date value as string",
     )
 
-    median_date: StrictStr = Field(
+    median_date: Optional[StrictStr] = Field(
+        default=None,
         description="Sample median (50% value) date value as string",
     )
 
-    max_date: StrictStr = Field(
+    max_date: Optional[StrictStr] = Field(
+        default=None,
         description="Maximum date value as string",
     )
 
@@ -1141,6 +1162,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
     An enumeration of all the possible requests that can be sent to the backend data_explorer comm.
     """
 
+    # Request to open a dataset given a URI
+    OpenDataset = "open_dataset"
+
     # Request schema
     GetSchema = "get_schema"
 
@@ -1170,6 +1194,35 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Get the state
     GetState = "get_state"
+
+
+class OpenDatasetParams(BaseModel):
+    """
+    Request to open a dataset given a URI
+    """
+
+    uri: StrictStr = Field(
+        description="The resource locator or file path",
+    )
+
+
+class OpenDatasetRequest(BaseModel):
+    """
+    Request to open a dataset given a URI
+    """
+
+    params: OpenDatasetParams = Field(
+        description="Parameters to the OpenDataset method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.OpenDataset] = Field(
+        description="The JSON-RPC method name (open_dataset)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class GetSchemaParams(BaseModel):
@@ -1488,6 +1541,7 @@ class GetStateRequest(BaseModel):
 class DataExplorerBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
+        OpenDatasetRequest,
         GetSchemaRequest,
         SearchSchemaRequest,
         GetDataValuesRequest,
@@ -1530,6 +1584,8 @@ class ReturnColumnProfilesParams(BaseModel):
         description="Array of individual column profile results",
     )
 
+
+OpenDatasetResult.update_forward_refs()
 
 SearchSchemaResult.update_forward_refs()
 
@@ -1626,6 +1682,10 @@ DataSelectionRange.update_forward_refs()
 DataSelectionIndices.update_forward_refs()
 
 ColumnSelection.update_forward_refs()
+
+OpenDatasetParams.update_forward_refs()
+
+OpenDatasetRequest.update_forward_refs()
 
 GetSchemaParams.update_forward_refs()
 

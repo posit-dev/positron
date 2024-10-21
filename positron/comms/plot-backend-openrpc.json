@@ -68,7 +68,7 @@
 					"description": "The requested plot format",
 					"schema": {
 						"type": "string",
-						"enum": ["png", "jpeg", "svg", "pdf"]
+						"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
 					}
 				}
 			],

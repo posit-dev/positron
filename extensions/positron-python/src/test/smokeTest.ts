@@ -7,7 +7,7 @@
 process.env.VSC_PYTHON_SMOKE_TEST = '1';
 
 import { spawn } from 'child_process';
-import * as fs from 'fs-extra';
+import * as fs from '../client/common/platform/fs-paths';
 import * as glob from 'glob';
 import * as path from 'path';
 import { unzip } from './common';
@@ -61,7 +61,7 @@ class TestRunner {
     private async enableExperiments() {
         const settingsFile = path.join(await getUserDataDir(), 'User', 'settings.json');
 
-        await fs.mkdir(path.dirname(settingsFile), { recursive: true });
+        await fs.mkdir(path.dirname(settingsFile));
 
         let settings: Record<string, {}> = {};
         if (await fs.pathExists(settingsFile)) {
@@ -107,7 +107,7 @@ class TestRunner {
 
     private async extractLatestExtension(targetDir: string): Promise<void> {
         const extensionFile = await new Promise<string>((resolve, reject) =>
-            glob('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0]))),
+            glob.default('*.vsix', (ex, files) => (ex ? reject(ex) : resolve(files[0]))),
         );
         await unzip(extensionFile, targetDir);
     }

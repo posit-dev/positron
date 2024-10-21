@@ -1,6 +1,6 @@
-import * as fsapi from 'fs-extra';
 import * as path from 'path';
 import { lt, SemVer } from 'semver';
+import * as fsapi from '../../../common/platform/fs-paths';
 import { getEnvironmentVariable, getOSType, getUserHomeDir, OSType } from '../../../common/utils/platform';
 import {
     arePathsSame,
@@ -44,6 +44,10 @@ export type CondaInfo = {
     root_prefix?: string; // eslint-disable-line camelcase
     conda_version?: string; // eslint-disable-line camelcase
     conda_shlvl?: number; // eslint-disable-line camelcase
+    config_files?: string[]; // eslint-disable-line camelcase
+    rc_path?: string; // eslint-disable-line camelcase
+    sys_rc_path?: string; // eslint-disable-line camelcase
+    user_rc_path?: string; // eslint-disable-line camelcase
 };
 
 type CondaEnvInfo = {
@@ -610,4 +614,8 @@ export class Conda {
         }
         return true;
     }
+}
+
+export function setCondaBinary(executable: string): void {
+    Conda.setConda(executable);
 }

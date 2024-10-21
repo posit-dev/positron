@@ -38,8 +38,6 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.Enable_SourceMap_Support]: [];
     [Commands.Exec_Selection_In_Terminal]: [];
     [Commands.Exec_Selection_In_Django_Shell]: [];
-    [Commands.Exec_In_REPL]: [];
-    [Commands.Exec_In_REPL_Enter]: [];
     [Commands.Create_Terminal]: [];
     [Commands.PickLocalProcess]: [];
     [Commands.ClearStorage]: [];
@@ -98,6 +96,9 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     ['workbench.action.openIssueReporter']: [{ extensionId: string; issueBody: string }];
     [Commands.GetSelectedInterpreterPath]: [{ workspaceFolder: string } | string[]];
     [Commands.TriggerEnvironmentSelection]: [undefined | Uri];
+    [Commands.Start_Native_REPL]: [undefined | Uri];
+    [Commands.Exec_In_REPL]: [undefined | Uri];
+    [Commands.Exec_In_REPL_Enter]: [undefined | Uri];
     [Commands.Exec_In_Terminal]: [undefined, Uri];
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
@@ -106,6 +107,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_FastAPI_In_Terminal]: [];
     [Commands.Exec_Flask_In_Terminal]: [];
     [Commands.Exec_Gradio_In_Terminal]: [];
+    [Commands.Exec_Shiny_In_Terminal]: [];
     [Commands.Exec_Streamlit_In_Terminal]: [];
     [Commands.Exec_In_Console]: [];
     [Commands.Focus_Positron_Console]: [];

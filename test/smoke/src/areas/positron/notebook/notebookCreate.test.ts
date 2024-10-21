@@ -5,109 +5,90 @@
 
 
 import { expect } from '@playwright/test';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { installAllHandlers } from '../../../utils';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
+import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-/*
- * Notebook creation test cases
- */
-export function setup(logger: Logger) {
+describe('Notebooks #pr #web #win', () => {
+	setupAndStartApp();
 
-	describe('Notebooks', () => {
+	describe('Python Notebooks', () => {
+		let app: Application;
 
-		// Shared before/after handling
-		installAllHandlers(logger);
+		before(async function () {
+			app = this.app as Application;
+			await PositronPythonFixtures.SetupFixtures(app);
+			await app.workbench.positronLayouts.enterLayout('notebook');
+		});
 
-		describe('Python Notebooks', () => {
+		beforeEach(async function () {
+			await app.workbench.positronNotebooks.createNewNotebook();
+			await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		});
 
-			before(async function () {
+		afterEach(async function () {
+			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+		});
 
-				await PositronPythonFixtures.SetupFixtures(this.app as Application);
-
-			});
-
-			after(async function () {
-
-				const app = this.app as Application;
-				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
-			});
-
-			it('Python - Basic notebook creation and execution (code) [C628631] #pr', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.positronNotebooks.createNewNotebook();
-
-				await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
-
+		it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
+			await expect(async () => {
 				await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
+				await app.workbench.positronNotebooks.executeCodeInCell();
 
-				await expect(async () => {
-					await app.workbench.positronNotebooks.executeCodeInCell();
-					expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-				}).toPass({ timeout: 60000 });
+				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
+			}).toPass({ timeout: 120000 });
+		});
 
-			});
+		it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
+			const randomText = Math.random().toString(36).substring(7);
 
-			it('Python - Basic notebook creation and execution (markdown) [C628632] #pr', async function () {
-				const app = this.app as Application;
+			await app.workbench.notebook.insertNotebookCell('markdown');
+			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebook.stopEditingCell();
 
-				await app.workbench.notebook.insertNotebookCell('markdown');
-
-				await app.workbench.notebook.waitForTypeInEditor('## hello2! ');
-				await app.workbench.notebook.stopEditingCell();
-
-				expect(await app.workbench.positronNotebooks.getMarkdownText('h2')).toBe('hello2!');
-
-			});
+			expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
 		});
 	});
+});
 
-	describe('Notebooks', () => {
+describe('Notebooks #pr #web #win', () => {
+	setupAndStartApp();
 
-		// Shared before/after handling
-		installAllHandlers(logger);
+	describe('R Notebooks', () => {
+		let app: Application;
 
-		describe('R Notebooks', () => {
+		before(async function () {
+			app = this.app as Application;
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
 
-			before(async function () {
+		beforeEach(async function () {
+			await app.workbench.positronNotebooks.createNewNotebook();
+			await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+		});
 
-				await PositronRFixtures.SetupFixtures(this.app as Application);
+		afterEach(async function () {
+			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+		});
 
-			});
+		it('R - Basic notebook creation and execution (code) [C628629]', async function () {
+			await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
 
-			after(async function () {
+			await expect(async () => {
+				await app.workbench.positronNotebooks.executeCodeInCell();
+				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
+			}).toPass({ timeout: 60000 });
 
-				const app = this.app as Application;
-				await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
-			});
+		});
 
-			it('R - Basic notebook creation and execution (code) [C628629] #pr', async function () {
-				const app = this.app as Application;
+		it('R - Basic notebook creation and execution (markdown) [C628630]', async function () {
+			const randomText = Math.random().toString(36).substring(7);
 
-				await app.workbench.positronNotebooks.createNewNotebook();
+			await app.workbench.notebook.insertNotebookCell('markdown');
+			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
+			await app.workbench.notebook.stopEditingCell();
 
-				await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
+			expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
 
-				await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
-
-				await expect(async () => {
-					await app.workbench.positronNotebooks.executeCodeInCell();
-					expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
-				}).toPass({ timeout: 60000 });
-
-			});
-
-			it('R - Basic notebook creation and execution (markdown) [C628630] #pr', async function () {
-				const app = this.app as Application;
-
-				await app.workbench.notebook.insertNotebookCell('markdown');
-
-				await app.workbench.notebook.waitForTypeInEditor('## hello2! ');
-				await app.workbench.notebook.stopEditingCell();
-
-				expect(await app.workbench.positronNotebooks.getMarkdownText('h2')).toBe('hello2!');
-
-			});
 		});
 	});
-}
+});

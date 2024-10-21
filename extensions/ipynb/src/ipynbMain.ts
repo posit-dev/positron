@@ -85,9 +85,9 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	// --- Start Positron ---
-	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageRuntime?: string) => {
-		// Try to use Positron's foreground session's language, fall back to 'python' (as before this change).
-		const language = languageRuntime ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'python';
+	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageId?: string) => {
+		// Try to use Positron's foreground session's language, fall back to 'plaintext'.
+		const language = languageId ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'plaintext';
 		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 		const data = new vscode.NotebookData([cell]);
 		data.metadata = useCustomPropertyInMetadata() ? {

@@ -14,11 +14,13 @@ const dirs = [
 	'extensions/open-remote-ssh',
 	'extensions/positron-code-cells',
 	'extensions/positron-connections',
+	'extensions/positron-duckdb',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
 	'extensions/positron-notebook-controllers',
 	'extensions/positron-notebooks',
 	'extensions/positron-r',
+	'extensions/positron-reticulate',
 	'extensions/positron-rstudio-keymap',
 	'extensions/positron-run-app',
 	'extensions/positron-python',
@@ -47,6 +49,7 @@ const dirs = [
 	'extensions/json-language-features/server',
 	// --- Start Positron ---
 	'extensions/jupyter-adapter',
+	'extensions/kallichore-adapter',
 	// --- End Positron ---
 	'extensions/markdown-language-features',
 	'extensions/markdown-math',

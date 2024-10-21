@@ -144,6 +144,10 @@
 	transition: opacity 0.2s ease-in-out;
 }
 
+.plot-instance {
+	flex-direction: column;
+}
+
 .plot-thumbnail,
 .plot-instance {
 	display: flex;

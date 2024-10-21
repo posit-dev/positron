@@ -36,14 +36,12 @@ export interface RunAppOptions {
      *
      * @param runtime The language runtime metadata for the document's language.
      * @param document The document to run.
-     * @param port The port to run the application on, if known.
      * @param urlPrefix The URL prefix to use, if known.
      * @returns The terminal options for running the application. Return `undefined` to abort the run.
      */
     getTerminalOptions: (
         runtime: positron.LanguageRuntimeMetadata,
         document: vscode.TextDocument,
-        port?: string,
         urlPrefix?: string,
     ) => RunAppTerminalOptions | undefined | Promise<RunAppTerminalOptions | undefined>;
 
@@ -52,6 +50,37 @@ export interface RunAppOptions {
      */
     urlPath?: string;
 }
+
+/**
+ * Represents options for the ${@link PositronRunApp.debugApplication} function.
+ */
+export interface DebugAppOptions {
+    /**
+     * The human-readable label for the application e.g. `'Shiny'`.
+     */
+    name: string;
+
+    /**
+     * A function that will be called to get the ${@link vscode.DebugConfiguration, debug configuration} for debugging the application.
+     *
+     * @param runtime The language runtime metadata for the document's language.
+     * @param document The document to debug.
+     * @param urlPrefix The URL prefix to use, if known.
+     * @returns The debug configuration for debugging the application. Return `undefined` to abort debugging.
+     */
+    getDebugConfiguration(
+        runtime: positron.LanguageRuntimeMetadata,
+        document: vscode.TextDocument,
+        urlPrefix?: string,
+    ): vscode.DebugConfiguration | undefined | Promise<vscode.DebugConfiguration | undefined>;
+
+    /**
+     * The optional URL path at which to preview the application.
+     */
+    urlPath?: string;
+}
+
+export interface DebugConfiguration {}
 
 /**
  * The public API of the Positron Run App extension.
@@ -65,4 +94,13 @@ export interface PositronRunApp {
      *  started, otherwise resolves when the command has been sent to the terminal.
      */
     runApplication(options: RunAppOptions): Promise<void>;
+
+    /**
+     * Debug an application.
+     *
+     * @param options Options for debugging the application.
+     * @returns If terminal shell integration is supported, resolves when the application server has
+     *  started, otherwise resolves when the debug session has started.
+     */
+    debugApplication(options: DebugAppOptions): Promise<void>;
 }

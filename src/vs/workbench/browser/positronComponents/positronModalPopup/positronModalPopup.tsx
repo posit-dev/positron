@@ -182,7 +182,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		 * Positions the popup aligned with the right edge of the anchor element.
 		 */
 		const positionRight = () => {
-			popupLayout.right = -(anchorLayout.anchorX + anchorLayout.anchorWidth);
+			popupLayout.right = documentWidth - (anchorLayout.anchorX + anchorLayout.anchorWidth);
 		};
 
 		// Adjust the popup layout for the popup alignment.

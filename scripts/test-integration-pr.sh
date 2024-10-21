@@ -59,9 +59,9 @@ yarn test-extension -l positron-connections
 kill_app
 
 echo
-echo "### Positron Run App tests"
+echo "### Positron DuckDB tests"
 echo
-yarn test-extension -l positron-run-app
+yarn test-extension -l positron-duckdb
 kill_app
 
 # Cleanup

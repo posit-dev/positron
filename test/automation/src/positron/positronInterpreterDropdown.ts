@@ -131,6 +131,13 @@ export class PositronInterpreterDropdown {
 	 * @returns A promise that resolves once the interpreter dropdown is open.
 	 */
 	async openInterpreterDropdown() {
+		// If the interpreter dropdown is already open, return. This is a necessary check because
+		// clicking an open interpreter dropdown will close it.
+		if (await this.interpreterGroups.isVisible()) {
+			return;
+		}
+
+		// Open the interpreter dropdown.
 		await this.interpreterDropdown.click({ timeout: 10_000 });
 		await this.interpreterGroups.waitFor({ state: 'attached', timeout: 10_000 });
 	}
@@ -214,6 +221,7 @@ export class PositronInterpreterDropdown {
 		// Fail if green dot running indicator missing
 		const runningIndicator = primaryInterpreter.locator('.running-icon');
 		if (!(await runningIndicator.isVisible())) {
+			this.code.logger.log('Green dot running indicator missing');
 			return false;
 		}
 
@@ -225,6 +233,7 @@ export class PositronInterpreterDropdown {
 			!(await restartButton.isVisible()) ||
 			!(await restartButton.isEnabled())
 		) {
+			this.code.logger.log('Restart button not visible and enabled');
 			return false;
 		}
 
@@ -236,6 +245,7 @@ export class PositronInterpreterDropdown {
 			!(await stopButton.isVisible()) ||
 			!(await stopButton.isEnabled())
 		) {
+			this.code.logger.log('Stop button not visible and enabled');
 			return false;
 		}
 
@@ -272,7 +282,8 @@ export class PositronInterpreterDropdown {
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
 			.getByTitle('Restart the interpreter');
 		if (
-			await restartButton.isVisible()
+			(await restartButton.isVisible()) &&
+			!(await restartButton.isDisabled())
 		) {
 			return false;
 		}
@@ -280,11 +291,16 @@ export class PositronInterpreterDropdown {
 		// Fail if start button not visible or enabled
 		const startButton = primaryInterpreter
 			.locator(INTERPRETER_ACTIONS_SELECTOR)
-			.getByTitle('Start the interpreter');
-		if (
-			!(await startButton.isVisible()) ||
-			!(await startButton.isEnabled())
-		) {
+			.getByTitle(
+				'Start the interpreter',
+				{
+					// Because 'Start the interpreter` is a substring of `Restart the interpreter`,
+					// and, by default, getByTitle performs a case-insensitive / partial match,
+					// specify that an exact match is required so we don't return multiple buttons.
+					exact: true
+				}
+			);
+		if (!(await startButton.isVisible()) || !(await startButton.isEnabled())) {
 			return false;
 		}
 

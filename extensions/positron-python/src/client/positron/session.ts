@@ -277,7 +277,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         await this._installIpykernel();
 
         // Update the active environment in the Python extension.
-        this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path);
         this._interpreterPathService.update(
             undefined,
             vscode.ConfigurationTarget.WorkspaceFolder,
@@ -312,7 +311,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // Log the error if we can't set the console width; this is not
             // fatal, so we don't rethrow the error
             const runtimeError = err as positron.RuntimeMethodError;
-            this._kernel.emitJupyterLog(`Error setting console width: ${runtimeError.message} (${runtimeError.code})`);
+            this._kernel.emitJupyterLog(
+                `Error setting console width: ${runtimeError.message} (${runtimeError.code})`,
+                vscode.LogLevel.Error,
+            );
         }
     }
 
@@ -423,17 +425,32 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-        const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
-        if (!ext) {
-            throw new Error('Jupyter Adapter extension not found');
+        const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+        const useKallichore = config.get<boolean>('enable', false);
+        if (useKallichore) {
+            // Use the Kallichore supervisor if enabled
+            const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+            if (!ext) {
+                throw new Error('Kallichore Adapter extension not found');
+            }
+            if (!ext.isActive) {
+                await ext.activate();
+            }
+            this.adapterApi = ext?.exports as JupyterAdapterApi;
+        } else {
+            // Otherwise, connect to the Jupyter kernel directly
+            const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+            if (!ext) {
+                throw new Error('Jupyter Adapter extension not found');
+            }
+            if (!ext.isActive) {
+                await ext.activate();
+            }
+            this.adapterApi = ext?.exports as JupyterAdapterApi;
         }
-        if (!ext.isActive) {
-            await ext.activate();
-        }
-        this.adapterApi = ext?.exports as JupyterAdapterApi;
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              this.adapterApi.createSession(
+              await this.adapterApi.createSession(
                   this.runtimeMetadata,
                   this.metadata,
                   this.kernelSpec,
@@ -441,7 +458,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                   createJupyterKernelExtra(),
               )
             : // We don't have a kernel spec, so we're restoring a session
-              this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -534,6 +551,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                         const runtimeError = err as positron.RuntimeMethodError;
                         this._kernel.emitJupyterLog(
                             `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
+                            vscode.LogLevel.Error,
                         );
                     }
                 }

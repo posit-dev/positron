@@ -663,4 +663,11 @@ export const codiconsLibrary = {
 	positronSelectRow: register('positron-select-row', 0xf281),
 	positronDataTypeObject: register('positron-data-type-object', 0xf282),
 	positronSizeToFit: register('positron-size-to-fit', 0xf283),
+	positronDatabaseConnection: register('positron-database-connection', 0xf284),
+	positronDisconnectConnection: register('positron-disconnect-connection', 0xf285),
+	positronNewConnection: register('positron-new-connection', 0xf286),
+	positronSchemaConnection: register('positron-schema-connection', 0xf287),
+	positronTableConnection: register('positron-table-connection', 0xf288),
+	positronCatalogConnection: register('positron-catalog-connection', 0xf289),
+	positronViewConnection: register('positron-view-connection', 0xf28a),
 } as const;

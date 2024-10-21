@@ -44,6 +44,97 @@ export interface FieldSchema {
 }
 
 /**
+ * MetadataSchema in Schemas
+ */
+export interface MetadataSchema {
+	/**
+	 * Connection name
+	 */
+	name: string;
+
+	/**
+	 * Language ID for the connections. Essentially just R or python
+	 */
+	language_id: string;
+
+	/**
+	 * Connection host
+	 */
+	host?: string;
+
+	/**
+	 * Connection type
+	 */
+	type?: string;
+
+	/**
+	 * Code used to re-create the connection
+	 */
+	code?: string;
+
+}
+
+/**
+ * Parameters for the ListObjects method.
+ */
+export interface ListObjectsParams {
+	/**
+	 * The path to object that we want to list children.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the ListFields method.
+ */
+export interface ListFieldsParams {
+	/**
+	 * The path to object that we want to list fields.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the ContainsData method.
+ */
+export interface ContainsDataParams {
+	/**
+	 * The path to object that we want to check if it contains data.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the GetIcon method.
+ */
+export interface GetIconParams {
+	/**
+	 * The path to object that we want to get the icon.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the PreviewObject method.
+ */
+export interface PreviewObjectParams {
+	/**
+	 * The path to object that we want to preview.
+	 */
+	path: Array<ObjectSchema>;
+}
+
+/**
+ * Parameters for the GetMetadata method.
+ */
+export interface GetMetadataParams {
+	/**
+	 * The comm_id of the client we want to retrieve metdata for.
+	 */
+	comm_id: string;
+}
+
+/**
  * Event: Request to focus the Connections pane
  */
 export interface FocusEvent {
@@ -65,7 +156,8 @@ export enum ConnectionsBackendRequest {
 	ListFields = 'list_fields',
 	ContainsData = 'contains_data',
 	GetIcon = 'get_icon',
-	PreviewObject = 'preview_object'
+	PreviewObject = 'preview_object',
+	GetMetadata = 'get_metadata'
 }
 
 export class PositronConnectionsComm extends PositronBaseComm {
@@ -143,6 +235,20 @@ export class PositronConnectionsComm extends PositronBaseComm {
 	 */
 	previewObject(path: Array<ObjectSchema>): Promise<null> {
 		return super.performRpc('preview_object', ['path'], [path]);
+	}
+
+	/**
+	 * Gets metadata from the connections
+	 *
+	 * A connection has tied metadata such as an icon, the host, etc.
+	 *
+	 * @param commId The comm_id of the client we want to retrieve metdata
+	 * for.
+	 *
+	 * @returns undefined
+	 */
+	getMetadata(commId: string): Promise<MetadataSchema> {
+		return super.performRpc('get_metadata', ['comm_id'], [commId]);
 	}
 
 
