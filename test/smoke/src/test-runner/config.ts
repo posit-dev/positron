@@ -7,8 +7,8 @@ import * as path from 'path';
 import * as os from 'os';
 import minimist = require('minimist');
 
-const TEST_DATA_PATH = path.join(os.tmpdir(), 'vscsmoke');
 export const OPTS = minimist(process.argv.slice(2));
+const TEST_DATA_PATH = path.join(os.tmpdir(), 'vscsmoke');
 const ARTIFACT_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 const ROOT_PATH = path.join(__dirname, '..', '..', '..', '..');
 
@@ -26,7 +26,6 @@ Object.assign(process.env, {
 	PR: OPTS['pr'] || '',
 	SKIP_CLEANUP: OPTS['skip-cleanup'] || '',
 	TEST_DATA_PATH: TEST_DATA_PATH,
-	ROOT_PATH,
 	EXTENSIONS_PATH: path.join(TEST_DATA_PATH, 'extensions-dir'),
 	WORKSPACE_PATH: path.join(TEST_DATA_PATH, 'qa-example-content'),
 	REPORT_PATH: path.join(ROOT_PATH, '.build', 'logs', ARTIFACT_DIR, 'test-results'),
