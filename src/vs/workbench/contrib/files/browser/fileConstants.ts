@@ -10,6 +10,10 @@ export const REVEAL_IN_EXPLORER_COMMAND_ID = 'revealInExplorer';
 export const REVERT_FILE_COMMAND_ID = 'workbench.action.files.revert';
 export const OPEN_TO_SIDE_COMMAND_ID = 'explorer.openToSide';
 export const OPEN_WITH_EXPLORER_COMMAND_ID = 'explorer.openWith';
+// --- Start Positron ---
+export const SET_DEFAULT_EDITOR_COMMAND_ID = 'workbench.action.setDefaultEditor';
+export const SET_DEFAULT_EDITOR_COMMAND_TITLE = 'Set new default editor opener';
+// --- End Positron ---
 export const SELECT_FOR_COMPARE_COMMAND_ID = 'selectForCompare';
 
 export const COMPARE_SELECTED_COMMAND_ID = 'compareSelected';
