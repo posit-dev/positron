@@ -27,10 +27,18 @@
 	display: block;
 	font-size: 0.95em;
 	opacity: 0.8;
-
+/*
 	&.truncation-mode-scroll {
 		text-align: right;
-	}
+	} */
 }
 
+.positron-notebook-text-output.long-output-scroll + .notebook-output-truncation-message {
+	text-align: right;
+}
+
+/* Hide the truncation message when were not showing scrollbars. */
+.positron-notebook-text-output:not(.long-output-scroll) + .notebook-output-truncation-message {
+	display: none;
+}
 

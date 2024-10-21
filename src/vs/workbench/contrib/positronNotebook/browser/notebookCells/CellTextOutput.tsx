@@ -11,19 +11,11 @@ import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/Servi
 import { ParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { NotebookDisplayOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
 
 
-type LongOutputBehavior = { mode: 'truncate' | 'scroll'; outputLineLimit: number };
-function useLongOutputBehavior(): LongOutputBehavior {
-	const notebookOptions = useNotebookOptions();
-	const layoutOptions = notebookOptions.getLayoutConfiguration();
-
-	const outputLineLimit = layoutOptions.outputLineLimit;
-	const outputScrolling = layoutOptions.outputScrolling;
-
-	return { mode: outputScrolling ? 'scroll' : 'truncate', outputLineLimit };
-}
-
+type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
+// type LongOutputOptions = { outputScrolling: Boolean; outputLineLimit: number };
 
 type TruncationResult =
 	{ content: string } & (
@@ -37,7 +29,38 @@ type TruncationResult =
 		}
 	);
 
-function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLines }: LongOutputBehavior): TruncationResult {
+
+function useLongOutputBehavior(content: string): {
+	containerRef: React.RefObject<HTMLDivElement>; truncation: TruncationResult;
+} {
+	const notebookOptions = useNotebookOptions();
+	const layoutOptions = notebookOptions.getLayoutConfiguration();
+
+	const containerRef = React.useRef<HTMLDivElement>(null);
+
+	const [truncation, setTruncation] = React.useState<TruncationResult>(() => truncateToNumberOfLines(content, layoutOptions));
+
+	React.useEffect(() => {
+		setTruncation(truncateToNumberOfLines(content, layoutOptions));
+	}, [content, layoutOptions]);
+
+	React.useEffect(() => {
+		if (!containerRef.current) { return; }
+
+		// Check if the content is scrolling
+		const { scrollHeight, clientHeight } = containerRef.current;
+
+		// If we're not scrolling, remove the class
+		if (truncation.mode === 'scroll' && scrollHeight <= clientHeight) {
+			containerRef.current.classList.remove(`long-output-scroll`);
+		}
+	}, [truncation.mode]);
+
+	return { containerRef, truncation };
+}
+
+
+function truncateToNumberOfLines(content: string, { outputScrolling, outputLineLimit: maxLines }: LongOutputOptions): TruncationResult {
 	const splitByLine = content.split('\n');
 	const numLines = splitByLine.length;
 
@@ -47,7 +70,7 @@ function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLi
 		return { content, mode: 'normal' };
 	}
 
-	if (mode === 'scroll') {
+	if (outputScrolling) {
 		return { content, mode: 'scroll' };
 	}
 
@@ -63,17 +86,15 @@ function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLi
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const { openerService, notificationService, commandService } = useServices();
-	const longOutputBehavior = useLongOutputBehavior();
-	const truncation = truncateToNumberOfLines(content, longOutputBehavior);
+	const { containerRef, truncation } = useLongOutputBehavior(content);
 
 	return <>
-		<div className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
+		<div ref={containerRef} className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
 			<OutputLines
 				outputLines={ANSIOutput.processOutput(truncation.content)}
 				openerService={openerService}
 				notificationService={notificationService}
 			/>
-
 			{
 				truncation.mode === 'truncate'
 					? <>
@@ -107,9 +128,7 @@ const TruncationMessage = ({ truncationResult, commandService }: { truncationRes
 		? `... ${truncationResult.numLinesTruncated.toLocaleString()} lines truncated.`
 		: 'Scrolling long outputs...';
 
-	return <i
-		className={`notebook-output-truncation-message truncation-mode-${truncationResult.mode}`}
-	>
+	return <i className='notebook-output-truncation-message'>
 		{msg + ' '}
 		<a
 			href=''
