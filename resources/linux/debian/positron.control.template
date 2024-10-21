@@ -1,5 +1,5 @@
 Package: @@NAME@@
-Version: @@POSITRONVERSION@@ build @@BUILDNUMBER@@
+Version: @@POSITRONVERSION@@
 Section: devel
 Depends: @@DEPENDS@@
 Recommends: @@RECOMMENDS@@

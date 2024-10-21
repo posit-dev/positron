@@ -100,7 +100,7 @@ function prepareDebPackage(arch) {
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.version))
-					.pipe(replace('@@POSITRONVERSION@@', product.positronVersion + '-' + linuxPackageRevision))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}-${linuxPackageRevision}`))
 					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@ARCHITECTURE@@', debArch))
