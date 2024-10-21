@@ -372,9 +372,15 @@ export class KCApi implements KallichoreAdapterApi {
 		const serverState =
 			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
 
+		// If there's no server state, return as we can't check its status
+		if (!serverState) {
+			this._log.warn(`No Kallichore server state found; cannot test server process`);
+			return;
+		}
+
 		// Test the process ID to see if the server is still running.
 		let serverRunning = true;
-		if (serverState?.server_pid) {
+		if (serverState.server_pid) {
 			try {
 				process.kill(serverState.server_pid, 0);
 				this._log.info(`Kallichore server PID ${serverState.server_pid} is still running`);
@@ -382,13 +388,6 @@ export class KCApi implements KallichoreAdapterApi {
 				this._log.warn(`Kallichore server PID ${serverState.server_pid} is not running`);
 				serverRunning = false;
 			}
-		} else {
-			this._log.warn(`No Kallichore server state found; cannot test server process`);
-		}
-
-		// If the server is still running, we're done
-		if (serverRunning) {
-			return;
 		}
 
 		// Clean up the state so we don't try to reconnect to a server that
