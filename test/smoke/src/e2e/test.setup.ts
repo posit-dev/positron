@@ -18,20 +18,24 @@ import minimist = require('minimist');
 // Local project modules
 import { createLogger } from '../test-runner/logger';
 import { ROOT_PATH } from '../test-runner/test-hooks';
-import { Application, Logger } from '../../../automation/out';
+import { Application, Logger } from '../../../automation';
 import { createApp } from '../utils';
 export const test = base.extend<{
-	app: Application;
-	application: playwright.Browser | playwright.ElectronApplication;
-	reuseApp: boolean;
-	defaultOptions: any;
+	// app: Application;
+	// application: playwright.Browser | playwright.ElectronApplication;
+	// reuseApp: boolean;
+	// defaultOptions: any;
 	logger: Logger;
 	tracing: any;
 	page: playwright.Page;
-	context: playwright.BrowserContext;
+	// context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
+	restartApp: any;
+}, {
+	options: any;
+	app: Application;
 }>({
-	defaultOptions: [async ({ }, use, testInfo) => {
+	options: [async ({ }, use) => {
 		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
@@ -48,8 +52,8 @@ export const test = base.extend<{
 			userDataDir: join(TEST_DATA_PATH, 'd'),
 			extensionsPath: EXTENSIONS_PATH,
 			logger,
-			logsPath: join(logsRootPath, 'start-app'),
-			crashesPath: join(crashesRootPath, 'start-app'),
+			logsPath: join(logsRootPath, 'options-fixture'),
+			crashesPath: join(crashesRootPath, 'options-fixture'),
 			verbose: OPTS.verbose,
 			remote: OPTS.remote,
 			web: OPTS.web,
@@ -62,22 +66,19 @@ export const test = base.extend<{
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
-	// Application fixture
-	app: [async ({ defaultOptions }, use) => {
-		const app = createApp(defaultOptions);
+	app: [async ({ options }, use) => {
+		const app = createApp(options);
 		await app.start();
-		await use(app);
-		await app.stop();
 
-		// if (reuseApp && appInstance) {
-		// 	console.log('Reusing the existing app instance');
-		// 	// Reuse the existing app instance
-		// 	await use(appInstance);
-		// } else {
-		// 	console.log('Creating a new app instance');
-		// 	// Create a new app instance
-		// }
+		await use(app);
+
+		await app.stop();
 	}, { scope: 'worker', auto: true }],
+
+	restartApp: [async ({ app }, use) => {
+		await app.restart();
+		await use(app);
+	}, { scope: 'test' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -122,15 +123,15 @@ export const test = base.extend<{
 		await use(app.code.driver.getPage());
 	},
 
-	context: async ({ app }, use) => {
-		await use(app.code.driver.getContext());
-	},
+	// context: async ({ app }, use) => {
+	// 	await use(app.code.driver.getContext());
+	// },
 
-	application: async ({ app }, use) => {
-		await use(app.code.driver.getApplication());
-	},
+	// application: async ({ app }, use) => {
+	// 	await use(app.code.driver.getApplication());
+	// },
 
-	logger: [async ({ defaultOptions, app }, use, testInfo) => {
+	logger: [async ({ app }, use, testInfo) => {
 		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 		const suiteName = testInfo.titlePath[0];
 

@@ -16,6 +16,8 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
+  globalSetup: require.resolve('./test/smoke/src/e2e/global.setup.ts'),
+  // globalTeardown: require.resolve('./global-teardown'),
   testDir: './test/smoke/src/e2e',
   testMatch: '*.test.ts',
   /* Run tests in files in parallel */
@@ -45,13 +47,7 @@ export default defineConfig({
     {
       name: 'electron',
       use: { ...devices['Desktop Chrome'] },
-      dependencies: ['setup'],
     },
-    {
-      name: 'setup',
-      testMatch: /global\.setup\.ts/,
-    },
-
   ],
 
   /* Run your local dev server before starting the tests */
