@@ -81,7 +81,6 @@ export const test = base.extend<{
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
 		await use(app);
-		await app.stop();
 	}, { scope: 'test' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
