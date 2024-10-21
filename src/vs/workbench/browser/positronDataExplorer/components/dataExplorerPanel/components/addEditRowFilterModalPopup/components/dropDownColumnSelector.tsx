@@ -72,10 +72,10 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			});
 
 			// Get the title and message.
-			const title = localize('positron.dataExplorer.columnSelector', "Column Selector");
+			const title = localize('positron.dataExplorer.selectColumn', "Select Column");
 			const message = localize(
-				'positron.dataExplorer.unableToOpenColumnSelector',
-				"Unable to open column selector."
+				'positron.dataExplorer.unableToOpenTheColumnSelector',
+				"Unable to open the column selector."
 			);
 
 			// Inform the user that the column selector data grid instance could not be created.
