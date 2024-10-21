@@ -32,6 +32,7 @@ import * as duckdb from '@duckdb/duckdb-wasm';
 import Worker from 'web-worker';
 import { basename, extname, join } from 'path';
 import { Table } from 'apache-arrow';
+import { pathToFileURL } from 'url';
 
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
@@ -45,6 +46,12 @@ class DuckDBInstance {
 			mainModule: join(distPath, 'duckdb-eh.wasm'),
 			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
 		};
+		// On Windows, we need to call pathToFileURL on mainModule and mainWorkerto get the correct path format
+		if (process.platform === 'win32') {
+			bundle.mainModule = pathToFileURL(bundle.mainModule).toString();
+			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
+		}
+
 		const logger = new duckdb.VoidLogger();
 
 		const worker = new Worker(bundle.mainWorker);
