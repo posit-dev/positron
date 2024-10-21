@@ -67,17 +67,21 @@ export const test = base.extend<{
 	}, { scope: 'worker', auto: true }],
 
 	app: [async ({ options }, use) => {
+		// start the app
 		const app = createApp(options);
 		await app.start();
 
+		// run the test suite
 		await use(app);
 
+		// stop the app
 		await app.stop();
 	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
 		await use(app);
+		await app.stop();
 	}, { scope: 'test' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
