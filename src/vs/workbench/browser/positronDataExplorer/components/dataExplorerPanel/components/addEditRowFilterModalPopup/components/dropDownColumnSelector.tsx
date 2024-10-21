@@ -11,12 +11,15 @@ import * as React from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
+import { localize } from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
+import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
 import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
@@ -49,41 +52,77 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 	const [title, _setTitle] = useState(props.title);
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(props.selectedColumnSchema);
 
-	const onPressed = useCallback((focusInput?: boolean) => {
-		// Create the renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService: props.keybindingService,
-			layoutService: props.layoutService,
-			container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
-			disableCaptures: true, // permits the usage of the enter key where applicable
-			onDisposed: () => {
-				ref.current.focus();
-			}
-		});
-
+	const onPressed = useCallback(async (focusInput?: boolean) => {
 		// Create the column selector data grid instance.
-		const columnSelectorDataGridInstance = new ColumnSelectorDataGridInstance(
-			props.dataExplorerClientInstance
+		const columnSelectorDataGridInstance = await ColumnSelectorDataGridInstance.create(
+			props.dataExplorerClientInstance,
 		);
 
-		// Show the drop down list box modal popup.
-		renderer.render(
-			<ColumnSelectorModalPopup
-				configurationService={props.configurationService}
-				renderer={renderer}
-				columnSelectorDataGridInstance={columnSelectorDataGridInstance}
-				anchorElement={ref.current}
-				focusInput={focusInput}
-				onItemHighlighted={columnSchema => {
-					console.log(`onItemHighlighted ${columnSchema.column_name}`);
-				}}
-				onItemSelected={columnSchema => {
-					renderer.dispose();
-					setSelectedColumnSchema(columnSchema);
-					props.onSelectedColumnSchemaChanged(columnSchema);
-				}}
-			/>
-		);
+		// Get the container.
+		const container = props.layoutService.getContainer(DOM.getWindow(ref.current));
+
+		// If the column selector data grid instance could not be created, alert the user.
+		// Otherwise, show the column selector modal popup.
+		if (!columnSelectorDataGridInstance) {
+			// Create the modal React renderer.
+			const renderer = new PositronModalReactRenderer({
+				keybindingService: props.keybindingService,
+				layoutService: props.layoutService,
+				container
+			});
+
+			// Get the title and message.
+			const title = localize('positron.dataExplorer.selectColumn', "Select Column");
+			const message = localize(
+				'positron.dataExplorer.unableToOpenTheColumnSelector',
+				"Unable to open the column selector."
+			);
+
+			// Inform the user that the column selector data grid instance could not be created.
+			renderer.render(
+				<OKModalDialog
+					renderer={renderer}
+					width={400}
+					height={195}
+					title={title}
+					onAccept={async () => {
+						renderer.dispose();
+					}}
+					onCancel={() => renderer.dispose()}>
+					<VerticalStack>
+						<div>{message}</div>
+					</VerticalStack>
+				</OKModalDialog>
+			);
+		} else {
+			// Create the renderer.
+			const renderer = new PositronModalReactRenderer({
+				keybindingService: props.keybindingService,
+				layoutService: props.layoutService,
+				container,
+				disableCaptures: true, // permits the usage of the enter key where applicable
+				onDisposed: () => {
+					columnSelectorDataGridInstance.dispose();
+					ref.current.focus();
+				}
+			});
+
+			// Show the drop down list box modal popup.
+			renderer.render(
+				<ColumnSelectorModalPopup
+					configurationService={props.configurationService}
+					renderer={renderer}
+					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
+					anchorElement={ref.current}
+					focusInput={focusInput}
+					onItemSelected={columnSchema => {
+						renderer.dispose();
+						setSelectedColumnSchema(columnSchema);
+						props.onSelectedColumnSchemaChanged(columnSchema);
+					}}
+				/>
+			);
+		}
 	}, [props]);
 
 	const onKeyDown = useCallback((evt: KeyboardEvent) => {
