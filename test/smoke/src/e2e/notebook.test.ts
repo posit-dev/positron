@@ -9,7 +9,7 @@ import { expect } from '@playwright/test';
 import { PositronPythonFixtures } from '../../../automation';
 import { test } from './test.setup';
 
-test.describe.only('Python Notebooks', () => {
+test.describe('Python Notebooks', () => {
 
 	test.beforeAll(async function ({ app }) {
 		await PositronPythonFixtures.SetupFixtures(app);
