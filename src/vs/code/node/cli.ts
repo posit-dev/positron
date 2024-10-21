@@ -15,7 +15,7 @@ import { whenDeleted, writeFileSync } from 'vs/base/node/pfs';
 import { findFreePort } from 'vs/base/node/ports';
 import { watchFileContents } from 'vs/platform/files/node/watcher/nodejs/nodejsWatcherLib';
 import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
-import { buildHelpMessage, buildVersionMessage, NATIVE_CLI_COMMANDS, OPTIONS } from 'vs/platform/environment/node/argv';
+import { buildHelpMessage, buildPositronVersionMessage, NATIVE_CLI_COMMANDS, OPTIONS } from 'vs/platform/environment/node/argv';
 import { addArg, parseCLIProcessArgv } from 'vs/platform/environment/node/argvHelper';
 import { getStdinFilePath, hasStdinWithoutTty, readFromStdin, stdinDataListener } from 'vs/platform/environment/node/stdin';
 import { createWaitMarkerFileSync } from 'vs/platform/environment/node/wait';
@@ -98,7 +98,7 @@ export async function main(argv: string[]): Promise<any> {
 	// Version Info
 	else if (args.version) {
 		// --- Start Positron ---
-		console.log(buildVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
+		console.log(buildPositronVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
 		// --- End Positron ---
 	}
 

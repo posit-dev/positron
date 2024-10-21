@@ -37,7 +37,7 @@ import { DownloadService } from 'vs/platform/download/common/downloadService';
 import { IDownloadService } from 'vs/platform/download/common/download';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
 import { UriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentityService';
-import { buildHelpMessage, buildVersionMessage, OptionDescriptions } from 'vs/platform/environment/node/argv';
+import { buildHelpMessage, buildPositronVersionMessage, OptionDescriptions } from 'vs/platform/environment/node/argv';
 import { isWindows } from 'vs/base/common/platform';
 import { IExtensionsScannerService } from 'vs/platform/extensionManagement/common/extensionsScannerService';
 import { ExtensionsScannerService } from 'vs/server/node/extensionsScannerService';
@@ -190,7 +190,7 @@ export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, op
 	// Version Info
 	if (args.version) {
 		// --- Start Positron ---
-		console.log(buildVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
+		console.log(buildPositronVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
 		// --- End Positron ---
 		return;
 	}

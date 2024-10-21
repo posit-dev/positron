@@ -9,7 +9,7 @@ import * as cp from 'child_process';
 import * as http from 'http';
 import { cwd } from 'vs/base/common/process';
 import { dirname, extname, resolve, join } from 'vs/base/common/path';
-import { parseArgs, buildHelpMessage, buildVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
+import { parseArgs, buildHelpMessage, buildPositronVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
 import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
 import { createWaitMarkerFileSync } from 'vs/platform/environment/node/wait';
 import { PipeCommand } from 'vs/workbench/api/node/extHostCLIServer';
@@ -139,7 +139,7 @@ export async function main(desc: ProductDescription, args: string[]): Promise<vo
 	}
 	if (parsedArgs.version) {
 		// --- Start Positron ---
-		console.log(buildVersionMessage(desc.positronVersion, desc.positronBuildNumber, desc.version, desc.commit));
+		console.log(buildPositronVersionMessage(desc.positronVersion, desc.positronBuildNumber, desc.version, desc.commit));
 		// --- End Positron ---
 		return;
 	}

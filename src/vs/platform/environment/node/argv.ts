@@ -467,16 +467,25 @@ export function buildHelpMessage(productName: string, executableName: string, ve
 }
 
 // --- Start Positron ---
-export function buildVersionMessage(
+/**
+ * @deprecated To build the Positron version message, use `buildPositronVersionMessage` instead.
+ */
+// --- End Positron ---
+export function buildVersionMessage(version: string | undefined, commit: string | undefined): string {
+	return `${version || localize('unknownVersion', "Unknown version")}\n${commit || localize('unknownCommit', "Unknown commit")}\n${process.arch}`;
+}
+
+// --- Start Positron ---
+export function buildPositronVersionMessage(
 	positronVersion: string | undefined,
 	positronBuildNumber: number | string | undefined,
 	codeOSSVersion: string | undefined,
 	commit: string | undefined
 ): string {
-	const positronVersionString = `${positronVersion || localize('buildVersionMessage.unknownPositronVersion', "Unknown Positron version")}`;
-	const positronBuildString = `${positronBuildNumber === undefined ? localize('buildVersionMessage.unknownBuildNumber', "Unknown build number") : positronBuildNumber}`;
-	const positronCommitString = `${commit || localize('buildVersionMessage.unknownCommit', "Unknown commit")}`;
-	const codeOSSVersionString = `${codeOSSVersion || localize('buildVersionMessage.unknownCodeOssVersion', "Unknown Code OSS version")}`;
+	const positronVersionString = `${positronVersion || localize('buildPositronVersionMessage.unknownPositronVersion', "Unknown Positron version")}`;
+	const positronBuildString = `${positronBuildNumber === undefined ? localize('buildPositronVersionMessage.unknownBuildNumber', "Unknown build number") : positronBuildNumber}`;
+	const positronCommitString = `${commit || localize('buildPositronVersionMessage.unknownCommit', "Unknown commit")}`;
+	const codeOSSVersionString = `${codeOSSVersion || localize('buildPositronVersionMessage.unknownCodeOssVersion', "Unknown Code OSS version")}`;
 
 	/**
 	 * Preview of version string:
@@ -486,10 +495,10 @@ export function buildVersionMessage(
 	 * Arch: arm64
 	 */
 	const versionString = [
-		`${localize('buildVersionMessage.positronVersion', "Positron: {0} build {1}", positronVersionString, positronBuildString)}`,
-		`${localize('buildVersionMessage.positronCommit', "Positron SHA: {0}", positronCommitString)}`,
-		`${localize('buildVersionMessage.codeOSSVersion', "Code OSS: {0}", codeOSSVersionString)}`,
-		`${localize('buildVersionMessage.arch', "Arch: {0}", process.arch)}`,
+		`${localize('buildPositronVersionMessage.positronVersion', "Positron: {0} build {1}", positronVersionString, positronBuildString)}`,
+		`${localize('buildPositronVersionMessage.positronCommit', "Positron SHA: {0}", positronCommitString)}`,
+		`${localize('buildPositronVersionMessage.codeOSSVersion', "Code OSS: {0}", codeOSSVersionString)}`,
+		`${localize('buildPositronVersionMessage.arch', "Arch: {0}", process.arch)}`,
 	];
 	return versionString.join('\n');
 }
