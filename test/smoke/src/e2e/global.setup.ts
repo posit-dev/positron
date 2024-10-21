@@ -7,12 +7,13 @@ import { cloneTestRepo, prepareTestEnv } from '../test-runner';
 import { join } from 'path';
 import * as os from 'os';
 
+export const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 console.log('global setup is running!!!!');
 
 async function globalSetup() {
-	prepareTestEnv();
+	prepareTestEnv(ROOT_PATH);
 	cloneTestRepo(WORKSPACE_PATH);
 }
 

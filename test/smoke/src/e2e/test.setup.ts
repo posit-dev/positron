@@ -14,10 +14,10 @@ import path = require('path');
 
 // Third-party packages
 import minimist = require('minimist');
+const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 
 // Local project modules
 import { createLogger } from '../test-runner/logger';
-import { ROOT_PATH } from '../test-runner/test-hooks';
 import { Application, Logger } from '../../../automation';
 import { createApp } from '../utils';
 export const test = base.extend<{
@@ -111,14 +111,15 @@ export const test = base.extend<{
 
 	tracing: [async ({ app }, use, testInfo) => {
 		// Start tracing
-		await app.startTracing('test');
+		const title = testInfo.title || 'unknown'.replace(/\s+/g, '-');
+		await app.startTracing(title);
 
 		// Run the test
 		await use(app);
 
 		// Stop tracing
-		const tracePath = testInfo.outputPath('trace.zip');
-		await app.stopTracing('test', true, tracePath);
+		const tracePath = testInfo.outputPath(title + '_trace.zip');
+		await app.stopTracing(title, true, tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 	}, { auto: true, scope: 'test' }],
 

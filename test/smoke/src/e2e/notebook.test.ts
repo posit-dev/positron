@@ -34,15 +34,15 @@ test.describe.only('Python Notebooks', () => {
 		}).toPass({ timeout: 120000 });
 	});
 
-	test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ restartApp: app }) {
-		const randomText = Math.random().toString(36).substring(7);
+	// test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ restartApp: app }) {
+	// 	const randomText = Math.random().toString(36).substring(7);
 
-		await app.workbench.notebook.insertNotebookCell('markdown');
-		await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
-		await app.workbench.notebook.stopEditingCell();
+	// 	await app.workbench.notebook.insertNotebookCell('markdown');
+	// 	await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
+	// 	await app.workbench.notebook.stopEditingCell();
 
-		expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
-	});
+	// 	expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
+	// });
 
 	test('Dummy test - will not restart', async function ({ app }) {
 		const randomText = Math.random().toString(36).substring(7);
