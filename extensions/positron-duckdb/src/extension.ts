@@ -136,27 +136,11 @@ export class DataExplorerRpcHandler {
 		}
 	}
 
-	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
+	async openDataset(uri: string, params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		const tableName = `positron_${this._tableIndex++}`;
-		let uri = params.uri;
-
-		console.log('[POSITRON] Opening dataset with params:', params);
-
-		// On Windows, we need to fix up the path so that it is recognizable as a drive path.
-		if (process.platform === 'win32') {
-			const filePath = path.parse(params.uri);
-			console.log('[POSITRON] Parsed file path:', filePath);
-			// Example: {root: '/', dir: '/c:/Users/sharon/qa-example-content/data-files/flights', base: 'flights.parquet', ext: '.parquet', name: 'flights'}
-			if (filePath.root === '/' && filePath.dir.startsWith('/')) {
-				// Remove the leading slash from the path so the path is drive path
-				uri = uri.substring(1);
-			}
-		}
 
 		this._uriToTableName.set(uri, tableName);
 		const fileExt = extname(uri);
-
-		console.log(`[POSITRON] Opening ${uri}`);
 
 		let scanOperation;
 		switch (fileExt) {
@@ -475,6 +459,11 @@ export class DataExplorerRpcHandler {
 
 	private async _getUnfilteredShape(uri: string) {
 		const schema = this.getCachedSchema(uri);
+
+		if (!schema) {
+			console.error('Schema not found for uri:', uri);
+		}
+
 		const numColumns = schema.length;
 
 		const tableName = this.getTableName(uri);
@@ -510,26 +499,38 @@ export class DataExplorerRpcHandler {
 	}
 
 	private async _dispatchRpc(rpc: DataExplorerRpc): RpcResponse<any> {
-		if (rpc.method === DataExplorerBackendRequest.OpenDataset) {
-			return this.openDataset(rpc.params as OpenDatasetParams);
-		}
-
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
+
+		let uri = rpc.uri;
+
+		// On Windows, we need to fix up the path so that it is recognizable as a drive path.
+		// Not sure how reliable this is, but it seems to work for now.
+		if (process.platform === 'win32') {
+			const filePath = path.parse(uri);
+			// Example: {root: '/', dir: '/c:/Users/sharon/qa-example-content/data-files/flights', base: 'flights.parquet', ext: '.parquet', name: 'flights'}
+			if (filePath.root === '/' && filePath.dir.startsWith('/')) {
+				// Remove the leading slash from the path so the path is drive path
+				uri = uri.substring(1);
+			}
+		}
+
 		switch (rpc.method) {
+			case DataExplorerBackendRequest.OpenDataset:
+				return this.openDataset(uri, rpc.params as OpenDatasetParams);
 			case DataExplorerBackendRequest.GetSchema:
-				return this.getSchema(rpc.uri, rpc.params as GetSchemaParams);
+				return this.getSchema(uri, rpc.params as GetSchemaParams);
 			case DataExplorerBackendRequest.GetDataValues:
-				return this.getDataValues(rpc.uri, rpc.params as GetDataValuesParams);
+				return this.getDataValues(uri, rpc.params as GetDataValuesParams);
 			case DataExplorerBackendRequest.GetRowLabels:
-				return this.getRowLabels(rpc.uri, rpc.params as GetRowLabelsParams);
+				return this.getRowLabels(uri, rpc.params as GetRowLabelsParams);
 			case DataExplorerBackendRequest.GetState:
-				return this.getState(rpc.uri);
+				return this.getState(uri);
 			case DataExplorerBackendRequest.SetRowFilters:
-				return this.setRowFilters(rpc.uri, rpc.params as SetRowFiltersParams);
+				return this.setRowFilters(uri, rpc.params as SetRowFiltersParams);
 			case DataExplorerBackendRequest.GetColumnProfiles:
-				return this.getColumnProfiles(rpc.uri, rpc.params as GetColumnProfilesParams);
+				return this.getColumnProfiles(uri, rpc.params as GetColumnProfilesParams);
 			case DataExplorerBackendRequest.ExportDataSelection:
 			case DataExplorerBackendRequest.SetColumnFilters:
 			case DataExplorerBackendRequest.SetSortColumns:
