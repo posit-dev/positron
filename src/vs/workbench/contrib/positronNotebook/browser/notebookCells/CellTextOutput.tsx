@@ -25,24 +25,37 @@ function useLongOutputBehavior(): LongOutputBehavior {
 }
 
 
-function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLines }: LongOutputBehavior): {
-	truncatedContentBefore: string;
-	truncatedContentAfter?: string;
-	numLinesTruncated: number;
-	willScroll: boolean;
-} {
+type TruncationResult =
+	{ content: string } & (
+		{
+			mode: 'normal' | 'scroll';
+		} |
+		{
+			mode: 'truncate';
+			contentAfter: string;
+			numLinesTruncated: number;
+		}
+	);
+
+function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLines }: LongOutputBehavior): TruncationResult {
 	const splitByLine = content.split('\n');
 	const numLines = splitByLine.length;
 
 	const isLong = numLines > maxLines;
 
-	if (isLong && mode === 'scroll') { return { truncatedContentBefore: content, numLinesTruncated: 0, willScroll: true }; }
+	if (!isLong) {
+		return { content, mode: 'normal' };
+	}
+
+	if (mode === 'scroll') {
+		return { content, mode: 'scroll' };
+	}
 
 	return {
-		truncatedContentBefore: splitByLine.slice(0, maxLines - 1).join('\n'),
-		truncatedContentAfter: splitByLine[splitByLine.length - 1],
+		mode: 'truncate',
+		content: splitByLine.slice(0, maxLines - 1).join('\n'),
+		contentAfter: splitByLine[splitByLine.length - 1],
 		numLinesTruncated: Math.max(numLines - maxLines, 0),
-		willScroll: false
 	};
 }
 
@@ -51,44 +64,59 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const { openerService, notificationService, commandService } = useServices();
 	const longOutputBehavior = useLongOutputBehavior();
+	const truncation = truncateToNumberOfLines(content, longOutputBehavior);
 
-	const { truncatedContentBefore, truncatedContentAfter, numLinesTruncated, willScroll } = truncateToNumberOfLines(content, longOutputBehavior);
-
-	return <div className={`notebook-${type} positron-notebook-text-output long-output-${longOutputBehavior.mode} ${willScroll ? 'scrolling' : ''}`}>
-		<OutputLines
-			outputLines={ANSIOutput.processOutput(truncatedContentBefore)}
-			openerService={openerService}
-			notificationService={notificationService}
-		/>
-		{
-			numLinesTruncated ? <TruncationMessage numLinesTruncated={numLinesTruncated} commandService={commandService} /> : null
-		}
-		{
-			truncatedContentAfter ? <OutputLines
-				outputLines={ANSIOutput.processOutput(truncatedContentAfter)}
+	return <>
+		<div className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
+			<OutputLines
+				outputLines={ANSIOutput.processOutput(truncation.content)}
 				openerService={openerService}
 				notificationService={notificationService}
-			/> : null
+			/>
+
+			{
+				truncation.mode === 'truncate'
+					? <>
+						<TruncationMessage truncationResult={truncation} commandService={commandService} />
+						<OutputLines
+							outputLines={ANSIOutput.processOutput(truncation.contentAfter)}
+							openerService={openerService}
+							notificationService={notificationService}
+						/>
+					</>
+					: null
+			}
+		</div>
+		{
+			truncation.mode === 'scroll'
+				? <TruncationMessage truncationResult={truncation} commandService={commandService} />
+				: null
 		}
-	</div>;
+	</>;
 }
 
-const TruncationMessage = ({ numLinesTruncated, commandService }: { numLinesTruncated: number; commandService: ICommandService }) => {
-
-	const linesTruncatedFormatted = numLinesTruncated.toLocaleString();
+const TruncationMessage = ({ truncationResult, commandService }: { truncationResult: TruncationResult; commandService: ICommandService }) => {
 	const openSettings = () => {
 		commandService.executeCommand(
 			'workbench.action.openSettings',
 			'notebook.output scroll'
 		);
 	};
+
+	const msg = truncationResult.mode === 'truncate'
+		? `... ${truncationResult.numLinesTruncated.toLocaleString()} lines truncated.`
+		: 'Scrolling long outputs...';
+
 	return <i
-		className='notebook-output-truncation-message'
-	>... ({linesTruncatedFormatted} lines truncated.{' '}
+		className={`notebook-output-truncation-message truncation-mode-${truncationResult.mode}`}
+	>
+		{msg + ' '}
 		<a
 			href=''
 			aria-label='notebook output settings'
 			onClick={openSettings}
 		>Change behavior.</a>
-		)</i>;
+	</i>;
+
 };
+
