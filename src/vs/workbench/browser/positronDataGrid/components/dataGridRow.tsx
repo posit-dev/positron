@@ -31,23 +31,20 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Render the visible row cells.
-	const rowCells: JSX.Element[] = [];
-	for (let columnIndex = context.instance.firstColumnIndex, left = 0;
-		columnIndex < context.instance.columns && left < props.width;
-		columnIndex++
+	// Create the data grid column headers.
+	const dataGridRowCells: JSX.Element[] = [];
+	for (let columnDescriptor = context.instance.firstColumn;
+		columnDescriptor && columnDescriptor.left < context.instance.layoutRight;
+		columnDescriptor = context.instance.getColumn(columnDescriptor.columnIndex + 1)
 	) {
-		rowCells.push(
+		dataGridRowCells.push(
 			<DataGridRowCell
-				key={`row-cell-${props.rowIndex}-${columnIndex}`}
-				columnIndex={columnIndex}
+				key={`row-cell-${props.rowIndex}-${columnDescriptor.columnIndex}`}
+				columnIndex={columnDescriptor.columnIndex}
 				rowIndex={props.rowIndex}
-				left={left}
+				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
 			/>
 		);
-
-		// Adjust the left offset for the next column.
-		left += context.instance.getColumnWidth(columnIndex);
 	}
 
 	// Render.
@@ -59,7 +56,7 @@ export const DataGridRow = (props: DataGridRowProps) => {
 				height: context.instance.getRowHeight(props.rowIndex)
 			}}
 		>
-			{rowCells}
+			{dataGridRowCells}
 		</div>
 	);
 };

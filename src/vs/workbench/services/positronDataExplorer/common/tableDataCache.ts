@@ -5,6 +5,7 @@
 
 import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
+import { pinToRange } from 'vs/base/common/positronUtilities';
 import { arrayFromIndexRange } from 'vs/workbench/services/positronDataExplorer/common/utils';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, DataSelectionRange } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -12,9 +13,19 @@ import { ArraySelection, ColumnSchema, ColumnSelection, DataSelectionIndices, Da
 /**
  * Constants.
  */
-const TRIM_CACHE_TIMEOUT = 3000;
+const MAX_AUTO_SIZE_COLUMNS = 1_000;
+const AUTO_SIZE_COLUMNS_PAGE_SIZE = 250;
+const TRIM_CACHE_TIMEOUT = 3_000;
 const OVERSCAN_FACTOR = 3;
-const CHUNK_SIZE = 4096;
+const CHUNK_SIZE = 4_096;
+
+/**
+ * WidthCalculators interface.
+ */
+export interface WidthCalculators {
+	columnHeaderWidthCalculator: (columnName: string, typeName: string) => number;
+	columnValueWidthCalculator: (length: number) => number;
+}
 
 /**
  * InvalidateCacheFlags enum.
@@ -138,24 +149,14 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Gets or sets the column header width calculator.
+	 * Gets or sets the width calculators.
 	 */
-	private _columnHeaderWidthCalculator?: (columnName: string, typeName: string) => number;
-
-	/**
-	 * Gets or sets the column value width calculator.
-	 */
-	private _columnValueWidthCalculator?: (length: number) => number;
+	private _widthCalculators?: WidthCalculators;
 
 	/**
 	 * Gets the column schema cache.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
-
-	/**
-	 * Gets the column header width cache.
-	 */
-	private readonly _columnHeaderWidthCache = new Map<number, number>();
 
 	/**
 	 * Gets the row label cache.
@@ -166,11 +167,6 @@ export class TableDataCache extends Disposable {
 	 * Gets the data column cache.
 	 */
 	private readonly _dataColumnCache = new Map<number, Map<number, DataCell>>();
-
-	/**
-	 * Gets the column value width cache.
-	 */
-	private readonly _columnValueWidthCache = new Map<number, number>();
 
 	/**
 	 * The onDidUpdate event emitter.
@@ -233,64 +229,112 @@ export class TableDataCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Sets the column header width calculator.
-	 * @param calculator The column header width calculator.
+	 * Sets the width calculators.
+	 * @param widthCalculators The width calculators.
 	 */
-	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
-		// Set the column header width calculator.
-		this._columnHeaderWidthCalculator = calculator;
-
-		// Refresh the column header width cache, if the column header width calculator is non-null.
-		if (this._columnHeaderWidthCalculator) {
-			// Clear the existing column header width cache.
-			this._columnHeaderWidthCache.clear();
-
-			// Refresh the column header width cache.
-			for (const [columnIndex, columnSchema] of this._columnSchemaCache.entries()) {
-				// Calculate the column header width.
-				const columnHeaderWidth = this._columnHeaderWidthCalculator(
-					columnSchema.column_name,
-					columnSchema.type_name
-				);
-
-				// If the column header width is non-zero, cache its width.
-				if (columnHeaderWidth) {
-					this._columnHeaderWidthCache.set(columnIndex, columnHeaderWidth);
-				}
-			}
-		}
+	setWidthCalculators(widthCalculators?: WidthCalculators) {
+		this._widthCalculators = widthCalculators;
 	}
 
 	/**
-	 * Sets the column value width calculator.
-	 * @param calculator The column value width calculator.
+	 * Calculates the column layout entries.
+	 * @param minimumColumnWidth The minimum column width.
+	 * @param maximumColumnWidth The maximum column width.
+	 * @returns An array of column layout layout entries, if successful; otherwise, undefined.
 	 */
-	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
-		// Set the column value width calculator.
-		this._columnValueWidthCalculator = calculator;
+	async calculateColumnLayoutEntries(
+		minimumColumnWidth: number,
+		maximumColumnWidth: number
+	): Promise<number[] | undefined> {
+		// If the width calculators are not set, return undefined.
+		if (!this._widthCalculators) {
+			return undefined;
+		}
 
-		// Refresh the column value width cache, if the column value width calculator is non-null.
-		if (this._columnValueWidthCalculator) {
-			// Clear the existing column value width cache.
-			this._columnValueWidthCache.clear();
+		// Get the number of columns. If there are no columns, or too many columns, return
+		// undefined.
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		const { num_columns: numColumns } = tableState.table_shape;
+		if (!numColumns || numColumns > MAX_AUTO_SIZE_COLUMNS) {
+			return undefined;
+		}
 
-			// Refresh the column value width cache.
-			for (const [columnIndex, dataColumn] of this._dataColumnCache.entries()) {
-				// Find the longest data cell.
-				let longestDataCell = 0;
-				for (const dataCell of dataColumn.values()) {
-					if (dataCell.formatted.length > longestDataCell) {
-						longestDataCell = dataCell.formatted.length;
-					}
-				}
+		// Page in schema and data for column width calculations.
+		let columnIndex = 0;
+		const columnWidths: number[] = [];
+		while (columnIndex < numColumns) {
+			// Calculate the page size of the page of schema and the page of data to load.
+			const pageSize = Math.min(AUTO_SIZE_COLUMNS_PAGE_SIZE, numColumns - columnIndex);
 
-				// If the longest data cell is non-zero, calculate and cache its width.
-				this._columnValueWidthCache.set(
-					columnIndex,
-					this._columnValueWidthCalculator(longestDataCell)
+			// Load the page of schema.
+			const tableSchema = await this._dataExplorerClientInstance.getSchema(
+				Array.from({ length: pageSize }, (_, i) => columnIndex + i)
+			);
+
+			// Calculate the column header widths for the page of schema that was returned.
+			for (let i = 0; i < tableSchema.columns.length; i++) {
+				const columnSchema = tableSchema.columns[i];
+				columnWidths[columnIndex + i] = pinToRange(
+					this._widthCalculators.columnHeaderWidthCalculator(
+						columnSchema.column_name,
+						columnSchema.type_name
+					),
+					minimumColumnWidth,
+					maximumColumnWidth
 				);
 			}
+
+			// Load the page of data.
+			const tableData = await this._dataExplorerClientInstance.getDataValues(
+				Array.from({ length: pageSize }, (_, i): ColumnSelection => ({
+					column_index: columnIndex + i,
+					spec: {
+						first_index: 0,
+						last_index: 9
+					}
+				}))
+			);
+
+			// Calculate the column value widths for the page of data that was returned.
+			for (let column = 0; column < tableData.columns.length; column++) {
+				for (let row = 0; row < tableData.columns[column].length; row++) {
+					// Get the cell value.
+					const value = tableData.columns[column][row];
+
+					// Convert the cell value into a data cell.
+					let dataCell: DataCell;
+					if (typeof value === 'number') {
+						dataCell = decodeSpecialValue(value);
+					} else {
+						dataCell = {
+							formatted: value,
+							kind: DataCellKind.NON_NULL
+						};
+					}
+
+					// Calculate the column value width.
+					const columnValueWidth = pinToRange(
+						this._widthCalculators.columnValueWidthCalculator(
+							dataCell.formatted.length
+						),
+						minimumColumnWidth,
+						maximumColumnWidth
+					);
+
+					// If the column value width is larger than the column header width, set it as
+					// the column width.
+					if (columnValueWidth > columnWidths[columnIndex + column]) {
+						columnWidths[columnIndex + column] = columnValueWidth;
+					}
+				}
+			}
+
+			// Adjust the column index for the next page to load.
+			columnIndex += pageSize;
 		}
+
+		// Return the column widths.
+		return columnWidths;
 	}
 
 	/**
@@ -363,7 +407,6 @@ export class TableDataCache extends Disposable {
 		// Clear the column schema cache, if we're supposed to.
 		if (invalidateColumnSchemaCache) {
 			this._columnSchemaCache.clear();
-			this._columnHeaderWidthCache.clear();
 		}
 
 		// Cache the column schemas that were returned.
@@ -374,14 +417,6 @@ export class TableDataCache extends Disposable {
 
 			// Cache the column schema.
 			this._columnSchemaCache.set(columnIndex, columnSchema);
-
-			// Update the column header width cache.
-			if (this._columnHeaderWidthCalculator) {
-				this._columnHeaderWidthCache.set(columnIndex, this._columnHeaderWidthCalculator(
-					columnSchema.column_name,
-					columnSchema.type_name
-				));
-			}
 		}
 
 		// Fire the onDidUpdate event.
@@ -399,11 +434,11 @@ export class TableDataCache extends Disposable {
 		);
 
 		// Build an array of the column selections to load.
-		const columns: ColumnSelection[] = [];
+		const columnSelections: ColumnSelection[] = [];
 		if (invalidateDataCache) {
 			// The data cache is being invalidated. Load everything.
 			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-				columns.push({
+				columnSelections.push({
 					column_index: columnIndex,
 					spec: {
 						first_index: startRowIndex,
@@ -417,7 +452,7 @@ export class TableDataCache extends Disposable {
 				const dataColumn = this._dataColumnCache.get(columnIndex);
 				if (!dataColumn) {
 					// The data column isn't cached. Load it.
-					columns.push({
+					columnSelections.push({
 						column_index: columnIndex,
 						spec: {
 							first_index: startRowIndex,
@@ -446,14 +481,14 @@ export class TableDataCache extends Disposable {
 					// If there are cells that are not cached, add the column and its spec.
 					if (indices.length) {
 						if (!contiguous) {
-							columns.push({
+							columnSelections.push({
 								column_index: columnIndex,
 								spec: {
 									indices: indices
 								}
 							});
 						} else {
-							columns.push({
+							columnSelections.push({
 								column_index: columnIndex,
 								spec: {
 									first_index: indices[0],
@@ -467,7 +502,7 @@ export class TableDataCache extends Disposable {
 		}
 
 		// Get the data values.
-		const tableData = await this._dataExplorerClientInstance.getDataValues(columns);
+		const tableData = await this._dataExplorerClientInstance.getDataValues(columnSelections);
 
 		// Get the row labels.
 		let rowLabels: ArraySelection | undefined;
@@ -519,13 +554,12 @@ export class TableDataCache extends Disposable {
 		if (invalidateDataCache) {
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
-			this._columnValueWidthCache.clear();
 		}
 
 		// Update the data column cache.
 		for (let column = 0; column < tableData.columns.length; column++) {
 			// Get the column selection.
-			const columnSelection = columns[column];
+			const columnSelection = columnSelections[column];
 
 			// Get or create the data column.
 			let dataColumn = this._dataColumnCache.get(columnSelection.column_index);
@@ -562,22 +596,6 @@ export class TableDataCache extends Disposable {
 
 				// Cache the cell.
 				dataColumn.set(rowIndex, dataCell);
-
-				// Update the column value width cache.
-				if (dataCell.formatted.length && this._columnValueWidthCalculator) {
-					// Get the cached column value width and the column value width.
-					const cachedColumnValueWidth = this._columnValueWidthCache.get(
-						columnSelection.column_index
-					);
-					const columnValueWidth = this._columnValueWidthCalculator(
-						dataCell.formatted.length
-					);
-
-					// Update the column value width cache as needed.
-					if (!cachedColumnValueWidth || columnValueWidth > cachedColumnValueWidth) {
-						this._columnValueWidthCache.set(columnSelection.column_index, columnValueWidth);
-					}
-				}
 			}
 		}
 
@@ -647,24 +665,6 @@ export class TableDataCache extends Disposable {
 	 */
 	getColumnSchema(columnIndex: number) {
 		return this._columnSchemaCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the column header width for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column header width for the specified column index
-	 */
-	getColumnHeaderWidth(columnIndex: number) {
-		return this._columnHeaderWidthCache.get(columnIndex);
-	}
-
-	/**
-	 * Gets the column value width for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column value width for the specified column index
-	 */
-	getColumnValueWidth(columnIndex: number) {
-		return this._columnValueWidthCache.get(columnIndex);
 	}
 
 	/**

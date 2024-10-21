@@ -17,18 +17,13 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { pinToRange } from 'vs/base/common/positronUtilities';
 import { editorFontApplier } from 'vs/workbench/browser/editorFontApplier';
 import { DataGridRow } from 'vs/workbench/browser/positronDataGrid/components/dataGridRow';
-import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { DataGridRowHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowHeaders';
 import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
 import { DataGridCornerTopLeft } from 'vs/workbench/browser/positronDataGrid/components/dataGridCornerTopLeft';
 import { DataGridColumnHeaders } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeaders';
 import { DataGridScrollbarCorner } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbarCorner';
+import { DataGridScrollbar } from 'vs/workbench/browser/positronDataGrid/components/dataGridScrollbar';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-
-/**
- * Constants.
- */
-const MOUSE_WHEEL_SENSITIVITY = 50;
 
 /**
  * DataGridWaffle component.
@@ -51,8 +46,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	const [height, setHeight] = useState(0);
 	const [, setRenderMarker] = useState(generateUuid());
 	const [lastWheelEvent, setLastWheelEvent] = useState(0);
-	const [wheelDeltaX, setWheelDeltaX] = useState(0);
-	const [wheelDeltaY, setWheelDeltaY] = useState(0);
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
@@ -90,7 +83,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		 */
 		const setScreenSize = async (width: number, height: number) => {
 			// Set the screen size.
-			await context.instance.setScreenSize(width, height);
+			await context.instance.setSize(width, height);
 		};
 
 		// Set the initial screen size.
@@ -196,14 +189,14 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// top left.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					await context.instance.setScreenPosition(0, 0);
+					await context.instance.setScrollOffsets(0, 0);
 					context.instance.setCursorPosition(0, 0);
 					return;
 				}
 
 				// Home clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
-				await context.instance.setFirstColumn(0);
+				await context.instance.setHorizontalScrollOffset(0);
 				context.instance.setCursorColumn(0);
 				break;
 			}
@@ -233,9 +226,9 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// bottom right.
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
-					await context.instance.setScreenPosition(
-						context.instance.maximumFirstColumnIndex,
-						context.instance.maximumFirstRowIndex
+					await context.instance.setScrollOffsets(
+						context.instance.maximumHorizontalScrollOffset,
+						context.instance.maximumVerticalScrollOffset
 					);
 					context.instance.setCursorPosition(
 						context.instance.columns - 1,
@@ -246,7 +239,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// End clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
-				await context.instance.setFirstColumn(context.instance.maximumFirstColumnIndex);
+				await context.instance.setHorizontalScrollOffset(context.instance.maximumHorizontalScrollOffset);
 				context.instance.setCursorColumn(context.instance.columns - 1);
 				break;
 			}
@@ -273,14 +266,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// PageUp clears the selection and moves up by one page, positioning the cursor at
-				// the top left of the page.
+				// the top of the page.
 				context.instance.clearSelection();
-				const firstRowIndex = Math.max(
-					context.instance.firstRowIndex - (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
-					0
-				);
-				await context.instance.setFirstRow(firstRowIndex);
-				context.instance.setCursorRow(firstRowIndex);
+
+				// Scroll page up.
+				context.instance.scrollPageUp();
 				break;
 			}
 
@@ -306,14 +296,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				}
 
 				// PageDown clears the selection and moves down by one page, positioning the cursor
-				// at the bottom left of the page.
+				// at the top of the page
 				context.instance.clearSelection();
-				const firstRowIndex = Math.min(
-					context.instance.firstRowIndex + (e.altKey ? context.instance.visibleRows * 10 : context.instance.visibleRows),
-					context.instance.maximumFirstRowIndex
-				);
-				await context.instance.setFirstRow(firstRowIndex);
-				context.instance.setCursorRow(firstRowIndex);
+
+				// Scroll page down.
+				context.instance.scrollPageDown();
 				break;
 			}
 
@@ -473,72 +460,48 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		let deltaX = e.deltaX;
 		let deltaY = e.deltaY;
 
-		// When the user is holding the shift key, invert the delta X and delta Y.
+		// When the user is holding the shift key, invert delta X and delta Y.
 		if (e.shiftKey) {
 			[deltaX, deltaY] = [deltaY, deltaX];
 		}
 
-		// The predominant axis is vertical scrolling. When delta Y is greater than or equal to
-		// delta X, ignore and reset the delta X and scroll vertically.
-		if (Math.abs(deltaY) >= Math.abs(deltaX)) {
-			// Calculate the adjusted wheel delta Y.
-			const adjustedWheelDeltaY = wheelDeltaY + (e.altKey ? deltaY * 10 : deltaY);
-
-			// Reset wheel delta X.
-			setWheelDeltaX(0);
-
-			// Determine whether there's enough delta Y to scroll one or more rows.
-			const rowsToScroll = Math.trunc(adjustedWheelDeltaY / MOUSE_WHEEL_SENSITIVITY);
-			if (!rowsToScroll) {
-				setWheelDeltaY(adjustedWheelDeltaY);
-			} else {
-				await context.instance.setFirstRow(pinToRange(
-					context.instance.firstRowIndex + rowsToScroll,
-					0,
-					context.instance.maximumFirstRowIndex
-				));
-				setWheelDeltaY(adjustedWheelDeltaY - (rowsToScroll * MOUSE_WHEEL_SENSITIVITY));
-			}
-		} else if (Math.abs(deltaX) >= Math.abs(deltaY)) {
-			// Calculate the adjusted wheel delta X.
-			const adjustedWheelDeltaX = wheelDeltaX + (e.altKey ? deltaX * 10 : deltaX);
-
-			// Determine whether there's enough delta X to scroll one or more columns.
-			const columnsToScroll = Math.trunc(adjustedWheelDeltaX / MOUSE_WHEEL_SENSITIVITY);
-			if (columnsToScroll) {
-				await context.instance.setFirstColumn(pinToRange(
-					context.instance.firstColumnIndex + columnsToScroll,
-					0,
-					context.instance.maximumFirstColumnIndex
-				));
-				setWheelDeltaX(adjustedWheelDeltaX - (columnsToScroll * MOUSE_WHEEL_SENSITIVITY));
-			} else {
-				setWheelDeltaX(adjustedWheelDeltaX);
-			}
-
-			// Reset wheel delta Y.
-			setWheelDeltaY(0);
+		// If the alt key is pressed, scroll by 10 times the delta X and delta Y.
+		if (e.altKey) {
+			deltaX *= 10;
+			deltaY *= 10;
 		}
+
+		/**
+		 * Sets the scroll offsets.
+		 */
+		await context.instance.setScrollOffsets(
+			pinToRange(
+				context.instance.horizontalScrollOffset + deltaX,
+				0,
+				context.instance.maximumHorizontalScrollOffset
+			),
+			pinToRange(
+				context.instance.verticalScrollOffset + deltaY,
+				0,
+				context.instance.maximumVerticalScrollOffset
+			)
+		);
 	};
 
-	// Render the data grid rows.
+	// Create the data grid rows.
 	const dataGridRows: JSX.Element[] = [];
-	for (let rowIndex = context.instance.firstRowIndex, top = 0;
-		rowIndex < context.instance.rows && top < height;
-		rowIndex++
+	for (let rowLayoutEntry = context.instance.firstRow;
+		rowLayoutEntry && rowLayoutEntry.top < context.instance.layoutBottom;
+		rowLayoutEntry = context.instance.getRow(rowLayoutEntry.rowIndex + 1)
 	) {
-		// Render the data grid row.
 		dataGridRows.push(
 			<DataGridRow
-				key={`row-${rowIndex}`}
+				key={`row-${rowLayoutEntry.rowIndex}`}
 				width={width}
-				top={top}
-				rowIndex={rowIndex}
+				top={rowLayoutEntry.top - context.instance.verticalScrollOffset}
+				rowIndex={rowLayoutEntry.rowIndex}
 			/>
 		);
-
-		// Adjust the top for the next row.
-		top += context.instance.getRowHeight(rowIndex);
 	}
 
 	// Render.
@@ -555,91 +518,84 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			{context.instance.columnHeaders && context.instance.rowHeaders &&
 				<DataGridCornerTopLeft
 					onClick={async () => {
-						await context.instance.setScreenPosition(0, 0);
+						await context.instance.setScrollOffsets(0, 0);
 					}}
 				/>
 			}
-
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
 					width={width - context.instance.rowHeadersWidth}
 					height={context.instance.columnHeadersHeight}
 				/>
 			}
-
 			{context.instance.rowHeaders &&
 				<DataGridRowHeaders
 					height={height - context.instance.columnHeadersHeight}
 				/>
 			}
-
 			{context.instance.horizontalScrollbar &&
 				<DataGridScrollbar
+					containerWidth={width}
+					containerHeight={height}
 					orientation='horizontal'
 					bothScrollbarsVisible={
-						context.instance.horizontalScrollbar &&
-						context.instance.verticalScrollbar
+						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={width}
-					containerHeight={height - context.instance.columnHeadersHeight}
-					entries={context.instance.columns}
-					visibleEntries={context.instance.visibleColumns}
-					firstEntry={context.instance.firstColumnIndex}
-					maximumFirstEntry={context.instance.maximumFirstColumnIndex}
-					onDidChangeFirstEntry={async firstColumnIndex =>
-						await context.instance.setFirstColumn(firstColumnIndex)
-					}
+					scrollbarThickness={context.instance.scrollbarThickness}
+					scrollSize={context.instance.scrollWidth}
+					layoutSize={context.instance.layoutWidth}
+					pageSize={context.instance.pageWidth}
+					scrollOffset={context.instance.horizontalScrollOffset}
+					maximumScrollOffset={() => context.instance.maximumHorizontalScrollOffset}
+					onDidChangeScrollOffset={async scrollOffset => {
+						await context.instance.setHorizontalScrollOffset(scrollOffset);
+					}}
 				/>
 			}
-
 			{context.instance.verticalScrollbar &&
 				<DataGridScrollbar
+					containerWidth={width}
+					containerHeight={height}
 					orientation='vertical'
 					bothScrollbarsVisible={
-						context.instance.horizontalScrollbar &&
-						context.instance.verticalScrollbar
+						context.instance.horizontalScrollbar && context.instance.verticalScrollbar
 					}
-					scrollbarWidth={context.instance.scrollbarWidth}
-					containerWidth={width - context.instance.rowHeadersWidth}
-					containerHeight={height}
-					entries={context.instance.rows}
-					visibleEntries={context.instance.visibleRows}
-					firstEntry={context.instance.firstRowIndex}
-					maximumFirstEntry={context.instance.maximumFirstRowIndex}
-					onDidChangeFirstEntry={async firstRowIndex =>
-						await context.instance.setFirstRow(firstRowIndex)
-					}
+					scrollbarThickness={context.instance.scrollbarThickness}
+					scrollSize={context.instance.scrollHeight}
+					layoutSize={context.instance.layoutHeight}
+					pageSize={context.instance.pageHeight}
+					scrollOffset={context.instance.verticalScrollOffset}
+					maximumScrollOffset={() => context.instance.maximumVerticalScrollOffset}
+					onDidChangeScrollOffset={async scrollOffset => {
+						await context.instance.setVerticalScrollOffset(scrollOffset);
+					}}
 				/>
 			}
-
 			{context.instance.horizontalScrollbar && context.instance.verticalScrollbar &&
 				<DataGridScrollbarCorner
 					onClick={async () => {
-						await context.instance.setScreenPosition(
-							context.instance.maximumFirstColumnIndex,
-							context.instance.maximumFirstRowIndex
+						await context.instance.setScrollOffsets(
+							context.instance.maximumHorizontalScrollOffset,
+							context.instance.maximumVerticalScrollOffset
 						);
 					}}
 				/>
 			}
-
 			<div
 				ref={dataGridRowsRef}
 				className='data-grid-rows'
 				style={{
 					width: width - context.instance.rowHeadersWidth,
-					height: height - context.instance.columnHeadersHeight
+					height: height - context.instance.columnHeadersHeight,
+					overflow: 'hidden'
 				}}
 			>
-
 				<div style={{
 					position: 'relative',
 					margin: context.instance.rowsMargin
 				}}>
 					{dataGridRows}
 				</div>
-
 			</div>
 		</div>
 	);

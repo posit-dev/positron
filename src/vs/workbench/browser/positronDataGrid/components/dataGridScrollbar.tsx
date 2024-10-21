@@ -24,22 +24,6 @@ const MIN_SLIDER_SIZE = 20;
  */
 interface DataGridScrollbarProps {
 	/**
-	 * Gets the orientation of the scrollbar.
-	 */
-	readonly orientation: 'horizontal' | 'vertical';
-
-	/**
-	 * Gets a value which indicates whether both horizontal and vertical scrollbars are visible.
-	 */
-	readonly bothScrollbarsVisible: boolean;
-
-	/**
-	 * Gets the scrollbar width. For a vertical scrollbar, this is the horizontal width. For a
-	 * horizontal scrollbar, this is the vertical height.
-	 */
-	readonly scrollbarWidth: number;
-
-	/**
 	 * Gets the container width for the scrollbar.
 	 */
 	readonly containerWidth: number;
@@ -50,30 +34,57 @@ interface DataGridScrollbarProps {
 	readonly containerHeight: number;
 
 	/**
-	 * Gets the number of entries being scrolled.
+	 * Gets the orientation of the scrollbar.
 	 */
-	readonly entries: number;
+	readonly orientation: 'horizontal' | 'vertical';
 
 	/**
-	 * Gets the number of visible entries.
+	 * Gets a value which indicates whether both horizontal and vertical scrollbars are visible.
 	 */
-	readonly visibleEntries: number;
+	readonly bothScrollbarsVisible: boolean;
 
 	/**
-	 * Gets the first entry.
+	 * Gets the scrollbar thickness. For a vertical scrollbar, this is the scrollbar width. For a
+	 * horizontal scrollbar, this is the scrollbar height.
 	 */
-	readonly firstEntry: number;
+	readonly scrollbarThickness: number;
 
 	/**
-	 * Gets the maximum first entry.
+	 * Gets the scroll size. For a vertical scrollbar, this is the height of the scrollable
+	 * content. For a horizontal scrollbar, this is the width of the scrollable content.
 	 */
-	readonly maximumFirstEntry: number;
+	readonly scrollSize: number;
 
 	/**
-	 * First entry changed callback.
-	 * @param firstEntry The first entry.
+	 * Gets the layout size. For a vertical scrollbar, this is the visible height of the content.
+	 * For a horizontal scrollbar, this is the visible width of the content.
 	 */
-	readonly onDidChangeFirstEntry: (firstEntry: number) => void;
+	readonly layoutSize: number;
+
+	/**
+	 * Gets the page size. For a vertical scrollbar, this is the height of a page. For a horizontal
+	 * scrollbar, this is the width of a page.
+	 */
+	readonly pageSize: number;
+
+	/**
+	 * Gets the scroll offset. For a vertical scrollbar, this is the top position of the scrollbar.
+	 * For a horizontal scrollbar, this is the left position of the scrollbar.
+	 */
+	readonly scrollOffset: number;
+
+	/**
+	 * Gets the maximum scroll offset. For a vertical scrollbar, this is the maximum top position of
+	 * the scrollbar. For a horizontal scrollbar, this is the maximum left position of the
+	 * scrollbar.
+	 */
+	readonly maximumScrollOffset: () => number;
+
+	/**
+	 * Scroll offset changed callback.
+	 * @param scrollOffset The scroll offset.
+	 */
+	readonly onDidChangeScrollOffset: (scrollOffset: number) => void;
 }
 
 /**
@@ -81,15 +92,15 @@ interface DataGridScrollbarProps {
  */
 interface ScrollbarState {
 	/**
-	 * Gets the scrollbar size. For a vertical scrollbar, this is the scrollbar height. For a
-	 * horizontal scrollbar, this is the scrollbar width.
-	 */
-	readonly scrollbarSize: number;
-
-	/**
 	 * Gets a value which indicates whether the scrollbar is disabled.
 	 */
 	readonly scrollbarDisabled: boolean;
+
+	/**
+	 * Gets the scrollbar length. For a vertical scrollbar, this is the scrollbar height. For a
+	 * horizontal scrollbar, this is the scrollbar width.
+	 */
+	readonly scrollbarLength: number;
 
 	/**
 	 * Gets the slider size. For a vertical scrollbar, this is the slider height. For a horizontal
@@ -102,13 +113,6 @@ interface ScrollbarState {
 	 * For a horizontal scrollbar, this is the left position of the slider.
 	 */
 	readonly sliderPosition: number;
-
-	/**
-	 * Gets a value which indicates whether to preserve slider position. This is set to true when
-	 * the user has directly positioned the scrollbar before the onDidChangeFirstEntry callback is
-	 * called.
-	 */
-	readonly preserveSliderPosition: boolean;
 }
 
 /**
@@ -118,12 +122,11 @@ interface ScrollbarState {
  */
 export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	// State hooks.
-	const [scrollbarState, setScrollbarState] = useState<ScrollbarState>({
-		scrollbarSize: 0,
+	const [state, setState] = useState<ScrollbarState>({
 		scrollbarDisabled: true,
+		scrollbarLength: 0,
 		sliderSize: 0,
-		sliderPosition: 0,
-		preserveSliderPosition: false
+		sliderPosition: 0
 	});
 
 	/**
@@ -131,62 +134,45 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	 */
 	useLayoutEffect(() => {
 		// Update the scrollbar state.
-		setScrollbarState(previousScrollbarState => {
-			// Calculate the scrollbar size.
-			let scrollbarSize = props.orientation === 'vertical' ?
+		setState((): ScrollbarState => {
+			// Calculate the scrollbar length.
+			let scrollbarLength = props.orientation === 'vertical' ?
 				props.containerHeight :
 				props.containerWidth;
 			if (props.bothScrollbarsVisible) {
-				scrollbarSize -= props.scrollbarWidth;
+				scrollbarLength -= props.scrollbarThickness;
 			}
 
-			// If the scrollbar isn't necessary, return.
-			if (props.visibleEntries >= props.entries && props.firstEntry === 0) {
+			// If the scrollbar isn't necessary, disable it and return.
+			if (props.scrollOffset === 0 && props.maximumScrollOffset() === 0) {
 				return {
-					scrollbarSize,
 					scrollbarDisabled: true,
+					scrollbarLength,
 					sliderSize: 0,
-					sliderPosition: 0,
-					preserveSliderPosition: false
+					sliderPosition: 0
 				};
 			}
 
 			// Calculate the slider size.
-			const sliderSize = pinToRange(
-				(props.visibleEntries / props.entries) * scrollbarSize,
-				MIN_SLIDER_SIZE,
-				scrollbarSize
+			const sliderSize = Math.max(
+				scrollbarLength / props.scrollSize * props.layoutSize,
+				MIN_SLIDER_SIZE
 			);
 
 			// Calculate the slider position.
-			let sliderPosition: number;
-			if (previousScrollbarState.preserveSliderPosition) {
-				sliderPosition = scrollbarState.sliderPosition;
-			} else {
-				if (props.firstEntry === 0) {
-					sliderPosition = 0;
-				} else if (props.firstEntry + props.visibleEntries >= props.entries) {
-					sliderPosition = scrollbarSize - sliderSize;
-				} else {
-					sliderPosition = pinToRange(
-						(scrollbarSize - sliderSize) *
-						(props.firstEntry / (props.entries - props.visibleEntries)),
-						0,
-						scrollbarSize - sliderSize
-					);
-				}
-			}
+			const sliderPosition =
+				props.scrollOffset / props.maximumScrollOffset() *
+				(scrollbarLength - sliderSize);
 
 			// Update the scrollbar state.
 			return {
-				scrollbarSize,
 				scrollbarDisabled: false,
+				scrollbarLength,
 				sliderSize,
-				sliderPosition,
-				preserveSliderPosition: false
+				sliderPosition
 			};
 		});
-	}, [props]);
+	}, [props, state.sliderPosition]);
 
 	/**
 	 * onMouseDown handler. This handles onMouseDown in the scrollbar (i.e. not in the slider).
@@ -194,7 +180,7 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	 */
 	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
 		// If the scrollbar is disabled, return.
-		if (scrollbarState.scrollbarDisabled) {
+		if (state.scrollbarDisabled) {
 			return;
 		}
 
@@ -206,32 +192,16 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 			e.clientY - boundingClientRect.y :
 			e.clientX - boundingClientRect.x;
 
-		// Calculate the slider position so that it is centered on the mouse position in the
-		// scrollbar.
-		const sliderPosition = pinToRange(
-			mousePosition - (scrollbarState.sliderSize / 2),
-			0,
-			scrollbarState.scrollbarSize - scrollbarState.sliderSize
-		);
-
-		// Set the scrollbar state.
-		setScrollbarState(previousScrollbarState => {
-			return {
-				...previousScrollbarState,
-				sliderPosition,
-				preserveSliderPosition: true
-			};
-		});
-
-		// Calculate the first entry.
-		const firstEntry = Math.min(Math.trunc(
-			(props.entries - props.visibleEntries) *
-			sliderPosition / (scrollbarState.scrollbarSize - scrollbarState.sliderSize)),
-			props.maximumFirstEntry
-		);
-
-		// Change the first entry.
-		props.onDidChangeFirstEntry(firstEntry);
+		// If the mouse is above the slider, page up. If the mouse is below the slider, page down.
+		if (mousePosition < state.sliderPosition) {
+			props.onDidChangeScrollOffset(
+				Math.max(props.scrollOffset - props.pageSize, 0)
+			);
+		} else if (mousePosition > state.sliderPosition + state.sliderSize) {
+			props.onDidChangeScrollOffset(
+				Math.min(props.scrollOffset + props.pageSize, props.maximumScrollOffset())
+			);
+		}
 	};
 
 	/**
@@ -241,7 +211,7 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 	 */
 	const pointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		// If the scrollbar is disabled, return.
-		if (scrollbarState.scrollbarDisabled) {
+		if (state.scrollbarDisabled) {
 			return;
 		}
 
@@ -256,7 +226,7 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 
 		// Setup the drag state.
 		const target = DOM.getWindow(e.currentTarget).document.body;
-		const startingSliderPosition = scrollbarState.sliderPosition;
+		const startingSliderPosition = state.sliderPosition;
 		const startingMousePosition = props.orientation === 'vertical' ? e.clientY : e.clientX;
 
 		/**
@@ -297,27 +267,26 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 			const sliderPosition = pinToRange(
 				startingSliderPosition + sliderDelta - startingMousePosition,
 				0,
-				scrollbarState.scrollbarSize - scrollbarState.sliderSize
+				state.scrollbarLength - state.sliderSize
 			);
 
 			// Set the scrollbar state.
-			setScrollbarState(previousScrollbarState => {
+			setState((previousScrollbarState): ScrollbarState => {
 				return {
 					...previousScrollbarState,
-					sliderPosition,
-					preserveSliderPosition: true
+					sliderPosition
 				};
 			});
 
-			// Calculate the first entry.
-			const firstEntry = Math.min(Math.trunc(
-				(props.entries - props.visibleEntries) *
-				sliderPosition / (scrollbarState.scrollbarSize - scrollbarState.sliderSize)),
-				props.maximumFirstEntry
+			// Calculate the slider percent.
+			const sliderPercent = pinToRange(
+				sliderPosition / (state.scrollbarLength - state.sliderSize),
+				0,
+				1
 			);
 
-			// Change the first entry.
-			props.onDidChangeFirstEntry(firstEntry);
+			// Call the onDidChangeScrollOffset callback.
+			props.onDidChangeScrollOffset(props.maximumScrollOffset() * sliderPercent);
 		};
 
 		// Set the capture target of future pointer events to be the current target and add our
@@ -329,24 +298,24 @@ export const DataGridScrollbar = (props: DataGridScrollbarProps) => {
 
 	// Set the scrollbar style.
 	const scrollbarStyle: CSSProperties = props.orientation === 'vertical' ? {
-		width: props.scrollbarWidth,
-		bottom: props.bothScrollbarsVisible ? props.scrollbarWidth : 0,
+		width: props.scrollbarThickness,
+		bottom: props.bothScrollbarsVisible ? props.scrollbarThickness : 0,
 	} : {
-		height: props.scrollbarWidth,
-		right: props.bothScrollbarsVisible ? props.scrollbarWidth : 0
+		height: props.scrollbarThickness,
+		right: props.bothScrollbarsVisible ? props.scrollbarThickness : 0
 	};
 
 	// Set the slider style.
 	const sliderStyle: CSSProperties = props.orientation === 'vertical' ? {
-		top: scrollbarState.sliderPosition,
+		top: state.sliderPosition,
 		// -1 to not overlap border.
-		width: props.scrollbarWidth - 1,
-		height: scrollbarState.sliderSize
+		width: props.scrollbarThickness - 1,
+		height: state.sliderSize
 	} : {
-		left: scrollbarState.sliderPosition,
-		width: scrollbarState.sliderSize,
+		left: state.sliderPosition,
+		width: state.sliderSize,
 		// -1 to not overlap border.
-		height: props.scrollbarWidth - 1
+		height: props.scrollbarThickness - 1
 	};
 
 	// Render.
