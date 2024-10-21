@@ -1436,7 +1436,7 @@ export abstract class DataGridInstance extends Disposable {
 			// Sort the data.
 			await this.doSortData();
 		} else {
-			// If the sort order has changed, update the column sort ey.
+			// If the sort order has changed, update the column sort key.
 			if (ascending !== columnSortKey.ascending) {
 				// Update the sort order.
 				columnSortKey.ascending = ascending;
