@@ -46,9 +46,11 @@ class DuckDBInstance {
 			mainModule: join(distPath, 'duckdb-eh.wasm'),
 			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
 		};
-		// On Windows, we need to call pathToFileURL on mainModule and mainWorkerto get the correct path format
+
+		// On Windows, we need to call pathToFileURL on mainWorker because the web-worker package
+		// does not support Windows paths that start with a drive letter.
 		if (process.platform === 'win32') {
-			bundle.mainModule = pathToFileURL(bundle.mainModule).toString();
+			// Example: file:///c:/Users/sharon/positron/extensions/positron-duckdb/node_modules/@duckdb/duckdb-wasm/dist/duckdb-node-eh.worker.cjs
 			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
 		}
 
