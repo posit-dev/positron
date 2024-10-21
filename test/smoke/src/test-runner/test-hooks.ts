@@ -13,8 +13,8 @@ export const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
 const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH not set';
 const EXTENSIONS_PATH = process.env.EXTENSIONS_PATH || 'EXTENSIONS_PATH not set';
-const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-
+const LOGS_ROOT_PATH = process.env.LOGS_ROOT_PATH || 'LOGS_ROOT_PATH not set';
+const CRASHES_ROOT_PATH = process.env.CRASHES_ROOT_PATH || 'CRASHES_ROOT_PATH not set';
 
 const asBoolean = (value: string | undefined): boolean | undefined => {
 	return value === 'true' ? true : value === 'false' ? false : undefined;
@@ -42,8 +42,8 @@ const OPTS: ParseOptions = {
 export function setupAndStartApp(): Logger {
 	// Dynamically determine the test file name
 	const suiteName = getTestFileName();
-	const logsRootPath = join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
-	const crashesRootPath = join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
+	const logsRootPath = join(LOGS_ROOT_PATH, suiteName);
+	const crashesRootPath = join(CRASHES_ROOT_PATH, suiteName);
 
 	// Create a new logger for this suite
 	const logger = createLogger(logsRootPath);
