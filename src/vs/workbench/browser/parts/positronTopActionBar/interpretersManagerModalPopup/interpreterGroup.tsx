@@ -102,7 +102,12 @@ export const InterpreterGroup = (props: InterpreterGroupProps) => {
 				onActivate={async () => await props.onActivateRuntime(props.interpreterGroup.primaryRuntime)}
 			/>
 			{(alternateRuntimeAlive || showAllVersions) &&
-				<div className='secondary-interpreters'>
+				<div className='secondary-interpreters' onWheel={(e) => {
+					// window.ts#registerListeners() discards the wheel event to prevent back/forward gestures
+					// send it to the div so it is not lost
+					e.currentTarget.scrollBy(e.deltaX, e.deltaY);
+					e.preventDefault();
+				}}>
 					{props.interpreterGroup.alternateRuntimes.map(runtime =>
 						<SecondaryInterpreter
 							key={runtime.runtimeId}
