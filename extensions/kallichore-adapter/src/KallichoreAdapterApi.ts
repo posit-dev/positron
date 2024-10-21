@@ -379,6 +379,8 @@ export class KCApi implements KallichoreAdapterApi {
 		}
 
 		// Test the process ID to see if the server is still running.
+		// If we have no process ID, we can't check the server status, so we
+		// presume it's running to be safe.
 		let serverRunning = true;
 		if (serverState.server_pid) {
 			try {
@@ -388,6 +390,11 @@ export class KCApi implements KallichoreAdapterApi {
 				this._log.warn(`Kallichore server PID ${serverState.server_pid} is not running`);
 				serverRunning = false;
 			}
+		}
+
+		// The server is still running; nothing to do
+		if (serverRunning) {
+			return;
 		}
 
 		// Clean up the state so we don't try to reconnect to a server that
