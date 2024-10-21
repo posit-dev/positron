@@ -15,7 +15,6 @@ import { NotebookDisplayOptions } from 'vs/workbench/contrib/notebook/browser/no
 
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
-// type LongOutputOptions = { outputScrolling: Boolean; outputLineLimit: number };
 
 type TruncationResult =
 	{ content: string } & (
@@ -33,10 +32,9 @@ type TruncationResult =
 function useLongOutputBehavior(content: string): {
 	containerRef: React.RefObject<HTMLDivElement>; truncation: TruncationResult;
 } {
+	const containerRef = React.useRef<HTMLDivElement>(null);
 	const notebookOptions = useNotebookOptions();
 	const layoutOptions = notebookOptions.getLayoutConfiguration();
-
-	const containerRef = React.useRef<HTMLDivElement>(null);
 
 	const [truncation, setTruncation] = React.useState<TruncationResult>(() => truncateToNumberOfLines(content, layoutOptions));
 
@@ -61,7 +59,8 @@ function useLongOutputBehavior(content: string): {
 
 
 function truncateToNumberOfLines(content: string, { outputScrolling, outputLineLimit: maxLines }: LongOutputOptions): TruncationResult {
-	const splitByLine = content.split('\n');
+	// Trim newline from end of content if it exists.
+	const splitByLine = content.trimEnd().split('\n');
 	const numLines = splitByLine.length;
 
 	const isLong = numLines > maxLines;

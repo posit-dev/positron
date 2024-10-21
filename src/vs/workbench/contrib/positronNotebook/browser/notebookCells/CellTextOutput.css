@@ -27,10 +27,6 @@
 	display: block;
 	font-size: 0.95em;
 	opacity: 0.8;
-/*
-	&.truncation-mode-scroll {
-		text-align: right;
-	} */
 }
 
 .positron-notebook-text-output.long-output-scroll + .notebook-output-truncation-message {
