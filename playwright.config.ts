@@ -16,7 +16,7 @@ import { defineConfig, devices } from '@playwright/test';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig({
-  globalSetup: require.resolve('./test/smoke/src/e2e/global.setup.ts'),
+  globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
   // globalTeardown: require.resolve('./global-teardown'),
   testDir: './test/smoke/src/e2e',
   testMatch: '*.test.ts',
@@ -28,7 +28,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
   // workers: process.env.CI ? 1 : undefined,
-  workers: 4, // Number of parallel workers (tests will run in parallel)
+  workers: 3, // Number of parallel workers (tests will run in parallel)
 
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [['html', { open: 'always' }]],

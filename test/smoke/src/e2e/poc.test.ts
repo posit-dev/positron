@@ -14,7 +14,6 @@ const fs = require('fs-extra');
 
 
 test.describe('poc suite', () => {
-	// test.use({ reuseApp: true });
 	test.beforeEach(async ({ app }) => {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 	});
@@ -35,10 +34,6 @@ test.describe('poc suite', () => {
 			.contentFrame()
 			.getByRole('heading'))
 			.toHaveText('Diamond sizes');
-		// const viewerFrame = app.workbench.positronViewer.getViewerFrame('//iframe');
-
-		// // verify preview displays
-		// expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
 	});
 
 	test('poc test 1', async ({ app }) => {

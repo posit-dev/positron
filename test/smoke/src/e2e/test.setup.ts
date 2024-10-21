@@ -21,14 +21,10 @@ import { createLogger } from '../test-runner/logger';
 import { Application, Logger } from '../../../automation';
 import { createApp } from '../utils';
 export const test = base.extend<{
-	// app: Application;
-	// application: playwright.Browser | playwright.ElectronApplication;
-	// reuseApp: boolean;
-	// defaultOptions: any;
 	logger: Logger;
 	tracing: any;
 	page: playwright.Page;
-	// context: playwright.BrowserContext;
+	context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
 	restartApp: any;
 }, {
@@ -127,13 +123,9 @@ export const test = base.extend<{
 		await use(app.code.driver.getPage());
 	},
 
-	// context: async ({ app }, use) => {
-	// 	await use(app.code.driver.getContext());
-	// },
-
-	// application: async ({ app }, use) => {
-	// 	await use(app.code.driver.getApplication());
-	// },
+	context: async ({ app }, use) => {
+		await use(app.code.driver.getContext());
+	},
 
 	logger: [async ({ app }, use, testInfo) => {
 		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
