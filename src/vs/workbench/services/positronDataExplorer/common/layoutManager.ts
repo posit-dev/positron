@@ -410,7 +410,9 @@ export class LayoutManager {
 				});
 
 				// Check if the middle layout entry contains the offset. If so, cache and return it.
-				if (offset >= start && offset < start + (this._layoutOverrides.get(middleIndex) ?? this._defaultSize)) {
+				if (offset >= start &&
+					offset < start + (this._layoutOverrides.get(middleIndex) ?? this._defaultSize)
+				) {
 					// Cache and return the layout entry.
 					return this._cachedLayoutEntry = new LayoutEntry(
 						middleIndex,
