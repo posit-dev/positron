@@ -14,31 +14,31 @@ const test = base.extend<{
 	workerFixture: string;
 	autoWorkerFixture: string;
 }>({
-	workerFixture: [async ({ browser }) => {
+	workerFixture: [async ({ browser }, use) => {
 		// workerFixture setup...
 		await use('workerFixture');
 		// workerFixture teardown...
 	}, { scope: 'worker' }],
 
-	autoWorkerFixture: [async ({ browser }) => {
+	autoWorkerFixture: [async ({ browser }, use) => {
 		// autoWorkerFixture setup...
 		await use('autoWorkerFixture');
 		// autoWorkerFixture teardown...
 	}, { scope: 'worker', auto: true }],
 
-	testFixture: [async ({ page, workerFixture }) => {
+	testFixture: [async ({ page, workerFixture }, use) => {
 		// testFixture setup...
 		await use('testFixture');
 		// testFixture teardown...
 	}, { scope: 'test' }],
 
-	autoTestFixture: [async () => {
+	autoTestFixture: [async ({ }, use) => {
 		// autoTestFixture setup...
 		await use('autoTestFixture');
 		// autoTestFixture teardown...
 	}, { scope: 'test', auto: true }],
 
-	unusedFixture: [async ({ page }) => {
+	unusedFixture: [async ({ page }, use) => {
 		// unusedFixture setup...
 		await use('unusedFixture');
 		// unusedFixture teardown...

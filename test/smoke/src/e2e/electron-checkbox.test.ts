@@ -5,7 +5,12 @@
 
 import { _electron, test, expect } from '@playwright/test';
 
-test('should toggle checkbox', async ({ trace }) => {
+test.only('should toggle checkbox', async ({ trace }) => {
+	console.log('Current Working Directory:', process.cwd());
+	console.log('Command Line Arguments:', process.argv);
+	console.log('Environment Variables', process.env);
+	const env = process.env;
+	console.log('****', process.env.VSCODE_CWD);
 	const electronApp = await _electron.launch({ args: ['main.js'] });
 
 	// Get the first window that the app opens, wait if necessary.
