@@ -132,8 +132,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async openDataset() {
 		const result = await this._execRpc<OpenDatasetResult>({
 			method: DataExplorerBackendRequest.OpenDataset,
-			uri: this.filePath,
-			params: {},
+			params: { uri: this.filePath }
 		});
 
 		if (result.error_message) {
