@@ -9,12 +9,20 @@ import * as cp from 'child_process';
 import * as http from 'http';
 import { cwd } from 'vs/base/common/process';
 import { dirname, extname, resolve, join } from 'vs/base/common/path';
-import { parseArgs, buildHelpMessage, buildPositronVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
+// --- Start Positron ---
+// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
+// --- End Positron ---
+import { parseArgs, buildHelpMessage, buildVersionMessage, OPTIONS, OptionDescriptions, ErrorReporter } from 'vs/platform/environment/node/argv';
 import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
 import { createWaitMarkerFileSync } from 'vs/platform/environment/node/wait';
 import { PipeCommand } from 'vs/workbench/api/node/extHostCLIServer';
 import { hasStdinWithoutTty, getStdinFilePath, readFromStdin } from 'vs/platform/environment/node/stdin';
 import { DeferredPromise } from 'vs/base/common/async';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+// --- End Positron ---
 
 /*
  * Implements a standalone CLI app that opens VS Code from a remote terminal.

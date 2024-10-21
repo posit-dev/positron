@@ -37,7 +37,10 @@ import { DownloadService } from 'vs/platform/download/common/downloadService';
 import { IDownloadService } from 'vs/platform/download/common/download';
 import { IUriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentity';
 import { UriIdentityService } from 'vs/platform/uriIdentity/common/uriIdentityService';
-import { buildHelpMessage, buildPositronVersionMessage, OptionDescriptions } from 'vs/platform/environment/node/argv';
+// --- Start Positron ---
+// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
+// --- End Positron ---
+import { buildHelpMessage, buildVersionMessage, OptionDescriptions } from 'vs/platform/environment/node/argv';
 import { isWindows } from 'vs/base/common/platform';
 import { IExtensionsScannerService } from 'vs/platform/extensionManagement/common/extensionsScannerService';
 import { ExtensionsScannerService } from 'vs/server/node/extensionsScannerService';
@@ -50,6 +53,11 @@ import { LogService } from 'vs/platform/log/common/logService';
 import { LoggerService } from 'vs/platform/log/node/loggerService';
 import { localize } from 'vs/nls';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from 'vs/base/node/unc';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+// --- End Positron ---
 
 class CliMain extends Disposable {
 
