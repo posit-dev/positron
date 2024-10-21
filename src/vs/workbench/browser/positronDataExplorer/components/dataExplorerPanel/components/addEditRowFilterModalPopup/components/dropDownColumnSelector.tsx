@@ -115,9 +115,6 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
 					anchorElement={ref.current}
 					focusInput={focusInput}
-					onItemHighlighted={columnSchema => {
-						console.log(`onItemHighlighted ${columnSchema.column_name}`);
-					}}
 					onItemSelected={columnSchema => {
 						renderer.dispose();
 						setSelectedColumnSchema(columnSchema);

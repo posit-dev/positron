@@ -30,7 +30,6 @@ interface ColumnSelectorModalPopupProps {
 	readonly anchorElement: HTMLElement;
 	readonly searchInput?: string;
 	readonly focusInput?: boolean;
-	readonly onItemHighlighted: (columnSchema: ColumnSchema) => void;
 	readonly onItemSelected: (columnSchema: ColumnSchema) => void;
 }
 
