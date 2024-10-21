@@ -13,7 +13,7 @@ let logger;
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
-describe('Headless Data Explorer - Large Data Frame #web #win #pr', () => {
+describe('Headless Data Explorer - Large Data Frame #web', () => {
 	logger = setupAndStartApp();
 
 	async function testBody(app: Application, fileName: string) {
