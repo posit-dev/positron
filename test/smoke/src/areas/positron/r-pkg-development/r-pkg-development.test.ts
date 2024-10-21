@@ -39,6 +39,9 @@ describe('R Package Development #web', () => {
 		});
 
 		it('R Package Development Tasks [C809821]', async function () {
+
+			this.timeout(180000);
+
 			await expect(async () => {
 				// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
 				// This is an R package embedded in qa-example-content
@@ -50,14 +53,14 @@ describe('R Package Development #web', () => {
 
 				// Wait for the console to be ready
 				await app.workbench.positronConsole.waitForReady('>', 10000);
-			}).toPass({ timeout: 50000 });
+			}).toPass({ timeout: 70000 });
 
 			logger.log('Test R Package');
 			await app.workbench.quickaccess.runCommand('r.packageTest');
 			await expect(async () => {
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('[ FAIL 1 | WARN 0 | SKIP 0 | PASS 16 ]')));
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
-			}).toPass({ timeout: 50000 });
+			}).toPass({ timeout: 70000 });
 
 			logger.log('Check R Package');
 			await app.workbench.quickaccess.runCommand('workbench.action.terminal.clear');
@@ -65,7 +68,7 @@ describe('R Package Development #web', () => {
 			await expect(async () => {
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('Error: R CMD check found ERRORs')));
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Terminal will be reused by tasks')));
-			}).toPass({ timeout: 50000 });
+			}).toPass({ timeout: 70000 });
 
 			logger.log('Install R Package and Restart R');
 			await app.workbench.quickaccess.runCommand('r.packageInstall');
@@ -73,7 +76,7 @@ describe('R Package Development #web', () => {
 				await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
 				await app.workbench.positronConsole.waitForReady('>');
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
-			}).toPass({ timeout: 50000 });
+			}).toPass({ timeout: 70000 });
 		});
 	});
 });

@@ -484,20 +484,45 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		// tied to the R session.
 		// We have to send a restart to the R session, and send a reticulate::repl_python()
 		// command to it.
-		this.pythonSession.shutdown(positron.RuntimeExitReason.Restart);
-		await this.rSession.restart();
-		const rSession = await getRSession();
-		rSession.execute(
-			'reticulate::repl_python()',
-			'start-reticulate',
-			positron.RuntimeCodeExecutionMode.Interactive,
-			positron.RuntimeErrorBehavior.Continue
+		const restart = await positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t('Restarting reticulate'),
+			vscode.l10n.t('This is will also restart the parent R session. Are you sure you want to continue?'),
+			vscode.l10n.t('Yes'),
+			vscode.l10n.t('No')
 		);
+
+		if (!restart) {
+			throw new Error('Restart cancelled.');
+		}
+
+		// The events below will make sure that things occur in the right order:
+		// 1. shutdown the current reticulate session
+		// 2. restart the attached R session
+		// 3. start a new reticulate session.
+		this.pythonSession.onDidEndSession((sess) => {
+			this.rSession.restart();
+		});
+
+		const disposeListener = this.rSession.onDidChangeRuntimeState(async (e) => {
+			if (e === positron.RuntimeState.Ready) {
+				this.rSession.execute(
+					'reticulate::repl_python()',
+					'start-reticulate',
+					positron.RuntimeCodeExecutionMode.Interactive,
+					positron.RuntimeErrorBehavior.Continue
+				);
+				// This should only happen once, so we dispose of this event as soon
+				// as we have started reticulate.
+				disposeListener.dispose();
+			}
+		});
+
+		await this.shutdown(positron.RuntimeExitReason.Shutdown);
 		return;
 	}
 
-	public async shutdown() {
-		await this.pythonSession.shutdown(positron.RuntimeExitReason.Shutdown);
+	public async shutdown(exitReason: positron.RuntimeExitReason) {
+		await this.pythonSession.shutdown(exitReason);
 		// Tell Positron that the kernel has exit. When launching IPykernel from a standalone
 		// process, when the kernel exits, then all of it's threads, specially the IOPub thread
 		// holding the ZeroMQ sockets will cease to exist, and thus Positron identifies that the
@@ -617,7 +642,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	runtimeVersion: string = '1.0';
 	runtimeSource: string = 'reticulate';
 	languageVersion = '1.0';
-	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Immediate;
+	startupBehavior: positron.LanguageRuntimeStartupBehavior = positron.LanguageRuntimeStartupBehavior.Manual;
 	sessionLocation: positron.LanguageRuntimeSessionLocation = positron.LanguageRuntimeSessionLocation.Workspace;
 }
 

@@ -70,6 +70,7 @@
         "no-control-regex": "off",
         "no-extend-native": "off",
         "no-multi-str": "off",
+        "no-shadow": "off",
         "no-param-reassign": "off",
         "no-prototype-builtins": "off",
         "no-restricted-syntax": [

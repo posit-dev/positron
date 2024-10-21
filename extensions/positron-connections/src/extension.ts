@@ -8,12 +8,41 @@ import * as positron from 'positron';
 import { ConnectionItem, ConnectionItemsProvider, isActiveConnectionItem, DatabaseConnectionItem, DisconnectedConnectionItem } from './connection';
 import { PositronConnectionsComm } from './comms/ConnectionsComms';
 
+
+export function activate(context: vscode.ExtensionContext) {
+
+	const config = vscode.workspace.getConfiguration('positron');
+	const enabled = !config.get<boolean>('connections', false);
+	vscode.commands.executeCommand('setContext', 'positron-connections.connectionsEnabled', enabled);
+
+	vscode.workspace.onDidChangeConfiguration((e) => {
+		if (e.affectsConfiguration('positron.connections')) {
+			const config = vscode.workspace.getConfiguration('positron');
+			const enabled = !config.get<boolean>('connections', false);
+			if (enabled) {
+				activateImpl(context);
+			} else {
+				deactivate(context);
+			}
+			vscode.commands.executeCommand(
+				'setContext',
+				'positron-connections.connectionsEnabled',
+				enabled
+			);
+		}
+	});
+
+	if (enabled) {
+		return activateImpl(context);
+	}
+}
+
 /**
  * Activates the extension.
  *
  * @param context An ExtensionContext that contains the extention context.
  */
-export function activate(context: vscode.ExtensionContext) {
+export function activateImpl(context: vscode.ExtensionContext) {
 	const viewId = 'connections';
 	const connectionProvider = new ConnectionItemsProvider(context);
 	const connectionTreeView = vscode.window.createTreeView(viewId, { treeDataProvider: connectionProvider });
@@ -105,4 +134,10 @@ export function activate(context: vscode.ExtensionContext) {
 	// this allows vscode.extensions.getExtension('vscode.positron-connections').exports
 	// to acccess the ConnectionItemsProvider instance
 	return connectionProvider;
+}
+
+function deactivate(context: vscode.ExtensionContext) {
+	context.subscriptions.forEach((e) => {
+		e.dispose();
+	});
 }

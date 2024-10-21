@@ -5,13 +5,13 @@
 
 import * as React from 'react';
 
-export type ValidatorFn = (value: string | number) => (string | undefined) | Promise<string | undefined>;
+export type ValidatorFn<T> = (value: T) => (string | undefined) | Promise<string | undefined>;
 
 /**
  * A hook to debounce the validation of input values.
  * @param validator The function to validate the input value. Can be synchronous or asynchronous.
  */
-export function useDebouncedValidator({ validator, value, debounceDelayMs = 100 }: { validator?: ValidatorFn; value: string | number; debounceDelayMs?: number }) {
+export function useDebouncedValidator<T>({ validator, value, debounceDelayMs = 100 }: { validator?: ValidatorFn<T>; value: T; debounceDelayMs?: number }) {
 	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
 
 	const callbackTimeoutRef = React.useRef<NodeJS.Timeout | undefined>();

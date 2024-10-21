@@ -6,6 +6,34 @@
 	},
 	"methods": [
 		{
+			"name": "open_dataset",
+			"summary": "Request to open a dataset given a URI",
+			"description": "Request to open a dataset given a URI",
+			"params": [
+				{
+					"name": "uri",
+					"description": "The resource locator or file path",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "open_dataset_result",
+					"type": "object",
+					"required": [],
+					"properties": {
+						"error_message": {
+							"description": "An error message if opening the dataset failed",
+							"type": "string"
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "get_schema",
 			"summary": "Request schema",
 			"description": "Request subset of column schemas for a table-like object",

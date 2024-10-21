@@ -3,19 +3,15 @@
 	"comment": "https://macromates.com/manual/en/language_grammars",
 	"name": "R",
 	"scopeName": "source.r",
-	"fileTypes": [
-		"R",
-		"r",
-		"Rprofile"
-	],
+	"fileTypes": ["R", "r", "Rprofile"],
 	"foldingStartMarker": "\\{\\s*(?:#|$)",
 	"foldingStopMarker": "^\\s*\\}",
 	"variables": {
-		"bracket": "keyword.operator",
-		"identifier": "constant.other",
+		"bracket": "meta.bracket",
+		"identifier": "variable.object",
 		"latex": "keyword.other",
 		"operator": "keyword.operator",
-		"parameter": "entity.name.tag",
+		"parameter": "variable.parameter",
 		"roxygen-tag": "keyword.other"
 	},
 	"patterns": [
@@ -179,15 +175,18 @@
 			]
 		},
 		"function-call": {
-			"name": "entity.name.function",
-			"match": "([\\w.]+)(?=\\()"
+			"match": "([\\w.]+)(?=\\()",
+			"captures": {
+				"0": { "name": "meta.function-call" },
+				"1": { "name": "entity.name.function" }
+			}
 		},
 		"function-definition": {
-			"name": "keyword",
+			"name": "meta.function.definition",
 			"begin": "(function)\\s*(\\()",
 			"beginCaptures": {
 				"1": {
-					"name": "keyword"
+					"name": "keyword.other"
 				},
 				"2": {
 					"name": "{{ bracket }}"

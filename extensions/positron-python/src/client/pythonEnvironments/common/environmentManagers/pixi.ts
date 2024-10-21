@@ -9,7 +9,7 @@ import { OSType, getOSType, getUserHomeDir } from '../../../common/utils/platfor
 import { exec, getPythonSetting, onDidChangePythonSetting, pathExists, pathExistsSync } from '../externalDependencies';
 import { cache } from '../../../common/utils/decorators';
 import { isTestExecution } from '../../../common/constants';
-import { traceError, traceVerbose, traceWarn } from '../../../logging';
+import { traceVerbose, traceWarn } from '../../../logging';
 import { OUTPUT_MARKER_SCRIPT } from '../../../common/process/internal/scripts';
 
 export const PIXITOOLPATH_SETTING_KEY = 'pixiToolPath';
@@ -119,7 +119,7 @@ export class Pixi {
                     yield customPixiToolPath;
                 }
             } catch (ex) {
-                traceError(`Failed to get pixi setting`, ex);
+                traceWarn(`Failed to get pixi setting`, ex);
             }
 
             // Check unqualified filename, in case it's on PATH.
@@ -169,16 +169,22 @@ export class Pixi {
      */
     @cache(1_000, true, 1_000)
     public async getPixiInfo(cwd: string): Promise<PixiInfo | undefined> {
-        const infoOutput = await exec(this.command, ['info', '--json'], {
-            cwd,
-            throwOnStdErr: false,
-        }).catch(traceError);
-        if (!infoOutput) {
+        try {
+            const infoOutput = await exec(this.command, ['info', '--json'], {
+                cwd,
+                throwOnStdErr: false,
+            });
+
+            if (!infoOutput || !infoOutput.stdout) {
+                return undefined;
+            }
+
+            const pixiInfo: PixiInfo = JSON.parse(infoOutput.stdout);
+            return pixiInfo;
+        } catch (error) {
+            traceWarn(`Failed to get pixi info for ${cwd}`, error);
             return undefined;
         }
-
-        const pixiInfo: PixiInfo = JSON.parse(infoOutput.stdout);
-        return pixiInfo;
     }
 
     /**
@@ -186,14 +192,22 @@ export class Pixi {
      */
     @cache(30_000, true, 10_000)
     public async getVersion(): Promise<string | undefined> {
-        const versionOutput = await exec(this.command, ['--version'], {
-            throwOnStdErr: false,
-        }).catch(traceError);
-        if (!versionOutput) {
+        try {
+            const versionOutput = await exec(this.command, ['--version'], {
+                throwOnStdErr: false,
+            });
+            if (!versionOutput || !versionOutput.stdout) {
+                return undefined;
+            }
+            const versionParts = versionOutput.stdout.split(' ');
+            if (versionParts.length < 2) {
+                return undefined;
+            }
+            return versionParts[1].trim();
+        } catch (error) {
+            traceVerbose(`Failed to get pixi version`, error);
             return undefined;
         }
-
-        return versionOutput.stdout.split(' ')[1].trim();
     }
 
     /**
@@ -279,13 +293,24 @@ export async function getPixiEnvironmentFromInterpreter(
 
     // Usually the pixi environments are stored under `<projectDir>/.pixi/envs/<environment>/`. So,
     // we walk backwards to determine the project directory.
-    const envName = path.basename(prefix);
-    const envsDir = path.dirname(prefix);
-    const dotPixiDir = path.dirname(envsDir);
-    const pixiProjectDir = path.dirname(dotPixiDir);
+    let envName: string | undefined;
+    let envsDir: string;
+    let dotPixiDir: string;
+    let pixiProjectDir: string;
+    let pixiInfo: PixiInfo | undefined;
 
-    // Invoke pixi to get information about the pixi project
-    const pixiInfo = await pixi.getPixiInfo(pixiProjectDir);
+    try {
+        envName = path.basename(prefix);
+        envsDir = path.dirname(prefix);
+        dotPixiDir = path.dirname(envsDir);
+        pixiProjectDir = path.dirname(dotPixiDir);
+
+        // Invoke pixi to get information about the pixi project
+        pixiInfo = await pixi.getPixiInfo(pixiProjectDir);
+    } catch (error) {
+        traceWarn('Error processing paths or getting Pixi Info:', error);
+    }
+
     if (!pixiInfo || !pixiInfo.project_info) {
         traceWarn(`failed to determine pixi project information for the interpreter at ${interpreterPath}`);
         return undefined;

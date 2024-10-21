@@ -14,6 +14,17 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 /**
  * Result in Methods
  */
+export interface OpenDatasetResult {
+	/**
+	 * An error message if opening the dataset failed
+	 */
+	error_message?: string;
+
+}
+
+/**
+ * Result in Methods
+ */
 export interface SearchSchemaResult {
 	/**
 	 * A schema containing matching columns up to the max_results limit
@@ -1160,6 +1171,158 @@ export enum SupportStatus {
 }
 
 /**
+ * Parameters for the OpenDataset method.
+ */
+export interface OpenDatasetParams {
+	/**
+	 * The resource locator or file path
+	 */
+	uri: string;
+}
+
+/**
+ * Parameters for the GetSchema method.
+ */
+export interface GetSchemaParams {
+	/**
+	 * The column indices (relative to the filtered/selected columns) to
+	 * fetch
+	 */
+	column_indices: Array<number>;
+}
+
+/**
+ * Parameters for the SearchSchema method.
+ */
+export interface SearchSchemaParams {
+	/**
+	 * Column filters to apply when searching
+	 */
+	filters: Array<ColumnFilter>;
+
+	/**
+	 * Index (starting from zero) of first result to fetch (for paging)
+	 */
+	start_index: number;
+
+	/**
+	 * Maximum number of resulting column schemas to fetch from the start
+	 * index
+	 */
+	max_results: number;
+}
+
+/**
+ * Parameters for the GetDataValues method.
+ */
+export interface GetDataValuesParams {
+	/**
+	 * Array of column selections
+	 */
+	columns: Array<ColumnSelection>;
+
+	/**
+	 * Formatting options for returning data values as strings
+	 */
+	format_options: FormatOptions;
+}
+
+/**
+ * Parameters for the GetRowLabels method.
+ */
+export interface GetRowLabelsParams {
+	/**
+	 * Selection of row labels
+	 */
+	selection: ArraySelection;
+
+	/**
+	 * Formatting options for returning labels as strings
+	 */
+	format_options: FormatOptions;
+}
+
+/**
+ * Parameters for the ExportDataSelection method.
+ */
+export interface ExportDataSelectionParams {
+	/**
+	 * The data selection
+	 */
+	selection: TableSelection;
+
+	/**
+	 * Result string format
+	 */
+	format: ExportFormat;
+}
+
+/**
+ * Parameters for the SetColumnFilters method.
+ */
+export interface SetColumnFiltersParams {
+	/**
+	 * Column filters to apply (or pass empty array to clear column filters)
+	 */
+	filters: Array<ColumnFilter>;
+}
+
+/**
+ * Parameters for the SetRowFilters method.
+ */
+export interface SetRowFiltersParams {
+	/**
+	 * Zero or more filters to apply
+	 */
+	filters: Array<RowFilter>;
+}
+
+/**
+ * Parameters for the SetSortColumns method.
+ */
+export interface SetSortColumnsParams {
+	/**
+	 * Pass zero or more keys to sort by. Clears any existing keys
+	 */
+	sort_keys: Array<ColumnSortKey>;
+}
+
+/**
+ * Parameters for the GetColumnProfiles method.
+ */
+export interface GetColumnProfilesParams {
+	/**
+	 * Async callback unique identifier
+	 */
+	callback_id: string;
+
+	/**
+	 * Array of requested profiles
+	 */
+	profiles: Array<ColumnProfileRequest>;
+
+	/**
+	 * Formatting options for returning data values as strings
+	 */
+	format_options: FormatOptions;
+}
+
+/**
+ * Parameters for the ReturnColumnProfiles method.
+ */
+export interface ReturnColumnProfilesParams {
+	/**
+	 * Async callback unique identifier
+	 */
+	callback_id: string;
+
+	/**
+	 * Array of individual column profile results
+	 */
+	profiles: Array<ColumnProfileResult>;
+}
+
+/**
  * Event: Request to sync after a schema change
  */
 export interface SchemaUpdateEvent {
@@ -1194,6 +1357,7 @@ export enum DataExplorerFrontendEvent {
 }
 
 export enum DataExplorerBackendRequest {
+	OpenDataset = 'open_dataset',
 	GetSchema = 'get_schema',
 	SearchSchema = 'search_schema',
 	GetDataValues = 'get_data_values',
@@ -1215,6 +1379,19 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
 		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
 		this.onDidReturnColumnProfiles = super.createEventEmitter('return_column_profiles', ['callback_id', 'profiles']);
+	}
+
+	/**
+	 * Request to open a dataset given a URI
+	 *
+	 * Request to open a dataset given a URI
+	 *
+	 * @param uri The resource locator or file path
+	 *
+	 * @returns undefined
+	 */
+	openDataset(uri: string): Promise<OpenDatasetResult> {
+		return super.performRpc('open_dataset', ['uri'], [uri]);
 	}
 
 	/**

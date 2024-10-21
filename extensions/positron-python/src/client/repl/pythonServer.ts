@@ -9,9 +9,13 @@ import { EventName } from '../telemetry/constants';
 
 const SERVER_PATH = path.join(EXTENSION_ROOT_DIR, 'python_files', 'python_server.py');
 let serverInstance: PythonServer | undefined;
+export interface ExecutionResult {
+    status: boolean;
+    output: string;
+}
 
 export interface PythonServer extends Disposable {
-    execute(code: string): Promise<string>;
+    execute(code: string): Promise<ExecutionResult | undefined>;
     interrupt(): void;
     input(): void;
     checkValidCommand(code: string): Promise<boolean>;
@@ -52,8 +56,15 @@ class PythonServerImpl implements Disposable {
     }
 
     @captureTelemetry(EventName.EXECUTION_CODE, { scope: 'selection' }, false)
-    public execute(code: string): Promise<string> {
-        return this.connection.sendRequest('execute', code);
+    public async execute(code: string): Promise<ExecutionResult | undefined> {
+        try {
+            const result = await this.connection.sendRequest('execute', code);
+            return result as ExecutionResult;
+        } catch (err) {
+            const error = err as Error;
+            traceError(`Error getting response from REPL server:`, error);
+        }
+        return undefined;
     }
 
     public interrupt(): void {
@@ -64,8 +75,8 @@ class PythonServerImpl implements Disposable {
     }
 
     public async checkValidCommand(code: string): Promise<boolean> {
-        const completeCode = await this.connection.sendRequest('check_valid_command', code);
-        if (completeCode === 'True') {
+        const completeCode: ExecutionResult = await this.connection.sendRequest('check_valid_command', code);
+        if (completeCode.output === 'True') {
             return new Promise((resolve) => resolve(true));
         }
         return new Promise((resolve) => resolve(false));
@@ -78,12 +89,14 @@ class PythonServerImpl implements Disposable {
     }
 }
 
-export function createPythonServer(interpreter: string[]): PythonServer {
+export function createPythonServer(interpreter: string[], cwd?: string): PythonServer {
     if (serverInstance) {
         return serverInstance;
     }
 
-    const pythonServer = ch.spawn(interpreter[0], [...interpreter.slice(1), SERVER_PATH]);
+    const pythonServer = ch.spawn(interpreter[0], [...interpreter.slice(1), SERVER_PATH], {
+        cwd, // Launch with correct workspace directory
+    });
 
     pythonServer.stderr.on('data', (data) => {
         traceError(data.toString());

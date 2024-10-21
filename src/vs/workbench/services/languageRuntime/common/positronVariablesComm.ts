@@ -162,6 +162,108 @@ export enum VariableKind {
 }
 
 /**
+ * Parameters for the Clear method.
+ */
+export interface ClearParams {
+	/**
+	 * Whether to clear hidden objects in addition to normal variables
+	 */
+	include_hidden_objects: boolean;
+}
+
+/**
+ * Parameters for the Delete method.
+ */
+export interface DeleteParams {
+	/**
+	 * The names of the variables to delete.
+	 */
+	names: Array<string>;
+}
+
+/**
+ * Parameters for the Inspect method.
+ */
+export interface InspectParams {
+	/**
+	 * The path to the variable to inspect, as an array of access keys.
+	 */
+	path: Array<string>;
+}
+
+/**
+ * Parameters for the ClipboardFormat method.
+ */
+export interface ClipboardFormatParams {
+	/**
+	 * The path to the variable to format, as an array of access keys.
+	 */
+	path: Array<string>;
+
+	/**
+	 * The requested format for the variable, as a MIME type
+	 */
+	format: ClipboardFormatFormat;
+}
+
+/**
+ * Parameters for the View method.
+ */
+export interface ViewParams {
+	/**
+	 * The path to the variable to view, as an array of access keys.
+	 */
+	path: Array<string>;
+}
+
+/**
+ * Parameters for the Update method.
+ */
+export interface UpdateParams {
+	/**
+	 * An array of variables that have been newly assigned.
+	 */
+	assigned: Array<Variable>;
+
+	/**
+	 * An array of variables that were not evaluated for value updates.
+	 */
+	unevaluated: Array<Variable>;
+
+	/**
+	 * An array of variable names that have been removed.
+	 */
+	removed: Array<string>;
+
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+}
+
+/**
+ * Parameters for the Refresh method.
+ */
+export interface RefreshParams {
+	/**
+	 * An array listing all the variables in the current session.
+	 */
+	variables: Array<Variable>;
+
+	/**
+	 * The number of variables in the current session.
+	 */
+	length: number;
+
+	/**
+	 * The version of the view (incremented with each update), or 0 if the
+	 * backend doesn't track versions.
+	 */
+	version: number;
+}
+
+/**
  * Event: Update variables
  */
 export interface UpdateEvent {

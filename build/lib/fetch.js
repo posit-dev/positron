@@ -47,7 +47,10 @@ async function fetchUrl(url, options, retries = 10, retryDelay = 1000) {
             startTime = new Date().getTime();
         }
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 30 * 1000);
+        // --- Start Positron ---
+        const timeoutSeconds = options.timeoutSeconds ?? 30;
+        const timeout = setTimeout(() => controller.abort(), timeoutSeconds * 1000);
+        // --- End Positron ---
         try {
             const response = await fetch(url, {
                 ...options.nodeFetchOptions,

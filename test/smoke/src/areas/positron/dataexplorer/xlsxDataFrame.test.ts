@@ -11,7 +11,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 
-describe('Data Explorer - XLSX #web', () => {
+describe('Data Explorer - XLSX #web #win', () => {
 	logger = setupAndStartApp();
 
 	describe('Python Data Explorer (XLSX file)', () => {

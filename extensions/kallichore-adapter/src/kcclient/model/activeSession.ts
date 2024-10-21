@@ -67,6 +67,14 @@ export class ActiveSession {
     'continuationPrompt': string;
     'executionQueue': ExecutionQueue;
     'status': Status;
+    /**
+    * The number of seconds the session has been idle, or 0 if the session is busy
+    */
+    'idleSeconds': number;
+    /**
+    * The number of seconds the session has been busy, or 0 if the session is idle
+    */
+    'busySeconds': number;
 
     static discriminator: string | undefined = undefined;
 
@@ -145,6 +153,16 @@ export class ActiveSession {
             "name": "status",
             "baseName": "status",
             "type": "Status"
+        },
+        {
+            "name": "idleSeconds",
+            "baseName": "idle_seconds",
+            "type": "number"
+        },
+        {
+            "name": "busySeconds",
+            "baseName": "busy_seconds",
+            "type": "number"
         }    ];
 
     static getAttributeTypeMap() {

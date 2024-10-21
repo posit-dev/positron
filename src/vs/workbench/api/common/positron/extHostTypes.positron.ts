@@ -288,6 +288,14 @@ export enum LanguageRuntimeStartupBehavior {
 	 * usually used for runtimes that only provide REPLs
 	 */
 	Explicit = 'explicit',
+
+	/**
+	 * The runtime only starts up if manually requested by the user.
+	 * The difference from Explicit, is that Manual startup never
+	 * starts automatically, even if the run time is affiliated to the
+	 * workspace.
+	 */
+	Manual = 'manual'
 }
 
 /**

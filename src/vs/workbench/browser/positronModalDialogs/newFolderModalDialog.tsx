@@ -153,7 +153,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 					autoFocus
 					value={result.folder}
 					onChange={e => setResult({ ...result, folder: e.target.value })}
-					validator={x => checkIfPathValid(x, { parentPath: result.parentFolder })}
+					validator={(x: string | number) => checkIfPathValid(x, { parentPath: result.parentFolder })}
 				/>
 				<LabeledFolderInput
 					label={(() => localize(
