@@ -75,6 +75,10 @@
 	padding-left: 5px;
 }
 
+.connections-icon.disabled {
+	opacity: 0.7;
+}
+
 .connections-item .expand-collapse-area {
 	width: 26px;
 	display: flex;
