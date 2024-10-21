@@ -478,7 +478,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 					// window.ts#registerListeners() discards the wheel event to prevent back/forward gestures
 					// send it to the div so it is not lost
 					e.currentTarget.scrollBy(e.deltaX, e.deltaY);
-					e.stopPropagation();
+					e.preventDefault();
 				}}
 			>
 				<div ref={popupChildrenRef} className='positron-modal-popup-children'>
