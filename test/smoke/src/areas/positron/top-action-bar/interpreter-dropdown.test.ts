@@ -8,19 +8,15 @@ import {
 	Application,
 	PositronConsole,
 	PositronInterpreterDropdown,
-	PositronUserSettingsFixtures,
-	QuickAccess,
 } from '../../../../../automation';
 
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
+describe('Interpreter Dropdown in Top Action Bar #web #pr', () => {
 	setupAndStartApp();
 	let app: Application;
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
-	let quickaccess: QuickAccess;
-	let userSettings: PositronUserSettingsFixtures;
 	let desiredPython: string;
 	let desiredR: string;
 
@@ -28,74 +24,30 @@ describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 		app = this.app as Application;
 		interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		positronConsole = app.workbench.positronConsole;
-		quickaccess = app.workbench.quickaccess;
-		userSettings = new PositronUserSettingsFixtures(app);
 		desiredPython = process.env.POSITRON_PY_VER_SEL!;
 		desiredR = process.env.POSITRON_R_VER_SEL!;
-
-		/**
-		 * Ensure that no interpreters are running before starting the tests. This is necessary
-		 * because interactions with the interpreter dropdown to select an interpreter can get
-		 * bulldozed by automatic interpreter startup.
-		 */
-
-		// Wait for the console to be ready
-		await positronConsole.waitForReadyOrNoInterpreter();
-
-		try {
-			// If no interpreters are running, we're good to go
-			await positronConsole.waitForNoInterpretersRunning(50);
-			return;
-		} catch (error) {
-			try {
-				// If an interpreter is running, we'll shut it down and disable automatic startup
-
-				// Shutdown running interpreter
-				await quickaccess.runCommand('workbench.action.languageRuntime.shutdown');
-				await positronConsole.waitForInterpreterShutdown();
-
-				// Disable automatic startup of interpreters in user settings. This setting will be
-				// cleared in the next app startup for a subsequent test, so we don't need to unset
-				// it.
-				await userSettings.setUserSetting([
-					'positron.interpreters.automaticStartup',
-					'false',
-				]);
-
-				// Reload the window
-				// keepOpen is set to true so we don't need to wait for the prompt input to close
-				// (it will never close since the app gets reloaded)
-				await quickaccess.runCommand('workbench.action.reloadWindow', { keepOpen: true });
-			} catch (e) {
-				this.app.code.driver.takeScreenshot('interpreterDropdownSetup');
-				throw e;
-			}
-		}
 	});
 
 	it('Python interpreter starts and shows running [C707212]', async function () {
-		// Start a Python interpreter using the interpreter dropdown
-		await expect(
-			async () =>
-				await interpreterDropdown.selectInterpreter('Python', desiredPython)
-		).toPass({ timeout: 30_000 });
+		this.timeout(120_000);
 
-		// Install ipykernel if prompted
-		if (await this.app.workbench.positronPopups.popupCurrentlyOpen()) {
-			await this.app.workbench.positronPopups.installIPyKernel();
-		}
-
-		// Wait for the console to be ready
-		await positronConsole.waitForReady('>>>', 10_000);
+		await startInterpreter(app, {
+			interpreterType: 'Python',
+			version: desiredPython,
+			closeDropdown: false,
+		});
 
 		// The interpreter selected in the dropdown matches the desired interpreter
+		console.log('Checking selected interpreter...');
 		const interpreterInfo =
 			await interpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.version).toBeDefined();
 		expect(interpreterInfo!.version).toContain(desiredPython);
 		expect(interpreterInfo!.path).toBeDefined();
+		console.log('Selected interpreter checked.');
 
 		// The interpreter dropdown should show the expected running indicators
+		console.log('Checking running indicators...');
 		await expect(async () => {
 			expect(
 				await interpreterDropdown.primaryInterpreterShowsRunning(
@@ -103,13 +55,20 @@ describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 				)
 			).toBe(true);
 		}).toPass({ timeout: 30_000 });
+		console.log('Running indicators checked.');
 
 		// Close the interpreter dropdown.
 		await interpreterDropdown.closeInterpreterDropdown();
 	});
 
 	it('Python interpreter restarts and shows running [C707213]', async function () {
-		// NOTE: This test is dependent on 'Python interpreter starts and shows running' having run successfully
+		this.timeout(120_000);
+
+		await startInterpreter(app, {
+			interpreterType: 'Python',
+			version: desiredPython,
+			closeDropdown: true,
+		});
 
 		// Restart the active Python interpreter
 		await interpreterDropdown.restartPrimaryInterpreter('Python');
@@ -140,16 +99,13 @@ describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 	});
 
 	it('R interpreter starts and shows running [C707214]', async function () {
-		// Start an R interpreter using the interpreter dropdown
-		await expect(
-			async () => await interpreterDropdown.selectInterpreter('R', desiredR)
-		).toPass({ timeout: 30_000 });
+		this.timeout(120_000);
 
-		// Close the interpreter dropdown.
-		await interpreterDropdown.closeInterpreterDropdown();
-
-		// Wait for the console to be ready
-		await positronConsole.waitForReady('>', 10_000);
+		await startInterpreter(app, {
+			interpreterType: 'R',
+			version: desiredR,
+			closeDropdown: true,
+		});
 
 		// The interpreter selected in the dropdown matches the desired interpreter
 		const interpreterInfo =
@@ -175,7 +131,13 @@ describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 	});
 
 	it('R interpreter stops and shows inactive [C707215]', async function () {
-		// NOTE: This test is dependent on 'R interpreter starts and shows running' having run successfully
+		this.timeout(120_000);
+
+		await startInterpreter(app, {
+			interpreterType: 'R',
+			version: desiredR,
+			closeDropdown: true,
+		});
 
 		// Stop the active R interpreter
 		expect(async () => {
@@ -196,4 +158,49 @@ describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 		// Close the interpreter dropdown.
 		await interpreterDropdown.closeInterpreterDropdown();
 	});
+
+
+	async function startInterpreter(
+		app: Application,
+		options: { interpreterType: 'Python' | 'R'; version: string; closeDropdown: boolean }
+	) {
+		const expectedPrompt = options.interpreterType === 'Python' ? '>>>' : '>';
+		const interpreterDropdown = app.workbench.positronInterpreterDropdown;
+		const positronConsole = app.workbench.positronConsole;
+
+		await expect(async () => {
+			// Start the desired interpreter using the dropdown
+			console.log(`*** Selecting ${options.interpreterType} interpreter...`);
+			await expect(
+				async () =>
+					await interpreterDropdown.selectInterpreter(options.interpreterType, options.version)
+			).toPass({ timeout: 60_000 });
+			console.log(`${options.interpreterType} interpreter selected.`);
+
+			// Install `ipykernel` if a popup prompts for it (only applicable for Python)
+			if (options.interpreterType === 'Python' && await app.workbench.positronPopups.popupCurrentlyOpen()) {
+				console.log('Installing IPyKernel...');
+				await app.workbench.positronPopups.installIPyKernel();
+				console.log('IPyKernel installed.');
+			}
+
+			// Close the interpreter dropdown if specified
+			if (options.closeDropdown) {
+				console.log('Closing interpreter dropdown...');
+				await interpreterDropdown.closeInterpreterDropdown();
+				console.log('Interpreter dropdown closed.');
+			}
+
+			// Wait for the console to be ready with the specified prompt
+			console.log('Waiting for console to be ready...');
+			const start = new Date();
+			await app.code.driver.takeScreenshot(`before_wait_for_ready_${Date.now()}`);
+			await positronConsole.waitForReady(expectedPrompt, 30_000);
+			await app.code.driver.takeScreenshot(`after_wait_for_ready_${Date.now()}`);
+			const end = new Date();
+			const duration = (end.getTime() - start.getTime()) / 1000;
+			console.log(`Console is ready. Time taken: ${duration} seconds.`);
+		}).toPass({ timeout: 60_000 });
+	}
+
 });
