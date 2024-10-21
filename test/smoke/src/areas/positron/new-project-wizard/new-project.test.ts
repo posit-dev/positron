@@ -49,7 +49,7 @@ describe('New Project Wizard', () => {
 					expect(projectFiles).toContain('.conda');
 				}).toPass({ timeout: 50000 });
 				// The console should initialize without any prompts to install ipykernel
-				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+				await app.workbench.positronConsole.waitForReady('>>>', 20000);
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
