@@ -214,7 +214,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
 				.catch((error) => {
-					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", error.toString()));
+					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
 				})
 				.finally(() => {
 					setRendering(false);
@@ -326,6 +326,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Jpeg, title: RenderFormat.Jpeg.toUpperCase(), value: RenderFormat.Jpeg }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Svg, title: RenderFormat.Svg.toUpperCase(), value: RenderFormat.Svg }),
 											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Pdf, title: RenderFormat.Pdf.toUpperCase(), value: RenderFormat.Pdf }),
+											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Tiff, title: RenderFormat.Tiff.toUpperCase(), value: RenderFormat.Tiff }),
 										]} />
 								</label>
 							</div>

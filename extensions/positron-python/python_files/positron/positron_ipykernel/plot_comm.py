@@ -32,6 +32,8 @@ class RenderFormat(str, enum.Enum):
 
     Pdf = "pdf"
 
+    Tiff = "tiff"
+
 
 @enum.unique
 class PlotUnit(str, enum.Enum):

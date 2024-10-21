@@ -151,7 +151,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							maxLength={65}
 							pathComponents={
 								locationForNewEnv(
-									context.parentFolder,
+									context.parentFolder.path,
 									context.projectName,
 									envProviderNameForId(envProviderId, envProviders!)
 								)

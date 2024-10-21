@@ -12,12 +12,42 @@ import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/lan
 import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 
 /**
+ * Parameters for the ShowHelpTopic method.
+ */
+export interface ShowHelpTopicParams {
+	/**
+	 * The help topic to show
+	 */
+	topic: string;
+}
+
+/**
  * Possible values for Kind in ShowHelp
  */
 export enum ShowHelpKind {
 	Html = 'html',
 	Markdown = 'markdown',
 	Url = 'url'
+}
+
+/**
+ * Parameters for the ShowHelp method.
+ */
+export interface ShowHelpParams {
+	/**
+	 * The help content to show
+	 */
+	content: string;
+
+	/**
+	 * The type of content to show
+	 */
+	kind: ShowHelpKind;
+
+	/**
+	 * Whether to focus the Help pane when the content is displayed.
+	 */
+	focus: boolean;
 }
 
 /**

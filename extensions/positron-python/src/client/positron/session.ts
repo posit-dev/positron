@@ -277,7 +277,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         await this._installIpykernel();
 
         // Update the active environment in the Python extension.
-        this._interpreterPathService.update(undefined, vscode.ConfigurationTarget.Global, this.interpreter.path);
         this._interpreterPathService.update(
             undefined,
             vscode.ConfigurationTarget.WorkspaceFolder,

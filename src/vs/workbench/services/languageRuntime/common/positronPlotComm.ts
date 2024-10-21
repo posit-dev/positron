@@ -76,7 +76,8 @@ export enum RenderFormat {
 	Png = 'png',
 	Jpeg = 'jpeg',
 	Svg = 'svg',
-	Pdf = 'pdf'
+	Pdf = 'pdf',
+	Tiff = 'tiff'
 }
 
 /**
@@ -85,6 +86,27 @@ export enum RenderFormat {
 export enum PlotUnit {
 	Pixels = 'pixels',
 	Inches = 'inches'
+}
+
+/**
+ * Parameters for the Render method.
+ */
+export interface RenderParams {
+	/**
+	 * The requested size of the plot. If not provided, the plot will be
+	 * rendered at its intrinsic size.
+	 */
+	size?: PlotSize;
+
+	/**
+	 * The pixel ratio of the display device
+	 */
+	pixel_ratio: number;
+
+	/**
+	 * The requested plot format
+	 */
+	format: RenderFormat;
 }
 
 /**

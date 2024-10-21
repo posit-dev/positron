@@ -32,6 +32,7 @@ MIME_TYPE = {
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
     "jpeg": "image/jpeg",
+    "tiff": "image/tiff",
 }
 
 

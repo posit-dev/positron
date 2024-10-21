@@ -26,7 +26,7 @@ export async function runMochaTests(OPTS: any) {
 		reporter: 'mocha-multi',
 		reporterOptions: {
 			spec: '-',  // Console output
-			xunit: REPORT_PATH + 'xunit-results.xml',
+			xunit: path.join(REPORT_PATH, 'xunit-results.xml')
 		},
 		retries: 1,
 	});
