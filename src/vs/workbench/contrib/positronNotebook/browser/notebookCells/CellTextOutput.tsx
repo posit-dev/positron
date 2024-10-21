@@ -13,27 +13,48 @@ import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browse
 import { ICommandService } from 'vs/platform/commands/common/commands';
 
 
-function useLongOutputBehavior(): { mode: 'scroll' } | { mode: 'truncate'; outputLineLimit: number } {
+type LongOutputBehavior = { mode: 'truncate' | 'scroll'; outputLineLimit: number };
+function useLongOutputBehavior(): LongOutputBehavior {
 	const notebookOptions = useNotebookOptions();
 	const layoutOptions = notebookOptions.getLayoutConfiguration();
 
 	const outputLineLimit = layoutOptions.outputLineLimit;
 	const outputScrolling = layoutOptions.outputScrolling;
 
-	if (outputScrolling) {
-		return { mode: 'scroll' };
-	}
-	return { mode: 'truncate', outputLineLimit };
+	return { mode: outputScrolling ? 'scroll' : 'truncate', outputLineLimit };
 }
+
+
+function truncateToNumberOfLines(content: string, { mode, outputLineLimit: maxLines }: LongOutputBehavior): {
+	truncatedContentBefore: string;
+	truncatedContentAfter?: string;
+	numLinesTruncated: number;
+	willScroll: boolean;
+} {
+	const splitByLine = content.split('\n');
+	const numLines = splitByLine.length;
+
+	const isLong = numLines > maxLines;
+
+	if (isLong && mode === 'scroll') { return { truncatedContentBefore: content, numLinesTruncated: 0, willScroll: true }; }
+
+	return {
+		truncatedContentBefore: splitByLine.slice(0, maxLines - 1).join('\n'),
+		truncatedContentAfter: splitByLine[splitByLine.length - 1],
+		numLinesTruncated: Math.max(numLines - maxLines, 0),
+		willScroll: false
+	};
+}
+
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
 	const { openerService, notificationService, commandService } = useServices();
 	const longOutputBehavior = useLongOutputBehavior();
 
-	const { truncatedContentBefore, truncatedContentAfter, numLinesTruncated } = truncateToNumberOfLines(content, longOutputBehavior.mode === 'truncate' ? longOutputBehavior.outputLineLimit : undefined);
+	const { truncatedContentBefore, truncatedContentAfter, numLinesTruncated, willScroll } = truncateToNumberOfLines(content, longOutputBehavior);
 
-	return <div className={`notebook-${type} positron-notebook-text-output long-output-${longOutputBehavior.mode}`}>
+	return <div className={`notebook-${type} positron-notebook-text-output long-output-${longOutputBehavior.mode} ${willScroll ? 'scrolling' : ''}`}>
 		<OutputLines
 			outputLines={ANSIOutput.processOutput(truncatedContentBefore)}
 			openerService={openerService}
@@ -71,20 +92,3 @@ const TruncationMessage = ({ numLinesTruncated, commandService }: { numLinesTrun
 		>Change behavior.</a>
 		)</i>;
 };
-
-function truncateToNumberOfLines(content: string, maxLines?: number): {
-	truncatedContentBefore: string;
-	truncatedContentAfter?: string;
-	numLinesTruncated: number;
-} {
-	if (!maxLines) { return { truncatedContentBefore: content, numLinesTruncated: 0 }; }
-	const splitByLine = content.split('\n');
-	const numLines = splitByLine.length;
-	if (numLines <= maxLines) { return { truncatedContentBefore: content, numLinesTruncated: 0 }; }
-
-	return {
-		truncatedContentBefore: splitByLine.slice(0, maxLines - 1).join('\n'),
-		truncatedContentAfter: splitByLine[splitByLine.length - 1],
-		numLinesTruncated: numLines - maxLines
-	};
-}

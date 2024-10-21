@@ -18,6 +18,13 @@
 	overflow: scroll;
 }
 
+.positron-notebook-text-output.long-output-scroll.scrolling {
+	border: var(--vscode-positronNotebook-border);
+	border-radius: var(--vscode-positronNotebook-cell-radius);
+	padding: 0.15rem 0.25rem;
+}
+
+
 .notebook-output-truncation-message {
 	font-size: 0.95em;
 	opacity: 0.8;
