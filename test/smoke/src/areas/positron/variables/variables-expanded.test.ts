@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
@@ -17,13 +18,15 @@ describe('Variables - Expanded View #pr', () => {
 
 	});
 
-	it('should display children and value', async function () {
+	it('should display children values and types when variable is expanded', async function () {
 		const app = this.app as Application;
 		const variables = app.workbench.positronVariables;
+
 		await variables.expandVariable('df');
-		await variables.verifyVariableChildrenValues('foo', expectedChildrenData['foo']);
-		await variables.verifyVariableChildrenValues('bar', expectedChildrenData['bar']);
-		await variables.verifyVariableChildrenValues('ham', expectedChildrenData['ham']);
+		['foo', 'bar', 'ham', 'green', 'eggs', 'cheese'].forEach(async (variable) => {
+			const actualData = await variables.getVariableChildren(variable);
+			expect(actualData).toEqual(expectedData[variable]);
+		});
 	});
 });
 
@@ -36,27 +39,18 @@ df = pl.DataFrame(
         "foo": [1, 2, 3],
         "bar": [6.0, 7.0, 8.0],
         "ham": [date(2020, 1, 2), date(2021, 3, 4), date(2022, 5, 6)],
-        "a": [None, 2, 3],
-        "b": [0.5, None, 2.5],
-        "c": [True, None, False],
+        "green": [None, 2, 3],
+        "eggs": [0.5, None, 2.5],
+        "cheese": [True, None, False],
     }
 )
 `;
 
-const expectedChildrenData = {
-	"foo": [
-		{ key: '0', value: '1' },
-		{ key: '1', value: '2' },
-		{ key: '2', value: '3' }
-	],
-	"bar": [
-		{ key: '0', value: '6.0' },
-		{ key: '1', value: '7.0' },
-		{ key: '2', value: '8.0' }
-	],
-	"ham": [
-		{ key: '0', value: 'datetime.date(2020, 1, 2)' },
-		{ key: '1', value: 'datetime.date(2021, 3, 4)' },
-		{ key: '2', value: 'datetime.date(2022, 5, 6)' }
-	]
+const expectedData = {
+	foo: { 0: { type: "int", value: "1" }, 1: { type: "int", value: "2" }, 2: { type: "int", value: "3" } },
+	bar: { 0: { type: "float", value: "6.0" }, 1: { type: "float", value: "7.0" }, 2: { type: "float", value: "8.0" } },
+	ham: { 0: { type: "date", value: "datetime.date(2020, 1, 2)" }, 1: { type: "date", value: "datetime.date(2021, 3, 4)" }, 2: { type: "date", value: "datetime.date(2022, 5, 6)" } },
+	green: { 0: { type: "NoneType", value: "None" }, 1: { type: "int", value: "2" }, 2: { type: "int", value: "3" } },
+	eggs: { 0: { type: "float", value: "0.5" }, 1: { type: "NoneType", value: "None" }, 2: { type: "float", value: "2.5" } },
+	cheese: { 0: { type: "bool", value: "True" }, 1: { type: "NoneType", value: "None" }, 2: { type: "bool", value: "False" } },
 };

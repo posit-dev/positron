@@ -100,18 +100,29 @@ export class PositronVariables {
 		return interpreter;
 	}
 
-	async verifyVariableChildrenValues(variableName: string, expectedChildren: { key: string; value: string }[], collapseParent = true) {
-		await this.expandVariable(variableName);
+	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
+		await this.expandVariable(parentVariable);
+		const variable = this.code.driver.getLocator(`.name-value:text-is("${parentVariable}")`);
 
-		for (const { key, value } of expectedChildren) {
-			const namedVariable = this.code.driver.getLocator(`.name-value:text-is("${key}")`);
-			await expect(namedVariable).toBeVisible();
+		// get the children of the parent variable, which are indented
+		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
+			.filter({ has: this.code.driver.getLocator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
 
-			// check the value corresponding to the child (e.g., value next to it in the details column)
-			const valueLocator = namedVariable.locator('..').locator('..').locator('..').locator('.details-column .value');
-			await expect(valueLocator).toHaveText(value);
+		// create a map of the children's name, value, and type
+		const result: { [key: string]: { value: string; type: string } } = {};
+		for (const child of children) {
+			const childName = await child.locator('.name-value').textContent() || '';
+			const childValue = await child.locator('.details-column .value').textContent() || '';
+			const childType = await child.locator('.details-column .right-column').textContent() || '';
+
+			if (childName) {
+				result[childName] = { value: childValue, type: childType };
+			}
 		}
 
-		if (collapseParent) { await this.collapseVariable(variableName); }
+		// collapse the parent variable if the flag is set
+		if (collapseParent) { await this.collapseVariable(parentVariable); }
+
+		return result;
 	}
 }
