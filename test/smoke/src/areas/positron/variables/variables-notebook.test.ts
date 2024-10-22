@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Variables Pane - Notebook #pr #web #only', () => {
+describe('Variables Pane - Notebook #pr #web', () => {
 	setupAndStartApp();
 
 	describe('Python Notebook Variables Pane', () => {
