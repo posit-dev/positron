@@ -68,7 +68,7 @@ export const showNewFolderFromGitModalDialog = async (
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder
+							result.parentFolder.path
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
