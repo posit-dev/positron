@@ -60,7 +60,8 @@ class DuckDBInstance {
 		}
 
 		const worker = new Worker(bundle.mainWorker);
-		const logger = new duckdb.VoidLogger();
+		const logger = new duckdb.ConsoleLogger();
+		// const logger = new duckdb.VoidLogger();
 		const db = new duckdb.AsyncDuckDB(logger, worker);
 		await db.instantiate(bundle.mainModule);
 
@@ -189,7 +190,6 @@ export class DuckDBTableView {
 		const largeNumDigits = params.format_options.large_num_digits;
 		const thousandsSep = params.format_options.thousands_sep;
 		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
-		const scientificFormat = `%.${largeNumDigits}e`;
 		const varcharLimit = params.format_options.max_value_length;
 
 		const columnSelectors: Array<string> = [];
@@ -216,21 +216,21 @@ export class DuckDBTableView {
 				case 'DOUBLE': {
 					let largeFormatter, smallFormatter;
 					if (thousandsSep !== undefined) {
-						largeFormatter = `FORMAT('%,.${largeNumDigits}f', ${quotedName})`;
-						smallFormatter = `FORMAT('%,.${smallNumDigits}f', ${quotedName})`;
+						largeFormatter = `FORMAT('{:,.${largeNumDigits}f}', ${quotedName})`;
+						smallFormatter = `FORMAT('{:,.${smallNumDigits}f}', ${quotedName})`;
 						if (thousandsSep !== ',') {
 							largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
 							smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
 						}
 					} else {
-						largeFormatter = `FORMAT('%.${largeNumDigits}f', ${quotedName})`;
-						smallFormatter = `FORMAT('%.${smallNumDigits}f', ${quotedName})`;
+						largeFormatter = `FORMAT('{:.${largeNumDigits}f}', ${quotedName})`;
+						smallFormatter = `FORMAT('{:.${smallNumDigits}f}', ${quotedName})`;
 					}
 					columnSelector = `CASE WHEN ${quotedName} IS NULL THEN 'NULL'
 WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
-WHEN isinf(${quotedName}) AND value < 0 THEN '-Inf'
+WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
 WHEN isnan(${quotedName}) THEN 'NaN'
-WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT(${scientificFormat}, ${quotedName})
+WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
 WHEN abs(${quotedName}) < 1 THEN ${smallFormatter}
 ELSE ${largeFormatter}
 END`;
@@ -264,10 +264,12 @@ END`;
 			};
 		}
 
-		const query = `select ${columnSelectors.join(',\n    ')}
+		const query = `SELECT\n${columnSelectors.join(',\n    ')}
 		FROM ${this.tableName}
 		LIMIT ${numRows}
 		OFFSET ${lowerLimit} `;
+
+		console.log(query);
 
 		const queryResult = await this.db.runQuery(query);
 		if (typeof queryResult === 'string') {
