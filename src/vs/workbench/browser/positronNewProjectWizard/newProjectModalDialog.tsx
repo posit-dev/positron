@@ -118,6 +118,7 @@ export const showNewProjectModalDialog = async (
 
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
+						folderScheme: folder.scheme,
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
 						projectFolder: folder.fsPath,
