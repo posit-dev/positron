@@ -9,14 +9,14 @@ type Mapping = Record<string, unknown>;
 type Argument = Value | Mapping;
 
 /**
- * Ensures that a given value is within a range.
+ * Ensures that a given value is within a range of values.
  * @param value The value.
- * @param min The minimum value, inclusive.
- * @param max The maximum value, inclusive.
- * @returns The value.
+ * @param minimumValue The minimum value, inclusive.
+ * @param maximumValue The maximum value, inclusive.
+ * @returns The pinned value.
  */
-export const pinToRange = (value: number, min: number, max: number) =>
-	Math.min(Math.max(value, min), max);
+export const pinToRange = (value: number, minimumValue: number, maximumValue: number) =>
+	Math.min(Math.max(value, minimumValue), maximumValue);
 
 /**
  * optionalValue function. Returns the value, if it is not undefined; otherwise, returns the default value.

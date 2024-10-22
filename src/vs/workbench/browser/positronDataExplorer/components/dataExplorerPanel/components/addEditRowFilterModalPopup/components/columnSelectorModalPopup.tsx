@@ -30,7 +30,6 @@ interface ColumnSelectorModalPopupProps {
 	readonly anchorElement: HTMLElement;
 	readonly searchInput?: string;
 	readonly focusInput?: boolean;
-	readonly onItemHighlighted: (columnSchema: ColumnSchema) => void;
 	readonly onItemSelected: (columnSchema: ColumnSchema) => void;
 }
 
@@ -49,7 +48,7 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 		// Drive focus into the data grid so the user can immediately navigate.
 		props.columnSelectorDataGridInstance.setCursorPosition(0, 0);
 		positronDataGridRef.current.focus();
-	}, []);
+	}, [props.columnSelectorDataGridInstance, props.focusInput]);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.

@@ -180,8 +180,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 						maximumWidth: context.instance.maximumColumnWidth,
 						columnsWidth: context.instance.getColumnWidth(props.columnIndex)
 					})}
-					onResize={async width =>
-						await context.instance.setColumnWidth(props.columnIndex, width)
+					onResize={async columnWidth =>
+						await context.instance.setColumnWidth(props.columnIndex, columnWidth)
 					}
 				/>
 			}
@@ -190,10 +190,10 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					onBeginResize={() => ({
 						minimumHeight: context.instance.minimumRowHeight,
 						maximumHeight: 90,
-						startingHeight: context.instance.getRowHeight(props.rowIndex)
+						startingHeight: context.instance.getRowHeight(props.rowIndex)!
 					})}
-					onResize={async height =>
-						await context.instance.setRowHeight(props.rowIndex, height)
+					onResize={async rowHeight =>
+						await context.instance.setRowHeight(props.rowIndex, rowHeight)
 					}
 				/>
 			}

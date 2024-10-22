@@ -383,8 +383,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 							{ 'disabled': !summaryStatsSupported }
 						)
 					}
-					onClick={summaryStatsSupported ? () =>
-						props.instance.toggleExpandColumn(props.columnIndex) : undefined
+					onClick={summaryStatsSupported ? async () =>
+						await props.instance.toggleExpandColumn(props.columnIndex) : undefined
 					}
 				>
 					{expanded ?

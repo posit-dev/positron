@@ -41,6 +41,10 @@ describe('Output #web', () => {
 			}).toPass({ timeout: 60000 });
 		});
 	});
+});
+
+describe('Output #web', () => {
+	setupAndStartApp();
 
 	describe('Console Output Log - R', () => {
 		before(async function () {

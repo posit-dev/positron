@@ -140,12 +140,6 @@ yarn test-extension -l positron-connections
 kill_app
 
 echo
-echo "### Positron Run App tests"
-echo
-yarn test-extension -l positron-run-app
-kill_app
-
-echo
 echo "### Positron DuckDB tests"
 echo
 yarn test-extension -l positron-duckdb

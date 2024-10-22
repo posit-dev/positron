@@ -25,7 +25,7 @@ import { PlotSizingPolicyCustom } from 'vs/workbench/services/positronPlots/comm
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
 import { Schemas } from 'vs/base/common/network';
-import { IDialogService, IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 import { decodeBase64 } from 'vs/base/common/buffer';
 import { SavePlotOptions, showSavePlotModalDialog } from 'vs/workbench/contrib/positronPlots/browser/modalDialogs/savePlotModalDialog';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
@@ -47,6 +47,7 @@ import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/we
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { URI } from 'vs/base/common/uri';
 import { PositronPlotCommProxy } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
+import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -155,7 +156,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IClipboardService private _clipboardService: IClipboardService,
-		@IDialogService private readonly _dialogService: IDialogService,
+		@IPositronModalDialogsService private readonly _modalDialogService: IPositronModalDialogsService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -847,7 +848,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 								this._selectedSizingPolicy,
 								this._layoutService,
 								this._keybindingService,
-								this._dialogService,
+								this._modalDialogService,
 								this._fileService,
 								this._fileDialogService,
 								this._logService,
@@ -869,7 +870,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private savePlotAs = (options: SavePlotOptions) => {
-		const htmlFileSystemProvider = this._fileService.getProvider(Schemas.file) as HTMLFileSystemProvider;
+		const htmlFileSystemProvider = this._fileService.getProvider(options.path.scheme) as HTMLFileSystemProvider;
 		const dataUri = this.splitPlotDataUri(options.uri);
 
 		if (!dataUri) {
@@ -880,7 +881,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		htmlFileSystemProvider.writeFile(options.path, decodeBase64(data).buffer, { create: true, overwrite: true, unlock: true, atomic: false })
 			.catch((error: Error) => {
-				this._dialogService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
+				this._notificationService.error(localize('positronPlotsService.savePlotError.unknown', 'Error saving plot: {0}', error.message));
 			});
 	};
 
