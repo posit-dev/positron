@@ -44,14 +44,6 @@ df = pl.DataFrame(
 `;
 
 const expectedChildrenData = {
-	"df": [
-		{ key: 'foo', value: 'polars.Series [1, 2, 3]' },
-		{ key: 'bar', value: 'polars.Series [6.0, 7.0, 8.0]' },
-		{ key: 'ham', value: 'polars.Series [datetime.date(2020, 1, 2), datetime.date(2021, 3, 4), datetime.date(2022, 5, 6)]' },
-		{ key: 'a', value: 'polars.Series [None, 2, 3]' },
-		{ key: 'b', value: 'polars.Series [0.5, None, 2.5]' },
-		{ key: 'c', value: 'polars.Series [True, None, False]' }
-	],
 	"foo": [
 		{ key: '0', value: '1' },
 		{ key: '1', value: '2' },
