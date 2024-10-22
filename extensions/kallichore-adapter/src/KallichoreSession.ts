@@ -751,10 +751,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		await withTimeout(this.connect(), 2000, `Start failed: timed out connecting to session ${this.metadata.sessionId}`);
 
 		if (this._new) {
-			// If this is a new session, wait for it to be ready before
-			// returning. This can take some time as it needs to wait for the
-			// kernel to start up.
-			await withTimeout(this._ready.wait(), 10000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be ready`);
+			if (runtimeInfo) {
+				// If we got runtime info at startup, open the ready
+				// barrier immediately
+				this._ready.open();
+			} else {
+				// If this is a new session without runtime information, wait
+				// for it to be ready instead. This can take some time as it
+				// needs to wait for the kernel to start up.
+				await withTimeout(this._ready.wait(), 10000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be ready`);
+			}
 		} else {
 			if (this._activeSession?.status === Status.Busy) {
 				// If the session is busy, wait for it to become idle before
@@ -779,21 +785,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		// If we already have runtime info, return it. (The runtime info is
-		// typically returned by the API when starting a new session, but if
-		// we're reconnecting, we need to ask for it again.)
-		if (runtimeInfo) {
-			setTimeout(() => {
-				// Open the ready barrier after a tick
-				this._ready.open();
-			}, 0);
-			return runtimeInfo;
+		// If we don't have runtime info yet, get it now.
+		if (!runtimeInfo) {
+			runtimeInfo = await this.getKernelInfo();
 		}
 
-		// We don't have runtime info yet, so request it from the kernel. The
-		// busy/idle state returned from this request will cause the ready
-		// barrier to open.
-		return this.getKernelInfo();
+		return runtimeInfo;
 	}
 
 	/**
