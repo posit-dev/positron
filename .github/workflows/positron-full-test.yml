@@ -236,7 +236,7 @@ jobs:
         "e2e-electron-tests",
         "e2e-browser-tests",
       ]
-    if: ${{ failure() && github.ref == 'refs/heads/main' }}
+    if: failure()
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6

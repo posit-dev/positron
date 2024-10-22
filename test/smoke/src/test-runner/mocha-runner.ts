@@ -28,7 +28,7 @@ export async function runMochaTests(OPTS: any) {
 			spec: '-',  // Console output
 			xunit: path.join(REPORT_PATH, 'xunit-results.xml')
 		},
-		retries: 1,
+		retries: 0,
 	});
 
 	// Apply test filters based on CLI options
