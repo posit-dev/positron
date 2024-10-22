@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import { ILayoutEntry, LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
 
 /**
  * ColumnHeaderOptions type.
@@ -37,7 +38,7 @@ type RowHeaderOptions = | {
  * DefaultSizeOptions type.
  */
 type DefaultSizeOptions = | {
-	readonly defaultColumnWidth?: number;
+	readonly defaultColumnWidth: number;
 	readonly defaultRowHeight: number;
 };
 
@@ -60,9 +61,11 @@ type ColumnResizeOptions = | {
 type RowResizeOptions = | {
 	readonly rowResize: false;
 	readonly minimumRowHeight?: never;
+	readonly maximumRowHeight?: never;
 } | {
 	readonly rowResize: true;
 	readonly minimumRowHeight: number;
+	readonly maximumRowHeight: number;
 };
 
 /**
@@ -71,19 +74,23 @@ type RowResizeOptions = | {
 type ScrollbarOptions = | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: false;
-	readonly scrollbarWidth?: never;
+	readonly scrollbarThickness?: never;
+	readonly scrollbarOverscroll?: never;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: false;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 } | {
 	readonly horizontalScrollbar: false;
 	readonly verticalScrollbar: true;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 } | {
 	readonly horizontalScrollbar: true;
 	readonly verticalScrollbar: true;
-	readonly scrollbarWidth: number;
+	readonly scrollbarThickness: number;
+	readonly scrollbarOverscroll: number;
 };
 
 /**
@@ -136,6 +143,22 @@ type DataGridOptions =
 	CursorOptions &
 	DefaultCursorOptions &
 	SelectionOptions;
+
+/**
+ * ColumnDescriptor interface.
+ */
+export interface ColumnDescriptor {
+	readonly columnIndex: number;
+	readonly left: number;
+}
+
+/**
+ * RowDescriptor interface.
+ */
+export interface RowDescriptor {
+	readonly rowIndex: number;
+	readonly top: number;
+}
 
 /**
  * ExtendColumnSelectionBy enumeration.
@@ -420,7 +443,7 @@ export class ColumnSortKeyDescriptor implements IColumnSortKey {
 	private _columnIndex: number;
 
 	/**
-	 * Gets or sets the the sort order; true for ascending, false for descending.
+	 * Gets or sets the sort order; true for ascending, false for descending.
 	 */
 	private _ascending: boolean;
 
@@ -432,7 +455,7 @@ export class ColumnSortKeyDescriptor implements IColumnSortKey {
 	 * Constuctor.
 	 * @param sortIndex The sort index.
 	 * @param columnIndex The column index.
-	 * @param ascending The the sort order; true for ascending, false for descending.
+	 * @param ascending The sort order; true for ascending, false for descending.
 	 */
 	constructor(sortIndex: number, columnIndex: number, ascending: boolean) {
 		this._sortIndex = sortIndex;
@@ -518,7 +541,7 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _rowHeadersResize: boolean;
 
 	/**
-	 * Gets a value which indicates whether to enable column resize.
+	 * Gets a value which indicates whether column resize is enabled.
 	 */
 	private readonly _columnResize: boolean;
 
@@ -538,7 +561,7 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _defaultColumnWidth: number;
 
 	/**
-	 * Gets a value which indicates whether to enable row resize.
+	 * Gets a value which indicates whether row resize is enabled.
 	 */
 	private readonly _rowResize: boolean;
 
@@ -546,6 +569,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the minimum row height.
 	 */
 	private readonly _minimumRowHeight: number;
+
+	/**
+	 * Gets the maximum row height.
+	 */
+	private readonly _maximumRowHeight: number;
 
 	/**
 	 * Gets the default row height.
@@ -563,9 +591,14 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _verticalScrollbar: boolean;
 
 	/**
-	 * Gets the scrollbar width.
+	 * Gets the scrollbar thickness.
 	 */
-	private readonly _scrollbarWidth: number;
+	private readonly _scrollbarThickness: number;
+
+	/**
+	 * Gets the scrollbar overscroll.
+	 */
+	private readonly _scrollbarOverscroll: number;
 
 	/**
 	 * Gets a value which indicates whether to use the editor font to display data.
@@ -632,14 +665,14 @@ export abstract class DataGridInstance extends Disposable {
 	private _height = 0;
 
 	/**
-	 * Gets or sets the first column index.
+	 * The horizontal scroll offset.
 	 */
-	private _firstColumnIndex = 0;
+	protected _horizontalScrollOffset = 0;
 
 	/**
-	 * Gets or sets the first row index.
+	 * The vertical scroll offset.
 	 */
-	private _firstRowIndex = 0;
+	protected _verticalScrollOffset = 0;
 
 	/**
 	 * Gets or sets the cursor column index.
@@ -681,14 +714,14 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Protected Properties
 
 	/**
-	 * Gets the user-defined column widths.
+	 * Gets the column layout manager.
 	 */
-	protected readonly _userDefinedColumnWidths = new Map<number, number>();
+	protected readonly _columnLayoutManager: LayoutManager;
 
 	/**
-	 * Gets the user-defined row heights.
+	 * Gets the row layout manager.
 	 */
-	protected readonly _userDefinedRowHeights = new Map<number, number>();
+	protected readonly _rowLayoutManager: LayoutManager;
 
 	/**
 	 * Gets the column sort keys.
@@ -716,44 +749,59 @@ export abstract class DataGridInstance extends Disposable {
 		// Call the base class's constructor.
 		super();
 
-		// Set the options.
+		// ColumnHeaderOptions.
 		this._columnHeaders = options.columnHeaders || false;
 		this._columnHeadersHeight = this._columnHeaders ? options.columnHeadersHeight ?? 0 : 0;
 
+		// RowHeaderOptions.
 		this._rowHeaders = options.rowHeaders || false;
 		this._rowHeadersWidth = this._rowHeaders ? options.rowHeadersWidth ?? 0 : 0;
 		this._rowHeadersResize = this._rowHeaders ? options.rowHeadersResize ?? false : false;
 
-		this._defaultColumnWidth = options.defaultColumnWidth ?? 0;
+		// DefaultSizeOptions.
+		this._defaultColumnWidth = options.defaultColumnWidth;
 		this._defaultRowHeight = options.defaultRowHeight;
 
+		// ColumnResizeOptions.
 		this._columnResize = options.columnResize || false;
 		this._minimumColumnWidth = options.minimumColumnWidth ?? this._defaultColumnWidth;
 		this._maximumColumnWidth = options.maximumColumnWidth ?? this._defaultColumnWidth;
 
+		// RowResizeOptions.
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
+		this._maximumRowHeight = options.maximumRowHeight ?? options.defaultRowHeight;
 
+		// ScrollbarOptions.
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
 		this._verticalScrollbar = options.verticalScrollbar || false;
-		this._scrollbarWidth = options.scrollbarWidth ?? 0;
+		this._scrollbarThickness = options.scrollbarThickness ?? 0;
+		this._scrollbarOverscroll = options.scrollbarOverscroll ?? 0;
 
+		// DisplayOptions.
 		this._useEditorFont = options.useEditorFont;
 		this._automaticLayout = options.automaticLayout;
 		this._rowsMargin = options.rowsMargin ?? 0;
 		this._cellBorders = options.cellBorders ?? true;
 		this._horizontalCellPadding = options.horizontalCellPadding ?? 0;
 
+		// CursorOptions.
 		this._cursorInitiallyHidden = options.cursorInitiallyHidden ?? false;
 		if (options.cursorInitiallyHidden) {
 			this._cursorColumnIndex = -1;
 			this._cursorRowIndex = -1;
 		}
 
+		// DefaultCursorOptions.
 		this._internalCursor = options.internalCursor ?? true;
 		this._cursorOffset = this._internalCursor ? options.cursorOffset ?? 0 : 0;
 
+		// SelectionOptions.
 		this._selection = options.selection ?? true;
+
+		// Allocate and initialize the layout managers.
+		this._columnLayoutManager = new LayoutManager(this._defaultColumnWidth);
+		this._rowLayoutManager = new LayoutManager(this._defaultRowHeight);
 	}
 
 	//#endregion Constructor & Dispose
@@ -796,7 +844,7 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a value which indicates whether to enable column resize.
+	 * Gets a value which indicates whether column resize is enabled.
 	 */
 	get columnResize() {
 		return this._columnResize;
@@ -824,7 +872,7 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets a value which indicates whether to enable row resize.
+	 * Gets a value which indicates whether row resize is enabled
 	 */
 	get rowResize() {
 		return this._rowResize;
@@ -838,7 +886,14 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the defailt row height.
+	 * Gets the maximum row height.
+	 */
+	get maximumRowHeight() {
+		return this._maximumRowHeight;
+	}
+
+	/**
+	 * Gets the default row height.
 	 */
 	get defaultRowHeight() {
 		return this._defaultRowHeight;
@@ -861,8 +916,15 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets the scrollbar width.
 	 */
-	get scrollbarWidth() {
-		return this._scrollbarWidth;
+	get scrollbarThickness() {
+		return this._scrollbarThickness;
+	}
+
+	/**
+	 * Gets the scrollbar overscroll.
+	 */
+	get scrollbarOverscroll() {
+		return this._scrollbarOverscroll;
 	}
 
 	/**
@@ -943,13 +1005,44 @@ export abstract class DataGridInstance extends Disposable {
 	abstract get rows(): number;
 
 	/**
+	 * Gets the scroll width.
+	 */
+	get scrollWidth() {
+		return this._columnLayoutManager.size + this._scrollbarOverscroll;
+	}
+
+	/**
+	 * Gets the scroll height.
+	 */
+	get scrollHeight() {
+		return (this._rowsMargin * 2) + this._rowLayoutManager.size + this._scrollbarOverscroll;
+	}
+
+	/**
+	 * Gets the page width.
+	 */
+	get pageWidth() {
+		return this.layoutWidth;
+	}
+
+	/**
+	 * Gets the page height.
+	 */
+	get pageHeight() {
+		return this.layoutHeight;
+	}
+
+	/**
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
 		// Calculate the layout width.
-		let layoutWidth = this._width - this._rowHeadersWidth;
+		let layoutWidth = this._width;
+		if (this.rowHeaders) {
+			layoutWidth -= this._rowHeadersWidth;
+		}
 		if (this._verticalScrollbar) {
-			layoutWidth -= this._scrollbarWidth;
+			layoutWidth -= this._scrollbarThickness;
 		}
 
 		// Done.
@@ -957,17 +1050,34 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
+	 * Gets the layout right.
+	 */
+	get layoutRight() {
+		return this.horizontalScrollOffset + this.layoutWidth;
+	}
+
+	/**
 	 * Gets the layout height.
 	 */
 	get layoutHeight() {
 		// Calculate the layout height.
-		let layoutHeight = this._height - this._columnHeadersHeight;
+		let layoutHeight = this._height;
+		if (this.columnHeaders) {
+			layoutHeight -= this._columnHeadersHeight;
+		}
 		if (this._horizontalScrollbar) {
-			layoutHeight -= this._scrollbarWidth;
+			layoutHeight -= this._scrollbarThickness;
 		}
 
 		// Done.
 		return layoutHeight;
+	}
+
+	/**
+	 * Gets the layout bottom.
+	 */
+	get layoutBottom() {
+		return this.verticalScrollOffset + this.layoutHeight;
 	}
 
 	/**
@@ -978,35 +1088,6 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the visible columns.
-	 */
-	get visibleColumns() {
-		// Calculate the visible columns.
-		let visibleColumns = 0;
-		let columnIndex = this._firstColumnIndex;
-		let availableLayoutWidth = this.layoutWidth;
-		while (columnIndex < this.columns) {
-			// Get the column width.
-			const columnWidth = this.getColumnWidth(columnIndex);
-
-			// If the column width would exceed the available layout width, break out of the loop.
-			if (columnWidth > availableLayoutWidth) {
-				break;
-			}
-
-			// Increment the visible columns and the column index.
-			visibleColumns++;
-			columnIndex++;
-
-			// Adjust the available layout width.
-			availableLayoutWidth -= columnWidth;
-		}
-
-		// Done.
-		return Math.max(visibleColumns, 1);
-	}
-
-	/**
 	 * Gets the screen rows.
 	 */
 	get screenRows() {
@@ -1014,100 +1095,69 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the visible rows.
+	 * Gets the maximum horizontal scroll offset.
 	 */
-	get visibleRows() {
-		// Calculate the visible rows.
-		let visibleRows = 0;
-		let rowIndex = this._firstRowIndex;
-		let availableLayoutHeight = this.layoutHeight;
-		while (rowIndex < this.rows) {
-			// Get the row height.
-			const rowHeight = this.getRowHeight(rowIndex);
-
-			// If the row height would exceed the available layout height, break out of the loop.
-			if (rowHeight > availableLayoutHeight) {
-				break;
-			}
-
-			// Increment the visible rows and the row index.
-			visibleRows++;
-			rowIndex++;
-
-			// Adjust the available layout height.
-			availableLayoutHeight -= rowHeight;
-		}
-
-		// Done.
-		return Math.max(visibleRows, 1);
+	get maximumHorizontalScrollOffset() {
+		// If the scroll width is less than or equal to the layout width, return 0; otherwise,
+		// calculate and return the maximum horizontal scroll offset.
+		return this.scrollWidth <= this.layoutWidth ? 0 : this.scrollWidth - this.layoutWidth;
 	}
 
 	/**
-	 * Gets the maximum first column.
+	 * Gets the maximum vertical scroll offset.
 	 */
-	get maximumFirstColumnIndex() {
-		// When there are no columns, return 0.
-		if (!this.columns) {
-			return 0;
-		}
-
-		// Calculate the maximum first column by looking backward through the columns for the last
-		// column that fits.
-		let layoutWidth = this.layoutWidth - this.getColumnWidth(this.columns - 1);
-		let maximumFirstColumn = this.columns - 1;
-		for (let columnIndex = maximumFirstColumn - 1; columnIndex >= 0; columnIndex--) {
-			const columnWidth = this.getColumnWidth(columnIndex);
-			if (columnWidth < layoutWidth) {
-				layoutWidth -= columnWidth;
-				maximumFirstColumn--;
-			} else {
-				break;
-			}
-		}
-
-		// Done.
-		return maximumFirstColumn;
+	get maximumVerticalScrollOffset() {
+		// If the scroll height is less than or equal to the layout height, return 0; otherwise,
+		// calculate and return the maximum vertical scroll offset.
+		return this.scrollHeight <= this.layoutHeight ? 0 : this.scrollHeight - this.layoutHeight;
 	}
 
 	/**
-	 * Gets the maximum first row.
+	 * Gets the first column.
 	 */
-	get maximumFirstRowIndex() {
-		// When there are no rows, return 0.
-		if (!this.rows) {
-			return 0;
+	get firstColumn(): ColumnDescriptor | undefined {
+		// Get the first column layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+		if (!layoutEntry) {
+			return undefined;
 		}
 
-		// Calculate the maximum first row by looking backward through the rows for the last row
-		// that fits.
-		let layoutHeight = this.layoutHeight - this.getRowHeight(this.rows - 1);
-		let maximumFirstRow = this.rows - 1;
-		for (let rowIndex = maximumFirstRow - 1; rowIndex >= 0; rowIndex--) {
-			const rowHeight = this.getRowHeight(rowIndex);
-			if (rowHeight < layoutHeight) {
-				layoutHeight -= rowHeight;
-				maximumFirstRow--;
-			} else {
-				break;
-			}
-		}
-
-		// Done.
-		return maximumFirstRow;
+		// Return the column descriptor for the first column.
+		return {
+			columnIndex: layoutEntry.index,
+			left: layoutEntry.start
+		};
 	}
 
 	/**
-	 * Gets the first column index.
+	 * Gets the first row.
 	 */
-	get firstColumnIndex() {
-		return this._firstColumnIndex;
+	get firstRow(): RowDescriptor | undefined {
+		// Get the first row layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the row descriptor for the first row.
+		return {
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start
+		};
 	}
 
 	/**
-	 * Gets the first row index.
+	 * Gets the horizontal scroll offset.
 	 */
-	get firstRowIndex() {
-		return this._firstRowIndex;
+	get horizontalScrollOffset() {
+		return this._horizontalScrollOffset;
+	}
+
+	/**
+	 * Gets the vertical scroll offset.
+	 */
+	get verticalScrollOffset() {
+		return this._verticalScrollOffset;
 	}
 
 	/**
@@ -1170,35 +1220,72 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the the width of a column.
+	 * Gets a column descriptor.
 	 * @param columnIndex The column index.
+	 * @returns The column descriptor, if found; otherwise, undefined.
 	 */
-	getColumnWidth(columnIndex: number): number {
-		const columnWidth = this._userDefinedColumnWidths.get(columnIndex);
-		if (columnWidth !== undefined) {
-			return columnWidth;
-		} else {
-			return this._defaultColumnWidth;
+	getColumn(columnIndex: number): ColumnDescriptor | undefined {
+		// Get the column layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!layoutEntry) {
+			return undefined;
 		}
+
+		// Return the column descriptor for the column.
+		return {
+			columnIndex: layoutEntry.index,
+			left: layoutEntry.start
+		};
 	}
 
 	/**
-	 * Sets the width of a column.
+	 * Gets a row descriptor.
+	 * @param columnIndex The row index.
+	 * @returns The row descriptor, if found; otherwise, undefined.
+	 */
+	getRow(rowIndex: number): RowDescriptor | undefined {
+		// Get the row layout entry. If it wasn't found, return undefined.
+		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!layoutEntry) {
+			return undefined;
+		}
+
+		// Return the row descriptor for the row.
+		return {
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start
+		};
+	}
+
+	/**
+	 * Gets the width of a column.
+	 * @param columnIndex The column index.
+	 */
+	getColumnWidth(columnIndex: number): number {
+		// Get the column layout entry. If it wasn't found, return 0.
+		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!layoutEntry) {
+			return 0;
+		}
+
+		// Return the column width.
+		return layoutEntry.size;
+	}
+
+	/**
+	 * Sets a column width.
 	 * @param columnIndex The column index.
 	 * @param columnWidth The column width.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setColumnWidth(columnIndex: number, columnWidth: number): Promise<void> {
-		// Get the current column width.
-		const currentColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
-		if (currentColumnWidth !== undefined) {
-			if (columnWidth === currentColumnWidth) {
-				return;
-			}
+		// If column resize is disabled, return.
+		if (!this._columnResize) {
+			return;
 		}
 
-		// Set the column width.
-		this._userDefinedColumnWidths.set(columnIndex, columnWidth);
+		// Set the column width override.
+		this._columnLayoutManager.setLayoutOverride(columnIndex, columnWidth);
 
 		// Fetch data.
 		await this.fetchData();
@@ -1208,40 +1295,120 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the the height of a row.
+	 * Gets the height of a row.
 	 * @param rowIndex The row index.
 	 */
 	getRowHeight(rowIndex: number) {
-		const rowHeight = this._userDefinedRowHeights.get(rowIndex);
-		if (rowHeight !== undefined) {
-			return rowHeight;
-		} else {
-			return this._defaultRowHeight;
+		// Get the row layout entry. If it wasn't found, return 0.
+		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!layoutEntry) {
+			return undefined;
 		}
+
+		// Return the row height.
+		return layoutEntry.size;
 	}
 
 	/**
-	 * Sets the the height of a row.
+	 * Sets a row height.
 	 * @param rowIndex The row index.
 	 * @param rowHeight The row height.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async setRowHeight(rowIndex: number, rowHeight: number): Promise<void> {
-		// Get the current row height.
-		const currentRowHeight = this._userDefinedRowHeights.get(rowIndex);
-		if (currentRowHeight !== undefined) {
-			if (rowHeight === currentRowHeight) {
-				return;
-			}
+		// If row resize is disabled, return.
+		if (!this._rowResize) {
+			return;
 		}
 
-		// Set the row height.
-		this._userDefinedRowHeights.set(rowIndex, rowHeight);
+		// Set the row height override.
+		this._rowLayoutManager.setLayoutOverride(rowIndex, rowHeight);
 
 		// Fetch data.
 		await this.fetchData();
 
 		// Fire the onDidUpdate event.
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Scrolls the page up.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async scrollPageUp() {
+		// Get the first row layout entry for the vertical scroll offset.
+		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
+			// Find the layout entry that will be to first layout entry for the previous page.
+			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
+			for (let index = firstLayoutEntry.index - 1; index >= 0; index--) {
+				// Get the layout entry.
+				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+				if (layoutEntry) {
+					if (layoutEntry.start >= this.verticalScrollOffset - this.layoutHeight) {
+						lastFullyVisibleLayoutEntry = layoutEntry;
+					} else {
+						// Set the vertical scroll offset.
+						this.setVerticalScrollOffset(
+							lastFullyVisibleLayoutEntry?.start ?? layoutEntry.start
+						);
+
+						// Fetch data.
+						await this.fetchData();
+
+						// Fire the onDidUpdate event.
+						this._onDidUpdateEmitter.fire();
+
+						// Done.
+						return;
+					}
+				}
+			}
+		}
+
+		// Scroll to the top.
+		this.setVerticalScrollOffset(0);
+		await this.fetchData();
+		this._onDidUpdateEmitter.fire();
+	}
+
+	/**
+	 * Scrolls the page down.
+	 * @returns A Promise<void> that resolves when the operation is complete.
+	 */
+	async scrollPageDown() {
+		// Get the first row layout entry for the vertical scroll offset.
+		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
+
+			// Find the layout entry that will be to first layout entry for the next page.
+			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
+				// Get the layout entry.
+				const layoutEntry = this._rowLayoutManager.getLayoutEntry(index);
+				if (layoutEntry) {
+					if (layoutEntry.end >= this.verticalScrollOffset + this.layoutHeight) {
+						// Set the vertical scroll offset.
+						this.setVerticalScrollOffset(Math.min(
+							layoutEntry.start,
+							this.maximumVerticalScrollOffset
+						));
+
+						// Fetch data.
+						await this.fetchData();
+
+						// Fire the onDidUpdate event.
+						this._onDidUpdateEmitter.fire();
+
+						// Done.
+						return;
+					}
+				}
+			}
+		}
+
+		// Scroll to the bottom.
+		this.setVerticalScrollOffset(this.maximumVerticalScrollOffset);
+		await this.fetchData();
 		this._onDidUpdateEmitter.fire();
 	}
 
@@ -1336,7 +1503,7 @@ export abstract class DataGridInstance extends Disposable {
 	async setRowHeadersWidth(rowHeadersWidth: number): Promise<void> {
 		// If the row headers width has changed, update it.
 		if (rowHeadersWidth !== this._rowHeadersWidth) {
-			// Set the row headers width..
+			// Set the row headers width.
 			this._rowHeadersWidth = rowHeadersWidth;
 
 			// Fetch data.
@@ -1348,31 +1515,24 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the screen size.
+	 * Sets the size.
 	 * @param width The width.
 	 * @param height The height.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setScreenSize(width: number, height: number): Promise<void> {
-		// A flag that is set to true when the screen size changed.
-		let screenSizeChanged = false;
-
-		// Set the width, if it changed.
-		if (width !== this._width) {
+	async setSize(width: number, height: number): Promise<void> {
+		// If the size changed, optmize the vertical scroll offset, fetch data and fire the
+		// onDidUpdate event.
+		if (width !== this._width || height !== this._height) {
+			// Update the width and height.
 			this._width = width;
-			this.optimizeFirstColumn();
-			screenSizeChanged = true;
-		}
-
-		// Set the height, if it changed.
-		if (height !== this._height) {
 			this._height = height;
-			this.optimizeFirstRow();
-			screenSizeChanged = true;
-		}
 
-		// If the screen size changed, fetch data and fire the onDidUpdate event.
-		if (screenSizeChanged) {
+			// Optimimize the vertical scroll offset.
+			if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
 			// Fetch data.
 			await this.fetchData();
 
@@ -1382,16 +1542,22 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the screen position.
-	 * @param firstColumnIndex The first column index.
-	 * @param firstRowIndex The first row index.
+	 * Sets the scroll offsets.
+	 * @param horizontalScrollOffset The horizontal scroll offset.
+	 * @param verticalScrollOffset The vertical scroll offset.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setScreenPosition(firstColumnIndex: number, firstRowIndex: number): Promise<void> {
-		if (firstColumnIndex !== this._firstColumnIndex || firstRowIndex !== this._firstRowIndex) {
+	async setScrollOffsets(
+		horizontalScrollOffset: number,
+		verticalScrollOffset: number
+	): Promise<void> {
+		// If the screen position has changed, update the data grid.
+		if (horizontalScrollOffset !== this._horizontalScrollOffset ||
+			verticalScrollOffset !== this._verticalScrollOffset
+		) {
 			// Set the screen position.
-			this._firstColumnIndex = firstColumnIndex;
-			this._firstRowIndex = firstRowIndex;
+			this._horizontalScrollOffset = horizontalScrollOffset;
+			this._verticalScrollOffset = verticalScrollOffset;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1402,14 +1568,14 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the first column.
-	 * @param firstColumnIndex The first column index.
+	 * Sets the horizontal scroll offset.
+	 * @param horizontalScrollOffset The horizontal scroll offset.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setFirstColumn(firstColumnIndex: number): Promise<void> {
-		if (firstColumnIndex !== this._firstColumnIndex) {
-			// Set the first column index.
-			this._firstColumnIndex = firstColumnIndex;
+	async setHorizontalScrollOffset(horizontalScrollOffset: number): Promise<void> {
+		if (horizontalScrollOffset !== this._horizontalScrollOffset) {
+			// Set the horizontal scroll offset.
+			this._horizontalScrollOffset = horizontalScrollOffset;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1420,17 +1586,14 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Sets the first row.
-	 * @param firstRowIndex The first row index.
-	 * @param force A value which indicates whether to force the operation.
+	 * Sets the vertical scroll offset.
+	 * @param verticalScrollOffset The vertical scroll offset.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async setFirstRow(firstRowIndex: number, force: boolean = false): Promise<void> {
-		// If the operation is being forced, or the first row has changed, set the first row and
-		// update the data grid.
-		if (force || firstRowIndex !== this._firstRowIndex) {
-			// Set the first row index.
-			this._firstRowIndex = firstRowIndex;
+	async setVerticalScrollOffset(verticalScrollOffset: number): Promise<void> {
+		if (verticalScrollOffset !== this._verticalScrollOffset) {
+			// Set the vertical scroll offset.
+			this._verticalScrollOffset = verticalScrollOffset;
 
 			// Fetch data.
 			await this.fetchData();
@@ -1439,6 +1602,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._onDidUpdateEmitter.fire();
 		}
 	}
+
 
 	/**
 	 * Sets the cursor position.
@@ -1501,8 +1665,51 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToCell(columnIndex: number, rowIndex: number) {
-		await this.scrollToColumn(columnIndex);
-		await this.scrollToRow(rowIndex);
+		// Get the column layout entry. If it wasn't found, return.
+		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!columnLayoutEntry) {
+			return;
+		}
+
+		// Get the row layout entry. If it wasn't found, return.
+		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!rowLayoutEntry) {
+			return;
+		}
+
+		// Initialize the scroll offset updated flag.
+		let scrollOffsetUpdated = false;
+
+		// If the column isn't visible, adjust the horizontal scroll offset to scroll to it.
+		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
+			this._horizontalScrollOffset = columnLayoutEntry.start;
+			scrollOffsetUpdated = true;
+		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
+			this._horizontalScrollOffset = columnIndex === this.columns - 1 ?
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset :
+				this._horizontalScrollOffset = columnLayoutEntry.end - this.layoutWidth;
+			scrollOffsetUpdated = true;
+		}
+
+		// If the row isn't visible, adjust the vertical scroll offset to scroll to it.
+		if (rowLayoutEntry.start < this._verticalScrollOffset) {
+			this._verticalScrollOffset = rowLayoutEntry.start;
+			scrollOffsetUpdated = true;
+		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
+			this._verticalScrollOffset = rowIndex === this.rows - 1 ?
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset :
+				this._verticalScrollOffset = rowLayoutEntry.end - this.layoutHeight;
+			scrollOffsetUpdated = true;
+		}
+
+		// If scroll offset was updated, fetch data and fire the onDidUpdate event.
+		if (scrollOffsetUpdated) {
+			// Fetch data.
+			await this.fetchData();
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
 	}
 
 	/**
@@ -1511,12 +1718,17 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToColumn(columnIndex: number): Promise<void> {
-		if (columnIndex < this._firstColumnIndex) {
-			await this.setFirstColumn(columnIndex);
-		} else if (columnIndex >= this._firstColumnIndex + this.visibleColumns) {
-			do {
-				await this.setFirstColumn(this._firstColumnIndex + 1);
-			} while (columnIndex >= this._firstColumnIndex + this.visibleColumns);
+		// Get the column layout entry. If it wasn't found, return.
+		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+		if (!columnLayoutEntry) {
+			return;
+		}
+
+		// If the column isn't visible, scroll to it.
+		if (columnLayoutEntry.start < this._horizontalScrollOffset) {
+			await this.setHorizontalScrollOffset(columnLayoutEntry.start);
+		} else if (columnLayoutEntry.end > this._horizontalScrollOffset + this.layoutWidth) {
+			await this.setHorizontalScrollOffset(columnLayoutEntry.end - this.layoutWidth);
 		}
 	}
 
@@ -1525,12 +1737,17 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	async scrollToRow(rowIndex: number) {
-		if (rowIndex < this.firstRowIndex) {
-			await this.setFirstRow(rowIndex);
-		} else if (rowIndex >= this.firstRowIndex + this.visibleRows) {
-			do {
-				await this.setFirstRow(this.firstRowIndex + 1);
-			} while (rowIndex >= this.firstRowIndex + this.visibleRows);
+		// Get the row layout entry. If it wasn't found, return.
+		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+		if (!rowLayoutEntry) {
+			return;
+		}
+
+		// If the row isn't visible, scroll to it.
+		if (rowLayoutEntry.start < this._verticalScrollOffset) {
+			await this.setVerticalScrollOffset(rowLayoutEntry.start);
+		} else if (rowLayoutEntry.end > this._verticalScrollOffset + this.layoutHeight) {
+			await this.setVerticalScrollOffset(rowLayoutEntry.end - this.layoutHeight);
 		}
 	}
 
@@ -1656,7 +1873,7 @@ export abstract class DataGridInstance extends Disposable {
 		const adjustCursor = async (columnIndex: number) => {
 			// Adjust the cursor.
 			this._cursorColumnIndex = columnIndex;
-			this._cursorRowIndex = this._firstRowIndex;
+			this._cursorRowIndex = this.firstRow?.rowIndex ?? 0;
 		};
 
 		// Process the selection based on selection type.
@@ -1779,7 +1996,7 @@ export abstract class DataGridInstance extends Disposable {
 		 */
 		const adjustCursor = async (rowIndex: number) => {
 			// Adjust the cursor.
-			this._cursorColumnIndex = this._firstColumnIndex;
+			this._cursorColumnIndex = this.firstColumn?.columnIndex ?? 0;
 			this._cursorRowIndex = rowIndex;
 		};
 
@@ -2459,12 +2676,11 @@ export abstract class DataGridInstance extends Disposable {
 	//#region Protected Methods
 
 	/**
-	 * Performs a reset of the data grid.
+	 * Performs a soft reset of the data grid.
 	 */
 	protected softReset() {
-		// Reset the display.
-		this._firstColumnIndex = 0;
-		this._firstRowIndex = 0;
+		this._horizontalScrollOffset = 0;
+		this._verticalScrollOffset = 0;
 		if (this._cursorInitiallyHidden) {
 			this._cursorColumnIndex = -1;
 			this._cursorRowIndex = -1;
@@ -2478,7 +2694,7 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Resets the selection.
+	 * Resets the selection of the data grid.
 	 */
 	protected resetSelection() {
 		this._cellSelectionRange = undefined;
@@ -2491,90 +2707,6 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Protected Methods
 
 	//#region Private Methods
-
-	/**
-	 * Optimizes the first column.
-	 */
-	private optimizeFirstColumn() {
-		// If the waffle isn't scrolled horizontally, return.
-		if (!this.firstColumnIndex) {
-			return;
-		}
-
-		// Calculate the layout width.
-		let layoutWidth = this.layoutWidth;
-		for (let i = this.firstColumnIndex; i < this.columns; i++) {
-			// Adjust the layout width.
-			layoutWidth -= this.getColumnWidth(i);
-
-			// If the layout width has been exhausted, return.
-			if (layoutWidth <= 0) {
-				return;
-			}
-		}
-
-		// See if we can optimize the first column.
-		let firstColumnIndex: number | undefined = undefined;
-		for (let i = this.firstColumnIndex - 1; i >= 0 && layoutWidth > 0; i--) {
-			// Get the column width.
-			const columnWidth = this.getColumnWidth(i);
-
-			// If the column will fit, make it the first column index.
-			if (columnWidth <= layoutWidth) {
-				firstColumnIndex = i;
-			}
-
-			// Adjust the layout width.
-			layoutWidth -= columnWidth;
-		}
-
-		// Set the first column, if it was adjusted.
-		if (firstColumnIndex) {
-			this._firstColumnIndex = firstColumnIndex;
-		}
-	}
-
-	/**
-	 * Optimizes the first row.
-	 */
-	private optimizeFirstRow() {
-		// If the waffle isn't scrolled vertically, return.
-		if (!this.firstRowIndex) {
-			return;
-		}
-
-		// Calculate the layout height.
-		let layoutHeight = this.layoutHeight;
-		for (let i = this.firstRowIndex; i < this.rows; i++) {
-			// Adjust the layout height.
-			layoutHeight -= this.getRowHeight(i);
-
-			// If the layout height has been exhausted, return.
-			if (layoutHeight <= 0) {
-				return;
-			}
-		}
-
-		// See if we can optimize the first column.
-		let firstRowIndex: number | undefined = undefined;
-		for (let i = this.firstRowIndex - 1; i >= 0 && layoutHeight > 0; i--) {
-			// Get the row height.
-			const rowHeight = this.getRowHeight(i);
-
-			// If the row will fit, make it the first row index.
-			if (rowHeight <= layoutHeight) {
-				firstRowIndex = i;
-			}
-
-			// Adjust the layout height.
-			layoutHeight -= rowHeight;
-		}
-
-		// Set the first row, if it was adjusted.
-		if (firstRowIndex) {
-			this._firstRowIndex = firstRowIndex;
-		}
-	}
 
 	/**
 	 * Sorts the data.

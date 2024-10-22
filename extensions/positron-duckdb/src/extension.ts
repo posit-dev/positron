@@ -29,9 +29,10 @@ import {
 	TableSchema
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
+import * as path from 'path';
 import Worker from 'web-worker';
-import { basename, extname, join } from 'path';
 import { Table } from 'apache-arrow';
+import { pathToFileURL } from 'url';
 
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
@@ -40,12 +41,19 @@ class DuckDBInstance {
 		// Create the path to the DuckDB WASM bundle. Note that only the EH
 		// bundle for Node is used for now as we don't support Positron
 		// extensions running in a browser context yet.
-		const distPath = join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
+		const distPath = path.join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
 		const bundle = {
-			mainModule: join(distPath, 'duckdb-eh.wasm'),
-			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
+			mainModule: path.join(distPath, 'duckdb-eh.wasm'),
+			mainWorker: path.join(distPath, 'duckdb-node-eh.worker.cjs')
 		};
-		const logger = new duckdb.VoidLogger();
+
+		// On Windows, we need to call pathToFileURL on mainWorker because the web-worker package
+		// does not support Windows paths that start with a drive letter.
+		if (process.platform === 'win32') {
+			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
+		}
+
+		const logger = new duckdb.ConsoleLogger();
 
 		const worker = new Worker(bundle.mainWorker);
 
@@ -80,6 +88,25 @@ const SENTINEL_NULL = 0;
 const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 10;
+
+function uriToFilePath(uri: string) {
+	// On Windows, we need to fix up the path so that it is recognizable as a drive path.
+	// Not sure how reliable this is, but it seems to work for now.
+	if (process.platform === 'win32') {
+		const filePath = path.parse(uri);
+		// Example: {
+		//    root: '/',
+		//    dir: '/c:/Users/sharon/qa-example-content/data-files/flights',
+		//    base: 'flights.parquet', ext: '.parquet',
+		//    name: 'flights'
+		// }
+		if (filePath.root === '/' && filePath.dir.startsWith('/')) {
+			// Remove the leading slash from the path so the path is drive path
+			return uri.substring(1);
+		}
+	}
+	return uri;
+}
 
 /**
  * Implementation of Data Explorer backend protocol using duckdb-wasm,
@@ -129,24 +156,25 @@ export class DataExplorerRpcHandler {
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		const tableName = `positron_${this._tableIndex++}`;
-		this._uriToTableName.set(params.uri, tableName);
-		const fileExt = extname(params.uri);
 
-		// console.log(`Opening ${params.uri}`);
+		this._uriToTableName.set(params.uri, tableName);
+
+		const filePath = uriToFilePath(params.uri);
+		const fileExt = path.extname(filePath);
 
 		let scanOperation;
 		switch (fileExt) {
 			case '.parquet':
 			case '.parq':
-				scanOperation = `parquet_scan('${params.uri}')`;
+				scanOperation = `parquet_scan('${filePath}')`;
 				break;
 			// TODO: Will need to be able to pass CSV / TSV options from the
 			// UI at some point.
 			case '.csv':
-				scanOperation = `read_csv('${params.uri}')`;
+				scanOperation = `read_csv('${filePath}')`;
 				break;
 			case '.tsv':
-				scanOperation = `read_csv('${params.uri}', delim='\t')`;
+				scanOperation = `read_csv('${filePath}', delim='\t')`;
 				break;
 			default:
 				return { error_message: `Unsupported file extension: ${fileExt}` };
@@ -319,7 +347,7 @@ export class DataExplorerRpcHandler {
 	async getState(uri: string): RpcResponse<BackendState> {
 		const [num_rows, num_columns] = await this._getUnfilteredShape(uri);
 		return {
-			display_name: basename(uri),
+			display_name: path.basename(uri),
 			table_shape: { num_rows, num_columns },
 			table_unfiltered_shape: { num_rows, num_columns },
 			has_row_labels: false,

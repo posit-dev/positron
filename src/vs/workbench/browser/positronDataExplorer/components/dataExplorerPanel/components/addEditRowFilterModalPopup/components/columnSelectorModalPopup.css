@@ -7,16 +7,16 @@
 	width: 100%;
 	height: 100%;
 	display: grid;
-	grid-template-rows: [search] 34px [view] 1fr [end];
+	grid-template-rows: [column-selector-search] 34px [column-selector-data-grid] 1fr [end-column-selector-data-grid];
 }
 
 .column-selector
 .column-selector-search {
-	grid-row: search / view;
+	grid-row: column-selector-search / column-selector-data-grid;
 	border-bottom: 1px solid var(--vscode-positronDataExplorer-border);
 }
 
 .column-selector
 .column-selector-data-grid {
-	grid-row: view / end;
+	grid-row: column-selector-data-grid / end-column-selector-data-grid;
 }

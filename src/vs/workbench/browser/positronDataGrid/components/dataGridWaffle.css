@@ -12,6 +12,8 @@
 	overflow: hidden;
 	position: relative;
 	box-sizing: border-box;
+	/* Makes some devices run their hardware acceleration. */
+	transform: translate3d(0px, 0px, 0px);
 	grid-template-rows: [headers] min-content [waffle] 1fr [end-waffle];
 	grid-template-columns: [headers] min-content [waffle] 1fr [end-waffle];
 }

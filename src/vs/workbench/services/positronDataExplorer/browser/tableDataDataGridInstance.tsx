@@ -16,14 +16,13 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
 import { TableDataCell } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataCell';
 import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { SORTING_BUTTON_WIDTH } from 'vs/workbench/browser/positronDataGrid/components/dataGridColumnHeader';
 import { TableDataRowHeader } from 'vs/workbench/services/positronDataExplorer/browser/components/tableDataRowHeader';
 import { CustomContextMenuItem } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
-import { InvalidateCacheFlags, TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
 import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
 import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
 import { PositronDataExplorerCommandId } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
+import { InvalidateCacheFlags, TableDataCache, WidthCalculators } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
 import { CustomContextMenuEntry, showCustomContextMenu } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenu';
 import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
 import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
@@ -39,11 +38,6 @@ const addFilterTitle = localize('positron.addFilter', "Add Filter");
  */
 export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
-
-	/**
-	 * Gets or sets the sort index width calculator.
-	 */
-	private _sortIndexWidthCalculator?: (sortIndex: number) => number;
 
 	/**
 	 * The onAddFilter event emitter.
@@ -81,12 +75,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			defaultColumnWidth: 200,
 			defaultRowHeight: 24,
 			columnResize: true,
-			minimumColumnWidth: 20,
-			maximumColumnWidth: 400,
+			minimumColumnWidth: 80,
+			maximumColumnWidth: 800,
 			rowResize: false,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
-			scrollbarWidth: 14,
+			scrollbarThickness: 14,
+			scrollbarOverscroll: 14,
 			useEditorFont: true,
 			automaticLayout: true,
 			cellBorders: true,
@@ -95,43 +90,85 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
+		/**
+		 * Updates the layout entries.
+		 * @param state The backend state, if known; otherwise, undefined.
+		 */
+		const updateLayoutEntries = async (state?: BackendState) => {
+			// Get the backend state, if was not provided.
+			if (!state) {
+				state = await this._dataExplorerClientInstance.getBackendState();
+			}
+
+			// Calculate the layout entries.
+			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
+				this.minimumColumnWidth,
+				this.maximumColumnWidth
+			);
+
+			// Set the layout entries.
+			this._columnLayoutManager.setLayoutEntries(
+				layoutEntries ?? state.table_shape.num_columns
+			);
+			this._rowLayoutManager.setLayoutEntries(
+				state.table_shape.num_rows
+			);
+
+			// Adjust the vertical scroll offset, if needed.
+			if (!this.firstRow) {
+				this._verticalScrollOffset = 0;
+			} else if (this._verticalScrollOffset > this.maximumVerticalScrollOffset) {
+				this._verticalScrollOffset = this.maximumVerticalScrollOffset;
+			}
+
+			// Adjust the horizontal scroll offset, if needed.
+			if (!this.firstColumn) {
+				this._horizontalScrollOffset = 0;
+			} else if (this._horizontalScrollOffset > this.maximumHorizontalScrollOffset) {
+				this._horizontalScrollOffset = this.maximumHorizontalScrollOffset;
+			}
+		};
+
 		// Add the data explorer client onDidSchemaUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidSchemaUpdate(async () => {
+			// Update the layout entries.
+			await updateLayoutEntries();
+
+			// Perform a soft reset.
+			this.softReset();
+
 			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.All,
-				firstColumnIndex: this.firstColumnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndex,
-				screenRows: this.screenRows
-			});
+			await this.fetchData(InvalidateCacheFlags.All);
 		}));
 
-		// Add the the data explorer client onDidDataUpdate event handler.
+		// Add the data explorer client onDidDataUpdate event handler.
 		this._register(this._dataExplorerClientInstance.onDidDataUpdate(async () => {
+			// Update the layout entries.
+			await updateLayoutEntries();
+
 			// Update the cache.
-			await this._tableDataCache.update({
-				invalidateCache: InvalidateCacheFlags.Data,
-				firstColumnIndex: this.firstColumnIndex,
-				screenColumns: this.screenColumns,
-				firstRowIndex: this.firstRowIndex,
-				screenRows: this.screenRows
-			});
+			await this.fetchData(InvalidateCacheFlags.Data);
 		}));
 
 		// Add the data explorer client onDidUpdateBackendState event handler.
-		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(
-			(state: BackendState) => {
-				// Clear column sort keys.
-				this._columnSortKeys.clear();
-				state.sort_keys.forEach((key, sortIndex) => {
-					this._columnSortKeys.set(key.column_index,
-						new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
-					);
-				});
-				this._onDidUpdateEmitter.fire();
-			}
-		));
+		this._register(this._dataExplorerClientInstance.onDidUpdateBackendState(async state => {
+			// Update the layout entries.
+			await updateLayoutEntries(state);
+
+			// Clear column sort keys.
+			this._columnSortKeys.clear();
+
+			// Update the column sort keys from the state.
+			state.sort_keys.forEach((key, sortIndex) => {
+				this._columnSortKeys.set(
+					key.column_index,
+					new ColumnSortKeyDescriptor(sortIndex, key.column_index, key.ascending)
+				);
+			});
+
+			// Fetch data.
+			await this.fetchData(InvalidateCacheFlags.Data);
+		}));
 
 		// Add the table data cache onDidUpdate event handler.
 		this._register(this._tableDataCache.onDidUpdate(() =>
@@ -158,51 +195,16 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		return this._tableDataCache.rows;
 	}
 
+	/**
+	 * Gets the page height.
+	 */
+	override get pageHeight() {
+		return this.layoutHeight - this.defaultRowHeight;
+	}
+
 	//#endregion DataGridInstance Properties
 
 	//#region DataGridInstance Methods
-
-	/**
-	 * Gets a column width.
-	 * @param columnIndex The column index.
-	 * @returns The column width.
-	 */
-	override getColumnWidth(columnIndex: number): number {
-		// If we have a user-defined column width, return it.
-		const userDefinedColumnWidth = this._userDefinedColumnWidths.get(columnIndex);
-		if (userDefinedColumnWidth !== undefined) {
-			return Math.min(userDefinedColumnWidth, this.maximumColumnWidth);
-		}
-
-		// Get the column header width and the column value width.
-		let columnHeaderWidth = this._tableDataCache.getColumnHeaderWidth(columnIndex);
-		if (columnHeaderWidth !== undefined) {
-			const columnSortKeyDescriptor = this._columnSortKeys.get(columnIndex);
-			if (!columnSortKeyDescriptor) {
-				columnHeaderWidth += 2;
-			} else {
-				columnHeaderWidth += SORTING_BUTTON_WIDTH;
-				if (this._sortIndexWidthCalculator) {
-					columnHeaderWidth += this._sortIndexWidthCalculator(
-						columnSortKeyDescriptor.sortIndex + 80
-					) + 6; // +6 for left and right 3px margin.
-				}
-			}
-		}
-		const columnValueWidth = this._tableDataCache.getColumnValueWidth(columnIndex);
-
-		// If we have a column header width and / or a column value width, return the column width.
-		if (columnHeaderWidth && columnValueWidth) {
-			return Math.min(Math.max(columnHeaderWidth, columnValueWidth), this.maximumColumnWidth);
-		} else if (columnHeaderWidth) {
-			return Math.min(columnHeaderWidth, this.maximumColumnWidth);
-		} else if (columnValueWidth) {
-			return Math.min(columnValueWidth, this.maximumColumnWidth);
-		}
-
-		// Return the default column width.
-		return this.defaultColumnWidth;
-	}
 
 	/**
 	 * Sorts the data.
@@ -210,36 +212,44 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 */
 	override async sortData(columnSorts: IColumnSortKey[]): Promise<void> {
 		// Set the sort columns.
-		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => (
-			{
-				column_index: columnSort.columnIndex,
-				ascending: columnSort.ascending
-			}
-		)));
+		await this._dataExplorerClientInstance.setSortColumns(columnSorts.map(columnSort => ({
+			column_index: columnSort.columnIndex,
+			ascending: columnSort.ascending
+		})));
 
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
-			screenRows: this.screenRows
-		});
+		// Get the first column layout entry and the first row layout entry. If they were found,
+		// update the cache.
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: columnDescriptor.columnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowDescriptor.rowIndex,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**
 	 * Fetches data.
+	 * @param invalidateCacheFlags The invalidate cache flags.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	override async fetchData() {
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.None,
-			firstColumnIndex: this.firstColumnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
-			screenRows: this.screenRows
-		});
+	override async fetchData(invalidateCacheFlags?: InvalidateCacheFlags) {
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
+			await this._tableDataCache.update({
+				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
+				firstColumnIndex: columnDescriptor.columnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowDescriptor.rowIndex,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**
@@ -560,27 +570,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Public Methods
 
 	/**
-	 * Sets the column header width calculator.
-	 * @param calculator The column header width calculator.
+	 * Sets the width calculators.
+	 * @param widthCalculators The width calculators.
 	 */
-	setColumnHeaderWidthCalculator(calculator?: (columnName: string, typeName: string) => number) {
-		this._tableDataCache.setColumnHeaderWidthCalculator(calculator);
-	}
-
-	/**
-	 * Sets the sort index width calculator.
-	 * @param calculator The sort index width calculator.
-	 */
-	setSortIndexWidthCalculator(calculator?: (sortIndex: number) => number) {
-		this._sortIndexWidthCalculator = calculator;
-	}
-
-	/**
-	 * Sets the column value width calculator.
-	 * @param calculator The column value width calculator.
-	 */
-	setColumnValueWidthCalculator(calculator?: (length: number) => number) {
-		this._tableDataCache.setColumnValueWidthCalculator(calculator);
+	setWidthCalculators(widthCalculators?: WidthCalculators) {
+		this._tableDataCache.setWidthCalculators(widthCalculators);
 	}
 
 	/**
@@ -672,14 +666,20 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Synchronize the backend state.
 		await this._dataExplorerClientInstance.updateBackendState();
 
-		// Update the cache.
-		await this._tableDataCache.update({
-			invalidateCache: InvalidateCacheFlags.Data,
-			firstColumnIndex: this.firstColumnIndex,
-			screenColumns: this.screenColumns,
-			firstRowIndex: this.firstRowIndex,
-			screenRows: this.screenRows
-		});
+		// Get the first column layout entry and the first row layout entry. If they were found,
+		// update the cache.
+		const columnDescriptor = this.firstColumn;
+		const rowDescriptor = this.firstRow;
+		if (columnDescriptor && rowDescriptor) {
+			// Update the cache.
+			await this._tableDataCache.update({
+				invalidateCache: InvalidateCacheFlags.Data,
+				firstColumnIndex: columnDescriptor.columnIndex,
+				screenColumns: this.screenColumns,
+				firstRowIndex: rowDescriptor.rowIndex,
+				screenRows: this.screenRows
+			});
+		}
 	}
 
 	/**
