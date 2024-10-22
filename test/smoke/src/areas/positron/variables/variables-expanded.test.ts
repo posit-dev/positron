@@ -23,10 +23,10 @@ describe('Variables - Expanded View #pr', () => {
 		const variables = app.workbench.positronVariables;
 
 		await variables.expandVariable('df');
-		['foo', 'bar', 'ham', 'green', 'eggs', 'cheese'].forEach(async (variable) => {
+		for (const variable of Object.keys(expectedData)) {
 			const actualData = await variables.getVariableChildren(variable);
 			expect(actualData).toEqual(expectedData[variable]);
-		});
+		}
 	});
 });
 
