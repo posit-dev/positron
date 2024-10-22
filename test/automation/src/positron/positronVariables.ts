@@ -105,6 +105,14 @@ export class PositronVariables {
 		return interpreter;
 	}
 
+	/**
+	 * Gets the data (value and type) for the children of a parent variable.
+	 * NOTE: it assumes that either ALL variables are collapsed or ONLY the parent variable is expanded.
+	 *
+	 * @param parentVariable the parent variable to get the children of
+	 * @param collapseParent whether to collapse the parent variable after getting the children data
+	 * @returns a map of the children's name, value, and type
+	 */
 	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
 		await this.expandVariable(parentVariable);
 		const variable = this.code.driver.getLocator(`.name-value:text-is("${parentVariable}")`);
