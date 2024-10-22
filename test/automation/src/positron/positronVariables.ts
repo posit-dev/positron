@@ -114,7 +114,6 @@ export class PositronVariables {
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
 			.filter({ has: this.code.driver.getLocator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
 		console.log('*****', parentVariable, children.length);
-		// const variableItems = await this.code.waitForElements(VARIABLE_ITEMS, true);
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
