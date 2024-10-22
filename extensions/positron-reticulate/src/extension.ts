@@ -29,6 +29,9 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	onDidDiscoverRuntime?: vscode.Event<positron.LanguageRuntimeMetadata>;
 	onDidDiscoverRuntimeEmmiter?: vscode.EventEmitter<positron.LanguageRuntimeMetadata>;
 
+	private onDidEndSessionEmitter = new vscode.EventEmitter<void>();
+	onDidEndSession = this.onDidEndSessionEmitter.event;
+
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 	) {
@@ -103,6 +106,9 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	async createSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
 		try {
 			this._session = await ReticulateRuntimeSession.create(runtimeMetadata, sessionMetadata);
+			this._session.onDidEndSession(() => {
+				this.onDidEndSessionEmitter.fire();
+			});
 			return this._session;
 		} catch (err: any) {
 			// When an error happens trying to create a session, we'll create a notification
@@ -120,6 +126,9 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	async restoreSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata): Promise<positron.LanguageRuntimeSession> {
 		try {
 			this._session = await ReticulateRuntimeSession.restore(runtimeMetadata, sessionMetadata);
+			this._session.onDidEndSession(() => {
+				this.onDidEndSessionEmitter.fire();
+			});
 			return this._session;
 		} catch (err: any) {
 			const error = err as InitializationError;
@@ -331,8 +340,9 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	/** An object that emits the current state of the runtime */
 	public onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
+	private onDidEndSessionEmitter = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
 	/** An object that emits an event when the user's session ends and the runtime exits */
-	public onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
+	public onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this.onDidEndSessionEmitter.event;
 
 	constructor(
 		readonly rSession: positron.LanguageRuntimeSession,
@@ -375,9 +385,12 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 			kernelSpec
 		);
 
+		this.pythonSession.onDidEndSession(async (exit) => {
+			this.onDidEndSessionEmitter.fire(exit);
+		});
+
 		this.onDidReceiveRuntimeMessage = this.pythonSession.onDidReceiveRuntimeMessage;
 		this.onDidChangeRuntimeState = this.pythonSession.onDidChangeRuntimeState;
-		this.onDidEndSession = this.pythonSession.onDidEndSession;
 	}
 
 	// A function that starts a kernel and then connects to it.
@@ -647,26 +660,42 @@ export class ReticulateProvider {
 		this.context.subscriptions.push(positron.runtime.registerLanguageRuntimeManager(this.manager));
 	}
 
-	async registerClient(client: positron.RuntimeClientInstance) {
+	async registerClient(client: positron.RuntimeClientInstance, start_runtime: boolean) {
+
 		if (this._client) {
 			this._client.dispose();
 		}
 
 		this._client = client;
+
 		// We'll force the registration when the user calls `reticulate::repl_python()`
 		// even if the flag is not enabled.
-		await this.manager.maybeRegisterReticulateRuntime();
-		await positron.runtime.selectLanguageRuntime('reticulate');
+		if (start_runtime) {
+			await this.manager.maybeRegisterReticulateRuntime();
+			// This forces the runtime to start up
+			await positron.runtime.selectLanguageRuntime('reticulate');
+		}
 
-		this.manager._session?.onDidEndSession(() => {
-			this._client?.dispose();
-			this._client = undefined;
+		this.manager.onDidEndSession(() => {
+			// Disposing the client will allow the R session to continue closing
+			// so it should only be called when the Python Session is fully gone.
+			if (this._client) {
+				this._client.dispose();
+				this._client = undefined;
+			}
 		});
 
-		this._client.onDidSendEvent((e) => {
+		this._client.onDidSendEvent(async (e) => {
 			const event = e.data as any;
 			if (event.method === 'focus') {
 				this.focusReticulateConsole();
+			} else if (event.method === 'shutdown') {
+				// The R session is shutting down and sent the Reticulate shutdown event.
+				// It will wait until the Python session is fully exit before continuing to exit.
+				// Wait a few seconds before doing it:
+				if (this.manager._session) {
+					await this.manager._session.shutdown(positron.RuntimeExitReason.Shutdown);
+				}
 			}
 		});
 
@@ -709,7 +738,7 @@ export function activate(context: vscode.ExtensionContext) {
 		positron.runtime.registerClientHandler({
 			clientType: 'positron.reticulate',
 			callback: (client, params: any) => {
-				reticulateProvider.registerClient(client);
+				reticulateProvider.registerClient(client, params.start_runtime);
 				return true;
 			}
 		}));
