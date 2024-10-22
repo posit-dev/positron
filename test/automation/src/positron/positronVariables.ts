@@ -7,7 +7,7 @@
 import { Code } from '../code';
 import * as os from 'os';
 import { IElement } from '../driver';
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
@@ -17,7 +17,7 @@ interface FlatVariables {
 const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
-const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
+// const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 
@@ -37,21 +37,20 @@ export class PositronVariables {
 			const details = item.children.find(child => child.className === VARIABLE_DETAILS);
 
 			const value = details?.children[0].textContent;
-			const type = details?.children[1].textContent;
+			const rightColumn = details?.children[1].textContent || '';
 
-			if (!name || !value || !type) {
+			if (!name || !value) {
 				throw new Error('Could not parse variable item');
 			}
 
-			variables.set(name, { value, type });
+			variables.set(name, { value, type: rightColumn });
 		}
 		return variables;
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-
-		const desiredRow = this.code.driver.getLocator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
-		await desiredRow.waitFor({ state: 'attached' });
+		const desiredRow = this.code.driver.getLocator(`.name-value:text-is("${variableName}")`);
+		await expect(desiredRow).toBeVisible();
 		return desiredRow;
 	}
 
@@ -72,8 +71,48 @@ export class PositronVariables {
 
 	}
 
+	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
+		await this.waitForVariableRow(variableName);
+		const variable = this.code.driver.getLocator('.name-value', { hasText: variableName });
+
+		const chevronIcon = variable.locator('..').locator('.gutter .expand-collapse-icon');
+		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
+
+		// Perform action based on the 'action' parameter
+		if (action === 'expand' && !isExpanded) {
+			await chevronIcon.click();
+		} else if (action === 'collapse' && isExpanded) {
+			await chevronIcon.click();
+		} else {
+			console.log(`Variable ${variableName} is already ${action}ed`);
+		}
+	}
+
+	async expandVariable(variableName: string) {
+		await this.toggleVariable({ variableName, action: 'expand' });
+	}
+
+	async collapseVariable(variableName: string) {
+		await this.toggleVariable({ variableName, action: 'collapse' });
+	}
+
 	async getVariablesInterpreter(): Promise<IElement> {
 		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
 		return interpreter;
+	}
+
+	async verifyVariableChildrenValues(variableName: string, expectedChildren: { key: string; value: string }[], collapseParent = true) {
+		await this.expandVariable(variableName);
+
+		for (const { key, value } of expectedChildren) {
+			const namedVariable = this.code.driver.getLocator(`.name-value:text-is("${key}")`);
+			await expect(namedVariable).toBeVisible();
+
+			// check the value corresponding to the child (e.g., value next to it in the details column)
+			const valueLocator = namedVariable.locator('..').locator('..').locator('..').locator('.details-column .value');
+			await expect(valueLocator).toHaveText(value);
+		}
+
+		if (collapseParent) { await this.collapseVariable(variableName); }
 	}
 }

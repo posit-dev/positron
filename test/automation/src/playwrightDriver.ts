@@ -338,8 +338,13 @@ export class PlaywrightDriver {
 		return this.page.locator(locator).pressSequentially(text);
 	}
 
-	getLocator(selector: string): playwright.Locator {
-		return this.page.locator(selector);
+	getLocator(selector: string, options?: {
+		has?: playwright.Locator;
+		hasNot?: playwright.Locator;
+		hasNotText?: string | RegExp;
+		hasText?: string | RegExp;
+	}): playwright.Locator {
+		return this.page.locator(selector, options);
 	}
 
 	getKeyboard() {
