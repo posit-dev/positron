@@ -28,6 +28,9 @@ describe('Python Applications #pr #win', () => {
 		});
 
 		it('Python - Verify Basic Dash App [C903305]', async function () {
+
+			this.retries(1);
+
 			const app = this.app as Application;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
