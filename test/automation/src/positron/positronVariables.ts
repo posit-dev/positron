@@ -17,6 +17,7 @@ interface FlatVariables {
 const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
+const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 
@@ -48,8 +49,8 @@ export class PositronVariables {
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-		const desiredRow = this.code.driver.getLocator(`.name-value:text-is("${variableName}")`);
-		await expect(desiredRow).toBeVisible();
+		const desiredRow = this.code.driver.getLocator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
+		await desiredRow.waitFor({ state: 'attached' });
 		return desiredRow;
 	}
 
@@ -85,6 +86,11 @@ export class PositronVariables {
 		} else {
 			console.log(`Variable ${variableName} is already ${action}ed`);
 		}
+		const expectedClass = action === 'expand'
+			? 'expand-collapse-icon codicon codicon-chevron-down'
+			: 'expand-collapse-icon codicon codicon-chevron-right';
+
+		await expect(chevronIcon).toHaveClass(expectedClass);
 	}
 
 	async expandVariable(variableName: string) {
@@ -107,6 +113,8 @@ export class PositronVariables {
 		// get the children of the parent variable, which are indented
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
 			.filter({ has: this.code.driver.getLocator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
+		console.log('*****', parentVariable, children.length);
+		// const variableItems = await this.code.waitForElements(VARIABLE_ITEMS, true);
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
