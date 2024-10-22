@@ -7,7 +7,7 @@
 	<url type="homepage">https://github.com/posit-dev/positron</url>
 	<summary>A next-generation data science IDE from Posit Software, PBC.</summary>
 	<description>
-		<p>Positron™ is an extensible, polyglot tool for writing code and exploring data in Python, R, and other languages. Positron is an early stage project under active development. See https://github.com/posit-dev/positron/wiki for installation instructions and an FAQ.</p>
+		<p>Positron™ is an extensible, polyglot tool for writing code and exploring data in Python, R, and other languages. Positron is an early stage project under active development. See https://positron.posit.co/ for installation instructions and an FAQ.</p>
 	</description>
 	<screenshots>
 		<screenshot type="default">

@@ -17,13 +17,13 @@ const reviewGuidanceLabel = localize( // intentionally not escaped because of it
 		key: 'reviewGuidanceLabel',
 		comment: [
 			// --- Start Positron ---
-			'{Locked="<a href=\"https://github.com/posit-dev/positron/wiki/Feedback-and-Issues\" target=\"_blank\">"}',
+			'{Locked="<a href=\"https://positron.posit.co/feedback.html\" target=\"_blank\">"}',
 			// --- End Positron ---
 			'{Locked="</a>"}'
 		]
 	},
 	// --- Start Positron ---
-	'Before you report an issue here please <a href="https://github.com/posit-dev/positron/wiki/Feedback-and-Issues" target="_blank">review the guidance we provide</a>.'
+	'Before you report an issue here please <a href="https://positron.posit.co/feedback.html" target="_blank">review the guidance we provide</a>.'
 	// --- End Positron ---
 );
 
