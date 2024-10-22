@@ -32,7 +32,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
 			</ActionButton>
 		</NotebookCellActionBar>
-		<div className='cell-contents'>
+		<div className='positron-notebook-code-cell-contents' data-is-running={isRunning}>
 			<CellEditorMonacoWidget cell={cell} />
 			<div className='positron-notebook-cell-outputs'>
 				{outputContents?.map(({ outputs, outputId }) =>
