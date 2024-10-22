@@ -23,6 +23,14 @@ describe('Console Autocomplete #web #win', () => {
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronConsole.typeToConsole('df = pd.');
 
+			const suggestions = await app.code.waitForElements('.suggest-widget .monaco-list-row', false);
+
+			for (const suggestion of suggestions) {
+				const text = suggestion.textContent;
+				console.log(text);
+
+			}
+
 			await app.code.wait(60000);
 
 		});
