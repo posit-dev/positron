@@ -11,7 +11,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 
-describe('Data Explorer #web #win', () => {
+describe('Data Explorer #web', () => {
 	logger = setupAndStartApp();
 
 	describe('Python Pandas Data Explorer #pr', () => {
@@ -32,7 +32,7 @@ describe('Data Explorer #web #win', () => {
 
 		});
 
-		it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
+		it('Python Pandas - Verifies basic data explorer functionality [C557556] #win', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -113,7 +113,7 @@ df2 = pd.DataFrame(data)`;
 
 
 		});
-		it('Python Pandas - Verifies data explorer column info functionality [C734263]', async function () {
+		it('Python Pandas - Verifies data explorer column info functionality [C734263] #win', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
@@ -149,7 +149,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 		// This test is not dependent on the previous test, so it refreshes the python environment
-		it('Python Pandas - Verifies data explorer after modification [C557574]', async function () {
+		it('Python Pandas - Verifies data explorer after modification [C557574] #win', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
@@ -288,7 +288,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 
-		it('Python Polars - Add Simple Column filter [C557557]', async function () {
+		it('Python Polars - Add Simple Column filter [C557557] #win', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -310,7 +310,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 		});
 
-		it('Python Polars - Add Simple Column Sort [C557561]', async function () {
+		it('Python Polars - Add Simple Column Sort [C557561] #win', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -346,7 +346,7 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	describe('R Data Explorer', () => {
+	describe('R Data Explorer #win', () => {
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);

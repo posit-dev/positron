@@ -44,6 +44,9 @@ describe('Data Explorer 100x100 #win', function () {
 			await app.code.driver.getLocator(`.label-name:has-text("Data: ${dataFrameName}")`).innerText();
 		}).toPass();
 
+		// Maximize the data explorer.
+		await app.workbench.positronDataExplorer.maximizeDataExplorer();
+
 		// Drive focus into the data explorer.
 		await app.workbench.positronDataExplorer.clickUpperLeftCorner();
 
@@ -99,12 +102,16 @@ describe('Data Explorer 100x100 #win', function () {
 				// Move to the next cell.
 				await app.workbench.positronDataExplorer.arrowRight();
 			}
+
 		};
 
 		// Check the first row, the middle row, and the last row.
 		await testRow(0);
 		await testRow(Math.trunc(tsvValues.length / 2));
 		await testRow(tsvValues.length - 1);
+
+		// Return to Stacked layout
+		await app.workbench.positronLayouts.enterLayout('stacked');
 	};
 
 	/**
