@@ -38,6 +38,8 @@ VetiverAPI(v).run()`;
 			await theDoc.waitFor({ state: 'attached', timeout: 60000 });
 
 			await app.workbench.positronConsole.activeConsole.click();
+			// if click accidentally hits a link, use Escape to close the dialog
+			await app.workbench.positronConsole.sendKeyboardKey('Escape');
 			await app.workbench.positronConsole.sendKeyboardKey('Control+C');
 
 			await app.workbench.positronConsole.waitForConsoleContents(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
