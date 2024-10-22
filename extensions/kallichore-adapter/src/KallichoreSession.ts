@@ -12,7 +12,7 @@ import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } 
 import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, StartupError, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
-import { KernelInfoRequest } from './jupyter/KernelInfoRequest';
+import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
@@ -123,11 +123,22 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _activeBackendRequestHeader: JupyterMessageHeader | null = null;
 
+	/**
+	 * Constructor for the Kallichore session wrapper.
+	 *
+	 * @param metadata The session metadata
+	 * @param runtimeMetadata The runtime metadata
+	 * @param dynState The initial dynamic state of the runtime
+	 * @param _api The API instance to use for communication
+	 * @param _new Set to `true` when the session is created for the first time,
+	 * and `false` when it is restored (reconnected).
+	 * @param _extra Extra functionality to enable for this session
+	 */
 	constructor(readonly metadata: positron.RuntimeSessionMetadata,
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly dynState: positron.LanguageRuntimeDynState,
 		private readonly _api: DefaultApi,
-		private _new: boolean,
+		private readonly _new: boolean,
 		private readonly _extra?: JupyterKernelExtra | undefined) {
 
 		// Create event emitters
@@ -659,7 +670,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		try {
 			// Attempt to start the session
-			await this.tryStart();
+			return this.tryStart();
 		} catch (err) {
 			if (err instanceof HttpError && err.statusCode === 500) {
 				// When the server returns a 500 error, it means the startup
@@ -698,23 +709,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.onStateChange(positron.RuntimeState.Exited);
 			throw err;
 		}
-
-		return this.getKernelInfo();
 	}
 
 	/**
 	 * Attempts to start the session; returns a promise that resolves when the
 	 * session is ready to use.
 	 */
-	private async tryStart(): Promise<void> {
+	private async tryStart(): Promise<positron.LanguageRuntimeInfo> {
 		// Wait for the session to be established before connecting. This
 		// ensures either that we've created the session (if it's new) or that
 		// we've restored it (if it's not new).
 		await withTimeout(this._established.wait(), 2000, `Start failed: timed out waiting for session ${this.metadata.sessionId} to be established`);
 
+		let runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
-			await this._api.startSession(this.metadata.sessionId);
+			const result = await this._api.startSession(this.metadata.sessionId);
+			// Typically, the API returns the kernel info as the result of
+			// starting a new session, but the server doesn't validate the
+			// result returned by the kernel, so check for a `status` field
+			// before assuming it's a Jupyter message.
+			if (result.body.status === 'ok') {
+				runtimeInfo = this.runtimeInfoFromKernelInfo(result.body);
+			}
 		}
 
 		// Before connecting, check if we should attach to the session on
@@ -760,6 +778,22 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this._state.fire(positron.RuntimeState.Ready);
 			}
 		}
+
+		// If we already have runtime info, return it. (The runtime info is
+		// typically returned by the API when starting a new session, but if
+		// we're reconnecting, we need to ask for it again.)
+		if (runtimeInfo) {
+			setTimeout(() => {
+				// Open the ready barrier after a tick
+				this._ready.open();
+			}, 0);
+			return runtimeInfo;
+		}
+
+		// We don't have runtime info yet, so request it from the kernel. The
+		// busy/idle state returned from this request will cause the ready
+		// barrier to open.
+		return this.getKernelInfo();
 	}
 
 	/**
@@ -1068,13 +1102,39 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// kernel to be connected.
 		const request = new KernelInfoRequest();
 		const reply = await this.sendRequest(request);
+		return this.runtimeInfoFromKernelInfo(reply);
+	}
 
-		// Translate the kernel info to a runtime info object
+	/**
+	 * Translates a kernel info reply into a runtime info object and updates the
+	 * dynamic state.
+	 *
+	 * @param reply The Jupyter kernel info reply
+	 * @returns The Positron runtime info object
+	 */
+	private runtimeInfoFromKernelInfo(reply: KernelInfoReply) {
+		// Read the input and continuation prompts
+		const input_prompt = reply.language_info.positron?.input_prompt;
+		const continuation_prompt = reply.language_info.positron?.continuation_prompt;
+
+		// Populate the initial dynamic state with the input and continuation
+		// prompts
+		if (input_prompt) {
+			this.dynState.inputPrompt = input_prompt;
+		}
+		if (continuation_prompt) {
+			this.dynState.continuationPrompt = continuation_prompt;
+		}
+
+		// Translate the kernel info into a runtime info object
 		const info: positron.LanguageRuntimeInfo = {
 			banner: reply.banner,
 			implementation_version: reply.implementation_version,
 			language_version: reply.language_info.version,
+			input_prompt,
+			continuation_prompt,
 		};
+
 		return info;
 	}
 
