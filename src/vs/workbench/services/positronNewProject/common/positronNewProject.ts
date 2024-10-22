@@ -84,6 +84,7 @@ export enum NewProjectTask {
  * NewProjectConfiguration interface. Defines the configuration for a new project.
  */
 export interface NewProjectConfiguration {
+	readonly folderScheme: string;
 	readonly runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 	readonly projectType: string;
 	readonly projectFolder: string;

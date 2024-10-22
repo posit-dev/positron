@@ -22,6 +22,7 @@ import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { Schemas } from 'vs/base/common/network';
 
 /**
  * PositronNewProjectService class.
@@ -327,7 +328,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.git
 	 */
 	private async _runGitInit() {
-		const projectRoot = URI.file(this._newProjectConfig?.projectFolder!);
+		const projectRoot = URI.from({ scheme: this._newProjectConfig?.folderScheme ?? Schemas.file, path: this._newProjectConfig?.projectFolder });
 
 		// true to skip the folder prompt
 		await this._commandService.executeCommand('git.init', true)
