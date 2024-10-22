@@ -19,10 +19,10 @@ import { disposableTimeout } from 'vs/base/common/async';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
-
-
 	private _container: HTMLElement | undefined;
 	private _editor: CodeEditorWidget | undefined;
+
+	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		public cellModel: NotebookCellTextModel,
@@ -127,7 +127,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
 	outputs: ISettableObservable<NotebookCellOutputs[]>;
-	executionStatus: ISettableObservable<ExecutionStatus> = observableValue<ExecutionStatus, void>('cellExecutionStatus', 'idle');
 
 	constructor(
 		cellModel: NotebookCellTextModel,

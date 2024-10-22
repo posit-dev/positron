@@ -12,7 +12,7 @@
 		visibility: hidden;
 	}
 
-	&:has([data-is-running='true']) {
+	&[data-is-running='true'] {
 		outline: 1px solid var(--vscode-focusBorder);
 		animation: running-cell-pulse 2s ease-in-out infinite;
 	}

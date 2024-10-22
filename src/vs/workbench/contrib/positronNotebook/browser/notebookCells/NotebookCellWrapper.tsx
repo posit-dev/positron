@@ -10,11 +10,13 @@ import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/service
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { useSelectionStatus } from './useSelectionStatus';
+import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {
 	const cellRef = React.useRef<HTMLDivElement>(null);
 	const selectionStateMachine = useNotebookInstance().selectionStateMachine;
 	const selectionStatus = useSelectionStatus(cell);
+	const executionStatus = useObservedValue(cell.executionStatus);
 
 	React.useEffect(() => {
 		if (cellRef.current) {
@@ -25,6 +27,7 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 
 	return <div
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
+		data-is-running={executionStatus === 'running'}
 		ref={cellRef}
 		tabIndex={0}
 		onClick={(e) => {
