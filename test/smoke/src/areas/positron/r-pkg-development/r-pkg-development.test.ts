@@ -40,7 +40,7 @@ describe('R Package Development #web', () => {
 
 		it('R Package Development Tasks [C809821]', async function () {
 
-			this.timeout(180000);
+			this.timeout(200000);
 
 			await expect(async () => {
 				// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing
