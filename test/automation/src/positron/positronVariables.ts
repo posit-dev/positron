@@ -83,9 +83,8 @@ export class PositronVariables {
 			await chevronIcon.click();
 		} else if (action === 'collapse' && isExpanded) {
 			await chevronIcon.click();
-		} else {
-			console.log(`Variable ${variableName} is already ${action}ed`);
 		}
+
 		const expectedClass = action === 'expand'
 			? 'expand-collapse-icon codicon codicon-chevron-down'
 			: 'expand-collapse-icon codicon codicon-chevron-right';
@@ -113,7 +112,6 @@ export class PositronVariables {
 		// get the children of the parent variable, which are indented
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
 			.filter({ has: this.code.driver.getLocator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
-		console.log('*****', parentVariable, children.length);
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
