@@ -36,13 +36,13 @@ export class PositronVariables {
 			const details = item.children.find(child => child.className === VARIABLE_DETAILS);
 
 			const value = details?.children[0].textContent;
-			const rightColumn = details?.children[1].textContent || '';
+			const type = details?.children[1].textContent;
 
-			if (!name || !value) {
+			if (!name || !value || !type) {
 				throw new Error('Could not parse variable item');
 			}
 
-			variables.set(name, { value, type: rightColumn });
+			variables.set(name, { value, type });
 		}
 		return variables;
 	}
