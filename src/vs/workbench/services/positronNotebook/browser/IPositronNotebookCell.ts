@@ -39,6 +39,11 @@ export interface IPositronNotebookCell extends Disposable {
 	get notebookUri(): URI;
 
 	/**
+	 * Current execution status for this cell
+	 */
+	executionStatus: ISettableObservable<ExecutionStatus, void>;
+
+	/**
 	 * The content of the cell. This is the raw text of the cell.
 	 */
 	getContent(): string;
@@ -118,10 +123,6 @@ export interface IPositronNotebookCell extends Disposable {
 export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	kind: CellKind.Code;
 
-	/**
-	 * Current execution status for this cell
-	 */
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
 
 	/**
 	 * Current cell outputs as an observable
