@@ -17,7 +17,6 @@ interface FlatVariables {
 const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
-// const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 
@@ -78,7 +77,7 @@ export class PositronVariables {
 		const chevronIcon = variable.locator('..').locator('.gutter .expand-collapse-icon');
 		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
 
-		// Perform action based on the 'action' parameter
+		// perform action based on the 'action' parameter
 		if (action === 'expand' && !isExpanded) {
 			await chevronIcon.click();
 		} else if (action === 'collapse' && isExpanded) {

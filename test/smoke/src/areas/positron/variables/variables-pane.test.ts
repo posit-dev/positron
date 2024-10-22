@@ -10,7 +10,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 describe('Variables Pane #web #win', () => {
 	const logger = setupAndStartApp();
 
-	describe('Python Variables Pane #web #pr', () => {
+	describe('Python Variables Pane #web #pr #only', () => {
 
 		before(async function () {
 
