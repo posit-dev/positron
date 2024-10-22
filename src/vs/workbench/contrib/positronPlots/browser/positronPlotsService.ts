@@ -187,6 +187,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Listen for plots being selected and update the selected plot ID
 		this._register(this._onDidSelectPlot.event((id) => {
 			this._selectedPlotId = id;
+			const selectedPlot = this._plots.find((plot) => plot.id === id);
+			if (selectedPlot instanceof PlotClientInstance) {
+				this._selectedSizingPolicy = selectedPlot.sizingPolicy;
+			}
 		}));
 
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
@@ -203,6 +207,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// When the storage service is about to save state, store the current history policy
 		// and storage policy in the workspace storage.
 		this._register(this._storageService.onWillSaveState(() => {
+			this._plots.forEach((plot) => {
+				this.storePlotMetadata(plot.metadata);
+			});
 
 			this._storageService.store(
 				HistoryPolicyStorageKey,
@@ -289,16 +296,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		// See if there's a preferred sizing policy in storage, and select it if so
-		const preferredSizingPolicyId = this._storageService.get(
-			SizingPolicyStorageKey,
-			StorageScope.WORKSPACE);
-		if (preferredSizingPolicyId) {
-			const policy = this._sizingPolicies.find(
-				policy => policy.id === preferredSizingPolicyId);
-			if (policy) {
-				this._selectedSizingPolicy = policy;
-			}
-		}
+		// const preferredSizingPolicyId = this._storageService.get(
+		// 	SizingPolicyStorageKey,
+		// 	StorageScope.WORKSPACE);
+		// if (preferredSizingPolicyId) {
+		// 	const policy = this._sizingPolicies.find(
+		// 		policy => policy.id === preferredSizingPolicyId);
+		// 	if (policy) {
+		// 		this._selectedSizingPolicy = policy;
+		// 	}
+		// }
 
 		// See if there's a preferred history policy in storage, and select it if so
 		const preferredHistoryPolicy = this._storageService.get(
@@ -402,7 +409,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			throw new Error(`Invalid sizing policy ID: ${id}`);
 		}
 		this._selectedSizingPolicy = policy;
-		this._onDidChangeSizingPolicy.fire(policy);
+		const selectedPlot = this._plots.find((plot) => this.selectedPlotId === plot.id);
+		if (selectedPlot instanceof PlotClientInstance) {
+			selectedPlot.sizingPolicy = policy;
+		}
 	}
 
 	/**
@@ -584,17 +594,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					code,
 				};
 
-				// Save the metadata to storage so that we can restore it when
-				// the plot is reconnected.
-				this._storageService.store(
-					this.generateStorageKey(metadata.session_id, metadata.id),
-					JSON.stringify(metadata),
-					StorageScope.WORKSPACE,
-					StorageTarget.MACHINE);
-
 				// Register the plot client
 				const commProxy = this.createCommProxy(event.client, metadata);
 				const plotClient = this.createRuntimePlotClient(commProxy);
+				this.storePlotMetadata(metadata);
 				this.registerPlotClient(plotClient, true);
 
 				// Raise the Plots pane so the plot is visible.
@@ -632,6 +635,21 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 		}
+	}
+
+	/**
+	 * Save the metadata to storage so that we can restore it when
+	 * the plot is reconnected.
+	 *
+	 * @param metadata the plot metadata
+	 */
+	private storePlotMetadata(metadata: IPositronPlotMetadata) {
+		this._storageService.store(
+			this.generateStorageKey(metadata.session_id, metadata.id),
+			JSON.stringify(metadata),
+			StorageScope.WORKSPACE,
+			StorageTarget.MACHINE
+		);
 	}
 
 	/**
@@ -1146,7 +1164,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy) {
-		const plotClient = new PlotClientInstance(comm, comm.metadata);
+		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === comm.metadata.sizing_policy?.id)
+			?? this._selectedSizingPolicy;
+		comm.metadata.sizing_policy = {
+			id: sizingPolicy.id,
+			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined
+		};
+		const plotClient = new PlotClientInstance(comm, sizingPolicy ?? this._selectedSizingPolicy, comm.metadata);
 		let plotClients = this._plotClientsByComm.get(comm.metadata.id);
 
 		if (!plotClients) {
