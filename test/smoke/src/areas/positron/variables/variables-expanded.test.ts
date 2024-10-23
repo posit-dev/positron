@@ -18,7 +18,7 @@ describe('Variables - Expanded View #pr', () => {
 
 	});
 
-	it('should display children values and types when variable is expanded', async function () {
+	it('Python - should display children values and types when variable is expanded', async function () {
 		const app = this.app as Application;
 		const variables = app.workbench.positronVariables;
 
