@@ -8,7 +8,8 @@ import fs = require('fs');
 import path = require('path');
 import express from 'express';
 import { AddressInfo, Server } from 'net';
-import { ProxyServerStyles } from './extension';
+import { log, ProxyServerStyles } from './extension';
+// eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
@@ -176,7 +177,7 @@ export class PositronProxy implements Disposable {
 				this._helpStyleOverrides !== undefined &&
 				this._helpScript !== undefined;
 		} catch (error) {
-			console.log(`Failed to load the resources/scripts_help.html file.`);
+			log.error(`Failed to load the resources/scripts_help.html file: ${JSON.stringify(error)}`);
 		}
 	}
 
@@ -202,6 +203,8 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin.
 	 */
 	startHelpProxyServer(targetOrigin: string): Promise<string> {
+		log.debug(`Starting a help proxy server for target: ${targetOrigin}...`);
+
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
@@ -257,6 +260,8 @@ export class PositronProxy implements Disposable {
 	 * stopped.
 	 */
 	stopProxyServer(targetOrigin: string): boolean {
+		log.debug(`Stopping proxy server for target: ${targetOrigin}...`);
+
 		// See if we have a proxy server for the target origin. If we do, stop it.
 		const proxyServer = this._proxyServers.get(targetOrigin);
 		if (proxyServer) {
@@ -278,6 +283,8 @@ export class PositronProxy implements Disposable {
 	 * @returns The server URL.
 	 */
 	async startHtmlProxyServer(targetPath: string) {
+		log.debug(`Starting an HTML proxy server for target: ${targetPath}...`);
+
 		if (!this._htmlProxyServer) {
 			this._htmlProxyServer = new HtmlProxyServer();
 		}
@@ -299,6 +306,7 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin.
 	 */
 	startHttpProxyServer(targetOrigin: string): Promise<string> {
+		log.debug(`Starting an HTTP proxy server for target: ${targetOrigin}...`);
 		// Start the proxy server.
 		return this.startProxyServer(targetOrigin, htmlContentRewriter);
 	}
@@ -312,6 +320,7 @@ export class PositronProxy implements Disposable {
 	 * @returns The pending proxy server info.
 	 */
 	startPendingHttpProxyServer(): Promise<PendingProxyServer> {
+		log.debug('Starting a pending HTTP proxy server...');
 		// Start the proxy server and return the pending proxy server info. The caller will need to
 		// call finishProxySetup to complete the proxy setup.
 		return this.startNewProxyServer(htmlContentRewriter);
@@ -332,7 +341,7 @@ export class PositronProxy implements Disposable {
 		// server origin.
 		const proxyServer = this._proxyServers.get(targetOrigin);
 		if (proxyServer) {
-			console.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${targetOrigin}.`);
+			log.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${targetOrigin}.`);
 			return proxyServer.serverOrigin;
 		}
 
@@ -341,7 +350,7 @@ export class PositronProxy implements Disposable {
 			// We don't have an existing proxy server for the target origin, so start a new one.
 			pendingProxy = await this.startNewProxyServer(contentRewriter);
 		} catch (error) {
-			console.error(`Failed to start a proxy server for ${targetOrigin}.`);
+			log.error(`Failed to start a proxy server for ${targetOrigin}: ${JSON.stringify(error)}`);
 			throw error;
 		}
 
@@ -349,7 +358,7 @@ export class PositronProxy implements Disposable {
 			// Finish setting up the proxy server.
 			await pendingProxy.finishProxySetup(targetOrigin);
 		} catch (error) {
-			console.error(`Failed to finish setting up the proxy server at ${pendingProxy.externalUri} for target: ${targetOrigin}.`);
+			log.error(`Failed to finish setting up the proxy server at ${pendingProxy.externalUri} for target ${targetOrigin}: ${JSON.stringify(error)}`);
 			throw error;
 		}
 
@@ -377,8 +386,10 @@ export class PositronProxy implements Disposable {
 
 		// Ensure the address is an AddressInfo.
 		if (!isAddressInfo(address)) {
+			const error = `Failed to get the address info ${JSON.stringify(address)} for the server.`;
+			log.error(error);
 			server.close();
-			throw new Error(`Failed to get the address info ${JSON.stringify(address)} for the server.`);
+			throw new Error(error);
 		}
 
 		// Create the server origin.
@@ -387,6 +398,8 @@ export class PositronProxy implements Disposable {
 		// Convert the server origin to an external URI.
 		const originUri = vscode.Uri.parse(serverOrigin);
 		const externalUri = await vscode.env.asExternalUri(originUri);
+
+		log.debug(`Started proxy server at ${serverOrigin} for external URI ${JSON.stringify(externalUri)}.`);
 
 		// Return the pending proxy info.
 		return {
@@ -423,6 +436,11 @@ export class PositronProxy implements Disposable {
 		app: express.Express,
 		contentRewriter: ContentRewriter
 	) {
+		log.debug(`Finishing proxy server setup for target ${targetOrigin}\n` +
+			`\tserverOrigin: ${serverOrigin}\n` +
+			`\texternalUri: ${JSON.stringify(externalUri)}`
+		);
+
 		// Add the proxy server.
 		this._proxyServers.set(targetOrigin, new ProxyServer(
 			serverOrigin,
