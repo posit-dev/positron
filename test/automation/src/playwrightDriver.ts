@@ -36,7 +36,9 @@ export class PlaywrightDriver {
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
 		private readonly context: playwright.BrowserContext,
-		private readonly page: playwright.Page,
+		// --- Start Positron ---
+		readonly page: playwright.Page,
+		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
@@ -338,13 +340,8 @@ export class PlaywrightDriver {
 		return this.page.locator(locator).pressSequentially(text);
 	}
 
-	getLocator(selector: string, options?: {
-		has?: playwright.Locator;
-		hasNot?: playwright.Locator;
-		hasNotText?: string | RegExp;
-		hasText?: string | RegExp;
-	}): playwright.Locator {
-		return this.page.locator(selector, options);
+	getLocator(selector: string): playwright.Locator {
+		return this.page.locator(selector);
 	}
 
 	getKeyboard() {

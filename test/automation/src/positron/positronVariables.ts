@@ -60,20 +60,17 @@ export class PositronVariables {
 		await desiredRow.dblclick();
 	}
 
-	async openVariables() {
-
+	async toggleVariablesView() {
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		await this.code.driver.getKeyboard().press(`${modifier}+Alt+B`);
-
 		await this.code.waitForElement(VARIABLES_SECTION);
-
 	}
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await this.waitForVariableRow(variableName);
-		const variable = this.code.driver.getLocator('.name-value', { hasText: variableName });
+		const variable = this.code.driver.page.locator('.name-value', { hasText: variableName });
 
 		const chevronIcon = variable.locator('..').locator('.gutter .expand-collapse-icon');
 		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
@@ -115,11 +112,11 @@ export class PositronVariables {
 	 */
 	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
 		await this.expandVariable(parentVariable);
-		const variable = this.code.driver.getLocator(`.name-value:text-is("${parentVariable}")`);
+		const variable = this.code.driver.page.locator(`.name-value:text-is("${parentVariable}")`);
 
 		// get the children of the parent variable, which are indented
 		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
-			.filter({ has: this.code.driver.getLocator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
+			.filter({ has: this.code.driver.page.locator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
