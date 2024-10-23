@@ -418,21 +418,13 @@ export class TableSummaryCache extends Disposable {
 		// better responsiveness
 		const BATCH_PROFILE_THRESHOLD = 10_000_000;
 		if (tableState.table_shape.num_rows > BATCH_PROFILE_THRESHOLD) {
-			const pendingRequests: Array<() => Promise<void>> = [];
 			for (let i = 0; i < columnIndices.length; i++) {
-				pendingRequests.push(() => this._dataExplorerClientInstance.getColumnProfiles([columnRequests[i]])
-					.then((result) => {
-						// Cache the column profiles that were returned
-						this._columnProfileCache.set(columnIndices[i], result[0]);
-
-						// Fire the onDidUpdate event so things update as soon as they are returned
-						this._onDidUpdateEmitter.fire();
-					})
-				);
-			}
-			for (const request of pendingRequests) {
 				// Run the requests one at a time
-				await request();
+				const result = await this._dataExplorerClientInstance.getColumnProfiles([columnRequests[i]]);
+				// Cache the column profiles that were returned
+				this._columnProfileCache.set(columnIndices[i], result[0]);
+				// Fire the onDidUpdate event so things update as soon as they are returned
+				this._onDidUpdateEmitter.fire();
 			}
 		} else {
 			// Load the column profiles as a batch
