@@ -14,13 +14,14 @@ import path = require('path');
 
 // Third-party packages
 import minimist = require('minimist');
+
+// Local imports
+import { createLogger } from '../test-runner/logger';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
+import { createApp } from '../utils';
+
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 
-// Local project modules
-import { createLogger } from '../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation/out';
-import { createApp } from '../utils';
-import exp = require('constants');
 export const test = base.extend<{
 	logger: Logger;
 	tracing: any;
@@ -64,7 +65,7 @@ export const test = base.extend<{
 		};
 
 		await use(options);
-	}, { scope: 'worker', auto: true, title: 'Set Default Options' }],
+	}, { scope: 'worker', auto: true }],
 
 	app: [async ({ options }, use) => {
 		// start the app
@@ -76,7 +77,7 @@ export const test = base.extend<{
 
 		// stop the app
 		await app.stop();
-	}, { scope: 'worker', auto: true, title: 'Start and Stop App', timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
@@ -102,7 +103,7 @@ export const test = base.extend<{
 		};
 
 		await use({ set: setInterpreter });
-	}, { scope: 'test', title: 'Setup Interpreter' }],
+	}, { scope: 'test', }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -128,7 +129,7 @@ export const test = base.extend<{
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
 
-	}, { auto: true, title: 'Attach Screenshots to Report' }],
+	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
 		// Start tracing
@@ -143,7 +144,7 @@ export const test = base.extend<{
 		await app.stopTracing(title, true, tracePath);
 		// console.log('trace:', tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-	}, { auto: true, scope: 'test', title: 'Start and Stop Tracing' }],
+	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {
 		await use(app.code.driver.page);
