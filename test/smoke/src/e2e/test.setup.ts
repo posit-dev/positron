@@ -18,7 +18,7 @@ const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 
 // Local project modules
 import { createLogger } from '../test-runner/logger';
-import { Application, Logger } from '../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
 import { createApp } from '../utils';
 export const test = base.extend<{
 	logger: Logger;
@@ -27,6 +27,9 @@ export const test = base.extend<{
 	context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
 	restartApp: any;
+	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
+	rInterpreter: any;
+	pythonInterpreter: any;
 }, {
 	options: any;
 	app: Application;
@@ -60,7 +63,7 @@ export const test = base.extend<{
 		};
 
 		await use(options);
-	}, { scope: 'worker', auto: true }],
+	}, { scope: 'worker', auto: true, title: 'Set Default Options' }],
 
 	app: [async ({ options }, use) => {
 		// start the app
@@ -72,12 +75,60 @@ export const test = base.extend<{
 
 		// stop the app
 		await app.stop();
-	}, { scope: 'worker', auto: true }],
+	}, { scope: 'worker', auto: true, title: 'Start and Stop App', timeout: 60000 }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
 		await use(app);
-	}, { scope: 'test' }],
+	}, { scope: 'test', title: 'Restart App', timeout: 60000 }],
+
+
+	pythonInterpreter: [async ({ app }, use) => {
+		const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+		console.log('current', currentInterpreter);
+		if (!currentInterpreter.includes('Python')) {
+			await PositronPythonFixtures.SetupFixtures(app);
+			console.log('Python interpreter started');
+		}
+		await PositronPythonFixtures.SetupFixtures(app);
+
+		await use();
+	}, { scope: 'test', title: 'Setup Python Interpreter' }],
+
+	rInterpreter: [async ({ app }, use) => {
+		const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+		console.log('current', currentInterpreter);
+		if (!currentInterpreter.includes('R')) {
+			await PositronPythonFixtures.SetupFixtures(app);
+			console.log('R interpreter started');
+		}
+		await PositronRFixtures.SetupFixtures(app);
+
+		await use();
+	}, { scope: 'test', title: 'Setup R Interpreter' }],
+
+	interpreter: [async ({ app }, use) => {
+		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
+			const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+			console.log('current', currentInterpreter);
+
+			// If current interpreter is not the requested one, switch it
+			if (!currentInterpreter.includes(interpreterName)) {
+
+				if (interpreterName === 'Python') {
+					await PositronPythonFixtures.SetupFixtures(app);
+					console.log('Python interpreter started');
+				} else if (interpreterName === 'R') {
+					await PositronRFixtures.SetupFixtures(app); // Assuming PositronRFixtures is defined for R setup
+					console.log('R interpreter started');
+				}
+			} else {
+				console.log(`${interpreterName} interpreter already set`);
+			}
+		};
+
+		await use({ set: setInterpreter });
+	}, { scope: 'test', title: 'Setup Interpreter' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -103,7 +154,7 @@ export const test = base.extend<{
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
 
-	}, { auto: true }],
+	}, { auto: true, title: 'Attach Screenshots to Report' }],
 
 	tracing: [async ({ app }, use, testInfo) => {
 		// Start tracing
@@ -117,7 +168,7 @@ export const test = base.extend<{
 		const tracePath = testInfo.outputPath(title + '_trace.zip');
 		await app.stopTracing(title, true, tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
-	}, { auto: true, scope: 'test' }],
+	}, { auto: true, scope: 'test', title: 'Start and Stop Tracing' }],
 
 	page: async ({ app }, use) => {
 		await use(app.code.driver.getPage());
@@ -132,7 +183,7 @@ export const test = base.extend<{
 		const suiteName = testInfo.titlePath[0];
 
 		const logsRootPath = join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
-		const crashesRootPath = join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
+		// const crashesRootPath = join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
 		const logger = createLogger(logsRootPath);
 
 		app.setLogger(logger);
