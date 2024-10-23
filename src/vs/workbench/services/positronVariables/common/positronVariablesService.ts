@@ -261,6 +261,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	) {
 		// Set the active instance and fire the onDidChangeActivePositronVariablesInstance event.
 		this._activePositronVariablesInstance = positronVariablesInstance;
+		this._activePositronVariablesInstance?.requestRefresh();
 		this._onDidChangeActivePositronVariablesInstanceEmitter.fire(positronVariablesInstance);
 	}
 
