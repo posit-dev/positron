@@ -523,6 +523,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public async shutdown(exitReason: positron.RuntimeExitReason) {
 		await this.pythonSession.shutdown(exitReason);
+		// Execute some dummy code in the R session to shift focus to it.
+		await positron.runtime.executeCode('r', '', true, true);
 		return;
 	}
 
