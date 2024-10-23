@@ -136,9 +136,9 @@ export class PositronConsole {
 		contents.forEach(line => this.code.logger.log(line));
 	}
 
-	async typeToConsole(text: string) {
+	async typeToConsole(text: string, delay = 30) {
 		await this.activeConsole.click();
-		await this.activeConsole.pressSequentially(text, { delay: 30 });
+		await this.activeConsole.pressSequentially(text, { delay: delay });
 	}
 
 	async sendKeyboardKey(key: string) {

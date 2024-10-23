@@ -43,7 +43,9 @@ describe('Console Autocomplete #web #win', () => {
 
 			await app.workbench.positronConsole.pasteCodeToConsole('library(arrow)');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.workbench.positronConsole.typeToConsole('df2 <- read_p');
+
+			// need to type to console slowly to see suggestions with R
+			await app.workbench.positronConsole.typeToConsole('df2 <- read_p', 250);
 
 			const suggestionList = await app.workbench.positronConsole.getSuggestions();
 
