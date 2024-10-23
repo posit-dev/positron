@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Playwright and testing imports
-import { _electron, test as base } from '@playwright/test';
+import { test as base, expect as playwrightExpect } from '@playwright/test';
 import * as playwright from '@playwright/test';
 
 // Node.js built-in modules
@@ -18,8 +18,9 @@ const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 
 // Local project modules
 import { createLogger } from '../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation/out';
 import { createApp } from '../utils';
+import exp = require('constants');
 export const test = base.extend<{
 	logger: Logger;
 	tracing: any;
@@ -82,35 +83,10 @@ export const test = base.extend<{
 		await use(app);
 	}, { scope: 'test', title: 'Restart App', timeout: 60000 }],
 
-
-	pythonInterpreter: [async ({ app, page }, use) => {
-		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-		console.log('current', currentInterpreter);
-		if (!currentInterpreter.includes('Python')) {
-			await PositronPythonFixtures.SetupFixtures(app);
-			console.log('Python interpreter started');
-		}
-		await PositronPythonFixtures.SetupFixtures(app);
-
-		await use();
-	}, { scope: 'test', title: 'Setup Python Interpreter' }],
-
-	rInterpreter: [async ({ app, page }, use) => {
-		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-		console.log('current', currentInterpreter);
-		if (!currentInterpreter.includes('R')) {
-			await PositronPythonFixtures.SetupFixtures(app);
-			console.log('R interpreter started');
-		}
-		await PositronRFixtures.SetupFixtures(app);
-
-		await use();
-	}, { scope: 'test', title: 'Setup R Interpreter' }],
-
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
 			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-			console.log('current', currentInterpreter);
+			console.log('current:', currentInterpreter);
 
 			// If current interpreter is not the requested one, switch it
 			if (!currentInterpreter.includes(interpreterName)) {
@@ -165,6 +141,7 @@ export const test = base.extend<{
 		// Stop tracing
 		const tracePath = testInfo.outputPath(title + '_trace.zip');
 		await app.stopTracing(title, true, tracePath);
+		// console.log('trace:', tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 	}, { auto: true, scope: 'test', title: 'Start and Stop Tracing' }],
 
@@ -192,3 +169,4 @@ export const test = base.extend<{
 
 });
 
+export { playwrightExpect as expect };
