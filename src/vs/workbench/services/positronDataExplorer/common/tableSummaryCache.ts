@@ -414,44 +414,26 @@ export class TableSummaryCache extends Disposable {
 
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 
-		async function processInBatches<T>(
-			tasks: (() => Promise<T>)[],
-			batchSize: number
-		): Promise<T[]> {
-			const results: T[] = [];
-			let index = 0;
-
-			while (index < tasks.length) {
-				const batch = tasks.slice(index, index + batchSize);
-				const batchResults = await Promise.all(batch.map(task => task()));
-				results.push(...batchResults);
-				index += batchSize;
-			}
-
-			return results;
-		}
-
 		// For more than 10 million rows, we request profiles one by one rather than as a batch for
 		// better responsiveness
 		const BATCH_PROFILE_THRESHOLD = 10_000_000;
-
-		// Run no more than 4 at a time
-		const CONCURRENCY_LIMIT = 4;
 		if (tableState.table_shape.num_rows > BATCH_PROFILE_THRESHOLD) {
 			const pendingRequests: Array<() => Promise<void>> = [];
 			for (let i = 0; i < columnIndices.length; i++) {
-				pendingRequests.push(() => this._dataExplorerClientInstance.getColumnProfiles(
-					[columnRequests[i]]
-				).then((result) => {
-					// Cache the column profiles that were returned
-					this._columnProfileCache.set(columnIndices[i], result[0]);
+				pendingRequests.push(() => this._dataExplorerClientInstance.getColumnProfiles([columnRequests[i]])
+					.then((result) => {
+						// Cache the column profiles that were returned
+						this._columnProfileCache.set(columnIndices[i], result[0]);
 
-					// Fire the onDidUpdate event so things update as soon as they are returned
-					this._onDidUpdateEmitter.fire();
-				}));
+						// Fire the onDidUpdate event so things update as soon as they are returned
+						this._onDidUpdateEmitter.fire();
+					})
+				);
 			}
-			await processInBatches(pendingRequests, CONCURRENCY_LIMIT);
-			this._onDidUpdateEmitter.fire();
+			for (const request of pendingRequests) {
+				// Run the requests one at a time
+				await request();
+			}
 		} else {
 			// Load the column profiles as a batch
 			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
