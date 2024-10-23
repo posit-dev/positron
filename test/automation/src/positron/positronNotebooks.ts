@@ -3,8 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { expect } from '@playwright/test';
 import { Code } from '../code';
 import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
@@ -16,7 +14,7 @@ const KERNEL_ACTION = '.kernel-action-view-item';
 const SELECT_KERNEL_TEXT = 'Select Kernel';
 const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
-const EDIT_CELL_COMMAND = 'notebook.cell.edit';
+const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
@@ -77,19 +75,9 @@ export class PositronNotebooks {
 	}
 
 	async addCodeToFirstCell(code: string) {
-
-		// Attempt to add code to a cell.  If the code is not added correctly, delete the cell and try
-		// again for up to 60 seconds
-		await expect(async () => {
-			try {
-				await this.quickaccess.runCommand(EDIT_CELL_COMMAND);
-				await this.notebook.waitForTypeInEditor(code);
-				await this.notebook.waitForActiveCellEditorContents(code);
-			} catch (e) {
-				await this.notebook.deleteActiveCell();
-				throw e;
-			}
-		}).toPass({ timeout: 60000 });
+		await this.code.driver.getLocator(CELL_LINE).first().click();
+		await this.notebook.waitForTypeInEditor(code);
+		await this.notebook.waitForActiveCellEditorContents(code);
 	}
 
 	async executeCodeInCell() {
