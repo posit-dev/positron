@@ -92,6 +92,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	private readonly _onDidRequestFocusEmitter = this._register(new Emitter<void>());
 
+	/**
+	 * The onDidCollapseSummary event emitter.
+	 */
+	private readonly _onDidCollapseSummaryEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The onDidExpandSummary event emitter.
+	 */
+	private readonly _onDidExpandSummaryEmitter = this._register(new Emitter<void>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -242,6 +252,20 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Collapses the summary.
+	 */
+	collapseSummary(): void {
+		this._onDidCollapseSummaryEmitter.fire();
+	}
+
+	/**
+	 * Expands the summary.
+	 */
+	expandSummary(): void {
+		this._onDidExpandSummaryEmitter.fire();
+	}
+
+	/**
 	 * Copies the selection or cursor cell to the clipboard.
 	 */
 	async copyToClipboard(): Promise<void> {
@@ -377,6 +401,16 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * onDidRequestFocus event.
 	 */
 	readonly onDidRequestFocus = this._onDidRequestFocusEmitter.event;
+
+	/**
+	 * onDidCollapseSummary event.
+	 */
+	readonly onDidCollapseSummary = this._onDidCollapseSummaryEmitter.event;
+
+	/**
+	 * onDidExpandSummary event.
+	 */
+	readonly onDidExpandSummary = this._onDidExpandSummaryEmitter.event;
 
 	//#endregion IPositronDataExplorerInstance Implementation
 }
