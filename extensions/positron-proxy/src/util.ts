@@ -25,15 +25,6 @@ export class PromiseHandles<T> {
 }
 
 /**
- * Remove the trailing slash from a URL if it exists.
- * @param url The URL.
- * @returns The URL without the trailing slash.
- */
-export function removeTrailingSlash(url: string): string {
-	return url.endsWith('/') ? url.slice(0, -1) : url;
-}
-
-/**
  * A generic content rewriter for HTML content.
  * @param _serverOrigin The server origin.
  * @param proxyPath The proxy path.
