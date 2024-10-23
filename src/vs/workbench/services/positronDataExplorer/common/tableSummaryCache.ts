@@ -319,109 +319,151 @@ export class TableSummaryCache extends Disposable {
 		const histogramSupported = this.isHistogramSupported();
 		const frequencyTableSupported = this.isFrequencyTableSupported();
 
-		// Load the column profiles.
-		const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
-			columnIndices.map((column_index): ColumnProfileRequest => {
-				// Get the column schema.
-				const columnSchema = this._columnSchemaCache.get(column_index);
+		const columnRequests = columnIndices.map((column_index): ColumnProfileRequest => {
+			// Get the column schema.
+			const columnSchema = this._columnSchemaCache.get(column_index);
 
-				// Build the array of column profiles to load. Always load the null count.
-				const profiles: ColumnProfileSpec[] = [{
-					profile_type: ColumnProfileType.NullCount
-				}];
+			// Build the array of column profiles to load. Always load the null count.
+			const profiles: ColumnProfileSpec[] = [{
+				profile_type: ColumnProfileType.NullCount
+			}];
 
-				// Determine whether the column is expanded.
-				const columnExpanded = this._expandedColumns.has(column_index);
+			// Determine whether the column is expanded.
+			const columnExpanded = this._expandedColumns.has(column_index);
 
-				// If the column is expanded, load the summary stats.
-				if (columnExpanded) {
-					profiles.push({ profile_type: ColumnProfileType.SummaryStats });
-				}
+			// If the column is expanded, load the summary stats.
+			if (columnExpanded) {
+				profiles.push({ profile_type: ColumnProfileType.SummaryStats });
+			}
 
-				// Determine whether to load the histogram or the frequency table for the column.
-				switch (columnSchema?.type_display) {
-					// Number.
-					case ColumnDisplayType.Number: {
-						// If histograms are supported, load them.
-						if (histogramSupported) {
-							// Load the small histogram.
+			// Determine whether to load the histogram or the frequency table for the column.
+			switch (columnSchema?.type_display) {
+				// Number.
+				case ColumnDisplayType.Number: {
+					// If histograms are supported, load them.
+					if (histogramSupported) {
+						// Load the small histogram.
+						profiles.push({
+							profile_type: ColumnProfileType.SmallHistogram,
+							params: {
+								method: ColumnHistogramParamsMethod.FreedmanDiaconis,
+								num_bins: SMALL_HISTOGRAM_NUM_BINS,
+							}
+						});
+
+						// If the column is expanded, load the large histogram.
+						if (columnExpanded) {
 							profiles.push({
-								profile_type: ColumnProfileType.SmallHistogram,
+								profile_type: ColumnProfileType.LargeHistogram,
 								params: {
 									method: ColumnHistogramParamsMethod.FreedmanDiaconis,
-									num_bins: SMALL_HISTOGRAM_NUM_BINS,
+									num_bins: LARGE_HISTOGRAM_NUM_BINS,
 								}
 							});
-
-							// If the column is expanded, load the large histogram.
-							if (columnExpanded) {
-								profiles.push({
-									profile_type: ColumnProfileType.LargeHistogram,
-									params: {
-										method: ColumnHistogramParamsMethod.FreedmanDiaconis,
-										num_bins: LARGE_HISTOGRAM_NUM_BINS,
-									}
-								});
-							}
 						}
-						break;
 					}
-
-					// Boolean.
-					case ColumnDisplayType.Boolean: {
-						// If frequency tables are supported, load them.
-						if (frequencyTableSupported) {
-							// Load the small frequency table. Note that we do not load the large
-							// frequency table because there are only two possible values.
-							profiles.push({
-								profile_type: ColumnProfileType.SmallFrequencyTable,
-								params: {
-									limit: 2
-								}
-							});
-
-						}
-						break;
-					}
-
-					// String.
-					case ColumnDisplayType.String: {
-						// If frequency tables are supported, load them.
-						if (frequencyTableSupported) {
-							// Load the small frequency table.
-							profiles.push({
-								profile_type: ColumnProfileType.SmallFrequencyTable,
-								params: {
-									limit: SMALL_FREQUENCY_TABLE_LIMIT
-								}
-							});
-
-							// If the column is expanded, load the large frequency table.
-							if (columnExpanded) {
-								profiles.push({
-									profile_type: ColumnProfileType.LargeFrequencyTable,
-									params: {
-										limit: LARGE_FREQUENCY_TABLE_LIMIT
-									}
-								});
-							}
-						}
-						break;
-					}
+					break;
 				}
 
-				// Return the column profile request.
-				return { column_index, profiles };
-			})
-		);
+				// Boolean.
+				case ColumnDisplayType.Boolean: {
+					// If frequency tables are supported, load them.
+					if (frequencyTableSupported) {
+						// Load the small frequency table. Note that we do not load the large
+						// frequency table because there are only two possible values.
+						profiles.push({
+							profile_type: ColumnProfileType.SmallFrequencyTable,
+							params: {
+								limit: 2
+							}
+						});
 
-		// Cache the column profiles that were returned.
-		for (let i = 0; i < columnProfileResults.length; i++) {
-			this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
+					}
+					break;
+				}
+
+				// String.
+				case ColumnDisplayType.String: {
+					// If frequency tables are supported, load them.
+					if (frequencyTableSupported) {
+						// Load the small frequency table.
+						profiles.push({
+							profile_type: ColumnProfileType.SmallFrequencyTable,
+							params: {
+								limit: SMALL_FREQUENCY_TABLE_LIMIT
+							}
+						});
+
+						// If the column is expanded, load the large frequency table.
+						if (columnExpanded) {
+							profiles.push({
+								profile_type: ColumnProfileType.LargeFrequencyTable,
+								params: {
+									limit: LARGE_FREQUENCY_TABLE_LIMIT
+								}
+							});
+						}
+					}
+					break;
+				}
+			}
+
+			// Return the column profile request.
+			return { column_index, profiles };
+		});
+
+		const tableState = await this._dataExplorerClientInstance.getBackendState();
+
+		async function processInBatches<T>(
+			tasks: (() => Promise<T>)[],
+			batchSize: number
+		): Promise<T[]> {
+			const results: T[] = [];
+			let index = 0;
+
+			while (index < tasks.length) {
+				const batch = tasks.slice(index, index + batchSize);
+				const batchResults = await Promise.all(batch.map(task => task()));
+				results.push(...batchResults);
+				index += batchSize;
+			}
+
+			return results;
 		}
 
-		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		// For more than 10 million rows, we request profiles one by one rather than as a batch for
+		// better responsiveness
+		const BATCH_PROFILE_THRESHOLD = 10_000_000;
+
+		// Run no more than 4 at a time
+		const CONCURRENCY_LIMIT = 4;
+		if (tableState.table_shape.num_rows > BATCH_PROFILE_THRESHOLD) {
+			const pendingRequests: Array<() => Promise<void>> = [];
+			for (let i = 0; i < columnIndices.length; i++) {
+				pendingRequests.push(() => this._dataExplorerClientInstance.getColumnProfiles(
+					[columnRequests[i]]
+				).then((result) => {
+					// Cache the column profiles that were returned
+					this._columnProfileCache.set(columnIndices[i], result[0]);
+
+					// Fire the onDidUpdate event so things update as soon as they are returned
+					this._onDidUpdateEmitter.fire();
+				}));
+			}
+			await processInBatches(pendingRequests, CONCURRENCY_LIMIT);
+			this._onDidUpdateEmitter.fire();
+		} else {
+			// Load the column profiles as a batch
+			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
+				columnRequests
+			);
+			// Cache the column profiles that were returned.
+			for (let i = 0; i < columnProfileResults.length; i++) {
+				this._columnProfileCache.set(columnIndices[i], columnProfileResults[i]);
+			}
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		}
 	}
 
 	/**
