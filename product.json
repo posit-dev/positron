@@ -30,7 +30,7 @@
 	"win32TunnelServiceMutex": "positron-tunnelservice",
 	"win32TunnelMutex": "positrontunnel",
 	"darwinBundleIdentifier": "com.rstudio.positron",
-	"linuxIconName": "com.visualstudio.code.oss",
+	"linuxIconName": "com.rstudio.positron",
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",
 	"nodejsRepository": "https://nodejs.org",
