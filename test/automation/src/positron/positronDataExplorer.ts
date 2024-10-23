@@ -214,11 +214,22 @@ export class PositronDataExplorer {
 		await this.code.driver.getLocator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
-	async maximizeDataExplorer(): Promise<void> {
+	async maximizeDataExplorer(collapseSummary: boolean = false): Promise<void> {
 		await this.workbench.positronLayouts.enterLayout('stacked');
 		await this.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await this.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await this.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+
+		if (collapseSummary) {
+			await this.collapseSummary();
+		}
 	}
 
+	async collapseSummary(): Promise<void> {
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.collapseSummary');
+	}
+
+	async expandSummary(): Promise<void> {
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+	}
 }
