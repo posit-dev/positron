@@ -66,7 +66,7 @@ df = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
@@ -145,7 +145,7 @@ df2 = pd.DataFrame(data)`;
 			await app.workbench.positronSideBar.closeSecondarySideBar();
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 		// This test is not dependent on the previous test, so it refreshes the python environment
@@ -215,7 +215,7 @@ df2 = pd.DataFrame(data)`;
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
 		});
