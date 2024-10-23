@@ -216,7 +216,7 @@ df2 = pd.DataFrame(data)`;
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			// await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.openVariables();
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
 		});
