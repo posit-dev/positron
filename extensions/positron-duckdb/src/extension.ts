@@ -11,6 +11,7 @@ import {
 	ColumnProfileResult,
 	ColumnProfileType,
 	ColumnSortKey,
+	ColumnValue,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
@@ -37,7 +38,7 @@ import {
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import Worker from 'web-worker';
-import { Table } from 'apache-arrow';
+import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 class DuckDBInstance {
@@ -97,7 +98,7 @@ interface SchemaEntry {
 const SENTINEL_NULL = 0;
 const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
-const SENTINEL_NEGINF = 10;
+const SENTINEL_NEGINF = 11;
 
 function uriToFilePath(uri: string) {
 	// On Windows, we need to fix up the path so that it is recognizable as a drive path.
@@ -188,11 +189,22 @@ export class DuckDBTableView {
 
 		const smallNumDigits = params.format_options.small_num_digits;
 		const largeNumDigits = params.format_options.large_num_digits;
+
 		const thousandsSep = params.format_options.thousands_sep;
 		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
 		const varcharLimit = params.format_options.max_value_length;
 
 		const columnSelectors: Array<string> = [];
+
+		let smallFloatFormat, largeFloatFormat;
+		if (thousandsSep !== undefined) {
+			largeFloatFormat = `'{:,.${largeNumDigits}f}'`;
+			smallFloatFormat = `'{:,.${smallNumDigits}f}'`;
+		} else {
+			largeFloatFormat = `'{:.${largeNumDigits}f}'`;
+			smallFloatFormat = `'{:.${smallNumDigits}f}'`;
+		}
+
 		for (const column of params.columns) {
 			if ('first_index' in column.spec) {
 				// Value range
@@ -207,31 +219,41 @@ export class DuckDBTableView {
 			const columnSchema = this.fullSchema[column.column_index];
 			const quotedName = `"${columnSchema.column_name}"`;
 
+			const smallRounded = `ROUND(${quotedName}, ${smallNumDigits})`;
+			const largeRounded = `ROUND(${quotedName}, ${largeNumDigits})`;
+
 			// TODO: what is column_index is out of bounds?
 
 			// Build column selector. Just casting to string for now
 			let columnSelector;
 			switch (columnSchema.column_type) {
-				case 'FLOAT':
-				case 'DOUBLE': {
-					let largeFormatter, smallFormatter;
+				case 'TINYINT':
+				case 'SMALLINT':
+				case 'INTEGER':
+				case 'BIGINT':
 					if (thousandsSep !== undefined) {
-						largeFormatter = `FORMAT('{:,.${largeNumDigits}f}', ${quotedName})`;
-						smallFormatter = `FORMAT('{:,.${smallNumDigits}f}', ${quotedName})`;
+						columnSelector = `FORMAT('{:,}', ${quotedName})`;
 						if (thousandsSep !== ',') {
-							largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
-							smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
+							columnSelector = `REPLACE(${columnSelector}, ',', '${thousandsSep}')`;
 						}
 					} else {
-						largeFormatter = `FORMAT('{:.${largeNumDigits}f}', ${quotedName})`;
-						smallFormatter = `FORMAT('{:.${smallNumDigits}f}', ${quotedName})`;
+						columnSelector = `FORMAT('{:d}', ${quotedName})`;
+					}
+					break;
+				case 'FLOAT':
+				case 'DOUBLE': {
+					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
+					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
+					if (thousandsSep !== undefined && thousandsSep !== ',') {
+						largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
+						smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
 					}
 					columnSelector = `CASE WHEN ${quotedName} IS NULL THEN 'NULL'
 WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
 WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
 WHEN isnan(${quotedName}) THEN 'NaN'
 WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
-WHEN abs(${quotedName}) < 1 THEN ${smallFormatter}
+WHEN abs(${quotedName}) < 1 AND abs(${quotedName}) > 0 THEN ${smallFormatter}
 ELSE ${largeFormatter}
 END`;
 					break;
@@ -267,9 +289,7 @@ END`;
 		const query = `SELECT\n${columnSelectors.join(',\n    ')}
 		FROM ${this.tableName}
 		LIMIT ${numRows}
-		OFFSET ${lowerLimit} `;
-
-		console.log(query);
+		OFFSET ${lowerLimit};`;
 
 		const queryResult = await this.db.runQuery(query);
 		if (typeof queryResult === 'string') {
@@ -290,38 +310,58 @@ END`;
 			columns: []
 		};
 
-		for (let i = 0; i < queryResult.numCols; i++) {
-			const spec = params.columns[i].spec;
 
-			const field = queryResult.getChildAt(i)!;
-			const values: Array<string> = field.toArray();
-
-			if ('first_index' in spec) {
-				const columnValues: Array<string | number> = [];
-
-				// Value range, we need to extract the actual slice requested
-				for (let i = spec.first_index; i <= spec.last_index; ++i) {
-					const relIndex = i - lowerLimit;
-					if (field.isValid(relIndex)) {
-						columnValues.push(values[relIndex]);
-					} else {
-						columnValues.push(SENTINEL_NULL);
-					}
-				}
-				result.columns.push(columnValues);
-			} else {
-				// Set of values indices, just get the lower and upper extent
-				result.columns.push(
-					spec.indices.map((index) => {
-						const value = values[index - lowerLimit];
-						if (value === null) {
-							return SENTINEL_NULL;
-						} else {
-							return value;
-						}
-					})
-				);
+		const floatAdapter = (field: Vector<any>, i: number) => {
+			const value: string = field.get(i - lowerLimit);
+			switch (value) {
+				case 'NaN':
+					return SENTINEL_NAN;
+				case 'NULL':
+					return SENTINEL_NULL;
+				case 'Inf':
+					return SENTINEL_INF;
+				case '-Inf':
+					return SENTINEL_NEGINF;
+				default:
+					return value;
 			}
+		};
+
+		const defaultAdapter = (field: Vector<any>, i: number) => {
+			const relIndex = i - lowerLimit;
+			return field.isValid(relIndex) ? field.get(relIndex) : SENTINEL_NULL;
+		};
+
+		for (let i = 0; i < queryResult.numCols; i++) {
+			const column = params.columns[i];
+			const spec = column.spec;
+			const field = queryResult.getChildAt(i)!;
+
+			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
+				if ('first_index' in spec) {
+					const columnValues: Array<string | number> = [];
+					// Value range, we need to extract the actual slice requested
+					for (let i = spec.first_index; i <= spec.last_index; ++i) {
+						columnValues.push(adapter(field, i));
+					}
+					return columnValues;
+				} else {
+					// Set of values indices, just get the lower and upper extent
+					return spec.indices.map(i => adapter(field, i));
+				}
+			};
+
+			const columnSchema = this.fullSchema[column.column_index];
+			switch (columnSchema.column_type) {
+				case 'DOUBLE':
+				case 'FLOAT':
+					result.columns.push(fetchValues(floatAdapter));
+					break;
+				default:
+					result.columns.push(fetchValues(defaultAdapter));
+					break;
+			}
+
 		}
 
 		return result;
@@ -504,34 +544,41 @@ export class DataExplorerRpcHandler {
 	constructor(private readonly db: DuckDBInstance) { }
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
-		const tableName = `positron_${this._tableIndex++}`;
+		let scanQuery, tableName;
+		const duckdbPath = params.uri.match(/^duckdb:\/\/(.+)$/);
+		if (duckdbPath) {
+			// We are querying a table in the transient in-memory database. We can modify this later
+			// to read from different .duckb database files
+			tableName = duckdbPath[1];
+			scanQuery = `SELECT * FROM ${tableName}`;
+		} else {
+			tableName = `positron_${this._tableIndex++}`;
+			const filePath = uriToFilePath(params.uri);
+			const fileExt = path.extname(filePath);
+			let scanOperation;
+			switch (fileExt) {
+				case '.parquet':
+				case '.parq':
+					scanOperation = `parquet_scan('${filePath}')`;
+					break;
+				// TODO: Will need to be able to pass CSV / TSV options from the
+				// UI at some point.
+				case '.csv':
+					scanOperation = `read_csv('${filePath}')`;
+					break;
+				case '.tsv':
+					scanOperation = `read_csv('${filePath}', delim='\t')`;
+					break;
+				default:
+					return { error_message: `Unsupported file extension: ${fileExt}` };
+			}
 
-		const filePath = uriToFilePath(params.uri);
-		const fileExt = path.extname(filePath);
-
-		let scanOperation;
-		switch (fileExt) {
-			case '.parquet':
-			case '.parq':
-				scanOperation = `parquet_scan('${filePath}')`;
-				break;
-			// TODO: Will need to be able to pass CSV / TSV options from the
-			// UI at some point.
-			case '.csv':
-				scanOperation = `read_csv('${filePath}')`;
-				break;
-			case '.tsv':
-				scanOperation = `read_csv('${filePath}', delim='\t')`;
-				break;
-			default:
-				return { error_message: `Unsupported file extension: ${fileExt}` };
+			scanQuery = `
+			CREATE TABLE ${tableName} AS
+			SELECT * FROM ${scanOperation};`;
 		}
 
-		const ctasQuery = `
-		CREATE TABLE ${tableName} AS
-		SELECT * FROM ${scanOperation}`;
-
-		let result = await this.db.runQuery(ctasQuery);
+		let result = await this.db.runQuery(scanQuery);
 		if (typeof result === 'string') {
 			return { error_message: result };
 		}
@@ -546,10 +593,6 @@ export class DataExplorerRpcHandler {
 		this._uriToTableView.set(params.uri, tableView);
 
 		return {};
-	}
-
-	async createTableFromSQL(createQuery: string) {
-
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
