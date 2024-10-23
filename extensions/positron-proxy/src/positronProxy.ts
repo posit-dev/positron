@@ -13,7 +13,7 @@ import { log, ProxyServerStyles } from './extension';
 import { Disposable, ExtensionContext } from 'vscode';
 import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
-import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
+import { htmlContentRewriter, removeTrailingSlash, rewriteUrlsWithProxyPath } from './util';
 
 /**
  * Constants.
@@ -337,11 +337,14 @@ export class PositronProxy implements Disposable {
 	 * @returns The server origin, resolved to an external uri if applicable.
 	 */
 	private async startProxyServer(targetOrigin: string, contentRewriter: ContentRewriter): Promise<string> {
+		// Remove the trailing slash from the target origin if it exists.
+		const target = removeTrailingSlash(targetOrigin);
+
 		// See if we have an existing proxy server for target origin. If there is, return the
 		// server origin.
-		const proxyServer = this._proxyServers.get(targetOrigin);
+		const proxyServer = this._proxyServers.get(target);
 		if (proxyServer) {
-			log.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${targetOrigin}.`);
+			log.debug(`Existing proxy server ${proxyServer.serverOrigin} found for target: ${target}.`);
 			return proxyServer.serverOrigin;
 		}
 
@@ -350,20 +353,21 @@ export class PositronProxy implements Disposable {
 			// We don't have an existing proxy server for the target origin, so start a new one.
 			pendingProxy = await this.startNewProxyServer(contentRewriter);
 		} catch (error) {
-			log.error(`Failed to start a proxy server for ${targetOrigin}: ${JSON.stringify(error)}`);
+			log.error(`Failed to start a proxy server for ${target}: ${JSON.stringify(error)}`);
 			throw error;
 		}
 
+		const externalUri = pendingProxy.externalUri.toString(true);
 		try {
 			// Finish setting up the proxy server.
-			await pendingProxy.finishProxySetup(targetOrigin);
+			await pendingProxy.finishProxySetup(target);
 		} catch (error) {
-			log.error(`Failed to finish setting up the proxy server at ${pendingProxy.externalUri} for target ${targetOrigin}: ${JSON.stringify(error)}`);
+			log.error(`Failed to finish setting up the proxy server at ${externalUri} for target ${target}: ${JSON.stringify(error)}`);
 			throw error;
 		}
 
 		// Return the external URI.
-		return pendingProxy.externalUri.toString();
+		return externalUri;
 	}
 
 	/**
@@ -397,9 +401,14 @@ export class PositronProxy implements Disposable {
 
 		// Convert the server origin to an external URI.
 		const originUri = vscode.Uri.parse(serverOrigin);
-		const externalUri = await vscode.env.asExternalUri(originUri);
+		let externalUri = await vscode.env.asExternalUri(originUri);
 
-		log.debug(`Started proxy server at ${serverOrigin} for external URI ${JSON.stringify(externalUri)}.`);
+		// Remove the trailing slash from the external URI path if it exists.
+		externalUri = externalUri.with({
+			path: removeTrailingSlash(externalUri.path)
+		});
+
+		log.debug(`Started proxy server at ${serverOrigin} for external URI ${externalUri.toString(true)}.`);
 
 		// Return the pending proxy info.
 		return {
@@ -436,34 +445,51 @@ export class PositronProxy implements Disposable {
 		app: express.Express,
 		contentRewriter: ContentRewriter
 	) {
-		log.debug(`Finishing proxy server setup for target ${targetOrigin}\n` +
+		// Remove the trailing slash from the target origin if it exists.
+		const target = removeTrailingSlash(targetOrigin);
+
+		log.debug(`Finishing proxy server setup for target ${target}\n` +
 			`\tserverOrigin: ${serverOrigin}\n` +
-			`\texternalUri: ${JSON.stringify(externalUri)}`
+			`\texternalUri: ${externalUri.toString(true)}`
 		);
 
 		// Add the proxy server.
-		this._proxyServers.set(targetOrigin, new ProxyServer(
+		this._proxyServers.set(target, new ProxyServer(
 			serverOrigin,
-			targetOrigin,
+			target,
 			server
 		));
 
 		// Add the proxy middleware.
 		app.use('*', createProxyMiddleware({
-			target: targetOrigin,
+			target: target,
 			changeOrigin: true,
 			selfHandleResponse: true,
 			ws: true,
-			// Logging for development work.
-			// onProxyReq: (proxyReq, req, res, options) => {
-			// 	console.log(`Proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-			// },
+			onProxyReq: (proxyReq, req, _res, _options) => {
+				log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${target}${req.url}` +
+					`\n\tmethod: ${proxyReq.method}` +
+					`\n\tprotocol: ${proxyReq.protocol}` +
+					`\n\thost: ${proxyReq.host}` +
+					`\n\turl: ${proxyReq.path}` +
+					`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
+					`\n\texternal uri: ${externalUri.toString(true)}`
+				);
+			},
 			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
+				log.trace(`onProxyRes - proxy response ${target}${req.url} -> ${serverOrigin}${req.url}` +
+					`\n\tstatus: ${proxyRes.statusCode}` +
+					`\n\tstatusMessage: ${proxyRes.statusMessage}` +
+					`\n\theaders: ${JSON.stringify(proxyRes.headers)}` +
+					`\n\texternal uri: ${externalUri.toString(true)}`
+				);
+
 				// Get the URL and the content type. These must be present to call the
 				// content rewriter. Also, the scripts must be loaded.
 				const url = req.url;
 				const contentType = proxyRes.headers['content-type'];
 				if (!url || !contentType || !this._scriptsFileLoaded) {
+					log.trace(`onProxyRes - skipping response processing for ${serverOrigin}${url}`);
 					// Don't process the response.
 					return responseBuffer;
 				}
