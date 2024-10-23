@@ -15,6 +15,9 @@ import { whenDeleted, writeFileSync } from 'vs/base/node/pfs';
 import { findFreePort } from 'vs/base/node/ports';
 import { watchFileContents } from 'vs/platform/files/node/watcher/nodejs/nodejsWatcherLib';
 import { NativeParsedArgs } from 'vs/platform/environment/common/argv';
+// --- Start Positron ---
+// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
+// --- End Positron ---
 import { buildHelpMessage, buildVersionMessage, NATIVE_CLI_COMMANDS, OPTIONS } from 'vs/platform/environment/node/argv';
 import { addArg, parseCLIProcessArgv } from 'vs/platform/environment/node/argvHelper';
 import { getStdinFilePath, hasStdinWithoutTty, readFromStdin, stdinDataListener } from 'vs/platform/environment/node/stdin';
@@ -28,6 +31,11 @@ import { cwd } from 'vs/base/common/process';
 import { addUNCHostToAllowlist } from 'vs/base/node/unc';
 import { URI } from 'vs/base/common/uri';
 import { DeferredPromise } from 'vs/base/common/async';
+
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from 'vs/platform/environment/node/argv';
+// --- End Positron ---
 
 function shouldSpawnCliProcess(argv: NativeParsedArgs): boolean {
 	return !!argv['install-source']
@@ -90,12 +98,16 @@ export async function main(argv: string[]): Promise<any> {
 	// Help
 	if (args.help) {
 		const executable = `${product.applicationName}${isWindows ? '.exe' : ''}`;
-		console.log(buildHelpMessage(product.nameLong, executable, product.version, OPTIONS));
+		// --- Start Positron ---
+		console.log(buildHelpMessage(product.nameLong, executable, product.positronVersion, OPTIONS));
+		// --- End Positron ---
 	}
 
 	// Version Info
 	else if (args.version) {
-		console.log(buildVersionMessage(product.version, product.commit));
+		// --- Start Positron ---
+		console.log(buildPositronVersionMessage(product.positronVersion, product.positronBuildNumber, product.version, product.commit));
+		// --- End Positron ---
 	}
 
 	// Shell integration
