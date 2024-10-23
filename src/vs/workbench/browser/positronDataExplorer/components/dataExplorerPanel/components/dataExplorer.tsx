@@ -39,9 +39,9 @@ export const DataExplorer = () => {
 
 	// Reference hooks.
 	const dataExplorerRef = useRef<HTMLDivElement>(undefined!);
-	const columnNameExemplar = useRef<HTMLDivElement>(undefined!);
-	const typeNameExemplar = useRef<HTMLDivElement>(undefined!);
-	const sortIndexExemplar = useRef<HTMLDivElement>(undefined!);
+	const columnNameExemplarRef = useRef<HTMLDivElement>(undefined!);
+	const typeNameExemplarRef = useRef<HTMLDivElement>(undefined!);
+	const sortIndexExemplarRef = useRef<HTMLDivElement>(undefined!);
 	const leftColumnRef = useRef<HTMLDivElement>(undefined!);
 	const splitterRef = useRef<HTMLDivElement>(undefined!);
 	const rightColumnRef = useRef<HTMLDivElement>(undefined!);
@@ -72,7 +72,7 @@ export const DataExplorer = () => {
 		if (!canvasRenderingContext2D) {
 			sortIndexWidth = 0;
 		} else {
-			const sortIndexExemplarStyle = DOM.getComputedStyle(sortIndexExemplar.current);
+			const sortIndexExemplarStyle = DOM.getComputedStyle(sortIndexExemplarRef.current);
 			canvasRenderingContext2D.font = sortIndexExemplarStyle.font;
 			sortIndexWidth = canvasRenderingContext2D.measureText('99').width;
 		}
@@ -117,7 +117,7 @@ export const DataExplorer = () => {
 			} else {
 				// Measure the column name width using the font of the column name exemplar.
 				const columnNameExemplarStyle =
-					DOM.getComputedStyle(columnNameExemplar.current);
+					DOM.getComputedStyle(columnNameExemplarRef.current);
 				canvasRenderingContext2D.font = columnNameExemplarStyle.font;
 				columnNameWidth = canvasRenderingContext2D.measureText(columnName).width;
 			}
@@ -128,7 +128,7 @@ export const DataExplorer = () => {
 				typeNameWidth = 0;
 			} else {
 				// Measure the type name width using the font of the type name exemplar.
-				const typeNameExemplarStyle = DOM.getComputedStyle(typeNameExemplar.current);
+				const typeNameExemplarStyle = DOM.getComputedStyle(typeNameExemplarRef.current);
 				canvasRenderingContext2D.font = typeNameExemplarStyle.font;
 				typeNameWidth = canvasRenderingContext2D.measureText(typeName).width;
 			}
@@ -146,6 +146,7 @@ export const DataExplorer = () => {
 			)
 		);
 
+		// Set the width calculators.
 		context.instance.tableDataDataGridInstance.setWidthCalculators({
 			columnHeaderWidthCalculator,
 			columnValueWidthCalculator: length => Math.ceil(
@@ -205,9 +206,25 @@ export const DataExplorer = () => {
 			setLayout(layout);
 		}));
 
+		// Add the onDidCollapseSummary event handler.
+		disposableStore.add(context.instance.onDidCollapseSummary(() => {
+			if (!columnsCollapsed) {
+				setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+				setColumnsCollapsed(true);
+			}
+		}));
+
+		// Add the onDidExpandSummary event handler.
+		disposableStore.add(context.instance.onDidExpandSummary(() => {
+			if (columnsCollapsed) {
+				setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+				setColumnsCollapsed(false);
+			}
+		}));
+
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [context.instance]);
+	}, [columnsCollapsed, context.accessibilityService, context.instance]);
 
 	// Automatic layout useEffect.
 	useLayoutEffect(() => {
@@ -297,9 +314,9 @@ export const DataExplorer = () => {
 				{ 'summary-on-right': layout === PositronDataExplorerLayout.SummaryOnRight }
 			)}
 		>
-			<div ref={columnNameExemplar} className='column-name-exemplar' />
-			<div ref={typeNameExemplar} className='type-name-exemplar' />
-			<div ref={sortIndexExemplar} className='sort-index-exemplar' />
+			<div ref={columnNameExemplarRef} className='column-name-exemplar' />
+			<div ref={typeNameExemplarRef} className='type-name-exemplar' />
+			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
 				<PositronDataGrid

@@ -1,10 +1,10 @@
 name: @@NAME@@
-version: '@@VERSION@@'
-summary: Code editing. Redefined.
+version: '@@POSITRONVERSION@@ build @@BUILDNUMBER@@'
+summary: A next-generation data science IDE.
 description: |
-  Visual Studio Code is a new choice of tool that combines the
-  simplicity of a code editor with what developers need for the core
-  edit-build-debug cycle.
+  Positron is an extensible, polyglot tool for writing code and
+  exploring data in Python, R, and other languages.
+license: @@LICENSE@@
 
 architectures:
   - build-on: amd64
