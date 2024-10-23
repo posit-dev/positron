@@ -72,11 +72,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 
 	private _attachSession(session: ILanguageRuntimeSession) {
-		// Only attach to new console sessions.
-		if (
-			session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console ||
-			this._sessionToDisposablesMap.has(session.sessionId)
-		) {
+		if (this._sessionToDisposablesMap.has(session.sessionId)) {
 			return;
 		}
 
@@ -84,13 +80,18 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		this._sessionToDisposablesMap.set(session.sessionId, disposables);
 		this._messagesBySessionId.set(session.sessionId, []);
 
+		// Only handle messages internally if in console mode. Notebooks handle
+		// messages by sending them into the service themselves.
+		if (session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+			return;
+		}
 
 		const handleMessage = (msg: ILanguageRuntimeMessageOutput) => {
 			if (msg.kind !== RuntimeOutputKind.WebviewPreload) {
 				return;
 			}
 
-			this._addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput);
+			this.addMessageForSession(session, msg as ILanguageRuntimeMessageWebOutput);
 		};
 
 		disposables.add(session.onDidReceiveRuntimeClientEvent((e) => {
@@ -108,7 +109,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	 * @param session The session that the message is associated with.
 	 * @param msg The message to process
 	 */
-	private _addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput) {
+	public addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput) {
 		const sessionId = session.sessionId;
 
 		// Check if a message is a message that should be displayed rather than simply stored as

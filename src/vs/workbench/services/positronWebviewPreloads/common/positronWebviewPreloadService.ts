@@ -6,6 +6,8 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
@@ -36,4 +38,9 @@ export interface IPositronWebviewPreloadService {
 	 * Session info (used for testing)
 	 */
 	sessionInfo(sessionId: string): { numberOfMessages: number } | null;
+
+	/**
+	 * Add a message to the session. Used in notebooks.
+	 */
+	addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput): void;
 }
