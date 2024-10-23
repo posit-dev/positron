@@ -270,7 +270,7 @@ class PositronDataExplorerCollapseSummaryAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.collapseSummary.noActiveEditor', "Cannot collapse the Summary. A Positron Data Explorer is not active."),
+				message: localize('positron.dataExplorer.collapseSummary.noActiveEditor', "Cannot Collapse Summary. A Positron Data Explorer is not active."),
 				sticky: false
 			});
 		};
@@ -345,7 +345,7 @@ class PositronDataExplorerExpandSummaryAction extends Action2 {
 			// Notify the user.
 			notificationService.notify({
 				severity: Severity.Error,
-				message: localize('positron.dataExplorer.expandSummary.noActiveEditor', "Cannot expand the Summary. A Positron Data Explorer is not active."),
+				message: localize('positron.dataExplorer.expandSummary.noActiveEditor', "Cannot Expand Summary. A Positron Data Explorer is not active."),
 				sticky: false
 			});
 		};
