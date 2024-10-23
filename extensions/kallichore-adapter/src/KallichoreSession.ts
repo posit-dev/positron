@@ -166,6 +166,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
+		this._kernelChannel.appendLine(`** Begin kernel log for session ${metadata.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 	}
 
 	/**
@@ -210,16 +211,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// Replace {log_file} with the log file path. Not all kernels
 			// have this argument.
 			if (arg === '{log_file}') {
-				fs.writeFile(logFile, '', () => {
-					this.streamLogFile(logFile);
+				fs.writeFile(logFile, '', async () => {
+					await this.streamLogFile(logFile);
 				});
 				return logFile;
 			}
 
 			// Same as `log_file` but for profiling logs
 			if (profileFile && arg === '{profile_file}') {
-				fs.writeFile(profileFile, '', () => {
-					this.streamProfileFile(profileFile);
+				fs.writeFile(profileFile, '', async () => {
+					await this.streamProfileFile(profileFile);
 				});
 				return profileFile;
 			}
@@ -639,7 +640,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (logFileIndex > 0 && logFileIndex < session.argv.length - 1) {
 				const logFile = session.argv[logFileIndex + 1];
 				if (fs.existsSync(logFile)) {
-					this.streamLogFile(logFile);
+					await this.streamLogFile(logFile);
 					break;
 				}
 			}
@@ -1266,11 +1267,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param logFile The path to the log file to stream
 	 */
-	private streamLogFile(logFile: string) {
+	private async streamLogFile(logFile: string) {
 		const logStreamer = new LogStreamer(this._kernelChannel, logFile, this.runtimeMetadata.languageName);
+		this._kernelChannel.appendLine(`Streaming kernel log file: ${logFile}`);
 		this._disposables.push(logStreamer);
 		this._kernelLogFile = logFile;
-		logStreamer.watch();
+		return logStreamer.watch();
 	}
 
 	/**
@@ -1278,7 +1280,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param profileFilePath The path to the profile file to stream
 	 */
-	private streamProfileFile(profileFilePath: string) {
+	private async streamProfileFile(profileFilePath: string) {
 
 		this._profileChannel = positron.window.createRawLogOutputChannel(
 			this.metadata.notebookUri ?
@@ -1290,7 +1292,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const profileStreamer = new LogStreamer(this._profileChannel, profileFilePath);
 		this._disposables.push(profileStreamer);
 
-		profileStreamer.watch();
+		await profileStreamer.watch();
 	}
 
 	/**
