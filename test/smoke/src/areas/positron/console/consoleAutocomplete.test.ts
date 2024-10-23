@@ -4,8 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Application, PositronPythonFixtures } from '../../../../../automation';
+import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { fail } from 'assert';
 
 
 describe('Console Autocomplete #web #win', () => {
@@ -16,23 +17,39 @@ describe('Console Autocomplete #web #win', () => {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
-		it('Python - Verify Console Autocomplete [C...]', async function () {
+		it('Python - Verify Console Autocomplete [C947968]', async function () {
 			const app = this.app as Application;
 
 			await app.workbench.positronConsole.pasteCodeToConsole('import pandas as pd');
 			await app.workbench.positronConsole.sendEnterKey();
-			await app.workbench.positronConsole.typeToConsole('df = pd.');
+			await app.workbench.positronConsole.typeToConsole('df = pd.Dat');
 
-			const suggestions = await app.code.waitForElements('.suggest-widget .monaco-list-row', false);
+			const suggestionList = await app.workbench.positronConsole.getSuggestions();
 
-			for (const suggestion of suggestions) {
-				const text = suggestion.textContent;
-				console.log(text);
-
+			if (suggestionList.length < 3) {
+				fail('Less than 3 suggestions found');
 			}
+		});
+	});
 
-			await app.code.wait(60000);
 
+	describe('Console Autocomplete - R', () => {
+		before(async function () {
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
+
+		it('R - Verify Console Autocomplete [C947969]', async function () {
+			const app = this.app as Application;
+
+			await app.workbench.positronConsole.pasteCodeToConsole('library(arrow)');
+			await app.workbench.positronConsole.sendEnterKey();
+			await app.workbench.positronConsole.typeToConsole('df2 <- read_p');
+
+			const suggestionList = await app.workbench.positronConsole.getSuggestions();
+
+			if (suggestionList.length < 3) {
+				fail('Less than 3 suggestions found');
+			}
 		});
 	});
 
