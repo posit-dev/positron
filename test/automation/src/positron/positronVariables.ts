@@ -14,12 +14,14 @@ interface FlatVariables {
 	type: string;
 }
 
-const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
+const VARIABLE_ITEMS = '.variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
+const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
+const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
@@ -72,7 +74,7 @@ export class PositronVariables {
 		await this.waitForVariableRow(variableName);
 		const variable = this.code.driver.page.locator('.name-value', { hasText: variableName });
 
-		const chevronIcon = variable.locator('..').locator('.gutter .expand-collapse-icon');
+		const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
 		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
 
 		// perform action based on the 'action' parameter
@@ -83,8 +85,8 @@ export class PositronVariables {
 		}
 
 		const expectedClass = action === 'expand'
-			? 'expand-collapse-icon codicon codicon-chevron-down'
-			: 'expand-collapse-icon codicon codicon-chevron-right';
+			? /codicon-chevron-down/
+			: /codicon-chevron-right/;
 
 		await expect(chevronIcon).toHaveClass(expectedClass);
 	}
@@ -115,8 +117,8 @@ export class PositronVariables {
 		const variable = this.code.driver.page.locator(`.name-value:text-is("${parentVariable}")`);
 
 		// get the children of the parent variable, which are indented
-		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator('.variable-item')
-			.filter({ has: this.code.driver.page.locator('.name-column-indenter[style*="margin-left: 40px"]') }).all();
+		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator(VARIABLE_ITEMS)
+			.filter({ has: this.code.driver.page.locator(VARIABLE_INDENTED) }).all();
 
 		// create a map of the children's name, value, and type
 		const result: { [key: string]: { value: string; type: string } } = {};
