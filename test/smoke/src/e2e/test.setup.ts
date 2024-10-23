@@ -83,8 +83,8 @@ export const test = base.extend<{
 	}, { scope: 'test', title: 'Restart App', timeout: 60000 }],
 
 
-	pythonInterpreter: [async ({ app }, use) => {
-		const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+	pythonInterpreter: [async ({ app, page }, use) => {
+		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 		console.log('current', currentInterpreter);
 		if (!currentInterpreter.includes('Python')) {
 			await PositronPythonFixtures.SetupFixtures(app);
@@ -95,8 +95,8 @@ export const test = base.extend<{
 		await use();
 	}, { scope: 'test', title: 'Setup Python Interpreter' }],
 
-	rInterpreter: [async ({ app }, use) => {
-		const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+	rInterpreter: [async ({ app, page }, use) => {
+		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 		console.log('current', currentInterpreter);
 		if (!currentInterpreter.includes('R')) {
 			await PositronPythonFixtures.SetupFixtures(app);
@@ -107,9 +107,9 @@ export const test = base.extend<{
 		await use();
 	}, { scope: 'test', title: 'Setup R Interpreter' }],
 
-	interpreter: [async ({ app }, use) => {
+	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
-			const currentInterpreter = await (app as Application).code.driver.getPage().locator('.top-action-bar-interpreters-manager').textContent() || '';
+			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 			console.log('current', currentInterpreter);
 
 			// If current interpreter is not the requested one, switch it
@@ -122,8 +122,6 @@ export const test = base.extend<{
 					await PositronRFixtures.SetupFixtures(app); // Assuming PositronRFixtures is defined for R setup
 					console.log('R interpreter started');
 				}
-			} else {
-				console.log(`${interpreterName} interpreter already set`);
 			}
 		};
 
@@ -132,7 +130,7 @@ export const test = base.extend<{
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
-		const page = app.code.driver.getPage();
+		const page = app.code.driver.page;
 		const screenshots: string[] = [];
 
 		app.code.driver.takeScreenshot = async function (name: string) {
@@ -171,11 +169,11 @@ export const test = base.extend<{
 	}, { auto: true, scope: 'test', title: 'Start and Stop Tracing' }],
 
 	page: async ({ app }, use) => {
-		await use(app.code.driver.getPage());
+		await use(app.code.driver.page);
 	},
 
 	context: async ({ app }, use) => {
-		await use(app.code.driver.getContext());
+		await use(app.code.driver.context);
 	},
 
 	logger: [async ({ app }, use, testInfo) => {

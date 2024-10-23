@@ -35,20 +35,14 @@ export class PlaywrightDriver {
 
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
-		private readonly context: playwright.BrowserContext,
-		private readonly page: playwright.Page,
+		// --- Start Positron ---
+		readonly context: playwright.BrowserContext,
+		readonly page: playwright.Page,
+		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
 	) {
-	}
-
-	public getContext(): playwright.BrowserContext {
-		return this.context;
-	}
-
-	public getPage(): playwright.Page {
-		return this.page;
 	}
 
 	public getApplication(): playwright.Browser | playwright.ElectronApplication {
