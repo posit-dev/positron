@@ -27,6 +27,7 @@ const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class PositronVariables {
+	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
 
 	constructor(private code: Code) { }
 
@@ -99,10 +100,12 @@ export class PositronVariables {
 		await this.toggleVariable({ variableName, action: 'collapse' });
 	}
 
-	async getVariablesInterpreter(): Promise<IElement> {
-		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
-		return interpreter;
-	}
+	// async getVariablesInterpreter(): Promise<Locator> {
+	// 	return this.code.driver.page.locator(VARIABLES_INTERPRETER);
+	// }
+
+	// async assertVariablesInterpreter(expectedInterpreter: string) {
+	// 	expect()
 
 	/**
 	 * Gets the data (value and type) for the children of a parent variable.
