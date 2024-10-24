@@ -16,6 +16,7 @@ describe('Variables Pane - Notebook #pr', () => {
 	});
 
 	// WEB - is there a bug? The interpreter is always set to Python
+	// Don't worry, I'm coming back to fix this tomorrow!
 	describe('Python Notebook Variables Pane', () => {
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
