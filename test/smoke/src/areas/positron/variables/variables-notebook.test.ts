@@ -25,8 +25,6 @@ describe('Variables Pane - Notebook #pr #web', () => {
 		});
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
-			this.timeout(120000);
-
 			const app = this.app as Application;
 
 			await app.workbench.positronNotebooks.createNewNotebook();
@@ -36,9 +34,6 @@ describe('Variables Pane - Notebook #pr #web', () => {
 			await app.workbench.positronNotebooks.addCodeToFirstCell('y = [2, 3, 4, 5]');
 
 			await app.workbench.positronNotebooks.executeCodeInCell();
-
-			// just to be safe, give cell some execution time
-			await app.code.wait(1000);
 
 			const interpreter = await app.workbench.positronVariables.getVariablesInterpreter();
 
@@ -53,11 +48,7 @@ describe('Variables Pane - Notebook #pr #web', () => {
 		});
 
 	});
-});
 
-describe('Variables Pane - Notebook #pr #web', () => {
-
-	setupAndStartApp();
 
 	describe('R Notebook Variables Pane', () => {
 
@@ -83,9 +74,6 @@ describe('Variables Pane - Notebook #pr #web', () => {
 			await app.workbench.positronNotebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
 
 			await app.workbench.positronNotebooks.executeCodeInCell();
-
-			// just to be safe, give cell some execution time
-			await app.code.wait(1000);
 
 			const interpreter = await app.workbench.positronVariables.getVariablesInterpreter();
 

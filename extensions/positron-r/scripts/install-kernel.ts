@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -36,8 +36,7 @@ async function getVersionFromPackageJson(): Promise<string | null> {
 		const packageJson = JSON.parse(await readFileAsync('package.json', 'utf-8'));
 		return packageJson.positron.binaryDependencies?.ark || null;
 	} catch (error) {
-		console.error('Error reading package.json: ', error);
-		return null;
+		throw new Error(`Error reading package.json: ${error}`);
 	}
 }
 
@@ -56,8 +55,7 @@ async function getLocalArkVersion(): Promise<string | null> {
 		}
 		return readFileAsync(versionFile, 'utf-8');
 	} catch (error) {
-		console.error('Error determining ARK version: ', error);
-		return null;
+		throw new Error(`Error determining ARK version: ${error}`);
 	}
 }
 
@@ -180,8 +178,7 @@ async function downloadAndReplaceArk(version: string,
 			}
 			const release = releases.find((asset: any) => asset.tag_name === version);
 			if (!release) {
-				console.error(`Could not find Ark ${version} in the releases.`);
-				return;
+				throw new Error(`Could not find Ark ${version} in the releases.`);
 			}
 
 			let os: string;
@@ -190,16 +187,14 @@ async function downloadAndReplaceArk(version: string,
 				case 'darwin': os = 'darwin-universal'; break;
 				case 'linux': os = (arch() === 'arm64' ? 'linux-arm64' : 'linux-x64'); break;
 				default: {
-					console.error(`Unsupported platform ${platform()}.`);
-					return;
+					throw new Error(`Unsupported platform ${platform()}.`);
 				}
 			}
 
 			const assetName = `ark-${version}-${os}.zip`;
 			const asset = release.assets.find((asset: any) => asset.name === assetName);
 			if (!asset) {
-				console.error(`Could not find Ark with asset name ${assetName} in the release.`);
-				return;
+				throw new Error(`Could not find Ark with asset name ${assetName} in the release.`);
 			}
 			console.log(`Downloading Ark ${version} from ${asset.url}...`);
 			const url = new URL(asset.url);
@@ -248,7 +243,7 @@ async function downloadAndReplaceArk(version: string,
 			});
 		});
 	} catch (error) {
-		console.error('Error downloading Ark:', error);
+		throw new Error(`Error downloading Ark: ${error}`);
 	}
 }
 
@@ -284,8 +279,7 @@ async function main() {
 	const localArkVersion = await getLocalArkVersion();
 
 	if (!packageJsonVersion) {
-		console.error('Could not determine Ark version from package.json.');
-		return;
+		throw new Error('Could not determine Ark version from package.json.');
 	}
 
 	console.log(`package.json version: ${packageJsonVersion} `);
@@ -366,9 +360,8 @@ async function main() {
 	}
 
 	if (!githubPat) {
-		console.log(`No Github PAT was found. Unable to download Ark ${packageJsonVersion}.\n` +
+		throw new Error(`No Github PAT was found. Unable to download Ark ${packageJsonVersion}.\n` +
 			`You can still run Positron without R support.`);
-		return;
 	}
 
 	await downloadAndReplaceArk(packageJsonVersion, githubPat, gitCredential);
