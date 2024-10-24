@@ -353,18 +353,27 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 		return false;
 	}
 
-	// Convert the url to an external URI.
+	// Example: http://localhost:8500
 	const localBaseUri = vscode.Uri.parse(url.toString());
+
+	// Example: http://localhost:8500/url/path or http://localhost:8500
 	const localUri = urlPath ?
 		vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
 
-	log.debug(`Viewing app at local uri: ${localUri} with external uri ${proxyInfo.externalUri.toString()}`);
+	// Determine the target origin based on whether the server is running in PWB.
+	const runningInPWB = process.env.RS_SERVER_URL ? true : false;
+	const targetOrigin = runningInPWB ? localBaseUri : localUri;
+	await proxyInfo.finishProxySetup(targetOrigin.toString(true));
 
-	// Finish the Positron proxy setup so that proxy middleware is hooked up.
-	await proxyInfo.finishProxySetup(localUri.toString());
+	// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
+	const previewUri = runningInPWB && urlPath
+		? vscode.Uri.joinPath(proxyInfo.externalUri, urlPath)
+		: proxyInfo.externalUri;
+
+	log.debug(`Viewing app at local uri ${localUri} with external uri ${previewUri.toString(true)}`);
 
 	// Preview the external URI.
-	positron.window.previewUrl(proxyInfo.externalUri);
+	positron.window.previewUrl(previewUri);
 
 	return true;
 }

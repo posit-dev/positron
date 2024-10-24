@@ -13,12 +13,20 @@ import { PositronProxy } from './positronProxy';
 export type ProxyServerStyles = { readonly [key: string]: string | number };
 
 /**
+ * Positron Proxy log output channel.
+ */
+export const log = vscode.window.createOutputChannel('Positron Proxy', { log: true });
+
+/**
  * Activates the extension.
  * @param context An ExtensionContext that contains the extention context.
  */
 export function activate(context: vscode.ExtensionContext) {
 	// Create the PositronProxy object.
 	const positronProxy = new PositronProxy(context);
+
+	// Create the log output channel.
+	context.subscriptions.push(log);
 
 	// Register the positronProxy.startHelpProxyServer command and add its disposable.
 	context.subscriptions.push(
