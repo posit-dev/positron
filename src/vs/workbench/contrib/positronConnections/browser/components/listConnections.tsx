@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React from 'react';
+import React, { useState } from 'react';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
@@ -23,13 +23,19 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 	const { height, setActiveInstanceId } = props;
 	const instances = props.items.filter(item => item.level === 0);
 
+	const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
+
 	const ItemEntry = (props: { index: number; style: any }) => {
 		const itemProps = instances[props.index];
 
 		return (
 			<div
 				style={props.style}
-				className='connections-list-item'
+				className={positronClassNames(
+					'connections-list-item',
+					{ 'selected': itemProps.id === selectedInstanceId }
+				)}
+				onMouseDown={() => setSelectedInstanceId(itemProps.id)}
 			>
 				<div className='col-icon' style={{ width: `${26}px` }}></div>
 				<div className='col-name'>{itemProps.name}</div>
@@ -56,7 +62,17 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 
 	return (
 		<div className='positron-connections-list'>
-			<ActionBar {...context}></ActionBar>
+			<ActionBar
+				{...context}
+				deleteConnectionHandler={
+					selectedInstanceId ?
+						() => {
+							context.connectionsService.removeConnection(selectedInstanceId);
+						} :
+						undefined
+				}
+			>
+			</ActionBar>
 			<div className='connections-list-container'>
 				<div className='connections-list-header' style={{ height: `${24}px` }}>
 					<div className='col-icon' style={{ width: `${26}px` }}></div>
@@ -96,7 +112,11 @@ const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
 const ACTION_BAR_HEIGHT = 32;
 
-const ActionBar = (props: React.PropsWithChildren<PositronConnectionsServices>) => {
+interface ActionBarProps extends PositronConnectionsServices {
+	deleteConnectionHandler?: () => void;
+}
+
+const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 
 	return (
 		<div style={{ height: ACTION_BAR_HEIGHT }}>
@@ -123,7 +143,8 @@ const ActionBar = (props: React.PropsWithChildren<PositronConnectionsServices>) 
 							iconId='close'
 							tooltip={() => 'Delete Connection'}
 							text='Delete Connection'
-							disabled={true}
+							disabled={props.deleteConnectionHandler === undefined}
+							onPressed={props.deleteConnectionHandler}
 						/>
 						<div className='action-bar-disabled'>
 							<ActionBarSearch placeholder='filter'></ActionBarSearch>

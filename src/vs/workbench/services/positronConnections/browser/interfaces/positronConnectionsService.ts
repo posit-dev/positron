@@ -19,6 +19,7 @@ export interface IPositronConnectionsService {
 	addConnection(instance: IPositronConnectionInstance): void;
 	getConnections(): IPositronConnectionItem[];
 	closeConnection(id: string): void;
+	removeConnection(id: string): void;
 	clearAllConnections(): void;
 
 	/**

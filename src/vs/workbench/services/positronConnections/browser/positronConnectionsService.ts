@@ -210,18 +210,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		});
 	}
 
-	private saveConnectionsState() {
-		this.storageService.store(
-			'positron-connections',
-			this.connections.map((con) => {
-				return con.metadata;
-			}),
-			StorageScope.WORKSPACE,
-			StorageTarget.USER
-		);
-	}
-
-	private removeConnection(id: string) {
+	removeConnection(id: string) {
 		const index = this.connections.findIndex((con) => {
 			return con.id === id;
 		});
@@ -240,6 +229,17 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		} else {
 			this.onDidChangeDataEmitter.fire();
 		}
+	}
+
+	private saveConnectionsState() {
+		this.storageService.store(
+			'positron-connections',
+			this.connections.map((con) => {
+				return con.metadata;
+			}),
+			StorageScope.WORKSPACE,
+			StorageTarget.USER
+		);
 	}
 }
 

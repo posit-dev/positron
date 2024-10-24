@@ -3,6 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+.connections-list-container {
+	height: 100%;
+	position: relative;
+	left: 0.5px;
+}
+
 .connections-list-header {
 	display: flex;
 	align-items: center;
@@ -16,7 +22,7 @@
 	background-color: var(--vscode-positronVariables-border);
 }
 
-.positron-connections-list .action-bar-button {
+.positron-connections-list .action-bar-button.disabled {
 	cursor: not-allowed;
 }
 
@@ -77,4 +83,11 @@
 	align-items: center;
 	justify-content: center;
 	cursor: pointer;
+}
+
+.connections-list-item.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+	outline: 1px;
+	outline-offset: -1px;
 }
