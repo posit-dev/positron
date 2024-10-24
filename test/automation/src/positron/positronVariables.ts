@@ -6,7 +6,6 @@
 
 import { Code } from '../code';
 import * as os from 'os';
-import { IElement } from '../driver';
 import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
