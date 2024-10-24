@@ -37,6 +37,7 @@ interface ActionBarProps {
 
 interface ConnectionActionBarProps extends ActionBarProps {
 	selectedEntry: IPositronConnectionEntry | undefined;
+	backHandler: () => void;
 	clearAllHandler: () => void;
 }
 
@@ -73,7 +74,12 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
-							// TODO: should have a connect-icon
+							iconId='arrow-left'
+							tooltip={() => 'Back'}
+							onPressed={() => props.backHandler()}
+						/>
+						<ActionBarButton
+							align='left'
 							iconId='positron-new-connection'
 							tooltip={() => 'Connect'}
 							disabled={connectDisabled}

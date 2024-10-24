@@ -13,24 +13,14 @@ import { ActionBar, ACTION_BAR_HEIGHT as kActionBarHeight } from 'vs/workbench/c
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import 'vs/css!./schemaNavigation';
+import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
 
-export const SchemaNavigation = () => {
+export interface SchemaNavigationProps extends ViewsProps { }
+
+export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
 	const context = usePositronConnectionsContext();
-
-	// This allows us to introspect the size of the component. Which then allows
-	// us to efficiently only render items that are in view.
-	const [_, setWidth] = React.useState(context.reactComponentContainer.width);
-	const [height, setHeight] = React.useState(context.reactComponentContainer.height);
-
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		disposableStore.add(context.reactComponentContainer.onSizeChanged(size => {
-			setWidth(size.width);
-			setHeight(size.height);
-		}));
-		return () => disposableStore.dispose();
-	}, [context.reactComponentContainer]);
+	const { height, items } = props;
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -54,17 +44,6 @@ export const SchemaNavigation = () => {
 		return () => disposableStore.dispose();
 	}, [context.reactComponentContainer, scrollStateRef, setScrollState]);
 
-	const [items, setItems] = useState<IPositronConnectionEntry[]>(context.connectionsService.getConnectionEntries);
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		disposableStore.add(context.connectionsService.onDidChangeEntries((entries) => {
-			setItems(entries);
-		}));
-		// First entries refresh - on component mount.
-		context.connectionsService.refreshConnectionEntries();
-		return () => disposableStore.dispose();
-	}, [context.connectionsService]);
-
 	const [selectedId, setSelectedId] = useState<string>();
 
 	const ItemEntry = (props: ItemEntryProps) => {
@@ -86,6 +65,7 @@ export const SchemaNavigation = () => {
 				{...context}
 				selectedEntry={items.find((item) => item.id === selectedId)}
 				clearAllHandler={() => context.connectionsService.clearAllConnections()}
+				backHandler={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
