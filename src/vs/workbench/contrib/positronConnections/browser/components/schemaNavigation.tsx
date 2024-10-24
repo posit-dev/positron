@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
-import { ActionBar, ACTION_BAR_HEIGHT as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/actionBar';
+import { ActionBar, ACTION_BAR_HEIGHT as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigationActionBar';
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import 'vs/css!./schemaNavigation';
