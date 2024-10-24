@@ -16,6 +16,14 @@
 	background-color: var(--vscode-positronVariables-border);
 }
 
+.positron-connections-list .action-bar-button {
+	cursor: not-allowed;
+}
+
+.positron-connections-list .action-bar-button.disabled .action-bar-button-text {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
 .connections-list-item {
 	margin-top: 5px;
 	display: flex;

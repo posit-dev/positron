@@ -7,7 +7,6 @@ import React from 'react';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
@@ -113,26 +112,19 @@ const ActionBar = (props: React.PropsWithChildren<PositronConnectionsServices>) 
 						<ActionBarButton
 							align='left'
 							iconId='positron-new-connection'
-							tooltip={() => 'Connect'}
-						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='left'
-							iconId='positron-disconnect-connection'
-							text='Disconnect'
-						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='left'
-							iconId='refresh'
-						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='left'
-							iconId='clear-all'
+							tooltip={() => 'New Connection'}
+							text='New Connection'
+							disabled={true}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
+						<ActionBarButton
+							align='right'
+							iconId='close'
+							tooltip={() => 'Delete Connection'}
+							text='Delete Connection'
+							disabled={true}
+						/>
 						<div className='action-bar-disabled'>
 							<ActionBarSearch placeholder='filter'></ActionBarSearch>
 						</div>
