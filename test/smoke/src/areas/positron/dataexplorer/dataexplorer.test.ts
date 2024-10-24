@@ -215,8 +215,9 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 
-			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.toggleVariablesView();
+			// await app.workbench.positronDataExplorer.closeDataExplorer();
+			// await app.workbench.positronVariables.toggleVariablesView();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
 		});
@@ -346,8 +347,6 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData[1]['ham']).toBe('2022-05-06');
 				expect(tableData.length).toBe(2);
 			}).toPass({ timeout: 60000 });
-
-			await app.workbench.positronLayouts.enterLayout('stacked');
 
 		});
 	});
