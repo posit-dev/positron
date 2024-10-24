@@ -96,6 +96,7 @@ export class PositronNotebooks {
 
 	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
 		const markdownLocator = this.frameLocator.locator(`${MARKDOWN_TEXT} ${tag}`);
+		await expect(markdownLocator).toBeVisible();
 		await expect(markdownLocator).toHaveText(expectedText);
 	}
 }
