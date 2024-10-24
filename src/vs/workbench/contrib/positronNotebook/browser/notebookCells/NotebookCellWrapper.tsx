@@ -36,6 +36,12 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 			if (childOfEditor || selectionStatus === CellSelectionStatus.Editing) {
 				return;
 			}
+
+			// If the clicked element is a link, let it do its thing.
+			if (clickTarget.tagName === 'A') {
+				return;
+			}
+
 			if (selectionStatus === CellSelectionStatus.Selected) {
 				cell.deselect();
 				return;
