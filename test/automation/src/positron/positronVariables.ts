@@ -6,8 +6,7 @@
 
 import { Code } from '../code';
 import * as os from 'os';
-import { IElement } from '../driver';
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
@@ -72,8 +71,7 @@ export class PositronVariables {
 
 	}
 
-	async getVariablesInterpreter(): Promise<IElement> {
-		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
-		return interpreter;
+	async assertVariablesInterpreter(text: string): Promise<void> {
+		await expect(this.code.driver.page.locator(VARIABLES_INTERPRETER)).toHaveText(text);
 	}
 }

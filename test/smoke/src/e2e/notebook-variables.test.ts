@@ -19,9 +19,7 @@ test.describe('Variables Pane - Notebook', {
 		await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 		await app.workbench.positronNotebooks.addCodeToFirstCell('y = [2, 3, 4, 5]');
 		await app.workbench.positronNotebooks.executeCodeInCell();
-
-		const varInterpreter = await app.workbench.positronVariables.getVariablesInterpreter();
-		expect(varInterpreter.textContent).toBe('Untitled-1.ipynb');
+		await app.workbench.positronVariables.assertVariablesInterpreter('Untitled-1.ipynb');
 
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
@@ -37,9 +35,7 @@ test.describe('Variables Pane - Notebook', {
 		await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 		await app.workbench.positronNotebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
 		await app.workbench.positronNotebooks.executeCodeInCell();
-
-		const varInterpreter = await app.workbench.positronVariables.getVariablesInterpreter();
-		expect(varInterpreter.textContent).toBe('Untitled-1.ipynb');
+		await app.workbench.positronVariables.assertVariablesInterpreter('Untitled-1.ipynb');
 
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
