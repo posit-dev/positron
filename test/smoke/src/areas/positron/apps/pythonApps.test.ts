@@ -8,10 +8,11 @@ import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-describe('Python Applications #pr #win', () => {
+// MARIE will remove web before merging
+describe('Python Applications #pr #win #web', () => {
 	setupAndStartApp();
 
-	describe('Python Applications #pr #web', () => {
+	describe('Python Applications', () => {
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
