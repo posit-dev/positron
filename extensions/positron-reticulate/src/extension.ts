@@ -523,15 +523,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 
 	public async shutdown(exitReason: positron.RuntimeExitReason) {
 		await this.pythonSession.shutdown(exitReason);
-		// Tell Positron that the kernel has exit. When launching IPykernel from a standalone
-		// process, when the kernel exits, then all of it's threads, specially the IOPub thread
-		// holding the ZeroMQ sockets will cease to exist, and thus Positron identifies that the
-		// kernel has successfuly closed. However, since we launch positron from a different thread,
-		// when the kernel exits, the thread exits, but all other dangling threads are still alive,
-		// thus Positron never identifies that the kernel exited. We must then manually fire exit event.
-		// We rely on an implementation detail of the jupyter adapter, that allows us to force the
-		// kernels to disconnect.
-		(this.pythonSession as any)._kernel._kernel._allSockets.forEach((socket: any) => socket.disconnect());
+		// Execute some dummy code in the R session to shift focus to it.
+		await positron.runtime.executeCode('r', '', true, true);
 		return;
 	}
 

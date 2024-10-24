@@ -9,7 +9,11 @@ import logging
 import os
 import sys
 
-from positron_ipykernel.positron_ipkernel import PositronIPKernelApp, PositronIPyKernel
+from positron_ipykernel.positron_ipkernel import (
+    PositronIPKernelApp,
+    PositronIPyKernel,
+    PositronShell,
+)
 from positron_ipykernel.positron_jedilsp import POSITRON
 from positron_ipykernel.session_mode import SessionMode
 
@@ -151,8 +155,10 @@ if __name__ == "__main__":
     # When the app is gone, it should be safe to clear singleton instances.
     # This allows re-starting the ipykernel in the same process, using different
     # connection strings, etc.
+    PositronShell.clear_instance()
     PositronIPyKernel.clear_instance()
     PositronIPKernelApp.clear_instance()
+    app.close()
 
     logger.info(f"Exiting process with status {exit_status}")
     sys.exit(exit_status)
