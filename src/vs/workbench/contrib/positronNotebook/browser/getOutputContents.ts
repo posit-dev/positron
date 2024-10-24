@@ -6,6 +6,7 @@
 import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
 import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { ParsedOutput, ParsedTextOutput } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 
 type CellOutputInfo = { id: string; content: string };
 
@@ -74,37 +75,12 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	}).join('\n');
 }
 
-export type ParsedTextOutput = {
-	type: 'stdout' | 'text' | 'stderr' | 'error';
-	content: string;
-};
 
 const textOutputTypes: ParsedTextOutput['type'][] = ['stdout', 'text', 'stderr', 'error'];
 
 export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOutput {
 	return (textOutputTypes as string[]).includes(output.type);
 }
-
-/**
- * Contents from cell outputs parsed for React components to display
- */
-type ParsedOutput = ParsedTextOutput |
-{
-	type: 'image';
-	dataUrl: string;
-} |
-{
-	type: 'html';
-	content: string;
-} |
-{
-	type: 'interupt';
-	trace: string;
-} |
-{
-	type: 'unknown';
-	contents: string;
-};
 
 /**
  * Parse cell output into standard serializable js objects.

@@ -167,9 +167,41 @@ export type NotebookCellOutputItem = Readonly<{
 	data: VSBuffer;
 }>;
 
+/**
+ * Text output types that can be parsed for display. These come across differently than other output
+ * types (need to be parsed as json), hence the distinction.
+ */
+export type ParsedTextOutput = {
+	type: 'stdout' | 'text' | 'stderr' | 'error';
+	content: string;
+};
+
+/**
+ * Contents from cell outputs parsed for React components to display
+ */
+export type ParsedOutput = ParsedTextOutput |
+{
+	type: 'image';
+	dataUrl: string;
+} |
+{
+	type: 'html';
+	content: string;
+} |
+{
+	type: 'interupt';
+	trace: string;
+} |
+{
+	type: 'unknown';
+	contents: string;
+};
+
+
 export interface NotebookCellOutputs {
 	outputId: string;
 	outputs: NotebookCellOutputItem[];
+	parsed: ParsedOutput;
 }
 
 /**
@@ -180,5 +212,5 @@ interface PositronNotebookCellTextModel {
 	handle: number;
 	language: string;
 	cellKind: CellKind;
-	outputs: NotebookCellOutputs[];
+	outputs: Omit<NotebookCellOutputs, 'parsed'>[];
 }

@@ -10,12 +10,13 @@ import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, NotebookCellOutputItem } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { disposableTimeout } from 'vs/base/common/async';
+import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -135,7 +136,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	) {
 		super(cellModel, instance, textModelResolverService);
 
-		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', this.cellModel.outputs);
+		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', PositronNotebookCodeCell.parseCellOutputs(this.cellModel.outputs));
 
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
@@ -143,11 +144,38 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				// By unpacking the array and repacking we make sure that
 				// the React component will rerender when the outputs change. Probably not
 				// great to have this leak here.
-				this.outputs.set([...this.cellModel.outputs], undefined);
+				this.outputs.set(PositronNotebookCodeCell.parseCellOutputs(this.cellModel.outputs), undefined);
 			})
 		);
 	}
 
+	/**
+	 * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
+	 * @param outputList The list of cell outputs to parse from the cell model
+	 * @returns Output list with a prefered output item parsed for rendering
+	 */
+	static parseCellOutputs(outputList: ICellOutput[]): NotebookCellOutputs[] {
+
+		const toReturn: NotebookCellOutputs[] = [];
+
+		outputList.forEach(({ outputs, outputId }) => {
+
+			const preferredOutput = pickPreferredOutputItem(outputs);
+			if (!preferredOutput) {
+				return;
+			}
+
+			const parsed = parseOutputData(preferredOutput);
+
+			toReturn.push({
+				outputId,
+				outputs,
+				parsed
+			});
+		});
+
+		return toReturn;
+	}
 
 	override run(): void {
 		this._instance.runCells([this]);
@@ -244,7 +272,7 @@ function getMimeTypePriority(mime: string): number | null {
  * @returns The output item with the highest priority mime type. If there's a tie, the first one is
  * returned. If there's an unknown mime type we defer to ones we do know about.
  */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], logWarning: (msg: string) => void): NotebookCellOutputItem | undefined {
+export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], logWarning?: (msg: string) => void): NotebookCellOutputItem | undefined {
 
 	if (outputItems.length === 0) {
 		return undefined;
@@ -269,7 +297,7 @@ export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], l
 	}
 
 	if (highestPriority === null) {
-		logWarning('Could not determine preferred output for notebook cell with mime types' +
+		logWarning?.('Could not determine preferred output for notebook cell with mime types' +
 			outputItems.map(item => item.mime).join(', ')
 		);
 	}
