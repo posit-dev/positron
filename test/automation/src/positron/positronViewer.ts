@@ -6,7 +6,6 @@
 import { FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../code';
 
-const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REFRESH_BUTTON = '.codicon-positron-refresh';
 
@@ -18,24 +17,8 @@ export class PositronViewer {
 
 	constructor(private code: Code) { }
 
-	getViewerLocator(sublocator: string, additionalNesting = false): Locator {
-		const outerFrame = this.code.driver.getFrame(OUTER_FRAME);
-		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
-		if (!additionalNesting) {
-			const element = innerFrame.locator(sublocator);
-			return element;
-		} else {
-			const innerInnerFrame = innerFrame.frameLocator('//iframe');
-			const element = innerInnerFrame.locator(sublocator);
-			return element;
-		}
-	}
-
-	getViewerFrame(frameLocator: string): FrameLocator {
-		const outerFrame = this.code.driver.getFrame(OUTER_FRAME);
-		const innerFrame = outerFrame.frameLocator(INNER_FRAME);
-		const frame = innerFrame.frameLocator(frameLocator);
-		return frame;
+	getViewerFrame(): FrameLocator {
+		return this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
 	}
 
 	async refreshViewer() {
