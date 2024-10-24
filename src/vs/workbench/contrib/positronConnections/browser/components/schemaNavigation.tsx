@@ -229,7 +229,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	);
 };
 
-function languageIdToName(id: string) {
+export function languageIdToName(id: string) {
 	switch (id) {
 		case 'python':
 			return 'Python';

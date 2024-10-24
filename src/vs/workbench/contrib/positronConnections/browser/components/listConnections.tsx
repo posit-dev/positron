@@ -14,6 +14,8 @@ import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/pos
 import { PositronConnectionsServices, usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { FixedSizeList as List } from 'react-window';
 import 'vs/css!./listConnections';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { languageIdToName } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigation';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -28,9 +30,27 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 		return (
 			<div
 				style={props.style}
-				onMouseDown={() => setActiveInstanceId(itemProps.id)}
+				className='connections-list-item'
 			>
-				{itemProps.name}
+				<div className='col-icon' style={{ width: `${26}px` }}></div>
+				<div className='col-name'>{itemProps.name}</div>
+				<div className='col-language'>
+					{itemProps.language_id ? languageIdToName(itemProps.language_id) : ''}
+				</div>
+				<div
+					className={positronClassNames('col-status', { 'disabled': !itemProps.active })}
+				>
+					{itemProps.active ? 'Connected' : 'Disconected'}
+				</div>
+				<div
+					className='col-action' style={{ width: `${26}px` }}
+					onMouseDown={() => setActiveInstanceId(itemProps.id)}
+				>
+					<div
+						className={`codicon codicon-arrow-circle-right`}
+					>
+					</div>
+				</div>
 			</div>
 		);
 	};
@@ -38,8 +58,8 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 	return (
 		<div className='positron-connections-list'>
 			<ActionBar {...context}></ActionBar>
-			<div className='connections-items-container'>
-				<div className='connections-list-header' style={{ height: `${26}px` }}>
+			<div className='connections-list-container'>
+				<div className='connections-list-header' style={{ height: `${24}px` }}>
 					<div className='col-icon' style={{ width: `${26}px` }}></div>
 					<VerticalSplitter />
 					<div className='col-name'>Connection</div>
@@ -67,7 +87,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 const VerticalSplitter = () => {
 	return (
 		<div className='vertical-splitter' style={{ width: '1px' }}>
-			<div className='sash' style={{ left: '-2px', width: '4px' }}></div>
+			<div className='sash' style={{ left: '-2px', width: '4px', cursor: 'auto' }}></div>
 		</div>
 	);
 };
