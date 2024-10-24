@@ -47,6 +47,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const [selectedId, setSelectedId] = useState<string>();
 
 	const entries = items.filter(item => item.root_id === activeInstanceId);
+	const selectedInstance = items.find(item => item.id === activeInstanceId);
 
 	const ItemEntry = (props: ItemEntryProps) => {
 		const itemProps = entries[props.index];
@@ -71,6 +72,20 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
+				<div className={'connections-instance-details'} style={{ height: kActionBarHeight - 6 }}>
+					<div className='connection-name'>{selectedInstance?.name}</div>
+					<div className='connection-language'>{languageIdToName(selectedInstance?.language_id)}</div>
+					<div className={'connection-icon'}>
+						{
+							selectedInstance?.icon ?
+								selectedInstance?.icon :
+								<div
+									className={`codicon codicon-positron-database-connection`}
+								>
+								</div>
+						}
+					</div>
+				</div>
 				<List
 					itemCount={entries.length}
 					itemSize={26}
@@ -218,20 +233,28 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				}
 			</div>
 			<div
-				className={positronClassNames(
-					'connections-icon',
-					'codicon',
-					`codicon-${icon}`,
-					{ 'disabled': props.item.preview === undefined }
-				)}
+				className='connections-icon'
 				onClick={() => props.item.preview?.()}
 			>
+				<div
+					className={positronClassNames(
+						'codicon',
+						`codicon-${icon}`,
+						{ 'disabled': props.item.preview === undefined }
+					)}
+				>
+				</div>
 			</div>
 		</div>
 	);
 };
 
-export function languageIdToName(id: string) {
+export function languageIdToName(id?: string) {
+
+	if (!id) {
+		return '';
+	}
+
 	switch (id) {
 		case 'python':
 			return 'Python';
