@@ -34,11 +34,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
-	 * Gets or sets the last row filters.
-	 */
-	private _lastRowFilters: string = '[]';
-
-	/**
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -132,18 +127,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			// Update the layout entries.
 			await updateLayoutEntries(state);
 
-			// Stringify the row filters.
-			const rowFilters = JSON.stringify(state.row_filters);
-
-			// If the row filters have changed, refresh the column profiles because they rely on the
-			// data
-			if (this._lastRowFilters !== rowFilters) {
-				this._lastRowFilters = rowFilters;
-				await this._tableSummaryCache.refreshColumnProfiles();
-			}
-
-			// Fetch data.
-			await this.fetchData(true);
+			// Invalidate cache and fetch data, profiles
+			await this.fetchData(/* invalidateCache=*/true);
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
