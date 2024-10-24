@@ -18,15 +18,15 @@ import { test } from '../_test.setup';
 
 
 test.describe('annotations and tags', () => {
-	test('test 1', {
+	test('should have tags', {
 		tag: ['@slow', '@pr'],
-		annotation: { type: 'category', description: 'report' },
 	}, async () => {
-		// This test is annotated with multiple tags and an annotation.
+		// This test is tagged with multiple tags.
 	});
 
-	test('test 2', {
+	test('should have annotations', {
 		annotation: [
+			{ type: 'category', description: 'report' },
 			{ type: 'issue', description: 'https://github.com/microsoft/playwright/issues/23180' },
 			{ type: 'performance', description: 'very slow test!' },
 			{ type: 'test case', description: 'https://posit.testrail.io/index.php?/cases/view/534454' }

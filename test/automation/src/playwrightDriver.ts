@@ -45,10 +45,6 @@ export class PlaywrightDriver {
 	) {
 	}
 
-	public getApplication(): playwright.Browser | playwright.ElectronApplication {
-		return this.application;
-	}
-
 	async startTracing(name: string): Promise<void> {
 		if (!this.options.tracing) {
 			return; // tracing disabled
