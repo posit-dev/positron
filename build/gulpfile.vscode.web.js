@@ -24,7 +24,7 @@ const extensions = require('./lib/extensions');
 const { isESM } = require('./lib/esm');
 
 // --- Start Positron ---
-const child_process = require('child_process');
+const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 
 const REPO_ROOT = path.dirname(__dirname);
@@ -134,14 +134,6 @@ const vscodeWebEntryPoints = isESM() ? [
 	buildfile.keyboardMaps,
 	buildfile.workbenchWeb()
 ].flat();
-
-// --- Begin Positron ---
-// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call show-version to compute it.
-const positronBuildNumber =
-	process.env.POSITRON_BUILD_NUMBER ??
-	child_process.execSync(`node ${REPO_ROOT}/versions/show-version.js --build`).toString().trim();
-exports.positronBuildNumber = positronBuildNumber;
-// --- End Positron ---
 
 /**
  * @param {object} product The parsed product.json file contents

@@ -21,6 +21,10 @@ const path = require('path');
 const cp = require('child_process');
 const util = require('util');
 
+// --- Start Positron ---
+const { positronBuildNumber } = require('./utils');
+// --- End Positron ---
+
 const exec = util.promisify(cp.exec);
 const root = path.dirname(__dirname);
 const commit = getVersion(root);
@@ -100,8 +104,8 @@ function prepareDebPackage(arch) {
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.version))
-					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}-${linuxPackageRevision}`))
-					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${positronBuildNumber}-${linuxPackageRevision}`))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@ARCHITECTURE@@', debArch))
 					.pipe(replace('@@DEPENDS@@', dependencies.join(', ')))
@@ -226,8 +230,8 @@ function prepareRpmPackage(arch) {
 					.pipe(replace('@@ICON@@', product.linuxIconName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.version))
-					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${product.positronBuildNumber}`))
-					.pipe(replace('@@BUILDNUMBER@@', product.positronBuildNumber))
+					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${positronBuildNumber}`))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
 					// --- End Positron ---
 					.pipe(replace('@@RELEASE@@', linuxPackageRevision))
 					.pipe(replace('@@ARCHITECTURE@@', rpmArch))

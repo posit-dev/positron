@@ -38,9 +38,9 @@ const glob = promisify(require('glob'));
 const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
-const child_process = require('child_process');
 const fancyLog = require('fancy-log');
 const { getQuartoStream } = require('./lib/quarto');
+const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 
 // Build
@@ -342,14 +342,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		// --- Start Positron ---
 		const positronVersion = product.positronVersion;
-
-		// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call
-		// show-version to compute it.
-		const positronBuildNumber =
-			process.env.POSITRON_BUILD_NUMBER ??
-			child_process.execSync(
-				`node ${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
-
 		// --- End Positron ---
 
 		const quality = product.quality;
