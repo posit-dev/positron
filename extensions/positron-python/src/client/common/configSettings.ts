@@ -310,7 +310,7 @@ export class PythonSettings implements IPythonSettings {
         this.languageServerDebug = pythonSettings.get<boolean>('languageServerDebug') === true;
 
         // Control the language server log level
-        this.languageServerLogLevel = pythonSettings.get<string>('languageServerLogLevel')!;
+        this.languageServerLogLevel = systemVariables.resolveAny(pythonSettings.get<string>('languageServerLogLevel'))!;
 
         // Whether to suppress the banner on startup of the IPython shell
         this.quietMode = pythonSettings.get<boolean>('quietMode') === true;

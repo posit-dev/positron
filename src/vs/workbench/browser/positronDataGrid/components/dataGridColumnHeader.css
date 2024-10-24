@@ -115,7 +115,7 @@
 .content
 .sort-indicator
 .sort-index {
-	margin: 0 3px;
+	margin: 0 3px; /* If this value is changed, columnHeaderWidthCalculator must be updated. */
 	color: var(--vscode-positronDataGrid-sortIndexForeground);
 	font-size: var(--positron-data-grid-column-header-sort-index-font-size);
 	font-weight: var(--positron-data-grid-column-header-sort-index-font-weight);
@@ -126,8 +126,8 @@
 .content
 .sort-button {
 	z-index: 1;
-	width: 20px;
-	height: 20px;
+	width: 20px; /* If this value is changed, columnHeaderWidthCalculator must be updated. */
+	height: 20px; /* If this value is changed, columnHeaderWidthCalculator must be updated. */
 	display: flex;
 	cursor: pointer;
 	border-radius: 4px;

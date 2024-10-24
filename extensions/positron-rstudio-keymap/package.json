@@ -122,6 +122,16 @@
         "command": "quarto.insertCodeCell"
       },
       {
+        "mac": "ctrl+enter",
+        "when": "config.rstudio.keymap.enable && editorTextFocus && editorLangId == quarto && !findInputFocussed && !replaceInputFocussed",
+        "command": "quarto.runCurrent"
+      },
+      {
+        "mac": "ctrl+shift+enter",
+        "when": "config.rstudio.keymap.enable && editorTextFocus && editorLangId == quarto && !findInputFocussed && !replaceInputFocussed",
+        "command": "quarto.runCurrentCell"
+      },
+      {
         "mac": "cmd+i",
         "win": "ctrl+i",
         "linux": "ctrl+i",

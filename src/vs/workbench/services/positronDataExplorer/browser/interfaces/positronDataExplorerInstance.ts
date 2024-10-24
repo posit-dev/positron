@@ -65,9 +65,29 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	readonly onDidRequestFocus: Event<void>;
 
 	/**
+	 * The onDidCollapseSummary event.
+	 */
+	readonly onDidCollapseSummary: Event<void>;
+
+	/**
+	 * The onDidExpandSummary event.
+	 */
+	readonly onDidExpandSummary: Event<void>;
+
+	/**
 	 * Requests focus for the instance.
 	 */
 	requestFocus(): void;
+
+	/**
+	 * Collapses the summary.
+	 */
+	collapseSummary(): void;
+
+	/**
+	 * Expands the summary.
+	 */
+	expandSummary(): void;
 
 	/**
 	 * Copies the selection or cursor cell to the clipboard.

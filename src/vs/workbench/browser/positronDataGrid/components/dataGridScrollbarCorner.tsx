@@ -31,8 +31,8 @@ export const DataGridScrollbarCorner = (props: DataGridScrollbarCornerProps) => 
 		<div
 			className='data-grid-scrollbar-corner'
 			style={{
-				width: context.instance.scrollbarWidth,
-				height: context.instance.scrollbarWidth
+				width: context.instance.scrollbarThickness,
+				height: context.instance.scrollbarThickness
 			}}
 			onClick={props.onClick}
 		/>

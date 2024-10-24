@@ -7,13 +7,18 @@ import * as vscode from 'vscode';
 import {
 	BackendState,
 	ColumnDisplayType,
+	ColumnFilter,
 	ColumnProfileResult,
 	ColumnProfileType,
+	ColumnSortKey,
+	ColumnValue,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataExplorerResponse,
 	DataExplorerRpc,
 	DataExplorerUiEvent,
+	ExportDataSelectionParams,
+	ExportedData,
 	FilterResult,
 	GetColumnProfilesParams,
 	GetDataValuesParams,
@@ -22,16 +27,19 @@ import {
 	OpenDatasetParams,
 	OpenDatasetResult,
 	ReturnColumnProfilesEvent,
+	RowFilter,
 	SetRowFiltersParams,
+	SetSortColumnsParams,
 	SupportStatus,
 	TableData,
 	TableRowLabels,
 	TableSchema
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
+import * as path from 'path';
 import Worker from 'web-worker';
-import { basename, extname, join } from 'path';
-import { Table } from 'apache-arrow';
+import { Table, Vector } from 'apache-arrow';
+import { pathToFileURL } from 'url';
 
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
@@ -40,15 +48,20 @@ class DuckDBInstance {
 		// Create the path to the DuckDB WASM bundle. Note that only the EH
 		// bundle for Node is used for now as we don't support Positron
 		// extensions running in a browser context yet.
-		const distPath = join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
+		const distPath = path.join(ctx.extensionPath, 'node_modules', '@duckdb', 'duckdb-wasm', 'dist');
 		const bundle = {
-			mainModule: join(distPath, 'duckdb-eh.wasm'),
-			mainWorker: join(distPath, 'duckdb-node-eh.worker.cjs')
+			mainModule: path.join(distPath, 'duckdb-eh.wasm'),
+			mainWorker: path.join(distPath, 'duckdb-node-eh.worker.cjs')
 		};
-		const logger = new duckdb.VoidLogger();
+
+		// On Windows, we need to call pathToFileURL on mainWorker because the web-worker package
+		// does not support Windows paths that start with a drive letter.
+		if (process.platform === 'win32') {
+			bundle.mainWorker = pathToFileURL(bundle.mainWorker).toString();
+		}
 
 		const worker = new Worker(bundle.mainWorker);
-
+		const logger = new duckdb.VoidLogger();
 		const db = new duckdb.AsyncDuckDB(logger, worker);
 		await db.instantiate(bundle.mainModule);
 
@@ -57,9 +70,14 @@ class DuckDBInstance {
 		return new DuckDBInstance(db, con);
 	}
 
-	public async runQuery(query: string) {
-		return this.con.query(query);
+	async runQuery(query: string): Promise<Table<any> | string> {
+		try {
+			return await this.con.query(query);
+		} catch (error) {
+			return JSON.stringify(error);
+		}
 	}
+
 }
 
 type RpcResponse<Type> = Promise<Type | string>;
@@ -79,105 +97,73 @@ interface SchemaEntry {
 const SENTINEL_NULL = 0;
 const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
-const SENTINEL_NEGINF = 10;
+const SENTINEL_NEGINF = 11;
+
+function uriToFilePath(uri: string) {
+	// On Windows, we need to fix up the path so that it is recognizable as a drive path.
+	// Not sure how reliable this is, but it seems to work for now.
+	if (process.platform === 'win32') {
+		const filePath = path.parse(uri);
+		// Example: {
+		//    root: '/',
+		//    dir: '/c:/Users/sharon/qa-example-content/data-files/flights',
+		//    base: 'flights.parquet', ext: '.parquet',
+		//    name: 'flights'
+		// }
+		if (filePath.root === '/' && filePath.dir.startsWith('/')) {
+			// Remove the leading slash from the path so the path is drive path
+			return uri.substring(1);
+		}
+	}
+	return uri;
+}
+
+// TODO
+// - Decimal
+// - Nested types
+// - JSON
+const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
+	['BOOLEAN', ColumnDisplayType.Boolean],
+	['TINYINT', ColumnDisplayType.Number],
+	['SMALLINT', ColumnDisplayType.Number],
+	['INTEGER', ColumnDisplayType.Number],
+	['BIGINT', ColumnDisplayType.Number],
+	['FLOAT', ColumnDisplayType.Number],
+	['DOUBLE', ColumnDisplayType.Number],
+	['VARCHAR', ColumnDisplayType.String],
+	['UUID', ColumnDisplayType.String],
+	['DATE', ColumnDisplayType.Date],
+	['TIMESTAMP', ColumnDisplayType.Datetime],
+	['TIMESTAMP_NS', ColumnDisplayType.Datetime],
+	['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
+	['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
+	['TIME', ColumnDisplayType.Time]
+]);
 
 /**
- * Implementation of Data Explorer backend protocol using duckdb-wasm,
- * for serving requests coming in through the vscode command.
+ * Interface for serving data explorer requests for a particular table in DuckDB
  */
-export class DataExplorerRpcHandler {
+export class DuckDBTableView {
+	private sortKeys: Array<ColumnSortKey> = [];
+	private rowFilters: Array<RowFilter> = [];
+	private columnFilters: Array<ColumnFilter> = [];
 
-	// TODO
-	// - Decimal
-	// - Nested types
-	// - JSON
-	private readonly _displayTypeMapping = new Map<string, ColumnDisplayType>([
-		['BOOLEAN', ColumnDisplayType.Boolean],
-		['TINYINT', ColumnDisplayType.Number],
-		['SMALLINT', ColumnDisplayType.Number],
-		['INTEGER', ColumnDisplayType.Number],
-		['BIGINT', ColumnDisplayType.Number],
-		['FLOAT', ColumnDisplayType.Number],
-		['DOUBLE', ColumnDisplayType.Number],
-		['VARCHAR', ColumnDisplayType.String],
-		['UUID', ColumnDisplayType.String],
-		['DATE', ColumnDisplayType.Date],
-		['TIMESTAMP', ColumnDisplayType.Datetime],
-		['TIMESTAMP_NS', ColumnDisplayType.Datetime],
-		['TIMESTAMP WITH TIME ZONE', ColumnDisplayType.Datetime],
-		['TIMESTAMP_NS WITH TIME ZONE', ColumnDisplayType.Datetime],
-		['TIME', ColumnDisplayType.Time]
-	]);
+	private _unfilteredShape: Promise<[number, number]>;
+	private _filteredShape: Promise<[number, number]>;
 
-	private readonly _uriToSchema = new Map<string, Array<SchemaEntry>>();
-	private readonly _uriToTableName = new Map<string, string>();
-	private readonly _uriToUnfilteredShape = new Map<string, [number, number]>();
-	private _tableIndex: number = 0;
-
-	constructor(private readonly db: DuckDBInstance) { }
-
-	private async runQuery(query: string): Promise<Table<any> | string> {
-		// console.log(query);
-		try {
-			const result = await this.db.runQuery(query);
-			return result;
-		} catch (error) {
-			console.error(error);
-			return JSON.stringify(error);
-		}
+	constructor(readonly uri: string, readonly tableName: string,
+		readonly fullSchema: Array<SchemaEntry>,
+		readonly db: DuckDBInstance
+	) {
+		this._unfilteredShape = this._getUnfilteredShape();
+		this._filteredShape = this._unfilteredShape;
 	}
 
-	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
-		const tableName = `positron_${this._tableIndex++}`;
-		this._uriToTableName.set(params.uri, tableName);
-		const fileExt = extname(params.uri);
-
-		// console.log(`Opening ${params.uri}`);
-
-		let scanOperation;
-		switch (fileExt) {
-			case '.parquet':
-			case '.parq':
-				scanOperation = `parquet_scan('${params.uri}')`;
-				break;
-			// TODO: Will need to be able to pass CSV / TSV options from the
-			// UI at some point.
-			case '.csv':
-				scanOperation = `read_csv('${params.uri}')`;
-				break;
-			case '.tsv':
-				scanOperation = `read_csv('${params.uri}', delim='\t')`;
-				break;
-			default:
-				return { error_message: `Unsupported file extension: ${fileExt}` };
-		}
-
-		const ctasQuery = `
-		CREATE TABLE ${tableName} AS
-		SELECT * FROM ${scanOperation}`;
-
-		let result = await this.runQuery(ctasQuery);
-		if (typeof result === 'string') {
-			return { error_message: result };
-		}
-
-		const schemaQuery = `DESCRIBE ${tableName};`;
-		result = await this.runQuery(schemaQuery);
-		if (typeof result === 'string') {
-			return { error_message: result };
-		}
-
-		this._uriToSchema.set(params.uri, result.toArray());
-
-		return {};
-	}
-
-	async getSchema(uri: string, params: GetSchemaParams): RpcResponse<TableSchema> {
-		const schema = this.getCachedSchema(uri);
+	async getSchema(params: GetSchemaParams): RpcResponse<TableSchema> {
 		return {
 			columns: params.column_indices.map((index) => {
-				const entry = schema[index];
-				let type_display = this._displayTypeMapping.get(entry.column_type);
+				const entry = this.fullSchema[index];
+				let type_display = SCHEMA_TYPE_MAPPING.get(entry.column_type);
 				if (type_display === undefined) {
 					type_display = ColumnDisplayType.Unknown;
 				}
@@ -191,9 +177,7 @@ export class DataExplorerRpcHandler {
 		};
 	}
 
-	async getDataValues(uri: string, params: GetDataValuesParams): RpcResponse<TableData> {
-		const fullSchema = this.getCachedSchema(uri);
-
+	async getDataValues(params: GetDataValuesParams): RpcResponse<TableData> {
 		// Because DuckDB is a SQL engine, we opt to always select a row range of
 		// formatted data for a range of rows, and then return the requested selections
 		// based on what the UI requested. This blunt approach could end up being wasteful in
@@ -202,7 +186,24 @@ export class DataExplorerRpcHandler {
 		let lowerLimit = Infinity;
 		let upperLimit = -Infinity;
 
+		const smallNumDigits = params.format_options.small_num_digits;
+		const largeNumDigits = params.format_options.large_num_digits;
+
+		const thousandsSep = params.format_options.thousands_sep;
+		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
+		const varcharLimit = params.format_options.max_value_length;
+
 		const columnSelectors: Array<string> = [];
+
+		let smallFloatFormat, largeFloatFormat;
+		if (thousandsSep !== undefined) {
+			largeFloatFormat = `'{:,.${largeNumDigits}f}'`;
+			smallFloatFormat = `'{:,.${smallNumDigits}f}'`;
+		} else {
+			largeFloatFormat = `'{:.${largeNumDigits}f}'`;
+			smallFloatFormat = `'{:.${smallNumDigits}f}'`;
+		}
+
 		for (const column of params.columns) {
 			if ('first_index' in column.spec) {
 				// Value range
@@ -214,16 +215,50 @@ export class DataExplorerRpcHandler {
 				upperLimit = Math.max(upperLimit, ...column.spec.indices);
 			}
 
-			const columnSchema = fullSchema[column.column_index];
+			const columnSchema = this.fullSchema[column.column_index];
 			const quotedName = `"${columnSchema.column_name}"`;
+
+			const smallRounded = `ROUND(${quotedName}, ${smallNumDigits})`;
+			const largeRounded = `ROUND(${quotedName}, ${largeNumDigits})`;
 
 			// TODO: what is column_index is out of bounds?
 
 			// Build column selector. Just casting to string for now
 			let columnSelector;
 			switch (columnSchema.column_type) {
+				case 'TINYINT':
+				case 'SMALLINT':
+				case 'INTEGER':
+				case 'BIGINT':
+					if (thousandsSep !== undefined) {
+						columnSelector = `FORMAT('{:,}', ${quotedName})`;
+						if (thousandsSep !== ',') {
+							columnSelector = `REPLACE(${columnSelector}, ',', '${thousandsSep}')`;
+						}
+					} else {
+						columnSelector = `FORMAT('{:d}', ${quotedName})`;
+					}
+					break;
+				case 'FLOAT':
+				case 'DOUBLE': {
+					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
+					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
+					if (thousandsSep !== undefined && thousandsSep !== ',') {
+						largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
+						smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
+					}
+					columnSelector = `CASE WHEN ${quotedName} IS NULL THEN 'NULL'
+WHEN isinf(${quotedName}) AND ${quotedName} > 0 THEN 'Inf'
+WHEN isinf(${quotedName}) AND ${quotedName} < 0 THEN '-Inf'
+WHEN isnan(${quotedName}) THEN 'NaN'
+WHEN abs(${quotedName}) >= ${sciNotationLimit} THEN FORMAT('{:.${largeNumDigits}e}', ${quotedName})
+WHEN abs(${quotedName}) < 1 AND abs(${quotedName}) > 0 THEN ${smallFormatter}
+ELSE ${largeFormatter}
+END`;
+					break;
+				}
 				case 'VARCHAR':
-					columnSelector = quotedName;
+					columnSelector = `SUBSTRING(${quotedName}, 1, ${varcharLimit})`;
 					break;
 				case 'TIMESTAMP':
 					columnSelector = `strftime(${quotedName} AT TIME ZONE 'UTC', '%Y-%m-%d %H:%M:%S')`;
@@ -232,9 +267,8 @@ export class DataExplorerRpcHandler {
 					columnSelector = `CAST(${quotedName} AS VARCHAR)`;
 					break;
 			}
-			columnSelectors.push(columnSelector);
+			columnSelectors.push(`${columnSelector} AS formatted_${columnSelectors.length} `);
 		}
-		const tableName = this.getTableName(uri);
 
 		let numRows = 0;
 		if (isFinite(lowerLimit) && isFinite(upperLimit)) {
@@ -251,12 +285,12 @@ export class DataExplorerRpcHandler {
 			};
 		}
 
-		const query = `select ${columnSelectors.join(',\n    ')}
-		FROM ${tableName}
+		const query = `SELECT\n${columnSelectors.join(',\n    ')}
+		FROM ${this.tableName}
 		LIMIT ${numRows}
-		OFFSET ${lowerLimit}`;
+		OFFSET ${lowerLimit};`;
 
-		const queryResult = await this.runQuery(query);
+		const queryResult = await this.db.runQuery(query);
 		if (typeof queryResult === 'string') {
 			// query error
 			return queryResult;
@@ -275,58 +309,94 @@ export class DataExplorerRpcHandler {
 			columns: []
 		};
 
-		for (let i = 0; i < queryResult.numCols; i++) {
-			const spec = params.columns[i].spec;
 
-			const field = queryResult.getChildAt(i)!;
-			const values: Array<string> = field.toArray();
-
-			if ('first_index' in spec) {
-				const columnValues: Array<string | number> = [];
-
-				// Value range, we need to extract the actual slice requested
-				for (let i = spec.first_index; i <= spec.last_index; ++i) {
-					const relIndex = i - lowerLimit;
-					if (field.isValid(relIndex)) {
-						columnValues.push(values[relIndex]);
-					} else {
-						columnValues.push(SENTINEL_NULL);
-					}
-				}
-				result.columns.push(columnValues);
-			} else {
-				// Set of values indices, just get the lower and upper extent
-				result.columns.push(
-					spec.indices.map((index) => {
-						const value = values[index - lowerLimit];
-						if (value === null) {
-							return SENTINEL_NULL;
-						} else {
-							return value;
-						}
-					})
-				);
+		const floatAdapter = (field: Vector<any>, i: number) => {
+			const value: string = field.get(i - lowerLimit);
+			switch (value) {
+				case 'NaN':
+					return SENTINEL_NAN;
+				case 'NULL':
+					return SENTINEL_NULL;
+				case 'Inf':
+					return SENTINEL_INF;
+				case '-Inf':
+					return SENTINEL_NEGINF;
+				default:
+					return value;
 			}
+		};
+
+		const defaultAdapter = (field: Vector<any>, i: number) => {
+			const relIndex = i - lowerLimit;
+			return field.isValid(relIndex) ? field.get(relIndex) : SENTINEL_NULL;
+		};
+
+		for (let i = 0; i < queryResult.numCols; i++) {
+			const column = params.columns[i];
+			const spec = column.spec;
+			const field = queryResult.getChildAt(i)!;
+
+			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
+				if ('first_index' in spec) {
+					const columnValues: Array<string | number> = [];
+					// Value range, we need to extract the actual slice requested
+					for (let i = spec.first_index; i <= spec.last_index; ++i) {
+						columnValues.push(adapter(field, i));
+					}
+					return columnValues;
+				} else {
+					// Set of values indices, just get the lower and upper extent
+					return spec.indices.map(i => adapter(field, i));
+				}
+			};
+
+			const columnSchema = this.fullSchema[column.column_index];
+			switch (columnSchema.column_type) {
+				case 'DOUBLE':
+				case 'FLOAT':
+					result.columns.push(fetchValues(floatAdapter));
+					break;
+				default:
+					result.columns.push(fetchValues(defaultAdapter));
+					break;
+			}
+
 		}
 
 		return result;
 	}
 
-	async getRowLabels(uri: string, params: GetRowLabelsParams): RpcResponse<TableRowLabels> {
+	async getRowLabels(params: GetRowLabelsParams): RpcResponse<TableRowLabels> {
 		return 'not implemented';
 	}
 
-	async getState(uri: string): RpcResponse<BackendState> {
-		const [num_rows, num_columns] = await this._getUnfilteredShape(uri);
+	async getState(): RpcResponse<BackendState> {
+		const [unfiltedNumRows, unfilteredNumCols] = await this._unfilteredShape;
+		const [filteredNumRows, filteredNumCols] = await this._filteredShape;
 		return {
-			display_name: basename(uri),
-			table_shape: { num_rows, num_columns },
-			table_unfiltered_shape: { num_rows, num_columns },
+			display_name: path.basename(this.uri),
+			table_shape: {
+				num_rows: filteredNumRows,
+				num_columns: filteredNumCols
+			},
+			table_unfiltered_shape: {
+				num_rows: unfiltedNumRows,
+				num_columns: unfilteredNumCols
+			},
 			has_row_labels: false,
-			column_filters: [],
-			row_filters: [],
-			sort_keys: [],
+			column_filters: this.columnFilters,
+			row_filters: this.rowFilters,
+			sort_keys: this.sortKeys,
 			supported_features: {
+				get_column_profiles: {
+					support_status: SupportStatus.Supported,
+					supported_types: [
+						{
+							profile_type: ColumnProfileType.NullCount,
+							support_status: SupportStatus.Supported
+						}
+					]
+				},
 				search_schema: {
 					support_status: SupportStatus.Unsupported,
 					supported_types: []
@@ -340,15 +410,6 @@ export class DataExplorerRpcHandler {
 					supports_conditions: SupportStatus.Unsupported,
 					supported_types: []
 				},
-				get_column_profiles: {
-					support_status: SupportStatus.Supported,
-					supported_types: [
-						{
-							profile_type: ColumnProfileType.NullCount,
-							support_status: SupportStatus.Supported
-						}
-					]
-				},
 				set_sort_columns: { support_status: SupportStatus.Unsupported, },
 				export_data_selection: {
 					support_status: SupportStatus.Unsupported,
@@ -358,21 +419,18 @@ export class DataExplorerRpcHandler {
 		};
 	}
 
-	async getColumnProfiles(uri: string, params: GetColumnProfilesParams): RpcResponse<void> {
+	async getColumnProfiles(params: GetColumnProfilesParams): RpcResponse<void> {
 		// Initiate but do not await profile evaluations
-		this._evaluateColumnProfiles(uri, params);
+		this._evaluateColumnProfiles(params);
 	}
 
-	private async _evaluateColumnProfiles(uri: string, params: GetColumnProfilesParams) {
-		const tableName = this.getTableName(uri);
-		const fullSchema = this.getCachedSchema(uri);
-
+	private async _evaluateColumnProfiles(params: GetColumnProfilesParams) {
 		const profileExprs: Array<string> = [];
 		const queryResultIds: Array<Array<number | undefined>> = [];
 
 		let resultIndex = 0;
 		for (const request of params.profiles) {
-			const columnSchema = fullSchema[request.column_index];
+			const columnSchema = this.fullSchema[request.column_index];
 			const quotedName = `"${columnSchema.column_name}"`;
 			const resultIds: Array<number | undefined> = [];
 			request.profiles.map((profile, index) => {
@@ -386,7 +444,7 @@ export class DataExplorerRpcHandler {
 						resultIds.push(undefined);
 						return;
 				}
-				profileExprs.push(`${profileExpr} AS profile_${resultIndex}`);
+				profileExprs.push(`${profileExpr} AS profile_${resultIndex} `);
 				resultIds.push(resultIndex++);
 			});
 			queryResultIds.push(resultIds);
@@ -396,8 +454,8 @@ export class DataExplorerRpcHandler {
 		if (profileExprs.length > 0) {
 			const profileQuery = `
 			SELECT ${profileExprs.join(',\n    ')}
-			FROM ${tableName}`;
-			result = await this.runQuery(profileQuery);
+			FROM ${this.tableName} `;
+			result = await this.db.runQuery(profileQuery);
 			if (typeof result === 'string') {
 				// Query failed for some reason, need to return to UI
 				return;
@@ -438,25 +496,30 @@ export class DataExplorerRpcHandler {
 
 		await vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
-				uri,
+				uri: this.uri,
 				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
 				params: response
 			} satisfies DataExplorerUiEvent
 		);
 	}
 
-	async setRowFilters(uri: string, params: SetRowFiltersParams): RpcResponse<FilterResult> {
+	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
 		return 'not implemented';
 	}
 
-	private async _getUnfilteredShape(uri: string) {
-		const schema = this.getCachedSchema(uri);
-		const numColumns = schema.length;
+	async setSortColumns(params: SetSortColumnsParams): RpcResponse<void> {
+		return 'not implemented';
+	}
 
-		const tableName = this.getTableName(uri);
-		const countStar = `SELECT count(*) AS num_rows FROM ${tableName} `;
+	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
+		return 'not implemented';
+	}
 
-		const result = await this.runQuery(countStar);
+	private async _getUnfilteredShape(): Promise<[number, number]> {
+		const numColumns = this.fullSchema.length;
+		const countStar = `SELECT count(*) AS num_rows FROM ${this.tableName} `;
+
+		const result = await this.db.runQuery(countStar);
 
 		let numRows: number;
 		if (typeof result === 'string') {
@@ -467,13 +530,68 @@ export class DataExplorerRpcHandler {
 		}
 		return [numRows, numColumns];
 	}
+}
 
-	getTableName(uri: string): string {
-		return this._uriToTableName.get(uri) as string;
-	}
+/**
+ * Implementation of Data Explorer backend protocol using duckdb-wasm,
+ * for serving requests coming in through the vscode command.
+ */
+export class DataExplorerRpcHandler {
+	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
+	private _tableIndex: number = 0;
 
-	private getCachedSchema(uri: string): Array<SchemaEntry> {
-		return this._uriToSchema.get(uri) as Array<SchemaEntry>;
+	constructor(private readonly db: DuckDBInstance) { }
+
+	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
+		let scanQuery, tableName;
+		const duckdbPath = params.uri.match(/^duckdb:\/\/(.+)$/);
+		if (duckdbPath) {
+			// We are querying a table in the transient in-memory database. We can modify this later
+			// to read from different .duckb database files
+			tableName = duckdbPath[1];
+			scanQuery = `SELECT * FROM ${tableName}`;
+		} else {
+			tableName = `positron_${this._tableIndex++}`;
+			const filePath = uriToFilePath(params.uri);
+			const fileExt = path.extname(filePath);
+			let scanOperation;
+			switch (fileExt) {
+				case '.parquet':
+				case '.parq':
+					scanOperation = `parquet_scan('${filePath}')`;
+					break;
+				// TODO: Will need to be able to pass CSV / TSV options from the
+				// UI at some point.
+				case '.csv':
+					scanOperation = `read_csv('${filePath}')`;
+					break;
+				case '.tsv':
+					scanOperation = `read_csv('${filePath}', delim='\t')`;
+					break;
+				default:
+					return { error_message: `Unsupported file extension: ${fileExt}` };
+			}
+
+			scanQuery = `
+			CREATE TABLE ${tableName} AS
+			SELECT * FROM ${scanOperation};`;
+		}
+
+		let result = await this.db.runQuery(scanQuery);
+		if (typeof result === 'string') {
+			return { error_message: result };
+		}
+
+		const schemaQuery = `DESCRIBE ${tableName};`;
+		result = await this.db.runQuery(schemaQuery);
+		if (typeof result === 'string') {
+			return { error_message: result };
+		}
+
+		const tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+		this._uriToTableView.set(params.uri, tableView);
+
+		return {};
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
@@ -493,22 +611,25 @@ export class DataExplorerRpcHandler {
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
+		const table = this._uriToTableView.get(rpc.uri) as DuckDBTableView;
 		switch (rpc.method) {
-			case DataExplorerBackendRequest.GetSchema:
-				return this.getSchema(rpc.uri, rpc.params as GetSchemaParams);
-			case DataExplorerBackendRequest.GetDataValues:
-				return this.getDataValues(rpc.uri, rpc.params as GetDataValuesParams);
-			case DataExplorerBackendRequest.GetRowLabels:
-				return this.getRowLabels(rpc.uri, rpc.params as GetRowLabelsParams);
-			case DataExplorerBackendRequest.GetState:
-				return this.getState(rpc.uri);
-			case DataExplorerBackendRequest.SetRowFilters:
-				return this.setRowFilters(rpc.uri, rpc.params as SetRowFiltersParams);
-			case DataExplorerBackendRequest.GetColumnProfiles:
-				return this.getColumnProfiles(rpc.uri, rpc.params as GetColumnProfilesParams);
 			case DataExplorerBackendRequest.ExportDataSelection:
-			case DataExplorerBackendRequest.SetColumnFilters:
+				return table.exportDataSelection(rpc.params as ExportDataSelectionParams);
+			case DataExplorerBackendRequest.GetColumnProfiles:
+				return table.getColumnProfiles(rpc.params as GetColumnProfilesParams);
+			case DataExplorerBackendRequest.GetDataValues:
+				return table.getDataValues(rpc.params as GetDataValuesParams);
+			case DataExplorerBackendRequest.GetRowLabels:
+				return table.getRowLabels(rpc.params as GetRowLabelsParams);
+			case DataExplorerBackendRequest.GetSchema:
+				return table.getSchema(rpc.params as GetSchemaParams);
+			case DataExplorerBackendRequest.GetState:
+				return table.getState();
+			case DataExplorerBackendRequest.SetRowFilters:
+				return table.setRowFilters(rpc.params as SetRowFiltersParams);
 			case DataExplorerBackendRequest.SetSortColumns:
+				return table.setSortColumns(rpc.params as SetSortColumnsParams);
+			case DataExplorerBackendRequest.SetColumnFilters:
 			case DataExplorerBackendRequest.SearchSchema:
 				return `${rpc.method} not yet implemented`;
 			default:
@@ -529,11 +650,11 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-duckdb.runQuery',
 			async (query: string) => {
-				try {
-					const result = await db.runQuery(query);
+				const result = await db.runQuery(query);
+				if (typeof result === 'string') {
+					console.error('DuckDB error:', result);
+				} else {
 					return result.toArray();
-				} catch (error) {
-					console.error('DuckDB error:', error);
 				}
 			})
 	);

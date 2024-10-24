@@ -41,6 +41,8 @@ const category: ILocalizedString = {
 export const enum PositronDataExplorerCommandId {
 	CopyAction = 'workbench.action.positronDataExplorer.copy',
 	CopyTableDataAction = 'workbench.action.positronDataExplorer.copyTableData',
+	CollapseSummaryAction = 'workbench.action.positronDataExplorer.collapseSummary',
+	ExpandSummaryAction = 'workbench.action.positronDataExplorer.expandSummary',
 }
 
 /**
@@ -230,9 +232,161 @@ class PositronDataExplorerCopyTableDataAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerCollapseSummaryAction action.
+ */
+class PositronDataExplorerCollapseSummaryAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.CollapseSummaryAction,
+			title: {
+				value: localize('positronDataExplorer.collapseSummary', 'Collapse Summary'),
+				original: 'Collapse Summary'
+			},
+			category,
+			f1: true,
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that collapse summary failed.
+		 */
+		const notifyUserThatCollapseSummaryFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize('positron.dataExplorer.collapseSummary.noActiveEditor', "Cannot Collapse Summary. A Positron Data Explorer is not active."),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatCollapseSummaryFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatCollapseSummaryFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatCollapseSummaryFailed();
+			return;
+		}
+
+		// Collapse the summary.
+		positronDataExplorerInstance.collapseSummary();
+	}
+}
+
+/**
+ * PositronDataExplorerExpandSummaryAction action.
+ */
+class PositronDataExplorerExpandSummaryAction extends Action2 {
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ExpandSummaryAction,
+			title: {
+				value: localize('positronDataExplorer.expandSummary', 'Expand Summary'),
+				original: 'Expand Summary'
+			},
+			category,
+			f1: true,
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that expand summary failed.
+		 */
+		const notifyUserThatExpandSummaryFailed = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Error,
+				message: localize('positron.dataExplorer.expandSummary.noActiveEditor', "Cannot Expand Summary. A Positron Data Explorer is not active."),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			notifyUserThatExpandSummaryFailed();
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			notifyUserThatExpandSummaryFailed();
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			notifyUserThatExpandSummaryFailed();
+			return;
+		}
+
+		// Expand the summary.
+		positronDataExplorerInstance.expandSummary();
+	}
+}
+
+/**
  * Registers Positron data explorer actions.
  */
 export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerCopyAction);
 	registerAction2(PositronDataExplorerCopyTableDataAction);
+	registerAction2(PositronDataExplorerCollapseSummaryAction);
+	registerAction2(PositronDataExplorerExpandSummaryAction);
 }

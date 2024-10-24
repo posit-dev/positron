@@ -8,7 +8,7 @@ about: Create a new issue for Positron.
 Thanks for taking the time to file an issue!
 
 Take a look at our guidance on feedback and issues:
-https://github.com/posit-dev/positron/wiki/Feedback-and-Issues
+https://positron.posit.co/feedback.html
 
 General questions about Positron should start in GitHub Discussions rather than as an issue:
 https://github.com/posit-dev/positron/discussions
@@ -49,7 +49,7 @@ additional information to help us prioritize the issue.
 <!--
 
 - Open the Developer Tools console by running the `Developer: Toggle Developer Tools` command from the Command Palette
-- Open the relevant Output Channel logs by utilizing this guide https://github.com/posit-dev/positron/wiki/Troubleshooting
+- Open the relevant Output Channel logs by utilizing this guide: https://positron.posit.co/troubleshooting.html
 
 -->
 

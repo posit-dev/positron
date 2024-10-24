@@ -434,18 +434,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param dataExplorerClientInstance The DataExplorerClientInstance for the editor.
 	 */
 	private closeEditor(dataExplorerClientInstance: DataExplorerClientInstance) {
-		// Get the Positron data explorer client instance.
+		// Get the data explorer client instance. If it was found, delete it and dispose it.
 		const positronDataExplorerInstance = this._positronDataExplorerInstances.get(
 			dataExplorerClientInstance.identifier
 		);
-
-		// If there isn't a Positron data explorer client instance, return.
-		if (!positronDataExplorerInstance) {
-			return;
+		if (positronDataExplorerInstance) {
+			this._positronDataExplorerInstances.delete(dataExplorerClientInstance.identifier);
+			positronDataExplorerInstance.dispose();
 		}
-
-		// Delete the Positron data explorer client instance.
-		this._positronDataExplorerInstances.delete(dataExplorerClientInstance.identifier);
 	}
 
 	//#endregion Private Methods

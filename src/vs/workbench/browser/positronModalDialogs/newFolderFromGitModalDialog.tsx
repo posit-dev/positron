@@ -53,7 +53,7 @@ export const showNewFolderFromGitModalDialog = async (
 		<NewFolderFromGitModalDialog
 			fileDialogService={fileDialogService}
 			renderer={renderer}
-			parentFolder={(await fileDialogService.defaultFolderPath()).fsPath}
+			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				if (result.repo) {
 					// temporarily set openAfterClone to facilitate result.newWindow then set it
@@ -68,7 +68,7 @@ export const showNewFolderFromGitModalDialog = async (
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder
+							result.parentFolder.path
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
@@ -84,7 +84,7 @@ export const showNewFolderFromGitModalDialog = async (
  */
 interface NewFolderFromGitResult {
 	readonly repo: string;
-	readonly parentFolder: string;
+	readonly parentFolder: URI;
 	readonly newWindow: boolean;
 }
 
@@ -94,7 +94,7 @@ interface NewFolderFromGitResult {
 interface NewFolderFromGitModalDialogProps {
 	fileDialogService: IFileDialogService;
 	renderer: PositronModalReactRenderer;
-	parentFolder: string;
+	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
 }
 
@@ -118,14 +118,14 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	const browseHandler = async () => {
 		// Show the open dialog.
 		const uri = await props.fileDialogService.showOpenDialog({
-			defaultUri: result.parentFolder ? URI.file(result.parentFolder) : undefined,
+			defaultUri: result.parentFolder ? result.parentFolder : await props.fileDialogService.defaultFolderPath(),
 			canSelectFiles: false,
 			canSelectFolders: true
 		});
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			setResult({ ...result, parentFolder: uri[0].fsPath });
+			setResult({ ...result, parentFolder: uri[0] });
 			folderNameRef.current.focus();
 		}
 	};
@@ -163,9 +163,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder}
+					value={result.parentFolder.path}
 					onBrowse={browseHandler}
-					onChange={e => setResult({ ...result, parentFolder: e.target.value })}
+					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>

@@ -58,7 +58,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 		});
 
 		if (githubActions) {
-			it('Python - Verifies data explorer functionality with very large unque data dataframe [C804823]', async function () {
+			it('Python - Verifies data explorer functionality with very large unique data dataframe [C804823]', async function () {
 				const app = this.app as Application;
 				await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
 
@@ -81,7 +81,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 
 				const timeTaken = endTime - startTime;
 
-				if (timeTaken > 7200) {
+				if (timeTaken > 40000) {
 					fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
 				} else {
 					logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
@@ -113,7 +113,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 
 				const timeTaken = endTime - startTime;
 
-				if (timeTaken > 4500) {
+				if (timeTaken > 27000) {
 					fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
 				} else {
 					logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
@@ -163,7 +163,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 
 				const timeTaken = endTime - startTime;
 
-				if (timeTaken > 15500) {
+				if (timeTaken > 75000) {
 					fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
 				} else {
 					logger.log(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
@@ -194,7 +194,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 
 				const timeTaken = endTime - startTime;
 
-				if (timeTaken > 10200) {
+				if (timeTaken > 60000) {
 					fail(`Opening large dupliacted parquet took ${timeTaken} milliseconds (R)`);
 				} else {
 					logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);

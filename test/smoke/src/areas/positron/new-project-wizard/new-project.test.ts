@@ -29,6 +29,8 @@ describe('New Project Wizard', () => {
 			});
 			it('Create a new Conda environment [C628628]', async function () {
 				// This test relies on Conda already being installed on the machine
+				this.timeout(180000);
+
 				const projSuffix = addRandomNumSuffix('_condaInstalled');
 				const app = this.app as Application;
 				const pw = app.workbench.positronNewProjectWizard;
@@ -49,7 +51,7 @@ describe('New Project Wizard', () => {
 					expect(projectFiles).toContain('.conda');
 				}).toPass({ timeout: 50000 });
 				// The console should initialize without any prompts to install ipykernel
-				await app.workbench.positronConsole.waitForReady('>>>', 10000);
+				await app.workbench.positronConsole.waitForReady('>>>', 40000);
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');

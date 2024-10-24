@@ -711,6 +711,44 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         ),
         ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number"),
         ([None] * 5, "empty", "unknown"),
+        # NA-enabled numbers
+        (pd.Series([1, 2, None, 3, 4], dtype="Int8"), "Int8", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int16"), "Int16", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int32"), "Int32", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int64"), "Int64", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt8"), "UInt8", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt16"), "UInt16", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt32"), "UInt32", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt64"), "UInt64", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "number"),
+        # NA boolean
+        (
+            pd.Series([True, False, None, None, True], dtype="boolean"),
+            "boolean",
+            "boolean",
+        ),
+        # NA string
+        (
+            pd.Series(["foo", "bar", None, "baz", "qux"], dtype="string"),
+            "string",
+            "string",
+        ),
+        # datetimetz
+        (
+            pd.Series(
+                [
+                    "2000-01-01",
+                    "2000-01-02",
+                    None,
+                    "2000-01-04",
+                    "2000-01-05",
+                ],
+                dtype=pd.DatetimeTZDtype(tz="US/Eastern"),
+            ),
+            "datetime64[ns, US/Eastern]",
+            "datetime",
+        ),
     ]
 
     if hasattr(np, "complex256"):

@@ -3,13 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
-import { expect } from '@playwright/test';
 import { Code } from '../code';
 import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { basename } from 'path';
+import { expect } from '@playwright/test';
 
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';

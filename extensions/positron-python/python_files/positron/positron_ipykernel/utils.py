@@ -335,7 +335,7 @@ def positron_ipykernel_usage():
     interpreter, with convenient shell features, special commands, command
     history mechanism and output results caching. It is an adapted version of an
     [IPython](https://ipython.readthedocs.io/en/stable/) kernel. For more information, check out the
-    [Positron documentation](https://github.com/posit-dev/positron/wiki).
+    [Positron documentation](https://positron.posit.co/).
 
     GETTING HELP
     ------------
