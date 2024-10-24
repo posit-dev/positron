@@ -11,7 +11,7 @@ import { join } from 'path';
 describe('Python Applications #pr #win', () => {
 	setupAndStartApp();
 
-	describe('Python Applications', () => {
+	describe('Python Applications #pr #web', () => {
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
