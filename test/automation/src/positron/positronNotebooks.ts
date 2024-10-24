@@ -8,6 +8,7 @@ import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { basename } from 'path';
+import { expect } from '@playwright/test';
 
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';
@@ -16,19 +17,19 @@ const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
-const OUTER_FRAME = '.webview';
+const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
 const INNER_FRAME = '#active-frame';
-const PYTHON_OUTPUT = '.output-plaintext';
-const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
+
 
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
 export class PositronNotebooks {
 	kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
+	frameLocator = this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
@@ -75,40 +76,27 @@ export class PositronNotebooks {
 	}
 
 	async addCodeToFirstCell(code: string) {
-		await this.code.driver.getLocator(CELL_LINE).first().click();
+		await this.code.driver.page.locator(CELL_LINE).first().click();
 		await this.notebook.waitForTypeInEditor(code);
 		await this.notebook.waitForActiveCellEditorContents(code);
 	}
 
 	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
+		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 	}
 
-	async getPythonCellOutput(): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
-		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const outputLocator = notebookFrame.locator(PYTHON_OUTPUT);
-		const outputText = await outputLocator.textContent();
-		return outputText!;
-	}
-
-	async getRCellOutput(): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
-		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const outputLocator = notebookFrame.locator(R_OUTPUT).nth(0);
-		const outputText = await outputLocator.textContent();
-		return outputText!;
+	async assertCellOutput(text: string): Promise<void> {
+		await expect(this.frameLocator.getByText(text)).toBeVisible();
 	}
 
 	async closeNotebookWithoutSaving() {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
 	}
 
-	async getMarkdownText(tag: string): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
-		const frame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const element = frame.locator(`${MARKDOWN_TEXT} ${tag}`);
-		const text = await element.textContent();
-		return text!;
+	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
+		const markdownLocator = this.frameLocator.locator(`${MARKDOWN_TEXT} ${tag}`);
+		await expect(markdownLocator).toBeVisible();
+		await expect(markdownLocator).toHaveText(expectedText);
 	}
 }
