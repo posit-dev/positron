@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
@@ -15,13 +15,24 @@ import { FixedSizeList as List } from 'react-window';
 import 'vs/css!./listConnections';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { languageIdToName } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigation';
+import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
 export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsProps>) => {
+
 	const context = usePositronConnectionsContext();
 	const { height, setActiveInstanceId } = props;
-	const instances = props.items.filter(item => item.level === 0);
+
+	const [instances, setInstances] = useState<IPositronConnectionInstance[]>(context.connectionsService.getConnections);
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(context.connectionsService.onDidChangeConnections((connections) => {
+			setInstances(connections);
+		}));
+		return () => disposableStore.dispose();
+	}, [context.connectionsService]);
 
 	const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
 

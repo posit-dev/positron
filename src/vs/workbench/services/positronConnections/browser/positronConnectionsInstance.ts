@@ -11,16 +11,18 @@ import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/posit
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILogService } from 'vs/platform/log/common/log';
+import { IPositronConnectionEntry, PositronConnectionsCache } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+import { Severity, INotificationHandle } from 'vs/platform/notification/common/notification';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
 }
 
-interface ConnectionsService {
+export interface IPositronMinimalConnectionService {
 	runtimeSessionService: IRuntimeSessionService;
 	logService: ILogService;
 	onDidFocusEmitter: Emitter<void>;
-	onDidChangeDataEmitter: Emitter<void>;
+	notify: (message: string, severity: Severity) => INotificationHandle;
 }
 
 class BaseConnectionsInstance extends Disposable {
@@ -56,13 +58,15 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	readonly onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
-	readonly onDidChangeDataEmitter: Emitter<void>;
+	private readonly onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>();
+	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
-	private _expanded: boolean = false;
+	private _expanded: boolean = true;
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
+	_cache: PositronConnectionsCache;
 
-	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: ConnectionsService) {
+	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: IPositronMinimalConnectionService) {
 		const object = new PositronConnectionsInstance(metadata, client, service);
 		if (!object.metadata.icon) {
 			try {
@@ -79,26 +83,39 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	private constructor(
 		metadata: ConnectionMetadata,
 		private readonly client: ConnectionsClientInstance,
-		private readonly service: ConnectionsService,
+		readonly service: IPositronMinimalConnectionService,
 	) {
 		super(metadata);
-
-		this.onDidChangeDataEmitter = service.onDidChangeDataEmitter;
+		this._cache = new PositronConnectionsCache(this.service, this);
 
 		this._register(this.onToggleExpand(() => {
 			this._expanded = !this._expanded;
-			this.service.onDidChangeDataEmitter.fire();
+			this._cache.refreshConnectionEntries();
 		}));
 
 		this._register(this.client.onDidClose(() => {
 			this._active = false;
 			this._expanded = false;
-			this.service.onDidChangeDataEmitter.fire();
+			this._cache.refreshConnectionEntries();
 		}));
 
 		this._register(this.client.onDidFocus(() => {
 			this.service.onDidFocusEmitter.fire();
 		}));
+	}
+
+	getEntries() {
+		return this._cache.entries;
+	}
+
+	async refreshEntries() {
+		try {
+			await this._cache.refreshConnectionEntries();
+			this.onDidChangeEntriesEmitter.fire(this._cache.entries);
+		} catch (err) {
+			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
+		}
+		this.onDidChangeEntriesEmitter.fire(this._cache.entries);
 	}
 
 	readonly kind: string = 'database';
@@ -115,7 +132,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 					[item],
 					this.client,
 					this.id,
-					this.service
+					this
 				);
 			}));
 		}
@@ -179,7 +196,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 		return async () => {
 			this._children = undefined;
-			this.onDidChangeDataEmitter.fire();
+			this.refreshEntries();
 		};
 	}
 
@@ -191,7 +208,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 	constructor(
 		metadata: ConnectionMetadata,
-		readonly onDidChangeDataEmitter: Emitter<void>,
 		readonly runtimeSessionService: IRuntimeSessionService,
 	) {
 		super(metadata);
@@ -228,6 +244,16 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 			);
 		};
 	}
+
+	getEntries(): IPositronConnectionEntry[] {
+		return [];
+	}
+
+	onDidChangeEntries: Event<IPositronConnectionEntry[]> = Event.None;
+
+	async refreshEntries() {
+		// Do nothing
+	}
 }
 
 class PositronConnectionItem implements IPositronConnectionItem {
@@ -248,10 +274,8 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
-	onDidChangeDataEmitter: Emitter<void>;
-
-	static async init(path: PathSchema[], client: ConnectionsClientInstance, parent_id: string, service: ConnectionsService) {
-		const object = new PositronConnectionItem(path, client, parent_id, service);
+	static async init(path: PathSchema[], client: ConnectionsClientInstance, parent_id: string, instance: PositronConnectionsInstance) {
+		const object = new PositronConnectionItem(path, client, parent_id, instance);
 
 		let expandable;
 		try {
@@ -275,7 +299,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 			try {
 				object._icon = await object.getIcon();
 			} catch (err: any) {
-				service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
+				instance.service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
 			}
 		}
 
@@ -290,13 +314,11 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		private readonly path: PathSchema[],
 		private readonly client: ConnectionsClientInstance,
 		private readonly parent_id: string,
-		private readonly service: ConnectionsService
+		private readonly instance: PositronConnectionsInstance
 	) {
 		if (this.path.length === 0) {
 			throw new Error('path must be length > 0');
 		}
-
-		this.onDidChangeDataEmitter = this.service.onDidChangeDataEmitter;
 
 		const last_elt = this.path.at(-1)!;
 		this._name = last_elt.name;
@@ -307,7 +329,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 			if (!(this._expanded === undefined)) {
 				this._expanded = !this._expanded;
 				// Changing the expanded flag will change the data that we want to show.
-				this.onDidChangeDataEmitter.fire();
+				this.instance.refreshEntries();
 			}
 		});
 	}
@@ -372,7 +394,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 					[...this.path, item],
 					this.client,
 					this.id,
-					this.service
+					this.instance
 				);
 			}));
 		}

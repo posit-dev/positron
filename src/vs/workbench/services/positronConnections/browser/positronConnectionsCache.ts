@@ -8,7 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IPositronMinimalConnectionService } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
 
 export interface IPositronConnectionEntry {
@@ -224,7 +224,8 @@ export class PositronConnectionsCache {
 	private _entries: IPositronConnectionEntry[] = [];
 
 	constructor(
-		private readonly service: IPositronConnectionsService,
+		private readonly service: IPositronMinimalConnectionService,
+		private readonly instance: IPositronConnectionInstance,
 	) { }
 
 	get entries(): IPositronConnectionEntry[] {
@@ -232,7 +233,7 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
-		const entries = await this.getConnectionsEntries(this.service.getConnections());
+		const entries = await this.getConnectionsEntries([this.instance]);
 		this._entries = entries;
 	}
 

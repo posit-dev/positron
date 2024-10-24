@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
+import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 
 export interface ConnectionMetadata {
 	name: string;
@@ -27,6 +28,10 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 	connect?(): Promise<void>;
 	disconnect?(): Promise<void>;
 	refresh?(): Promise<void>;
+
+	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+	refreshEntries(): Promise<void>;
+	getEntries(): IPositronConnectionEntry[];
 }
 
 /***
@@ -49,13 +54,6 @@ export interface IPositronConnectionItem {
 	 * expandable.
 	 */
 	onToggleExpandEmitter?: Emitter<void>;
-
-	/**
-	 * Items fire this event whenever their data has changed.
-	 * Eg. The connections is turned off, or some child was expanded.
-	 * It's used to notify the renderer that the item has changed.
-	 */
-	onDidChangeDataEmitter: Emitter<void>;
 
 	/**
 	 * If the item can be previewed, it should implement this method.

@@ -9,7 +9,6 @@ import { SchemaNavigation } from 'vs/workbench/contrib/positronConnections/brows
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { PositronConnectionsContextProvider, PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { ListConnections } from 'vs/workbench/contrib/positronConnections/browser/components/listConnections';
-import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 
 export interface PositronConnectionsProps extends PositronConnectionsServices { }
 export interface ViewsProps {
@@ -17,7 +16,6 @@ export interface ViewsProps {
 	readonly height: number;
 	readonly activeInstanceId: string | undefined;
 	readonly setActiveInstanceId: (instanceId: string | undefined) => void;
-	readonly items: IPositronConnectionEntry[];
 }
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
@@ -36,19 +34,6 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		return () => disposableStore.dispose();
 	}, [props.reactComponentContainer]);
 
-	// For now we have a single flat cache that we filter differently based on what we want to show.
-	// For instance, the list connections page will only show the items for which level == 0.
-	const [items, setItems] = useState<IPositronConnectionEntry[]>(props.connectionsService.getConnectionEntries);
-	useEffect(() => {
-		const disposableStore = new DisposableStore();
-		disposableStore.add(props.connectionsService.onDidChangeEntries((entries) => {
-			setItems(entries);
-		}));
-		// First entries refresh - on component mount.
-		props.connectionsService.refreshConnectionEntries();
-		return () => disposableStore.dispose();
-	}, [props.connectionsService]);
-
 	const [activeInstanceId, setActiveInstanceId] = useState<string>();
 
 	const viewProps: ViewsProps = {
@@ -56,7 +41,6 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		height,
 		activeInstanceId,
 		setActiveInstanceId,
-		items
 	};
 
 	return (

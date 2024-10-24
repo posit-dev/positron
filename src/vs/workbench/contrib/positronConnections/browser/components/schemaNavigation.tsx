@@ -20,7 +20,7 @@ export interface SchemaNavigationProps extends ViewsProps { }
 export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
 	const context = usePositronConnectionsContext();
-	const { height, items, activeInstanceId } = props;
+	const { height, activeInstanceId } = props;
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -45,9 +45,44 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	}, [context.reactComponentContainer, scrollStateRef, setScrollState]);
 
 	const [selectedId, setSelectedId] = useState<string>();
+	const activeInstance = context.connectionsService.getConnections().find(item => item.id === activeInstanceId);
 
-	const entries = items.filter(item => item.root_id === activeInstanceId);
-	const selectedInstance = items.find(item => item.id === activeInstanceId);
+	console.log('connections', context.connectionsService.getConnections());
+	console.log('active instance', activeInstance);
+	console.log('entries', activeInstance?.getEntries());
+
+	const [childEntries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
+
+	useEffect(() => {
+		if (!activeInstance) {
+			return;
+		}
+
+		const disposableStore = new DisposableStore();
+		disposableStore.add(activeInstance.onDidChangeEntries((entries) => {
+			console.log('Received event', entries);
+			setEntries(entries);
+		}));
+		activeInstance.refreshEntries();
+		return () => disposableStore.dispose();
+	}, [activeInstance]);
+
+	const entries = childEntries.filter(item => item.level > 0);
+
+	if (!activeInstance) {
+		// This should not be possible, the active instance must exist.
+		return (
+			<div className='positron-connections-schema-navigation'>
+				<ActionBar
+					{...context}
+					selectedEntry={undefined}
+					clearAllHandler={() => context.connectionsService.clearAllConnections()}
+					backHandler={() => props.setActiveInstanceId(undefined)}
+				>
+				</ActionBar>
+			</div>
+		);
+	}
 
 	const ItemEntry = (props: ItemEntryProps) => {
 		const itemProps = entries[props.index];
@@ -66,19 +101,19 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
 				{...context}
-				selectedEntry={items.find((item) => item.id === selectedId)}
+				selectedEntry={entries.find((item) => item.id === selectedId)}
 				clearAllHandler={() => context.connectionsService.clearAllConnections()}
 				backHandler={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
 				<div className={'connections-instance-details'} style={{ height: kActionBarHeight - 6 }}>
-					<div className='connection-name'>{selectedInstance?.name}</div>
-					<div className='connection-language'>{languageIdToName(selectedInstance?.language_id)}</div>
+					<div className='connection-name'>{activeInstance?.name}</div>
+					<div className='connection-language'>{languageIdToName(activeInstance?.language_id)}</div>
 					<div className={'connection-icon'}>
 						{
-							selectedInstance?.icon ?
-								selectedInstance?.icon :
+							activeInstance?.icon ?
+								activeInstance?.icon :
 								<div
 									className={`codicon codicon-positron-database-connection`}
 								>
@@ -89,7 +124,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 				<List
 					itemCount={entries.length}
 					itemSize={26}
-					height={height - kActionBarHeight}
+					/* size if the actionbar and the secondary side bar combined) */
+					height={height - kActionBarHeight - (kActionBarHeight - 6)}
 					width={'calc(100% - 2px)'}
 					itemKey={index => entries[index].id}
 					innerRef={innerRef}
@@ -120,7 +156,9 @@ interface PositronConnectionsItemProps {
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
 
 	// If the connection is not expandable, we add some more padding.
-	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
+	// Level starts at 1, since 0 is only used for top levek which is shown in the
+	// secondary action bar.
+	const padding = (props.item.level - 1) * 10 + (props.item.expanded === undefined ? 26 : 0);
 	const handleExpand = () => {
 		if (props.item.onToggleExpandEmitter) {
 			props.item.onToggleExpandEmitter.fire();
