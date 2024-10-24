@@ -25,7 +25,6 @@ const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 
-
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
@@ -77,7 +76,7 @@ export class PositronNotebooks {
 	}
 
 	async addCodeToFirstCell(code: string) {
-		await this.code.driver.page.locator(CELL_LINE).click();
+		await this.code.driver.page.locator(CELL_LINE).first().click();
 		await this.notebook.waitForTypeInEditor(code);
 		await this.notebook.waitForActiveCellEditorContents(code);
 	}
