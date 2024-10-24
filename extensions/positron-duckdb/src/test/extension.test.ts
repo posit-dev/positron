@@ -15,14 +15,20 @@ import {
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
 	DataExplorerRpc,
+	FilterComparisonOp,
 	FormatOptions,
 	GetDataValuesParams,
 	GetSchemaParams,
+	RowFilter,
+	RowFilterCondition,
+	RowFilterParams,
 	RowFilterType,
+	SetRowFiltersParams,
 	SupportedFeatures,
 	SupportStatus,
 	TableData,
-	TableSchema
+	TableSchema,
+	TextSearchType
 } from '../interfaces';
 import { randomUUID } from 'crypto';
 
@@ -91,12 +97,35 @@ async function createTempTable(
 	});
 }
 
+async function createTableAsSelect(tableName: string, query: string) {
+	await runQuery(`CREATE TABLE ${tableName} AS ${query};`);
+
+	// Now set up the new table so it will respond to RPCs with a duckdb://${tableName} prefix
+	await dxExec({
+		method: DataExplorerBackendRequest.OpenDataset,
+		params: { uri: `duckdb://${tableName}` }
+	});
+}
+
 async function getState(uri: string): Promise<BackendState> {
 	return dxExec({
 		method: DataExplorerBackendRequest.GetState,
 		uri,
 		params: {}
 	});
+}
+
+async function getSchema(tableName: string, formatOptions?: FormatOptions) {
+	const uri = `duckdb://${tableName}`;
+	const state = await getState(uri);
+	const shape = state.table_shape;
+	return dxExec({
+		method: DataExplorerBackendRequest.GetSchema,
+		uri,
+		params: {
+			column_indices: Array.from({ length: shape.num_columns }, (_, index) => index)
+		} satisfies GetSchemaParams
+	}) as Promise<TableSchema>;
 }
 
 async function getAllDataValues(tableName: string, formatOptions?: FormatOptions) {
@@ -123,6 +152,8 @@ async function getAllDataValues(tableName: string, formatOptions?: FormatOptions
 suite('Positron DuckDB Extension Test Suite', () => {
 	vscode.window.showInformationMessage('Start all tests.');
 
+	const flightParquet = path.join(__dirname, 'data', 'flights.parquet');
+
 	test('Command `positron-duckdb.runQuery` should be registered', async () => {
 		await activateExtension();
 
@@ -139,7 +170,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	});
 
 	test('DuckDB flights.parquet', async () => {
-		const uri = path.join(__dirname, 'data', 'flights.parquet');
+		const uri = flightParquet;
 
 		let result = await dxExec({
 			method: DataExplorerBackendRequest.OpenDataset,
@@ -426,6 +457,214 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					columns: testResults
 				}
 			);
+		}
+	});
+
+	test('set_row_filters works correctly', async () => {
+		const tableName = makeTempTableName();
+
+		const selectExprs = `*,
+		dep_time > 630 AS dep_time_after_630,
+		CASE WHEN dep_time % 2 = 0 THEN NULL ELSE dep_time END AS dep_time_odd_only,
+		CASE WHEN carrier = 'DL' THEN '' ELSE carrier END AS carrier_with_empties
+		`;
+
+		const selectQuery = `SELECT ${selectExprs}
+		FROM parquet_scan('${flightParquet}') LIMIT 1000`;
+
+		await createTableAsSelect(tableName, selectQuery);
+
+		const uri = `duckdb://${tableName}`;
+
+		const origState = await getState(uri);
+
+		// Row filters have the schema attached
+		const fullSchema = await getSchema(tableName);
+		const nameToSchema = new Map<string, ColumnSchema>(
+			fullSchema.columns.map((column) => [column.column_name, column])
+		);
+
+		// We will filter this column a bunch
+		const dep_time = nameToSchema.get('dep_time')!;
+		const dep_time_after_630 = nameToSchema.get('dep_time_after_630')!;
+		const dep_time_odd_only = nameToSchema.get('dep_time_odd_only')!;
+		const carrier = nameToSchema.get('carrier')!;
+		const carrier_with_empties = nameToSchema.get('carrier_with_empties')!;
+		const tailnum = nameToSchema.get('tailnum')!;
+
+		const getFilter = (
+			columnSchema: ColumnSchema,
+			filter_type: RowFilterType,
+			params?: RowFilterParams
+		): RowFilter => {
+			return {
+				filter_id: 'placeholder',
+				condition: RowFilterCondition.And,
+				column_schema: columnSchema,
+				filter_type,
+				params
+			};
+		};
+
+		const getCompare = (columnSchema: ColumnSchema, op: FilterComparisonOp, value: string) => {
+			return getFilter(columnSchema, RowFilterType.Compare, { op, value });
+		};
+
+		const getTextSearch = (
+			columnSchema: ColumnSchema,
+			searchType: TextSearchType,
+			term: string,
+			caseSensitive: boolean = true
+		) => {
+			return getFilter(
+				columnSchema,
+				RowFilterType.Search,
+				{ search_type: searchType, term, case_sensitive: caseSensitive }
+			);
+		};
+
+		// Specify filters and the expected where clause, which we will use to check the results
+		// are as expected
+		type FilterCaseType = [RowFilter[], string];
+		const filterCases: Array<FilterCaseType> = [
+			// Compare: simple cases
+			...Object.values(FilterComparisonOp).map((op): FilterCaseType => {
+				return [[getCompare(dep_time, op, '656')], `dep_time ${op} 656`];
+			}),
+			// Compare: multiple conditions
+			[
+				[
+					getCompare(dep_time, FilterComparisonOp.Gt, '615'),
+					getCompare(dep_time, FilterComparisonOp.Lt, '645')
+				],
+				`dep_time > 615 AND dep_time < 645`
+			],
+			// Between, NotBetween
+			[
+				[
+					getFilter(dep_time, RowFilterType.Between, { left_value: '615', right_value: '645' })
+				],
+				'dep_time BETWEEN 615 AND 645'
+			],
+			[
+				[
+					getFilter(dep_time, RowFilterType.NotBetween, { left_value: '615', right_value: '645' })
+				],
+				'NOT (dep_time BETWEEN 615 AND 645)'
+			],
+			// IsNull, NotNull
+			[
+				[getFilter(dep_time_odd_only, RowFilterType.IsNull)],
+				'dep_time_odd_only IS NULL'
+			],
+			[
+				[getFilter(dep_time_odd_only, RowFilterType.NotNull)],
+				'dep_time_odd_only IS NOT NULL'
+			],
+			// IsEmpty, NotEmpty
+			[
+				[getFilter(carrier_with_empties, RowFilterType.IsEmpty)],
+				'carrier_with_empties = \'\''
+			],
+			[
+				[getFilter(carrier_with_empties, RowFilterType.NotEmpty)],
+				'carrier_with_empties <> \'\''
+			],
+			// IsTrue, IsFalse
+			[
+				[getFilter(dep_time_after_630, RowFilterType.IsTrue)],
+				'dep_time_after_630 = true'
+			],
+			[
+				[getFilter(dep_time_after_630, RowFilterType.IsFalse)],
+				'dep_time_after_630 = false'
+			],
+			// Search
+			[
+				[getTextSearch(tailnum, TextSearchType.StartsWith, 'N5')],
+				'tailnum LIKE \'N5%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.StartsWith, 'n5', false)],
+				'lower(tailnum) LIKE \'n5%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.EndsWith, 'B')],
+				'tailnum LIKE \'%B\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.EndsWith, 'b', false)],
+				'lower(tailnum) LIKE \'%b\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.Contains, '6U')],
+				'tailnum LIKE \'%6U%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.Contains, '6u', false)],
+				'lower(tailnum) LIKE \'%6u%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.NotContains, '6U')],
+				'tailnum NOT LIKE \'%6U%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.NotContains, '6u', false)],
+				'lower(tailnum) NOT LIKE \'%6u%\''
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.RegexMatch, 'N5.*B')],
+				'regexp_matches(tailnum, \'N5.*B\')'
+			],
+			[
+				[getTextSearch(tailnum, TextSearchType.RegexMatch, 'n5.*b', false)],
+				'regexp_matches(tailnum, \'n5.*b\', \'i\')'
+			],
+			// SetMembership
+			[
+				[getFilter(carrier, RowFilterType.SetMembership, { values: ['UA', 'AA', 'DL'], inclusive: true })],
+				'carrier IN [\'UA\', \'AA\', \'DL\']'
+			],
+			[
+				[getFilter(carrier, RowFilterType.SetMembership, { values: ['UA', 'AA', 'DL'], inclusive: false })],
+				'carrier NOT IN [\'UA\', \'AA\', \'DL\']'
+			],
+		];
+
+		for (const [filters, whereClause] of filterCases) {
+			// reset to no filters
+			await dxExec({
+				method: DataExplorerBackendRequest.SetRowFilters,
+				uri,
+				params: { filters: [] }
+			});
+
+			// Check that reset back to original state
+			let currentState = await getState(uri);
+			assert.deepStrictEqual(currentState, origState);
+
+			await dxExec({
+				method: DataExplorerBackendRequest.SetRowFilters,
+				uri,
+				params: {
+					filters
+				} satisfies SetRowFiltersParams
+			});
+
+			// Check that new filters are returned from get_state
+			currentState = await getState(uri);
+			assert.deepStrictEqual(currentState.row_filters, filters);
+
+			const resultData = await getAllDataValues(tableName);
+
+			const expectedTableName = makeTempTableName();
+			await createTableAsSelect(
+				expectedTableName,
+				`SELECT * FROM (${selectQuery}) t WHERE ${whereClause}`
+			);
+			const expectedData = await getAllDataValues(expectedTableName);
+
+			assert.deepStrictEqual(resultData, expectedData);
 		}
 	});
 });

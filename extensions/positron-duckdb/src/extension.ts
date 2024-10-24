@@ -225,8 +225,8 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 				case TextSearchType.EndsWith:
 					return `${searchArg} LIKE '%' || ${searchTerm}`;
 				case TextSearchType.RegexMatch: {
-					const regexOp = params.case_sensitive ? '~' : '~*';
-					return `${searchArg} ${regexOp} ${params.term}`;
+					const options = params.case_sensitive ? ', \'i\'' : '';
+					return `regexp_matches(${searchArg}, \'${params.term}\'${options})`;
 				}
 			}
 		}
@@ -661,6 +661,10 @@ END`;
 		if (this.rowFilters.length === 0) {
 			this._whereClause = '';
 			const unfilteredShape = await this._unfilteredShape;
+
+			// reset filtered shape
+			this._filteredShape = this._unfilteredShape;
+
 			return { selected_num_rows: unfilteredShape[0] };
 		}
 
