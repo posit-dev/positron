@@ -499,6 +499,17 @@ export class PositronProxy implements Disposable {
 					`\n\texternal uri: ${externalUri.toString(true)}`
 				);
 				log.trace(`onProxyReqWs - request headers ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}:\n${JSON.stringify(req.headers)}`);
+				// update the request host to be the same as the request origin in the headers
+				// so that the websocket connection can be established
+				// is this happening?? https://github.com/chimurai/http-proxy-middleware/issues/808
+				const originHeader = req.headers['origin'];
+				if (originHeader) {
+					proxyReq.setHeader('origin', originHeader);
+					log.trace(`onProxyReqWs - set origin header to ${originHeader}`);
+					log.trace(`onProxyReqWs - updated header 'origin': ${proxyReq.getHeader('origin')}`);
+				} else {
+					log.error('onProxyReqWs - no origin header found in request headers');
+				}
 			},
 		});
 
