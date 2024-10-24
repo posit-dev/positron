@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Playwright and testing imports
-import { test as base, expect as playwrightExpect } from '@playwright/test';
 import * as playwright from '@playwright/test';
+const { test: base, expect: playwrightExpect } = playwright;
 
 // Node.js built-in modules
 import { join } from 'path';
@@ -70,14 +70,12 @@ export const test = base.extend<{
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
-		console.log('App restarted');
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
 	app: [async ({ options }, use) => {
 		const app = createApp(options);
 		await app.start();
-		console.log('App started');
 		await use(app);
 		await app.stop();
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
@@ -85,7 +83,7 @@ export const test = base.extend<{
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
 			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-			console.log('current:', currentInterpreter);
+
 
 			// If current interpreter is not the requested one, switch it
 			if (!currentInterpreter.includes(interpreterName)) {
