@@ -20,6 +20,9 @@ const webviewReplayMimeTypes = new Set([
  * @param msg Message from language runtime.
  * @returns True if the message is a webview preload message.
  */
-export function isWebviewReplayMessage(msg: ILanguageRuntimeMessageOutput): boolean {
-	return Object.keys(msg.data).some(key => webviewReplayMimeTypes.has(key));
+export function isWebviewReplayMessage(msg: ILanguageRuntimeMessageOutput): boolean;
+export function isWebviewReplayMessage(mimeTypes: string[]): boolean;
+export function isWebviewReplayMessage(mimeTypesOrMsg: ILanguageRuntimeMessageOutput | string[]): boolean {
+	const mimeTypes = Array.isArray(mimeTypesOrMsg) ? mimeTypesOrMsg : Object.keys(mimeTypesOrMsg.data);
+	return mimeTypes.some(key => webviewReplayMimeTypes.has(key));
 }

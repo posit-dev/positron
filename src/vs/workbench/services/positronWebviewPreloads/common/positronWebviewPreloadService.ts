@@ -8,6 +8,8 @@ import { Event } from 'vs/base/common/event';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
@@ -43,4 +45,15 @@ export interface IPositronWebviewPreloadService {
 	 * Add a message to the session. Used in notebooks.
 	 */
 	addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput): void;
+
+	/**
+	 * Add a notebook to the known list for replay of messages when creating webviews.
+	 * @param instance Instance for the notebook
+	 */
+	attachNotebookInstance(instance: IPositronNotebookInstance): void;
+
+	addNotebookOutput(outputs: {
+		outputId: string;
+		outputs: { mime: string; data: VSBuffer }[];
+	}): void;
 }

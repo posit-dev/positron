@@ -36,6 +36,7 @@ import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { isEqual } from 'vs/base/common/resources';
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
 	viewModel: NotebookViewModel;
@@ -241,6 +242,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super();
 
@@ -306,6 +308,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 				}
 			})
 		);
+
+		this._webviewPreloadService.attachNotebookInstance(this);
 
 		this._logService.info(this.id, 'constructor');
 	}

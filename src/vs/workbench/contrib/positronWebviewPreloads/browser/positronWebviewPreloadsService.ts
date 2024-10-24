@@ -11,6 +11,9 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { VSBuffer } from 'vs/base/common/buffer';
+import { isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
+import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
 
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
@@ -24,6 +27,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	/** Map of holoviz messages keyed by session ID. */
 	private readonly _messagesBySessionId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
+	private readonly _messagesByNotebookId = new Map<string, ILanguageRuntimeMessageWebOutput[]>();
 
 	/**
 	 * Map to disposeable stores for each session. Used to prevent memory leaks caused by
@@ -31,6 +35,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	 * closing before the session ends
 	 */
 	private _sessionToDisposablesMap = new Map<string, DisposableStore>();
+	private _notebookToDisposablesMap = new Map<string, DisposableStore>();
 
 	/** The emitter for the onDidCreatePlot event */
 	private readonly _onDidCreatePlot = this._register(new Emitter<NotebookMultiMessagePlotClient>());
@@ -104,6 +109,35 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		disposables.add(session.onDidReceiveRuntimeMessageOutput(handleMessage));
 	}
 
+	public attachNotebookInstance(instance: IPositronNotebookInstance): void {
+		console.log("Adding notebook instance to webview preloads knowledge", instance);
+		const notebookLocation = instance.uri.toString();
+		if (this._notebookToDisposablesMap.has(notebookLocation)) {
+			return;
+		}
+
+		const disposables = new DisposableStore();
+		this._notebookToDisposablesMap.set(notebookLocation, disposables);
+		this._messagesByNotebookId.set(notebookLocation, []);
+
+		// Start by processing every cell in order on initialization
+		console.log('instance cells', instance.cells.get());
+
+		// Next listen for new cells runs and then process that cell's output as it happens.
+		// instance.cells.addObserver({});
+
+	}
+
+	public addNotebookOutput({ outputId, outputs }: { outputId: string; outputs: { mime: string; data: VSBuffer }[] }): void {
+		// Check if we're working with a webview replay message
+		const mimeTypes = outputs.map(output => output.mime);
+		const isReplay = isWebviewReplayMessage(mimeTypes);
+
+		if (isReplay) {
+			// Got a replay message
+			console.log({ isReplay });
+		}
+	}
 	/**
 	 * Record a message to the store keyed by session.
 	 * @param session The session that the message is associated with.
