@@ -8,7 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IPositronMinimalConnectionService } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
 
 export interface IPositronConnectionEntry {
@@ -23,6 +23,12 @@ export interface IPositronConnectionEntry {
 	 * Connections and children of connections must all have unique ids.
 	 */
 	id: string;
+
+	/**
+	 * The id of the root connection. This is the id of the connection
+	 * that is at the top of the hierarchy.
+	 */
+	root_id: string;
 
 	/**
 	 * Wether the connection entry is currently active.
@@ -88,6 +94,7 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
 		private notify: (message: string, severity: Severity) => INotificationHandle,
 		readonly level: number,
+		readonly root_id: string
 	) {
 		super();
 	}
@@ -217,7 +224,8 @@ export class PositronConnectionsCache {
 	private _entries: IPositronConnectionEntry[] = [];
 
 	constructor(
-		private readonly service: IPositronConnectionsService,
+		private readonly service: IPositronMinimalConnectionService,
+		private readonly instance: IPositronConnectionInstance,
 	) { }
 
 	get entries(): IPositronConnectionEntry[] {
@@ -225,19 +233,22 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
-		const entries = await this.getConnectionsEntries(this.service.getConnections());
+		const entries = await this.getConnectionsEntries([this.instance]);
 		this._entries = entries;
 	}
 
-	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
+	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0, root_id: string | undefined = undefined) {
 
 		const entries: IPositronConnectionEntry[] = [];
 		for (const item of items) {
+
+			const id_root = root_id ?? item.id;
 
 			const entry = new PositronConnectionEntry(
 				item,
 				(message, severity) => this.service.notify(message, severity),
 				level,
+				id_root
 			);
 			entries.push(entry);
 
@@ -260,7 +271,7 @@ export class PositronConnectionsCache {
 					entry.error = err.message;
 					continue;
 				}
-				const newItems = await this.getConnectionsEntries(children, level + 1);
+				const newItems = await this.getConnectionsEntries(children, level + 1, id_root);
 				entries.push(...newItems);
 			}
 		}
