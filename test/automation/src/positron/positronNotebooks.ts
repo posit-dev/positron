@@ -78,7 +78,7 @@ export class PositronNotebooks {
 	}
 
 	async addCodeToFirstCell(code: string) {
-		await this.code.driver.page.locator(CELL_LINE).click();
+		await this.code.driver.page.locator(CELL_LINE).first().click();
 		await this.notebook.waitForTypeInEditor(code);
 		await this.notebook.waitForActiveCellEditorContents(code);
 	}
