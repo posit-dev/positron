@@ -11,6 +11,7 @@ import {
 	ColumnDisplayType,
 	ColumnProfileType,
 	ColumnSchema,
+	ColumnSortKey,
 	ColumnValue,
 	DataExplorerBackendRequest,
 	DataExplorerResponse,
@@ -24,6 +25,7 @@ import {
 	RowFilterParams,
 	RowFilterType,
 	SetRowFiltersParams,
+	SetSortColumnsParams,
 	SupportedFeatures,
 	SupportStatus,
 	TableData,
@@ -59,10 +61,8 @@ async function dxExec(rpc: DataExplorerRpc): Promise<any> {
 	);
 	if (resp.error_message) {
 		return Promise.reject(new Error(resp.error_message));
-	} else if (resp.result === undefined) {
-		console.log(JSON.stringify(resp));
-		return Promise.reject(new Error('No error message or result in response'));
 	} else {
+		// may be undefined if the result type is void
 		return resp.result;
 	}
 }
@@ -484,7 +484,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			fullSchema.columns.map((column) => [column.column_name, column])
 		);
 
-		// We will filter this column a bunch
+		// We use these column schemas below
 		const dep_time = nameToSchema.get('dep_time')!;
 		const dep_time_after_630 = nameToSchema.get('dep_time_after_630')!;
 		const dep_time_odd_only = nameToSchema.get('dep_time_odd_only')!;
@@ -655,15 +655,114 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			currentState = await getState(uri);
 			assert.deepStrictEqual(currentState.row_filters, filters);
 
-			const resultData = await getAllDataValues(tableName);
-
 			const expectedTableName = makeTempTableName();
 			await createTableAsSelect(
 				expectedTableName,
 				`SELECT * FROM (${selectQuery}) t WHERE ${whereClause}`
 			);
-			const expectedData = await getAllDataValues(expectedTableName);
 
+			const resultData = await getAllDataValues(tableName);
+			const expectedData = await getAllDataValues(expectedTableName);
+			assert.deepStrictEqual(resultData, expectedData);
+		}
+	});
+
+	test('set_sort_columns works correctly', async () => {
+		const tableName = makeTempTableName();
+
+		// DuckDB sorts are not stable, so we introduce a row_index auxiliary field to make stable
+		const selectQuery = `SELECT *, ROW_NUMBER() OVER() AS row_index
+		FROM parquet_scan('${flightParquet}') LIMIT 1000`;
+
+		await createTableAsSelect(tableName, selectQuery);
+		const uri = `duckdb://${tableName}`;
+
+		const fullSchema = await getSchema(tableName);
+		assert.deepStrictEqual(fullSchema.columns[9].column_name, 'carrier');
+
+		type SortCaseType = [ColumnSortKey[], string];
+		const sortCases: Array<SortCaseType> = [
+			[
+				[
+					{
+						column_index: 9,  // carrier
+						ascending: true
+					}
+				],
+				'carrier'
+			],
+			[
+				[
+					{
+						column_index: 9,  // carrier
+						ascending: false
+					}
+				],
+				'carrier DESC'
+			],
+			[
+				[
+					{
+						column_index: 9,  // carrier
+						ascending: true
+					},
+					{
+						column_index: 5,  // dep_delay
+						ascending: true
+					},
+				],
+				'carrier, dep_delay'
+			],
+			[
+				[
+					{
+						column_index: 9,  // carrier
+						ascending: false
+					},
+					{
+						column_index: 5,  // dep_delay
+						ascending: false
+					},
+				],
+				'carrier DESC, dep_delay DESC'
+			],
+		];
+
+		for (const [sort_keys, sortClause] of sortCases) {
+			// reset to no filters
+			await dxExec({
+				method: DataExplorerBackendRequest.SetSortColumns,
+				uri,
+				params: { sort_keys: [] }
+			});
+
+			// Check that reset back to original state
+			let currentState = await getState(uri);
+			assert.deepStrictEqual(currentState.sort_keys, []);
+
+			const stableSortKeys = [
+				...sort_keys,
+				{ column_index: fullSchema.columns.length - 1, ascending: true }
+			];
+
+			await dxExec({
+				method: DataExplorerBackendRequest.SetSortColumns,
+				uri,
+				params: { sort_keys: stableSortKeys }
+			});
+
+			// Check that new state is correct
+			currentState = await getState(uri);
+			assert.deepStrictEqual(currentState.sort_keys, stableSortKeys);
+
+			const expectedTableName = makeTempTableName();
+			await createTableAsSelect(
+				expectedTableName,
+				`SELECT * FROM (${selectQuery}) t ORDER BY ${sortClause}, row_index`
+			);
+
+			const resultData = await getAllDataValues(tableName);
+			const expectedData = await getAllDataValues(expectedTableName);
 			assert.deepStrictEqual(resultData, expectedData);
 		}
 	});
