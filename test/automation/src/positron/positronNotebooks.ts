@@ -17,6 +17,7 @@ const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
+const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const PYTHON_OUTPUT = '.output-plaintext';
@@ -84,7 +85,7 @@ export class PositronNotebooks {
 
 	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-		await expect(this.code.driver.page.getByText('Stop Execution')).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async assertPythonCellOutput(text: string): Promise<void> {
