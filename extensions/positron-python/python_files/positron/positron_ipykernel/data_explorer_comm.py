@@ -302,6 +302,16 @@ class BackendState(BaseModel):
         description="The features currently supported by the backend instance",
     )
 
+    connected: Optional[StrictBool] = Field(
+        default=None,
+        description="Optional flag allowing backend to report that it is unable to serve requests. This parameter may change.",
+    )
+
+    error_message: Optional[StrictStr] = Field(
+        default=None,
+        description="Optional experimental parameter to provide an explanation when connected=false. This parameter may change.",
+    )
+
 
 class ColumnSchema(BaseModel):
     """

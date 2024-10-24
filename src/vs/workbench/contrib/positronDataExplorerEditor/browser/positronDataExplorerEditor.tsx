@@ -34,7 +34,7 @@ import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/
 import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
-import { PositronDataExplorerClosed } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
+import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -352,6 +352,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			} else {
 				this._positronReactRenderer.render(
 					<PositronDataExplorerClosed
+						closedReason={PositronDataExplorerClosedStatus.UNAVAILABLE}
 						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);

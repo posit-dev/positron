@@ -304,6 +304,11 @@ export class DataExplorerClientInstance extends Disposable {
 		this.cachedBackendState = await this._backendPromise;
 		this._backendPromise = undefined;
 
+		if (this.cachedBackendState.connected === false) {
+			// Halt more requests from going out
+			this.status = DataExplorerClientStatus.Disconnected;
+		}
+
 		// Notify listeners
 		this._onDidUpdateBackendStateEmitter.fire(this.cachedBackendState);
 

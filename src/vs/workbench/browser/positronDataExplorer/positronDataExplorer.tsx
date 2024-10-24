@@ -20,7 +20,7 @@ import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser
 import { PositronDataExplorerContextProvider } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
 import { DataExplorerPanel } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/dataExplorerPanel';
 import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { PositronDataExplorerClosed } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
+import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
 
 /**
  * PositronDataExplorerServices interface.
@@ -45,6 +45,12 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
 	onClose: () => void;
 }
 
+export enum PositronDataExplorerUiStatus {
+	OPEN = 'open',
+	UNAVAILABLE = 'unavailable',
+	ERROR = 'error'
+}
+
 /**
  * PositronDataExplorer component.
  * @param props A PositronDataExplorerProps that contains the component properties.
@@ -53,6 +59,8 @@ export interface PositronDataExplorerProps extends PositronDataExplorerConfigura
 export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplorerProps>) => {
 	// State hooks.
 	const [closed, setClosed] = useState(false);
+	const [reason, setReason] = useState(PositronDataExplorerClosedStatus.UNAVAILABLE);
+	const [errorMessage, setErrorMessage] = useState('');
 
 	// Main useEffect.
 	useEffect(() => {
@@ -62,6 +70,16 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 		// Add the onDidClose event handler.
 		disposableStore.add(props.instance.onDidClose(() => {
 			setClosed(true);
+		}));
+
+		disposableStore.add(props.instance.dataExplorerClientInstance.onDidUpdateBackendState((state) => {
+			if (state.connected === false) {
+				setClosed(true);
+				if (state.error_message) {
+					setReason(PositronDataExplorerClosedStatus.ERROR);
+					setErrorMessage(state.error_message);
+				}
+			}
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -74,7 +92,11 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 			<div className='positron-data-explorer'>
 				<ActionBar />
 				<DataExplorerPanel />
-				{closed && <PositronDataExplorerClosed onClose={props.onClose} />}
+				{closed && <PositronDataExplorerClosed
+					closedReason={reason}
+					errorMessage={errorMessage}
+					onClose={props.onClose}
+				/>}
 			</div>
 		</PositronDataExplorerContextProvider>
 	);

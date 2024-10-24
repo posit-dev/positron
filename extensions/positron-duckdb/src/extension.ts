@@ -94,7 +94,11 @@ class DuckDBInstance {
 			}
 			return result;
 		} catch (error) {
-			return JSON.stringify(error);
+			if (error instanceof Error) {
+				return error.message;
+			} else {
+				return JSON.stringify(error);
+			}
 		}
 	}
 
@@ -255,10 +259,20 @@ export class DuckDBTableView {
 
 	constructor(readonly uri: string, readonly tableName: string,
 		readonly fullSchema: Array<SchemaEntry>,
-		readonly db: DuckDBInstance
+		readonly db: DuckDBInstance,
+		readonly isConnected: boolean = true,
+		readonly errorMessage: string = ''
 	) {
-		this._unfilteredShape = this._getShape();
+		if (isConnected) {
+			this._unfilteredShape = this._getShape();
+		} else {
+			this._unfilteredShape = Promise.resolve([0, 0]);
+		}
 		this._filteredShape = this._unfilteredShape;
+	}
+
+	static getDisconnected(uri: string, errorMessage: string, db: DuckDBInstance) {
+		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
 	}
 
 	async getSchema(params: GetSchemaParams): RpcResponse<TableSchema> {
@@ -477,7 +491,50 @@ END`;
 		return 'not implemented';
 	}
 
+	private getDisconnectedState(): BackendState {
+		return {
+			display_name: this.uri,
+			connected: false,
+			error_message: this.errorMessage,
+			table_shape: { num_rows: 0, num_columns: 0 },
+			table_unfiltered_shape: { num_rows: 0, num_columns: 0 },
+			has_row_labels: false,
+			column_filters: [],
+			row_filters: [],
+			sort_keys: [],
+			supported_features: {
+				search_schema: {
+					support_status: SupportStatus.Unsupported,
+					supported_types: []
+				},
+				set_column_filters: {
+					support_status: SupportStatus.Unsupported,
+					supported_types: []
+				},
+				set_row_filters: {
+					support_status: SupportStatus.Unsupported,
+					supports_conditions: SupportStatus.Unsupported,
+					supported_types: []
+				},
+				get_column_profiles: {
+					support_status: SupportStatus.Unsupported,
+					supported_types: []
+				},
+				set_sort_columns: { support_status: SupportStatus.Unsupported, },
+				export_data_selection: {
+					support_status: SupportStatus.Unsupported,
+					supported_formats: []
+				}
+			}
+		};
+
+	}
+
 	async getState(): RpcResponse<BackendState> {
+		if (!this.isConnected) {
+			return this.getDisconnectedState();
+		}
+
 		const [unfiltedNumRows, unfilteredNumCols] = await this._unfilteredShape;
 		const [filteredNumRows, filteredNumCols] = await this._filteredShape;
 		return {
@@ -763,19 +820,19 @@ export class DataExplorerRpcHandler {
 		}
 
 		let result = await this.db.runQuery(scanQuery);
+		let tableView;
 		if (typeof result === 'string') {
-			return { error_message: result };
-		}
+			tableView = DuckDBTableView.getDisconnected(params.uri, result, this.db);
+		} else {
+			const schemaQuery = `DESCRIBE ${tableName};`;
+			result = await this.db.runQuery(schemaQuery);
+			if (typeof result === 'string') {
+				return { error_message: result };
+			}
 
-		const schemaQuery = `DESCRIBE ${tableName};`;
-		result = await this.db.runQuery(schemaQuery);
-		if (typeof result === 'string') {
-			return { error_message: result };
+			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
 		}
-
-		const tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
 		this._uriToTableView.set(params.uri, tableView);
-
 		return {};
 	}
 
