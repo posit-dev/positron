@@ -283,4 +283,8 @@ export class PositronConsole {
 
 		return suggestionList;
 	}
+
+	async clickConsoleTab() {
+		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+	}
 }
