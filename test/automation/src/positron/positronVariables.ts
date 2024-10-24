@@ -99,13 +99,6 @@ export class PositronVariables {
 		await this.toggleVariable({ variableName, action: 'collapse' });
 	}
 
-	// async getVariablesInterpreter(): Promise<Locator> {
-	// 	return this.code.driver.page.locator(VARIABLES_INTERPRETER);
-	// }
-
-	// async assertVariablesInterpreter(expectedInterpreter: string) {
-	// 	expect()
-
 	/**
 	 * Gets the data (value and type) for the children of a parent variable.
 	 * NOTE: it assumes that either ALL variables are collapsed or ONLY the parent variable is expanded.
