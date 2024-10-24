@@ -14,10 +14,17 @@ import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-i
 import { localize } from 'vs/nls';
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
 
+export enum PositronDataExplorerClosedStatus {
+	UNAVAILABLE = 'unavailable',
+	ERROR = 'error'
+}
+
 /**
  * PositronDataExplorerClosedProps interface.
  */
 export interface PositronDataExplorerClosedProps {
+	closedReason: PositronDataExplorerClosedStatus;
+	errorMessage?: string;
 	onClose: () => void;
 }
 
@@ -33,15 +40,29 @@ export const PositronDataExplorerClosed = (props: PropsWithChildren<PositronData
 		"Close Data Explorer"
 	);
 
+	const unavailableMessage = localize(
+		'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
+		'This object is no longer available.'
+	);
+
+	const errorOpeningMessage = localize(
+		'positron.dataExplorerEditor.errorOpeningDataExplorer',
+		'Error opening data explorer'
+	);
+
+	let userMessage;
+	if (props.closedReason === PositronDataExplorerClosedStatus.ERROR) {
+		userMessage = `${errorOpeningMessage}: ${props.errorMessage}`;
+	} else {
+		userMessage = unavailableMessage;
+	}
+
 	// Render.
 	return (
 		<div className='positron-data-explorer-closed'>
 			<div className='message' >
 				<div>
-					{(() => localize(
-						'positron.dataExplorerEditor.thisObjectIsNoLongerAvailable',
-						'This object is no longer available.'
-					))()}
+					{(() => userMessage)()}
 				</div>
 				<Button
 					className='close-button'
