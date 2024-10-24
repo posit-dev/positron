@@ -28,13 +28,14 @@ export const test = base.extend<{
 	page: playwright.Page;
 	context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
-	restartApp: any;
 	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
 	rInterpreter: any;
 	pythonInterpreter: any;
+	restartApp: Application;
 }, {
 	options: any;
 	app: Application;
+
 }>({
 	options: [async ({ }, use) => {
 		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
@@ -67,22 +68,19 @@ export const test = base.extend<{
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
-	app: [async ({ options }, use) => {
-		// start the app
-		const app = createApp(options);
-		await app.start();
-
-		// run the test suite
-		await use(app);
-
-		// stop the app
-		await app.stop();
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
-
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
+		console.log('App restarted');
 		await use(app);
-	}, { scope: 'test', title: 'Restart App', timeout: 60000 }],
+	}, { scope: 'test', timeout: 60000 }],
+
+	app: [async ({ options }, use) => {
+		const app = createApp(options);
+		await app.start();
+		console.log('App started');
+		await use(app);
+		await app.stop();
+	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
