@@ -8,8 +8,7 @@ import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-// MARIE will remove web before merging
-describe('Python Applications #pr #win #web', () => {
+describe('Python Applications #pr #win', () => {
 	setupAndStartApp();
 
 	describe('Python Applications', () => {
