@@ -10,6 +10,7 @@ import {
 	ColumnFilter,
 	ColumnProfileResult,
 	ColumnProfileType,
+	ColumnSchema,
 	ColumnSortKey,
 	ColumnValue,
 	DataExplorerBackendRequest,
@@ -19,7 +20,12 @@ import {
 	DataExplorerUiEvent,
 	ExportDataSelectionParams,
 	ExportedData,
+	FilterBetween,
+	FilterComparison,
+	FilterComparisonOp,
 	FilterResult,
+	FilterSetMembership,
+	FilterTextSearch,
 	GetColumnProfilesParams,
 	GetDataValuesParams,
 	GetRowLabelsParams,
@@ -28,18 +34,23 @@ import {
 	OpenDatasetResult,
 	ReturnColumnProfilesEvent,
 	RowFilter,
+	RowFilterType,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
 	SupportStatus,
 	TableData,
 	TableRowLabels,
-	TableSchema
+	TableSchema,
+	TextSearchType
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
+
+// Set to true when doing development for better console logging
+const DEBUG_LOG = false;
 
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
@@ -72,7 +83,16 @@ class DuckDBInstance {
 
 	async runQuery(query: string): Promise<Table<any> | string> {
 		try {
-			return await this.con.query(query);
+			const startTime = Date.now();
+			if (DEBUG_LOG) {
+				console.log(`Executing:\n${query}`);
+			}
+			const result = await this.con.query(query);
+			const elapsedMs = Date.now() - startTime;
+			if (DEBUG_LOG) {
+				console.log(`Executed in ${elapsedMs} ms`);
+			}
+			return result;
 		} catch (error) {
 			return JSON.stringify(error);
 		}
@@ -140,6 +160,85 @@ const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['TIME', ColumnDisplayType.Time]
 ]);
 
+function formatLiteral(value: string, schema: ColumnSchema) {
+	if (schema.type_display === ColumnDisplayType.String) {
+		return `'${value}'`;
+	} else {
+		return value;
+	}
+}
+
+const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
+	[FilterComparisonOp.Eq, '='],
+	[FilterComparisonOp.NotEq, '<>'],
+	[FilterComparisonOp.Gt, '>'],
+	[FilterComparisonOp.GtEq, '>='],
+	[FilterComparisonOp.Lt, '<'],
+	[FilterComparisonOp.LtEq, '<=']
+]);
+
+function makeWhereExpr(rowFilter: RowFilter): string {
+	const schema = rowFilter.column_schema;
+	const quotedName = `"${schema.column_name}"`;
+	switch (rowFilter.filter_type) {
+		case RowFilterType.Compare: {
+			const params = rowFilter.params as FilterComparison;
+			const formattedValue = formatLiteral(params.value, schema);
+			const op: string = COMPARISON_OPS.get(params.op) ?? params.op;
+			return `${quotedName} ${op} ${formattedValue}`;
+		}
+		case RowFilterType.NotBetween:
+		case RowFilterType.Between: {
+			const params = rowFilter.params as FilterBetween;
+			const left = formatLiteral(params.left_value, schema);
+			const right = formatLiteral(params.right_value, schema);
+			let expr = `${quotedName} BETWEEN ${left} AND ${right}`;
+			if (rowFilter.filter_type === RowFilterType.NotBetween) {
+				expr = `(NOT (${expr}))`;
+			}
+			return expr;
+		}
+		case RowFilterType.IsEmpty:
+			return `${quotedName} = ''`;
+		case RowFilterType.NotEmpty:
+			return `${quotedName} <> ''`;
+		case RowFilterType.IsFalse:
+			return `${quotedName} = false`;
+		case RowFilterType.IsTrue:
+			return `${quotedName} = true`;
+		case RowFilterType.IsNull:
+			return `${quotedName} IS NULL`;
+		case RowFilterType.NotNull:
+			return `${quotedName} IS NOT NULL`;
+		case RowFilterType.Search: {
+			const params = rowFilter.params as FilterTextSearch;
+			const searchArg = params.case_sensitive ? quotedName : `lower(${quotedName})`;
+			const searchTerm = params.case_sensitive ? `'${params.term}'` : `lower('${params.term}')`;
+
+			switch (params.search_type) {
+				case TextSearchType.Contains:
+					return `${searchArg} LIKE '%' || ${searchTerm} || '%'`;
+				case TextSearchType.NotContains:
+					return `${searchArg} NOT LIKE '%' || ${searchTerm} || '%'`;
+				case TextSearchType.StartsWith:
+					return `${searchArg} LIKE ${searchTerm} || '%'`;
+				case TextSearchType.EndsWith:
+					return `${searchArg} LIKE '%' || ${searchTerm}`;
+				case TextSearchType.RegexMatch: {
+					const options = params.case_sensitive ? ', \'i\'' : '';
+					return `regexp_matches(${searchArg}, \'${params.term}\'${options})`;
+				}
+			}
+		}
+		case RowFilterType.SetMembership: {
+			const params = rowFilter.params as FilterSetMembership;
+			const op = params.inclusive ? 'IN' : 'NOT IN';
+			const valuesLiteral = '[' + params.values.map((x) => formatLiteral(x, schema)).join(', ') + ']';
+			return `${quotedName} ${op} ${valuesLiteral}`;
+		}
+	}
+}
+
 /**
  * Interface for serving data explorer requests for a particular table in DuckDB
  */
@@ -151,11 +250,14 @@ export class DuckDBTableView {
 	private _unfilteredShape: Promise<[number, number]>;
 	private _filteredShape: Promise<[number, number]>;
 
+	private _sortClause: string = '';
+	private _whereClause: string = '';
+
 	constructor(readonly uri: string, readonly tableName: string,
 		readonly fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance
 	) {
-		this._unfilteredShape = this._getUnfilteredShape();
+		this._unfilteredShape = this._getShape();
 		this._filteredShape = this._unfilteredShape;
 	}
 
@@ -193,10 +295,8 @@ export class DuckDBTableView {
 		const sciNotationLimit = '1' + '0'.repeat(params.format_options.max_integral_digits);
 		const varcharLimit = params.format_options.max_value_length;
 
-		const columnSelectors: Array<string> = [];
-
 		let smallFloatFormat, largeFloatFormat;
-		if (thousandsSep !== undefined) {
+		if (thousandsSep) {
 			largeFloatFormat = `'{:,.${largeNumDigits}f}'`;
 			smallFloatFormat = `'{:,.${smallNumDigits}f}'`;
 		} else {
@@ -204,6 +304,8 @@ export class DuckDBTableView {
 			smallFloatFormat = `'{:.${smallNumDigits}f}'`;
 		}
 
+		const columnSelectors = [];
+		const selectedColumns = [];
 		for (const column of params.columns) {
 			if ('first_index' in column.spec) {
 				// Value range
@@ -230,7 +332,7 @@ export class DuckDBTableView {
 				case 'SMALLINT':
 				case 'INTEGER':
 				case 'BIGINT':
-					if (thousandsSep !== undefined) {
+					if (thousandsSep && thousandsSep !== undefined) {
 						columnSelector = `FORMAT('{:,}', ${quotedName})`;
 						if (thousandsSep !== ',') {
 							columnSelector = `REPLACE(${columnSelector}, ',', '${thousandsSep}')`;
@@ -243,7 +345,7 @@ export class DuckDBTableView {
 				case 'DOUBLE': {
 					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
 					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
-					if (thousandsSep !== undefined && thousandsSep !== ',') {
+					if (thousandsSep && thousandsSep !== ',') {
 						largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
 						smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
 					}
@@ -267,6 +369,7 @@ END`;
 					columnSelector = `CAST(${quotedName} AS VARCHAR)`;
 					break;
 			}
+			selectedColumns.push(quotedName);
 			columnSelectors.push(`${columnSelector} AS formatted_${columnSelectors.length} `);
 		}
 
@@ -285,10 +388,15 @@ END`;
 			};
 		}
 
+		// For some reason, DuckDB performs better if you do your sort/limit/offset in a subquery
+		// and then format that small selection.
 		const query = `SELECT\n${columnSelectors.join(',\n    ')}
-		FROM ${this.tableName}
-		LIMIT ${numRows}
-		OFFSET ${lowerLimit};`;
+		FROM (
+			SELECT ${selectedColumns.join(', ')} FROM
+			${this.tableName}${this._whereClause}${this._sortClause}
+			LIMIT ${numRows}
+			OFFSET ${lowerLimit}
+		) t;`;
 
 		const queryResult = await this.db.runQuery(query);
 		if (typeof queryResult === 'string') {
@@ -308,7 +416,6 @@ END`;
 		const result: TableData = {
 			columns: []
 		};
-
 
 		const floatAdapter = (field: Vector<any>, i: number) => {
 			const value: string = field.get(i - lowerLimit);
@@ -406,11 +513,56 @@ END`;
 					supported_types: []
 				},
 				set_row_filters: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
 					supports_conditions: SupportStatus.Unsupported,
-					supported_types: []
+					supported_types: [
+						{
+							row_filter_type: RowFilterType.Between,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.Compare,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsEmpty,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsFalse,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsNull,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsTrue,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotBetween,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotEmpty,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotNull,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.Search,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.SetMembership,
+							support_status: SupportStatus.Supported
+						}
+					]
 				},
-				set_sort_columns: { support_status: SupportStatus.Unsupported, },
+				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
 					support_status: SupportStatus.Unsupported,
 					supported_formats: []
@@ -454,7 +606,7 @@ END`;
 		if (profileExprs.length > 0) {
 			const profileQuery = `
 			SELECT ${profileExprs.join(',\n    ')}
-			FROM ${this.tableName} `;
+			FROM ${this.tableName}${this._whereClause};`;
 			result = await this.db.runQuery(profileQuery);
 			if (typeof result === 'string') {
 				// Query failed for some reason, need to return to UI
@@ -504,20 +656,53 @@ END`;
 	}
 
 	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
-		return 'not implemented';
+		this.rowFilters = params.filters;
+
+		if (this.rowFilters.length === 0) {
+			this._whereClause = '';
+			const unfilteredShape = await this._unfilteredShape;
+
+			// reset filtered shape
+			this._filteredShape = this._unfilteredShape;
+
+			return { selected_num_rows: unfilteredShape[0] };
+		}
+
+		const whereExprs = this.rowFilters.map(makeWhereExpr);
+		this._whereClause = `\nWHERE ${whereExprs.join(' AND ')}`;
+		this._filteredShape = this._getShape(this._whereClause);
+
+		const newShape = await this._filteredShape;
+		return { selected_num_rows: newShape[0] };
 	}
 
 	async setSortColumns(params: SetSortColumnsParams): RpcResponse<void> {
-		return 'not implemented';
+		this.sortKeys = params.sort_keys;
+		if (this.sortKeys.length === 0) {
+			this._sortClause = '';
+			return;
+		}
+
+		const sortExprs = [];
+		for (const sortKey of this.sortKeys) {
+			const columnSchema = this.fullSchema[sortKey.column_index];
+			const quotedName = `"${columnSchema.column_name}"`;
+			const modifier = sortKey.ascending ? '' : ' DESC';
+			sortExprs.push(`${quotedName}${modifier}`);
+		}
+
+		this._sortClause = `\nORDER BY ${sortExprs.join(', ')}`;
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {
 		return 'not implemented';
 	}
 
-	private async _getUnfilteredShape(): Promise<[number, number]> {
+	private async _getShape(whereClause: string = ''): Promise<[number, number]> {
 		const numColumns = this.fullSchema.length;
-		const countStar = `SELECT count(*) AS num_rows FROM ${this.tableName} `;
+		const countStar = `SELECT count(*) AS num_rows
+		FROM ${this.tableName}
+		${whereClause};`;
 
 		const result = await this.db.runQuery(countStar);
 
