@@ -26,12 +26,9 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 		});
 
 		test('Python - Basic notebook creation and execution (code) [C628631]', async function ({ app }) {
-			await expect(async () => {
-				await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
-				await app.workbench.positronNotebooks.executeCodeInCell();
-
-				expect(await app.workbench.positronNotebooks.getPythonCellOutput()).toBe('64');
-			}).toPass({ timeout: 120000 });
+			await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
+			await app.workbench.positronNotebooks.executeCodeInCell();
+			await app.workbench.positronNotebooks.assertPythonCellOutput('64');
 		});
 
 		test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ app }) {
@@ -40,8 +37,9 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 			await app.workbench.notebook.insertNotebookCell('markdown');
 			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
 			await app.workbench.notebook.stopEditingCell();
+			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
 
-			expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
+			// expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
 		});
 	});
 
@@ -59,12 +57,8 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 
 		test('R - Basic notebook creation and execution (code) [C628629]', async function ({ app }) {
 			await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
-
-			await expect(async () => {
-				await app.workbench.positronNotebooks.executeCodeInCell();
-				expect(await app.workbench.positronNotebooks.getRCellOutput()).toBe('[1] 64');
-			}).toPass({ timeout: 60000 });
-
+			await app.workbench.positronNotebooks.executeCodeInCell();
+			await app.workbench.positronNotebooks.assertRCellOutput('[1] 64');
 		});
 
 		test('R - Basic notebook creation and execution (markdown) [C628630]', async function ({ app }) {
@@ -73,12 +67,12 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 			await app.workbench.notebook.insertNotebookCell('markdown');
 			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
 			await app.workbench.notebook.stopEditingCell();
+			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
 
-			expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
+			// expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
 
 		});
 	});
 
 });
 
-export { expect };

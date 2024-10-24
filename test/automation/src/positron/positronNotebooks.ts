@@ -85,33 +85,28 @@ export class PositronNotebooks {
 
 	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
+		await expect(this.code.driver.page.getByText('Stop Execution')).not.toBeVisible({ timeout: 30000 });
 	}
 
-	async getPythonCellOutput(): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
+	async assertPythonCellOutput(text: string): Promise<void> {
 		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
 		const outputLocator = notebookFrame.locator(PYTHON_OUTPUT);
-		const outputText = await outputLocator.textContent();
-		return outputText!;
+		await expect(outputLocator).toHaveText(text);
 	}
 
-	async getRCellOutput(): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
+	async assertRCellOutput(text: string): Promise<void> {
 		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
 		const outputLocator = notebookFrame.locator(R_OUTPUT).nth(0);
-		const outputText = await outputLocator.textContent();
-		return outputText!;
+		await expect(outputLocator).toHaveText(text);
 	}
 
 	async closeNotebookWithoutSaving() {
 		await this.quickaccess.runCommand(REVERT_AND_CLOSE);
 	}
 
-	async getMarkdownText(tag: string): Promise<string> {
-		// basic CSS selection doesn't support frames (or nested frames)
+	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
 		const frame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
 		const element = frame.locator(`${MARKDOWN_TEXT} ${tag}`);
-		const text = await element.textContent();
-		return text!;
+		await expect(element).toHaveText(expectedText);
 	}
 }
