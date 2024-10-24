@@ -401,13 +401,13 @@ export class TableDataCache extends Disposable {
 			}
 		}
 
-		// Load the column schemas we need to load.
-		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
-
 		// Clear the column schema cache, if we're supposed to.
 		if (invalidateColumnSchemaCache) {
 			this._columnSchemaCache.clear();
 		}
+
+		// Load the column schemas we need to load.
+		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
 		// Cache the column schemas that were returned.
 		for (let i = 0; i < tableSchema.columns.length; i++) {
@@ -501,9 +501,6 @@ export class TableDataCache extends Disposable {
 			}
 		}
 
-		// Get the data values.
-		const tableData = await this._dataExplorerClientInstance.getDataValues(columnSelections);
-
 		// Get the row labels.
 		let rowLabels: ArraySelection | undefined;
 		if (!tableState.has_row_labels) {
@@ -555,6 +552,9 @@ export class TableDataCache extends Disposable {
 			this._rowLabelCache.clear();
 			this._dataColumnCache.clear();
 		}
+
+		// Get the data values
+		const tableData = await this._dataExplorerClientInstance.getDataValues(columnSelections);
 
 		// Update the data column cache.
 		for (let column = 0; column < tableData.columns.length; column++) {

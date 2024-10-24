@@ -317,6 +317,10 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the table schema.
 	 */
 	async getSchema(columnIndices: Array<number>): Promise<TableSchema> {
+		if (columnIndices.length === 0) {
+			// Do not send backend requests for an empty selection
+			return { columns: [] };
+		}
 		return this.runBackendTask(
 			() => this._backendClient.getSchema(columnIndices),
 			() => ({ columns: [] })
@@ -365,6 +369,10 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A Promise<TableData> that resolves when the operation is complete.
 	 */
 	async getDataValues(columns: Array<ColumnSelection>): Promise<TableData> {
+		if (columns.length === 0) {
+			// Do not send backend requests for an empty selection
+			return { columns: [] };
+		}
 		return this.runBackendTask(
 			() => this._backendClient.getDataValues(columns, this._dataFormatOptions),
 			() => ({ columns: [[]] })
@@ -395,6 +403,10 @@ export class DataExplorerClientInstance extends Disposable {
 	async getColumnProfiles(
 		profiles: Array<ColumnProfileRequest>
 	): Promise<Array<ColumnProfileResult>> {
+		if (profiles.length === 0) {
+			// Do not send backend a request if empty array passed
+			return [];
+		}
 		return this.runBackendTask(
 			async () => {
 				const callbackId = generateUuid();
