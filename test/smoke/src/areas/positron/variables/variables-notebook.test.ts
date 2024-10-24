@@ -16,7 +16,7 @@ describe('Variables Pane - Notebook #pr', () => {
 	});
 
 	// WEB - is there a bug? The interpreter is always set to Python
-	describe('Pyton Notebook Variables Pane', () => {
+	describe('Python Notebook Variables Pane', () => {
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
 			const app = this.app as Application;
