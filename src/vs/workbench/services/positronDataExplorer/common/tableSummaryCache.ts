@@ -416,13 +416,22 @@ export class TableSummaryCache extends Disposable {
 
 		// For more than 10 million rows, we request profiles one by one rather than as a batch for
 		// better responsiveness
-		const BATCH_PROFILE_THRESHOLD = 10_000_000;
-		if (tableState.table_shape.num_rows > BATCH_PROFILE_THRESHOLD) {
-			for (let i = 0; i < columnIndices.length; i++) {
-				// Run the requests one at a time
-				const result = await this._dataExplorerClientInstance.getColumnProfiles([columnRequests[i]]);
-				// Cache the column profiles that were returned
-				this._columnProfileCache.set(columnIndices[i], result[0]);
+		const BATCHING_THRESHOLD = 5_000_000;
+		if (tableState.table_shape.num_rows > BATCHING_THRESHOLD) {
+			const BATCH_SIZE = 4;
+			for (let i = 0; i < columnIndices.length; i += BATCH_SIZE) {
+				// Get the next batch of up to 4 requests
+				const batchColumnRequests = columnRequests.slice(i, i + BATCH_SIZE);
+				const batchColumnIndices = columnIndices.slice(i, i + BATCH_SIZE);
+
+				// Send the batch of requests to getColumnProfiles
+				const results = await this._dataExplorerClientInstance.getColumnProfiles(batchColumnRequests);
+
+				// Cache the returned column profiles for each index in the batch
+				for (let j = 0; j < results.length; j++) {
+					this._columnProfileCache.set(batchColumnIndices[j], results[j]);
+				}
+
 				// Fire the onDidUpdate event so things update as soon as they are returned
 				this._onDidUpdateEmitter.fire();
 			}
