@@ -17,6 +17,7 @@ const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
+const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const PYTHON_OUTPUT = '.output-plaintext';
@@ -24,6 +25,7 @@ const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
+
 
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
@@ -76,14 +78,14 @@ export class PositronNotebooks {
 	}
 
 	async addCodeToFirstCell(code: string) {
-		await this.code.driver.page.locator(CELL_LINE).first().click();
+		await this.code.driver.page.locator(CELL_LINE).click();
 		await this.notebook.waitForTypeInEditor(code);
 		await this.notebook.waitForActiveCellEditorContents(code);
 	}
 
 	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-		await expect(this.code.driver.page.getByText('Stop Execution')).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async assertPythonCellOutput(text: string): Promise<void> {
