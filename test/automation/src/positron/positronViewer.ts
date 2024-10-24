@@ -14,27 +14,24 @@ const FULL_APP = 'body';
 export class PositronViewer {
 
 	fullApp = this.code.driver.getLocator(FULL_APP);
+	viewerFrame = this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
 
 	constructor(private code: Code) { }
 
-	getViewerLocator(locator: string, additionalNesting = false): Locator {
-		if (!additionalNesting) {
-			return this.getViewerFrame().locator(locator);
-		} else {
-			const innerInnerFrame = this.getViewerFrame().frameLocator('//iframe');
-			return innerInnerFrame.locator(locator);
+	getViewerLocator(locator: string, { nestedFrame }: { nestedFrame?: string } = {}): Locator {
+		if (nestedFrame) {
+			return this.viewerFrame.frameLocator(nestedFrame).locator(locator);
 		}
+
+		return this.viewerFrame.locator(locator);
 	}
 
-	getViewerFrame(frameLocator?: string): FrameLocator {
-		const outerFrame = this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
-
-		// if frameLocator is provided, use it; otherwise, return the default outerFrame
-		if (frameLocator) {
-			return outerFrame.frameLocator(frameLocator);
+	getViewerFrame(nestedFrame?: string): FrameLocator {
+		if (nestedFrame) {
+			return this.viewerFrame.frameLocator(nestedFrame);
 		}
 
-		return outerFrame;
+		return this.viewerFrame;
 	}
 
 	async refreshViewer() {
