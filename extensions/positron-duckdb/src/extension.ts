@@ -276,7 +276,7 @@ END`;
 			numRows = upperLimit - lowerLimit + 1;
 		}
 
-		// No column selectors case -- TODO: why is the backend even sending this?
+		// No column selectors case, do not error if we get a request like this
 		if (columnSelectors.length === 0) {
 			return { columns: [] };
 		} else if (numRows === 0) {
