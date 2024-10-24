@@ -46,7 +46,6 @@ describe('Quarto #web', () => {
 	it('should be able to generate preview [C842891]', async function () {
 		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
 
-		// const previewHeader = app.workbench.positronViewer.getViewerFrame('//iframe').locator('h1');
 		const previewHeader = app.workbench.positronViewer.getViewerLocator('h1', {
 			nestedFrame: '//iframe'
 		});
