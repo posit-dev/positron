@@ -53,7 +53,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
@@ -135,7 +135,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
