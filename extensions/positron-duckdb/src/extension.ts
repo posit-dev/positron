@@ -49,6 +49,9 @@ import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
+// Set to true when doing development for better console logging
+const DEBUG_LOG = false;
+
 class DuckDBInstance {
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
 
@@ -80,7 +83,16 @@ class DuckDBInstance {
 
 	async runQuery(query: string): Promise<Table<any> | string> {
 		try {
-			return await this.con.query(query);
+			const startTime = Date.now();
+			if (DEBUG_LOG) {
+				console.log(`Executing:\n${query}`);
+			}
+			const result = await this.con.query(query);
+			const elapsedMs = Date.now() - startTime;
+			if (DEBUG_LOG) {
+				console.log(`Executed in ${elapsedMs} ms`);
+			}
+			return result;
 		} catch (error) {
 			return JSON.stringify(error);
 		}
@@ -284,7 +296,7 @@ export class DuckDBTableView {
 		const varcharLimit = params.format_options.max_value_length;
 
 		let smallFloatFormat, largeFloatFormat;
-		if (thousandsSep !== undefined) {
+		if (thousandsSep) {
 			largeFloatFormat = `'{:,.${largeNumDigits}f}'`;
 			smallFloatFormat = `'{:,.${smallNumDigits}f}'`;
 		} else {
@@ -320,7 +332,7 @@ export class DuckDBTableView {
 				case 'SMALLINT':
 				case 'INTEGER':
 				case 'BIGINT':
-					if (thousandsSep !== undefined) {
+					if (thousandsSep && thousandsSep !== undefined) {
 						columnSelector = `FORMAT('{:,}', ${quotedName})`;
 						if (thousandsSep !== ',') {
 							columnSelector = `REPLACE(${columnSelector}, ',', '${thousandsSep}')`;
@@ -333,7 +345,7 @@ export class DuckDBTableView {
 				case 'DOUBLE': {
 					let largeFormatter = `FORMAT(${largeFloatFormat}, ${largeRounded})`;
 					let smallFormatter = `FORMAT(${smallFloatFormat}, ${smallRounded})`;
-					if (thousandsSep !== undefined && thousandsSep !== ',') {
+					if (thousandsSep && thousandsSep !== ',') {
 						largeFormatter = `REPLACE(${largeFormatter}, ',', '${thousandsSep}')`;
 						smallFormatter = `REPLACE(${smallFormatter}, ',', '${thousandsSep}')`;
 					}
@@ -381,9 +393,7 @@ END`;
 		const query = `SELECT\n${columnSelectors.join(',\n    ')}
 		FROM (
 			SELECT ${selectedColumns.join(', ')} FROM
-			${this.tableName}
-			${this._whereClause}
-			${this._sortClause}
+			${this.tableName}${this._whereClause}${this._sortClause}
 			LIMIT ${numRows}
 			OFFSET ${lowerLimit}
 		) t;`;
@@ -503,9 +513,54 @@ END`;
 					supported_types: []
 				},
 				set_row_filters: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
 					supports_conditions: SupportStatus.Unsupported,
-					supported_types: []
+					supported_types: [
+						{
+							row_filter_type: RowFilterType.Between,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.Compare,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsEmpty,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsFalse,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsNull,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.IsTrue,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotBetween,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotEmpty,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.NotNull,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.Search,
+							support_status: SupportStatus.Supported
+						},
+						{
+							row_filter_type: RowFilterType.SetMembership,
+							support_status: SupportStatus.Supported
+						}
+					]
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
@@ -551,7 +606,7 @@ END`;
 		if (profileExprs.length > 0) {
 			const profileQuery = `
 			SELECT ${profileExprs.join(',\n    ')}
-			FROM ${this.tableName} `;
+			FROM ${this.tableName}${this._whereClause};`;
 			result = await this.db.runQuery(profileQuery);
 			if (typeof result === 'string') {
 				// Query failed for some reason, need to return to UI
@@ -610,7 +665,7 @@ END`;
 		}
 
 		const whereExprs = this.rowFilters.map(makeWhereExpr);
-		this._whereClause = `WHERE ${whereExprs.join(', ')}`;
+		this._whereClause = `\nWHERE ${whereExprs.join(' AND ')}`;
 		this._filteredShape = this._getShape(this._whereClause);
 
 		const newShape = await this._filteredShape;
@@ -632,7 +687,7 @@ END`;
 			sortExprs.push(`${quotedName}${modifier}`);
 		}
 
-		this._sortClause = `ORDER BY ${sortExprs.join(', ')}`;
+		this._sortClause = `\nORDER BY ${sortExprs.join(', ')}`;
 	}
 
 	async exportDataSelection(params: ExportDataSelectionParams): RpcResponse<ExportedData> {

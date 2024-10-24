@@ -18,6 +18,8 @@ import {
 	FormatOptions,
 	GetDataValuesParams,
 	GetSchemaParams,
+	RowFilterType,
+	SupportedFeatures,
 	SupportStatus,
 	TableData,
 	TableSchema
@@ -164,9 +166,11 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					supported_types: []
 				},
 				set_row_filters: {
-					support_status: SupportStatus.Unsupported,
+					support_status: SupportStatus.Supported,
 					supports_conditions: SupportStatus.Unsupported,
-					supported_types: []
+					supported_types: Object.values(RowFilterType).map((value) => {
+						return { row_filter_type: value, support_status: SupportStatus.Supported };
+					})
 				},
 				get_column_profiles: {
 					support_status: SupportStatus.Supported,
@@ -177,13 +181,13 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						}
 					]
 				},
-				set_sort_columns: { support_status: SupportStatus.Unsupported, },
+				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {
 					support_status: SupportStatus.Unsupported,
 					supported_formats: []
 				}
 			}
-		});
+		} satisfies BackendState);
 
 		result = await dxExec({
 			method: DataExplorerBackendRequest.GetSchema,
@@ -193,125 +197,39 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			} satisfies GetSchemaParams
 		});
 
-		const expectedSchema: Array<ColumnSchema> = [
-			{
-				column_name: 'year',
-				column_index: 0,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'month',
-				column_index: 1,
-				type_name: 'TINYINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'day',
-				column_index: 2,
-				type_name: 'TINYINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'dep_time',
-				column_index: 3,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'sched_dep_time',
-				column_index: 4,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'dep_delay',
-				column_index: 5,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'arr_time',
-				column_index: 6,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'sched_arr_time',
-				column_index: 7,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'arr_delay',
-				column_index: 8,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'carrier',
-				column_index: 9,
-				type_name: 'VARCHAR',
-				type_display: ColumnDisplayType.String
-			},
-			{
-				column_name: 'flight',
-				column_index: 10,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'tailnum',
-				column_index: 11,
-				type_name: 'VARCHAR',
-				type_display: ColumnDisplayType.String
-			},
-			{
-				column_name: 'origin',
-				column_index: 12,
-				type_name: 'VARCHAR',
-				type_display: ColumnDisplayType.String
-			},
-			{
-				column_name: 'dest',
-				column_index: 13,
-				type_name: 'VARCHAR',
-				type_display: ColumnDisplayType.String
-			},
-			{
-				column_name: 'air_time',
-				column_index: 14,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'distance',
-				column_index: 15,
-				type_name: 'SMALLINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'hour',
-				column_index: 16,
-				type_name: 'TINYINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'minute',
-				column_index: 17,
-				type_name: 'TINYINT',
-				type_display: ColumnDisplayType.Number
-			},
-			{
-				column_name: 'time_hour',
-				column_index: 18,
-				type_name: 'TIMESTAMP_NS',
-				type_display: ColumnDisplayType.Datetime
-			}
+		const schemaEntries: Array<[string, string, ColumnDisplayType]> = [
+			['year', 'SMALLINT', ColumnDisplayType.Number],
+			['month', 'TINYINT', ColumnDisplayType.Number],
+			['day', 'TINYINT', ColumnDisplayType.Number],
+			['dep_time', 'SMALLINT', ColumnDisplayType.Number],
+			['sched_dep_time', 'SMALLINT', ColumnDisplayType.Number],
+			['dep_delay', 'SMALLINT', ColumnDisplayType.Number],
+			['arr_time', 'SMALLINT', ColumnDisplayType.Number],
+			['sched_arr_time', 'SMALLINT', ColumnDisplayType.Number],
+			['arr_delay', 'SMALLINT', ColumnDisplayType.Number],
+			['carrier', 'VARCHAR', ColumnDisplayType.String],
+			['flight', 'SMALLINT', ColumnDisplayType.Number],
+			['tailnum', 'VARCHAR', ColumnDisplayType.String],
+			['origin', 'VARCHAR', ColumnDisplayType.String],
+			['dest', 'VARCHAR', ColumnDisplayType.String],
+			['air_time', 'SMALLINT', ColumnDisplayType.Number],
+			['distance', 'SMALLINT', ColumnDisplayType.Number],
+			['hour', 'TINYINT', ColumnDisplayType.Number],
+			['minute', 'TINYINT', ColumnDisplayType.Number],
+			['time_hour', 'TIMESTAMP_NS', ColumnDisplayType.Datetime],
 		];
 
 		assert.deepStrictEqual(result, {
-			columns: expectedSchema
+			columns: schemaEntries.map(
+				([column_name, type_name, type_display], column_index) => {
+					return {
+						column_name,
+						column_index,
+						type_name,
+						type_display
+					};
+				}
+			)
 		} satisfies TableSchema);
 	});
 
