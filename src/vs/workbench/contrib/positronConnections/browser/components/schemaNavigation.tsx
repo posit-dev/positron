@@ -20,7 +20,7 @@ export interface SchemaNavigationProps extends ViewsProps { }
 export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
 	const context = usePositronConnectionsContext();
-	const { height, items } = props;
+	const { height, items, activeInstanceId } = props;
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -46,8 +46,10 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 
 	const [selectedId, setSelectedId] = useState<string>();
 
+	const entries = items.filter(item => item.root_id === activeInstanceId);
+
 	const ItemEntry = (props: ItemEntryProps) => {
-		const itemProps = items[props.index];
+		const itemProps = entries[props.index];
 
 		return (
 			<PositronConnectionsItem
@@ -70,11 +72,11 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			</ActionBar>
 			<div className='connections-items-container'>
 				<List
-					itemCount={items.length}
+					itemCount={entries.length}
 					itemSize={26}
 					height={height - kActionBarHeight}
 					width={'calc(100% - 2px)'}
-					itemKey={index => items[index].id}
+					itemKey={index => entries[index].id}
 					innerRef={innerRef}
 				>
 					{ItemEntry}

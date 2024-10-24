@@ -25,6 +25,12 @@ export interface IPositronConnectionEntry {
 	id: string;
 
 	/**
+	 * The id of the root connection. This is the id of the connection
+	 * that is at the top of the hierarchy.
+	 */
+	root_id: string;
+
+	/**
 	 * Wether the connection entry is currently active.
 	 */
 	active: boolean;
@@ -88,6 +94,7 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
 		private notify: (message: string, severity: Severity) => INotificationHandle,
 		readonly level: number,
+		readonly root_id: string
 	) {
 		super();
 	}
@@ -229,15 +236,18 @@ export class PositronConnectionsCache {
 		this._entries = entries;
 	}
 
-	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
+	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0, root_id: string | undefined = undefined) {
 
 		const entries: IPositronConnectionEntry[] = [];
 		for (const item of items) {
+
+			const id_root = root_id ?? item.id;
 
 			const entry = new PositronConnectionEntry(
 				item,
 				(message, severity) => this.service.notify(message, severity),
 				level,
+				id_root
 			);
 			entries.push(entry);
 
@@ -260,7 +270,7 @@ export class PositronConnectionsCache {
 					entry.error = err.message;
 					continue;
 				}
-				const newItems = await this.getConnectionsEntries(children, level + 1);
+				const newItems = await this.getConnectionsEntries(children, level + 1, id_root);
 				entries.push(...newItems);
 			}
 		}
