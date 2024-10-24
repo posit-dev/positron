@@ -101,6 +101,7 @@ export enum Product {
     python = 29,
     // --- Start Positron ---
     fastapiCli = 101,
+    sqlite3 = 102,
     // --- End Positron ---
 }
 

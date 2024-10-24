@@ -219,6 +219,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         );
 
         if (hasCompatibleKernel !== ProductInstallStatus.Installed) {
+            // Check if sqlite3 if installed before attempting to install ipykernel
+            // https://github.com/posit-dev/positron/issues/4698
+            const hasSqlite3 = await installer.isInstalled(Product.sqlite3, this.interpreter);
+            if (!hasSqlite3) {
+                throw new Error(
+                    `The Python sqlite3 extension is required but not installed for interpreter: ${this.interpreter?.displayName}. Missing the SQLite3 lib?`,
+                );
+            }
+
             // Pass a cancellation token to enable VSCode's progress indicator and let the user
             // cancel the install.
             const tokenSource = new vscode.CancellationTokenSource();

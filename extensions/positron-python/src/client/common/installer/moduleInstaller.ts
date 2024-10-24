@@ -303,6 +303,8 @@ export function translateProductToModule(product: Product): string {
         // --- Start Positron ---
         case Product.fastapiCli:
             return 'fastapi_cli';
+        case Product.sqlite3:
+            return '_sqlite3';
         // --- End Positron ---
         default: {
             throw new Error(`Product ${product} cannot be installed as a Python Module.`);
