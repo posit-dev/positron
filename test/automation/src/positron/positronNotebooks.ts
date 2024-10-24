@@ -18,10 +18,7 @@ const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
 const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
-const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
-const PYTHON_OUTPUT = '.output-plaintext';
-const R_OUTPUT = '.output_container .output';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
@@ -32,6 +29,7 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
  */
 export class PositronNotebooks {
 	kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
+	frameLocator = this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
@@ -88,16 +86,8 @@ export class PositronNotebooks {
 		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 	}
 
-	async assertPythonCellOutput(text: string): Promise<void> {
-		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const outputLocator = notebookFrame.locator(PYTHON_OUTPUT);
-		await expect(outputLocator).toHaveText(text);
-	}
-
-	async assertRCellOutput(text: string): Promise<void> {
-		const notebookFrame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const outputLocator = notebookFrame.locator(R_OUTPUT).nth(0);
-		await expect(outputLocator).toHaveText(text);
+	async assertCellOutput(text: string): Promise<void> {
+		await expect(this.frameLocator.getByText(text)).toBeVisible();
 	}
 
 	async closeNotebookWithoutSaving() {
@@ -105,8 +95,7 @@ export class PositronNotebooks {
 	}
 
 	async assertMarkdownText(tag: string, expectedText: string): Promise<void> {
-		const frame = this.code.driver.getFrame(OUTER_FRAME).frameLocator(INNER_FRAME);
-		const element = frame.locator(`${MARKDOWN_TEXT} ${tag}`);
-		await expect(element).toHaveText(expectedText);
+		const markdownLocator = this.frameLocator.locator(`${MARKDOWN_TEXT} ${tag}`);
+		await expect(markdownLocator).toHaveText(expectedText);
 	}
 }

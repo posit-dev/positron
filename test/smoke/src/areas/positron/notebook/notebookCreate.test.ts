@@ -31,7 +31,7 @@ describe('Notebooks #pr #web #win', () => {
 		it('R - Basic notebook creation and execution (code) [C628629]', async function () {
 			await notebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
 			await notebooks.executeCodeInCell();
-			await notebooks.assertRCellOutput('[1] 64');
+			await notebooks.assertCellOutput('[1] 64');
 		});
 
 		it('R - Basic notebook creation and execution (markdown) [C628630]', async function () {
@@ -66,7 +66,7 @@ describe('Notebooks #pr #web #win', () => {
 		it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
 			await notebooks.addCodeToFirstCell('eval("8**2")');
 			await notebooks.executeCodeInCell();
-			await notebooks.assertPythonCellOutput('64');
+			await notebooks.assertCellOutput('64');
 		});
 
 		it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
