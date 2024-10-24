@@ -27,7 +27,7 @@ describe('Data Explorer - XLSX #web #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
@@ -68,7 +68,7 @@ describe('Data Explorer - XLSX #web #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 

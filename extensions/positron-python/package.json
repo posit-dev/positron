@@ -618,7 +618,7 @@
                         "info",
                         "debug"
                     ],
-                    "scope": "application",
+                    "scope": "machine-overridable",
                     "type": "string"
                 },
                 "python.interpreter.infoVisibility": {

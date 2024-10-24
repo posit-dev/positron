@@ -36,7 +36,9 @@ export class PlaywrightDriver {
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
 		private readonly context: playwright.BrowserContext,
-		private readonly page: playwright.Page,
+		// --- Start Positron ---
+		readonly page: playwright.Page,
+		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
 		private readonly whenLoaded: Promise<unknown>,
 		private readonly options: LaunchOptions
