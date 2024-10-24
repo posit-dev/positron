@@ -13,6 +13,7 @@ import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/
 import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
 import { PositronConnectionsServices, usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { FixedSizeList as List } from 'react-window';
+import 'vs/css!./listConnections';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -38,6 +39,17 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 		<div className='positron-connections-list'>
 			<ActionBar {...context}></ActionBar>
 			<div className='connections-items-container'>
+				<div className='connections-list-header' style={{ height: `${26}px` }}>
+					<div className='col-icon' style={{ width: `${26}px` }}></div>
+					<VerticalSplitter />
+					<div className='col-name'>Connection</div>
+					<VerticalSplitter />
+					<div className='col-language'>Language</div>
+					<VerticalSplitter />
+					<div className='col-status'>Status</div>
+					<VerticalSplitter />
+					<div className='col-action' style={{ width: `${26}px` }}></div>
+				</div>
 				<List
 					itemCount={instances.length}
 					itemSize={26}
@@ -48,6 +60,14 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 					{ItemEntry}
 				</List>
 			</div>
+		</div>
+	);
+};
+
+const VerticalSplitter = () => {
+	return (
+		<div className='vertical-splitter' style={{ width: '1px' }}>
+			<div className='sash' style={{ left: '-2px', width: '4px' }}></div>
 		</div>
 	);
 };
