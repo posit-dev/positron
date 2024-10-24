@@ -8,6 +8,7 @@ import { Notebook } from '../notebook';
 import { QuickAccess } from '../quickaccess';
 import { QuickInput } from '../quickinput';
 import { basename } from 'path';
+import { expect } from '@playwright/test';
 
 const KERNEL_LABEL = '.kernel-label';
 const KERNEL_ACTION = '.kernel-action-view-item';
@@ -21,6 +22,7 @@ const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
+
 
 /*
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
@@ -81,6 +83,7 @@ export class PositronNotebooks {
 
 	async executeCodeInCell() {
 		await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
+		await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER)).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async assertCellOutput(text: string): Promise<void> {
