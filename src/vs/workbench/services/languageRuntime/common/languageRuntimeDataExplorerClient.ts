@@ -402,9 +402,9 @@ export class DataExplorerClientInstance extends Disposable {
 				this._asyncTasks.set(callbackId, promise);
 				await this._backendClient.getColumnProfiles(callbackId, profiles, this._profileFormatOptions);
 
-				const timeout = 10000;
+				const timeout = 60000;
 
-				// Don't leave unfulfilled promise indefinitely; reject after 10 seconds pass
+				// Don't leave unfulfilled promise indefinitely; reject after one minute
 				// for now just in case
 				setTimeout(() => {
 					// If the promise has already been resolved, do nothing.

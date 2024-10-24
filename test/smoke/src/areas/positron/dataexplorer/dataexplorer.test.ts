@@ -11,7 +11,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 let logger;
 
-describe('Data Explorer #web', () => {
+describe('Data Explorer #web #win', () => {
 	logger = setupAndStartApp();
 
 	describe('Python Pandas Data Explorer #pr', () => {
@@ -32,7 +32,7 @@ describe('Data Explorer #web', () => {
 
 		});
 
-		it('Python Pandas - Verifies basic data explorer functionality [C557556] #win', async function () {
+		it('Python Pandas - Verifies basic data explorer functionality [C557556]', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -96,9 +96,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass();
 
 			// Need to make sure the data explorer is visible before we can interact with it
-			await app.workbench.positronSideBar.closeSecondarySideBar();
-			await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -111,9 +109,12 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(5);
 			}).toPass({ timeout: 60000 });
 
+			// Need to expand summary for next test
+			await app.workbench.positronDataExplorer.expandSummary();
 
 		});
-		it('Python Pandas - Verifies data explorer column info functionality [C734263] #win', async function () {
+		// Cannot be run by itself, relies on the previous test
+		it('Python Pandas - Verifies data explorer column info functionality [C734263]', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
@@ -149,7 +150,7 @@ df2 = pd.DataFrame(data)`;
 
 		});
 		// This test is not dependent on the previous test, so it refreshes the python environment
-		it('Python Pandas - Verifies data explorer after modification [C557574] #win', async function () {
+		it('Python Pandas - Verifies data explorer after modification [C557574]', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
@@ -214,8 +215,7 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 
-			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.toggleVariablesView();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
 		});
@@ -233,7 +233,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
 			}).toPass();
 
-			await app.workbench.positronSideBar.closeSecondarySideBar();
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -251,12 +251,13 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 
 		});
+		// Cannot be run by itself, relies on the previous test
 		it('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
 
-			await app.workbench.positronLayouts.enterLayout('notebook');
+			await app.workbench.positronDataExplorer.expandSummary();
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
@@ -264,6 +265,7 @@ df2 = pd.DataFrame(data)`;
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
+
 
 			const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
 			expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
@@ -283,12 +285,11 @@ df2 = pd.DataFrame(data)`;
 			const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
 			expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
 
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronSideBar.closeSecondarySideBar();
+			await app.workbench.positronDataExplorer.collapseSummary();
 
 		});
 
-		it('Python Polars - Add Simple Column filter [C557557] #win', async function () {
+		it('Python Polars - Add Simple Column filter [C557557]', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -310,7 +311,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 		});
 
-		it('Python Polars - Add Simple Column Sort [C557561] #win', async function () {
+		it('Python Polars - Add Simple Column Sort [C557561]', async function () {
 			const app = this.app as Application;
 			this.timeout(120000);
 
@@ -346,7 +347,7 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	describe('R Data Explorer #win', () => {
+	describe('R Data Explorer', () => {
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
@@ -373,7 +374,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 			}).toPass();
 
-			await app.workbench.positronLayouts.enterLayout('notebook');
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -384,7 +385,6 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(3);
 			}).toPass({ timeout: 60000 });
 
-			await app.workbench.positronLayouts.enterLayout('stacked');
 
 
 		});
@@ -392,6 +392,8 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 			this.timeout(120000);
+
+			await app.workbench.positronDataExplorer.expandSummary();
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');
