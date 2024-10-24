@@ -215,8 +215,6 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 
-			// await app.workbench.positronDataExplorer.closeDataExplorer();
-			// await app.workbench.positronVariables.toggleVariablesView();
 			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
@@ -287,8 +285,6 @@ df2 = pd.DataFrame(data)`;
 			const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
 			expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
 
-			// await app.workbench.positronLayouts.enterLayout('stacked');
-			// await app.workbench.positronSideBar.closeSecondarySideBar();
 			await app.workbench.positronDataExplorer.collapseSummary();
 
 		});
