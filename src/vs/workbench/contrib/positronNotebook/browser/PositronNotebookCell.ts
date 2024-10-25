@@ -10,13 +10,13 @@ import { ITextModel } from 'vs/editor/common/model';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, NotebookCellOutputItem } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
 import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { disposableTimeout } from 'vs/base/common/async';
-import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCodeCell';
+import { PositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookMarkdownCell';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;
@@ -125,108 +125,6 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 }
 
 
-export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
-	override kind: CellKind.Code = CellKind.Code;
-	outputs: ISettableObservable<NotebookCellOutputs[]>;
-
-	constructor(
-		cellModel: NotebookCellTextModel,
-		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService,
-	) {
-		super(cellModel, instance, textModelResolverService);
-
-		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', PositronNotebookCodeCell.parseCellOutputs(this.cellModel.outputs));
-
-		// Listen for changes to the cell outputs and update the observable
-		this._register(
-			this.cellModel.onDidChangeOutputs(() => {
-				// By unpacking the array and repacking we make sure that
-				// the React component will rerender when the outputs change. Probably not
-				// great to have this leak here.
-				this.outputs.set(PositronNotebookCodeCell.parseCellOutputs(this.cellModel.outputs), undefined);
-			})
-		);
-	}
-
-	/**
-	 * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
-	 * @param outputList The list of cell outputs to parse from the cell model
-	 * @returns Output list with a prefered output item parsed for rendering
-	 */
-	static parseCellOutputs(outputList: ICellOutput[]): NotebookCellOutputs[] {
-
-		const toReturn: NotebookCellOutputs[] = [];
-
-		outputList.forEach(({ outputs, outputId }) => {
-
-			const preferredOutput = pickPreferredOutputItem(outputs);
-			if (!preferredOutput) {
-				return;
-			}
-
-			const parsed = parseOutputData(preferredOutput);
-
-			toReturn.push({
-				outputId,
-				outputs,
-				parsed
-			});
-		});
-
-		return toReturn;
-	}
-
-	override run(): void {
-		this._instance.runCells([this]);
-	}
-}
-
-
-export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
-
-	markdownString: ISettableObservable<string | undefined> = observableValue<string | undefined, void>('markdownString', undefined);
-	editorShown: ISettableObservable<boolean> = observableValue<boolean, void>('editorShown', false);
-	override kind: CellKind.Markup = CellKind.Markup;
-
-
-	constructor(
-		cellModel: NotebookCellTextModel,
-		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService,
-	) {
-		super(cellModel, instance, textModelResolverService);
-
-		// Render the markdown content and update the observable when the cell content changes
-		this._register(this.cellModel.onDidChangeContent(() => {
-			this.markdownString.set(this.getContent(), undefined);
-		}));
-
-		this._updateContent();
-	}
-
-	private _updateContent(): void {
-		this.markdownString.set(this.getContent(), undefined);
-	}
-
-	toggleEditor(): void {
-		this.editorShown.set(!this.editorShown.get(), undefined);
-	}
-
-	override run(): void {
-		this.toggleEditor();
-	}
-
-	override focusEditor(): void {
-		this.editorShown.set(true, undefined);
-		// Need a timeout here so that the editor is shown before we try to focus it.
-		this._register(disposableTimeout(() => {
-			super.focusEditor();
-		}, 0));
-
-	}
-}
-
 /**
  * Instantiate a notebook cell based on the cell's kind
  * @param cell Text model for the cell
@@ -242,65 +140,3 @@ export function createNotebookCell(cell: NotebookCellTextModel, instance: Positr
 	}
 }
 
-
-/**
- * Get the priority of a mime type for sorting purposes
- * @param mime The mime type to get the priority of
- * @returns A number representing the priority of the mime type. Lower numbers are higher priority.
- */
-function getMimeTypePriority(mime: string): number | null {
-	if (mime.includes('application')) {
-		return 1;
-	}
-
-	switch (mime) {
-		case 'text/html':
-			return 2;
-		case 'image/png':
-			return 3;
-		case 'text/plain':
-			return 4;
-		default:
-			// Dont know what this is, so mark it as special so we know something went wrong
-			return null;
-	}
-}
-
-/**
- * Pick the output item with the highest priority mime type from a cell output object
- * @param outputItems Array of outputs items data from a cell output object
- * @returns The output item with the highest priority mime type. If there's a tie, the first one is
- * returned. If there's an unknown mime type we defer to ones we do know about.
- */
-export function pickPreferredOutputItem(outputItems: NotebookCellOutputItem[], logWarning?: (msg: string) => void): NotebookCellOutputItem | undefined {
-
-	if (outputItems.length === 0) {
-		return undefined;
-	}
-
-	let highestPriority: number | null = null;
-	let preferredOutput = outputItems[0];
-
-	for (const item of outputItems) {
-		const priority = getMimeTypePriority(item.mime);
-
-		// If we don't know how to render any of the mime types, we'll return the first one and hope
-		// for the best!
-		if (priority === null) {
-			continue;
-		}
-
-		if (priority < (highestPriority ?? Infinity)) {
-			preferredOutput = item;
-			highestPriority = priority;
-		}
-	}
-
-	if (highestPriority === null) {
-		logWarning?.('Could not determine preferred output for notebook cell with mime types' +
-			outputItems.map(item => item.mime).join(', ')
-		);
-	}
-
-	return preferredOutput;
-}

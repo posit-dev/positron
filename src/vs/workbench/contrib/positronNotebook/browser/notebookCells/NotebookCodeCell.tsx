@@ -14,7 +14,7 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { PositronNotebookCodeCell } from '../PositronNotebookCodeCell';
 import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
 
 
