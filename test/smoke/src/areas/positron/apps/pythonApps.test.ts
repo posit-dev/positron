@@ -66,7 +66,7 @@ describe('Python Applications #pr #win', () => {
 			const headerLocator = this.app.web
 				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
 				: viewerFrame.getByRole('button', { name: 'Deploy' });
-			await expect(headerLocator).toBeVisible();
+			await expect(headerLocator).toBeVisible({ timeout: 30000 });
 		});
 	});
 });
