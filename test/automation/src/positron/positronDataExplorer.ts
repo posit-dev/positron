@@ -56,7 +56,7 @@ export class PositronDataExplorer {
 
 		// unreliable:
 		//await this.code.waitForElement(IDLE_STATUS);
-		await this.code.driver.getLocator(IDLE_STATUS).waitFor({ state: 'visible', timeout: 30000 });
+		await this.code.driver.getLocator(IDLE_STATUS).waitFor({ state: 'visible', timeout: 60000 });
 
 		// we have seen intermittent failures where the data explorer is not fully loaded
 		// even though the status bar is idle. This wait is to ensure the data explorer is fully loaded
