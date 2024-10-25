@@ -49,7 +49,7 @@ export class PlaywrightDriver {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
-
+		console.log('--> driver tracing: chunk');
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
 		} catch (error) {

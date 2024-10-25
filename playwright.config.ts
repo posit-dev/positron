@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices, PlaywrightTestConfig } from '@playwright/test';
 
 /**
  * Read environment variables from file.
@@ -12,10 +12,14 @@ import { defineConfig, devices } from '@playwright/test';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+type TestOptions = {
+  web: boolean;
+};
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-export default defineConfig({
+export default defineConfig<TestOptions>({
   globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
   // globalTeardown: require.resolve('./global-teardown'),
   testDir: './test/smoke/src/e2e',
@@ -46,7 +50,11 @@ export default defineConfig({
   projects: [
     {
       name: 'electron',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], web: false },
+    },
+    {
+      name: 'web',
+      use: { ...devices['Desktop Chrome'], web: true },
     },
   ],
 

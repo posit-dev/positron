@@ -44,6 +44,7 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 	const context = window.context();
 
 	if (tracing) {
+		console.log('--> electron tracing: start');
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: true /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
 		} catch (error) {

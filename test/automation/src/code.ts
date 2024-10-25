@@ -74,6 +74,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 
 	// Browser smoke tests
 	if (options.web) {
+		console.log('>> launch playwright browser');
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
@@ -82,6 +83,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 
 	// Electron smoke tests (playwright)
 	else {
+		console.log('>> launch playwright electron');
 		const { electronProcess, driver } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		registerInstance(electronProcess, options.logger, 'electron');
 

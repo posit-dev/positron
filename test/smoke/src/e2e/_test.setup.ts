@@ -33,11 +33,14 @@ export const test = base.extend<{
 	pythonInterpreter: any;
 	restartApp: Application;
 }, {
+	web: boolean;
 	options: any;
 	app: Application;
 
 }>({
-	options: [async ({ }, use) => {
+	web: [false, { scope: 'worker', option: true }],
+
+	options: [async ({ web }, use) => {
 		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
@@ -58,7 +61,7 @@ export const test = base.extend<{
 			crashesPath: join(crashesRootPath, 'options-fixture'),
 			verbose: OPTS.verbose,
 			remote: OPTS.remote,
-			web: OPTS.web,
+			web,
 			tracing: true,
 			headless: OPTS.headless,
 			browser: OPTS.browser,
@@ -90,10 +93,10 @@ export const test = base.extend<{
 
 				if (interpreterName === 'Python') {
 					await PositronPythonFixtures.SetupFixtures(app);
-					console.log('Python interpreter started');
+					// console.log('Python interpreter started');
 				} else if (interpreterName === 'R') {
 					await PositronRFixtures.SetupFixtures(app); // Assuming PositronRFixtures is defined for R setup
-					console.log('R interpreter started');
+					// console.log('R interpreter started');
 				}
 			}
 		};
@@ -128,18 +131,19 @@ export const test = base.extend<{
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
+		console.log('--> _setup tracing');
 		// Start tracing
-		const title = testInfo.title || 'unknown'.replace(/\s+/g, '-');
+		const title = (testInfo.title || 'unknown').replace(/\s+/g, '-');
 		await app.startTracing(title);
 
 		// Run the test
 		await use(app);
 
 		// Stop tracing
-		const tracePath = testInfo.outputPath(title + '_trace.zip');
+		const tracePath = testInfo.outputPath(`${title}_trace.zip`);
 		await app.stopTracing(title, true, tracePath);
-		// console.log('trace:', tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+
 	}, { auto: true, scope: 'test' }],
 
 	page: async ({ app }, use) => {

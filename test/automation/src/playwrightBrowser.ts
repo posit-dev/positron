@@ -93,6 +93,7 @@ async function launchServer(options: LaunchOptions) {
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, headless } = options;
+	console.log('>>>> browser tracing', options.tracing);
 
 	const browser = await measureAndLog(() => playwright[options.browser ?? 'chromium'].launch({
 		headless: headless ?? false,
@@ -104,6 +105,7 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const context = await measureAndLog(() => browser.newContext(), 'browser.newContext', logger);
 
 	if (tracing) {
+		console.log('--> browser tracing: start');
 		try {
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: true, /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
 		} catch (error) {
