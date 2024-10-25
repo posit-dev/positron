@@ -62,6 +62,7 @@ describe('Python Applications #pr #win', () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
 			await app.workbench.positronEditor.pressPlay();
 
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			const viewerFrame = viewer.getViewerFrame();
 			const headerLocator = this.app.web
 				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
