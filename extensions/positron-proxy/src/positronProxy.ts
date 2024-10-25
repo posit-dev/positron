@@ -454,7 +454,7 @@ export class PositronProxy implements Disposable {
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
-			ws: true,
+			ws: false,
 			onProxyReq: (proxyReq, req, _res, _options) => {
 				log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
 					`\n\tmethod: ${proxyReq.method}` +
@@ -516,9 +516,35 @@ export class PositronProxy implements Disposable {
 		// Add the proxy middleware.
 		app.use('*', requestHandler);
 
+		// Is this happening? https://github.com/chimurai/http-proxy-middleware/issues/463
+
 		// Is this upgrade handling missing? https://github.com/chimurai/http-proxy-middleware?tab=readme-ov-file#websocket
 		// Handle the upgrade event.
-		server.on('upgrade', requestHandler.upgrade!);
+		// server.on('upgrade', requestHandler.upgrade!);
+
+		// For Positron Desktop or Server Web to work, we need to either:
+		//   - set ws: true in the createProxyMiddleware options; OR
+		//   - don't include `ws` and instead call server.on('upgrade', requestHandler.upgrade!)
+		// If we don't do one of these, the WebSocket connection will fail.
+
+		// For Positron on Workbench:
+		//   - setting (true OR false) or not setting ws doesn't work
+		//   - calling server.on('upgrade', requestHandler.upgrade!) doesn't work
+		// Doing either or even both of these doesn't work.
+
+		// Possible solution:
+		//   - set ws: false in the createProxyMiddleware options
+		//   - call server.on('upgrade', <CUSTOM_HANDLER>) where <CUSTOM_HANDLER> is a function that
+		//     calls requestHandler.upgrade! if we're not running in Workbench, but sends the request
+		//     to the Workbench proxy server if we are.
+		server.on('upgrade', (req, socket, head) => {
+			log.trace(`upgrade event for ${serverOrigin}${req.url}`);
+			if (!process.env.RS_SERVER_URL) {
+				requestHandler.upgrade!(req, socket, head);
+			} else {
+				// Send the request to the Workbench proxy server?
+			}
+		});
 	}
 
 	//#endregion Private Methods
