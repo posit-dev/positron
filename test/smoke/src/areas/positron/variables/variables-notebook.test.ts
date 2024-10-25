@@ -8,9 +8,9 @@ import { Application, PositronPythonFixtures, PositronRFixtures } from '../../..
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
 describe('Variables Pane - Notebook #pr #web', () => {
-	setupAndStartApp();
 
 	describe('Python Notebook Variables Pane', () => {
+		setupAndStartApp();
 
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -51,6 +51,7 @@ describe('Variables Pane - Notebook #pr #web', () => {
 
 
 	describe('R Notebook Variables Pane', () => {
+		setupAndStartApp();
 
 		before(async function () {
 			await PositronRFixtures.SetupFixtures(this.app as Application);
