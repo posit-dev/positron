@@ -6,13 +6,12 @@
 import { ISettableObservable, observableValue } from 'vs/base/common/observable';
 import { ITextModelService } from 'vs/editor/common/services/resolverService';
 import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind, ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { IPositronNotebookCodeCell, NotebookCellOutputItem, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-
-
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
@@ -20,22 +19,46 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 
 	constructor(
 		cellModel: NotebookCellTextModel,
-		instance: PositronNotebookInstance,
-		textModelResolverService: ITextModelService
+		private instance: PositronNotebookInstance,
+		@ITextModelService _textModelResolverService: ITextModelService,
+		@IPositronWebviewPreloadService private _webviewPreloadService: IPositronWebviewPreloadService
 	) {
-		super(cellModel, instance, textModelResolverService);
+		super(cellModel, instance, _textModelResolverService);
 
-		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', parseCellOutputs(this.cellModel.outputs));
+		this.outputs = observableValue<NotebookCellOutputs[], void>('cellOutputs', this.parseCellOutputs());
 
 		// Listen for changes to the cell outputs and update the observable
 		this._register(
 			this.cellModel.onDidChangeOutputs(() => {
-				// By unpacking the array and repacking we make sure that
-				// the React component will rerender when the outputs change. Probably not
-				// great to have this leak here.
-				this.outputs.set(parseCellOutputs(this.cellModel.outputs), undefined);
+				this.outputs.set(this.parseCellOutputs(), undefined);
 			})
 		);
+	}
+
+	/**
+	 * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
+	 * @returns Output list with a prefered output item parsed for rendering
+	 */
+	parseCellOutputs(): NotebookCellOutputs[] {
+		const parsedOutputs: NotebookCellOutputs[] = [];
+
+		this.cellModel.outputs.forEach(({ outputs, outputId }) => {
+
+			const preferredOutput = pickPreferredOutputItem(outputs);
+			if (!preferredOutput) {
+				return;
+			}
+			const parsed = parseOutputData(preferredOutput);
+
+			parsedOutputs.push({
+				outputId,
+				outputs,
+				parsed,
+				preloadMessageResult: this._webviewPreloadService.addNotebookOutput(this.instance, outputId, outputs)
+			});
+		});
+
+		return parsedOutputs;
 	}
 
 	override run(): void {
@@ -43,33 +66,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 	}
 }
 
-/**
- * Turn the cell outputs into an array of NotebookCellOutputs objects that we know how to render
- * @param outputList The list of cell outputs to parse from the cell model
- * @returns Output list with a prefered output item parsed for rendering
- */
-function parseCellOutputs(outputList: ICellOutput[]): NotebookCellOutputs[] {
 
-	const toReturn: NotebookCellOutputs[] = [];
-
-	outputList.forEach(({ outputs, outputId }) => {
-
-		const preferredOutput = pickPreferredOutputItem(outputs);
-		if (!preferredOutput) {
-			return;
-		}
-
-		const parsed = parseOutputData(preferredOutput);
-
-		toReturn.push({
-			outputId,
-			outputs,
-			parsed
-		});
-	});
-
-	return toReturn;
-}
 /**
  * Get the priority of a mime type for sorting purposes
  * @param mime The mime type to get the priority of

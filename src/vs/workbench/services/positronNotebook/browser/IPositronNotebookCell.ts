@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -202,6 +203,7 @@ export interface NotebookCellOutputs {
 	outputId: string;
 	outputs: NotebookCellOutputItem[];
 	parsed: ParsedOutput;
+	preloadMessageResult?: NotebookPreloadOutputResults;
 }
 
 /**
@@ -212,5 +214,5 @@ interface PositronNotebookCellTextModel {
 	handle: number;
 	language: string;
 	cellKind: CellKind;
-	outputs: Omit<NotebookCellOutputs, 'parsed'>[];
+	outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
 }

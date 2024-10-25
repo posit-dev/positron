@@ -19,6 +19,7 @@ export const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
 export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
 
 export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
+export type NotebookPreloadOutputResults = { preloadMessageType: 'preload' | 'display' };
 
 export interface IPositronWebviewPreloadService {
 	/**
@@ -52,8 +53,5 @@ export interface IPositronWebviewPreloadService {
 	 */
 	attachNotebookInstance(instance: IPositronNotebookInstance): void;
 
-	addNotebookOutput(outputs: {
-		outputId: string;
-		outputs: { mime: string; data: VSBuffer }[];
-	}): void;
+	addNotebookOutput(instance: IPositronNotebookInstance, outputId: string, outputs: { mime: string; data: VSBuffer }[]): NotebookPreloadOutputResults | undefined;
 }

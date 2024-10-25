@@ -14,7 +14,7 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { PositronNotebookCodeCell } from '../PositronNotebookCodeCell';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
 import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
 
 
@@ -42,7 +42,14 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	</NotebookCellWrapper>;
 }
 
-function CellOutput({ outputs, outputId, parsed }: NotebookCellOutputs) {
+function CellOutput(output: NotebookCellOutputs) {
+	if (output.preloadMessageResult) {
+
+		return <div>{output.preloadMessageResult.preloadMessageType === 'display' ? 'display' : 'preload'} message</div>;
+	}
+
+	const { parsed, outputId, outputs } = output;
+
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
 	}

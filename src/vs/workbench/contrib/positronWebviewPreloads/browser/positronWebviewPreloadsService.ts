@@ -5,7 +5,7 @@
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
+import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
@@ -110,15 +110,18 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	}
 
 	public attachNotebookInstance(instance: IPositronNotebookInstance): void {
-		console.log("Adding notebook instance to webview preloads knowledge", instance);
+		console.log('Adding notebook instance to webview preloads knowledge', instance);
 		const notebookLocation = instance.uri.toString();
 		if (this._notebookToDisposablesMap.has(notebookLocation)) {
-			return;
+			// Clear existing disposables
+			this._notebookToDisposablesMap.get(notebookLocation)?.dispose();
 		}
 
 		const disposables = new DisposableStore();
 		this._notebookToDisposablesMap.set(notebookLocation, disposables);
-		this._messagesByNotebookId.set(notebookLocation, []);
+
+		const messagesForNotebook: ILanguageRuntimeMessageWebOutput[] = [];
+		this._messagesByNotebookId.set(notebookLocation, messagesForNotebook);
 
 		// Start by processing every cell in order on initialization
 		console.log('instance cells', instance.cells.get());
@@ -128,15 +131,25 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	}
 
-	public addNotebookOutput({ outputId, outputs }: { outputId: string; outputs: { mime: string; data: VSBuffer }[] }): void {
+	public addNotebookOutput(instance: IPositronNotebookInstance, outputId: string, outputs: { mime: string; data: VSBuffer }[]): NotebookPreloadOutputResults | undefined {
+		const notebookMessages = this._messagesByNotebookId.get(instance.uri.toString());
+
+		if (!notebookMessages) {
+			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.uri.toString()} not found in messagesByNotebookId map.`);
+		}
+
 		// Check if we're working with a webview replay message
 		const mimeTypes = outputs.map(output => output.mime);
 		const isReplay = isWebviewReplayMessage(mimeTypes);
-
-		if (isReplay) {
-			// Got a replay message
-			console.log({ isReplay });
+		if (PositronWebviewPreloadService.isDisplayMessage(mimeTypes)) {
+			// Create a new plot client.
+			// this._createPlotClient(session, msg);
+			return { preloadMessageType: 'display' };
+		} else if (isReplay) {
+			return { preloadMessageType: 'preload' };
 		}
+
+		return undefined;
 	}
 	/**
 	 * Record a message to the store keyed by session.
@@ -148,7 +161,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
-		if (PositronWebviewPreloadService.isDisplayMessage(msg)) {
+		if (PositronWebviewPreloadService.isDisplayMessage(Object.keys(msg))) {
 			// Create a new plot client.
 			this._createPlotClient(session, msg);
 			return;
@@ -190,12 +203,15 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		this._onDidCreatePlot.fire(client);
 	}
 
-	static isDisplayMessage(msg: ILanguageRuntimeMessageOutput): boolean {
-		const isHoloViewsDisplayMessage = (MIME_TYPE_HOLOVIEWS_EXEC in msg.data &&
-			MIME_TYPE_HTML in msg.data &&
-			MIME_TYPE_PLAIN in msg.data);
+	static isDisplayMessage(mimeTypes: string[]): boolean {
 
-		const isBokehDisplayMessage = MIME_TYPE_BOKEH_EXEC in msg.data;
+		const isHoloViewsDisplayMessage = [
+			MIME_TYPE_HOLOVIEWS_EXEC,
+			MIME_TYPE_HTML,
+			MIME_TYPE_PLAIN,
+		].every(mime => mimeTypes.includes(mime));
+
+		const isBokehDisplayMessage = mimeTypes.includes(MIME_TYPE_BOKEH_EXEC);
 
 		return isHoloViewsDisplayMessage || isBokehDisplayMessage;
 	}
