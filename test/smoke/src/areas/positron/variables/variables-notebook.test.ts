@@ -7,10 +7,10 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Variables Pane - Notebook #pr #web', () => {
+describe('Variables Pane - Notebook', () => {
 
 	// This test fails on WEB: https://github.com/posit-dev/positron/issues/2452
-	describe('Python Notebook Variables Pane', () => {
+	describe('Python Notebook Variables Pane #pr', () => {
 		setupAndStartApp();
 
 		before(async function () {
@@ -36,7 +36,7 @@ describe('Variables Pane - Notebook #pr #web', () => {
 		});
 	});
 
-	describe('R Notebook Variables Pane', () => {
+	describe('R Notebook Variables Pane #pr #web', () => {
 		setupAndStartApp();
 
 		before(async function () {
