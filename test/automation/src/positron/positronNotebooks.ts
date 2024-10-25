@@ -18,6 +18,7 @@ const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
 const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
+const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
 const MARKDOWN_TEXT = '#preview';
@@ -29,7 +30,7 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
  */
 export class PositronNotebooks {
 	kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
-	frameLocator = this.code.driver.page.frameLocator('iframe').frameLocator(INNER_FRAME);
+	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 

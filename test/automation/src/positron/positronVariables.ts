@@ -6,7 +6,6 @@
 
 import { Code } from '../code';
 import * as os from 'os';
-import { IElement } from '../driver';
 import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
@@ -27,6 +26,7 @@ const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class PositronVariables {
+	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
 
 	constructor(private code: Code) { }
 
@@ -97,11 +97,6 @@ export class PositronVariables {
 
 	async collapseVariable(variableName: string) {
 		await this.toggleVariable({ variableName, action: 'collapse' });
-	}
-
-	async getVariablesInterpreter(): Promise<IElement> {
-		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
-		return interpreter;
 	}
 
 	/**
