@@ -15,8 +15,7 @@ describe('Variables Pane - Notebook #pr', () => {
 		await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
 	});
 
-	// WEB - is there a bug? The interpreter is always set to Python
-	// Don't worry, I'm coming back to fix this tomorrow!
+	// This test fails on WEB: https://github.com/posit-dev/positron/issues/2452
 	describe('Python Notebook Variables Pane', () => {
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
