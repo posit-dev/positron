@@ -540,6 +540,11 @@ export class PositronProxy implements Disposable {
 		server.on('upgrade', (req, socket, head) => {
 			log.trace(`upgrade event for ${serverOrigin}${req.url}`);
 			if (!process.env.RS_SERVER_URL) {
+				const date = new Date();
+				const fractionalSeconds = date.getMilliseconds().toString();
+				const dateString = date.toLocaleString("en-US", { timeZone: "America/New_York" });
+				const fullDateString = dateString.concat(` fractionalSeconds: ${fractionalSeconds}`);
+				console.log('[**PositronProxy] upgrade event for', serverOrigin + req.url + 'timestamp:', fullDateString);
 				requestHandler.upgrade!(req, socket, head);
 			} else {
 				// Send the request to the Workbench proxy server?

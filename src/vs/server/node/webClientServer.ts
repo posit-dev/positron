@@ -196,6 +196,11 @@ export class WebClientServer {
 	 */
 	async handleUpgrade(req: http.IncomingMessage, socket: any, upgradeHead: any, parsedUrl: string): Promise<void> {
 		const path: string = parsedUrl.replace('/proxy/', 'http://0.0.0.0:');
+		const date = new Date();
+		const fractionalSeconds = date.getMilliseconds().toString();
+		const dateString = date.toLocaleString("en-US", { timeZone: "America/New_York" });
+		const fullDateString = dateString.concat(` fractionalSeconds: ${fractionalSeconds}`);
+		console.log('[**WebClientServer] handleUpgrade', 'timestamp:', fullDateString, parsedUrl, '=>', path);
 		return this._proxyServer.ws(req, socket, upgradeHead, {
 			ignorePath: true,
 			target: path
