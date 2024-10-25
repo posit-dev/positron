@@ -13,12 +13,11 @@ describe('Python Applications #pr #win', () => {
 
 	describe('Python Applications', () => {
 		before(async function () {
-			await this.app.workbench.positronConsole.waitForReadyOrNoInterpreter();
-
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
 		});
 
 		afterEach(async function () {
+			await this.app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
 			await this.app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 
 			// unreliable on ubuntu:
@@ -28,63 +27,49 @@ describe('Python Applications #pr #win', () => {
 		});
 
 		it('Python - Verify Basic Dash App [C903305]', async function () {
-
 			this.retries(1);
-
 			const app = this.app as Application;
+			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
-
 			await app.workbench.positronEditor.pressPlay();
-
-			const headerLocator = app.workbench.positronViewer.getViewerLocator('#_dash-app-content');
-
-			await expect(headerLocator).toHaveText('Hello World', { timeout: 45000 });
-
+			await expect(viewer.getViewerFrame().getByText('Hello World')).toBeVisible({ timeout: 30000 });
 		});
 
 		// https://github.com/posit-dev/positron/issues/4949
 		// FastAPI is not working as expected on Ubuntu
 		it.skip('Python - Verify Basic FastAPI App [C903306]', async function () {
 			const app = this.app as Application;
+			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
-
 			await app.workbench.positronEditor.pressPlay();
-
-			const headerLocator = app.workbench.positronViewer.getViewerLocator('h2.title');
-
-			await expect(headerLocator).toContainText('FastAPI', { timeout: 45000 });
-
+			await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 		});
 
 		it('Python - Verify Basic Gradio App [C903307]', async function () {
 			const app = this.app as Application;
+			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
-
 			await app.workbench.positronEditor.pressPlay();
-
-			const headerLocator = app.workbench.positronViewer.getViewerLocator('button.primary');
-
-			await expect(headerLocator).toHaveText('Submit', { timeout: 45000 });
-
+			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
 		});
 
 		it('Python - Verify Basic Streamlit App [C903308] #web', async function () {
 			const app = this.app as Application;
+			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
-
 			await app.workbench.positronEditor.pressPlay();
 
-			const headerLocator = app.workbench.positronViewer.getViewerLocator('div.stAppDeployButton', this.app.web);
-
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await expect(headerLocator).toHaveText('Deploy', { timeout: 45000 });
+			const viewerFrame = viewer.getViewerFrame();
+			const headerLocator = this.app.web
+				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
+				: viewerFrame.getByRole('button', { name: 'Deploy' });
+			await expect(headerLocator).toBeVisible({ timeout: 30000 });
 			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
-
 		});
 	});
 });

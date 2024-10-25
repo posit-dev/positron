@@ -29,7 +29,8 @@ const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
-const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper, positronBuildNumber } = require('./gulpfile.vscode.web');
+const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
+const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
