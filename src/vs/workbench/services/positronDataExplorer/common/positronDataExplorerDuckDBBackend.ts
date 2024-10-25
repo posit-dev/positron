@@ -152,7 +152,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		return this._execRpc<TableSchema>({
 			method: DataExplorerBackendRequest.GetSchema,
 			uri: this.filePath,
-			params: { column_indices: columnIndices }
+			params: { column_indices: columnIndices } satisfies GetSchemaParams
 		});
 	}
 
@@ -163,7 +163,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 			params: {
 				columns,
 				format_options: formatOptions
-			}
+			} satisfies GetDataValuesParams
 		});
 	}
 
@@ -185,7 +185,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 			params: {
 				selection,
 				format
-			}
+			} satisfies ExportDataSelectionParams
 		});
 	}
 
@@ -193,7 +193,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		return this._execRpc<void>({
 			method: DataExplorerBackendRequest.SetColumnFilters,
 			uri: this.filePath,
-			params: { filters }
+			params: { filters } satisfies SetColumnFiltersParams
 		});
 	}
 
@@ -201,15 +201,15 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		return this._execRpc<FilterResult>({
 			method: DataExplorerBackendRequest.SetRowFilters,
 			uri: this.filePath,
-			params: { filters }
+			params: { filters } satisfies SetRowFiltersParams
 		});
 	}
 
 	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
 		return this._execRpc<void>({
-			method: DataExplorerBackendRequest.SetRowFilters,
+			method: DataExplorerBackendRequest.SetSortColumns,
 			uri: this.filePath,
-			params: { sort_keys: sortKeys }
+			params: { sort_keys: sortKeys } satisfies SetSortColumnsParams
 		});
 	}
 

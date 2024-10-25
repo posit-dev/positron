@@ -7,8 +7,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Variables Pane - Notebook #pr', () => {
-	setupAndStartApp();
+describe('Variables Pane - Notebook #pr #web', () => {
 
 	afterEach(async function () {
 		const app = this.app as Application;
@@ -17,6 +16,19 @@ describe('Variables Pane - Notebook #pr', () => {
 
 	// This test fails on WEB: https://github.com/posit-dev/positron/issues/2452
 	describe('Python Notebook Variables Pane', () => {
+		setupAndStartApp();
+
+		before(async function () {
+			await PositronPythonFixtures.SetupFixtures(this.app as Application);
+		});
+
+		after(async function () {
+
+			const app = this.app as Application;
+			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+
+			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
 
 		it('Verifies Variables pane basic function for notebook with python interpreter [C669188]', async function () {
 			const app = this.app as Application;
@@ -37,7 +49,20 @@ describe('Variables Pane - Notebook #pr', () => {
 		});
 	});
 
-	describe('R Notebook Variables Pane #web', () => {
+	describe('R Notebook Variables Pane', () => {
+		setupAndStartApp();
+
+		before(async function () {
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+		});
+
+		after(async function () {
+
+			const app = this.app as Application;
+			await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+
+			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
 
 		it('Verifies Variables pane basic function for notebook with R interpreter [C669189]', async function () {
 			const app = this.app as Application;
