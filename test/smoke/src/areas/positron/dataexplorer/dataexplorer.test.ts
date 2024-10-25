@@ -163,9 +163,19 @@ df2 = pd.DataFrame(data)`;
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
-			await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb'));
+			const filename = 'pandas-update-dataframe.ipynb';
+			await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
 			await app.workbench.notebook.focusFirstCell();
 			await app.workbench.notebook.executeActiveCell();
+
+			// temporary workaround for fact that variables group
+			// not properly autoselected on web
+			if (app.web) {
+				await app.code.driver.page.locator('.positron-variables-container .action-bar-button-text').click();
+				await app.code.driver.page.locator('a.action-menu-item', { hasText: filename }).isVisible();
+				await app.code.driver.page.locator('a.action-menu-item', { hasText: filename }).click();
+			}
+
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
@@ -204,8 +214,12 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	// There is a known issue with the data explorer tests causing them to intermittently fail:
-	// https://github.com/posit-dev/positron/issues/4663
+});
+
+
+describe('Data Explorer #web #win', () => {
+	logger = setupAndStartApp();
+
 	describe('Python Polars Data Explorer #pr', () => {
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -346,6 +360,12 @@ df2 = pd.DataFrame(data)`;
 
 		});
 	});
+
+});
+
+
+describe('Data Explorer #web #win', () => {
+	logger = setupAndStartApp();
 
 	describe('R Data Explorer', () => {
 
