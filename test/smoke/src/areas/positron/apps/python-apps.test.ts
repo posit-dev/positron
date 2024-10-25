@@ -17,6 +17,7 @@ describe('Python Applications #pr #win', () => {
 		});
 
 		afterEach(async function () {
+			await this.app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
 			await this.app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 
 			// unreliable on ubuntu:
@@ -68,6 +69,7 @@ describe('Python Applications #pr #win', () => {
 				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
 				: viewerFrame.getByRole('button', { name: 'Deploy' });
 			await expect(headerLocator).toBeVisible({ timeout: 30000 });
+			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 	});
 });
