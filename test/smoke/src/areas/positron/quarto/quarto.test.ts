@@ -45,10 +45,10 @@ describe('Quarto #web', () => {
 
 	it('should be able to generate preview [C842891]', async function () {
 		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
-		const viewerFrame = app.workbench.positronViewer.getViewerFrame('//iframe');
 
-		// verify preview displays
-		expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
+		const previewHeader = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe').locator('h1');
+		await expect(previewHeader).toBeVisible({ timeout: 20000 });
+		await expect(previewHeader).toHaveText('Diamond sizes');
 	});
 });
 
