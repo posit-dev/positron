@@ -19,19 +19,11 @@ export class PositronViewer {
 
 	constructor(private code: Code) { }
 
-	getViewerLocator(locator: string, { nestedFrame }: { nestedFrame?: string } = {}): Locator {
-		if (nestedFrame) {
-			return this.viewerFrame.frameLocator(nestedFrame).locator(locator);
-		}
-
+	getViewerLocator(locator: string,): Locator {
 		return this.viewerFrame.locator(locator);
 	}
 
-	getViewerFrame(nestedFrame?: string): FrameLocator {
-		if (nestedFrame) {
-			return this.viewerFrame.frameLocator(nestedFrame);
-		}
-
+	getViewerFrame(): FrameLocator {
 		return this.viewerFrame;
 	}
 
