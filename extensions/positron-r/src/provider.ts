@@ -405,18 +405,26 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 	return cachedRBinary;
 }
 
+let cachedRBinaryFromPATH: string | undefined;
+
 async function findRBinaryFromPATH(): Promise<string | undefined> {
+	if (cachedRBinaryFromPATH !== undefined) {
+		return cachedRBinaryFromPATH;
+	}
+
 	const whichR = await which('R', { nothrow: true }) as string;
 	if (whichR) {
 		LOGGER.info(`Possibly found R on PATH: ${whichR}.`);
 		if (os.platform() === 'win32') {
-			return await findRBinaryFromPATHWindows(whichR);
+			cachedRBinaryFromPATH = await findRBinaryFromPATHWindows(whichR);
 		} else {
-			return await findRBinaryFromPATHNotWindows(whichR);
+			cachedRBinaryFromPATH = await findRBinaryFromPATHNotWindows(whichR);
 		}
 	} else {
-		return undefined;
+		cachedRBinaryFromPATH = undefined;
 	}
+
+	return cachedRBinaryFromPATH;
 }
 
 export async function findRBinaryFromPATHWindows(whichR: string): Promise<string | undefined> {
