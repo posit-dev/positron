@@ -17,19 +17,6 @@ const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
 const isPositronWeb = vscode.env.uiKind === vscode.UIKind.Web;
 const isRunningOnPwb = !!process.env.RS_SERVER_URL && isPositronWeb;
 
-// Apps that should not be proxied via the Positron Proxy.
-const shouldUsePositronProxy = (appName: string) => {
-	switch (appName.trim().toLowerCase()) {
-		case 'fastapi':
-			if (isRunningOnPwb) {
-				return false;
-			}
-			return true;
-		default:
-			return true;
-	}
-};
-
 type PositronProxyInfo = {
 	proxyPath: string;
 	externalUri: vscode.Uri;
@@ -484,5 +471,27 @@ async function showShellIntegrationNotSupportedMessage(): Promise<void> {
 		// Disable the prompt for future runs.
 		const runAppConfig = vscode.workspace.getConfiguration('positron.runApplication');
 		await runAppConfig.update('showShellIntegrationNotSupportedMessage', false, vscode.ConfigurationTarget.Global);
+	}
+}
+
+/**
+ * Check if the Positron proxy should be used for the given app.
+ * Generally, we should avoid skipping the proxy unless there is a good reason to do so, as the
+ * proxy gives us the ability to intercept requests and responses to the app, which is useful for
+ * things like debugging, applying styling or fixing up urls.
+ * @param appName The name of the app; indicated in extensions/positron-python/src/client/positron/webAppCommands.ts
+ * @returns Whether to use the Positron proxy for the app.
+ */
+function shouldUsePositronProxy(appName: string) {
+	switch (appName.trim().toLowerCase()) {
+		case 'fastapi':
+			// FastAPI apps don't work in Positron on Workbench when run through the proxy.
+			if (isRunningOnPwb) {
+				return false;
+			}
+			return true;
+		default:
+			// By default, proxy the app.
+			return true;
 	}
 }
