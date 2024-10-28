@@ -10,17 +10,27 @@ const { test: base, expect: playwrightExpect } = playwright;
 // Node.js built-in modules
 import { join } from 'path';
 import * as os from 'os';
+// eslint-disable-next-line local/code-import-patterns
+import { rename, rm, access, mkdir } from 'fs/promises';
+import { constants } from 'fs';
 import path = require('path');
 
 // Third-party packages
 import minimist = require('minimist');
+import { randomUUID } from 'crypto';
 
 // Local imports
 import { createLogger } from '../test-runner/logger';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
 import { createApp } from '../utils';
 
+const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
+const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
+const ARTIFACT_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
+const TEMP_LOGS_PATH = join(LOGS_ROOT_PATH, ARTIFACT_DIR, TEMP_DIR);
+const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', ARTIFACT_DIR, TEMP_DIR);
+let SPEC_NAME = '';
 
 export const test = base.extend<{
 	logger: Logger;
@@ -32,33 +42,39 @@ export const test = base.extend<{
 	rInterpreter: any;
 	pythonInterpreter: any;
 	restartApp: Application;
+	testName: string;
+	beforeEachTest: void;
+	afterEachTest: void;
 }, {
 	web: boolean;
 	options: any;
 	app: Application;
-
+	globalLogger: Logger;
+	beforeAllTests: any;
+	afterAllTests: any;
 }>({
 	web: [false, { scope: 'worker', option: true }],
 
-	options: [async ({ web }, use) => {
-		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
+	globalLogger: [async ({ }, use, workerInfo) => {
+		const logger = createLogger(TEMP_LOGS_PATH);
+
+		await use(logger);
+	}, { auto: true, scope: 'worker' }],
+
+	options: [async ({ web, globalLogger: logger }, use) => {
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const OPTS = minimist(process.argv.slice(2));
 
-		const suiteName = 'worker'; // Dynamic suite name logic here
-		const logsRootPath = join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
-		const crashesRootPath = join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
-		const logger = createLogger(logsRootPath);
 		const options = {
 			codePath: OPTS.build,
 			workspacePath: WORKSPACE_PATH,
 			userDataDir: join(TEST_DATA_PATH, 'd'),
 			extensionsPath: EXTENSIONS_PATH,
-			logger,
-			logsPath: join(logsRootPath, 'options-fixture'),
-			crashesPath: join(crashesRootPath, 'options-fixture'),
+			logger: logger,
+			logsPath: TEMP_LOGS_PATH,
+			crashesPath: SPEC_CRASHES_PATH,
 			verbose: OPTS.verbose,
 			remote: OPTS.remote,
 			web,
@@ -81,22 +97,20 @@ export const test = base.extend<{
 		await app.start();
 		await use(app);
 		await app.stop();
+
+		const CORRECT_LOGS_PATH = join(ROOT_PATH, '.build', 'logs', ARTIFACT_DIR, SPEC_NAME);
+		await moveAndOverwrite(TEMP_LOGS_PATH, CORRECT_LOGS_PATH);
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
 			const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-
-			// If current interpreter is not the requested one, switch it
 			if (!currentInterpreter.includes(interpreterName)) {
-
 				if (interpreterName === 'Python') {
 					await PositronPythonFixtures.SetupFixtures(app);
-					// console.log('Python interpreter started');
 				} else if (interpreterName === 'R') {
-					await PositronRFixtures.SetupFixtures(app); // Assuming PositronRFixtures is defined for R setup
-					// console.log('R interpreter started');
+					await PositronRFixtures.SetupFixtures(app);
 				}
 			}
 		};
@@ -117,7 +131,7 @@ export const test = base.extend<{
 
 		await use();
 
-		// After the test we can check whether the test passed or failed.
+		// if test failed, attach screenshot
 		if (testInfo.status !== testInfo.expectedStatus) {
 			const screenshot = await page.screenshot();
 			await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
@@ -131,14 +145,13 @@ export const test = base.extend<{
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
-		// Start tracing
+		// start tracing
 		const title = (testInfo.title || 'unknown').replace(/\s+/g, '-');
 		await app.startTracing(title);
 
-		// Run the test
 		await use(app);
 
-		// Stop tracing
+		// stop tracing
 		const tracePath = testInfo.outputPath(`${title}_trace.zip`);
 		await app.stopTracing(title, true, tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
@@ -153,20 +166,58 @@ export const test = base.extend<{
 		await use(app.code.driver.context);
 	},
 
-	logger: [async ({ app }, use, testInfo) => {
-		const LOGS_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-		const suiteName = testInfo.titlePath[0];
-
-		const logsRootPath = join(ROOT_PATH, '.build', 'logs', LOGS_DIR, suiteName);
-		// const crashesRootPath = join(ROOT_PATH, '.build', 'crashes', LOGS_DIR, suiteName);
-		const logger = createLogger(logsRootPath);
-
-		app.setLogger(logger);
-
-		// marie - add setLogger to application instance
-		await use(logger);
-	}, { auto: true, scope: 'test' }],
+	logger: async ({ globalLogger }, use) => {
+		await use(globalLogger);
+	},
 
 });
 
+test.beforeAll(async ({ logger }, testInfo) => {
+	SPEC_NAME = testInfo.titlePath[0];
+	logger.log('');
+	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
+	logger.log('');
+});
+
+test.beforeEach(async function ({ logger }, testInfo) {
+	logger.log('');
+	logger.log(`>>> Test start: '${testInfo.title ?? 'unknown'}' <<<`);
+	logger.log('');
+});
+
+test.afterEach(async function ({ logger }, testInfo) {
+	const failed = testInfo.status !== testInfo.expectedStatus;
+	const testTitle = testInfo.title;
+
+	logger.log('');
+	if (failed) {
+		logger.log(`>>> !!! FAILURE !!! Test end: '${testTitle}' !!! FAILURE !!! <<<`);
+	} else {
+		logger.log(`>>> Test end: '${testTitle}' <<<`);
+	}
+	logger.log('');
+});
+
+test.afterAll(async function ({ logger }, testInfo) {
+	logger.log('');
+	logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
+	logger.log('');
+});
+
 export { playwrightExpect as expect };
+
+async function moveAndOverwrite(sourcePath: string, destinationPath: string) {
+	try {
+		// Check if the destination exists and delete it if so
+		await access(destinationPath, constants.F_OK);
+		await rm(destinationPath, { recursive: true, force: true });
+	} catch {
+		// If destination doesn't exist, continue without logging
+	}
+
+	// Ensure the parent directory of the destination exists
+	await mkdir(path.dirname(destinationPath), { recursive: true });
+
+	// Rename source to destination
+	await rename(sourcePath, destinationPath);
+}
