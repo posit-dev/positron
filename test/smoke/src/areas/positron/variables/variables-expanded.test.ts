@@ -7,7 +7,7 @@ import { expect } from '@playwright/test';
 import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Variables - Expanded View #web #win', () => {
+describe('Variables - Expanded View #web', () => {
 	setupAndStartApp();
 
 	beforeEach(async function () {
