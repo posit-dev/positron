@@ -11,6 +11,7 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export interface PositronConnectionsServices {
@@ -22,6 +23,7 @@ export interface PositronConnectionsServices {
 	readonly keybindingService: IKeybindingService;
 	readonly connectionsService: IPositronConnectionsService;
 	readonly reactComponentContainer: IReactComponentContainer;
+	readonly layoutService: ILayoutService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

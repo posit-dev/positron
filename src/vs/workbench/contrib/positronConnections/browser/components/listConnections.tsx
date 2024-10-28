@@ -17,6 +17,7 @@ import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { languageIdToName } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigation';
 import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { showResumeConnectionModalDialog } from 'vs/workbench/contrib/positronConnections/browser/components/resumeConnectionModalDialog';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -61,7 +62,13 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				</div>
 				<div
 					className='col-action' style={{ width: `${26}px` }}
-					onMouseDown={() => setActiveInstanceId(itemProps.id)}
+					onMouseDown={() => {
+						if (itemProps.active) {
+							setActiveInstanceId(itemProps.id);
+						} else {
+							showResumeConnectionModalDialog(context);
+						}
+					}}
 				>
 					<div
 						className={`codicon codicon-arrow-circle-right`}

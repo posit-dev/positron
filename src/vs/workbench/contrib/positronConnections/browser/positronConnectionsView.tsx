@@ -26,6 +26,7 @@ import { PositronConnections } from 'vs/workbench/contrib/positronConnections/br
 import * as React from 'react';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -79,7 +80,8 @@ export class PositronConnectionsView
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService
+		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService,
+		@ILayoutService private readonly layoutService: ILayoutService
 	) {
 		super(
 			options,
@@ -132,6 +134,7 @@ export class PositronConnectionsView
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				connectionsService={this.connectionsService}
+				layoutService={this.layoutService}
 				reactComponentContainer={this}
 			/>
 		);
