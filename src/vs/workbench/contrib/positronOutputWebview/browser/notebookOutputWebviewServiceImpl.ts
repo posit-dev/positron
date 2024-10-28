@@ -102,12 +102,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createMultiMessageWebview({
-		runtime,
+		runtimeId,
 		preReqMessages,
 		displayMessage,
 		viewType
 	}: {
-		runtime: ILanguageRuntimeSession;
+		runtimeId: string;
 		preReqMessages: ILanguageRuntimeMessageWebOutput[];
 		displayMessage: ILanguageRuntimeMessageWebOutput;
 		viewType?: string;
@@ -124,7 +124,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		}
 		return this.createNotebookRenderOutput({
 			id: displayMessage.id,
-			runtime,
+			runtimeId,
 			displayMessageInfo: displayInfo,
 			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
 			viewType
@@ -151,7 +151,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			if (renderer) {
 				return this.createNotebookRenderOutput({
 					id,
-					runtime,
+					runtimeId: runtime.sessionId,
 					displayMessageInfo: { mimeType, renderer, output },
 					viewType
 				});
@@ -261,13 +261,13 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	private async createNotebookRenderOutput({
 		id,
-		runtime,
+		runtimeId,
 		displayMessageInfo,
 		preReqMessagesInfo,
 		viewType
 	}: {
 		id: string;
-		runtime: ILanguageRuntimeSession;
+		runtimeId: string;
 		displayMessageInfo: MessageRenderInfo;
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
@@ -356,7 +356,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			NotebookOutputWebview<IOverlayWebview>,
 			{
 				id,
-				sessionId: runtime.sessionId,
+				sessionId: runtimeId,
 				webview,
 				rendererMessaging: scopedRendererMessaging
 			},

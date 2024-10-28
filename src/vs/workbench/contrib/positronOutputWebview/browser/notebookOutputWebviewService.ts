@@ -65,7 +65,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 * This is useful for situations where a plot may have dependencies that are provided by
 	 * separate messages.
 	 *
-	 * @param opts.runtime The runtime that emitted the output
+	 * @param opts.runtimeId Unique ID for the runtime that emitted the output
 	 * @param opts.preReqMessages The messages linked to the final display output message that load the
 	 * required dependencies.
 	 * @param opts.displayMessage The message that triggered the plotting.
@@ -74,7 +74,7 @@ export interface IPositronNotebookOutputWebviewService {
 	 */
 	createMultiMessageWebview(opts:
 		{
-			runtime: ILanguageRuntimeSession;
+			runtimeId: string;
 			preReqMessages: ILanguageRuntimeMessageWebOutput[];
 			displayMessage: ILanguageRuntimeMessageWebOutput;
 			viewType?: string;

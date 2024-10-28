@@ -52,7 +52,7 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 			throw new Error('Webview already created. Dispose the existing webview first.');
 		}
 		const output = await this._notebookOutputWebviewService.createMultiMessageWebview({
-			runtime: this._session,
+			runtimeId: this._session.sessionId,
 			preReqMessages: this._preReqMessages,
 			displayMessage: this._displayMessage,
 			viewType: 'jupyter-notebook'

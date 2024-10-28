@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
@@ -18,6 +18,10 @@ import { IPositronNotebookInstance } from 'vs/workbench/services/positronNoteboo
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
 
+/**
+ * Format of output from a notebook cell
+ */
+type NotebookOutput = { outputId: string; outputs: { mime: string; data: VSBuffer }[] };
 export class PositronWebviewPreloadService extends Disposable implements IPositronWebviewPreloadService {
 	/** Needed for service branding in dependency injector. */
 	_serviceBrand: undefined;
@@ -111,17 +115,16 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	public attachNotebookInstance(instance: IPositronNotebookInstance): void {
 		console.log('Adding notebook instance to webview preloads knowledge', instance);
-		const notebookLocation = instance.uri.toString();
-		if (this._notebookToDisposablesMap.has(notebookLocation)) {
+		if (this._notebookToDisposablesMap.has(instance.id)) {
 			// Clear existing disposables
-			this._notebookToDisposablesMap.get(notebookLocation)?.dispose();
+			this._notebookToDisposablesMap.get(instance.id)?.dispose();
 		}
 
 		const disposables = new DisposableStore();
-		this._notebookToDisposablesMap.set(notebookLocation, disposables);
+		this._notebookToDisposablesMap.set(instance.id, disposables);
 
 		const messagesForNotebook: ILanguageRuntimeMessageWebOutput[] = [];
-		this._messagesByNotebookId.set(notebookLocation, messagesForNotebook);
+		this._messagesByNotebookId.set(instance.id, messagesForNotebook);
 
 		// Start by processing every cell in order on initialization
 		console.log('instance cells', instance.cells.get());
@@ -131,11 +134,28 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 	}
 
-	public addNotebookOutput(instance: IPositronNotebookInstance, outputId: string, outputs: { mime: string; data: VSBuffer }[]): NotebookPreloadOutputResults | undefined {
-		const notebookMessages = this._messagesByNotebookId.get(instance.uri.toString());
+	static notebookMessageToRuntimeOutput(message: NotebookOutput, kind: RuntimeOutputKind): ILanguageRuntimeMessageWebOutput {
+		return {
+			id: message.outputId,
+			type: LanguageRuntimeMessageType.Output,
+			event_clock: 0,
+			parent_id: '',
+			when: '',
+			kind,
+			output_location: undefined,
+			resource_roots: undefined,
+			data: message.outputs.reduce((acc, output) => {
+				acc[output.mime] = output.data.toString();
+				return acc;
+			}, {} as Record<string, any>)
+		};
+	}
+
+	public addNotebookOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']): NotebookPreloadOutputResults | undefined {
+		const notebookMessages = this._messagesByNotebookId.get(instance.id);
 
 		if (!notebookMessages) {
-			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.uri.toString()} not found in messagesByNotebookId map.`);
+			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.id} not found in messagesByNotebookId map.`);
 		}
 
 		// Check if we're working with a webview replay message
@@ -143,14 +163,52 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		const isReplay = isWebviewReplayMessage(mimeTypes);
 		if (PositronWebviewPreloadService.isDisplayMessage(mimeTypes)) {
 			// Create a new plot client.
-			// this._createPlotClient(session, msg);
+			this._createNotebookPlotClient(instance, PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
+
 			return { preloadMessageType: 'display' };
 		} else if (isReplay) {
+
+			// Store the message for later playback.
+			notebookMessages.push(PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
 			return { preloadMessageType: 'preload' };
 		}
 
 		return undefined;
 	}
+
+	/**
+	 * Create a plot client for a display message by replaying all the associated previous messages.
+	 * Alerts the plots pane that a new plot is ready.
+	 * @param runtime Runtime session associated with the message.
+	 * @param displayMessage The message to display.
+	 */
+	private async _createNotebookPlotClient(
+		instance: IPositronNotebookInstance,
+		displayMessage: ILanguageRuntimeMessageWebOutput,
+	) {
+		// Grab disposables for this session
+		const disposables = this._notebookToDisposablesMap.get(instance.id);
+		if (!disposables) {
+			throw new Error(`PositronWebviewPreloadService: Could not find disposables for notebook ${instance.id}`);
+		}
+
+		// Create a plot client and fire event letting plots pane know it's good to go.
+		const storedMessages = this._messagesByNotebookId.get(instance.id) ?? [];
+		console.log('storedMessages', storedMessages);
+		const output = await this._notebookOutputWebviewService.createMultiMessageWebview({
+			runtimeId: instance.id,
+			preReqMessages: storedMessages,
+			displayMessage: displayMessage,
+			viewType: 'jupyter-notebook'
+		});
+		console.log({ output });
+
+		// const client = disposables.add(new NotebookMultiMessagePlotClient(
+		// 	this._notebookOutputWebviewService, runtime, storedMessages, displayMessage,
+		// ));
+		// this._onDidCreatePlot.fire(client);
+	}
+
 	/**
 	 * Record a message to the store keyed by session.
 	 * @param session The session that the message is associated with.
