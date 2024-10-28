@@ -132,4 +132,11 @@ export class PositronVariables {
 
 		return result;
 	}
+
+	async selectVariablesGroup(name: string) {
+		await this.code.driver.page.locator('.positron-variables-container .action-bar-button-text').click();
+		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).isVisible();
+		await this.code.wait(500);
+		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).click();
+	}
 }
