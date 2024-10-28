@@ -33,10 +33,11 @@ export const R_DOCUMENT_SELECTORS = [
 enum BinarySource {
 	/* eslint-disable-next-line @typescript-eslint/naming-convention */
 	HQ = 'HQ',
-	adHoc = 'ad hoc locations',
+	adHoc = 'ad hoc location',
 	registry = 'Windows registry',
 	/* eslint-disable-next-line @typescript-eslint/naming-convention */
-	PATH = 'PATH'
+	PATH = 'PATH',
+	user = 'user-specified directory'
 }
 
 /**
@@ -50,12 +51,18 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	const binaries = new Map<string, BinarySource>();
 
 	// look for R executables in the well-known place(s) for R installations on this OS
-	const hqBinaries = discoverHQBinaries();
-	for (const b of hqBinaries) {
+	const systemHqBinaries = discoverHQBinaries(rHeadquarters());
+	for (const b of systemHqBinaries) {
 		binaries.set(b, BinarySource.HQ);
 	}
 
-	// other places we might find an R binary
+	// consult user-specified, HQ-like directories
+	const userHqBinaries = discoverHQBinaries(userRHeadquarters());
+	for (const b of userHqBinaries) {
+		binaries.set(b, BinarySource.user);
+	}
+
+	// other conventional places we might find an R binary (or a symlink to one)
 	const possibleBinaries = [
 		'/usr/bin/R',
 		'/usr/local/bin/R',
@@ -68,6 +75,18 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	for (const b of moreBinaries) {
 		if (!binaries.has(b)) {
 			binaries.set(b, BinarySource.adHoc);
+		}
+	}
+
+	// same as above but user-specified, ad hoc binaries
+	const userPossibleBinaries: string[] = vscode.workspace.getConfiguration('positron-r')
+		.get('customBinaries', []);
+	const userMoreBinaries = userPossibleBinaries
+		.filter(b => fs.existsSync(b))
+		.map(b => fs.realpathSync(b));
+	for (const b of userMoreBinaries) {
+		if (!binaries.has(b)) {
+			binaries.set(b, BinarySource.user);
 		}
 	}
 
@@ -251,9 +270,6 @@ function rHeadquarters(): string[] {
 			return [path.join('/opt', 'R')];
 		case 'win32': {
 			const paths = [
-				// @kevinushey likes to install R here because it does not require administrator
-				// privileges to access
-				'C:\\R',
 				path.join(process.env['ProgramW6432'] || 'C:\\Program Files', 'R')
 			];
 			if (process.env['LOCALAPPDATA']) {
@@ -266,20 +282,32 @@ function rHeadquarters(): string[] {
 	}
 }
 
+// directory(ies) where this user keeps R installations
+function userRHeadquarters(): string[] {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const userHqDirs = config.get<string[]>('customRootFolders');
+	if (userHqDirs && userHqDirs.length > 0) {
+		const formattedPaths = JSON.stringify(userHqDirs, null, 2);
+		LOGGER.info(`User-specified directories to scan for R installations:\n${formattedPaths}`);
+		return userHqDirs;
+	} else {
+		return [];
+	}
+}
+
 function firstExisting(base: string, fragments: string[]): string {
 	const potentialPaths = fragments.map(f => path.join(base, f));
 	const existingPath = potentialPaths.find(p => fs.existsSync(p));
 	return existingPath || '';
 }
 
-function discoverHQBinaries(): string[] {
-	const hqDirs = rHeadquarters()
-		.filter(dir => fs.existsSync(dir));
-	if (hqDirs.length === 0) {
+function discoverHQBinaries(hqDirs: string[]): string[] {
+	const existingHqDirs = hqDirs.filter(dir => fs.existsSync(dir));
+	if (existingHqDirs.length === 0) {
 		return [];
 	}
 
-	const versionDirs = hqDirs
+	const versionDirs = existingHqDirs
 		.map(hqDir => fs.readdirSync(hqDir).map(file => path.join(hqDir, file)))
 		// Windows: rig creates 'bin/', which is a directory of .bat files (at least, for now)
 		// https://github.com/r-lib/rig/issues/189
@@ -292,7 +320,7 @@ function discoverHQBinaries(): string[] {
 	// In the case that both (1) and (2) exist we prefer (1).
 	// (1) C:\Program Files\R\R-4.3.2\bin\x64\R.exe
 	// (2) C:\Program Files\R\R-4.3.2\bin\R.exe
-	// Assuming we support R >= 4.2, we don't need to consider bin\i386\R.exe.
+	// Because we require R >= 4.2, we don't need to consider bin\i386\R.exe.
 	const binaries = versionDirs
 		.map(vd => vd.map(x => firstExisting(x, binFragments())))
 		.flat()
@@ -400,6 +428,10 @@ export async function findCurrentRBinary(): Promise<string | undefined> {
 			return registryBinary;
 		}
 	}
+
+	// TODO: for macOS, this should arguably be whatever
+	// /Library/Frameworks/R.framework/Versions/Current/ resolves to
+	// that would remove overlap between `findCurrentBinary()` and `findRBinaryFromPATH()`
 
 	cachedRBinary = await findRBinaryFromPATH();
 	return cachedRBinary;
