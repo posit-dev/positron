@@ -148,7 +148,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Public Properties
 
-	id: string = `positron.notebook.instance.${PositronNotebookInstance._count++}`;
+	id: string;
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
@@ -246,6 +246,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	) {
 		super();
 
+		this.id = _input.resource.toString();
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
