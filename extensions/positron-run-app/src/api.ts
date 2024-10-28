@@ -93,7 +93,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Set up the proxy server for the application if applicable.
 		let urlPrefix = undefined;
-		let proxyInfo = undefined;
+		let proxyInfo: PositronProxyInfo | undefined;
 		if (shouldUsePositronProxy(options.name)) {
 			// Start the proxy server
 			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
@@ -232,7 +232,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Set up the proxy server for the application if applicable.
 		let urlPrefix = undefined;
-		let proxyInfo = undefined;
+		let proxyInfo: PositronProxyInfo | undefined;
 		if (shouldUsePositronProxy(options.name)) {
 			// Start the proxy server
 			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
