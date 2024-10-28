@@ -64,7 +64,7 @@ function logToFile(logFilePath: string, message: string): void {
  * @param err error
  */
 export function logErrorToFile(test: any, err: Error): void {
-	const LOGS_ROOT_PATH = process.env.LOGS_ROOT_PATH || 'LOGS_ROOT_PATH not set';
+	const LOGS_ROOT_PATH = process.env.LOGS_ROOT_PATH || 'LOGS_ROOT_PATH not set logger';
 
 	const fileName = path.basename(test.file);
 	const testLogPath = path.join(LOGS_ROOT_PATH, fileName, 'retry.log');
