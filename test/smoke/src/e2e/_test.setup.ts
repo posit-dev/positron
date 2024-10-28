@@ -120,7 +120,7 @@ export const test = base.extend<{
 		// After the test we can check whether the test passed or failed.
 		if (testInfo.status !== testInfo.expectedStatus) {
 			const screenshot = await page.screenshot();
-			await testInfo.attach('on-test-fail', { body: screenshot, contentType: 'image/png' });
+			await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
 		}
 
 		for (const screenshotPath of screenshots) {
@@ -131,7 +131,6 @@ export const test = base.extend<{
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
-		console.log('--> _setup tracing');
 		// Start tracing
 		const title = (testInfo.title || 'unknown').replace(/\s+/g, '-');
 		await app.startTracing(title);

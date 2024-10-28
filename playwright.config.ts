@@ -40,8 +40,6 @@ export default defineConfig<TestOptions>({
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
     // baseURL: 'http://127.0.0.1:3000',
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     headless: false,
     trace: 'off',
   },
@@ -49,11 +47,11 @@ export default defineConfig<TestOptions>({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'electron',
+      name: 'e2e: electron',
       use: { ...devices['Desktop Chrome'], web: false },
     },
     {
-      name: 'web',
+      name: 'e2e: browser',
       use: { ...devices['Desktop Chrome'], web: true },
     },
   ],

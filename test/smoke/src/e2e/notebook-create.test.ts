@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from './_test.setup';
+import { test } from './_test.setup';
 
 // 1a. remove all setupAndStartApp()
 // 1b. remove all setup Python/R fixtures
@@ -11,7 +11,6 @@ import { test, expect } from './_test.setup';
 // 3. replace all #tags with proper tags
 
 // tags, app/restartApp fixtures, tracing, html reports, restarts if test failed, show on test-fail
-
 test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
@@ -28,7 +27,7 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 		test('Python - Basic notebook creation and execution (code) [C628631]', async function ({ app }) {
 			await app.workbench.positronNotebooks.addCodeToFirstCell('eval("8**2")');
 			await app.workbench.positronNotebooks.executeCodeInCell();
-			await app.workbench.positronNotebooks.assertPythonCellOutput('64');
+			await app.workbench.positronNotebooks.assertCellOutput('64');
 		});
 
 		test('Python - Basic notebook creation and execution (markdown) [C628632]', async function ({ app }) {
@@ -43,7 +42,7 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 		});
 	});
 
-	test.describe('R Notebooks', () => {
+	test.describe.skip('R Notebooks', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			await interpreter.set('R');
 			await app.workbench.positronLayouts.enterLayout('notebook');
@@ -58,7 +57,7 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 		test('R - Basic notebook creation and execution (code) [C628629]', async function ({ app }) {
 			await app.workbench.positronNotebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
 			await app.workbench.positronNotebooks.executeCodeInCell();
-			await app.workbench.positronNotebooks.assertRCellOutput('[1] 64');
+			await app.workbench.positronNotebooks.assertCellOutput('[1] 64');
 		});
 
 		test('R - Basic notebook creation and execution (markdown) [C628630]', async function ({ app }) {

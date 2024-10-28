@@ -49,7 +49,6 @@ export class PlaywrightDriver {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
-		console.log('--> driver tracing: chunk');
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
 		} catch (error) {
@@ -70,7 +69,6 @@ export class PlaywrightDriver {
 				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
 				// --- End Positron ---
 			}
-
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
 		} catch (error) {
 			// Ignore
