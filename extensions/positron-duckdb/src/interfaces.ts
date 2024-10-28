@@ -1380,6 +1380,12 @@ export interface ReturnColumnProfilesParams {
 	 * Array of individual column profile results
 	 */
 	profiles: Array<ColumnProfileResult>;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
+
 }
 
 /**
@@ -1407,6 +1413,11 @@ export interface ReturnColumnProfilesEvent {
 	 * Array of individual column profile results
 	 */
 	profiles: Array<ColumnProfileResult>;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
 
 }
 

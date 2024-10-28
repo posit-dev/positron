@@ -40,6 +40,13 @@
 							"$ref": "#/components/schemas/column_profile_result"
 						}
 					}
+				},
+				{
+					"name": "error_message",
+					"description": "Optional error message if something failed to compute",
+					"schema": {
+						"type": "string"
+					}
 				}
 			]
 		}

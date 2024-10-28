@@ -1546,15 +1546,17 @@ async function createCommInterface() {
 				writeFileSync(tsOutputFile, ts, { encoding: 'utf-8' });
 
 				// Create the Rust output file
-				const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
-				let rust = '';
-				for await (const chunk of createRustComm(name, frontend, backend)) {
-					rust += chunk;
-				}
+				if (existsSync(rustOutputDir)) {
+					const rustOutputFile = path.join(rustOutputDir, `${name}_comm.rs`);
+					let rust = '';
+					for await (const chunk of createRustComm(name, frontend, backend)) {
+						rust += chunk;
+					}
 
-				// Write the output file
-				console.log(`Writing to ${rustOutputFile}`);
-				writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
+					// Write the output file
+					console.log(`Writing to ${rustOutputFile}`);
+					writeFileSync(rustOutputFile, rust, { encoding: 'utf-8' });
+				}
 
 				// Create the Python output file
 				const pythonOutputFile = path.join(pythonOutputDir, `${name}_comm.py`);

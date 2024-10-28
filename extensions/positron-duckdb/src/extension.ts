@@ -8,6 +8,12 @@ import {
 	BackendState,
 	ColumnDisplayType,
 	ColumnFilter,
+	ColumnFrequencyTable,
+	ColumnFrequencyTableParams,
+	ColumnHistogram,
+	ColumnHistogramParams,
+	ColumnHistogramParamsMethod,
+	ColumnProfileRequest,
 	ColumnProfileResult,
 	ColumnProfileType,
 	ColumnSchema,
@@ -33,6 +39,7 @@ import {
 	OpenDatasetParams,
 	OpenDatasetResult,
 	ReturnColumnProfilesEvent,
+	ReturnColumnProfilesParams,
 	RowFilter,
 	RowFilterType,
 	SetRowFiltersParams,
@@ -45,14 +52,17 @@ import {
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
+import * as fs from 'fs';
 import Worker from 'web-worker';
-import { Table, Vector } from 'apache-arrow';
+import { Int32, Int64, List, Struct, StructRowProxy, Table, Utf8, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
 const DEBUG_LOG = false;
 
 class DuckDBInstance {
+	runningQuery: Promise<any> = Promise.resolve();
+
 	constructor(readonly db: duckdb.AsyncDuckDB, readonly con: duckdb.AsyncDuckDBConnection) { }
 
 	static async create(ctx: vscode.ExtensionContext): Promise<DuckDBInstance> {
@@ -77,28 +87,29 @@ class DuckDBInstance {
 		await db.instantiate(bundle.mainModule);
 
 		const con = await db.connect();
-		await con.query('LOAD icu; SET TIMEZONE=\'UTC\';');
+		await con.query(`LOAD icu;
+		SET TIMEZONE=\'UTC\';
+		`);
 		return new DuckDBInstance(db, con);
 	}
 
-	async runQuery(query: string): Promise<Table<any> | string> {
+	async runQuery(query: string): Promise<Table<any>> {
+		await this.runningQuery;
 		try {
 			const startTime = Date.now();
-			if (DEBUG_LOG) {
-				console.log(`Executing:\n${query}`);
-			}
-			const result = await this.con.query(query);
+			this.runningQuery = this.con.query(query);
+
+			const result = await this.runningQuery;
 			const elapsedMs = Date.now() - startTime;
 			if (DEBUG_LOG) {
-				console.log(`Executed in ${elapsedMs} ms`);
+				console.log(`Took ${elapsedMs} ms to run:\n${query}`);
 			}
 			return result;
 		} catch (error) {
-			if (error instanceof Error) {
-				return error.message;
-			} else {
-				return JSON.stringify(error);
+			if (DEBUG_LOG) {
+				console.log(`Failed to execute:\n${query}`);
 			}
+			return Promise.reject(error);
 		}
 	}
 
@@ -183,7 +194,7 @@ const COMPARISON_OPS = new Map<FilterComparisonOp, string>([
 
 function makeWhereExpr(rowFilter: RowFilter): string {
 	const schema = rowFilter.column_schema;
-	const quotedName = `"${schema.column_name}"`;
+	const quotedName = quoteIdentifier(schema.column_name);
 	switch (rowFilter.filter_type) {
 		case RowFilterType.Compare: {
 			const params = rowFilter.params as FilterComparison;
@@ -240,6 +251,294 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 			const valuesLiteral = '[' + params.values.map((x) => formatLiteral(x, schema)).join(', ') + ']';
 			return `${quotedName} ${op} ${valuesLiteral}`;
 		}
+	}
+}
+
+function quoteIdentifier(fieldName: string) {
+	return `"${fieldName}"`;
+}
+
+function anyValue(unquotedName: string) {
+	return `ANY_VALUE(\"${unquotedName}\")`;
+}
+
+function alias(expr: string, aliasName: string) {
+	return `${expr} AS ${aliasName}`;
+}
+
+// This class organizes the business logic for computing the summary statistics to populate
+// the summary pane in the data explorer. Initially, I tried to compute everything in
+// one big SQL query (which requires a bunch of CTEs to compute histogram bin widths, and a CTE
+// for each histogram), but the performance was not good. So this first computes the necessary
+// summary statistics (min/max, IQR values, null counts), and then we generate further queries
+// to compute histograms, etc. with the computations to compute the bin ids, etc. hard coded.
+class ColumnProfileEvaluator {
+	private selectedFields: Set<string> = new Set();
+
+	private statsExprs: Set<string> = new Set([alias('COUNT(*)', 'num_rows')]);
+
+	constructor(
+		private readonly db: DuckDBInstance,
+		private readonly fullSchema: Array<SchemaEntry>,
+		private readonly tableName: string,
+		private readonly whereClause: string,
+		private readonly params: GetColumnProfilesParams
+	) { }
+
+	private collectStats(i: number, request: ColumnProfileRequest) {
+		const columnSchema = this.fullSchema[request.column_index];
+		const fieldName = columnSchema.column_name;
+		this.selectedFields.add(quoteIdentifier(fieldName));
+
+		for (const spec of request.profiles) {
+			switch (spec.profile_type) {
+				case ColumnProfileType.NullCount:
+					this.addNullCount(fieldName);
+					break;
+				case ColumnProfileType.LargeHistogram:
+				case ColumnProfileType.SmallHistogram: {
+					this.addHistogramStats(fieldName, spec.params as ColumnHistogramParams);
+				}
+				case ColumnProfileType.LargeFrequencyTable:
+				case ColumnProfileType.SmallFrequencyTable:
+					break;
+				case ColumnProfileType.SummaryStats:
+					break;
+			}
+		}
+	}
+
+	private addNullCount(fieldName: string) {
+		this.statsExprs.add(`COUNT(*) - COUNT("${fieldName}") AS "null_count_${fieldName}"`);
+	}
+
+	private addMinMax(fieldName: string) {
+		this.statsExprs.add(`MIN("${fieldName}") AS "min_${fieldName}"`);
+		this.statsExprs.add(`MAX("${fieldName}") AS "max_${fieldName}"`);
+	}
+
+	private addIqr(fieldName: string) {
+		this.statsExprs.add(
+			`APPROX_QUANTILE("${fieldName}", 0.75) - APPROX_QUANTILE("${fieldName}", 0.25)
+			AS "iqr_${fieldName}"`
+		);
+	}
+
+	private addHistogramStats(fieldName: string, params: ColumnHistogramParams) {
+		// const quotedName = quoteIdentifier(fieldName);
+
+		// Append the bin width support statistics and bin width expression
+		this.addMinMax(fieldName);
+		const minValue = `"min_${fieldName}"`;
+		const maxValue = `"max_${fieldName}"`;
+
+		switch (params.method) {
+			case ColumnHistogramParamsMethod.FreedmanDiaconis:
+				this.addIqr(fieldName);
+				break;
+			default:
+				// TODO: stats for other methods
+				break;
+		}
+	}
+
+	private async computeFreqTable(columnSchema: SchemaEntry,
+		params: ColumnFrequencyTableParams): Promise<ColumnFrequencyTable> {
+		const field = columnSchema.column_name;
+
+		const predicate = `"${field}" IS NOT NULL`;
+		const composedPred = this.whereClause !== '' ?
+			`${this.whereClause} AND ${predicate}` :
+			`WHERE ${predicate}`;
+		const result = await this.db.runQuery(`
+		WITH freq_table AS (
+			SELECT "${field}" AS value, COUNT(*) AS freq
+			FROM ${this.tableName} ${composedPred}
+			GROUP BY 1
+			ORDER BY 1 DESC
+			LIMIT ${params.limit}
+		)
+		SELECT value::VARCHAR AS value, freq
+		FROM freq_table;`) as Table<any>;
+
+		const values: string[] = [];
+		const counts: number[] = [];
+
+		for (const row of result.toArray()) {
+			values.push(row.value);
+			counts.push(Number(row.freq));
+		}
+
+		return { values, counts };
+	}
+
+	private async computeHistogram(columnSchema: SchemaEntry, params: ColumnHistogramParams,
+		stats: Map<string, any>): Promise<ColumnHistogram> {
+		const field = columnSchema.column_name;
+		// TODO: Computing histograms on large int64 number
+
+		// After everything works, we can work on computing all histograms as a one-shot for
+		// potentially better performance
+		const numRows = Number(stats.get('num_rows'));
+		const minValue = Number(stats.get(`min_${field}`));
+		const maxValue = Number(stats.get(`max_${field}`));
+
+		// Exceptional cases to worry about
+		// - Inf/-Inf values in min/max/iqr
+		// - NaN values
+		const peakToPeak = maxValue - minValue;
+
+		let binWidth = 0;
+		switch (params.method) {
+			case ColumnHistogramParamsMethod.Fixed: {
+				binWidth = peakToPeak / params.num_bins;
+				break;
+			}
+			case ColumnHistogramParamsMethod.FreedmanDiaconis: {
+				const iqr = Number(stats.get(`iqr_${field}`));
+				if (iqr > 0) {
+					binWidth = 2 * iqr * Math.pow(numRows, -1 / 3);
+				}
+				break;
+			}
+			case ColumnHistogramParamsMethod.Sturges: {
+				if (peakToPeak > 0) {
+					binWidth = peakToPeak / (Math.log2(numRows) + 1);
+				}
+				break;
+			}
+			case ColumnHistogramParamsMethod.Scott:
+			default:
+				// Not yet implemented
+				break;
+		}
+
+		const nullCount = Number(stats.get(`null_count_${field}`));
+		if (nullCount === numRows) {
+			return {
+				bin_edges: ['NULL', 'NULL'],
+				bin_counts: [nullCount],
+				quantiles: []
+			};
+		} else if (binWidth === 0) {
+			const predicate = `"${field}" IS NOT NULL`;
+			const composedPred = this.whereClause !== '' ?
+				`${this.whereClause} AND ${predicate}` :
+				`WHERE ${predicate}`;
+			const result = await this.db.runQuery(`SELECT "${field}"::VARCHAR AS value
+			FROM ${this.tableName} ${composedPred} LIMIT 1;`) as Table<any>;
+
+			const fixedValue = result.toArray()[0].value;
+
+			return {
+				bin_edges: [fixedValue, fixedValue],
+				bin_counts: [numRows - nullCount],
+				quantiles: []
+			};
+		}
+
+		// If number of bins from estimate is larger than the number passed by the UI,
+		// which is treated as a maximum # of bins, we use the lower number
+		let numBins = Math.min(Math.ceil(peakToPeak / binWidth), params.num_bins);
+
+		// For integer types, if the peak-to-peak range is larger than the # bins from the
+		// estimator, we use the p-t-p range instead for the number of bins
+		if (isInteger(columnSchema.column_type) && peakToPeak <= numBins) {
+			numBins = peakToPeak + 1;
+			binWidth = peakToPeak / numBins;
+		}
+
+		const result = await this.db.runQuery(`
+		SELECT FLOOR(("${field}" - ${minValue}) / ${binWidth})::INTEGER AS bin_id,
+			COUNT(*) AS bin_count
+		FROM ${this.tableName} ${this.whereClause}
+		GROUP BY 1;`);
+
+		const output: ColumnHistogram = {
+			bin_edges: [],
+			bin_counts: [],
+			quantiles: []
+		};
+		const histEntries: Map<number, number> = new Map(
+			result.toArray().map(entry => [entry.bin_id, entry.bin_count])
+		);
+		for (let i = 0; i < numBins; ++i) {
+			output.bin_edges.push((binWidth * i).toString());
+			output.bin_counts.push(Number(histEntries.get(i) ?? 0));
+		}
+
+		// Since the last bin edge is exclusive, we need to add its count to the last bin
+		output.bin_counts[numBins - 1] += Number(histEntries.get(numBins)) ?? 0;
+
+		// Compute the push the last bin
+		output.bin_edges.push((binWidth * numBins).toString());
+		return output;
+	}
+
+	async evaluate() {
+		for (let i = 0; i < this.params.profiles.length; ++i) {
+			this.collectStats(i, this.params.profiles[i]);
+		}
+
+		// Get all the needed summary statistics
+		const statsQuery = `SELECT ${Array.from(this.statsExprs).join(',\n')}
+		FROM ${this.tableName}${this.whereClause};`;
+
+		// Table with a single row containing all the computed statistics
+		const statsResult = await this.db.runQuery(statsQuery);
+
+		const stats = new Map<string, any>(statsResult.schema.names.map((value, index) => {
+			const child = statsResult.getChild(value)!;
+			return [value, child.get(0)] as [string, any];
+		}));
+
+		const results: Array<ColumnProfileResult> = [];
+		for (let i = 0; i < this.params.profiles.length; ++i) {
+			const request = this.params.profiles[i];
+
+			const columnSchema = this.fullSchema[request.column_index];
+			const field = columnSchema.column_name;
+
+			const numRows = Number(stats.get('num_rows'));
+
+			const result: ColumnProfileResult = {};
+			for (const spec of request.profiles) {
+				switch (spec.profile_type) {
+					case ColumnProfileType.NullCount:
+						result.null_count = Number(stats.get(`null_count_${field}`));
+						break;
+					case ColumnProfileType.LargeHistogram:
+					case ColumnProfileType.SmallHistogram:
+						result[spec.profile_type] = await this.computeHistogram(
+							columnSchema, spec.params as ColumnHistogramParams, stats
+						);
+						break;
+					case ColumnProfileType.LargeFrequencyTable:
+					case ColumnProfileType.SmallFrequencyTable:
+						result[spec.profile_type] = await this.computeFreqTable(
+							columnSchema, spec.params as ColumnFrequencyTableParams
+						);
+						break;
+					default:
+						break;
+				}
+			}
+			results.push(result);
+		}
+
+		return results;
+	}
+}
+
+function isInteger(duckdbName: string) {
+	switch (duckdbName) {
+		case 'TINYINT':
+		case 'SMALLINT':
+		case 'INTEGER':
+		case 'BIGINT':
+			return true;
+		default:
+			return false;
 	}
 }
 
@@ -332,7 +631,7 @@ export class DuckDBTableView {
 			}
 
 			const columnSchema = this.fullSchema[column.column_index];
-			const quotedName = `"${columnSchema.column_name}"`;
+			const quotedName = quoteIdentifier(columnSchema.column_name);
 
 			const smallRounded = `ROUND(${quotedName}, ${smallNumDigits})`;
 			const largeRounded = `ROUND(${quotedName}, ${largeNumDigits})`;
@@ -413,10 +712,6 @@ END`;
 		) t;`;
 
 		const queryResult = await this.db.runQuery(query);
-		if (typeof queryResult === 'string') {
-			// query error
-			return queryResult;
-		}
 
 		// Sanity checks
 		if (queryResult.numCols !== params.columns.length) {
@@ -558,6 +853,22 @@ END`;
 						{
 							profile_type: ColumnProfileType.NullCount,
 							support_status: SupportStatus.Supported
+						},
+						{
+							profile_type: ColumnProfileType.SmallHistogram,
+							support_status: SupportStatus.Supported
+						},
+						{
+							profile_type: ColumnProfileType.LargeHistogram,
+							support_status: SupportStatus.Supported
+						},
+						{
+							profile_type: ColumnProfileType.SmallFrequencyTable,
+							support_status: SupportStatus.Supported
+						},
+						{
+							profile_type: ColumnProfileType.LargeFrequencyTable,
+							support_status: SupportStatus.Supported
 						}
 					]
 				},
@@ -634,80 +945,30 @@ END`;
 	}
 
 	private async _evaluateColumnProfiles(params: GetColumnProfilesParams) {
-		const profileExprs: Array<string> = [];
-		const queryResultIds: Array<Array<number | undefined>> = [];
+		const evaluator = new ColumnProfileEvaluator(this.db,
+			this.fullSchema,
+			this.tableName,
+			this._whereClause,
+			params
+		);
 
-		let resultIndex = 0;
-		for (const request of params.profiles) {
-			const columnSchema = this.fullSchema[request.column_index];
-			const quotedName = `"${columnSchema.column_name}"`;
-			const resultIds: Array<number | undefined> = [];
-			request.profiles.map((profile, index) => {
-				let profileExpr;
-				switch (profile.profile_type) {
-					case ColumnProfileType.NullCount:
-						profileExpr = `COUNT(*) - COUNT(${quotedName})`;
-						break;
-					default:
-						// signal that no result is expected
-						resultIds.push(undefined);
-						return;
-				}
-				profileExprs.push(`${profileExpr} AS profile_${resultIndex} `);
-				resultIds.push(resultIndex++);
-			});
-			queryResultIds.push(resultIds);
-		}
-
-		let result;
-		if (profileExprs.length > 0) {
-			const profileQuery = `
-			SELECT ${profileExprs.join(',\n    ')}
-			FROM ${this.tableName}${this._whereClause};`;
-			result = await this.db.runQuery(profileQuery);
-			if (typeof result === 'string') {
-				// Query failed for some reason, need to return to UI
-				return;
-			}
-		} else {
-			// Do not run any malformed queries
-			result = undefined;
-		}
-
-		// Now need to populate the result
-		const response: ReturnColumnProfilesEvent = {
+		const outParams: ReturnColumnProfilesEvent = {
 			callback_id: params.callback_id,
-			profiles: params.profiles.map((request, requestIndex) => {
-				const outputIds = queryResultIds[requestIndex];
-				const requestResult: ColumnProfileResult = {};
-				request.profiles.map((spec, profIndex) => {
-					const outputIndex = outputIds[profIndex];
-
-					// A requested profile was not implemented, so we just skip it
-					if (outputIndex === undefined || result === undefined) {
-						return;
-					}
-
-					const profResult = result.getChildAt(outputIndex)?.get(0) as any;
-
-					// Now copy the result into its intended place
-					switch (spec.profile_type) {
-						case ColumnProfileType.NullCount:
-							requestResult.null_count = Number(profResult);
-							break;
-						default:
-							break;
-					}
-				});
-				return requestResult;
-			})
+			profiles: []
 		};
+		try {
+			outParams.profiles = await evaluator.evaluate();
+		} catch (error) {
+			// TODO: Add error message to ReturnColumnProfilesEvent and display in UI
+			const errorMessage = error instanceof Error ? error.message : 'unknown error';
+			console.log(`Failed to compute column profiles: ${errorMessage}`);
+		}
 
 		await vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
 				uri: this.uri,
 				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
-				params: response
+				params: outParams
 			} satisfies DataExplorerUiEvent
 		);
 	}
@@ -743,7 +1004,7 @@ END`;
 		const sortExprs = [];
 		for (const sortKey of this.sortKeys) {
 			const columnSchema = this.fullSchema[sortKey.column_index];
-			const quotedName = `"${columnSchema.column_name}"`;
+			const quotedName = quoteIdentifier(columnSchema.column_name);
 			const modifier = sortKey.ascending ? '' : ' DESC';
 			sortExprs.push(`${quotedName}${modifier}`);
 		}
@@ -762,14 +1023,8 @@ END`;
 		${whereClause};`;
 
 		const result = await this.db.runQuery(countStar);
-
-		let numRows: number;
-		if (typeof result === 'string') {
-			numRows = 0;
-		} else {
-			// The count comes back as BigInt
-			numRows = Number(result.toArray()[0].num_rows);
-		}
+		// The count comes back as BigInt
+		const numRows = Number(result.toArray()[0].num_rows);
 		return [numRows, numColumns];
 	}
 }
@@ -814,34 +1069,45 @@ export class DataExplorerRpcHandler {
 					return { error_message: `Unsupported file extension: ${fileExt}` };
 			}
 
+			const fileStats = fs.statSync(filePath);
+
+			// Depending on the size of the file, we use CREATE VIEW (less memory,
+			// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
+			// and especially given that Parquet files may materialize much larger than that appear
+			// on disk.
+			const VIEW_THRESHOLD = 10_000_000;
+			const catalogType = fileStats.size > VIEW_THRESHOLD ? 'VIEW' : 'TABLE';
+
 			scanQuery = `
-			CREATE TABLE ${tableName} AS
+			CREATE ${catalogType} ${tableName} AS
 			SELECT * FROM ${scanOperation};`;
 		}
 
-		let result = await this.db.runQuery(scanQuery);
 		let tableView;
-		if (typeof result === 'string') {
-			tableView = DuckDBTableView.getDisconnected(params.uri, result, this.db);
-		} else {
+		try {
+			let result = await this.db.runQuery(scanQuery);
 			const schemaQuery = `DESCRIBE ${tableName};`;
 			result = await this.db.runQuery(schemaQuery);
-			if (typeof result === 'string') {
-				return { error_message: result };
-			}
-
 			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+		} catch (error) {
+			const errorMessage = error instanceof Error ?
+				error.message : 'Unable to open for unknown reason';
+			tableView = DuckDBTableView.getDisconnected(params.uri, errorMessage, this.db);
+
 		}
 		this._uriToTableView.set(params.uri, tableView);
 		return {};
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
-		const resp = await this._dispatchRpc(rpc);
-		if (typeof resp === 'string') {
-			return { error_message: resp };
-		} else {
-			return { result: resp };
+		try {
+			return { result: await this._dispatchRpc(rpc) };
+		} catch (error) {
+			if (error instanceof Error) {
+				return { error_message: error.message };
+			} else {
+				return { error_message: `Unknown data explorer RPC error with with ${rpc.method}` };
+			}
 		}
 	}
 
