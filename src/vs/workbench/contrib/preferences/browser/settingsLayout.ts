@@ -46,6 +46,13 @@ export const tocData: ITOCEntry<string> = {
 			label: localize('textEditor', "Text Editor"),
 			settings: ['editor.*'],
 			children: [
+				// --- Start Positron ---
+				{
+					id: 'editor/actionBar',
+					label: localize('actionBar', "Action Bar"),
+					settings: ['editor.actionBar.*']
+				},
+				// --- End Positron ---
 				{
 					id: 'editor/cursor',
 					label: localize('cursor', "Cursor"),

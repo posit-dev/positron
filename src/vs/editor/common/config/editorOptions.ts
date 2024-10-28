@@ -194,6 +194,12 @@ export interface IEditorOptions {
 	 * Control the behavior of sticky scroll options
 	 */
 	stickyScroll?: IEditorStickyScrollOptions;
+	// --- Start Positron ---
+	/**
+	 * Control the behavior and rendering of the editor action bar.
+	 */
+	actionBar?: IEditorActionBarOptions;
+	// --- End Positron ---
 	/**
 	 * Control the behavior and rendering of the minimap.
 	 */
@@ -3068,6 +3074,74 @@ class EditorLineHeight extends EditorFloatOption<EditorOption.lineHeight> {
 
 //#endregion
 
+// --- Start Positron ---
+//#region action bar
+
+/**
+ * Configuration options for editor action bar.
+ */
+export interface IEditorActionBarOptions {
+	/**
+	 * Enable the editor action bar.
+	 * Defaults to false.
+	 */
+	enabled?: boolean;
+}
+
+/**
+ * @internal
+ */
+export type EditorActionBarOptions = Readonly<Required<IEditorActionBarOptions>>;
+
+/**
+ * EditorActionBar class.
+ */
+class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorActionBarOptions, EditorActionBarOptions> {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		/**
+		 * Default options for the editor action bar.
+		 */
+		const defaults: EditorActionBarOptions = {
+			enabled: false,
+		};
+
+		// Call the base class's constructor.
+		super(
+			EditorOption.actionBar,
+			'actionBar',
+			defaults,
+			{
+				'editor.actionBar.enabled': {
+					type: 'boolean',
+					default: defaults.enabled,
+					description: nls.localize('actionBar.enabled', "Controls whether the action bar should be enabled.")
+				}
+			}
+		);
+	}
+
+	/**
+	 * Validates an input object as an instance of EditorActionBarOptions.
+	 * @param _input The input object to validate.
+	 * @returns The validated EditorActionBarOptions object.
+	 */
+	public validate(_input: any): EditorActionBarOptions {
+		if (!_input || typeof _input !== 'object') {
+			return this.defaultValue;
+		}
+		const input = _input as IEditorActionBarOptions;
+		return {
+			enabled: boolean(input.enabled, this.defaultValue.enabled),
+		};
+	}
+}
+
+//#endregion
+// --- End Positron ---
+
 //#region minimap
 
 /**
@@ -5404,6 +5478,9 @@ export const enum EditorOption {
 	linkedEditing,
 	links,
 	matchBrackets,
+	// --- Start Positron ---
+	actionBar,
+	// --- End Positron ---
 	minimap,
 	mouseStyle,
 	mouseWheelScrollSensitivity,
@@ -5859,6 +5936,9 @@ export const EditorOptions = {
 		['always', 'near', 'never'] as const,
 		{ description: nls.localize('matchBrackets', "Highlight matching brackets.") }
 	)),
+	// --- Start Positron ---
+	actionBar: register(new EditorActionBar()),
+	// --- End Positron ---
 	minimap: register(new EditorMinimap()),
 	mouseStyle: register(new EditorStringEnumOption(
 		EditorOption.mouseStyle, 'mouseStyle',

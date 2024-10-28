@@ -21,6 +21,7 @@
 	cursor: pointer;
 	overflow: visible;
 	border-radius: 6px;
+	align-items: center;
 	box-sizing: border-box;
 	background: transparent;
 	color: var(--positronActionBar-foreground);
