@@ -20,7 +20,7 @@ export interface SchemaNavigationProps extends ViewsProps { }
 export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
 	const context = usePositronConnectionsContext();
-	const { height, activeInstanceId } = props;
+	const { height, activeInstanceId, setActiveInstanceId } = props;
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -54,12 +54,20 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			return;
 		}
 		const disposableStore = new DisposableStore();
+
 		disposableStore.add(activeInstance.onDidChangeEntries((entries) => {
 			setEntries(entries);
 		}));
+
+		disposableStore.add(activeInstance.onDidChangeStatus((active) => {
+			if (!active) {
+				setActiveInstanceId(undefined);
+			}
+		}));
+
 		activeInstance.refreshEntries();
 		return () => disposableStore.dispose();
-	}, [activeInstance]);
+	}, [activeInstance, setActiveInstanceId]);
 
 	const entries = childEntries.filter(item => item.level > 0);
 

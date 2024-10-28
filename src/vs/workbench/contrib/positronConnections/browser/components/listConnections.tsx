@@ -29,7 +29,8 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
 		disposableStore.add(context.connectionsService.onDidChangeConnections((connections) => {
-			setInstances(connections);
+			// Makes sure react recognises changes as this is a new array
+			setInstances([...connections]);
 		}));
 		return () => disposableStore.dispose();
 	}, [context.connectionsService]);

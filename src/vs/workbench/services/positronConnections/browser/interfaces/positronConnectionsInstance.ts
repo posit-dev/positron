@@ -30,6 +30,7 @@ export interface IPositronConnectionInstance extends IPositronConnectionItem {
 	refresh?(): Promise<void>;
 
 	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+	onDidChangeStatus: Event<boolean>;
 	refreshEntries(): Promise<void>;
 	getEntries(): IPositronConnectionEntry[];
 }

@@ -61,6 +61,9 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	private readonly onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>();
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
+	private readonly onDidChangeStatusEmitter = new Emitter<boolean>();
+	readonly onDidChangeStatus = this.onDidChangeStatusEmitter.event;
+
 	private _expanded: boolean = true;
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
@@ -94,7 +97,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		}));
 
 		this._register(this.client.onDidClose(() => {
-			this._active = false;
+			this.active = false;
 			this._expanded = false;
 			this._cache.refreshConnectionEntries();
 		}));
@@ -147,6 +150,11 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		return this._active;
 	}
 
+	set active(value: boolean) {
+		this._active = value;
+		this.onDidChangeStatusEmitter.fire(value);
+	}
+
 	get connect() {
 		if (!this.metadata.code) {
 			// No code, no connect method.
@@ -176,7 +184,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	get disconnect() {
-		if (!this._active) {
+		if (!this.active) {
 			// Not active, can't be disconected.
 			return undefined;
 		}
@@ -189,7 +197,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	get refresh() {
-		if (!this._active) {
+		if (!this.active) {
 			// Not active, can't be refreshed.
 			return undefined;
 		}
@@ -216,6 +224,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 	readonly kind: string = 'database';
 	readonly expanded: boolean | undefined = false;
 	readonly active: boolean = false;
+	readonly onDidChangeStatus = Event.None;
 
 	get connect() {
 		if (!this.metadata.code) {

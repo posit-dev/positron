@@ -144,6 +144,12 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.connections.push(instance);
 		}
 
+		instance.onDidChangeStatus(() => {
+			// We refresh the connections list whenever a connection changes its status
+			// Because we display that information in the connections view.
+			this.onDidChangeConnectionsEmitter.fire(this.connections);
+		});
+
 		// Whenever a new connection is added we also update the storage
 		this.saveConnectionsState();
 		this.onDidChangeConnectionsEmitter.fire(this.connections);
