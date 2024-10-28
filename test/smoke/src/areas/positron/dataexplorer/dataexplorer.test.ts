@@ -171,9 +171,7 @@ df2 = pd.DataFrame(data)`;
 			// temporary workaround for fact that variables group
 			// not properly autoselected on web
 			if (app.web) {
-				await app.code.driver.page.locator('.positron-variables-container .action-bar-button-text').click();
-				await app.code.driver.page.locator('a.action-menu-item', { hasText: filename }).isVisible();
-				await app.code.driver.page.locator('a.action-menu-item', { hasText: filename }).click();
+				await app.workbench.positronVariables.selectVariablesGroup(filename);
 			}
 
 			await expect(async () => {
