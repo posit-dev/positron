@@ -14,6 +14,22 @@ import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 // Regex to match a URL with the format http://localhost:1234/path
 const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
 
+const isPositronWeb = vscode.env.uiKind === vscode.UIKind.Web;
+const isRunningOnPwb = !!process.env.RS_SERVER_URL && isPositronWeb;
+
+// Apps that should not be proxied via the Positron Proxy.
+const shouldUsePositronProxy = (appName: string) => {
+	switch (appName.trim().toLowerCase()) {
+		case 'fastapi':
+			if (isRunningOnPwb) {
+				return false;
+			}
+			return true;
+		default:
+			return true;
+	}
+};
+
 type PositronProxyInfo = {
 	proxyPath: string;
 	externalUri: vscode.Uri;
@@ -88,12 +104,18 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
+		// Set up the proxy server for the application if applicable.
+		let urlPrefix = undefined;
+		let proxyInfo = undefined;
+		if (shouldUsePositronProxy(options.name)) {
+			// Start the proxy server
+			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
+			urlPrefix = proxyInfo.proxyPath;
+		}
+
 		// Get the terminal options for the application.
 		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
-		// Start the proxy server
-		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
-		log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
-		const urlPrefix = proxyInfo.proxyPath;
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
 		if (!terminalOptions) {
 			return;
@@ -221,11 +243,18 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			return;
 		}
 
+		// Set up the proxy server for the application if applicable.
+		let urlPrefix = undefined;
+		let proxyInfo = undefined;
+		if (shouldUsePositronProxy(options.name)) {
+			// Start the proxy server
+			proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
+			log.debug(`Proxy started for app at proxy path ${proxyInfo.proxyPath} with uri ${proxyInfo.externalUri.toString()}`);
+			urlPrefix = proxyInfo.proxyPath;
+		}
+
 		// Get the debug config for the application.
 		progress.report({ message: vscode.l10n.t('Getting debug configuration...') });
-		// Start the proxy server
-		const proxyInfo = await vscode.commands.executeCommand<PositronProxyInfo>('positronProxy.startPendingProxyServer');
-		const urlPrefix = proxyInfo.proxyPath;
 		const debugConfig = await options.getDebugConfiguration(runtime, document, urlPrefix);
 		if (!debugConfig) {
 			return;
@@ -328,7 +357,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 }
 
-async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, proxyInfo: PositronProxyInfo, urlPath?: string) {
+async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, proxyInfo?: PositronProxyInfo, urlPath?: string) {
 	// Wait for the server URL to appear in the terminal output, or a timeout.
 	const stream = execution.read();
 	const url = await raceTimeout(
@@ -360,14 +389,26 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 	const localUri = urlPath ?
 		vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
 
-	log.debug(`Viewing app at local uri: ${localUri} with external uri ${proxyInfo.externalUri.toString()}`);
-
-	// Finish the Positron proxy setup so that proxy middleware is hooked up.
-	await proxyInfo.finishProxySetup(localUri.toString());
-
-	// Preview the external URI.
 	// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
-	positron.window.previewUrl(proxyInfo.externalUri);
+	let previewUri = undefined;
+	if (proxyInfo) {
+		// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
+		// the urlPath appended to avoid issues where the app does not set the base url of the app
+		// or the base url of referenced assets correctly.
+		const applyWebPatch = isPositronWeb && !isRunningOnPwb;
+		const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
+
+		// Finish the Positron proxy setup so that proxy middleware is hooked up.
+		await proxyInfo.finishProxySetup(targetOrigin);
+		previewUri = !applyWebPatch && urlPath ? vscode.Uri.joinPath(proxyInfo.externalUri, urlPath) : proxyInfo.externalUri;
+	} else {
+		previewUri = await vscode.env.asExternalUri(localUri);
+	}
+
+	log.debug(`Viewing app at local uri: ${localUri.toString(true)} with external uri ${previewUri.toString(true)}`);
+
+	// Preview the app in the Viewer.
+	positron.window.previewUrl(previewUri);
 
 	return true;
 }
