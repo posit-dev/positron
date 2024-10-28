@@ -47,20 +47,14 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const [selectedId, setSelectedId] = useState<string>();
 	const activeInstance = context.connectionsService.getConnections().find(item => item.id === activeInstanceId);
 
-	console.log('connections', context.connectionsService.getConnections());
-	console.log('active instance', activeInstance);
-	console.log('entries', activeInstance?.getEntries());
-
 	const [childEntries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
 
 	useEffect(() => {
 		if (!activeInstance) {
 			return;
 		}
-
 		const disposableStore = new DisposableStore();
 		disposableStore.add(activeInstance.onDidChangeEntries((entries) => {
-			console.log('Received event', entries);
 			setEntries(entries);
 		}));
 		activeInstance.refreshEntries();
