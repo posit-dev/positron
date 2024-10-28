@@ -224,7 +224,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const hasSqlite3 = await installer.isInstalled(Product.sqlite3, this.interpreter);
             if (!hasSqlite3) {
                 throw new Error(
-                    `The Python sqlite3 extension is required but not installed for interpreter: ${this.interpreter?.displayName}. Missing the SQLite3 lib?`,
+                    `The Python sqlite3 extension is required but not installed for interpreter: ${this.interpreter?.displayName}. Missing the system library for SQLite?`,
                 );
             }
 
