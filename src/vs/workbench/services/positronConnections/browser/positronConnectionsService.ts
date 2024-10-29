@@ -62,7 +62,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 			const instance = new DisconnectedPositronConnectionsInstance(
 				metadata,
-				this.runtimeSessionService
+				this.runtimeSessionService,
+				this
 			);
 
 			this.addConnection(instance);
@@ -191,6 +192,11 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		});
 	}
 
+	log(message: string) {
+		// Currently everything is logged as error
+		this.logService.error(message);
+	}
+
 	removeConnection(id: string) {
 		const index = this.connections.findIndex((con) => {
 			return con.id === id;
@@ -216,6 +222,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		this.storageService.store(
 			'positron-connections',
 			this.connections.map((con) => {
+				console.log('storing con.metadata', con.metadata);
 				return con.metadata;
 			}),
 			StorageScope.WORKSPACE,

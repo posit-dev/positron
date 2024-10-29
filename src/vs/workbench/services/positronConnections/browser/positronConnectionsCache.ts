@@ -8,8 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronMinimalConnectionService } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
-
+import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export interface IPositronConnectionEntry {
 	/***
@@ -224,7 +223,7 @@ export class PositronConnectionsCache {
 	private _entries: IPositronConnectionEntry[] = [];
 
 	constructor(
-		private readonly service: IPositronMinimalConnectionService,
+		private readonly service: IPositronConnectionsService,
 		private readonly instance: IPositronConnectionInstance,
 	) { }
 

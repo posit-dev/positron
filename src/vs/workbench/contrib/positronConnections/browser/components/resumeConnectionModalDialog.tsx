@@ -11,13 +11,15 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import 'vs/css!./resumeConnectionModalDialog';
+import Severity from 'vs/base/common/severity';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
 
 export const showResumeConnectionModalDialog = (
 	services: PositronConnectionsServices,
-	activeInstanceId: string
+	activeInstanceId: string,
+	setActiveInstanceId: (id: string) => void
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -31,6 +33,7 @@ export const showResumeConnectionModalDialog = (
 			renderer={renderer}
 			services={services}
 			activeInstaceId={activeInstanceId}
+			setActiveInstanceId={setActiveInstanceId}
 		/>
 	);
 };
@@ -39,6 +42,7 @@ interface ResumeConnectionModalDialogProps {
 	readonly renderer: PositronModalReactRenderer;
 	readonly services: PositronConnectionsServices;
 	readonly activeInstaceId: string;
+	readonly setActiveInstanceId: (id: string) => void;
 }
 
 const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionModalDialogProps>) => {
@@ -79,13 +83,42 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		});
 	};
 
+	const resumeHandler = async () => {
+		if (!activeInstace.connect) {
+			return;
+		}
+
+		props.renderer.dispose();
+		const handle = services.notificationService.notify({
+			message: localize(
+				'positron.resumeConnectionModalDialog.connecting',
+				"Connecting to data source ({0})...",
+				activeInstace.metadata.name
+			),
+			severity: Severity.Info
+		});
+
+		try {
+			await activeInstace.connect();
+			props.setActiveInstanceId(activeInstace.id);
+		} catch (err) {
+			services.notificationService.error(err);
+		}
+
+		handle.close();
+	};
+
+	const cancelHandler = () => {
+		props.renderer.dispose();
+	};
+
 	return (
 		<div className='connections-resume-connection-modal'>
 			<PositronModalDialog
 				width={RESUME_CONNECTION_MODAL_DIALOG_WIDTH}
 				height={RESUME_CONNECTION_MODAL_DIALOG_HEIGHT}
 				title={(() => localize('positron.resumeConnectionModalDialog.title', "Resume Connection"))()}
-				onCancel={() => props.renderer.dispose()}
+				onCancel={cancelHandler}
 				renderer={props.renderer}
 			>
 				<ContentArea>
@@ -112,13 +145,20 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 								>
 									{(() => localize('positron.resumeConnectionModalDialog.copy', "Copy"))()}
 								</PositronButton>
-								<PositronButton className='button action-bar-button'>
+								<PositronButton
+									className='button action-bar-button'
+									onPressed={cancelHandler}
+								>
 									{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
 								</PositronButton>
 							</div>
 						</div>
 						<div className='footer'>
-							<PositronButton className='button action-bar-button default'>
+							<PositronButton
+								className='button action-bar-button default'
+								onPressed={resumeHandler}
+								disabled={!activeInstace.connect}
+							>
 								{(() => localize('positron.resumeConnectionModalDialog.resume', "Resume Connection"))()}
 							</PositronButton>
 						</div>

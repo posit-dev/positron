@@ -10,19 +10,13 @@ import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionIte
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILogService } from 'vs/platform/log/common/log';
 import { IPositronConnectionEntry, PositronConnectionsCache } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
-import { Severity, INotificationHandle } from 'vs/platform/notification/common/notification';
+import { Severity } from 'vs/platform/notification/common/notification';
+import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { DeferredPromise } from 'vs/base/common/async';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
-}
-
-export interface IPositronMinimalConnectionService {
-	runtimeSessionService: IRuntimeSessionService;
-	logService: ILogService;
-	onDidFocusEmitter: Emitter<void>;
-	notify: (message: string, severity: Severity) => INotificationHandle;
 }
 
 class BaseConnectionsInstance extends Disposable {
@@ -69,7 +63,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	private _children: IPositronConnectionItem[] | undefined;
 	_cache: PositronConnectionsCache;
 
-	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: IPositronMinimalConnectionService) {
+	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: IPositronConnectionsService) {
 		const object = new PositronConnectionsInstance(metadata, client, service);
 		if (!object.metadata.icon) {
 			try {
@@ -77,7 +71,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				// We just log the error
 				object.metadata.icon = await object.getIcon();
 			} catch (err: any) {
-				service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
+				service.log(`Failed to get icon for ${object.id}: ${err.message}`);
 			}
 		}
 		return object;
@@ -86,7 +80,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	private constructor(
 		metadata: ConnectionMetadata,
 		private readonly client: ConnectionsClientInstance,
-		readonly service: IPositronMinimalConnectionService,
+		readonly service: IPositronConnectionsService,
 	) {
 		super(metadata);
 		this._cache = new PositronConnectionsCache(this.service, this);
@@ -161,7 +155,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			return undefined;
 		}
 
-		return async () => {
+		return () => {
 			const language_id = this.metadata.language_id;
 			const session = this.service.runtimeSessionService.getConsoleSessionForLanguage(language_id);
 
@@ -174,12 +168,34 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 				throw new Error('No code to execute');
 			}
 
+			const out = new DeferredPromise<void>();
+
+			// When we execute the connection code, a new connection with the same id is added
+			// and thus this one gets disposed.
+			// Thus we observe the connections list until some connection with the same id
+			// is added.
+			const disposable = this.service.onDidChangeConnections((connections) => {
+				const connection = connections.find((connection) => connection.id === this.id);
+				if (connection && connection.active) {
+					out.complete();
+					disposable.dispose();
+				}
+			});
+
 			session.execute(
 				this.metadata.code,
 				this.metadata.name,
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue
 			);
+
+			setTimeout(() => {
+				// If the connection didn't complete in 5s, we reject.
+				disposable.dispose();
+				out.cancel();
+			}, 5000);
+
+			return out.p;
 		};
 	}
 
@@ -217,6 +233,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 	constructor(
 		metadata: ConnectionMetadata,
 		readonly runtimeSessionService: IRuntimeSessionService,
+		readonly connectionsService: IPositronConnectionsService
 	) {
 		super(metadata);
 	}
@@ -232,7 +249,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 			return undefined;
 		}
 
-		return async () => {
+		return () => {
 			const language_id = this.metadata.language_id;
 			const session = this.runtimeSessionService.getConsoleSessionForLanguage(language_id);
 
@@ -245,12 +262,30 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 				throw new Error('No code to execute');
 			}
 
+			const out = new DeferredPromise<void>();
+
+			const disposable = this.connectionsService.onDidChangeConnections((connections) => {
+				const connection = connections.find((connection) => connection.id === this.id);
+				if (connection && connection.active) {
+					out.complete();
+					disposable.dispose();
+				}
+			});
+
 			session.execute(
 				this.metadata.code,
 				this.metadata.name,
 				RuntimeCodeExecutionMode.Interactive,
 				RuntimeErrorBehavior.Continue
 			);
+
+			setTimeout(() => {
+				// If the connection didn't complete in 5s, we reject.
+				disposable.dispose();
+				out.cancel();
+			}, 5000);
+
+			return out.p;
 		};
 	}
 
@@ -308,7 +343,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 			try {
 				object._icon = await object.getIcon();
 			} catch (err: any) {
-				instance.service.logService.error(`Failed to get icon for ${object.id}: ${err.message}`);
+				instance.service.log(`Failed to get icon for ${object.id}: ${err.message}`);
 			}
 		}
 
