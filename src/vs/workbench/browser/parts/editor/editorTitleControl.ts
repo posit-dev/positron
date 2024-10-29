@@ -18,6 +18,9 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { MultiRowEditorControl } from 'vs/workbench/browser/parts/editor/multiRowEditorTabsControl';
 import { IReadonlyEditorGroupModel } from 'vs/workbench/common/editor/editorGroupModel';
 import { NoEditorTabsControl } from 'vs/workbench/browser/parts/editor/noEditorTabsControl';
+// --- Start Positron ---
+import { EditorActionBarControlFactory } from 'vs/workbench/browser/parts/editor/editorActionBarControl';
+// --- End Positron ---
 
 export interface IEditorTitleControlDimensions {
 
@@ -38,6 +41,12 @@ export class EditorTitleControl extends Themable {
 	private editorTabsControl: IEditorTabsControl;
 	private readonly editorTabsControlDisposable = this._register(new DisposableStore());
 
+	// --- Start Positron ---
+	private editorActionBarControlFactory: EditorActionBarControlFactory | undefined;
+	private readonly editorActionBarControlDisposable = this._register(new DisposableStore());
+	private get editorActionBarControl() { return this.editorActionBarControlFactory?.control; }
+	// --- End Positron ---
+
 	private breadcrumbsControlFactory: BreadcrumbsControlFactory | undefined;
 	private readonly breadcrumbsControlDisposables = this._register(new DisposableStore());
 	private get breadcrumbsControl() { return this.breadcrumbsControlFactory?.control; }
@@ -54,6 +63,9 @@ export class EditorTitleControl extends Themable {
 		super(themeService);
 
 		this.editorTabsControl = this.createEditorTabsControl();
+		// --- Start Positron ---
+		this.editorActionBarControlFactory = this.createEditorActionBarControlFactory();
+		// --- End Positron ---
 		this.breadcrumbsControlFactory = this.createBreadcrumbsControl();
 	}
 
@@ -75,6 +87,43 @@ export class EditorTitleControl extends Themable {
 		const control = this.instantiationService.createInstance(tabsControlType, this.parent, this.editorPartsView, this.groupsView, this.groupView, this.model);
 		return this.editorTabsControlDisposable.add(control);
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Creates the editor action bar control factory.
+	 * @returns The editor action bar control factory.
+	 */
+	private createEditorActionBarControlFactory(): EditorActionBarControlFactory | undefined {
+		// The editor action bar control factory is created when there are multiple tabs. Return if
+		// showTabs is not set to multiple.
+		if (this.groupsView.partOptions.showTabs !== 'multiple') {
+			return undefined;
+		}
+
+		// Create and add the editor action bar control container.
+		const editorActionBarControlContainer = document.createElement('div');
+		this.parent.appendChild(editorActionBarControlContainer);
+
+		// Create the editor action bar control factory.
+		const editorActionBarControlFactory = this.editorActionBarControlDisposable.add(
+			this.instantiationService.createInstance(
+				EditorActionBarControlFactory,
+				editorActionBarControlContainer,
+				this.groupView
+			)
+		);
+
+		// Add the onDidEnablementChange event handler.
+		this.editorActionBarControlDisposable.add(
+			editorActionBarControlFactory.onDidEnablementChange(() =>
+				this.groupView.relayout()
+			)
+		);
+
+		// Return the editor action bar control factory.
+		return editorActionBarControlFactory;
+	}
+	// --- End Positron ---
 
 	private createBreadcrumbsControl(): BreadcrumbsControlFactory | undefined {
 		if (this.groupsView.partOptions.showTabs === 'single') {
@@ -115,6 +164,9 @@ export class EditorTitleControl extends Themable {
 
 	private handleOpenedEditors(didChange: boolean): void {
 		if (didChange) {
+			// --- Start Positron ---
+			this.editorActionBarControl?.update();
+			// --- End Positron ---
 			this.breadcrumbsControl?.update();
 		} else {
 			this.breadcrumbsControl?.revealLast();
@@ -139,6 +191,9 @@ export class EditorTitleControl extends Themable {
 
 	private handleClosedEditors(): void {
 		if (!this.groupView.activeEditor) {
+			// --- Start Positron ---
+			this.editorActionBarControl?.update();
+			// --- End Positron ---
 			this.breadcrumbsControl?.update();
 		}
 	}
@@ -183,11 +238,17 @@ export class EditorTitleControl extends Themable {
 		) {
 			// Clear old
 			this.editorTabsControlDisposable.clear();
+			// --- Start Positron ---
+			this.editorActionBarControlDisposable.clear();
+			// --- End Positron ---
 			this.breadcrumbsControlDisposables.clear();
 			clearNode(this.parent);
 
 			// Create new
 			this.editorTabsControl = this.createEditorTabsControl();
+			// --- Start Positron ---
+			this.editorActionBarControlFactory = this.createEditorActionBarControlFactory();
+			// --- End Positron ---
 			this.breadcrumbsControlFactory = this.createBreadcrumbsControl();
 		}
 
@@ -202,6 +263,11 @@ export class EditorTitleControl extends Themable {
 		// Layout tabs control
 		const tabsControlDimension = this.editorTabsControl.layout(dimensions);
 
+		// --- Start Positron ---
+		// Get the editor action bar height.
+		const editorActionBarHeight = this.editorActionBarControlFactory?.control?.height ?? 0;
+		// --- End Positron ---
+
 		// Layout breadcrumbs if visible
 		let breadcrumbsControlDimension: Dimension | undefined = undefined;
 		if (this.breadcrumbsControl?.isHidden() === false) {
@@ -209,18 +275,32 @@ export class EditorTitleControl extends Themable {
 			this.breadcrumbsControl.layout(breadcrumbsControlDimension);
 		}
 
+		// --- Start Positron ---
 		return new Dimension(
 			dimensions.container.width,
-			tabsControlDimension.height + (breadcrumbsControlDimension ? breadcrumbsControlDimension.height : 0)
+			// --- Start Positron ---
+			// Add the action bar height.
+			tabsControlDimension.height +
+			editorActionBarHeight +
+			(breadcrumbsControlDimension ? breadcrumbsControlDimension.height : 0)
+			// --- End Positron ---
 		);
+		// --- End Positron ---
 	}
 
 	getHeight(): IEditorGroupTitleHeight {
 		const tabsControlHeight = this.editorTabsControl.getHeight();
+		// --- Start Positron ---
+		// Get the editor action bar height.
+		const editorActionBarHeight = this.editorActionBarControlFactory?.control?.height ?? 0;
+		// --- End Positron ---
 		const breadcrumbsControlHeight = this.breadcrumbsControl?.isHidden() === false ? BreadcrumbsControl.HEIGHT : 0;
 
 		return {
-			total: tabsControlHeight + breadcrumbsControlHeight,
+			// --- Start Positron ---
+			// Add the action bar height.
+			total: tabsControlHeight + editorActionBarHeight + breadcrumbsControlHeight,
+			// --- End Positron ---
 			offset: tabsControlHeight
 		};
 	}

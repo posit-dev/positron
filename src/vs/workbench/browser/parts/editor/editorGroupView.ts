@@ -58,6 +58,9 @@ import { IEditorResolverService } from 'vs/workbench/services/editor/common/edit
 import { IHostService } from 'vs/workbench/services/host/browser/host';
 import { DiffEditorInput } from 'vs/workbench/common/editor/diffEditorInput';
 import { FileSystemProviderCapabilities, IFileService } from 'vs/platform/files/common/files';
+// --- Start Positron ---
+import { EditorActionBarControlFactory } from 'vs/workbench/browser/parts/editor/editorActionBarControl';
+// --- End Positron ---
 
 export class EditorGroupView extends Themable implements IEditorGroupView {
 
@@ -122,6 +125,12 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 
 	private readonly resourceContext: ResourceContextKey;
 
+	// --- Start Positron ---
+	private editorActionBarControlContainer: HTMLElement | undefined;
+	private editorActionBarControlFactory: EditorActionBarControlFactory | undefined;
+	private readonly editorActionBarControlDisposable = this._register(new DisposableStore());
+	// --- End Positron ---
+
 	private readonly titleContainer: HTMLElement;
 	private readonly titleControl: EditorTitleControl;
 
@@ -180,6 +189,11 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 
 			// Container
 			this.element.classList.add(...coalesce(['editor-group-container', this.model.isLocked ? 'locked' : undefined]));
+
+			// --- Start Positron ---
+			// Manage the editor action bar.
+			this.manageEditorActionBar();
+			// --- End Positron ---
 
 			// Container listeners
 			this.registerContainerListeners();
@@ -402,6 +416,55 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 			}
 		}));
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Manages the editor action bar.
+	 */
+	private manageEditorActionBar(): void {
+		if (this.groupsView.partOptions.showTabs === 'multiple') {
+			// Destroy the editor action bar control factory.
+			if (this.editorActionBarControlFactory) {
+				this.editorActionBarControlDisposable.clear();
+				this.editorActionBarControlFactory = undefined;
+			}
+
+			// Destroy the editor action bar control container.
+			if (this.editorActionBarControlContainer) {
+				this.editorActionBarControlContainer.remove();
+				this.editorActionBarControlContainer = undefined;
+			}
+		} else {
+			// Create the editor action bar control container. This container is used to position
+			// the editor action bar control above the title container.
+			if (!this.editorActionBarControlContainer) {
+				this.editorActionBarControlContainer = document.createElement('div');
+				this.element.insertBefore(
+					this.editorActionBarControlContainer,
+					this.element.firstChild
+				);
+			}
+
+			// Create the editor action bar control factory.
+			if (!this.editorActionBarControlFactory) {
+				this.editorActionBarControlFactory = this.editorActionBarControlDisposable.add(
+					this.instantiationService.createInstance(
+						EditorActionBarControlFactory,
+						this.editorActionBarControlContainer,
+						this
+					)
+				);
+
+				// Add the onDidEnablementChange event handler.
+				this.editorActionBarControlDisposable.add(
+					this.editorActionBarControlFactory.onDidEnablementChange(() =>
+						this.relayout()
+					)
+				);
+			}
+		}
+	}
+	// --- End Positron ---
 
 	private createContainerToolbar(): void {
 
@@ -2186,19 +2249,32 @@ export class EditorGroupView extends Themable implements IEditorGroupView {
 		this.element.classList.toggle('max-height-400px', height <= 400);
 		// --- End Positron ---
 
+		// --- Start Positron ---
+		// Manage the editor action bar and get its height.
+		this.manageEditorActionBar();
+		const editorActionBarHeight = this.editorActionBarControlFactory?.control?.height ?? 0;
+		// --- End Positron ---
+
 		// Layout the title control first to receive the size it occupies
 		const titleControlSize = this.titleControl.layout({
 			container: new Dimension(width, height),
 			available: new Dimension(width, height - this.editorPane.minimumHeight)
 		});
 
+		// --- Start Positron ---
 		// Update progress bar location
-		this.progressBar.getContainer().style.top = `${Math.max(this.titleHeight.offset - 2, 0)}px`;
+		this.progressBar.getContainer().style.top = `${Math.max(editorActionBarHeight + this.titleHeight.offset - 2, 0)}px`;
 
 		// Pass the container width and remaining height to the editor layout
-		const editorHeight = Math.max(0, height - titleControlSize.height);
+		const editorHeight = Math.max(0, height - editorActionBarHeight - titleControlSize.height);
 		this.editorContainer.style.height = `${editorHeight}px`;
-		this.editorPane.layout({ width, height: editorHeight, top: top + titleControlSize.height, left });
+		this.editorPane.layout({
+			width,
+			height: editorHeight,
+			top: top + editorActionBarHeight + titleControlSize.height,
+			left
+		});
+		// --- End Positron ---
 	}
 
 	relayout(): void {
