@@ -25,7 +25,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
-import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { checkIfPathValid, isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * Shows the new folder modal dialog.
@@ -138,6 +138,9 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
 			catchErrors
 			onAccept={async () => {
+				if (isInputEmpty(result.folder)) {
+					throw new Error(localize('positron.folderNameNotProvided', "A folder name was not provided."));
+				}
 				await props.createFolder(result);
 				props.renderer.dispose();
 			}}

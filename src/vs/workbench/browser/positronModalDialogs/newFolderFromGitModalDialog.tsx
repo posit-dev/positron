@@ -25,6 +25,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
+import { isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * Shows the new folder from Git modal dialog.
@@ -142,6 +143,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 			))()}
 			catchErrors
 			onAccept={async () => {
+				if (isInputEmpty(result.repo)) {
+					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
+				}
 				await props.createFolder(result);
 				props.renderer.dispose();
 			}}
