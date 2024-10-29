@@ -49,19 +49,18 @@ class BaseConnectionsInstance extends Disposable {
 
 export class PositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 
-	readonly onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
-	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
-
 	private readonly onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>();
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
 	private readonly onDidChangeStatusEmitter = new Emitter<boolean>();
 	readonly onDidChangeStatus = this.onDidChangeStatusEmitter.event;
 
-	private _expanded: boolean = true;
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
 	_cache: PositronConnectionsCache;
+
+	// Connection instances are always expanded
+	public readonly expanded = true;
 
 	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: IPositronConnectionsService) {
 		const object = new PositronConnectionsInstance(metadata, client, service);
@@ -85,15 +84,8 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		super(metadata);
 		this._cache = new PositronConnectionsCache(this.service, this);
 
-		this._register(this.onToggleExpand(() => {
-			this._expanded = !this._expanded;
-			this._cache.refreshConnectionEntries();
-		}));
-
 		this._register(this.client.onDidClose(() => {
 			this.active = false;
-			this._expanded = false;
-			this._cache.refreshConnectionEntries();
 		}));
 
 		this._register(this.client.onDidFocus(() => {
@@ -108,7 +100,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	async refreshEntries() {
 		try {
 			await this._cache.refreshConnectionEntries();
-			this.onDidChangeEntriesEmitter.fire(this._cache.entries);
 		} catch (err) {
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
@@ -134,10 +125,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			}));
 		}
 		return this._children;
-	}
-
-	get expanded() {
-		return this._expanded;
 	}
 
 	get active() {

@@ -77,8 +77,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<div className='positron-connections-schema-navigation'>
 				<ActionBar
 					{...context}
-					selectedEntry={undefined}
-					clearAllHandler={() => context.connectionsService.clearAllConnections()}
+					disconnectHandler={() => { }}
+					refreshHandler={() => { }}
 					backHandler={() => props.setActiveInstanceId(undefined)}
 				>
 				</ActionBar>
@@ -103,8 +103,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
 				{...context}
-				selectedEntry={entries.find((item) => item.id === selectedId)}
-				clearAllHandler={() => context.connectionsService.clearAllConnections()}
+				disconnectHandler={() => activeInstance.disconnect?.()}
+				refreshHandler={() => activeInstance.refresh?.()}
 				backHandler={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
@@ -256,11 +256,6 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				onMouseDown={rowMouseDownHandler}
 			>
 				<span className='connections-name'>{props.item.name}</span>
-				{
-					props.item.language_id ?
-						<span className='connections-language'>{languageIdToName(props.item.language_id)}</span> :
-						<></>
-				}
 				{
 					props.item.dtype ?
 						<span className='connections-dtype'>{props.item.dtype}</span> :

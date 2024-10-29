@@ -20,7 +20,6 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 
 import 'vs/css!./actionBar';
-import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
@@ -36,30 +35,12 @@ interface ActionBarProps {
 }
 
 interface ConnectionActionBarProps extends ActionBarProps {
-	selectedEntry: IPositronConnectionEntry | undefined;
+	disconnectHandler: () => void;
 	backHandler: () => void;
-	clearAllHandler: () => void;
+	refreshHandler: () => void;
 }
 
 export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProps>) => {
-
-	// We only enable the disconnect button if:
-	// 1. there's some connection selected
-	// 2. it's the root of a connection (level == 0).
-	// 3. the connection is active.
-	const disconnectDisabled = props.selectedEntry === undefined ||
-		props.selectedEntry.level !== 0 ||
-		!props.selectedEntry.active;
-
-	// We only enable the connect button if:
-	// 1. there's some connection selected
-	// 2. it's the root of a connection (level == 0).
-	// 3. the connection is not active.
-	// 4. it implements a 'connect' method.
-	const connectDisabled = props.selectedEntry === undefined ||
-		props.selectedEntry.level !== 0 ||
-		props.selectedEntry.active ||
-		props.selectedEntry.connect === undefined;
 
 	return (
 		<div style={{ height: ACTION_BAR_HEIGHT }}>
@@ -78,33 +59,19 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 							tooltip={() => 'Back'}
 							onPressed={() => props.backHandler()}
 						/>
-						<ActionBarButton
-							align='left'
-							iconId='positron-new-connection'
-							tooltip={() => 'Connect'}
-							disabled={connectDisabled}
-							onPressed={() => props.selectedEntry?.connect?.()}
-						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='positron-disconnect-connection'
 							text='Disconnect'
-							disabled={disconnectDisabled}
-							onPressed={() => props.selectedEntry?.disconnect?.()}
+							onPressed={() => props.disconnectHandler()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='refresh'
-							onPressed={() => props.selectedEntry?.refresh?.()}
-							disabled={props.selectedEntry === undefined || props.selectedEntry.refresh === undefined || !props.selectedEntry.active}
-						/>
-						<ActionBarSeparator />
-						<ActionBarButton
-							align='left'
-							iconId='clear-all'
-							onPressed={() => props.clearAllHandler()}
+							text='Refresh'
+							onPressed={() => props.refreshHandler()}
 						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>

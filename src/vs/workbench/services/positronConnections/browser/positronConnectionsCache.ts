@@ -47,29 +47,11 @@ export interface IPositronConnectionEntry {
 	 */
 	onToggleExpandEmitter?: Emitter<void>;
 
-
 	// Entry properties that may be displayed in the UI.
 	name: string;
 	kind?: string;
 	dtype?: string;
-	language_id?: string;
 	icon?: string;
-
-	/**
-	 * Enables the behavior of the connect button. Only
-	 * enabled when the entry is not active.
-	 */
-	connect?(): Promise<void>;
-
-	/**
-	 * Causes the item to disconnect.
-	 */
-	disconnect?(): Promise<void>;
-
-	/**
-	 * Refresh the connection data.
-	 */
-	refresh?(): Promise<void>;
 
 	/**
 	 * Causes the a viewer to open for that item.
@@ -144,44 +126,6 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		return this.item.icon;
 	}
 
-	get disconnect() {
-		if ('disconnect' in this.item) {
-			const instance = this.item;
-			return async () => {
-				try {
-					return await instance.disconnect?.();
-				} catch (err: any) {
-					// An error that happens during disconnected should be shown
-					// as a notification to users.
-					this.notify(
-						`Error disconnecting ${this.id}: ${err.message}`,
-						Severity.Error
-					);
-				}
-			};
-		}
-
-		return undefined;
-	}
-
-	get connect() {
-		if ('connect' in this.item) {
-			const instance = this.item;
-			return async () => {
-				try {
-					return await instance.connect?.();
-				} catch (err: any) {
-					this.notify(
-						`Error creating connection ${this.id}: ${err.message}`,
-						Severity.Error
-					);
-				}
-			};
-		}
-
-		return undefined;
-	}
-
 	get preview() {
 		if (!this.item.preview) {
 			return undefined;
@@ -197,24 +141,6 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 				);
 			}
 		};
-	}
-
-	get refresh() {
-		if ('refresh' in this.item) {
-			const instance = this.item;
-			return async () => {
-				try {
-					instance.refresh?.();
-				} catch (err: any) {
-					this.notify(
-						`Error refreshing connection ${this.id}: ${err.message}`,
-						Severity.Error
-					);
-				}
-			};
-		}
-
-		return undefined;
 	}
 }
 
