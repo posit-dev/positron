@@ -28,10 +28,11 @@ describe('Console Pane: Python #web #win', () => {
 				// workaround issue where power button click fails
 				await app.code.wait(1000);
 
-				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-
 				await app.workbench.positronConsole.barPowerButton.click();
 				await app.workbench.positronConsole.consoleRestartButton.click();
+
+				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+
 				await app.workbench.positronConsole.waitForReady('>>>');
 				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 				await app.workbench.positronConsole.consoleRestartButton.isNotVisible();
@@ -48,9 +49,10 @@ describe('Console Pane: Python #web #win', () => {
 			// workaround issue where "started" text never appears post restart
 			await app.code.wait(1000);
 
+			await app.workbench.positronConsole.barRestartButton.click();
+
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 
-			await app.workbench.positronConsole.barRestartButton.click();
 			await app.workbench.positronConsole.waitForReady('>>>');
 			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 		});
