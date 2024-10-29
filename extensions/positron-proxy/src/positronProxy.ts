@@ -11,9 +11,9 @@ import { AddressInfo, Server } from 'net';
 import { log, ProxyServerStyles } from './extension';
 // eslint-disable-next-line no-duplicate-imports
 import { Disposable, ExtensionContext } from 'vscode';
+import { createProxyMiddleware, responseInterceptor } from 'http-proxy-middleware';
 import { HtmlProxyServer } from './htmlProxy';
 import { htmlContentRewriter, rewriteUrlsWithProxyPath } from './util';
-import httpProxy from 'http-proxy';
 
 /**
  * Constants.
@@ -53,7 +53,7 @@ type ContentRewriter = (
 	url: string,
 	contentType: string,
 	responseBuffer: Buffer
-) => string;
+) => Promise<Buffer | string>;
 
 /**
  * PendingProxyServer type.
@@ -208,7 +208,12 @@ export class PositronProxy implements Disposable {
 		// Start the proxy server.
 		return this.startProxyServer(
 			targetOrigin,
-			(_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
+			async (_serverOrigin, proxyPath, _url, contentType, responseBuffer) => {
+				// If this isn't 'text/html' content, just return the response buffer.
+				if (!contentType.includes('text/html')) {
+					return responseBuffer;
+				}
+
 				// Build the help vars.
 				let helpVars = '';
 				if (this._helpStyles) {
@@ -395,7 +400,7 @@ export class PositronProxy implements Disposable {
 		const originUri = vscode.Uri.parse(serverOrigin);
 		const externalUri = await vscode.env.asExternalUri(originUri);
 
-		log.debug(`Started proxy server at ${serverOrigin} for external URI ${externalUri.toString(true)} (proxy path: ${externalUri.path}).`);
+		log.debug(`Started proxy server at ${serverOrigin} for external URI ${externalUri.toString(true)}.`);
 
 		// Return the pending proxy info.
 		return {
@@ -444,123 +449,106 @@ export class PositronProxy implements Disposable {
 			server
 		));
 
-		// Add the proxy middleware.
-		const proxy = httpProxy.createProxyServer({
+		// Create the proxy request handler
+		const requestHandler = createProxyMiddleware({
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
-			ws: true,
-		});
+			ws: false,
+			onProxyReq: (proxyReq, req, _res, _options) => {
+				log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
+					`\n\tmethod: ${proxyReq.method}` +
+					`\n\tprotocol: ${proxyReq.protocol}` +
+					`\n\thost: ${proxyReq.host}` +
+					`\n\turl: ${proxyReq.path}` +
+					`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
+					`\n\texternal uri: ${externalUri.toString(true)}`
+				);
+			},
+			onProxyRes: responseInterceptor(async (responseBuffer, proxyRes, req, _res) => {
+				log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
+					`\n\tstatus: ${proxyRes.statusCode}` +
+					`\n\tstatusMessage: ${proxyRes.statusMessage}` +
+					`\n\theaders: ${JSON.stringify(proxyRes.headers)}` +
+					`\n\texternal uri: ${externalUri.toString(true)}`
+				);
 
-		proxy.on('proxyReq', (proxyReq, req, _res, _options) => {
-			log.trace(`onProxyReq - proxy request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
-				`\n\tmethod: ${proxyReq.method}` +
-				`\n\tprotocol: ${proxyReq.protocol}` +
-				`\n\thost: ${proxyReq.host}` +
-				`\n\turl: ${proxyReq.path}` +
-				`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
-				`\n\texternal uri: ${externalUri.toString(true)}`
-			);
-		});
-
-		proxy.on('proxyRes', (proxyRes, req, res) => {
-			log.trace(`onProxyRes - proxy response ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
-				`\n\tstatus: ${proxyRes.statusCode}` +
-				`\n\tstatusMessage: ${proxyRes.statusMessage}` +
-				`\n\theaders: ${JSON.stringify(proxyRes.headers)}` +
-				`\n\texternal uri: ${externalUri.toString(true)}`
-			);
-
-			// Buffer the response data.
-			let buffer = Buffer.from('', 'utf8');
-			proxyRes.on('data', (data) => {
-				buffer = Buffer.concat([buffer, data]);
-			});
-
-			proxyRes.on('end', async () => {
 				// Get the URL and the content type. These must be present to call the
 				// content rewriter. Also, the scripts must be loaded.
 				const url = req.url;
 				const contentType = proxyRes.headers['content-type'];
-				const contentEncoding = proxyRes.headers['content-encoding'] || '';
 				if (!url || !contentType || !this._scriptsFileLoaded) {
-					// Don't process the response.
 					log.trace(`onProxyRes - skipping response processing for ${serverOrigin}${url}`);
-					res.write(buffer);
-					res.end();
-				} else if (['gzip', 'br', 'deflate'].includes(contentEncoding)) {
-					// Don't process compressed content.
-					log.error(`onProxyRes - skipping response processing for compressed content ${serverOrigin}${url}`);
-					res.emit('error', new Error(`Unsupported content encoding: ${contentEncoding}`));
-				} else if (contentType.includes('text/html')) {
-					// Rewrite the content.
-					log.trace(`onProxyRes - rewriting response content for ${serverOrigin}${url}`);
-					const rewrittenHtml = contentRewriter(serverOrigin, externalUri.path, url, contentType, buffer);
-					res.setHeader('content-encoding', '');
-					res.setHeader('content-type', contentType ?? 'text/html');
-					res.removeHeader('content-length');
-					res.end(rewrittenHtml);
-				} else {
-					log.trace(`onProxyRes - passing through response content for ${serverOrigin}${url}`);
-					proxyRes.pipe(res);
+					// Don't process the response.
+					return responseBuffer;
 				}
-			});
 
-			proxyRes.on('error', (error) => {
-				log.error(`onProxyRes - proxy response error ${targetOrigin}${req.url} -> ${serverOrigin}${req.url}` +
-					`\n\terror: ${JSON.stringify(error)}`
+				// Rewrite the content.
+				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
+			}),
+			onProxyReqWs: (proxyReq, req, socket, _options, head) => {
+				log.trace(`onProxyReqWs - proxy request WebSocket ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
+					`\n\tmethod: ${proxyReq.method}` +
+					`\n\tsocket remote: ${socket.remoteAddress}:${socket.remotePort}` +
+					`\n\tsocket local: ${socket.localAddress}:${socket.localPort}` +
+					`\n\tprotocol: ${proxyReq.protocol}` +
+					`\n\thost: ${proxyReq.host}` +
+					`\n\turl: ${proxyReq.path}` +
+					`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
+					`\n\thead: ${JSON.stringify(head)}` +
+					`\n\texternal uri: ${externalUri.toString(true)}`
 				);
-			});
-		});
-
-		proxy.on('proxyReqWs', (proxyReq, req, socket, _options, head) => {
-			log.trace(`onProxyReqWs - proxy request WebSocket ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
-				`\n\tmethod: ${proxyReq.method}` +
-				`\n\tsocket remote: ${socket.remoteAddress}:${socket.remotePort}` +
-				`\n\tsocket local: ${socket.localAddress}:${socket.localPort}` +
-				`\n\tprotocol: ${proxyReq.protocol}` +
-				`\n\thost: ${proxyReq.host}` +
-				`\n\turl: ${proxyReq.path}` +
-				`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
-				`\n\thead: ${JSON.stringify(head)}` +
-				`\n\texternal uri: ${externalUri.toString(true)}`
-			);
-			log.trace(`onProxyReqWs - request headers ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}:\n${JSON.stringify(req.headers)}`);
-		});
-
-		proxy.on('open', (proxySocket) => {
-			log.trace(`onOpen - proxy socket opened ${serverOrigin} -> ${targetOrigin}` +
-				`\n\tlocal address: ${proxySocket.localAddress}:${proxySocket.localPort}` +
-				`\n\tremote address: ${proxySocket.remoteAddress}:${proxySocket.remotePort}`
-			);
-		});
-
-		proxy.on('close', (res, socket, head) => {
-			log.trace(`onClose - proxy socket closed ${serverOrigin} -> ${targetOrigin}` +
-				`\n\tresponse: ${res}` +
-				`\n\tsocket: ${socket}` +
-				`\n\thead: ${head}`
-			);
-		});
-
-		proxy.on('error', (error, req, res) => {
-			log.error(`onError - proxy error ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
-				`\n\terror: ${JSON.stringify(error)}` +
-				`\n\trequest: ${JSON.stringify(req)}` +
-				`\n\tresponse: ${JSON.stringify(res)}`
-			);
+				log.trace(`onProxyReqWs - request headers ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}:\n${JSON.stringify(req.headers)}`);
+				// update the request host to be the same as the request origin in the headers
+				// so that the websocket connection can be established
+				// is this happening?? https://github.com/chimurai/http-proxy-middleware/issues/808
+				const originHeader = req.headers['origin'];
+				if (originHeader) {
+					proxyReq.setHeader('origin', originHeader);
+					log.trace(`onProxyReqWs - set origin header to ${originHeader}`);
+					log.trace(`onProxyReqWs - updated header 'origin': ${proxyReq.getHeader('origin')}`);
+				} else {
+					log.error('onProxyReqWs - no origin header found in request headers');
+				}
+			},
 		});
 
 		// Add the proxy middleware.
-		app.use('*', (req, res) => {
-			log.trace(`Proxying web request ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-			proxy.web(req, res);
-		});
+		app.use('*', requestHandler);
 
+		// Is this happening? https://github.com/chimurai/http-proxy-middleware/issues/463
+
+		// Is this upgrade handling missing? https://github.com/chimurai/http-proxy-middleware?tab=readme-ov-file#websocket
 		// Handle the upgrade event.
+		// server.on('upgrade', requestHandler.upgrade!);
+
+		// For Positron Desktop or Server Web to work, we need to either:
+		//   - set ws: true in the createProxyMiddleware options; OR
+		//   - don't include `ws` and instead call server.on('upgrade', requestHandler.upgrade!)
+		// If we don't do one of these, the WebSocket connection will fail.
+
+		// For Positron on Workbench:
+		//   - setting (true OR false) or not setting ws doesn't work
+		//   - calling server.on('upgrade', requestHandler.upgrade!) doesn't work
+		// Doing either or even both of these doesn't work.
+
+		// Possible solution:
+		//   - set ws: false in the createProxyMiddleware options
+		//   - call server.on('upgrade', <CUSTOM_HANDLER>) where <CUSTOM_HANDLER> is a function that
+		//     calls requestHandler.upgrade! if we're not running in Workbench, but sends the request
+		//     to the Workbench proxy server if we are.
 		server.on('upgrade', (req, socket, head) => {
-			log.trace(`Proxying web socket upgrade ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}`);
-			proxy.ws(req, socket, head);
+			log.trace(`upgrade event for ${serverOrigin}${req.url}`);
+			if (!process.env.RS_SERVER_URL) {
+				const date = new Date();
+				const fractionalSeconds = date.getMilliseconds().toString();
+				const dateString = date.toLocaleString("en-US", { timeZone: "America/New_York" });
+				const fullDateString = dateString.concat(` fractionalSeconds: ${fractionalSeconds}`);
+				console.log('[**PositronProxy] upgrade event for', serverOrigin + req.url + 'timestamp:', fullDateString);
+				requestHandler.upgrade!(req, socket, head);
+			} else {
+				// Send the request to the Workbench proxy server?
+			}
 		});
 	}
 

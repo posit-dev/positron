@@ -33,12 +33,11 @@ export class PromiseHandles<T> {
  * @param responseBuffer The response buffer.
  * @returns The rewritten response buffer.
  */
-export function htmlContentRewriter(_serverOrigin: string, proxyPath: string, _url: string, contentType: string, responseBuffer: Buffer) {
+export async function htmlContentRewriter(_serverOrigin: string, proxyPath: string, _url: string, contentType: string, responseBuffer: Buffer) {
 	// If this isn't 'text/html' content, just return the response buffer.
-	// if (!contentType.includes('text/html')) {
-	// 	console.log('[CONTENT REWRITER] Content type is not text/html. Skipping rewrite.');
-	// 	return responseBuffer;
-	// }
+	if (!contentType.includes('text/html')) {
+		return responseBuffer;
+	}
 
 	// Get the response.
 	let response = responseBuffer.toString('utf8');
@@ -57,8 +56,6 @@ export function htmlContentRewriter(_serverOrigin: string, proxyPath: string, _u
 * @returns The content with the URLs rewritten.
 */
 export function rewriteUrlsWithProxyPath(content: string, proxyPath: string): string {
-	console.log('[CONTENT REWRITER] Rewriting URLs with proxy path:', proxyPath);
-	console.log('[CONTENT REWRITER] Original content:', content);
 	// When running on Web, we need to prepend root-relative URLs with the proxy path,
 	// because the help proxy server is running at a different origin than the target origin.
 	// When running on Desktop, we don't need to do this, because the help proxy server is
@@ -81,7 +78,7 @@ export function rewriteUrlsWithProxyPath(content: string, proxyPath: string): st
 				// frameworks may already have rewritten the URLs.
 				// Example: match = src="/proxy/1234/path/to/resource"
 				//             p2 = "proxy/1234/path/to/resource"
-				if (matchedPath.startsWith(proxyPath) || p2.startsWith(proxyPath)) {
+				if (matchedPath.startsWith(proxyPath)) {
 					return match;
 				}
 
