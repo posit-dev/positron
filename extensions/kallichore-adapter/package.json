@@ -31,7 +31,7 @@
       "properties": {
         "kallichoreSupervisor.enable": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "%configuration.enable.description%"
         },
         "kallichoreSupervisor.showTerminal": {
