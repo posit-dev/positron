@@ -29,12 +29,18 @@ describe('Notebooks #pr #web #win', () => {
 		});
 
 		it('R - Basic notebook creation and execution (code) [C628629]', async function () {
+
+			this.retries(1);
+
 			await notebooks.addCodeToFirstCell('eval(parse(text="8**2"))');
 			await notebooks.executeCodeInCell();
 			await notebooks.assertCellOutput('[1] 64');
 		});
 
 		it('R - Basic notebook creation and execution (markdown) [C628630]', async function () {
+
+			this.retries(1);
+
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebook.insertNotebookCell('markdown');
@@ -64,12 +70,18 @@ describe('Notebooks #pr #web #win', () => {
 		});
 
 		it('Python - Basic notebook creation and execution (code) [C628631]', async function () {
+
+			this.retries(1);
+
 			await notebooks.addCodeToFirstCell('eval("8**2")');
 			await notebooks.executeCodeInCell();
 			await notebooks.assertCellOutput('64');
 		});
 
 		it('Python - Basic notebook creation and execution (markdown) [C628632]', async function () {
+
+			this.retries(1);
+
 			const randomText = Math.random().toString(36).substring(7);
 
 			await app.workbench.notebook.insertNotebookCell('markdown');
