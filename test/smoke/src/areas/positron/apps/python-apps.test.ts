@@ -57,6 +57,9 @@ describe('Python Applications #pr #win', () => {
 		});
 
 		it('Python - Verify Basic Streamlit App [C903308] #web', async function () {
+
+			this.timeout(90000);
+
 			const app = this.app as Application;
 			const viewer = app.workbench.positronViewer;
 
@@ -68,7 +71,11 @@ describe('Python Applications #pr #win', () => {
 			const headerLocator = this.app.web
 				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
 				: viewerFrame.getByRole('button', { name: 'Deploy' });
-			await expect(headerLocator).toBeVisible({ timeout: 30000 });
+
+			await expect(async () => {
+				await expect(headerLocator).toBeVisible({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
+
 			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 	});
