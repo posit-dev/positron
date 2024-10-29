@@ -5,18 +5,15 @@
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { Emitter } from 'vs/base/common/event';
 import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
+import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { VSBuffer } from 'vs/base/common/buffer';
-import { isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
+import { isWebviewDisplayMessage, isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
-
-const MIME_TYPE_HTML = 'text/html';
-const MIME_TYPE_PLAIN = 'text/plain';
 
 /**
  * Format of output from a notebook cell
@@ -161,7 +158,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Check if we're working with a webview replay message
 		const mimeTypes = outputs.map(output => output.mime);
 		const isReplay = isWebviewReplayMessage(mimeTypes);
-		if (PositronWebviewPreloadService.isDisplayMessage(mimeTypes)) {
+		if (isWebviewDisplayMessage(mimeTypes)) {
 			// Create a new plot client.
 			this._createNotebookPlotClient(instance, PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
 
@@ -220,7 +217,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
-		if (PositronWebviewPreloadService.isDisplayMessage(Object.keys(msg.data))) {
+		if (isWebviewDisplayMessage(msg)) {
 			// Create a new plot client.
 			this._createPlotClient(session, msg);
 			return;
@@ -262,18 +259,6 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		this._onDidCreatePlot.fire(client);
 	}
 
-	static isDisplayMessage(mimeTypes: string[]): boolean {
-
-		const isHoloViewsDisplayMessage = [
-			MIME_TYPE_HOLOVIEWS_EXEC,
-			MIME_TYPE_HTML,
-			MIME_TYPE_PLAIN,
-		].every(mime => mimeTypes.includes(mime));
-
-		const isBokehDisplayMessage = mimeTypes.includes(MIME_TYPE_BOKEH_EXEC);
-
-		return isHoloViewsDisplayMessage || isBokehDisplayMessage;
-	}
 }
 
 
