@@ -16,7 +16,6 @@ import { URI } from 'vs/base/common/uri';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
@@ -35,7 +34,6 @@ import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positr
  * @param fileService The file service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
- * @param pathService The path service.
  */
 export const showNewFolderModalDialog = async (
 	commandService: ICommandService,
@@ -43,7 +41,6 @@ export const showNewFolderModalDialog = async (
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService,
-	pathService: IPathService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
