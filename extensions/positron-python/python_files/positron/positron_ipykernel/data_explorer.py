@@ -1309,7 +1309,6 @@ class PandasView(DataExplorerTableView):
         "decimal": "number",
         "complex": "number",
         "categorical": "categorical",
-        "boolean": "boolean",
         "bool": "boolean",
         "datetime64": "datetime",
         "datetime64[ns]": "datetime",
@@ -1317,8 +1316,22 @@ class PandasView(DataExplorerTableView):
         "date": "date",
         "time": "time",
         "bytes": "string",
-        "string": "string",
         "empty": "unknown",
+        # NA-enabled numeric data types
+        "Int8": "number",
+        "Int16": "number",
+        "Int32": "number",
+        "Int64": "number",
+        "UInt8": "number",
+        "UInt16": "number",
+        "UInt32": "number",
+        "UInt64": "number",
+        "Float32": "number",
+        "Float64": "number",
+        # NA-enabled bool
+        "boolean": "boolean",
+        # NA-enabled string
+        "string": "string",
     }
 
     TYPE_MAPPERS = [_pandas_datetimetz_mapper]

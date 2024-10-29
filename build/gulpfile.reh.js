@@ -29,7 +29,8 @@ const glob = require('glob');
 const { compileBuildTask } = require('./gulpfile.compile');
 const { compileExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
 // --- Start Positron ---
-const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper, positronBuildNumber } = require('./gulpfile.vscode.web');
+const { vscodeWebEntryPoints, vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
+const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 const cp = require('child_process');
 const log = require('fancy-log');
@@ -446,11 +447,19 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			result = es.merge(result,
 				gulp.src('resources/server/bin/remote-cli/code.cmd', { base: '.' })
 					.pipe(replace('@@VERSION@@', version))
+					// --- Start Positron ---
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/remote-cli/${product.applicationName}.cmd`)),
 				gulp.src('resources/server/bin/helpers/browser.cmd', { base: '.' })
 					.pipe(replace('@@VERSION@@', version))
+					// --- Start Positron ---
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/helpers/browser.cmd`)),
@@ -461,12 +470,20 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 			result = es.merge(result,
 				gulp.src(`resources/server/bin/remote-cli/${platform === 'darwin' ? 'code-darwin.sh' : 'code-linux.sh'}`, { base: '.' })
 					.pipe(replace('@@VERSION@@', version))
+					// --- Start Positron ---
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/remote-cli/${product.applicationName}`))
 					.pipe(util.setExecutableBit()),
 				gulp.src(`resources/server/bin/helpers/${platform === 'darwin' ? 'browser-darwin.sh' : 'browser-linux.sh'}`, { base: '.' })
 					.pipe(replace('@@VERSION@@', version))
+					// --- Start Positron ---
+					.pipe(replace('@@POSITRONVERSION@@', positronVersion))
+					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+					// --- End Positron ---
 					.pipe(replace('@@COMMIT@@', commit))
 					.pipe(replace('@@APPNAME@@', product.applicationName))
 					.pipe(rename(`bin/helpers/browser.sh`))

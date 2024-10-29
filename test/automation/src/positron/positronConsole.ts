@@ -23,6 +23,7 @@ const CONSOLE_BAR_CLEAR_BUTTON = 'div.action-bar-button-icon.codicon.codicon-cle
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
+const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -135,9 +136,9 @@ export class PositronConsole {
 		contents.forEach(line => this.code.logger.log(line));
 	}
 
-	async typeToConsole(text: string) {
+	async typeToConsole(text: string, delay = 30) {
 		await this.activeConsole.click();
-		await this.activeConsole.pressSequentially(text, { delay: 30 });
+		await this.activeConsole.pressSequentially(text, { delay: delay });
 	}
 
 	async sendKeyboardKey(key: string) {
@@ -268,5 +269,22 @@ export class PositronConsole {
 
 	async waitForExecutionComplete() {
 		await this.code.driver.getLocator(INTERRUPT_RUNTIME).waitFor({ state: 'detached' });
+	}
+
+	async getSuggestions(): Promise<string[]> {
+
+		const suggestions = await this.code.waitForElements(SUGGESTION_LIST, false);
+
+		const suggestionList: string[] = [];
+		for (const suggestion of suggestions) {
+			const text = suggestion.textContent;
+			suggestionList.push(text);
+		}
+
+		return suggestionList;
+	}
+
+	async clickConsoleTab() {
+		await this.code.driver.page.locator('.basepanel').getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
 	}
 }

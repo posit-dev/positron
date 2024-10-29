@@ -66,7 +66,7 @@ df = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
@@ -96,9 +96,7 @@ df2 = pd.DataFrame(data)`;
 			}).toPass();
 
 			// Need to make sure the data explorer is visible before we can interact with it
-			await app.workbench.positronSideBar.closeSecondarySideBar();
-			await app.workbench.quickaccess.runCommand('workbench.action.closePanel');
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -111,8 +109,11 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(5);
 			}).toPass({ timeout: 60000 });
 
+			// Need to expand summary for next test
+			await app.workbench.positronDataExplorer.expandSummary();
 
 		});
+		// Cannot be run by itself, relies on the previous test
 		it('Python Pandas - Verifies data explorer column info functionality [C734263]', async function () {
 
 			const app = this.app as Application;
@@ -145,7 +146,7 @@ df2 = pd.DataFrame(data)`;
 			await app.workbench.positronSideBar.closeSecondarySideBar();
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 		// This test is not dependent on the previous test, so it refreshes the python environment
@@ -162,9 +163,17 @@ df2 = pd.DataFrame(data)`;
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
 
-			await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', 'pandas-update-dataframe.ipynb'));
+			const filename = 'pandas-update-dataframe.ipynb';
+			await app.workbench.positronNotebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
 			await app.workbench.notebook.focusFirstCell();
 			await app.workbench.notebook.executeActiveCell();
+
+			// temporary workaround for fact that variables group
+			// not properly autoselected on web
+			if (app.web) {
+				await app.workbench.positronVariables.selectVariablesGroup(filename);
+			}
+
 			await expect(async () => {
 				await app.workbench.positronVariables.doubleClickVariableRow('df');
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
@@ -203,8 +212,12 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
-	// There is a known issue with the data explorer tests causing them to intermittently fail:
-	// https://github.com/posit-dev/positron/issues/4663
+});
+
+
+describe('Data Explorer #web #win', () => {
+	logger = setupAndStartApp();
+
 	describe('Python Polars Data Explorer #pr', () => {
 		before(async function () {
 			await PositronPythonFixtures.SetupFixtures(this.app as Application);
@@ -214,8 +227,7 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 
-			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 
 		});
@@ -233,7 +245,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: df")').innerText();
 			}).toPass();
 
-			await app.workbench.positronSideBar.closeSecondarySideBar();
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -251,12 +263,13 @@ df2 = pd.DataFrame(data)`;
 			}).toPass({ timeout: 60000 });
 
 		});
+		// Cannot be run by itself, relies on the previous test
 		it('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function () {
 
 			const app = this.app as Application;
 			this.timeout(120000);
 
-			await app.workbench.positronLayouts.enterLayout('notebook');
+			await app.workbench.positronDataExplorer.expandSummary();
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
@@ -264,6 +277,7 @@ df2 = pd.DataFrame(data)`;
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('33%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(6)).toBe('33%');
+
 
 			const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
 			expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
@@ -283,8 +297,7 @@ df2 = pd.DataFrame(data)`;
 			const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
 			expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
 
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronSideBar.closeSecondarySideBar();
+			await app.workbench.positronDataExplorer.collapseSummary();
 
 		});
 
@@ -346,6 +359,12 @@ df2 = pd.DataFrame(data)`;
 		});
 	});
 
+});
+
+
+describe('Data Explorer #web #win', () => {
+	logger = setupAndStartApp();
+
 	describe('R Data Explorer', () => {
 
 		before(async function () {
@@ -373,7 +392,7 @@ df2 = pd.DataFrame(data)`;
 				await app.code.driver.getLocator('.label-name:has-text("Data: Data_Frame")').innerText();
 			}).toPass();
 
-			await app.workbench.positronLayouts.enterLayout('notebook');
+			await app.workbench.positronDataExplorer.maximizeDataExplorer(true);
 
 			await expect(async () => {
 				const tableData = await app.workbench.positronDataExplorer.getDataExplorerTableData();
@@ -384,7 +403,6 @@ df2 = pd.DataFrame(data)`;
 				expect(tableData.length).toBe(3);
 			}).toPass({ timeout: 60000 });
 
-			await app.workbench.positronLayouts.enterLayout('stacked');
 
 
 		});
@@ -392,6 +410,8 @@ df2 = pd.DataFrame(data)`;
 
 			const app = this.app as Application;
 			this.timeout(120000);
+
+			await app.workbench.positronDataExplorer.expandSummary();
 
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('33%');

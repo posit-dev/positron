@@ -38,9 +38,9 @@ const glob = promisify(require('glob'));
 const rcedit = promisify(require('rcedit'));
 
 // --- Start Positron ---
-const child_process = require('child_process');
 const fancyLog = require('fancy-log');
 const { getQuartoStream } = require('./lib/quarto');
+const { positronBuildNumber } = require('./utils');
 // --- End Positron ---
 
 // Build
@@ -342,14 +342,6 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 
 		// --- Start Positron ---
 		const positronVersion = product.positronVersion;
-
-		// Use the POSITRON_BUILD_NUMBER var if it's set; otherwise, call
-		// show-version to compute it.
-		const positronBuildNumber =
-			process.env.POSITRON_BUILD_NUMBER ??
-			child_process.execSync(
-				`node ${path.dirname(__dirname)}/versions/show-version.js --build`).toString().trim();
-
 		// --- End Positron ---
 
 		const quality = product.quality;
@@ -547,7 +539,12 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			result = es.merge(result, gulp.src('resources/win32/bin/code.sh', { base: 'resources/win32' })
 				.pipe(replace('@@NAME@@', product.nameShort))
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
-				.pipe(replace('@@VERSION@@', version))
+				// --- Start Positron ---
+				// These are commented out since they're not currently used in 'resources/win32/bin/code.sh'
+				// .pipe(replace('@@VERSION@@', version))
+				// .pipe(replace('@@POSITRONVERSION@@', positronVersion))
+				// .pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+				// --- End Positron ---
 				.pipe(replace('@@COMMIT@@', commit))
 				.pipe(replace('@@APPNAME@@', product.applicationName))
 				.pipe(replace('@@SERVERDATAFOLDER@@', product.serverDataFolderName || '.vscode-remote'))

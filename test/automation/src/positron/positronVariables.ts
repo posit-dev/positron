@@ -6,25 +6,27 @@
 
 import { Code } from '../code';
 import * as os from 'os';
-import { IElement } from '../driver';
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 interface FlatVariables {
 	value: string;
 	type: string;
 }
 
-const VARIABLE_ITEMS = '.variables-instance[style*="z-index: 1"] .list .variable-item';
+const VARIABLE_ITEMS = '.variable-item';
 const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const VARIABLES_NAME_COLUMN = '.variables-instance[style*="z-index: 1"] .variable-item .name-column';
 const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
+const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
+const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
  */
 export class PositronVariables {
+	interpreterLocator = this.code.driver.page.locator(VARIABLES_INTERPRETER);
 
 	constructor(private code: Code) { }
 
@@ -49,7 +51,6 @@ export class PositronVariables {
 	}
 
 	async waitForVariableRow(variableName: string): Promise<Locator> {
-
 		const desiredRow = this.code.driver.getLocator(`${VARIABLES_NAME_COLUMN} .name-value:text("${variableName}")`);
 		await desiredRow.waitFor({ state: 'attached' });
 		return desiredRow;
@@ -61,19 +62,81 @@ export class PositronVariables {
 		await desiredRow.dblclick();
 	}
 
-	async openVariables() {
-
+	async toggleVariablesView() {
 		const isMac = os.platform() === 'darwin';
 		const modifier = isMac ? 'Meta' : 'Control';
 
 		await this.code.driver.getKeyboard().press(`${modifier}+Alt+B`);
-
 		await this.code.waitForElement(VARIABLES_SECTION);
-
 	}
 
-	async getVariablesInterpreter(): Promise<IElement> {
-		const interpreter = await this.code.waitForElement(VARIABLES_INTERPRETER);
-		return interpreter;
+	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
+		await this.waitForVariableRow(variableName);
+		const variable = this.code.driver.page.locator('.name-value', { hasText: variableName });
+
+		const chevronIcon = variable.locator('..').locator(VARIABLE_CHEVRON_ICON);
+		const isExpanded = await chevronIcon.evaluate((el) => el.classList.contains('codicon-chevron-down'));
+
+		// perform action based on the 'action' parameter
+		if (action === 'expand' && !isExpanded) {
+			await chevronIcon.click();
+		} else if (action === 'collapse' && isExpanded) {
+			await chevronIcon.click();
+		}
+
+		const expectedClass = action === 'expand'
+			? /codicon-chevron-down/
+			: /codicon-chevron-right/;
+
+		await expect(chevronIcon).toHaveClass(expectedClass);
+	}
+
+	async expandVariable(variableName: string) {
+		await this.toggleVariable({ variableName, action: 'expand' });
+	}
+
+	async collapseVariable(variableName: string) {
+		await this.toggleVariable({ variableName, action: 'collapse' });
+	}
+
+	/**
+	 * Gets the data (value and type) for the children of a parent variable.
+	 * NOTE: it assumes that either ALL variables are collapsed or ONLY the parent variable is expanded.
+	 *
+	 * @param parentVariable the parent variable to get the children of
+	 * @param collapseParent whether to collapse the parent variable after getting the children data
+	 * @returns a map of the children's name, value, and type
+	 */
+	async getVariableChildren(parentVariable: string, collapseParent = true): Promise<{ [key: string]: { value: string; type: string } }> {
+		await this.expandVariable(parentVariable);
+		const variable = this.code.driver.page.locator(`.name-value:text-is("${parentVariable}")`);
+
+		// get the children of the parent variable, which are indented
+		const children = await variable.locator('..').locator('..').locator('..').locator('..').locator(VARIABLE_ITEMS)
+			.filter({ has: this.code.driver.page.locator(VARIABLE_INDENTED) }).all();
+
+		// create a map of the children's name, value, and type
+		const result: { [key: string]: { value: string; type: string } } = {};
+		for (const child of children) {
+			const childName = await child.locator('.name-value').textContent() || '';
+			const childValue = await child.locator('.details-column .value').textContent() || '';
+			const childType = await child.locator('.details-column .right-column').textContent() || '';
+
+			if (childName) {
+				result[childName] = { value: childValue, type: childType };
+			}
+		}
+
+		// collapse the parent variable if the flag is set
+		if (collapseParent) { await this.collapseVariable(parentVariable); }
+
+		return result;
+	}
+
+	async selectVariablesGroup(name: string) {
+		await this.code.driver.page.locator('.positron-variables-container .action-bar-button-text').click();
+		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).isVisible();
+		await this.code.wait(500);
+		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).click();
 	}
 }

@@ -7,6 +7,7 @@
 import { expect } from '@playwright/test';
 import { Code } from '../code';
 import { PositronBaseElement } from './positronBaseElement';
+import { Workbench } from '../workbench';
 
 const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-headers';
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';
@@ -32,6 +33,7 @@ const EXPAND_COLLASPE_ICON = '.expand-collapse-icon';
 const PROFILE_LABELS = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-info .label`;
 const PROFILE_VALUES = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-info .value`;
 
+
 export interface CellData {
 	[key: string]: string;
 }
@@ -43,7 +45,7 @@ export class PositronDataExplorer {
 
 	clearSortingButton: PositronBaseElement;
 
-	constructor(private code: Code) {
+	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = new PositronBaseElement(CLEAR_SORTING_BUTTON, this.code);
 	}
 
@@ -54,7 +56,7 @@ export class PositronDataExplorer {
 
 		// unreliable:
 		//await this.code.waitForElement(IDLE_STATUS);
-		await this.code.driver.getLocator(IDLE_STATUS).waitFor({ state: 'visible', timeout: 30000 });
+		await this.code.driver.getLocator(IDLE_STATUS).waitFor({ state: 'visible', timeout: 60000 });
 
 		// we have seen intermittent failures where the data explorer is not fully loaded
 		// even though the status bar is idle. This wait is to ensure the data explorer is fully loaded
@@ -212,4 +214,22 @@ export class PositronDataExplorer {
 		await this.code.driver.getLocator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
+	async maximizeDataExplorer(collapseSummary: boolean = false): Promise<void> {
+		await this.workbench.positronLayouts.enterLayout('stacked');
+		await this.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await this.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await this.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+
+		if (collapseSummary) {
+			await this.collapseSummary();
+		}
+	}
+
+	async collapseSummary(): Promise<void> {
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.collapseSummary');
+	}
+
+	async expandSummary(): Promise<void> {
+		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+	}
 }

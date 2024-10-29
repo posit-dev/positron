@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-describe('Data Explorer - Very Large Data Frame #win', () => {
+describe('Data Explorer - Very Large Data Frame', () => {
 	logger = setupAndStartApp();
 
 	before(async function () {
@@ -53,7 +53,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 
@@ -135,7 +135,7 @@ describe('Data Explorer - Very Large Data Frame #win', () => {
 			const app = this.app as Application;
 
 			await app.workbench.positronDataExplorer.closeDataExplorer();
-			await app.workbench.positronVariables.openVariables();
+			await app.workbench.positronVariables.toggleVariablesView();
 
 		});
 

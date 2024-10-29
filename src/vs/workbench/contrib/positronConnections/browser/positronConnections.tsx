@@ -22,6 +22,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+import { positronClassNames } from 'vs/base/common/positronUtilities';
 
 export interface PositronConnectionsProps {
 	readonly commandService: ICommandService;
@@ -209,7 +210,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	};
 
 	return (
-		<div className={`connections-item ${props.selected ? 'selected' : ''}`} style={props.style}>
+		<div
+			className={positronClassNames(
+				'connections-item',
+				{ 'selected': props.selected }
+			)}
+			style={props.style}
+		>
 			<div className='nesting' style={{ width: `${padding}px` }}></div>
 			{
 				props.item.expanded === undefined ?
@@ -248,7 +255,12 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				}
 			</div>
 			<div
-				className={`connections-icon codicon codicon-${icon}`}
+				className={positronClassNames(
+					'connections-icon',
+					'codicon',
+					`codicon-${icon}`,
+					{ 'disabled': props.item.preview === undefined }
+				)}
 				onClick={() => props.item.preview?.()}
 			>
 			</div>

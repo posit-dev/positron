@@ -45,16 +45,9 @@ describe('RMarkdown #web', () => {
 
 		// inner most frame has no useful identifying features
 		// not factoring this locator because its not part of positron
-		const viewerFrame = app.workbench.positronViewer.getViewerFrame('//iframe');
+		const gettingStarted = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
 
-		// not factoring this locator because its not part of positron
-		const gettingStarted = viewerFrame.locator('h2[data-anchor-id="getting-started"]');
-
-		const gettingStartedText = await gettingStarted.innerText();
-
-		expect(gettingStartedText).toBe('Getting started');
-
-		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
-
+		await expect(gettingStarted).toBeVisible({ timeout: 30000 });
+		await expect(gettingStarted).toHaveText('Getting started');
 	});
 });
