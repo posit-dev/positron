@@ -221,14 +221,6 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			// --- Start PWB: Server proxy support ---
 			pathname = url.parse(req.url, true).pathname;
 			// --- End PWB ---
-			const date = new Date();
-			const fractionalSeconds = date.getMilliseconds().toString();
-			const dateString = date.toLocaleString("en-US", { timeZone: "America/New_York" });
-			const fullDateString = dateString.concat(` fractionalSeconds: ${fractionalSeconds}`);
-			console.log(`[**remoteExtensionHostAgentServer] handleUpgrade:` +
-				`timestamp: ${fullDateString}` +
-				`\n\treconnectionToken=${reconnectionToken}, isReconnection=${isReconnection}, skipWebSocketFrames=${skipWebSocketFrames}, pathname=${pathname}`
-			);
 		}
 
 		if (req.headers['upgrade'] === undefined || req.headers['upgrade'].toLowerCase() !== 'websocket') {
