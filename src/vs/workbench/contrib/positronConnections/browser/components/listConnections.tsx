@@ -66,7 +66,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						if (itemProps.active) {
 							setActiveInstanceId(itemProps.id);
 						} else {
-							showResumeConnectionModalDialog(context);
+							showResumeConnectionModalDialog(context, itemProps.id);
 						}
 					}}
 				>
