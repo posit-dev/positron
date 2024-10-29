@@ -79,8 +79,7 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 	}
 
 	// same as above but user-specified, ad hoc binaries
-	const userPossibleBinaries: string[] = vscode.workspace.getConfiguration('positron-r')
-		.get('customBinaries', []);
+	const userPossibleBinaries = userRBinaries();
 	const userMoreBinaries = userPossibleBinaries
 		.filter(b => fs.existsSync(b))
 		.map(b => fs.realpathSync(b));
@@ -290,6 +289,19 @@ function userRHeadquarters(): string[] {
 		const formattedPaths = JSON.stringify(userHqDirs, null, 2);
 		LOGGER.info(`User-specified directories to scan for R installations:\n${formattedPaths}`);
 		return userHqDirs;
+	} else {
+		return [];
+	}
+}
+
+// ad hoc binaries this user wants Positron to know about
+function userRBinaries(): string[] {
+	const config = vscode.workspace.getConfiguration('positron.r');
+	const userBinaries = config.get<string[]>('customBinaries');
+	if (userBinaries && userBinaries.length > 0) {
+		const formattedPaths = JSON.stringify(userBinaries, null, 2);
+		LOGGER.info(`User-specified R binaries:\n${userBinaries}`);
+		return userBinaries;
 	} else {
 		return [];
 	}
