@@ -36,6 +36,7 @@ import { CommMsgRequest } from './jupyter/CommMsgRequest';
 import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
+import { UICommRequest } from './UICommRequest';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -76,6 +77,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** A map of pending RPCs, used to pair up requests and replies */
 	private _pendingRequests: Map<string, JupyterRequest<any, any>> = new Map();
+
+	/** An array of pending UI comm requests */
+	private _pendingUiCommRequests: UICommRequest[] = [];
 
 	/** Objects that should be disposed when the session is disposed */
 	private _disposables: vscode.Disposable[] = [];
@@ -374,13 +378,32 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	callMethod(method: string, ...args: Array<any>): Promise<any> {
 		const promise = new PromiseHandles;
 
+		// Create the request
+		const request = new UICommRequest(method, args, promise);
+
 		// Find the UI comm
 		const uiComm = Array.from(this._comms.values())
 			.find(c => c.target === positron.RuntimeClientType.Ui);
+
 		if (!uiComm) {
-			throw new Error(`Cannot invoke '${method}'; no UI comm is open.`);
+			// No comm open yet?  No problem, we'll call the method when the
+			// comm is opened.
+			this._pendingUiCommRequests.push(request);
+			this.log(`No UI comm open yet; queueing request '${method}'`, vscode.LogLevel.Debug);
+			return promise.promise;
 		}
 
+		return this.performUiCommRequest(request, uiComm.id);
+	}
+
+	/**
+	 * Performs a UI comm request.
+	 *
+	 * @param req The request to perform
+	 * @param uiCommId  The ID of the UI comm
+	 * @returns The result of the request
+	 */
+	performUiCommRequest(req: UICommRequest, uiCommId: string): Promise<any> {
 		// Create the request. This uses a JSON-RPC 2.0 format, with an
 		// additional `msg_type` field to indicate that this is a request type
 		// for the UI comm.
@@ -391,13 +414,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			jsonrpc: '2.0',
 			method: 'call_method',
 			params: {
-				method,
-				params: args
+				method: req.method,
+				params: req.args
 			},
 		};
 
 		const commMsg: JupyterCommMsg = {
-			comm_id: uiComm.id,
+			comm_id: uiCommId,
 			data: request
 		};
 
@@ -413,7 +436,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// for conformity with code that expects an Error object.
 				error.name = `RPC Error ${response.error.code}`;
 
-				promise.reject(error);
+				req.promise.reject(error);
 			}
 
 			// JSON-RPC specifies that the return value must have either a 'result'
@@ -427,18 +450,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					data: {},
 				};
 
-				promise.reject(error);
+				req.promise.reject(error);
 			}
 
 			// Otherwise, return the result
-			promise.resolve(response.result);
+			req.promise.resolve(response.result);
 		})
 			.catch((err) => {
 				this.log(`Failed to send UI comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
-				promise.reject(err);
+				req.promise.reject(err);
 			});
 
-		return promise.promise;
+		return req.promise.promise;
 	}
 
 	/**
@@ -551,6 +574,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const commOpen = new CommOpenCommand(msg, metadata);
 			await this.sendCommand(commOpen);
 			this._comms.set(id, new Comm(id, type));
+
+			// If we have any pending UI comm requests and we just created the
+			// UI comm, send them now
+			if (type === positron.RuntimeClientType.Ui) {
+				this.sendPendingUiCommRequests(id).then(() => {
+					this.log(`Sent pending UI comm requests to ${id}`, vscode.LogLevel.Trace);
+				});
+			}
 		} else {
 			this.log(`Can't create ${type} client for ${this.runtimeMetadata.languageName} (not supported)`, vscode.LogLevel.Error);
 		}
@@ -575,6 +606,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// If we don't have a comm object for this comm, create one
 				if (!this._comms.has(key)) {
 					this._comms.set(key, new Comm(key, target));
+				}
+
+				// If we just discovered a UI comm, send any pending UI comm
+				// requests to it.
+				if (target === positron.RuntimeClientType.Ui) {
+					this.sendPendingUiCommRequests(key).then(() => {
+						this.log(`Sent pending UI comm requests to ${key}`, vscode.LogLevel.Trace);
+					});
 				}
 			}
 		}
@@ -724,6 +763,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		let runtimeInfo: positron.LanguageRuntimeInfo | undefined;
 
+		// Mark the session as starting
+		this.onStateChange(positron.RuntimeState.Starting);
+
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
 			const result = await this._api.startSession(this.metadata.sessionId);
@@ -778,6 +820,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					cancellable: false,
 				}, async () => {
 					await this.waitForIdle();
+					this.markReady();
 				});
 			} else {
 				// Enter the ready state immediately if the session is not busy
@@ -794,18 +837,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Waits for the session to become idle before connecting.
+	 * Waits for the session to become idle.
 	 *
 	 * @returns A promise that resolves when the session is idle. Does not time
 	 * out or reject.
 	 */
 	async waitForIdle(): Promise<void> {
-		this.log(`Session ${this.metadata.sessionId} is busy; waiting for it to become idle before connecting.`, vscode.LogLevel.Info);
 		return new Promise((resolve, _reject) => {
 			this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
 					resolve();
-					this.markReady();
 				}
 			});
 		});
@@ -815,8 +856,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Opens the ready barrier and fires the ready event.
 	 */
 	private markReady() {
+		// Open the ready barrier so that we can start sending messages
 		this._ready.open();
-		this._state.fire(positron.RuntimeState.Ready);
+
+		// Move into the ready state if we're not already there
+		if (this._runtimeState !== positron.RuntimeState.Ready) {
+			this.onStateChange(positron.RuntimeState.Ready);
+		}
 	}
 
 	/**
@@ -1003,6 +1049,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (data.hasOwnProperty('status')) {
 			// Check to see if the status is a valid runtime state
 			if (Object.values(positron.RuntimeState).includes(data.status)) {
+				// The 'starting' state typically follows 'uninitialized'. We
+				// can ignore the message in other cases as we've already
+				// broadcasted the state change to the client.
+				if (data.status === positron.RuntimeState.Starting &&
+					this._runtimeState !== positron.RuntimeState.Uninitialized) {
+					this.log(`Ignoring 'starting' state message; already in state '${this._runtimeState}'`, vscode.LogLevel.Trace);
+					return;
+				}
+				// Same deal for 'ready' state; if we've already broadcasted the
+				// 'idle' state, ignore it.
+				if (data.status === positron.RuntimeState.Ready &&
+					this._runtimeState === positron.RuntimeState.Idle) {
+					this.log(`Ignoring 'ready' state message; already in state '${this._runtimeState}'`, vscode.LogLevel.Trace);
+					return;
+				}
 				this.onStateChange(data.status);
 			} else {
 				this.log(`Unknown state: ${data.status}`);
@@ -1025,7 +1086,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private onStateChange(newState: positron.RuntimeState) {
 		// If the kernel is ready, open the ready barrier
 		if (newState === positron.RuntimeState.Ready) {
-			this.log(`Received initial heartbeat; kernel is ready.`);
+			this.log(`Kernel is ready.`);
 			this._ready.open();
 		}
 		this.log(`State: ${this._runtimeState} => ${newState}`, vscode.LogLevel.Debug);
@@ -1042,11 +1103,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._connected.open();
 		}
 		if (newState === positron.RuntimeState.Starting) {
-			this.log(`The kernel has started up after a restart.`, vscode.LogLevel.Info);
-			this._restarting = false;
+			if (this._restarting) {
+				this.log(`The kernel has started up after a restart.`, vscode.LogLevel.Info);
+				this._restarting = false;
+			}
 		}
-		this._runtimeState = newState;
-		this._state.fire(newState);
+
+		// Fire an event if the state has changed.
+		if (this._runtimeState !== newState) {
+			this._runtimeState = newState;
+			this._state.fire(newState);
+		}
 	}
 
 	/**
@@ -1073,6 +1140,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._socket = undefined;
 			this._connected = new Barrier();
 		}
+
+		// All comms are now closed
+		this._comms.clear();
+
+		// Reject all pending requests
+		this._pendingRequests.forEach((req) => {
+			req.reject(new Error('Kernel exited'));
+		});
+		this._pendingRequests.clear();
+		this._pendingUiCommRequests.forEach((req) => {
+			req.promise.reject(new Error('Kernel exited'));
+		});
+		this._pendingUiCommRequests = [];
 
 		// We're no longer ready
 		this._ready = new Barrier();
@@ -1322,8 +1402,46 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			case vscode.LogLevel.Info:
 				this._consoleChannel.info(msg);
 				break;
+			case vscode.LogLevel.Debug:
+				this._consoleChannel.debug(msg);
+				break;
+			case vscode.LogLevel.Trace:
+				this._consoleChannel.trace(msg);
+				break;
 			default:
 				this._consoleChannel.appendLine(msg);
+		}
+	}
+
+	/**
+	 * Sends any pending messages to the UI comm.
+	 *
+	 * @param uiCommId The ID of the UI comm to send the messages to
+	 */
+	private async sendPendingUiCommRequests(uiCommId: string) {
+		// No work to do if there are no pending requests
+		if (this._pendingUiCommRequests.length === 0) {
+			return;
+		}
+
+		// Move the pending requests to a local variable so we can clear the
+		// pending list and send the requests without worrying about reentrancy.
+		const pendingRequests = this._pendingUiCommRequests;
+		this._pendingUiCommRequests = [];
+
+		// Wait for the kernel to be idle before sending any pending UI comm
+		// requests.
+		await this.waitForIdle();
+
+		const count = pendingRequests.length;
+		for (let i = 0; i < pendingRequests.length; i++) {
+			const req = pendingRequests[i];
+			this.log(`Sending queued UI comm request '${req.method}' (${i + 1} of ${count})`, vscode.LogLevel.Debug);
+			try {
+				await this.performUiCommRequest(req, uiCommId);
+			} catch (err) {
+				this.log(`Failed to perform queued request '${req.method}': ${err}`, vscode.LogLevel.Error);
+			}
 		}
 	}
 
