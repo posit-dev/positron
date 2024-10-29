@@ -484,8 +484,10 @@ async function showShellIntegrationNotSupportedMessage(): Promise<void> {
  */
 function shouldUsePositronProxy(appName: string) {
 	switch (appName.trim().toLowerCase()) {
+		// Streamlit apps don't work in Positron on Workbench with SSL enabled when run through the proxy.
+		case 'streamlit':
+		// FastAPI apps don't work in Positron on Workbench when run through the proxy.
 		case 'fastapi':
-			// FastAPI apps don't work in Positron on Workbench when run through the proxy.
 			if (isRunningOnPwb) {
 				return false;
 			}
