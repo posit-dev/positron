@@ -13,8 +13,8 @@ import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/re
 import { INotebookRendererInfo, RENDERER_NOT_AVAILABLE, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { NotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IOverlayWebview, IWebviewElement, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
+import { INotebookOutputOverlayWebview, INotebookOutputStandardWebview, INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
 import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
@@ -33,6 +33,24 @@ type MessageRenderInfo = {
 	renderer: INotebookRendererInfo;
 	output: ILanguageRuntimeMessageWebOutput;
 };
+
+/**
+ * Assert that a webview is an overlay webview. Relies on the webviewType property.
+ */
+export function assertIsOverlayWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputOverlayWebview {
+	if (notebookWebview.webviewType !== WebviewType.Overlay) {
+		throw new Error('Expected webview to be an overlay webview');
+	}
+}
+
+/**
+ * Assert that a webview is a standard webview. Relies on the webviewType property.
+ */
+export function assertIsStandardWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputStandardWebview {
+	if (notebookWebview.webviewType !== WebviewType.Standard) {
+		throw new Error('Expected webview to be a standard webview');
+	}
+}
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -105,12 +123,14 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		runtimeId,
 		preReqMessages,
 		displayMessage,
-		viewType
+		viewType,
+		webviewType
 	}: {
 		runtimeId: string;
 		preReqMessages: ILanguageRuntimeMessageWebOutput[];
 		displayMessage: ILanguageRuntimeMessageWebOutput;
 		viewType?: string;
+		webviewType: WebviewType;
 	}): Promise<INotebookOutputWebview | undefined> {
 
 		const displayInfo = this._findRendererForOutput(displayMessage);
@@ -127,15 +147,20 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			runtimeId,
 			displayMessageInfo: displayInfo,
 			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
-			viewType
+			viewType,
+			webviewType,
 		});
 	}
 
 	async createNotebookOutputWebview(
-		id: string,
-		runtime: ILanguageRuntimeSession,
-		output: ILanguageRuntimeMessageWebOutput,
-		viewType?: string,
+		{ id, runtime, output, viewType, webviewType }:
+			{
+				id: string;
+				runtime: ILanguageRuntimeSession;
+				output: ILanguageRuntimeMessageWebOutput;
+				webviewType: WebviewType;
+				viewType?: string;
+			}
 	): Promise<INotebookOutputWebview | undefined> {
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
@@ -153,7 +178,8 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					id,
 					runtimeId: runtime.sessionId,
 					displayMessageInfo: { mimeType, renderer, output },
-					viewType
+					viewType,
+					webviewType,
 				});
 			}
 		}
@@ -166,7 +192,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					id,
 					runtimeOrSessionId: runtime,
 					html: output.data[mimeType],
-					webviewType: WebviewType.Overlay
+					webviewType
 				});
 			}
 		}
@@ -264,18 +290,19 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		runtimeId,
 		displayMessageInfo,
 		preReqMessagesInfo,
-		viewType
+		viewType,
+		webviewType
 	}: {
 		id: string;
 		runtimeId: string;
 		displayMessageInfo: MessageRenderInfo;
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
+		webviewType: WebviewType;
 	}): Promise<INotebookOutputWebview> {
 
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
-
 
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
@@ -353,11 +380,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
 		const notebookOutputWebview = this._instantiationService.createInstance(
-			NotebookOutputWebview<IOverlayWebview>,
+			NotebookOutputWebview,
 			{
 				id,
 				sessionId: runtimeId,
 				webview,
+				webviewType,
 				rendererMessaging: scopedRendererMessaging
 			},
 		);
@@ -390,14 +418,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return notebookOutputWebview;
 	}
 
-	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
+	async createRawHtmlOutput({ id, html, runtimeOrSessionId, webviewType }: {
 		id: string;
 		html: string;
-		webviewType: WType;
 		runtimeOrSessionId: ILanguageRuntimeSession | string;
-	}): Promise<
-		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
-	> {
+		webviewType: WebviewType;
+	}): Promise<INotebookOutputWebview> {
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
@@ -455,8 +481,9 @@ window.onload = function() {
 				id,
 				sessionId: typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
 				webview,
+				webviewType
 			}
-		) as NotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>;
+		);
 	}
 
 	/**

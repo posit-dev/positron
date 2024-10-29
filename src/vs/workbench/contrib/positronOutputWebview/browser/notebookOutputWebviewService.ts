@@ -16,7 +16,7 @@ export const IPositronNotebookOutputWebviewService =
 	createDecorator<IPositronNotebookOutputWebviewService>(
 		POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID);
 
-export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends IDisposable {
+export interface INotebookOutputWebview extends IDisposable {
 	/** The ID of the notebook output */
 	id: string;
 
@@ -24,11 +24,25 @@ export interface INotebookOutputWebview<WType extends IOverlayWebview | IWebview
 	sessionId: string;
 
 	/** The webview containing the output's content */
-	webview: WType;
+	webview: IOverlayWebview | IWebviewElement;
+
+	/** The type of webview, used for later type assertions */
+	webviewType: WebviewType;
 
 	/** Fired when the content completes rendering */
 	onDidRender: Event<void>;
 }
+
+export interface INotebookOutputOverlayWebview extends INotebookOutputWebview {
+	webview: IOverlayWebview;
+	webviewType: WebviewType.Overlay;
+}
+
+export interface INotebookOutputStandardWebview extends INotebookOutputWebview {
+	webview: IWebviewElement;
+	webviewType: WebviewType.Standard;
+}
+
 
 export enum WebviewType {
 	Overlay,
@@ -53,10 +67,13 @@ export interface IPositronNotebookOutputWebviewService {
 	 *   output does not have a suitable renderer.
 	 */
 	createNotebookOutputWebview(
-		id: string,
-		runtime: ILanguageRuntimeSession,
-		output: ILanguageRuntimeMessageOutput,
-		viewType?: string,
+		opts: {
+			id: string;
+			runtime: ILanguageRuntimeSession;
+			output: ILanguageRuntimeMessageOutput;
+			viewType?: string;
+			webviewType: WebviewType;
+		}
 	): Promise<INotebookOutputWebview | undefined>;
 
 	/**
@@ -78,6 +95,7 @@ export interface IPositronNotebookOutputWebviewService {
 			preReqMessages: ILanguageRuntimeMessageWebOutput[];
 			displayMessage: ILanguageRuntimeMessageWebOutput;
 			viewType?: string;
+			webviewType: WebviewType;
 		}): Promise<INotebookOutputWebview | undefined>;
 
 	/**
@@ -88,16 +106,13 @@ export interface IPositronNotebookOutputWebviewService {
 	 *  that created it.
 	 * @param opts.runtimeOrSessionId The runtime that owns this webview. Can also be a string of the ID of the runtime.
 	 * @param opts.html The HTML content to render in the webview.
-	 * @param opts.webviewType The type of webview to create.
 	 * @returns A promise that resolves to the new webview of the desired type.
 	 */
-	createRawHtmlOutput<WType extends WebviewType>(opts: {
+	createRawHtmlOutput(opts: {
 		id: string;
 		html: string;
-		webviewType: WType;
 		runtimeOrSessionId: ILanguageRuntimeSession | string;
-	}): Promise<
-		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
-	>;
+		webviewType: WebviewType;
+	}): Promise<INotebookOutputWebview>;
 }
 

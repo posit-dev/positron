@@ -8,7 +8,7 @@ import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, Langua
 import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { VSBuffer } from 'vs/base/common/buffer';
@@ -199,7 +199,8 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			runtimeId: instance.id,
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,
-			viewType: 'jupyter-notebook'
+			viewType: 'jupyter-notebook',
+			webviewType: WebviewType.Standard
 		});
 		console.log({ output });
 
@@ -219,7 +220,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Check if a message is a message that should be displayed rather than simply stored as
 		// dependencies for future display messages.
-		if (PositronWebviewPreloadService.isDisplayMessage(Object.keys(msg))) {
+		if (PositronWebviewPreloadService.isDisplayMessage(Object.keys(msg.data))) {
 			// Create a new plot client.
 			this._createPlotClient(session, msg);
 			return;

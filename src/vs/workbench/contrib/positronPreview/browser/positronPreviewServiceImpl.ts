@@ -13,7 +13,7 @@ import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { URI } from 'vs/base/common/uri';
 import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
 import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
@@ -26,6 +26,7 @@ import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previe
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { basename } from 'vs/base/common/path';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
+import { assertIsOverlayWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -395,8 +396,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview(e.id, session, e);
+					this._notebookOutputWebviewService.createNotebookOutputWebview({
+						id: e.id,
+						runtime: session,
+						output: e,
+						webviewType: WebviewType.Overlay
+					});
 				if (webview) {
+					assertIsOverlayWebview(webview);
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(
 						'notebookRenderer',

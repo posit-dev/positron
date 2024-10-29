@@ -11,6 +11,7 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
+import { assertIsStandardWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 
 
 // Styles that get added to the HTML content of the webview for things like cleaning
@@ -89,7 +90,7 @@ export function NotebookHTMLContent({ content, outputId }: { content: string; ou
 		let outputWebview: IWebviewElement | undefined;
 
 		const buildWebview = async () => {
-			outputWebview = (await notebookWebviewService.createRawHtmlOutput({
+			const notebookWebview = await notebookWebviewService.createRawHtmlOutput({
 				id: outputId,
 				runtimeOrSessionId: notebookRuntime ?? instance.id,
 				html: buildWebviewHTML({
@@ -98,7 +99,11 @@ export function NotebookHTMLContent({ content, outputId }: { content: string; ou
 					script: `(${webviewMessageCode.toString()})();`
 				}),
 				webviewType: WebviewType.Standard
-			})).webview;
+			});
+
+			assertIsStandardWebview(notebookWebview);
+
+			outputWebview = notebookWebview.webview;
 
 			// If the use-effect ran the cleanup function while we were awaiting the webview
 			// creation, don't mound the webview and end early.

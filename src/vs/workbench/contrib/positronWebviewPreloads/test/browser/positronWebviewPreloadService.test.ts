@@ -7,11 +7,10 @@ import { timeout } from 'vs/base/common/async';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from 'vs/workbench/test/browser/positronWorkbenchTestServices';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
+import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
+import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
 
 
 const hvPreloadMessage = {
@@ -64,7 +63,7 @@ suite('Positron - PositronWebviewPreloadService', () => {
 
 		const out: {
 			session: TestLanguageRuntimeSession;
-			plotClient: WebviewPlotClient | undefined;
+			plotClient: NotebookMultiMessagePlotClient | undefined;
 		} = {
 			session, plotClient: undefined,
 		};
