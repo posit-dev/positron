@@ -20,8 +20,8 @@ export interface ConnectionMetadata {
  * source. Children of a connection instance are tables, views, and other
  * objects that can be queried and are represented by Connection Items.
  */
-export interface IPositronConnectionInstance extends IPositronConnectionItem {
-	language_id: string;
+export interface IPositronConnectionInstance {
+	id: string;
 	active: boolean;
 	metadata: ConnectionMetadata;
 

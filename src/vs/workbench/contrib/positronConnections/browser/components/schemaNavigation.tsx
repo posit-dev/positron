@@ -99,6 +99,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		);
 	};
 
+	const { name, language_id, icon } = activeInstance.metadata;
+
 	return (
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
@@ -110,16 +112,11 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			</ActionBar>
 			<div className='connections-items-container'>
 				<div className={'connections-instance-details'} style={{ height: kActionBarHeight - 6 }}>
-					<div className='connection-name'>{activeInstance?.name}</div>
-					<div className='connection-language'>{languageIdToName(activeInstance?.language_id)}</div>
+					<div className='connection-name'>{name}</div>
+					<div className='connection-language'>{languageIdToName(language_id)}</div>
 					<div className={'connection-icon'}>
 						{
-							activeInstance?.icon ?
-								activeInstance?.icon :
-								<div
-									className={`codicon codicon-positron-database-connection`}
-								>
-								</div>
+							icon || <div className='codicon codicon-positron-database-connection'></div>
 						}
 					</div>
 				</div>
@@ -242,8 +239,6 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					<div
 						className='expand-collapse-area'
 						onClick={handleExpand}
-						// Disable clicking when the connection is not active
-						style={{ pointerEvents: props.item.active ? undefined : 'none' }}
 					>
 						<div
 							className={`codicon codicon-chevron-${props.item.expanded ? 'down' : 'right'}`}
@@ -252,7 +247,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 					</div>
 			}
 			<div
-				className={`connections-details ${!props.item.active ? 'connection-disabled' : ''}`}
+				className='connections-details'
 				onMouseDown={rowMouseDownHandler}
 			>
 				<span className='connections-name'>{props.item.name}</span>

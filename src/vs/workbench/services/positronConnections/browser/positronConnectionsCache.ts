@@ -7,8 +7,9 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
-import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
 export interface IPositronConnectionEntry {
 	/***
@@ -28,11 +29,6 @@ export interface IPositronConnectionEntry {
 	 * that is at the top of the hierarchy.
 	 */
 	root_id: string;
-
-	/**
-	 * Wether the connection entry is currently active.
-	 */
-	active: boolean;
 
 	/**
 	 * Wether the connection is expanded or not. Undefined
@@ -72,7 +68,7 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	error?: string;
 
 	constructor(
-		private readonly item: IPositronConnectionItem | IPositronConnectionInstance,
+		private readonly item: IPositronConnectionItem,
 		private notify: (message: string, severity: Severity) => INotificationHandle,
 		readonly level: number,
 		readonly root_id: string
@@ -83,15 +79,6 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	get id() {
 		const id = this.item.id;
 		return id;
-	}
-
-	get active() {
-		if ('active' in this.item) {
-			return this.item.active;
-		}
-
-		// Child objects are always 'active'.
-		return true;
 	}
 
 	get expanded() {
@@ -150,7 +137,7 @@ export class PositronConnectionsCache {
 
 	constructor(
 		private readonly service: IPositronConnectionsService,
-		private readonly instance: IPositronConnectionInstance,
+		private readonly instance: PositronConnectionsInstance,
 	) { }
 
 	get entries(): IPositronConnectionEntry[] {
@@ -158,7 +145,11 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
-		const entries = await this.getConnectionsEntries([this.instance]);
+		const entries = await this.getConnectionsEntries(
+			await this.instance.getChildren(),
+			1,
+			this.instance.id
+		);
 		this._entries = entries;
 	}
 

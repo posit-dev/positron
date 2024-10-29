@@ -40,6 +40,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 
 	const ItemEntry = (props: { index: number; style: any }) => {
 		const itemProps = instances[props.index];
+		const { language_id, name } = itemProps.metadata;
 
 		return (
 			<div
@@ -51,9 +52,9 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				onMouseDown={() => setSelectedInstanceId(itemProps.id)}
 			>
 				<div className='col-icon' style={{ width: `${26}px` }}></div>
-				<div className='col-name'>{itemProps.name}</div>
+				<div className='col-name'>{name}</div>
 				<div className='col-language'>
-					{itemProps.language_id ? languageIdToName(itemProps.language_id) : ''}
+					{language_id ? languageIdToName(language_id) : ''}
 				</div>
 				<div
 					className={positronClassNames('col-status', { 'disabled': !itemProps.active })}
