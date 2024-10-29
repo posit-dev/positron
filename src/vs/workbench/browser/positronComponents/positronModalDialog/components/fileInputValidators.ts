@@ -119,8 +119,7 @@ export async function checkIfURIExists(path: URI, fileService: IFileService): Pr
  * @returns Whether the input is empty.
  */
 export function isInputEmpty(input: string | number): boolean {
-	const inputString = typeof input === 'number' ? input.toString() : input;
-	return inputString.trim() === '';
+	return typeof input === 'number' ? false : input.trim() === '';
 }
 
 /**
