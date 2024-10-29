@@ -10,6 +10,7 @@ import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/co
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { VSBuffer } from 'vs/base/common/buffer';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
@@ -19,7 +20,9 @@ export const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
 export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
 
 export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
-export type NotebookPreloadOutputResults = { preloadMessageType: 'preload' | 'display' };
+export type NotebookPreloadOutputResults =
+	| { preloadMessageType: 'preload' }
+	| { preloadMessageType: 'display'; webview: INotebookOutputWebview };
 
 export interface IPositronWebviewPreloadService {
 	/**
@@ -45,7 +48,10 @@ export interface IPositronWebviewPreloadService {
 	/**
 	 * Add a message to the session. Used in notebooks.
 	 */
-	addMessageForSession(session: ILanguageRuntimeSession, msg: ILanguageRuntimeMessageWebOutput): void;
+	addMessageForSession(
+		session: ILanguageRuntimeSession,
+		msg: ILanguageRuntimeMessageWebOutput
+	): void;
 
 	/**
 	 * Add a notebook to the known list for replay of messages when creating webviews.
@@ -53,5 +59,12 @@ export interface IPositronWebviewPreloadService {
 	 */
 	attachNotebookInstance(instance: IPositronNotebookInstance): void;
 
-	addNotebookOutput(instance: IPositronNotebookInstance, outputId: string, outputs: { mime: string; data: VSBuffer }[]): NotebookPreloadOutputResults | undefined;
+	/**
+	 * Add output from a notebook cell and process it for webview preloads
+	 */
+	addNotebookOutput(
+		instance: IPositronNotebookInstance,
+		outputId: string,
+		outputs: { mime: string; data: VSBuffer }[]
+	): Promise<NotebookPreloadOutputResults | undefined>;
 }

@@ -8,7 +8,7 @@ import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, Langua
 import { IPositronWebviewPreloadService, NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { IPositronNotebookOutputWebviewService, WebviewType, INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { VSBuffer } from 'vs/base/common/buffer';
@@ -148,7 +148,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		};
 	}
 
-	public addNotebookOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']): NotebookPreloadOutputResults | undefined {
+	public async addNotebookOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']): Promise<NotebookPreloadOutputResults | undefined> {
 		const notebookMessages = this._messagesByNotebookId.get(instance.id);
 
 		if (!notebookMessages) {
@@ -160,9 +160,9 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		const isReplay = isWebviewReplayMessage(mimeTypes);
 		if (isWebviewDisplayMessage(mimeTypes)) {
 			// Create a new plot client.
-			this._createNotebookPlotClient(instance, PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
+			const webview = await this._createNotebookPlotClient(instance, PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
 
-			return { preloadMessageType: 'display' };
+			return { preloadMessageType: 'display', webview };
 		} else if (isReplay) {
 
 			// Store the message for later playback.
@@ -182,7 +182,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	private async _createNotebookPlotClient(
 		instance: IPositronNotebookInstance,
 		displayMessage: ILanguageRuntimeMessageWebOutput,
-	) {
+	): Promise<INotebookOutputWebview> {
 		// Grab disposables for this session
 		const disposables = this._notebookToDisposablesMap.get(instance.id);
 		if (!disposables) {
@@ -191,20 +191,20 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Create a plot client and fire event letting plots pane know it's good to go.
 		const storedMessages = this._messagesByNotebookId.get(instance.id) ?? [];
-		console.log('storedMessages', storedMessages);
-		const output = await this._notebookOutputWebviewService.createMultiMessageWebview({
+		const webview = await this._notebookOutputWebviewService.createMultiMessageWebview({
 			runtimeId: instance.id,
 			preReqMessages: storedMessages,
 			displayMessage: displayMessage,
 			viewType: 'jupyter-notebook',
 			webviewType: WebviewType.Standard
 		});
-		console.log({ output });
 
-		// const client = disposables.add(new NotebookMultiMessagePlotClient(
-		// 	this._notebookOutputWebviewService, runtime, storedMessages, displayMessage,
-		// ));
-		// this._onDidCreatePlot.fire(client);
+		// Assert that we have a webview
+		if (!webview) {
+			throw new Error(`PositronWebviewPreloadService: Failed to create webview for notebook ${instance.id}`);
+		}
+
+		return webview;
 	}
 
 	/**

@@ -203,7 +203,7 @@ export interface NotebookCellOutputs {
 	outputId: string;
 	outputs: NotebookCellOutputItem[];
 	parsed: ParsedOutput;
-	preloadMessageResult?: NotebookPreloadOutputResults;
+	preloadMessageResult?: Promise<NotebookPreloadOutputResults | undefined>;
 }
 
 /**
