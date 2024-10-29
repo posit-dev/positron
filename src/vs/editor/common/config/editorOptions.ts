@@ -3117,7 +3117,8 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 				'editor.actionBar.enabled': {
 					type: 'boolean',
 					default: defaults.enabled,
-					description: nls.localize('actionBar.enabled', "Controls whether the action bar should be enabled.")
+					description: nls.localize('actionBar.enabled', "Controls whether the action bar is shown."),
+
 				}
 			}
 		);

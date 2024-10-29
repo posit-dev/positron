@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from 'vs/nls';
+import { Action2, MenuId } from 'vs/platform/actions/common/actions';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
 import { Categories } from 'vs/platform/action/common/actionCommonCategories';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
@@ -60,4 +60,5 @@ export class ToggleActionBarAction extends Action2 {
 /**
  * Registers the action.
  */
-registerAction2(ToggleActionBarAction);
+// At the moment, do not register the ToggleActionBarAction because it is still experimental.
+// registerAction2(ToggleActionBarAction);
