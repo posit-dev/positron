@@ -78,7 +78,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	private constructor(
 		metadata: ConnectionMetadata,
-		private readonly client: ConnectionsClientInstance,
+		readonly client: ConnectionsClientInstance,
 		readonly service: IPositronConnectionsService,
 	) {
 		super(metadata);
@@ -117,8 +117,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			this._children = await Promise.all(children.map(async (item) => {
 				return await PositronConnectionItem.init(
 					[item],
-					this.client,
-					this.id,
 					this
 				);
 			}));
@@ -304,8 +302,8 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
 	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
 
-	static async init(path: PathSchema[], client: ConnectionsClientInstance, parent_id: string, instance: PositronConnectionsInstance) {
-		const object = new PositronConnectionItem(path, client, parent_id, instance);
+	static async init(path: PathSchema[], instance: PositronConnectionsInstance) {
+		const object = new PositronConnectionItem(path, instance);
 
 		let expandable;
 		try {
@@ -342,8 +340,6 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	private constructor(
 		private readonly path: PathSchema[],
-		private readonly client: ConnectionsClientInstance,
-		private readonly parent_id: string,
 		private readonly instance: PositronConnectionsInstance
 	) {
 		if (this.path.length === 0) {
@@ -365,7 +361,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	}
 
 	get id() {
-		return `${this.parent_id}-name:${this._name}`;
+		return this.path.map((item) => item.name).join('-');
 	}
 
 	get name() {
@@ -395,7 +391,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 		return async () => {
 			try {
-				await this.client.previewObject(this.path);
+				await this.instance.client.previewObject(this.path);
 			} catch (err) {
 				this.instance.service.notify(
 					`Failed to preview object (${this.name}): ${err.message}`,
@@ -417,20 +413,18 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	async getChildren() {
 		if (!this._children) {
 			let children: PathSchema[];
-			const containsData = await this.client.containsData(this.path);
+			const containsData = await this.instance.client.containsData(this.path);
 			if (containsData) {
-				children = (await this.client.listFields(this.path)).map((item) => {
+				children = (await this.instance.client.listFields(this.path)).map((item) => {
 					return { ...item, kind: 'field' };
 				});
 			} else {
-				children = await this.client.listObjects(this.path);
+				children = await this.instance.client.listObjects(this.path);
 			}
 
 			this._children = await Promise.all(children.map(async (item) => {
 				return await PositronConnectionItem.init(
 					[...this.path, item],
-					this.client,
-					this.id,
 					this.instance
 				);
 			}));
@@ -439,7 +433,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	}
 
 	private async getIcon() {
-		const icon = await this.client.getIcon(this.path);
+		const icon = await this.instance.client.getIcon(this.path);
 		if (icon === '') {
 			return undefined;
 		} else {
@@ -449,7 +443,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	private async hasViewer() {
 		if (this._has_viewer === undefined) {
-			this._has_viewer = await this.client.containsData(this.path);
+			this._has_viewer = await this.instance.client.containsData(this.path);
 		}
 		return this._has_viewer;
 	}
