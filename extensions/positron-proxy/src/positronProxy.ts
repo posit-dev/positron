@@ -449,8 +449,8 @@ export class PositronProxy implements Disposable {
 			server
 		));
 
-		// Create the proxy request handler
-		const requestHandler = createProxyMiddleware({
+		// Add the proxy middleware.
+		app.use('*', createProxyMiddleware({
 			target: targetOrigin,
 			changeOrigin: true,
 			selfHandleResponse: true,
@@ -485,29 +485,8 @@ export class PositronProxy implements Disposable {
 
 				// Rewrite the content.
 				return contentRewriter(serverOrigin, externalUri.path, url, contentType, responseBuffer);
-			}),
-			onProxyReqWs: (proxyReq, req, socket, _options, head) => {
-				log.trace(`onProxyReqWs - proxy request WebSocket ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}` +
-					`\n\tmethod: ${proxyReq.method}` +
-					`\n\tsocket remote: ${socket.remoteAddress}:${socket.remotePort}` +
-					`\n\tsocket local: ${socket.localAddress}:${socket.localPort}` +
-					`\n\tprotocol: ${proxyReq.protocol}` +
-					`\n\thost: ${proxyReq.host}` +
-					`\n\turl: ${proxyReq.path}` +
-					`\n\theaders: ${JSON.stringify(proxyReq.getHeaders())}` +
-					`\n\thead: ${JSON.stringify(head)}` +
-					`\n\texternal uri: ${externalUri.toString(true)}`
-				);
-				log.trace(`onProxyReqWs - request headers ${serverOrigin}${req.url} -> ${targetOrigin}${req.url}:\n${JSON.stringify(req.headers)}`);
-			},
-		});
-
-		// Add the proxy middleware.
-		app.use('*', requestHandler);
-
-		// Is this upgrade handling missing? https://github.com/chimurai/http-proxy-middleware?tab=readme-ov-file#websocket
-		// Handle the upgrade event.
-		server.on('upgrade', requestHandler.upgrade!);
+			})
+		}));
 	}
 
 	//#endregion Private Methods
