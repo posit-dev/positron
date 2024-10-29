@@ -5,6 +5,7 @@
 
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -12,6 +13,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export interface PositronConnectionsServices {
@@ -24,6 +26,8 @@ export interface PositronConnectionsServices {
 	readonly connectionsService: IPositronConnectionsService;
 	readonly reactComponentContainer: IReactComponentContainer;
 	readonly layoutService: ILayoutService;
+	readonly clipboardService: IClipboardService;
+	readonly notificationService: INotificationService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

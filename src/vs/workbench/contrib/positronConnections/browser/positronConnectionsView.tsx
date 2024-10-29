@@ -27,6 +27,8 @@ import * as React from 'react';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -81,7 +83,9 @@ export class PositronConnectionsView
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService,
-		@ILayoutService private readonly layoutService: ILayoutService
+		@ILayoutService private readonly layoutService: ILayoutService,
+		@IClipboardService private readonly clipboardService: IClipboardService,
+		@INotificationService private readonly notificationService: INotificationService
 	) {
 		super(
 			options,
@@ -136,6 +140,8 @@ export class PositronConnectionsView
 				connectionsService={this.connectionsService}
 				layoutService={this.layoutService}
 				reactComponentContainer={this}
+				clipboardService={this.clipboardService}
+				notificationService={this.notificationService}
 			/>
 		);
 	}

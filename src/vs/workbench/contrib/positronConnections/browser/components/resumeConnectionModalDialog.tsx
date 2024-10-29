@@ -53,6 +53,19 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 
 	const code = activeInstace.metadata.code;
 
+	const copyHandler = async () => {
+		if (!code) {
+			// The button is disabled when no code is available.
+			return;
+		}
+		await services.clipboardService.writeText(code);
+		props.renderer.dispose();
+		services.notificationService.info(localize(
+			'positron.resumeConnectionModalDialog.codeCopied',
+			"Connection code copied to clipboard"
+		));
+	};
+
 	return (
 		<div className='connections-resume-connection-modal'>
 			<PositronModalDialog
@@ -75,7 +88,11 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 								</PositronButton>
 							</div>
 							<div className='bottom'>
-								<PositronButton className='button action-bar-button'>
+								<PositronButton
+									className='button action-bar-button'
+									onPressed={copyHandler}
+									disabled={!code}
+								>
 									{(() => localize('positron.resumeConnectionModalDialog.copy', "Copy"))()}
 								</PositronButton>
 								<PositronButton className='button action-bar-button'>
