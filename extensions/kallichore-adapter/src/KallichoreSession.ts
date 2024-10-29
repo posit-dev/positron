@@ -1049,11 +1049,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		if (data.hasOwnProperty('status')) {
 			// Check to see if the status is a valid runtime state
 			if (Object.values(positron.RuntimeState).includes(data.status)) {
-				// The 'starting' state typically follows 'uninitialized'. We
-				// can ignore the message in other cases as we've already
-				// broadcasted the state change to the client.
+				// The 'starting' state typically follows 'uninitialized' (new
+				// session) or 'exited' (a restart). We can ignore the message
+				// in other cases as we've already broadcasted the state change
+				// to the client.
 				if (data.status === positron.RuntimeState.Starting &&
-					this._runtimeState !== positron.RuntimeState.Uninitialized) {
+					this._runtimeState !== positron.RuntimeState.Uninitialized &&
+					this._runtimeState !== positron.RuntimeState.Exited) {
 					this.log(`Ignoring 'starting' state message; already in state '${this._runtimeState}'`, vscode.LogLevel.Trace);
 					return;
 				}
