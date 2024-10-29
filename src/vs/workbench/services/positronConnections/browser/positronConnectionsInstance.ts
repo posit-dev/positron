@@ -10,7 +10,7 @@ import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionIte
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronConnectionEntry, PositronConnectionsCache } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+import { flatten_instance, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 import { Severity } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { DeferredPromise } from 'vs/base/common/async';
@@ -57,7 +57,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
-	_cache: PositronConnectionsCache;
+	private _entries: IPositronConnectionEntry[] = [];
 
 	// Connection instances are always expanded
 	public readonly expanded = true;
@@ -82,7 +82,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		readonly service: IPositronConnectionsService,
 	) {
 		super(metadata);
-		this._cache = new PositronConnectionsCache(this.service, this);
 
 		this._register(this.client.onDidClose(() => {
 			this.active = false;
@@ -94,16 +93,16 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	}
 
 	getEntries() {
-		return this._cache.entries;
+		return this._entries;
 	}
 
 	async refreshEntries() {
 		try {
-			await this._cache.refreshConnectionEntries();
+			this._entries = await flatten_instance(this);
 		} catch (err) {
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
-		this.onDidChangeEntriesEmitter.fire(this._cache.entries);
+		this.onDidChangeEntriesEmitter.fire(this._entries);
 	}
 
 	readonly kind: string = 'database';
@@ -395,7 +394,14 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		}
 
 		return async () => {
-			await this.client.previewObject(this.path);
+			try {
+				await this.client.previewObject(this.path);
+			} catch (err) {
+				this.instance.service.notify(
+					`Failed to preview object (${this.name}): ${err.message}`,
+					Severity.Error
+				);
+			}
 		};
 	}
 

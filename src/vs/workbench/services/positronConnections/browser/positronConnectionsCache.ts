@@ -4,10 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from 'vs/base/common/lifecycle';
-import Severity from 'vs/base/common/severity';
-import { INotificationHandle } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
 export interface IPositronConnectionEntry extends IPositronConnectionItem {
@@ -22,16 +19,12 @@ export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	error?: string;
 }
 
-/**
- * Wraps ConnectionInstance or ConnectionItems to provide a flat list of entries.
- */
 class PositronConnectionEntry extends Disposable implements IPositronConnectionEntry {
 
 	error?: string;
 
 	constructor(
 		private readonly item: IPositronConnectionItem,
-		private notify: (message: string, severity: Severity) => INotificationHandle,
 		readonly level: number
 	) {
 		super();
@@ -66,77 +59,49 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	}
 
 	get preview() {
-		if (!this.item.preview) {
-			return undefined;
-		}
-
-		return async () => {
-			try {
-				await this.item.preview?.();
-			} catch (err: any) {
-				this.notify(
-					`Error previewing object ${this.id}: ${err.message}`,
-					Severity.Error
-				);
-			}
-		};
+		return this.item.preview;
 	}
 }
 
-export class PositronConnectionsCache {
+/**
+ * Flattens an instance of PositronConnectionsInstance into a list of connection entries
+ * that can be used by the UI. A flat list is usable so we can use react-window to efficiently
+ * render the schema tree.
+ */
+export async function flatten_instance(instance: PositronConnectionsInstance): Promise<IPositronConnectionEntry[]> {
+	return await flatten_items(await instance.getChildren());
+}
 
-	private _entries: IPositronConnectionEntry[] = [];
+async function flatten_items(items: IPositronConnectionItem[], level = 0): Promise<IPositronConnectionEntry[]> {
+	const entries: IPositronConnectionEntry[] = [];
+	for (const item of items) {
 
-	constructor(
-		private readonly service: IPositronConnectionsService,
-		private readonly instance: PositronConnectionsInstance,
-	) { }
+		const entry = new PositronConnectionEntry(item, level);
+		entries.push(entry);
 
-	get entries(): IPositronConnectionEntry[] {
-		return this._entries;
-	}
-
-	async refreshConnectionEntries() {
-		const entries = await this.getConnectionsEntries(await this.instance.getChildren());
-		this._entries = entries;
-	}
-
-	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
-
-		const entries: IPositronConnectionEntry[] = [];
-		for (const item of items) {
-
-			const entry = new PositronConnectionEntry(
-				item,
-				(message, severity) => this.service.notify(message, severity),
-				level
-			);
-			entries.push(entry);
-
-			if (item.error) {
-				entry.error = item.error;
-			}
-
-			const expanded = item.expanded;
-			const active = 'active' in item ? item.active : true;
-
-			// To show children, the connection must be expanded, have a getChildren() method
-			// and be active.
-			if (expanded && item.getChildren && active) {
-				let children;
-				try {
-					children = await item.getChildren();
-				} catch (err: any) {
-					// If some error happened we want to be able
-					// display it for users.
-					entry.error = err.message;
-					continue;
-				}
-				const newItems = await this.getConnectionsEntries(children, level + 1);
-				entries.push(...newItems);
-			}
+		if (item.error) {
+			entry.error = item.error;
 		}
 
-		return entries;
+		const expanded = item.expanded;
+		const active = 'active' in item ? item.active : true;
+
+		// To show children, the connection must be expanded, have a getChildren() method
+		// and be active.
+		if (expanded && item.getChildren && active) {
+			let children;
+			try {
+				children = await item.getChildren();
+			} catch (err: any) {
+				// If some error happened we want to be able
+				// display it for users.
+				entry.error = err.message;
+				continue;
+			}
+			const newItems = await flatten_items(children, level + 1);
+			entries.push(...newItems);
+		}
 	}
+
+	return entries;
 }
