@@ -14,6 +14,7 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export interface PositronConnectionsServices {
@@ -28,6 +29,7 @@ export interface PositronConnectionsServices {
 	readonly layoutService: ILayoutService;
 	readonly clipboardService: IClipboardService;
 	readonly notificationService: INotificationService;
+	readonly editorService: IEditorService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

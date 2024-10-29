@@ -66,6 +66,19 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		));
 	};
 
+	const editHandler = async () => {
+		if (!code) {
+			return;
+		}
+
+		props.renderer.dispose();
+		await services.editorService.openEditor({
+			resource: undefined,
+			contents: code,
+			languageId: activeInstace.metadata.language_id
+		});
+	};
+
 	return (
 		<div className='connections-resume-connection-modal'>
 			<PositronModalDialog
@@ -83,7 +96,11 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 						</div>
 						<div className='buttons'>
 							<div className='top'>
-								<PositronButton className='button action-bar-button'>
+								<PositronButton
+									className='button action-bar-button'
+									onPressed={editHandler}
+									disabled={!code}
+								>
 									{(() => localize('positron.resumeConnectionModalDialog.edit', "Edit"))()}
 								</PositronButton>
 							</div>

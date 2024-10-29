@@ -29,6 +29,7 @@ import { IPositronConnectionsService } from 'vs/workbench/services/positronConne
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -85,7 +86,8 @@ export class PositronConnectionsView
 		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService,
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
-		@INotificationService private readonly notificationService: INotificationService
+		@INotificationService private readonly notificationService: INotificationService,
+		@IEditorService private readonly editorService: IEditorService
 	) {
 		super(
 			options,
@@ -142,6 +144,7 @@ export class PositronConnectionsView
 				reactComponentContainer={this}
 				clipboardService={this.clipboardService}
 				notificationService={this.notificationService}
+				editorService={this.editorService}
 			/>
 		);
 	}
