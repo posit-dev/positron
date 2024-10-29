@@ -68,7 +68,7 @@ export const showNewFolderFromGitModalDialog = async (
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder.path
+							result.parentFolder.fsPath
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
@@ -163,7 +163,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.path}
+					value={result.parentFolder.fsPath}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>

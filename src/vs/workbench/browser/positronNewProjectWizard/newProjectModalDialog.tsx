@@ -29,6 +29,7 @@ import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { URI } from 'vs/base/common/uri';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -80,7 +81,7 @@ export const showNewProjectModalDialog = async (
 				renderer={renderer}
 				createProject={async result => {
 					// Create the new project folder if it doesn't already exist.
-					const folder = result.parentFolder.with({ path: (await pathService.path).join(result.parentFolder.fsPath, result.projectName) });
+					const folder = URI.joinPath(result.parentFolder, result.projectName);
 					const existingFolder = await fileService.exists(folder);
 					if (!existingFolder) {
 						await fileService.createFolder(folder);

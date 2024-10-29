@@ -60,8 +60,7 @@ export const showNewFolderModalDialog = async (
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				// Create the folder path.
-				const path = await pathService.path;
-				const folderURI = result.parentFolder.with({ path: path.join(result.parentFolder.path, result.folder) });
+				const folderURI = URI.joinPath(result.parentFolder, result.folder);
 
 				// Create the new folder, if it doesn't already exist.
 				if (!(await fileService.exists(folderURI))) {
@@ -160,7 +159,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.path}
+					value={result.parentFolder.fsPath}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
