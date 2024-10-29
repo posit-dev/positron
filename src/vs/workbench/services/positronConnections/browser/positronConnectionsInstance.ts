@@ -10,7 +10,7 @@ import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionIte
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { flatten_instance, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
+import { flatten_instance, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
 import { Severity } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { DeferredPromise } from 'vs/base/common/async';
