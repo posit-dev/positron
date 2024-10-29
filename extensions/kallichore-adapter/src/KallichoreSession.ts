@@ -755,7 +755,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (runtimeInfo) {
 				// If we got runtime info at startup, open the ready
 				// barrier immediately
-				this._ready.open();
+				this.markReady();
 			} else {
 				// If this is a new session without runtime information, wait
 				// for it to be ready instead. This can take some time as it
@@ -781,8 +781,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				});
 			} else {
 				// Enter the ready state immediately if the session is not busy
-				this._ready.open();
-				this._state.fire(positron.RuntimeState.Ready);
+				this.markReady();
 			}
 		}
 
@@ -806,11 +805,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._state.event(async (state) => {
 				if (state === positron.RuntimeState.Idle) {
 					resolve();
-					this._ready.open();
-					this._state.fire(positron.RuntimeState.Ready);
+					this.markReady();
 				}
 			});
 		});
+	}
+
+	/**
+	 * Opens the ready barrier and fires the ready event.
+	 */
+	private markReady() {
+		this._ready.open();
+		this._state.fire(positron.RuntimeState.Ready);
 	}
 
 	/**
