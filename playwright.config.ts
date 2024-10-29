@@ -47,11 +47,11 @@ export default defineConfig<TestOptions>({
   /* Configure projects for major browsers */
   projects: [
     {
-      name: 'e2e: electron',
+      name: 'e2e-electron',
       use: { ...devices['Desktop Chrome'], web: false },
     },
     {
-      name: 'e2e: browser',
+      name: 'e2e-browser',
       use: { ...devices['Desktop Chrome'], web: true },
     },
   ],

@@ -11,8 +11,6 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 import * as os from 'os';
 // eslint-disable-next-line local/code-import-patterns
-import { rename, rm, access, mkdir } from 'fs/promises';
-import { constants } from 'fs';
 import path = require('path');
 
 // Third-party packages
@@ -28,12 +26,11 @@ const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
 const ARTIFACT_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-const TEMP_LOGS_PATH = join(LOGS_ROOT_PATH, ARTIFACT_DIR, TEMP_DIR);
+const TEMP_LOGS_PATH = join(LOGS_ROOT_PATH, ARTIFACT_DIR);
 const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', ARTIFACT_DIR, TEMP_DIR);
 let SPEC_NAME = '';
 
 export const test = base.extend<{
-	logger: Logger;
 	tracing: any;
 	page: playwright.Page;
 	context: playwright.BrowserContext;
@@ -49,19 +46,19 @@ export const test = base.extend<{
 	web: boolean;
 	options: any;
 	app: Application;
-	globalLogger: Logger;
+	logger: Logger;
 	beforeAllTests: any;
 	afterAllTests: any;
 }>({
 	web: [false, { scope: 'worker', option: true }],
 
-	globalLogger: [async ({ }, use, workerInfo) => {
-		const logger = createLogger(TEMP_LOGS_PATH);
+	logger: [async ({ }, use, workerInfo) => {
+		const logger = createLogger(TEMP_LOGS_PATH + '/' + `worker-${workerInfo.workerIndex}`);
 
 		await use(logger);
 	}, { auto: true, scope: 'worker' }],
 
-	options: [async ({ web, globalLogger: logger }, use) => {
+	options: [async ({ web, logger }, use, workerInfo) => {
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
@@ -73,7 +70,7 @@ export const test = base.extend<{
 			userDataDir: join(TEST_DATA_PATH, 'd'),
 			extensionsPath: EXTENSIONS_PATH,
 			logger: logger,
-			logsPath: TEMP_LOGS_PATH,
+			logsPath: TEMP_LOGS_PATH + '/' + `worker-${workerInfo.workerIndex}`,
 			crashesPath: SPEC_CRASHES_PATH,
 			verbose: OPTS.verbose,
 			remote: OPTS.remote,
@@ -97,9 +94,6 @@ export const test = base.extend<{
 		await app.start();
 		await use(app);
 		await app.stop();
-
-		const CORRECT_LOGS_PATH = join(ROOT_PATH, '.build', 'logs', ARTIFACT_DIR, SPEC_NAME);
-		await moveAndOverwrite(TEMP_LOGS_PATH, CORRECT_LOGS_PATH);
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
@@ -166,10 +160,6 @@ export const test = base.extend<{
 		await use(app.code.driver.context);
 	},
 
-	logger: async ({ globalLogger }, use) => {
-		await use(globalLogger);
-	},
-
 });
 
 test.beforeAll(async ({ logger }, testInfo) => {
@@ -205,19 +195,3 @@ test.afterAll(async function ({ logger }, testInfo) {
 });
 
 export { playwrightExpect as expect };
-
-async function moveAndOverwrite(sourcePath: string, destinationPath: string) {
-	try {
-		// Check if the destination exists and delete it if so
-		await access(destinationPath, constants.F_OK);
-		await rm(destinationPath, { recursive: true, force: true });
-	} catch {
-		// If destination doesn't exist, continue without logging
-	}
-
-	// Ensure the parent directory of the destination exists
-	await mkdir(path.dirname(destinationPath), { recursive: true });
-
-	// Rename source to destination
-	await rename(sourcePath, destinationPath);
-}
