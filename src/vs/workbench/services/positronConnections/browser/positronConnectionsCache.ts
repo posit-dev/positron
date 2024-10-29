@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
@@ -11,51 +10,14 @@ import { IPositronConnectionItem } from 'vs/workbench/services/positronConnectio
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
-export interface IPositronConnectionEntry {
+export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	/***
 	 * The list of connections entries is flat. Level allows us to find
 	 * how nested an entry is.
 	 */
 	level: number;
 
-	/***
-	 * Used to indentify unique connection entries.
-	 * Connections and children of connections must all have unique ids.
-	 */
-	id: string;
-
-	/**
-	 * The id of the root connection. This is the id of the connection
-	 * that is at the top of the hierarchy.
-	 */
-	root_id: string;
-
-	/**
-	 * Wether the connection is expanded or not. Undefined
-	 * if the connection is not expandable.
-	 */
-	expanded: boolean | undefined;
-
-	/**
-	 * Front-end may fire this event whenever the user clicks the
-	 * toggle expand button. Must be implemented if the item is
-	 * expandable.
-	 */
-	onToggleExpandEmitter?: Emitter<void>;
-
-	// Entry properties that may be displayed in the UI.
-	name: string;
-	kind?: string;
-	dtype?: string;
-	icon?: string;
-
-	/**
-	 * Causes the a viewer to open for that item.
-	 * Currently, used to open tables and views in the data explorer.
-	 */
-	preview?(): Promise<void>;
-
-	// If an error happens during soem evaluation for that element
+	// If an error happens during some evaluation for that element
 	// we try to display some information .
 	error?: string;
 }
@@ -70,15 +32,13 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 	constructor(
 		private readonly item: IPositronConnectionItem,
 		private notify: (message: string, severity: Severity) => INotificationHandle,
-		readonly level: number,
-		readonly root_id: string
+		readonly level: number
 	) {
 		super();
 	}
 
 	get id() {
-		const id = this.item.id;
-		return id;
+		return this.item.id;
 	}
 
 	get expanded() {
@@ -99,14 +59,6 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 
 	get dtype() {
 		return this.item.dtype;
-	}
-
-	get language_id() {
-		if ('language_id' in this.item) {
-			return this.item.language_id;
-		}
-
-		return undefined;
 	}
 
 	get icon() {
@@ -145,26 +97,19 @@ export class PositronConnectionsCache {
 	}
 
 	async refreshConnectionEntries() {
-		const entries = await this.getConnectionsEntries(
-			await this.instance.getChildren(),
-			1,
-			this.instance.id
-		);
+		const entries = await this.getConnectionsEntries(await this.instance.getChildren());
 		this._entries = entries;
 	}
 
-	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0, root_id: string | undefined = undefined) {
+	async getConnectionsEntries(items: IPositronConnectionItem[], level = 0) {
 
 		const entries: IPositronConnectionEntry[] = [];
 		for (const item of items) {
 
-			const id_root = root_id ?? item.id;
-
 			const entry = new PositronConnectionEntry(
 				item,
 				(message, severity) => this.service.notify(message, severity),
-				level,
-				id_root
+				level
 			);
 			entries.push(entry);
 
@@ -187,7 +132,7 @@ export class PositronConnectionsCache {
 					entry.error = err.message;
 					continue;
 				}
-				const newItems = await this.getConnectionsEntries(children, level + 1, id_root);
+				const newItems = await this.getConnectionsEntries(children, level + 1);
 				entries.push(...newItems);
 			}
 		}

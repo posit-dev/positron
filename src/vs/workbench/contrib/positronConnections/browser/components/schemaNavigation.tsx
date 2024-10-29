@@ -47,7 +47,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	const [selectedId, setSelectedId] = useState<string>();
 	const activeInstance = context.connectionsService.getConnections().find(item => item.id === activeInstanceId);
 
-	const [childEntries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
+	const [entries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
 
 	useEffect(() => {
 		if (!activeInstance) {
@@ -68,8 +68,6 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		activeInstance.refreshEntries();
 		return () => disposableStore.dispose();
 	}, [activeInstance, setActiveInstanceId]);
-
-	const entries = childEntries.filter(item => item.level > 0);
 
 	if (!activeInstance) {
 		// This should not be possible, the active instance must exist.
@@ -155,9 +153,7 @@ interface PositronConnectionsItemProps {
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
 
 	// If the connection is not expandable, we add some more padding.
-	// Level starts at 1, since 0 is only used for top levek which is shown in the
-	// secondary action bar.
-	const padding = (props.item.level - 1) * 10 + (props.item.expanded === undefined ? 26 : 0);
+	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
 	const handleExpand = () => {
 		if (props.item.onToggleExpandEmitter) {
 			props.item.onToggleExpandEmitter.fire();
