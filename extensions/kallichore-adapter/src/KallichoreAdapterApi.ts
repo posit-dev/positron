@@ -183,6 +183,9 @@ export class KCApi implements KallichoreAdapterApi {
 		// Start a timer so we can track server startup time
 		const startTime = Date.now();
 
+		// Consult configuration to see if we should show this terminal
+		const showTerminal = config.get<boolean>('showTerminal', false);
+
 		// Start the server in a new terminal
 		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
@@ -191,7 +194,7 @@ export class KCApi implements KallichoreAdapterApi {
 			shellArgs: ['--port', port.toString(), '--token', tokenPath],
 			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
-			hideFromUser: false,
+			hideFromUser: !showTerminal,
 			isTransient: false
 		});
 

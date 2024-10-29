@@ -34,6 +34,11 @@
           "default": true,
           "description": "%configuration.enable.description%"
         },
+        "kallichoreSupervisor.showTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.showTerminal.description%"
+        },
         "kallichoreSupervisor.logLevel": {
           "scope": "window",
           "type": "string",
