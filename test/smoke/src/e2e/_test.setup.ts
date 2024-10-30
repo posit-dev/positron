@@ -47,7 +47,6 @@ export const test = base.extend<{
 	options: any;
 	app: Application;
 	logger: Logger;
-	autoWorkerFixture: any;
 }>({
 
 	suiteId: ['not specified', { scope: 'worker', option: true }],
@@ -181,13 +180,10 @@ export const test = base.extend<{
 		logger.log('');
 	}, { scope: 'test', auto: true }],
 
-	autoWorkerFixture: [async ({ app }, use) => {
-		await app.restart();
-		await use();
-	}, { scope: 'worker' }],
-
 });
 
+// Runs once per worker. If a worker handles multiple tests, this hook only runs once for the first test.
+// Using `suiteId` ensures each suite gets a dedicated worker, providing a fresh app instance for each suite.
 test.beforeAll(async ({ logger }, testInfo) => {
 	// to ensure logs are written to the correct folder when sharing the app instance across workers,
 	// we store the spec name in a global variable since workers aren't aware of it directly. this lets us
@@ -199,25 +195,8 @@ test.beforeAll(async ({ logger }, testInfo) => {
 	logger.log('');
 });
 
-// test.beforeEach(async function ({ logger }, testInfo) {
-// 	logger.log('');
-// 	logger.log(`>>> Test start: '${testInfo.title ?? 'unknown'}' <<<`);
-// 	logger.log('');
-// });
-
-// test.afterEach(async function ({ logger }, testInfo) {
-// 	const failed = testInfo.status !== testInfo.expectedStatus;
-// 	const testTitle = testInfo.title;
-
-// 	logger.log('');
-// 	if (failed) {
-// 		logger.log(`>>> !!! FAILURE !!! Test end: '${testTitle}' !!! FAILURE !!! <<<`);
-// 	} else {
-// 		logger.log(`>>> Test end: '${testTitle}' <<<`);
-// 	}
-// 	logger.log('');
-// });
-
+// Runs once per worker. If a worker handles multiple tests, this hook only runs once for the first test.
+// Using `suiteId` ensures each suite gets a dedicated worker, providing a fresh app instance for each suite.
 test.afterAll(async function ({ logger }, testInfo) {
 	logger.log('');
 	logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
