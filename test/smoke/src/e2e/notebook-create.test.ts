@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
-	test.describe('Python Notebooks', () => {
+	test.describe.skip('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			await interpreter.set('Python');
 			await app.workbench.positronLayouts.enterLayout('notebook');

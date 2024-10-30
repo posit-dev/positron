@@ -10,28 +10,23 @@ import { test } from '../_test.setup';
 // If the intended interpreter is not set, the interpreter will start/switch.
 
 test.describe('Interpreter Test', () => {
-	test('1st test', async ({ interpreter }) => {
+	test('1st test - r interpreter should start', { tag: ['@web'] }, async ({ interpreter }) => {
 		await interpreter.set('R');
-		console.log('  test 1 > r interpret should start');
 	});
 
-	test('2nd test', async ({ interpreter }) => {
+	test('2nd test - r interpreter should NOT start', async ({ interpreter }) => {
 		await interpreter.set('R');
-		console.log('  test 2 > r interpret should not restart');
 	});
 
-	test('3rd test', async ({ interpreter }) => {
+	test('3rd test - python interpreter should start', async ({ interpreter }) => {
 		await interpreter.set('Python');
-		console.log('  test 3 > python interpret should start');
 	});
 
-	test('4th test', async ({ interpreter }) => {
+	test('4th test - python interpreter should NOT start', async ({ interpreter }) => {
 		await interpreter.set('Python');
-		console.log('  test 4 > python interpret should not restart');
 	});
 
-	test('5th test', async ({ interpreter }) => {
+	test('5th test - r interpreter should start', async ({ interpreter }) => {
 		await interpreter.set('R');
-		console.log('  test 5 > r interpret should start');
 	});
 });

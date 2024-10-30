@@ -29,7 +29,6 @@ test.describe('Console Output Log', { tag: ['@web'] }, () => {
 			await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 			await app.workbench.positronOutput.waitForOutContaining("name 'b' is not defined");
 		}).toPass({ timeout: 60000 });
-
 	});
 
 	test('R - Verify Console Output Log Contents [C667519]', async function ({ app, interpreter }) {
