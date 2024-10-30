@@ -11,6 +11,11 @@ import { test } from './_test.setup';
 // 3. replace all #tags with proper tags
 
 // tags, app/restartApp fixtures, tracing, html reports, restarts if test failed, show on test-fail
+
+test.use({
+	suiteId: 'notebook-create'
+});
+
 test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, interpreter }) {

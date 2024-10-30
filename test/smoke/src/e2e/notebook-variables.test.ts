@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 import { test, expect } from './_test.setup';
 
+test.use({
+	suiteId: 'notebook-variables'
+});
+
 test.describe('Variables Pane - Notebook', {
 	tag: ['@pr', '@web']
 }, () => {
