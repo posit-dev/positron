@@ -58,8 +58,16 @@ export class PositronNotebooks {
 			} catch {
 				this.code.logger.log('Kernel group not found');
 			}
-			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-			await this.quickinput.waitForQuickInputClosed();
+
+			// Close dialog if quick input element can't found and try to proceed
+			// (this may be necessary if the interpreter was set while this block was running)
+			try {
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+				await this.quickinput.waitForQuickInputClosed();
+			} catch {
+				this.code.logger.log('Closing quick input');
+				await this.code.driver.getKeyboard().press('Escape');
+			}
 		}
 	}
 

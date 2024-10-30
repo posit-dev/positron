@@ -2876,6 +2876,31 @@ def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
             assert result[0]["small_frequency_table"] == ex_result
 
 
+def test_profile_histogram_windows_int32_bug():
+    # See #5176 -- we catch errors caused by a bug in NumPy and cast
+    # integer arrays to float as a fallback strategy to compute histograms
+    from ..data_explorer import _get_histogram_numpy
+
+    arr = np.array(
+        [
+            -428566661,
+            1901704889,
+            957355142,
+            -401364305,
+            -1978594834,
+            519144975,
+            1384373326,
+            1974689646,
+            194821408,
+            -1564699930,
+        ],
+        dtype=np.int32,
+    )
+    result = _get_histogram_numpy(arr, 10, method="fd")[0]
+    expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
+    assert (result == expected).all()
+
+
 # ----------------------------------------------------------------------
 # polars backend functionality tests
 

@@ -1,10 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBar';
+import 'vs/css!./editorActionBar';
 
 // React.
 import * as React from 'react';
@@ -17,34 +17,38 @@ import { isAuxiliaryWindow } from 'vs/base/browser/window';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
-import { LayoutMenuButton } from 'vs/workbench/browser/positronDataExplorer/components/actionBar/components/layoutMenuButton';
+
+// Constants.
+const PADDING_LEFT = 8;
+const PADDING_RIGHT = 8;
 
 /**
- * Constants.
+ * EditorActionBarServices interface.
  */
-const kPaddingLeft = 8;
-const kPaddingRight = 8;
+interface EditorActionBarServices extends PositronActionBarServices {
+}
+
+/**
+ * EditorActionBarProps interface
+ */
+interface EditorActionBarProps extends EditorActionBarServices {
+}
 
 /**
  * Localized strings.
  */
-const clearSortButtonTitle = localize('positron.clearSortButtonTitle', "Clear Sorting");
-const clearSortButtonDescription = localize('positron.clearSortButtonDescription', "Clear sorting");
 const moveIntoNewWindowButtonDescription = localize(
-	'positron.moveIntoNewWindowButtonDescription',
+	'positron.moveIntoNewWindow',
 	"Move into New Window"
 );
 
 /**
- * ActionBar component.
+ * EditorActionBar component.
  * @returns The rendered component.
  */
-export const ActionBar = () => {
-	// Context hooks.
-	const context = usePositronDataExplorerContext();
-
+export const EditorActionBar = (props: EditorActionBarProps) => {
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 
@@ -58,35 +62,23 @@ export const ActionBar = () => {
 
 	// Render.
 	return (
-		<PositronActionBarContextProvider {...context}>
-			<div ref={ref} className='action-bar'>
+		<PositronActionBarContextProvider {...props}>
+			<div ref={ref} className='editor-action-bar'>
 				<PositronActionBar
 					size='small'
+					borderTop={false}
 					borderBottom={true}
-					paddingLeft={kPaddingLeft}
-					paddingRight={kPaddingRight}
+					paddingLeft={PADDING_LEFT}
+					paddingRight={PADDING_RIGHT}
 				>
-					<ActionBarRegion location='left'>
-						<ActionBarButton
-							iconId='positron-clear-sorting'
-							text={clearSortButtonTitle}
-							tooltip={clearSortButtonDescription}
-							ariaLabel={clearSortButtonDescription}
-							onPressed={async () =>
-								await context.instance.tableDataDataGridInstance.
-									clearColumnSortKeys()
-							}
-						/>
-					</ActionBarRegion>
 					<ActionBarRegion location='right'>
-						<LayoutMenuButton />
 						<ActionBarButton
 							disabled={moveIntoNewWindowDisabled}
 							iconId='positron-open-in-new-window'
 							tooltip={moveIntoNewWindowButtonDescription}
 							ariaLabel={moveIntoNewWindowButtonDescription}
 							onPressed={() =>
-								context.commandService.executeCommand(
+								props.commandService.executeCommand(
 									'workbench.action.moveEditorToNewWindow'
 								)
 							}

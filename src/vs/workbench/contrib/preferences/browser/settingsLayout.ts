@@ -90,7 +90,14 @@ export const tocData: ITOCEntry<string> = {
 					id: 'editor/files',
 					label: localize('files', "Files"),
 					settings: ['files.*']
-				}
+				},
+				// --- Start Positron ---
+				{
+					id: 'editor/experimental',
+					label: localize('experimental', "Experimental"),
+					settings: ['editor.actionBar.*']
+				},
+				// --- End Positron ---
 			]
 		},
 		{

@@ -15,6 +15,7 @@ import './quickaccess/gotoLineQuickAccess';
 import './quickaccess/gotoSymbolQuickAccess';
 import './saveParticipants';
 import './toggleColumnSelection';
+import './toggleActionBar';
 import './toggleMinimap';
 import './toggleMultiCursorModifier';
 import './toggleRenderControlCharacter';
