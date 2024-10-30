@@ -17,9 +17,9 @@ import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 
 import 'vs/css!./actionBar';
+import { localize } from 'vs/nls';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
@@ -56,21 +56,21 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarButton
 							align='left'
 							iconId='arrow-left'
-							tooltip={() => 'Back'}
+							tooltip={() => localize('positron.schemaNavigationActionBar.back', 'Back')}
 							onPressed={() => props.backHandler()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='positron-disconnect-connection'
-							text='Disconnect'
+							text={localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect')}
 							onPressed={() => props.disconnectHandler()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='refresh'
-							text='Refresh'
+							text={localize('positron.schemaNavigationActionBar.refresh', 'Refresh')}
 							onPressed={() => props.refreshHandler()}
 						/>
 					</ActionBarRegion>

@@ -8,7 +8,6 @@ import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import * as DOM from 'vs/base/browser/dom';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
@@ -20,6 +19,7 @@ import { languageIdToName } from 'vs/workbench/contrib/positronConnections/brows
 import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { showResumeConnectionModalDialog } from 'vs/workbench/contrib/positronConnections/browser/components/resumeConnectionModalDialog';
+import { localize } from 'vs/nls';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -83,7 +83,11 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				<div
 					className={positronClassNames('col-status', { 'disabled': !itemProps.active })}
 				>
-					{itemProps.active ? 'Connected' : 'Disconected'}
+					{
+						itemProps.active ?
+							localize('positron.listConnections.connected', 'Connected') :
+							localize('positron.listConnections.disconnected', 'Disconnected')
+					}
 				</div>
 				<div
 					className='col-action' style={{ width: `${26}px` }}
@@ -123,11 +127,17 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				<div className='connections-list-header' style={{ height: `${TABLE_HEADER_HEIGHT}px` }}>
 					<div className='col-icon' style={{ width: `${26}px` }}></div>
 					<VerticalSplitter />
-					<div className='col-name'>Connection</div>
+					<div className='col-name'>
+						{localize('positron.listConnections.connection', 'Connection')}
+					</div>
 					<VerticalSplitter />
-					<div className='col-language'>Language</div>
+					<div className='col-language'>
+						{localize('positron.listConnections.language', 'Language')}
+					</div>
 					<VerticalSplitter />
-					<div className='col-status'>Status</div>
+					<div className='col-status'>
+						{localize('positron.listConnections.status', 'Status')}
+					</div>
 					<VerticalSplitter />
 					<div className='col-action' style={{ width: `${26}px` }}></div>
 				</div>
@@ -179,8 +189,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						<ActionBarButton
 							align='left'
 							iconId='positron-new-connection'
-							tooltip={() => 'New Connection'}
-							text='New Connection'
+							text={localize('positron.listConnections.newConnection', 'New Connection')}
 							disabled={true}
 						/>
 					</ActionBarRegion>
@@ -188,8 +197,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						<ActionBarButton
 							align='right'
 							iconId='close'
-							tooltip={() => 'Delete Connection'}
-							text='Delete Connection'
+							text={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
 							disabled={props.deleteConnectionHandler === undefined}
 							onPressed={props.deleteConnectionHandler}
 						/>
