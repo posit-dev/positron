@@ -222,7 +222,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		this.storageService.store(
 			'positron-connections',
 			this.connections.map((con) => {
-				console.log('storing con.metadata', con.metadata);
 				return con.metadata;
 			}),
 			StorageScope.WORKSPACE,
