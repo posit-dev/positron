@@ -26,8 +26,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	private onDidChangeConnectionsEmitter = new Emitter<IPositronConnectionInstance[]>;
 	onDidChangeConnections: Event<IPositronConnectionInstance[]> = this.onDidChangeConnectionsEmitter.event;
 
-	public onDidFocusEmitter = new Emitter<void>;
-	private onDidFocus = this.onDidFocusEmitter.event;
+	public onDidFocusEmitter = new Emitter<string>;
+	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
 	private readonly viewEnabled: IContextKey<boolean>;
@@ -73,8 +73,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.handleConfigChange(e);
 		}));
 
-		this._register(this.onDidFocus(() => {
-			this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
+		this._register(this.onDidFocus(async (id) => {
+			await this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
 		}));
 	}
 

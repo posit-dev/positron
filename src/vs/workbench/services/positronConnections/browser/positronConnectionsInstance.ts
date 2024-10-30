@@ -92,7 +92,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		}));
 
 		this._register(this.client.onDidFocus(() => {
-			this.service.onDidFocusEmitter.fire();
+			this.service.onDidFocusEmitter.fire(this.id);
 		}));
 
 		this._register(this.onToggleExpand((id) => {

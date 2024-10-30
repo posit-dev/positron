@@ -28,6 +28,12 @@ export interface IPositronConnectionsService {
 
 	// Exported API that you should really think if you want to use
 	// before you use it.
-	onDidFocusEmitter: Emitter<void>;
+
+	/**
+	 * Emits the id of the connection that has been focused
+	 */
+	onDidFocusEmitter: Emitter<string>;
+	onDidFocus: Event<string>;
+
 	runtimeSessionService: IRuntimeSessionService;
 }

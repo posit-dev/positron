@@ -35,6 +35,24 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 	}, [props.reactComponentContainer]);
 
 	const [activeInstanceId, setActiveInstanceId] = useState<string>();
+	const { connectionsService } = props;
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(connectionsService.onDidFocus(async (id) => {
+			// The focus event might be sent before the connection is actually registered
+			// with the service. So we try a few times to find the connection before giving up.
+			for (let i = 0; i < 10; i++) {
+				const con = connectionsService.getConnections().find(item => item.id === id);
+				if (con && con.active) {
+					setActiveInstanceId(id);
+					break;
+				}
+				await new Promise(resolve => setTimeout(resolve, 50));
+			}
+		}));
+		return () => disposableStore.dispose();
+	}, [setActiveInstanceId, connectionsService]);
 
 	const viewProps: ViewsProps = {
 		width,
