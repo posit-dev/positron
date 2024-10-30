@@ -8,6 +8,10 @@ import { test, expect } from './_test.setup';
 const path = require('path');
 const fs = require('fs-extra');
 
+test.use({
+	suiteId: 'quarto'
+});
+
 
 test.describe('Quarto #web', () => {
 	test.beforeAll(async function ({ app }) {

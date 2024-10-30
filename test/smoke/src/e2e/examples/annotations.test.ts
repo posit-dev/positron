@@ -19,7 +19,7 @@ import { test } from '../_test.setup';
 
 test.describe('annotations and tags', () => {
 	test('should have tags', {
-		tag: ['@slow', '@pr'],
+		tag: ['@slow', '@fast'],
 	}, async () => {
 		// This test is tagged with multiple tags.
 	});

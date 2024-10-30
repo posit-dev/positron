@@ -5,13 +5,6 @@
 
 import { test } from './_test.setup';
 
-// 1a. remove all setupAndStartApp()
-// 1b. remove all setup Python/R fixtures
-// 2. replace test blocks
-// 3. replace all #tags with proper tags
-
-// tags, app/restartApp fixtures, tracing, html reports, restarts if test failed, show on test-fail
-
 test.use({
 	suiteId: 'notebook-create'
 });
@@ -42,12 +35,10 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
 			await app.workbench.notebook.stopEditingCell();
 			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
-
-			// expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
 		});
 	});
 
-	test.describe.skip('R Notebooks', () => {
+	test.describe('R Notebooks', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			await interpreter.set('R');
 			await app.workbench.positronLayouts.enterLayout('notebook');
@@ -72,11 +63,8 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 			await app.workbench.notebook.waitForTypeInEditor(`## ${randomText} `);
 			await app.workbench.notebook.stopEditingCell();
 			await app.workbench.positronNotebooks.assertMarkdownText('h2', randomText);
-
-			// expect(await app.workbench.positronNotebooks.getMarkdownText(`h2 >> text="${randomText}"`)).toBe(randomText);
-
 		});
 	});
-
 });
+
 
