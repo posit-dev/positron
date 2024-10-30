@@ -300,7 +300,7 @@ function userRBinaries(): string[] {
 	const userBinaries = config.get<string[]>('customBinaries');
 	if (userBinaries && userBinaries.length > 0) {
 		const formattedPaths = JSON.stringify(userBinaries, null, 2);
-		LOGGER.info(`User-specified R binaries:\n${userBinaries}`);
+		LOGGER.info(`User-specified R binaries:\n${formattedPaths}`);
 		return userBinaries;
 	} else {
 		return [];
