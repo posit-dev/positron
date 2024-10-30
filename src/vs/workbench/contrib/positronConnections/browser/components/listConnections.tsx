@@ -193,9 +193,6 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							disabled={props.deleteConnectionHandler === undefined}
 							onPressed={props.deleteConnectionHandler}
 						/>
-						<div className='action-bar-disabled'>
-							<ActionBarSearch placeholder='filter'></ActionBarSearch>
-						</div>
 					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>

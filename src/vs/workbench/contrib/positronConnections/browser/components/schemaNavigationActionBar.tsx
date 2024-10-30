@@ -74,11 +74,6 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 							onPressed={() => props.refreshHandler()}
 						/>
 					</ActionBarRegion>
-					<ActionBarRegion location='right'>
-						<div className='action-bar-disabled'>
-							<ActionBarSearch placeholder='filter'></ActionBarSearch>
-						</div>
-					</ActionBarRegion>
 				</PositronActionBar>
 			</PositronActionBarContextProvider>
 		</div>
