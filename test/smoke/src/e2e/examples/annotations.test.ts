@@ -31,6 +31,7 @@ test.describe('annotations and tags', () => {
 			{ type: 'performance', description: 'very slow test!' },
 			{ type: 'test case', description: 'https://posit.testrail.io/index.php?/cases/view/534454' }
 		],
+		tag: ['@pr'],
 	}, async () => {
 		// This test is annotated with multiple annotations.
 	});
