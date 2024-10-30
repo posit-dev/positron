@@ -130,7 +130,6 @@ export class PositronNewFolderAction extends Action2 {
 			accessor.get(IFileService),
 			accessor.get(IKeybindingService),
 			accessor.get(IWorkbenchLayoutService),
-			accessor.get(IPathService)
 		);
 	}
 }

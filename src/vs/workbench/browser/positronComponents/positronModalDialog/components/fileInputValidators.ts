@@ -114,6 +114,15 @@ export async function checkIfURIExists(path: URI, fileService: IFileService): Pr
 }
 
 /**
+ * Check if the input is empty.
+ * @param input The input to check if it is empty.
+ * @returns Whether the input is empty.
+ */
+export function isInputEmpty(input: string | number): boolean {
+	return typeof input === 'number' ? false : input.trim() === '';
+}
+
+/**
  * Helper function to print paths in a more readable format.
  * @param path Full path to sanitize.
  * @returns The sanitized path.

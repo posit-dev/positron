@@ -16,7 +16,6 @@ import { URI } from 'vs/base/common/uri';
 import { IFileService } from 'vs/platform/files/common/files';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
@@ -26,7 +25,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
-import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { checkIfPathValid, isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * Shows the new folder modal dialog.
@@ -35,7 +34,6 @@ import { checkIfPathValid } from 'vs/workbench/browser/positronComponents/positr
  * @param fileService The file service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
- * @param pathService The path service.
  */
 export const showNewFolderModalDialog = async (
 	commandService: ICommandService,
@@ -43,7 +41,6 @@ export const showNewFolderModalDialog = async (
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService,
-	pathService: IPathService
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -60,8 +57,7 @@ export const showNewFolderModalDialog = async (
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
 				// Create the folder path.
-				const path = await pathService.path;
-				const folderURI = result.parentFolder.with({ path: path.join(result.parentFolder.path, result.folder) });
+				const folderURI = URI.joinPath(result.parentFolder, result.folder);
 
 				// Create the new folder, if it doesn't already exist.
 				if (!(await fileService.exists(folderURI))) {
@@ -142,6 +138,9 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 			title={(() => localize('positronNewFolderModalDialogTitle', "New Folder"))()}
 			catchErrors
 			onAccept={async () => {
+				if (isInputEmpty(result.folder)) {
+					throw new Error(localize('positron.folderNameNotProvided', "A folder name was not provided."));
+				}
 				await props.createFolder(result);
 				props.renderer.dispose();
 			}}
@@ -160,7 +159,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.path}
+					value={result.parentFolder.fsPath}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>

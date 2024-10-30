@@ -25,6 +25,7 @@ import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalRe
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
+import { isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 
 /**
  * Shows the new folder from Git modal dialog.
@@ -68,7 +69,7 @@ export const showNewFolderFromGitModalDialog = async (
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder.path
+							result.parentFolder.fsPath
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
@@ -142,6 +143,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 			))()}
 			catchErrors
 			onAccept={async () => {
+				if (isInputEmpty(result.repo)) {
+					throw new Error(localize('positron.gitRepoNotProvided', "A git repository URL was not provided."));
+				}
 				await props.createFolder(result);
 				props.renderer.dispose();
 			}}
@@ -163,7 +167,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.path}
+					value={result.parentFolder.fsPath}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
