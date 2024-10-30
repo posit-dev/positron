@@ -33,6 +33,8 @@ export interface IPositronConnectionInstance {
 	onDidChangeStatus: Event<boolean>;
 	refreshEntries(): Promise<void>;
 	getEntries(): IPositronConnectionEntry[];
+
+	onToggleExpandEmitter: Emitter<string>;
 }
 
 /***
@@ -46,15 +48,6 @@ export interface IPositronConnectionItem {
 	dtype?: string; // The data type of the item, usually only implemented if kind == field
 	icon?: string; // The icon that should be displayed next to the item
 	error?: string; // Any initialization error for the item.
-
-	expanded: boolean | undefined; // Wether the item is currently expanded
-
-	/**
-	 * Front-end may fire this event whenever the user clicks the
-	 * toggle expand button. Must be implemented if the item is
-	 * expandable.
-	 */
-	onToggleExpandEmitter?: Emitter<void>;
 
 	/**
 	 * If the item can be previewed, it should implement this method.

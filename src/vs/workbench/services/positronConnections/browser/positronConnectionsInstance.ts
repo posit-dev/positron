@@ -10,10 +10,11 @@ import { ConnectionMetadata, IPositronConnectionInstance, IPositronConnectionIte
 import { ObjectSchema } from 'vs/workbench/services/languageRuntime/common/positronConnectionsComm';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { flatten_instance, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
+import { flatten_children, IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
 import { Severity } from 'vs/platform/notification/common/notification';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { DeferredPromise } from 'vs/base/common/async';
+import { localize } from 'vs/nls';
 
 interface PathSchema extends ObjectSchema {
 	dtype?: string;
@@ -55,12 +56,15 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	private readonly onDidChangeStatusEmitter = new Emitter<boolean>();
 	readonly onDidChangeStatus = this.onDidChangeStatusEmitter.event;
 
+	public readonly onToggleExpandEmitter = new Emitter<string>();
+	private readonly onToggleExpand = this.onToggleExpandEmitter.event;
+
 	private _active: boolean = true;
 	private _children: IPositronConnectionItem[] | undefined;
 	private _entries: IPositronConnectionEntry[] = [];
 
-	// Connection instances are always expanded
-	public readonly expanded = true;
+	private _expanded_entries: Set<string> = new Set();
+
 
 	static async init(metadata: ConnectionMetadata, client: ConnectionsClientInstance, service: IPositronConnectionsService) {
 		const object = new PositronConnectionsInstance(metadata, client, service);
@@ -90,6 +94,15 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		this._register(this.client.onDidFocus(() => {
 			this.service.onDidFocusEmitter.fire();
 		}));
+
+		this._register(this.onToggleExpand((id) => {
+			if (this._expanded_entries.has(id)) {
+				this._expanded_entries.delete(id);
+			} else {
+				this._expanded_entries.add(id);
+			}
+			this.refreshEntries();
+		}));
 	}
 
 	getEntries() {
@@ -98,7 +111,7 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 	async refreshEntries() {
 		try {
-			this._entries = await flatten_instance(this);
+			this._entries = await flatten_children(await this.getChildren(), this._expanded_entries);
 		} catch (err) {
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
@@ -204,7 +217,22 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 
 		return async () => {
 			this._children = undefined;
-			this.refreshEntries();
+			try {
+				await this.refreshEntries();
+				this.service.notify(
+					localize('positron.positronConnectionsInstance.refresh', 'Connection refreshed!'),
+					Severity.Info
+				);
+			} catch (err) {
+				this.service.notify(
+					localize(
+						'positron.positronConnectionsInstance.refreshError',
+						'Failed to refresh connection entries: {0}',
+						err.message
+					),
+					Severity.Error
+				);
+			}
 		};
 	}
 
@@ -226,6 +254,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 	readonly expanded: boolean | undefined = false;
 	readonly active: boolean = false;
 	readonly onDidChangeStatus = Event.None;
+	readonly onToggleExpandEmitter = new Emitter<string>();
 
 	get connect() {
 		if (!this.metadata.code) {
@@ -291,7 +320,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 	private readonly _dtype?: string;
 	readonly active: boolean = true;
 
-	private _expanded: boolean | undefined;
+	private _expandable: boolean = false;
 	private _has_viewer: boolean | undefined;
 	private _icon: string | undefined;
 	private _children: IPositronConnectionItem[] | undefined;
@@ -299,13 +328,10 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	public error?: string;
 
-	onToggleExpandEmitter: Emitter<void> = new Emitter<void>();
-	private readonly onToggleExpand: Event<void> = this.onToggleExpandEmitter.event;
-
 	static async init(path: PathSchema[], instance: PositronConnectionsInstance) {
 		const object = new PositronConnectionItem(path, instance);
 
-		let expandable;
+		let expandable = false;
 		try {
 			// Failing to check if the object is expandable should not be fatal.
 			// We'll mark it as 'errored' and keep is non-expandable.
@@ -315,11 +341,7 @@ class PositronConnectionItem implements IPositronConnectionItem {
 			object.error = err.message;
 		}
 
-		if (expandable) {
-			object._expanded = false;
-		} else {
-			object._expanded = undefined;
-		}
+		object._expandable = expandable;
 
 		if (!object._icon) {
 			// Failing to get the icon is OK.
@@ -350,14 +372,6 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		this._name = last_elt.name;
 		this._kind = last_elt.kind;
 		this._dtype = last_elt.dtype;
-
-		this.onToggleExpand(() => {
-			if (!(this._expanded === undefined)) {
-				this._expanded = !this._expanded;
-				// Changing the expanded flag will change the data that we want to show.
-				this.instance.refreshEntries();
-			}
-		});
 	}
 
 	get id() {
@@ -378,10 +392,6 @@ class PositronConnectionItem implements IPositronConnectionItem {
 
 	get icon() {
 		return this._icon;
-	}
-
-	get expanded() {
-		return this._expanded;
 	}
 
 	get preview() {
@@ -410,7 +420,17 @@ class PositronConnectionItem implements IPositronConnectionItem {
 		return this._has_children;
 	}
 
-	async getChildren() {
+	get getChildren() {
+		if (!this._expandable) {
+			return undefined;
+		}
+
+		return async () => {
+			return await this.getChildrenImpl();
+		};
+	}
+
+	async getChildrenImpl() {
 		if (!this._children) {
 			let children: PathSchema[];
 			const containsData = await this.instance.client.containsData(this.path);

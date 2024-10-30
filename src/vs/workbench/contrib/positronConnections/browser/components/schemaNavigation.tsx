@@ -84,6 +84,10 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		);
 	}
 
+	const toggleExpandHandler = (id: string) => {
+		activeInstance.onToggleExpandEmitter.fire(id);
+	};
+
 	const ItemEntry = (props: ItemEntryProps) => {
 		const itemProps = entries[props.index];
 
@@ -92,6 +96,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 				item={itemProps}
 				selected={itemProps.id === selectedId}
 				onSelectedHandler={() => setSelectedId(itemProps.id)}
+				onToggleExpandHandler={toggleExpandHandler}
 				style={props.style}>
 			</PositronConnectionsItem>
 		);
@@ -148,6 +153,11 @@ interface PositronConnectionsItemProps {
 	 * What happens when a row is selected?
 	 */
 	onSelectedHandler: () => void;
+
+	/**
+	 * On toggle expand handler
+	 */
+	onToggleExpandHandler(id: string): void;
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
@@ -155,9 +165,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	// If the connection is not expandable, we add some more padding.
 	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
 	const handleExpand = () => {
-		if (props.item.onToggleExpandEmitter) {
-			props.item.onToggleExpandEmitter.fire();
-		}
+		props.onToggleExpandHandler(props.item.id);
 	};
 
 	const icon = (() => {

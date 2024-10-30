@@ -5,7 +5,6 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 
 export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	/***
@@ -13,6 +12,11 @@ export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	 * how nested an entry is.
 	 */
 	level: number;
+
+	/***
+	 * If the entry is expanded or not. Undefined if the entry is not expandable.
+	 */
+	expanded: boolean | undefined;
 
 	// If an error happens during some evaluation for that element
 	// we try to display some information .
@@ -25,21 +29,14 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 
 	constructor(
 		private readonly item: IPositronConnectionItem,
-		readonly level: number
+		readonly level: number,
+		readonly expanded: boolean | undefined
 	) {
 		super();
 	}
 
 	get id() {
 		return this.item.id;
-	}
-
-	get expanded() {
-		return this.item.expanded;
-	}
-
-	get onToggleExpandEmitter() {
-		return this.item.onToggleExpandEmitter;
 	}
 
 	get name() {
@@ -68,27 +65,27 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
  * that can be used by the UI. A flat list is usable so we can use react-window to efficiently
  * render the schema tree.
  */
-export async function flatten_instance(instance: PositronConnectionsInstance): Promise<IPositronConnectionEntry[]> {
-	return await flatten_items(await instance.getChildren());
+export async function flatten_children(children: IPositronConnectionItem[], expanded_entries: Set<string>): Promise<IPositronConnectionEntry[]> {
+	return await flatten_items(children, expanded_entries);
 }
 
-async function flatten_items(items: IPositronConnectionItem[], level = 0): Promise<IPositronConnectionEntry[]> {
+async function flatten_items(items: IPositronConnectionItem[], expanded_entries: Set<string>, level = 0): Promise<IPositronConnectionEntry[]> {
 	const entries: IPositronConnectionEntry[] = [];
 	for (const item of items) {
 
-		const entry = new PositronConnectionEntry(item, level);
+		const expanded = item.getChildren === undefined ?
+			undefined :
+			expanded_entries.has(item.id);
+
+		const entry = new PositronConnectionEntry(item, level, expanded);
 		entries.push(entry);
 
 		if (item.error) {
 			entry.error = item.error;
 		}
 
-		const expanded = item.expanded;
-		const active = 'active' in item ? item.active : true;
-
-		// To show children, the connection must be expanded, have a getChildren() method
-		// and be active.
-		if (expanded && item.getChildren && active) {
+		// expanded is undefined if the item is not expandable. but TS doesn't know that.
+		if (expanded && item.getChildren) {
 			let children;
 			try {
 				children = await item.getChildren();
@@ -98,7 +95,7 @@ async function flatten_items(items: IPositronConnectionItem[], level = 0): Promi
 				entry.error = err.message;
 				continue;
 			}
-			const newItems = await flatten_items(children, level + 1);
+			const newItems = await flatten_items(children, expanded_entries, level + 1);
 			entries.push(...newItems);
 		}
 	}
