@@ -964,7 +964,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Perform the restart
 		this._restarting = true;
 		try {
+			// Perform the restart on the server
 			await this._api.restartSession(this.metadata.sessionId);
+
+			// Mark ready after a successful restart
+			this.markReady();
 		} catch (err) {
 			if (err instanceof HttpError) {
 				throw new Error(err.body.message);
@@ -1146,10 +1150,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// All comms are now closed
 		this._comms.clear();
 
-		// Reject all pending requests
-		this._pendingRequests.forEach((req) => {
-			req.reject(new Error('Kernel exited'));
-		});
+		// Clear any pending requests
 		this._pendingRequests.clear();
 		this._pendingUiCommRequests.forEach((req) => {
 			req.promise.reject(new Error('Kernel exited'));
