@@ -26,15 +26,37 @@ export class LogStreamer implements vscode.Disposable {
 		this._tail.on('error', (error) => this.appendLine(error));
 	}
 
-	public watch() {
+	/**
+	 * Starts watching the log file. Waits up to 10 seconds for the log file to
+	 * be created if it doesn't exist.
+	 */
+	public async watch() {
+		// Wait up to 10 seconds for the log file to be created.
+		for (let retry = 0; retry < 50; retry++) {
+			if (fs.existsSync(this._path)) {
+				break;
+			} else {
+				await new Promise((resolve) => setTimeout(resolve, 200));
+			}
+		}
+
+		if (!fs.existsSync(this._path)) {
+			this.appendLine(`Log file '${this._path}' not found after 10 seconds.`);
+			return;
+		}
+
 		// Initialise number of lines seen, which might not be zero as the
 		// kernel might have already started outputting lines, or we might be
 		// refreshing with an existing log file. This is used for flushing
 		// the tail of the log on disposal. There is a race condition here so
 		// this might be slightly off, causing duplicate lines in the tail of
 		// the log.
-		const lines = fs.readFileSync(this._path, 'utf8').split('\n');
-		this._linesCounter = lines.length;
+		try {
+			const lines = fs.readFileSync(this._path, 'utf8').split('\n');
+			this._linesCounter = lines.length;
+		} catch (err) {
+			this.appendLine(`Error reading initial contents of log file '${this._path}': ${err.message || JSON.stringify(err)}`);
+		}
 
 		// Start watching the log file. This streams output until the streamer is
 		// disposed.

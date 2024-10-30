@@ -614,9 +614,6 @@
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
   },
-  "extensionDependencies": [
-    "vscode.jupyter-adapter"
-  ],
   "devDependencies": {
     "@types/decompress": "^4.2.7",
     "@types/fs-extra": "^9.0.13",
