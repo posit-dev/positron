@@ -219,10 +219,14 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 			this._children = undefined;
 			try {
 				await this.refreshEntries();
-				this.service.notify(
+				const handle = this.service.notify(
 					localize('positron.positronConnectionsInstance.refresh', 'Connection refreshed!'),
 					Severity.Info
 				);
+				// Close the notification automatically after 2s
+				setTimeout(() => {
+					handle.close();
+				}, 2000);
 			} catch (err) {
 				this.service.notify(
 					localize(
