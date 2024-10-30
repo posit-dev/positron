@@ -7,11 +7,18 @@ import { test, expect } from '../_test.setup';
 
 test.describe.configure({ retries: 2 });
 
-test('should fail first, then pass on retry', async ({ interpreter }, testInfo) => {
-	await interpreter.set('Python');
+test('should fail first, then pass on retry', async ({ app, interpreter }, testInfo) => {
 	if (testInfo.retry) {
+		await interpreter.set('Python');
+		await app.workbench.positronLayouts.enterLayout('notebook');
+		await app.workbench.positronNotebooks.createNewNotebook();
+		await app.workbench.positronNotebooks.addCodeToFirstCell('this test should PASS! :tada:');
+
 		expect(true).toBe(true);
 	} else {
+		await app.workbench.positronLayouts.enterLayout('notebook');
+		await app.workbench.positronNotebooks.createNewNotebook();
+		await app.workbench.positronNotebooks.addCodeToFirstCell('this test should fail!');
 		expect(true).toBe(false);
 	}
 });

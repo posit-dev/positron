@@ -12,7 +12,6 @@ test.use({
 	suiteId: 'quarto'
 });
 
-
 test.describe('Quarto #web', () => {
 	test.beforeAll(async function ({ app }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
