@@ -64,10 +64,13 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		}
 		await services.clipboardService.writeText(code);
 		props.renderer.dispose();
-		services.notificationService.info(localize(
+
+		const handle = services.connectionsService.notify(localize(
 			'positron.resumeConnectionModalDialog.codeCopied',
 			"Connection code copied to clipboard"
-		));
+		), Severity.Info);
+		// close the notification after 2 seconds
+		setTimeout(() => handle.close(), 2000);
 	};
 
 	const editHandler = async () => {
