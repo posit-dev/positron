@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-describe('Data Explorer - Very Large Data Frame', () => {
+describe('Data Explorer - Very Large Data Frame #win', () => {
 	logger = setupAndStartApp();
 
 	before(async function () {
