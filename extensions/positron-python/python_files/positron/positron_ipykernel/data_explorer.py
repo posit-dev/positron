@@ -502,12 +502,18 @@ class DataExplorerTableView(abc.ABC):
         results = []
 
         for req in request.params.profiles:
-            result = self._compute_profiles(
-                req.column_index,
-                req.profiles,
-                request.params.format_options,
-            )
-            results.append(result.dict())
+            try:
+                result = self._compute_profiles(
+                    req.column_index,
+                    req.profiles,
+                    request.params.format_options,
+                )
+                results.append(result.dict())
+            except Exception as e:
+                # Error computing a profile -- don't swallow it and timeout
+                logger.error(e, exc_info=True)
+                # Append an empty result so the other profiles get computed
+                results.append({})
 
         self.comm.send_event(
             DataExplorerFrontendEvent.ReturnColumnProfiles.value,
@@ -1829,6 +1835,15 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     try:
         bin_counts, bin_edges = np_.histogram(data, **hist_params)
     except ValueError:
+        if issubclass(data.dtype.type, np_.integer):
+            # Issue #5176. There is a class of error for integers where np.histogram
+            # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
+            # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
+            #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
+            #         dtype=int32)
+            # So we try again with the data converted to floating point as a fallback
+            return _get_histogram_numpy(data.astype(np_.float64), num_bins, method=method)
+
         # If there are inf/-inf values in the dataset, ValueError is
         # raised. We catch it and try again to avoid paying the
         # filtering cost every time
