@@ -3,7 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import * as DOM from 'vs/base/browser/dom';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSearch } from 'vs/platform/positronActionBar/browser/components/actionBarSearch';
@@ -35,6 +37,28 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 		}));
 		return () => disposableStore.dispose();
 	}, [context.connectionsService]);
+
+	// We're required to save the scroll state because browsers will automatically
+	// scrollTop when an object becomes visible again.
+	const [, setScrollState, scrollStateRef] = useStateRef<number[] | undefined>(undefined);
+	const innerRef = useRef<HTMLElement>(undefined!);
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		disposableStore.add(context.reactComponentContainer.onSaveScrollPosition(() => {
+			if (innerRef.current) {
+				setScrollState(DOM.saveParentsScrollTop(innerRef.current));
+			}
+		}));
+		disposableStore.add(context.reactComponentContainer.onRestoreScrollPosition(() => {
+			if (scrollStateRef.current) {
+				if (innerRef.current) {
+					DOM.restoreParentsScrollTop(innerRef.current, scrollStateRef.current);
+				}
+				setScrollState(undefined);
+			}
+		}));
+		return () => disposableStore.dispose();
+	}, [context.reactComponentContainer, scrollStateRef, setScrollState]);
 
 	const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
 
@@ -80,6 +104,8 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 		);
 	};
 
+	const TABLE_HEADER_HEIGHT = 24;
+
 	return (
 		<div className='positron-connections-list'>
 			<ActionBar
@@ -94,7 +120,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 			>
 			</ActionBar>
 			<div className='connections-list-container'>
-				<div className='connections-list-header' style={{ height: `${24}px` }}>
+				<div className='connections-list-header' style={{ height: `${TABLE_HEADER_HEIGHT}px` }}>
 					<div className='col-icon' style={{ width: `${26}px` }}></div>
 					<VerticalSplitter />
 					<div className='col-name'>Connection</div>
@@ -108,9 +134,10 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				<List
 					itemCount={instances.length}
 					itemSize={26}
-					height={height - ACTION_BAR_HEIGHT}
+					height={height - ACTION_BAR_HEIGHT - TABLE_HEADER_HEIGHT}
 					width={'calc(100% - 2px)'}
 					itemKey={index => instances[index].id}
+					innerRef={innerRef}
 				>
 					{ItemEntry}
 				</List>

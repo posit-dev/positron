@@ -9,7 +9,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import * as DOM from 'vs/base/browser/dom';
 import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
-import { ActionBar, ACTION_BAR_HEIGHT as kActionBarHeight } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigationActionBar';
+import { ActionBar, ACTION_BAR_HEIGHT } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigationActionBar';
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import 'vs/css!./schemaNavigation';
@@ -103,6 +103,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	};
 
 	const { name, language_id, icon } = activeInstance.metadata;
+	const DETAILS_BAR_HEIGHT = 26;
 
 	return (
 		<div className='positron-connections-schema-navigation'>
@@ -114,7 +115,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
-				<div className={'connections-instance-details'} style={{ height: kActionBarHeight - 6 }}>
+				<div className={'connections-instance-details'} style={{ height: DETAILS_BAR_HEIGHT }}>
 					<div className='connection-name'>{name}</div>
 					<div className='connection-language'>{languageIdToName(language_id)}</div>
 					<div className={'connection-icon'}>
@@ -127,7 +128,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 					itemCount={entries.length}
 					itemSize={26}
 					/* size if the actionbar and the secondary side bar combined) */
-					height={height - kActionBarHeight - (kActionBarHeight - 6)}
+					height={height - ACTION_BAR_HEIGHT - DETAILS_BAR_HEIGHT}
 					width={'calc(100% - 2px)'}
 					itemKey={index => entries[index].id}
 					innerRef={innerRef}
