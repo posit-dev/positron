@@ -52,7 +52,7 @@
 	padding-right: 5px;
 }
 
-.connections-icon.disabled {
+.connections-item .connections-icon .disabled {
 	opacity: 0.7;
 }
 
