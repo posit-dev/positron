@@ -6,7 +6,6 @@
 // Standard library imports
 import { join } from 'path';
 import * as os from 'os';
-import { rmSync } from 'fs';
 import * as fs from 'fs';
 import * as cp from 'child_process';
 
@@ -25,7 +24,7 @@ const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 
 async function globalSetup() {
-	rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });
+	fs.rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });
 	prepareTestEnv(ROOT_PATH);
 	cloneTestRepo(WORKSPACE_PATH);
 }
