@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { cloneTestRepo, prepareTestEnv } from '../test-runner';
+import { cloneTestRepo, prepareTestEnv } from '../../out/test-runner/';
 import { join } from 'path';
 import * as os from 'os';
 import { rmSync } from 'fs';
