@@ -8,12 +8,11 @@ import * as fs from 'fs';
 const rimraf = require('rimraf');
 
 const TEST_REPO = process.env.TEST_REPO;
-// const WORKSPACE_PATH = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set';
 
 /**
  * Clones or copies the test repository based on options.
  */
-export function cloneTestRepo(workspacePath: string) {
+export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set') {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (TEST_REPO) {
