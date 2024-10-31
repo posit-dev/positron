@@ -15,7 +15,7 @@ const mkdirp = require('mkdirp');
 
 // Internal imports
 import { createLogger } from '../test-runner/logger';
-import { getBuildElectronPath, getDevElectronPath, Logger } from '../../../automation/out';
+import { getBuildElectronPath, getDevElectronPath, Logger } from '../../../automation';
 
 // Constants for project paths
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
@@ -199,6 +199,5 @@ export function cloneTestRepo(workspacePath: string) {
 		}
 	}
 }
-
 
 export default globalSetup;

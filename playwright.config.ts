@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { defineConfig, devices, PlaywrightTestConfig } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test';
 
 /**
  * Read environment variables from file.
@@ -25,7 +25,7 @@ process.env.POSITRON_R_VER_SEL = '4.4.0';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<TestOptions>({
-	globalSetup: require.resolve('./test/smoke/global-setup.js'),
+	globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
 	testDir: './test/smoke/src/e2e',
 	testMatch: '*.test.ts',
 	fullyParallel: false,
