@@ -48,7 +48,7 @@ export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'not set') {
 /**
  * Sets up the test environment for Electron or Web smoke tests.
  */
-function initializeTestEnvironment(rootPath: string, logger: Logger): string | null {
+function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'not set', logger: Logger): string | null {
 	let version: string | null = null;
 
 	//
