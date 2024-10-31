@@ -62,9 +62,6 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Compile Integration Tests
-      #   run: yarn --cwd test/integration/browser compile
-
       - run: yarn --cwd test/automation compile
       - run: yarn --cwd test/smoke compile
 
@@ -78,13 +75,8 @@ jobs:
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2
 
-      #   - name: Install Playwright Browsers
-      #     run: npx playwright install --with-deps
-
-      # - name: Run Playwright tests
-      #   run: npx playwright test --project e2e-electron --grep @pr
-
-      - uses: actions/upload-artifact@v4
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

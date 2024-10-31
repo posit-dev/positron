@@ -5,7 +5,7 @@
 
 import { test, expect } from '../_test.setup';
 
-test.describe.configure({ retries: 2 });
+test.describe.configure({ retries: 1 });
 
 test('should fail first, then pass on retry', { tag: ['@pr'] }, async ({ app, interpreter }, testInfo) => {
 	if (testInfo.retry) {
