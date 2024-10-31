@@ -72,11 +72,11 @@ jobs:
         uses: mxschmitt/action-tmate@v3
 
       - name: Run Tests (Electron)
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr
+        # env:
+        #   POSITRON_PY_VER_SEL: 3.10.12
+        #   POSITRON_R_VER_SEL: 4.4.0
+        id: e2e-playwright-tests
+        run: POSITRON_PY_VER_SEL=3.10.12 POSITRON_R_VER_SEL=4.4.0 DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr
 
       #   - name: Install Playwright Browsers
       #     run: npx playwright install --with-deps
