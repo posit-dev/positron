@@ -49,6 +49,12 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
@@ -56,7 +62,11 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: yarn --cwd test/automation && yarn --cwd test/smoke
+      - name: Compile Integration Tests
+        run: yarn --cwd test/integration/browser compile
+
+      - run: yarn --cwd test/automation compile
+      - run: yarn --cwd test/smoke compile
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
