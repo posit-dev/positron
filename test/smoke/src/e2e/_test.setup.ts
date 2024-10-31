@@ -10,6 +10,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 // Node.js built-in modules
 import { join } from 'path';
 import * as os from 'os';
+import * as fs from 'fs';
 import path = require('path');
 // eslint-disable-next-line local/code-import-patterns
 import { rename, rm, access, mkdir } from 'fs/promises';
@@ -18,6 +19,7 @@ import { constants } from 'fs';
 // Third-party packages
 import minimist = require('minimist');
 import { randomUUID } from 'crypto';
+import archiver from 'archiver';
 
 // Local imports
 import { createLogger } from '../test-runner/logger';
@@ -31,6 +33,7 @@ const ARTIFACT_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-
 const TEMP_LOGS_PATH = join(LOGS_ROOT_PATH, ARTIFACT_DIR, TEMP_DIR);
 const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', ARTIFACT_DIR, TEMP_DIR);
 let SPEC_NAME = '';
+let logsCounter = 1;
 
 export const test = base.extend<{
 	tracing: any;
@@ -40,13 +43,17 @@ export const test = base.extend<{
 	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
 	restartApp: Application;
 	testName: string;
+	r: void;
+	python: void;
 	autoTestFixture: any;
+	attachLogsToReport: any;
 }, {
 	suiteId: string;
 	web: boolean;
 	options: any;
 	app: Application;
 	logger: Logger;
+
 }>({
 
 	suiteId: ['not specified', { scope: 'worker', option: true }],
@@ -55,7 +62,6 @@ export const test = base.extend<{
 
 	logger: [async ({ }, use) => {
 		const logger = createLogger(TEMP_LOGS_PATH);
-
 		await use(logger);
 	}, { auto: true, scope: 'worker' }],
 
@@ -116,6 +122,21 @@ export const test = base.extend<{
 		await use({ set: setInterpreter });
 	}, { scope: 'test', }],
 
+	r: [
+		async ({ interpreter }, use) => {
+			await interpreter.set('R');
+			await use();
+		},
+		{ scope: 'test' }
+	],
+
+	python: [
+		async ({ interpreter }, use) => {
+			await interpreter.set('Python');
+			await use();
+		},
+		{ scope: 'test' }],
+
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
@@ -140,6 +161,37 @@ export const test = base.extend<{
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
 
+	}, { auto: true }],
+
+	attachLogsToReport: [async ({ suiteId }, use, testInfo) => {
+		await use();
+
+		const zipPath = path.join(TEMP_LOGS_PATH, 'logs.zip');
+		const output = fs.createWriteStream(zipPath);
+		const archive = archiver('zip', { zlib: { level: 9 } });
+
+		archive.on('error', (err) => {
+			throw err;
+		});
+
+		archive.pipe(output);
+
+		// add all log files to the archive
+		archive.glob('**/*', { cwd: TEMP_LOGS_PATH, ignore: ['logs.zip'] });
+		await archive.finalize();
+
+		// attach the zipped file to the report
+		await testInfo.attach(`logs-${suiteId}-${logsCounter++}.zip`, {
+			path: zipPath,
+			contentType: 'application/zip',
+		});
+
+		// Clear the TEMP_LOGS_PATH directory
+		// const files = await fs.promises.readdir(TEMP_LOGS_PATH);
+		// for (const file of files) {
+		// 	const filePath = path.join(TEMP_LOGS_PATH, file);
+		// 	await fs.promises.rm(filePath, { recursive: true, force: true });
+		// }
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
@@ -179,24 +231,24 @@ export const test = base.extend<{
 		logger.log(endLog);
 		logger.log('');
 	}, { scope: 'test', auto: true }],
-
 });
 
-// Runs once per worker. If a worker handles multiple tests, this hook only runs once for the first test.
-// Using `suiteId` ensures each suite gets a dedicated worker, providing a fresh app instance for each suite.
+// Runs once per worker. If a worker handles multiple specs, these hooks only run for the first spec.
+// However, we are using `suiteId` to ensure each suite gets a new worker (and a fresh app
+// instance). This also ensures these before/afterAll hooks will run for EACH spec
 test.beforeAll(async ({ logger }, testInfo) => {
-	// to ensure logs are written to the correct folder when sharing the app instance across workers,
-	// we store the spec name in a global variable since workers aren't aware of it directly. this lets us
-	// rename the logs folder once the suite finishes. note: we intentionally restart workers per spec to
-	// scope logs by spec and give each spec a fresh app instance.
+	// since the worker doesn't know or have access to the spec name when it starts,
+	// we store the spec name in a global variable. this ensures logs are written
+	// to the correct folder even when the app is scoped to "worker".
+	// by storing the spec name globally, we can rename the logs folder after the suite finishes.
+	// note: workers are intentionally restarted per spec to scope logs by spec
+	// and provide a fresh app instance for each spec.
 	SPEC_NAME = testInfo.titlePath[0];
 	logger.log('');
 	logger.log(`>>> Suite start: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
 	logger.log('');
 });
 
-// Runs once per worker. If a worker handles multiple tests, this hook only runs once for the first test.
-// Using `suiteId` ensures each suite gets a dedicated worker, providing a fresh app instance for each suite.
 test.afterAll(async function ({ logger }, testInfo) {
 	logger.log('');
 	logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);

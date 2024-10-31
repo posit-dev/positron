@@ -6,7 +6,7 @@
 import { test } from '../_test.setup';
 
 // By default, no interpreter is set. The recommendation is to set the interpreter for EACH test.
-// If you the intended interpreter is already set, the interpreter will not restart/switch.
+// If the intended interpreter is already set, the interpreter will not restart/switch.
 // If the intended interpreter is not set, the interpreter will start/switch.
 
 test.describe('Interpreter Test', () => {

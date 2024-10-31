@@ -16,7 +16,6 @@ test.describe('Variables Pane - Notebook', {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});
 
-
 	test('Python - Verifies Variables pane basic function for notebook [C669188]', async function ({ app, interpreter }) {
 		await interpreter.set('Python');
 
