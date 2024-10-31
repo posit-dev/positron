@@ -92,11 +92,13 @@ export const PositronDataExplorer = (props: PropsWithChildren<PositronDataExplor
 			<div className='positron-data-explorer'>
 				<ActionBar />
 				<DataExplorerPanel />
-				{closed && <PositronDataExplorerClosed
-					closedReason={reason}
-					errorMessage={errorMessage}
-					onClose={props.onClose}
-				/>}
+				{closed && (
+					<PositronDataExplorerClosed
+						closedReason={reason}
+						errorMessage={errorMessage}
+						onClose={props.onClose}
+					/>
+				)}
 			</div>
 		</PositronDataExplorerContextProvider>
 	);
