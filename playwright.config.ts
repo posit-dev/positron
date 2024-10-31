@@ -21,7 +21,7 @@ type TestOptions = {
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<TestOptions>({
-	globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
+	globalSetup: require.resolve('./test/smoke/global-setup.ts'),
 	testDir: './test/smoke/src/e2e',
 	testMatch: '*.test.ts',
 	fullyParallel: false,
