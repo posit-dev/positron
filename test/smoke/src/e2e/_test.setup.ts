@@ -17,7 +17,6 @@ import { rename, rm, access, mkdir } from 'fs/promises';
 import { constants } from 'fs';
 
 // Third-party packages
-import minimist = require('minimist');
 import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
@@ -91,7 +90,6 @@ export const test = base.extend<{
 			tracing: true,
 			headless: process.env.HEADLESS,
 			browser: process.env.BROWSER,
-			// extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
 		};
 
 		await use(options);

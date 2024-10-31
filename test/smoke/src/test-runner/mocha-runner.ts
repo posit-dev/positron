@@ -149,7 +149,7 @@ function getFailureLogs(): string {
 # '${logPath}'.
 #
 # Logs of the smoke test runner are stored into
-# 'smoke-test-runner.log' in respective folder.
+# 'e2e-test-runner.log' in respective folder.
 #
 #############################################
 		`;

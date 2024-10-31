@@ -17,7 +17,7 @@ const VERBOSE = process.env.VERBOSE === 'true';
  * @returns Logger instance
  */
 export function createLogger(logsRootPath: string): Logger {
-	const logsFileName = `smoke-test-runner.log`;
+	const logsFileName = `e2e-test-runner.log`;
 	const loggers: Logger[] = [];
 
 	if (VERBOSE) {

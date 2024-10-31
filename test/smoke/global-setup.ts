@@ -6,9 +6,9 @@
 import { join } from 'path';
 import * as os from 'os';
 import { rmSync } from 'fs';
-import { cloneTestRepo, prepareTestEnv } from './out/test-runner';
+import { prepareTestEnv, cloneTestRepo } from './src/test-runner';
 
-export const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
+export const ROOT_PATH = join(__dirname, '..', '..');
 const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
