@@ -1614,7 +1614,7 @@ var AMDLoader;
 					// The set of original paths adjust.
 					const reactDomClientElectron = `/out/../node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
 					const reactDomClientWeb = `remote/web/node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
-					// REH web release builds load from 'static'
+					// REH web release builds load from 'static'.
 					const reactDomClientRehWeb = `static/node_modules/react-dom/umd/react-dom.${edition}.js/client.js`;
 
 					// Attempt to adjust the original path.
@@ -1624,6 +1624,14 @@ var AMDLoader;
 						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientWeb.length)}out/react-dom/client.js`;
 					} else if (paths[0].endsWith(reactDomClientRehWeb)) {
 						paths[0] = `${paths[0].substr(0, paths[0].length - reactDomClientRehWeb.length)}static/out/react-dom/client.js`;
+					} else {
+						// Unit tests load client.js from 'http://localhost'. For example:
+						// http://localhost:51262/e9416c1769b269baf1f33978a0695be1/node_modules/react-dom/umd/react-dom.production.min.js/client.js
+						const reactDomClientLocalhost = /(http:\/\/localhost:[0-9]+\/[0-9A-Fa-f]+)(\/node_modules\/react-dom\/umd\/react-dom.production.min.js\/client.js)/;
+						const result = paths[0].match(reactDomClientLocalhost);
+						if (result && result.length === 3) {
+							paths[0] = `${result[1]}/out/react-dom/client.js`;
+						}
 					}
 				}
 
