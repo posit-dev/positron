@@ -68,8 +68,8 @@ jobs:
       - run: yarn --cwd test/automation compile
       - run: yarn --cwd test/smoke compile
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
 
       - name: Run Tests (Electron)
         # env:

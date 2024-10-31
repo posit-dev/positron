@@ -17,6 +17,10 @@ type TestOptions = {
 	artifactDir: string;
 };
 
+// need to not hardcode these values
+process.env.POSITRON_PY_VER_SEL = '3.10.15';
+process.env.POSITRON_R_VER_SEL = '4.4.1';
+
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
