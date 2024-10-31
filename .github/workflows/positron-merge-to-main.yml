@@ -58,6 +58,9 @@ jobs:
 
       - run: yarn --cwd test/automation && yarn --cwd test/smoke
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
