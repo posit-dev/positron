@@ -33,6 +33,7 @@ export default defineConfig<TestOptions>({
 	retries: process.env.CI ? 0 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
 	reporter: [['list'], ['html', { open: 'always' }]],
+	timeout: 2 * 60 * 1000, // 2 minutes
 
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
