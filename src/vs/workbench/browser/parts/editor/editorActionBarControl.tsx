@@ -7,19 +7,19 @@
 import 'vs/css!./editorActionBarControl';
 
 // React.
-// import * as React from 'react';
+import * as React from 'react';
 
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
-// import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-// import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
-// import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-// import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-// import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-// import { EditorActionBar } from 'vs/workbench/browser/parts/editor/editorActionBar';
+import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
+import { EditorActionBar } from 'vs/workbench/browser/parts/editor/editorActionBar';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 
@@ -61,12 +61,12 @@ export class EditorActionBarControl extends Disposable {
 	 */
 	constructor(
 		private readonly _parent: HTMLElement,
-		// @ICommandService private readonly _commandService: ICommandService,
-		// @IConfigurationService private readonly _configurationService: IConfigurationService,
-		// @IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		// @IContextMenuService private readonly _contextMenuService: IContextMenuService,
-		// @IHoverService private readonly _hoverService: IHoverService,
-		// @IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IHoverService private readonly _hoverService: IHoverService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -77,17 +77,17 @@ export class EditorActionBarControl extends Disposable {
 		this._parent.appendChild(this._container);
 
 		// Render the editor action bar component in the editor action bar container.
-		// this._positronReactRenderer = new PositronReactRenderer(this._container);
-		// this._positronReactRenderer.render(
-		// 	<EditorActionBar
-		// 		commandService={this._commandService}
-		// 		configurationService={this._configurationService}
-		// 		contextKeyService={this._contextKeyService}
-		// 		contextMenuService={this._contextMenuService}
-		// 		hoverService={this._hoverService}
-		// 		keybindingService={this._keybindingService}
-		// 	/>
-		// );
+		this._positronReactRenderer = new PositronReactRenderer(this._container);
+		this._positronReactRenderer.render(
+			<EditorActionBar
+				commandService={this._commandService}
+				configurationService={this._configurationService}
+				contextKeyService={this._contextKeyService}
+				contextMenuService={this._contextMenuService}
+				hoverService={this._hoverService}
+				keybindingService={this._keybindingService}
+			/>
+		);
 	}
 
 	/**
