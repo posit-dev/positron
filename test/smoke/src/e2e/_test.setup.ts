@@ -29,9 +29,7 @@ import { createApp } from '../utils';
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
 const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
-const ARTIFACT_DIR = process.env.BUILD_ARTIFACTSTAGINGDIRECTORY || 'smoke-tests-default';
-const TEMP_LOGS_PATH = join(LOGS_ROOT_PATH, ARTIFACT_DIR, TEMP_DIR);
-const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', ARTIFACT_DIR, TEMP_DIR);
+
 let SPEC_NAME = '';
 let logsCounter = 1;
 
@@ -50,42 +48,50 @@ export const test = base.extend<{
 }, {
 	suiteId: string;
 	web: boolean;
+	artifactDir: string;
 	options: any;
 	app: Application;
 	logger: Logger;
-
+	logsPath: string;
 }>({
 
-	suiteId: ['not specified', { scope: 'worker', option: true }],
+	suiteId: ['', { scope: 'worker', option: true }],
 
 	web: [false, { scope: 'worker', option: true }],
 
-	logger: [async ({ }, use) => {
-		const logger = createLogger(TEMP_LOGS_PATH);
+	artifactDir: ['e2e-default', { scope: 'worker', option: true }],
+
+	logsPath: [async ({ artifactDir }, use) => {
+		const logsPath = join(LOGS_ROOT_PATH, artifactDir, TEMP_DIR);
+		await use(logsPath);
+	}, { scope: 'worker', auto: true }],
+
+	logger: [async ({ logsPath }, use) => {
+		const logger = createLogger(logsPath);
 		await use(logger);
 	}, { auto: true, scope: 'worker' }],
 
-	options: [async ({ web, logger }, use, workerInfo) => {
+	options: [async ({ web, artifactDir, logsPath, logger }, use) => {
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-		const OPTS = minimist(process.argv.slice(2));
+		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', artifactDir, TEMP_DIR);
 
 		const options = {
-			codePath: OPTS.build,
+			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
 			userDataDir: join(TEST_DATA_PATH, 'd'),
 			extensionsPath: EXTENSIONS_PATH,
-			logger: logger,
-			logsPath: TEMP_LOGS_PATH,
+			logger,
+			logsPath,
 			crashesPath: SPEC_CRASHES_PATH,
-			verbose: OPTS.verbose,
-			remote: OPTS.remote,
+			verbose: process.env.VERBOSE,
+			remote: process.env.REMOTE,
 			web,
 			tracing: true,
-			headless: OPTS.headless,
-			browser: OPTS.browser,
-			extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
+			headless: process.env.HEADLESS,
+			browser: process.env.BROWSER,
+			// extraArgs: (OPTS.electronArgs || '').split(' ').map(arg => arg.trim()).filter(arg => !!arg),
 		};
 
 		await use(options);
@@ -96,14 +102,15 @@ export const test = base.extend<{
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, suiteId }, use) => {
+	app: [async ({ options, logsPath }, use) => {
 		const app = createApp(options);
 		await app.start();
 		await use(app);
 		await app.stop();
 
-		const correctLogsPath = join(ROOT_PATH, '.build', 'logs', ARTIFACT_DIR, SPEC_NAME);
-		await moveAndOverwrite(TEMP_LOGS_PATH, correctLogsPath);
+		// rename the temp logs dir to the spec name
+		const specLogsPath = logsPath.split('/').slice(0, -1).join('/') + '/' + SPEC_NAME;
+		await moveAndOverwrite(logsPath, specLogsPath);
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
@@ -163,10 +170,12 @@ export const test = base.extend<{
 
 	}, { auto: true }],
 
-	attachLogsToReport: [async ({ suiteId }, use, testInfo) => {
+	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
 		await use();
 
-		const zipPath = path.join(TEMP_LOGS_PATH, 'logs.zip');
+		if (!suiteId) { return; }
+
+		const zipPath = path.join(logsPath, 'logs.zip');
 		const output = fs.createWriteStream(zipPath);
 		const archive = archiver('zip', { zlib: { level: 9 } });
 
@@ -177,7 +186,7 @@ export const test = base.extend<{
 		archive.pipe(output);
 
 		// add all log files to the archive
-		archive.glob('**/*', { cwd: TEMP_LOGS_PATH, ignore: ['logs.zip'] });
+		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
 		await archive.finalize();
 
 		// attach the zipped file to the report
@@ -216,7 +225,9 @@ export const test = base.extend<{
 		await use(app.code.driver.context);
 	},
 
-	autoTestFixture: [async ({ logger }, use, testInfo) => {
+	autoTestFixture: [async ({ logger, suiteId }, use, testInfo) => {
+		// if (!suiteId) { throw new Error('suiteId is required'); }
+
 		logger.log('');
 		logger.log(`>>> Test start: '${testInfo.title ?? 'unknown'}' <<<`);
 		logger.log('');

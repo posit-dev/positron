@@ -14,6 +14,7 @@ import { defineConfig, devices, PlaywrightTestConfig } from '@playwright/test';
 
 type TestOptions = {
 	web: boolean;
+	artifactDir: string;
 };
 
 /**
@@ -34,17 +35,26 @@ export default defineConfig<TestOptions>({
 		// baseURL: 'http://127.0.0.1:3000',
 		headless: false,
 		trace: 'off',
+		// video: 'on'
 	},
 
 	/* Configure projects for major browsers */
 	projects: [
 		{
 			name: 'e2e-electron',
-			use: { ...devices['Desktop Chrome'], web: false },
+			use: {
+				...devices['Desktop Chrome'],
+				web: false,
+				artifactDir: 'e2e-electron'
+			},
 		},
 		{
 			name: 'e2e-browser',
-			use: { ...devices['Desktop Chrome'], web: true, },
+			use: {
+				...devices['Desktop Chrome'],
+				web: true,
+				artifactDir: 'e2e-browser'
+			},
 			grep: /@web/
 		},
 	],
