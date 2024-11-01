@@ -104,11 +104,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _cells: IPositronNotebookCell[] = [];
 
 	/**
-	 * Language for the notebook.
-	 */
-	private _language: string | undefined = undefined;
-
-	/**
 	 * A set of disposables that are linked to a given model
 	 * that need to be cleaned up when the model is changed.
 	 */
@@ -374,10 +369,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	addCell(type: CellKind, index: number): void {
 		this._assertViewModel();
 
-		if (!this._language) {
-			// Set language to python by default. Will need to update this when we support multiple languages.
-			this._language = 'python';
-		}
+		const language = this._getDefaultLanguage();
 
 		const synchronous = true;
 		const pushUndoStop = true;
@@ -385,7 +377,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this.viewModel,
 			index,
 			'',
-			this._language,
+			language,
 			type,
 			undefined,
 			[],
@@ -641,7 +633,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
-		this._language = modelCells[0].language;
 		this.cells.set(this._cells, undefined);
 		this.selectionStateMachine.setCells(this._cells);
 	}
@@ -722,6 +713,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._modelStore.clear();
 		this._viewModel?.dispose();
 		this._viewModel = undefined;
+	}
+
+	/**
+	 * Gets the default language for new cells based on the notebook's current state
+	 * @returns The language to use for new cells
+	 */
+	private _getDefaultLanguage(): string {
+		this._assertTextModel();
+
+		// If we have a text model with cells, use the language of the first cell
+		if (this.textModel.cells.length > 0) {
+			return this.textModel.cells[0].language;
+		}
+
+		// Default to python if we don't have any cells yet
+		// TODO: Make this configurable or based on notebook metadata
+		return 'python';
 	}
 
 	// #endregion
