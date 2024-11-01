@@ -24,7 +24,6 @@ import archiver from 'archiver';
 import { createLogger } from '../test-runner/logger';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
 import { createApp } from '../utils';
-import { CustomTestOptions } from '../../../../playwright.config';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
@@ -32,6 +31,12 @@ const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
 
 let SPEC_NAME = '';
 let logsCounter = 1;
+
+export type CustomTestOptions = playwright.PlaywrightTestOptions & {
+	web: boolean;
+	artifactDir: string;
+	headless?: boolean;
+};
 
 export const test = base.extend<{
 	restartApp: Application;

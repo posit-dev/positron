@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { defineConfig, PlaywrightTestOptions } from '@playwright/test';
+import { defineConfig } from '@playwright/test';
+import { CustomTestOptions } from './test/smoke/src/e2e/_test.setup';
 
 /**
  * Read environment variables from file.
@@ -13,11 +14,6 @@ import { defineConfig, PlaywrightTestOptions } from '@playwright/test';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-export type CustomTestOptions = PlaywrightTestOptions & {
-	web: boolean;
-	artifactDir: string;
-	headless?: boolean;
-};
 
 /**
  * See https://playwright.dev/docs/test-configuration.
