@@ -225,7 +225,7 @@ export const test = base.extend<{
 	},
 
 	autoTestFixture: [async ({ logger, suiteId }, use, testInfo) => {
-		// if (!suiteId) { throw new Error('suiteId is required'); }
+		if (!suiteId) { throw new Error('suiteId is required'); }
 
 		logger.log('');
 		logger.log(`>>> Test start: '${testInfo.title ?? 'unknown'}' <<<`);

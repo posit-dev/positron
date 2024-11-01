@@ -16,6 +16,9 @@ import { test } from '../_test.setup';
 // These annotations are available in the reporter API, and Playwright’s HTML reporter shows all annotations,
 // except those starting with an underscore.
 
+test.use({
+	suiteId: 'annotations'
+});
 
 test.describe('annotations and tags', () => {
 	test('should have tags', {

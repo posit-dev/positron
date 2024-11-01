@@ -5,6 +5,9 @@
 
 import { test, expect } from '../_test.setup';
 
+test.use({
+	suiteId: 'data-explorer-r'
+});
 
 test.describe('Data Explorer - R ', {
 	tag: ['@web', '@win',]

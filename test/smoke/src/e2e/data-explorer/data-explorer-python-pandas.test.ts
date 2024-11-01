@@ -6,6 +6,9 @@
 import { join } from 'path';
 import { test, expect } from '../_test.setup';
 
+test.use({
+	suiteId: 'data-explorer-python-pandas'
+});
 
 test.describe('Data Explorer - Python Polars', {
 	tag: ['@win', '@web', '@pr']

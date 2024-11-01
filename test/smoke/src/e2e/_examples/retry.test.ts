@@ -5,6 +5,10 @@
 
 import { test, expect } from '../_test.setup';
 
+test.use({
+	suiteId: 'retry'
+});
+
 test.describe.configure({ retries: 1 });
 
 test('should fail first, then pass on retry', { tag: ['@pr'] }, async ({ app, interpreter }, testInfo) => {
