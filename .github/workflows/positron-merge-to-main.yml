@@ -113,6 +113,9 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compile E2E Tests
+        run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
+
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
 
