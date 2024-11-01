@@ -22,7 +22,7 @@ export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-loa
 export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
 export type NotebookPreloadOutputResults =
 	| { preloadMessageType: 'preload' }
-	| { preloadMessageType: 'display'; webview: INotebookOutputWebview };
+	| { preloadMessageType: 'display'; webview: Promise<INotebookOutputWebview> };
 
 export interface IPositronWebviewPreloadService {
 	/**
@@ -66,5 +66,5 @@ export interface IPositronWebviewPreloadService {
 		instance: IPositronNotebookInstance,
 		outputId: string,
 		outputs: { mime: string; data: VSBuffer }[]
-	): Promise<NotebookPreloadOutputResults | undefined>;
+	): NotebookPreloadOutputResults | undefined;
 }

@@ -13,11 +13,13 @@ const WEBVIEW_FAILED_MESSAGE = localize('cellExecutionWebviewFailed', 'Failed to
 const DISPLAY_MESSAGE = localize('cellExecutionDisplayMessage', 'Display message');
 const PRELOAD_MESSAGE = localize('cellExecutionPreloadMessage', 'Preload message');
 
-export function PreloadMessageOutput({ preloadMessageResult }: { preloadMessageResult: Promise<NotebookPreloadOutputResults | undefined> }) {
+export function PreloadMessageOutput({ preloadMessageResult }: { preloadMessageResult?: NotebookPreloadOutputResults }) {
 	const [result, setResult] = useState<NotebookPreloadOutputResults | undefined | null>(null);
 
 	useEffect(() => {
-		preloadMessageResult.then(setResult);
+		if (preloadMessageResult) {
+			setResult(preloadMessageResult);
+		}
 	}, [preloadMessageResult]);
 
 	if (result === null) {
