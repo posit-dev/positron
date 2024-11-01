@@ -39,7 +39,7 @@ export default defineConfig<CustomTestOptions>({
 		]
 		: [
 			['list'],
-			['html']
+			['html', { open: 'on-failure' }]
 		],
 
 
