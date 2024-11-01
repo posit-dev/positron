@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -16,11 +17,6 @@ type TestOptions = {
 	web: boolean;
 	artifactDir: string;
 };
-
-// need to not hardcode these values
-// process.env.POSITRON_PY_VER_SEL = '3.10.12';
-// process.env.POSITRON_R_VER_SEL = '4.4.0';
-console.log('!!!!!!', process.env.TEST, process.env.POSITRON_PY_VER_SEL, process.env.POSITRON_R_VER_SEL);
 
 /**
  * See https://playwright.dev/docs/test-configuration.
