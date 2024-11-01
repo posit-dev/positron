@@ -17,7 +17,7 @@ import { test } from '../_test.setup';
 // except those starting with an underscore.
 
 test.use({
-	suiteId: 'annotations'
+	suiteId: __filename
 });
 
 test.describe('annotations and tags', () => {

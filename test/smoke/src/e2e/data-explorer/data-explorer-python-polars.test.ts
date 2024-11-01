@@ -7,7 +7,7 @@ import { join } from 'path';
 import { test, expect } from '../_test.setup';
 
 test.use({
-	suiteId: 'data-explorer-python-polars'
+	suiteId: __filename
 });
 
 test.describe('Data Explorer - Python Pandas', {

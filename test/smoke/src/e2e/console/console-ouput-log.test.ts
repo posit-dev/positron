@@ -6,7 +6,7 @@
 import { test, expect } from '../_test.setup';
 
 test.use({
-	suiteId: 'console-output-log'
+	suiteId: __filename
 });
 
 test.describe('Console Output Log', { tag: ['@web'] }, () => {

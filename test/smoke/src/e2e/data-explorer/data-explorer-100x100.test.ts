@@ -9,7 +9,7 @@ import { join } from 'path';
 import { Application } from '../../../../automation';
 
 test.use({
-	suiteId: 'data-explorer-100x100'
+	suiteId: __filename
 });
 
 test.describe('Data Explorer 100x100', {

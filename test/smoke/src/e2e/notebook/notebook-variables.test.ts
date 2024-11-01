@@ -5,7 +5,7 @@
 import { test, expect } from '../_test.setup';
 
 test.use({
-	suiteId: 'notebook-variables'
+	suiteId: __filename
 });
 
 test.describe('Variables Pane - Notebook', {

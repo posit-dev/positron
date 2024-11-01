@@ -6,7 +6,7 @@
 import { test } from '../_test.setup';
 
 test.use({
-	suiteId: 'notebook-create'
+	suiteId: __filename
 });
 
 test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {

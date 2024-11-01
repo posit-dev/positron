@@ -6,7 +6,7 @@
 import { test, expect } from '../_test.setup';
 
 test.use({
-	suiteId: 'data-explorer-r'
+	suiteId: __filename
 });
 
 test.describe('Data Explorer - R ', {

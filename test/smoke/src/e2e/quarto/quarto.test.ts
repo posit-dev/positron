@@ -9,7 +9,7 @@ const path = require('path');
 const fs = require('fs-extra');
 
 test.use({
-	suiteId: 'quarto'
+	suiteId: __filename
 });
 
 test.describe('Quarto #web', () => {
