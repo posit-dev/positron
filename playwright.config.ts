@@ -18,9 +18,9 @@ type TestOptions = {
 };
 
 // need to not hardcode these values
-process.env.POSITRON_PY_VER_SEL = '3.10.12';
-process.env.POSITRON_R_VER_SEL = '4.4.0';
-console.log('!!!!!!', process.env.TEST);
+// process.env.POSITRON_PY_VER_SEL = '3.10.12';
+// process.env.POSITRON_R_VER_SEL = '4.4.0';
+console.log('!!!!!!', process.env.TEST, process.env.POSITRON_PY_VER_SEL, process.env.POSITRON_R_VER_SEL);
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -33,11 +33,12 @@ export default defineConfig<TestOptions>({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 0 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
-	reporter: process.env.CI ? [
-		['github'],
-		['junit', { outputFile: 'test-results/results.xml' }]
-		['html']
-	]
+	reporter: process.env.CI
+		? [
+			['github'],
+			['junit', { outputFile: 'test-results/results.xml' }],
+			['html']
+		]
 		: [
 			['list'],
 			['html']
