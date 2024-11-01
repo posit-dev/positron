@@ -31,6 +31,10 @@ export default defineConfig<CustomTestOptions>({
 	retries: process.env.CI ? 0 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
 	timeout: 2 * 60 * 1000, // test timeout is 2 minutes
+	reportSlowTests: {
+		max: 10,
+		threshold: 60 * 1000, // 1 minute
+	},
 	reporter: process.env.CI
 		? [
 			['github'],
