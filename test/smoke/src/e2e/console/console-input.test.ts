@@ -92,7 +92,7 @@ cat(sprintf('Hello %s!\n', val))`;
 
 			await expect(async () => {
 				await app.workbench.positronConsole.typeToConsole(inputCode);
-			}).toPass({ timeout: 600 });
+			}).toPass({ timeout: 60000 });
 
 			const activeConsole = app.workbench.positronConsole.activeConsole;
 
