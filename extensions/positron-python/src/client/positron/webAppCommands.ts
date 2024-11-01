@@ -24,6 +24,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             'FastAPI',
             (runtime, document, _urlPrefix) => getFastAPIDebugConfig(serviceContainer, runtime, document),
             '/docs',
+            'Application startup complete',
         ),
         registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
             getFlaskDebugConfig(document),
@@ -42,6 +43,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         ),
         registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
             getFastAPIDebugConfig(serviceContainer, runtime, document),
+            '/docs',
+            'Application startup complete',
         ),
         registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
             getFlaskDebugConfig(document),
@@ -67,6 +70,7 @@ function registerExecCommand(
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
+    appReadyMessage?: string,
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -98,6 +102,7 @@ function registerExecCommand(
                 return terminalOptions;
             },
             urlPath,
+            appReadyMessage,
         });
     });
 }
@@ -110,6 +115,8 @@ function registerDebugCommand(
         document: vscode.TextDocument,
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
+    urlPath?: string,
+    appReadyMessage?: string,
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -129,6 +136,8 @@ function registerDebugCommand(
                     stopOnEntry: false,
                 };
             },
+            urlPath,
+            appReadyMessage,
         });
     });
 }
