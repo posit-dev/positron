@@ -121,7 +121,9 @@ export class Code {
 		return await this.driver.startTracing(name);
 	}
 
+	// --- Start Positron ---
 	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
+		// --- End Positron ---
 		return await this.driver.stopTracing(name, persist, customPath);
 	}
 
