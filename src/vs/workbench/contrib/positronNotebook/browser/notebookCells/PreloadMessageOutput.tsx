@@ -4,8 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { useEffect, useState } from 'react';
+import { getWindow } from 'vs/base/browser/dom';
 import { localize } from 'vs/nls';
+import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { assertIsStandardWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 const LOADING_MESSAGE = localize('cellExecutionLoading', 'Loading...');
@@ -14,25 +17,52 @@ const DISPLAY_MESSAGE = localize('cellExecutionDisplayMessage', 'Display message
 const PRELOAD_MESSAGE = localize('cellExecutionPreloadMessage', 'Preload message');
 
 export function PreloadMessageOutput({ preloadMessageResult }: { preloadMessageResult?: NotebookPreloadOutputResults }) {
-	const [result, setResult] = useState<NotebookPreloadOutputResults | undefined | null>(null);
 
-	useEffect(() => {
-		if (preloadMessageResult) {
-			setResult(preloadMessageResult);
-		}
-	}, [preloadMessageResult]);
-
-	if (result === null) {
+	if (preloadMessageResult === null) {
 		return <div>{LOADING_MESSAGE}</div>;
 	}
 
-	if (result === undefined) {
+	if (preloadMessageResult === undefined) {
 		return <div>{WEBVIEW_FAILED_MESSAGE}</div>;
 	}
 
-	if (result.preloadMessageType === 'display') {
-		return <div>{DISPLAY_MESSAGE}</div>;
+	if (preloadMessageResult.preloadMessageType === 'preload') {
+		return <div>{PRELOAD_MESSAGE}</div>;
 	}
 
-	return <div>{PRELOAD_MESSAGE}</div>;
+	return <DisplayedPreloadMessage webview={preloadMessageResult.webview} />;
+}
+
+function DisplayedPreloadMessage({ webview }: { webview: Promise<INotebookOutputWebview> }) {
+
+	const [isLoading, setIsLoading] = React.useState(true);
+	const containerRef = React.useRef<HTMLDivElement>(null);
+
+	React.useEffect(() => {
+		let disposed = false;
+		let resolvedWebviewElement: IWebviewElement | undefined;
+
+		webview.then((resolvedWebview) => {
+			if (disposed) { return; }
+
+			setIsLoading(false);
+			if (!containerRef.current) { return; }
+
+			assertIsStandardWebview(resolvedWebview);
+			resolvedWebviewElement = resolvedWebview.webview;
+			resolvedWebviewElement.mountTo(containerRef.current, getWindow(containerRef.current));
+			// Temporarily set the height to something non zero so we can see if it's working
+			containerRef.current.style.height = `400px`;
+		});
+
+		return () => {
+			disposed = true;
+			resolvedWebviewElement?.dispose();
+		};
+	}, [webview]);
+
+	return <>
+		<div>{isLoading ? LOADING_MESSAGE : DISPLAY_MESSAGE}</div>
+		<div ref={containerRef} style={{ outline: '1px solid red' }} />
+	</>;
 }
