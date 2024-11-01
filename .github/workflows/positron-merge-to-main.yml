@@ -56,16 +56,17 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: yarn --cwd test/automation compile
-      - run: yarn --cwd test/smoke compile
+      - name: Compile E2E Tests
+        run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
 
       # - name: Setup tmate session
       #   uses: mxschmitt/action-tmate@v3
 
       - name: Run Tests (Electron)
-        # env:
-        #   POSITRON_PY_VER_SEL: 3.10.12
-        #   POSITRON_R_VER_SEL: 4.4.0
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+          TEST: "marie123!"
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2
 
