@@ -204,13 +204,13 @@ export const test = base.extend<{
 
 	tracing: [async ({ app }, use, testInfo) => {
 		// start tracing
-		const title = (testInfo.title || 'unknown').replace(/\s+/g, '-');
-		await app.startTracing(title);
+		await app.startTracing();
 
 		await use(app);
 
 		// stop tracing
-		const tracePath = testInfo.outputPath(`${title}_trace.zip`);
+		const title = 'trace';
+		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
 

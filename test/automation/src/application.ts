@@ -104,9 +104,11 @@ export class Application {
 		await this._code?.startTracing(name);
 	}
 
+	// --- Start Positron ---
 	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
 		await this._code?.stopTracing(name, persist, customPath);
 	}
+	// --- End Positron ---
 
 	private async startApplication(extraArgs: string[] = []): Promise<Code> {
 		const code = this._code = await launch({

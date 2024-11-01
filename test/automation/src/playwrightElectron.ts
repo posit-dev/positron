@@ -45,7 +45,9 @@ async function launchElectron(configuration: IElectronConfiguration, options: La
 
 	if (tracing) {
 		try {
+			// --- Start Positron ---
 			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: true /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
+			// --- End Positron ---
 		} catch (error) {
 			logger.log(`Playwright (Electron): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}
