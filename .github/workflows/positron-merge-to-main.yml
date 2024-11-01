@@ -63,7 +63,6 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
-          TEST: "marie123!"
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2
 
