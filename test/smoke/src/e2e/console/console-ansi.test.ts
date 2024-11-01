@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console ANSI styling', () => {
+test.describe('Console ANSI styling', { tag: ['@pr'] }, () => {
 	test.beforeEach(async function ({ app, interpreter }) {
 		await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 		await interpreter.set('R');
