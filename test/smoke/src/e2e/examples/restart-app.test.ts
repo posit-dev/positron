@@ -35,5 +35,3 @@ test.describe('App Instance Test', () => {
 	});
 });
 
-
-// marie, why is restart 3rd not working?

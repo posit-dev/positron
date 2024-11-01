@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, PlaywrightTestOptions } from '@playwright/test';
 
 /**
  * Read environment variables from file.
@@ -13,22 +13,24 @@ import { defineConfig, devices } from '@playwright/test';
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-type TestOptions = {
+export type CustomTestOptions = PlaywrightTestOptions & {
 	web: boolean;
 	artifactDir: string;
+	headless?: boolean;
 };
 
 /**
  * See https://playwright.dev/docs/test-configuration.
  */
-export default defineConfig<TestOptions>({
+export default defineConfig<CustomTestOptions>({
 	globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
 	testDir: './test/smoke/src/e2e',
 	testMatch: '*.test.ts',
-	fullyParallel: false,
+	fullyParallel: false, // Run individual tests in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 0 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
+	timeout: 2 * 60 * 1000, // test timeout is 2 minutes
 	reporter: process.env.CI
 		? [
 			['github'],
@@ -39,33 +41,28 @@ export default defineConfig<TestOptions>({
 			['list'],
 			['html']
 		],
-	timeout: 2 * 60 * 1000, // 2 minutes
+
 
 	/* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
 	use: {
-		/* Base URL to use in actions like `await page.goto('/')`. */
-		// baseURL: 'http://127.0.0.1:3000',
 		headless: false,
-		trace: 'off',
-		// video: 'on'
+		trace: 'off', // we are manually handling tracing in _test.setup.ts
 	},
 
-	/* Configure projects for major browsers */
 	projects: [
 		{
 			name: 'e2e-electron',
 			use: {
-				...devices['Desktop Chrome'],
 				web: false,
 				artifactDir: 'e2e-electron'
 			},
 		},
 		{
-			name: 'e2e-browser',
+			name: 'e2e-chromium',
 			use: {
-				...devices['Desktop Chrome'],
 				web: true,
-				artifactDir: 'e2e-browser'
+				artifactDir: 'e2e-chromium',
+				headless: true,
 			},
 			grep: /@web/
 		},

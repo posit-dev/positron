@@ -24,6 +24,7 @@ import archiver from 'archiver';
 import { createLogger } from '../test-runner/logger';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
 import { createApp } from '../utils';
+import { CustomTestOptions } from '../../../../playwright.config';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
@@ -33,35 +34,31 @@ let SPEC_NAME = '';
 let logsCounter = 1;
 
 export const test = base.extend<{
+	restartApp: Application;
 	tracing: any;
 	page: playwright.Page;
 	context: playwright.BrowserContext;
 	attachScreenshotsToReport: any;
+	attachLogsToReport: any;
 	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
-	restartApp: Application;
-	testName: string;
 	r: void;
 	python: void;
 	autoTestFixture: any;
-	attachLogsToReport: any;
+
 }, {
 	suiteId: string;
-	web: boolean;
 	artifactDir: string;
 	options: any;
 	app: Application;
-	logger: Logger;
 	logsPath: string;
+	logger: Logger;
 }>({
 
 	suiteId: ['', { scope: 'worker', option: true }],
 
-	web: [false, { scope: 'worker', option: true }],
-
-	artifactDir: ['e2e-default', { scope: 'worker', option: true }],
-
-	logsPath: [async ({ artifactDir }, use) => {
-		const logsPath = join(LOGS_ROOT_PATH, artifactDir, TEMP_DIR);
+	logsPath: [async ({ }, use, workerInfo) => {
+		const project = workerInfo.project.use as CustomTestOptions;
+		const logsPath = join(LOGS_ROOT_PATH, project.artifactDir, TEMP_DIR);
 		await use(logsPath);
 	}, { scope: 'worker', auto: true }],
 
@@ -70,11 +67,12 @@ export const test = base.extend<{
 		await use(logger);
 	}, { auto: true, scope: 'worker' }],
 
-	options: [async ({ web, artifactDir, logsPath, logger }, use) => {
+	options: [async ({ logsPath, logger }, use, workerInfo) => {
+		const project = workerInfo.project.use as CustomTestOptions;
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', artifactDir, TEMP_DIR);
+		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
 
 		const options = {
 			codePath: process.env.BUILD,
@@ -86,10 +84,9 @@ export const test = base.extend<{
 			crashesPath: SPEC_CRASHES_PATH,
 			verbose: process.env.VERBOSE,
 			remote: process.env.REMOTE,
-			web,
+			web: project.web,
+			headless: project.headless,
 			tracing: true,
-			headless: process.env.HEADLESS,
-			browser: process.env.BROWSER,
 		};
 
 		await use(options);
@@ -162,7 +159,6 @@ export const test = base.extend<{
 		}
 
 		for (const screenshotPath of screenshots) {
-			console.log('Attaching screenshot:', screenshotPath);
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
 
@@ -268,14 +264,13 @@ export { playwrightExpect as expect };
 
 async function moveAndOverwrite(sourcePath: string, destinationPath: string) {
 	try {
-		// Check if the destination exists and delete it if so
+		// check if the destination exists and delete it if so
 		await access(destinationPath, constants.F_OK);
 		await rm(destinationPath, { recursive: true, force: true });
 	} catch {
-		// If destination doesn't exist, continue without logging
+		// if destination doesn't exist, continue without logging
 	}
-	// Ensure the parent directory of the destination exists
+
 	await mkdir(path.dirname(destinationPath), { recursive: true });
-	// Rename source to destination
 	await rename(sourcePath, destinationPath);
 }
