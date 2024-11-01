@@ -553,13 +553,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._modelStore.add(
 			this._textModel.onDidChangeContent((e) => {
-				// Only update cells if the number of cells has changed. Aka we've added or removed
-				// cells. There's a chance this is not smart enough. E.g. it may be possible to
-				// swap cells in the notebook and this would not catch that.
-				const numOldCells = this._cells.length;
-				const numNewCells = this._textModel?.cells.length;
+				// Check if cells are in the same order by comparing references
+				this._assertTextModel();
+				const newCells = this.textModel.cells;
 
-				if (numOldCells === numNewCells) {
+				if (
+					// If there are the same number of cells...
+					newCells.length === this._cells.length &&
+					// ... and they are in the same order...
+					newCells.every((cell, i) => this._cells[i].cellModel === cell)
+				) {
+					// ... then we don't need to sync the cells.
 					return;
 				}
 
@@ -572,11 +576,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Method to sync the editor cells with the current cells in the model.
 	 */
 	private _syncCells() {
-		const modelCells = this._textModel?.cells;
-
-		if (!modelCells) {
-			throw new Error('No cells in notebook model to fill editor with.');
-		}
+		this._assertTextModel();
+		const modelCells = this.textModel.cells;
 
 		const cellModelToCellMap = new Map(
 			this._cells.map(cell => [cell.cellModel, cell])
