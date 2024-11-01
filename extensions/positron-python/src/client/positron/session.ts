@@ -434,8 +434,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-        const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
-        const useKallichore = config.get<boolean>('enable', false);
+        // Determine whether to use the Kallichore supervisor
+        let useKallichore = true;
+        if (vscode.env.uiKind === vscode.UIKind.Desktop) {
+            // In desktop mode, the supervisor is disabled by default, but can
+            // be enabled via the configuration.
+            const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+            useKallichore = config.get<boolean>('enable', false);
+        }
+
         if (useKallichore) {
             // Use the Kallichore supervisor if enabled
             const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');

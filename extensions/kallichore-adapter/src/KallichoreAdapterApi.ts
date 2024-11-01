@@ -183,6 +183,9 @@ export class KCApi implements KallichoreAdapterApi {
 		// Start a timer so we can track server startup time
 		const startTime = Date.now();
 
+		// Consult configuration to see if we should show this terminal
+		const showTerminal = config.get<boolean>('showTerminal', false);
+
 		// Start the server in a new terminal
 		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
@@ -191,7 +194,7 @@ export class KCApi implements KallichoreAdapterApi {
 			shellArgs: ['--port', port.toString(), '--token', tokenPath],
 			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
-			hideFromUser: false,
+			hideFromUser: !showTerminal,
 			isTransient: false
 		});
 
@@ -211,12 +214,20 @@ export class KCApi implements KallichoreAdapterApi {
 				this._log.info(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
 				break;
 			} catch (err) {
+				const elapsed = Date.now() - startTime;
+
 				// ECONNREFUSED is a normal condition during startup; the server
 				// isn't ready yet. Keep trying until we hit the retry limit,
 				// about 2 seconds from the time we got a process ID
 				// established.
 				if (err.code === 'ECONNREFUSED') {
 					if (retry < 19) {
+						// Log every few attempts. We don't want to overwhelm
+						// the logs, and it's normal for us to encounter a few
+						// connection refusals before the server is ready.
+						if (retry % 5 === 0) {
+							this._log.debug(`Waiting for Kallichore server to start (attempt ${retry + 1}, ${elapsed}ms)`);
+						}
 						// Wait a bit and try again
 						await new Promise((resolve) => setTimeout(resolve, 50));
 						continue;
@@ -226,7 +237,16 @@ export class KCApi implements KallichoreAdapterApi {
 						throw new Error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
 					}
 				}
-				this._log.error(`Failed to get session list from Kallichore; ` +
+
+				// If the request times out, go ahead and try again as long as
+				// it hasn't been more than 10 seconds since we started. This
+				// can happen if the server is slow to start.
+				if (err.code === 'ETIMEDOUT' && elapsed < 10000) {
+					this._log.info(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
+					continue;
+				}
+
+				this._log.error(`Failed to get initial server status from Kallichore; ` +
 					`server may not be running or may not be ready. Check the terminal for errors. ` +
 					`Error: ${JSON.stringify(err)}`);
 				throw err;

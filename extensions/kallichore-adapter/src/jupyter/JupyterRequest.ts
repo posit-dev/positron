@@ -23,6 +23,10 @@ export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 		this._promise.resolve(response);
 	}
 
+	public reject(reason: any): void {
+		this._promise.reject(reason);
+	}
+
 	public sendRpc(socket: SocketSession): Promise<U> {
 		super.sendCommand(socket);
 		return this._promise.promise;

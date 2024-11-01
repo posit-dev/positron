@@ -150,7 +150,7 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 				// In the future, we may want to shorten the path by making it
 				// relative to the current working directory.
 				if (filePath) {
-					const command = `source(${JSON.stringify(filePath)})`;
+					const command = `source(${JSON.stringify(filePath)}, echo = TRUE)`;
 					positron.runtime.executeCode('r', command, false);
 				}
 			} catch (e) {

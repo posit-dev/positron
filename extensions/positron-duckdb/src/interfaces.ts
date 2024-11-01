@@ -58,6 +58,7 @@ export interface DataExplorerResponse {
 // AUTO-GENERATED from data_explorer.json; do not edit.
 //
 
+
 /**
  * Result in Methods
  */
@@ -161,6 +162,18 @@ export interface BackendState {
 	 * The features currently supported by the backend instance
 	 */
 	supported_features: SupportedFeatures;
+
+	/**
+	 * Optional flag allowing backend to report that it is unable to serve
+	 * requests. This parameter may change.
+	 */
+	connected?: boolean;
+
+	/**
+	 * Optional experimental parameter to provide an explanation when
+	 * connected=false. This parameter may change.
+	 */
+	error_message?: string;
 
 }
 

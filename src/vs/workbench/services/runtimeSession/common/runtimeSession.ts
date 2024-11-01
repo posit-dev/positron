@@ -922,6 +922,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	private attachToSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager): void {
+
+		// Ignore if already attached.
+		if (this._activeSessionsBySessionId.has(session.sessionId)) {
+			return;
+		}
+
 		// Save the session info.
 		this._activeSessionsBySessionId.set(session.sessionId,
 			new LanguageRuntimeSessionInfo(session, manager));
