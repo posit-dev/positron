@@ -30,11 +30,6 @@ jobs:
   e2e-playwright:
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        shardIndex: [1, 2, 3, 4]
-        shardTotal: [4]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -69,7 +64,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
