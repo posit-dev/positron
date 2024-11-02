@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  e2e-playwright:
+  e2e-playwright-1:
     timeout-minutes: 30
     runs-on: ubuntu-latest
     env:
@@ -64,7 +64,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2 --shard=1/2
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
@@ -73,6 +73,54 @@ jobs:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
+
+  e2e-playwright-2:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compile E2E Tests
+        run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
+
+      - name: Run Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: e2e-playwright-tests
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @pr --workers 2 --shard=1/2
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
   linux:
     name: Tests on Linux
     runs-on: ubuntu-latest-8x
