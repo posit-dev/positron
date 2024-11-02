@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { ProjectType, ProjectWizardNavigateAction } from '../../../../automation';
+import { ProjectType, ProjectWizardNavigateAction } from '../../../../automation/out';
 import { test, expect } from '../_test.setup';
 
 test.use({

@@ -9,12 +9,12 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables Pane #web #win', { tag: ['@web', '@win', '@pr'] }, () => {
+test.describe('Variables Pane', { tag: ['@web', '@win', '@pr'] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});
 
-	test('Python - Verifies Variables pane basic function with python interpreter [C628634]', async function ({ app, logger, python }) {
+	test('Python - Verifies Variables pane basic function [C628634]', async function ({ app, logger, python }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.positronConsole.executeCode('Python', code, '>>>');
 		};
@@ -34,7 +34,7 @@ test.describe('Variables Pane #web #win', { tag: ['@web', '@win', '@pr'] }, () =
 
 	});
 
-	test('R - Verifies Variables pane basic function with R interpreter [C628635]', async function ({ app, logger, r }) {
+	test('R - Verifies Variables pane basic function [C628635]', async function ({ app, logger, r }) {
 		const executeCode = async (code: string) => {
 			await app.workbench.positronConsole.executeCode('R', code, '>');
 		};

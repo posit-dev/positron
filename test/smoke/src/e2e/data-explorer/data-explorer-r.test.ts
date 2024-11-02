@@ -10,13 +10,13 @@ test.use({
 });
 
 test.describe('Data Explorer - R ', {
-	tag: ['@web', '@win',]
+	tag: ['@web', '@win', '@pr']
 }, () => {
 	test.beforeEach(async function ({ interpreter }) {
 		await interpreter.set('R');
 	});
 
-	test('R - Verifies basic data explorer functionality [C609620] #pr', async function ({ app, logger }) {
+	test('R - Verifies basic data explorer functionality [C609620]', { tag: ['@pr'] }, async function ({ app, logger }) {
 		// snippet from https://www.w3schools.com/r/r_data_frames.asp
 		const script = `Data_Frame <- data.frame (
 	Training = c("Strength", "Stamina", "Other"),
@@ -48,7 +48,9 @@ test.describe('Data Explorer - R ', {
 
 
 	});
-	test('R - Verifies basic data explorer column info functionality [C734265] #pr', async function ({ app }) {
+	test('R - Verifies basic data explorer column info functionality [C734265]', {
+		tag: ['@pr']
+	}, async function ({ app }) {
 		await app.workbench.positronDataExplorer.expandSummary();
 
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
