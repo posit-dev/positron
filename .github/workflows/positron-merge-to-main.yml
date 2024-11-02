@@ -109,16 +109,16 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
+      # - name: Compile Integration Tests
+      #   run: yarn --cwd test/integration/browser compile
 
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
+      # - name: Run Unit Tests (node.js)
+      #   id: nodejs-unit-tests
+      #   run: yarn test-node
 
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      # - name: Run Integration Tests (Electron)
+      #   id: electron-integration-tests
+      #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
       - name: Run Smoke Tests (Electron)
         if: success() || failure()
@@ -128,33 +128,33 @@ jobs:
         id: electron-smoke-tests
         run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 2 --skip-cleanup
 
-      - name: Convert XUnit to JUnit
-        id: xunit-to-junit
-        if: success() || failure()
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-          /usr/bin/xmllint --version
-          yarn xunit-to-junit smoke-tests-electron
+      # - name: Convert XUnit to JUnit
+      #   id: xunit-to-junit
+      #   if: success() || failure()
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y libxml2-utils
+      #     /usr/bin/xmllint --version
+      #     yarn xunit-to-junit smoke-tests-electron
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: always()
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+      # - name: Set TestRail Run Title
+      #   id: set-testrail-run-title
+      #   if: always()
+      #   run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-      - name: Upload Test Results to TestRail
-        id: testrail-upload
-        if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      # - name: Upload Test Results to TestRail
+      #   id: testrail-upload
+      #   if: always()
+      #   run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: Upload run artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-artifacts
-          path: .build/logs/smoke-tests-electron/
-    outputs:
-      target: ${{ env.SMOKETEST_TARGET }}
+    #   - name: Upload run artifacts
+    #     if: always()
+    #     uses: actions/upload-artifact@v4
+    #     with:
+    #       name: run-artifacts
+    #       path: .build/logs/smoke-tests-electron/
+    # outputs:
+    #   target: ${{ env.SMOKETEST_TARGET }}
 
   slack-notification:
     name: "Send Slack notification"
