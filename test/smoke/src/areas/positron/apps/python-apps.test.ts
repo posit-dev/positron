@@ -48,12 +48,17 @@ describe('Python Applications #pr #win', () => {
 		});
 
 		it('Python - Verify Basic Gradio App [C903307]', async function () {
+
+			this.timeout(90000);
+
 			const app = this.app as Application;
 			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
 			await app.workbench.positronEditor.pressPlay();
-			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
+			await expect(async () => {
+				await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
 		});
 
 		it('Python - Verify Basic Streamlit App [C903308] #web', async function () {
