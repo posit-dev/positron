@@ -21,9 +21,9 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { createLogger } from '../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../automation';
-import { createApp } from '../utils';
+import { createLogger } from '../src/test-runner/logger';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../automation/out';
+import { createApp } from '../src/utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = join(__dirname, '..', '..', '..', '..');

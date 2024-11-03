@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Data Explorer - R ', {
-	tag: ['@web', '@win', '@pr']
+	tag: ['@web', '@win']
 }, () => {
 	test.beforeEach(async function ({ interpreter }) {
 		await interpreter.set('R');
