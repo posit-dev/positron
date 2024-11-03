@@ -78,6 +78,9 @@ const compilations = [
 	'extensions/php-language-features/tsconfig.json',
 	'extensions/references-view/tsconfig.json',
 	'extensions/search-result/tsconfig.json',
+	// --- Start Positron ---
+	'extensions/shellscript/tsconfig.json',
+	// --- End Positron ---
 	'extensions/simple-browser/tsconfig.json',
 	'extensions/tunnel-forwarding/tsconfig.json',
 	'extensions/typescript-language-features/test-workspace/tsconfig.json',
