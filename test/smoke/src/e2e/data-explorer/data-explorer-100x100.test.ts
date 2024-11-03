@@ -6,7 +6,7 @@
 import * as fs from 'fs';
 import { test, expect } from '../_test.setup';
 import { join } from 'path';
-import { Application } from '../../../automation/out';
+import { Application } from '../../../../automation/out';
 
 test.use({
 	suiteId: __filename

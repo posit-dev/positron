@@ -6,9 +6,9 @@
 import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { cloneTestRepo, prepareTestEnv } from '../src/test-runner';
+import { cloneTestRepo, prepareTestEnv } from '../test-runner';
 
-const ROOT_PATH = join(__dirname, '..', '..', '..', '..');
+const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
