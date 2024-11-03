@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  positron-ci:
+  tests:
     uses: ./.github/workflows/positron-merge-to-main.yml
     secrets: inherit
     with:

@@ -27,7 +27,7 @@ permissions:
   contents: read
 
 jobs:
-  e2e-tests-pw:
+  e2e-pw:
     timeout-minutes: 20
     runs-on: ubuntu-latest-8x
     env:
@@ -74,7 +74,7 @@ jobs:
           path: playwright-report/
           retention-days: 7
 
-  e2e-tests-mocha:
+  e2e-mocha:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 30
     env:
@@ -145,7 +145,7 @@ jobs:
     outputs:
       target: ${{ env.SMOKETEST_TARGET }}
 
-  unit-integration-tests:
+  unit-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
