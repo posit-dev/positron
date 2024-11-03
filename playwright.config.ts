@@ -34,7 +34,7 @@ export default defineConfig<CustomTestOptions>({
 	reporter: process.env.CI
 		? [
 			['github'],
-			['junit', { outputFile: 'test-results/results.xml' }],
+			['junit', { outputFile: 'test-results/junit.xml' }],
 			['html']
 		]
 		: [
