@@ -61,6 +61,9 @@ const dirs = [
 	'extensions/php-language-features',
 	'extensions/references-view',
 	'extensions/search-result',
+	// --- Start Positron ---
+	'extensions/shellscript',
+	// --- End Positron ---
 	'extensions/simple-browser',
 	'extensions/tunnel-forwarding',
 	'extensions/typescript-language-features',
