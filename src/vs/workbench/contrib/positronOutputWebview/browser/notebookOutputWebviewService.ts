@@ -43,10 +43,9 @@ export interface INotebookOutputStandardWebview extends INotebookOutputWebview {
 	webviewType: WebviewType.Standard;
 }
 
-
 export enum WebviewType {
-	Overlay,
-	Standard
+	Overlay = 'overlay',
+	Standard = 'standard'
 }
 
 export interface IPositronNotebookOutputWebviewService {

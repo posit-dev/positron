@@ -26,7 +26,7 @@ import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previe
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { basename } from 'vs/base/common/path';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { assertIsOverlayWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { assertIsOverlayPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -403,7 +403,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 						webviewType: WebviewType.Overlay
 					});
 				if (webview) {
-					assertIsOverlayWebview(webview);
+					assertIsOverlayPositronWebview(webview);
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(
 						'notebookRenderer',

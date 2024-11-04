@@ -7,7 +7,7 @@ import * as React from 'react';
 import { getWindow } from 'vs/base/browser/dom';
 import { localize } from 'vs/nls';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { assertIsStandardWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { assertIsStandardPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
 import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
@@ -48,7 +48,7 @@ function DisplayedPreloadMessage({ webview }: { webview: Promise<INotebookOutput
 			setIsLoading(false);
 			if (!containerRef.current) { return; }
 
-			assertIsStandardWebview(resolvedWebview);
+			assertIsStandardPositronWebview(resolvedWebview);
 			resolvedWebviewElement = resolvedWebview.webview;
 			resolvedWebviewElement.mountTo(containerRef.current, getWindow(containerRef.current));
 			// Temporarily set the height to something non zero so we can see if it's working

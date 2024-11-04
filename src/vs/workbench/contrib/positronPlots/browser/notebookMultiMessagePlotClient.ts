@@ -5,7 +5,7 @@
 
 import { DisposableStore, MutableDisposable } from 'vs/base/common/lifecycle';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { assertIsOverlayWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { assertIsOverlayPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
 import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -62,7 +62,7 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');
 		}
-		assertIsOverlayWebview(output);
+		assertIsOverlayPositronWebview(output);
 		this._output.value = output;
 
 		// Wait for the webview to finish rendering. When it does, nudge the

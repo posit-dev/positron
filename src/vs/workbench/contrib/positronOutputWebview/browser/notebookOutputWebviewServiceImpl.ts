@@ -24,6 +24,8 @@ import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook
 import { ILogService } from 'vs/platform/log/common/log';
 import { handleWebviewLinkClicksInjection } from './downloadUtils';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { OverlayWebview } from 'vs/workbench/contrib/webview/browser/overlayWebview';
+import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -35,21 +37,39 @@ type MessageRenderInfo = {
 };
 
 /**
- * Assert that a webview is an overlay webview. Relies on the webviewType property.
+ * Type assertion function to verify that a webview is an OverlayWebview.
+ * @param webview The webview to check
+ * @throws {Error} If the webview is not an OverlayWebview
  */
-export function assertIsOverlayWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputOverlayWebview {
-	if (notebookWebview.webviewType !== WebviewType.Overlay) {
+function assertIsOverlayWebview(webview: unknown): asserts webview is OverlayWebview {
+	if (!(webview instanceof OverlayWebview)) {
 		throw new Error('Expected webview to be an overlay webview');
 	}
 }
 
 /**
- * Assert that a webview is a standard webview. Relies on the webviewType property.
+ * Type assertion function to verify that a webview is a standard WebviewElement.
+ * @param webview The webview to check
+ * @throws {Error} If the webview is not a WebviewElement
  */
-export function assertIsStandardWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputStandardWebview {
-	if (notebookWebview.webviewType !== WebviewType.Standard) {
+function assertIsStandardWebview(webview: unknown): asserts webview is WebviewElement {
+	if (!(webview instanceof WebviewElement)) {
 		throw new Error('Expected webview to be a standard webview');
 	}
+}
+
+/**
+ * Assert that a webview is an overlay webview. Relies on the webviewType property.
+ */
+export function assertIsOverlayPositronWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputOverlayWebview {
+	assertIsOverlayWebview(notebookWebview.webview);
+}
+
+/**
+ * Assert that a webview is a standard webview. Relies on the webviewType property.
+ */
+export function assertIsStandardPositronWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputStandardWebview {
+	assertIsStandardWebview(notebookWebview.webview);
 }
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {

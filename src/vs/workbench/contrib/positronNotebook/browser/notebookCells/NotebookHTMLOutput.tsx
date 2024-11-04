@@ -11,7 +11,7 @@ import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/brows
 import { WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { assertIsStandardWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { assertIsStandardPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
 
 
 // Styles that get added to the HTML content of the webview for things like cleaning
@@ -101,7 +101,7 @@ export function NotebookHTMLContent({ content, outputId }: { content: string; ou
 				webviewType: WebviewType.Standard
 			});
 
-			assertIsStandardWebview(notebookWebview);
+			assertIsStandardPositronWebview(notebookWebview);
 
 			outputWebview = notebookWebview.webview;
 
