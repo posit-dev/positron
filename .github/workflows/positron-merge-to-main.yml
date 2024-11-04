@@ -59,7 +59,7 @@ jobs:
       - name: Compile E2E Tests
         run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
 
-      - name: Run Tests (Electron)
+      - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
@@ -126,15 +126,15 @@ jobs:
           /usr/bin/xmllint --version
           yarn xunit-to-junit smoke-tests-electron
 
-      # - name: Set TestRail Run Title
-      #   id: set-testrail-run-title
-      #   if: always()
-      #   run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: always()
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-      # - name: Upload Test Results to TestRail
-      #   id: testrail-upload
-      #   if: always()
-      #   run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      - name: Upload Test Results to TestRail
+        id: testrail-upload
+        if: always()
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload run artifacts
         if: always()
@@ -146,8 +146,7 @@ jobs:
       target: ${{ env.SMOKETEST_TARGET }}
 
   unit-integration:
-    name: Tests on Linux
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -174,17 +173,10 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup R
-        uses: ./.github/actions/install-r
-        with:
-          version: "4.4.0"
-
-      # - name: Setup E2E Test Environment
-      #   uses: ./.github/actions/setup-test-env
+      # - name: Setup R
+      #   uses: ./.github/actions/install-r
       #   with:
-      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-      #     aws-region: ${{ secrets.QA_AWS_REGION }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     version: "4.4.0"
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
