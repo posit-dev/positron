@@ -34,6 +34,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         ),
         registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
             getShinyDebugConfig(document),
+            undefined,
+            'Application startup complete',
         ),
         registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
             getStreamlitDebugConfig(document),
@@ -54,6 +56,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         ),
         registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
             getShinyDebugConfig(document),
+            undefined,
+            'Application startup complete',
         ),
         registerDebugCommand(Commands.Debug_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
             getStreamlitDebugConfig(document),
