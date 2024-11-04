@@ -116,6 +116,12 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		},
 		{ scope: 'test' }],
 
+	devTools: [async ({ app }, use) => {
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
+		await use();
+	},
+	{ scope: 'test' }],
+
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
@@ -181,7 +187,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 
 		// stop tracing
-		const title = 'trace';
+		// do NOT use title of'trace' as it will conflict with the default trace
+		const title = path.basename(`${testInfo.file}-trace`);
 		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
 		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
@@ -259,6 +266,7 @@ interface TestFixtures {
 	r: void;
 	python: void;
 	autoTestFixture: any;
+	devTools: void;
 }
 
 interface WorkerFixtures {
