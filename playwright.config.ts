@@ -24,7 +24,7 @@ export default defineConfig<CustomTestOptions>({
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests in parallel
 	forbidOnly: !!process.env.CI,
-	retries: process.env.CI ? 0 : 0,
+	retries: process.env.CI ? 1 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
 	timeout: 2 * 60 * 1000, // test timeout is 2 minutes
 	reportSlowTests: {
