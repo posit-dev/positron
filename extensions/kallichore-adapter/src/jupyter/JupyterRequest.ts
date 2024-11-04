@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebSocket } from 'ws';
 import { JupyterChannel } from './JupyterChannel';
 import { PromiseHandles } from '../async';
 import { JupyterCommand } from './JupyterCommand';

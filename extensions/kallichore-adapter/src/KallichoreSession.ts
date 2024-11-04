@@ -746,7 +746,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this._exit.fire(event);
 			}
 
-			this.onStateChange(positron.RuntimeState.Exited);
+			this.onStateChange(positron.RuntimeState.Exited, 'startup failed');
 			throw err;
 		}
 	}
@@ -764,7 +764,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		let runtimeInfo: positron.LanguageRuntimeInfo | undefined;
 
 		// Mark the session as starting
-		this.onStateChange(positron.RuntimeState.Starting);
+		this.onStateChange(positron.RuntimeState.Starting, 'invoking start API');
 
 		// If it's a new session, wait for it to be created before connecting
 		if (this._new) {
@@ -797,7 +797,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (runtimeInfo) {
 				// If we got runtime info at startup, open the ready
 				// barrier immediately
-				this.markReady();
+				this.markReady('new session');
 			} else {
 				// If this is a new session without runtime information, wait
 				// for it to be ready instead. This can take some time as it
@@ -820,11 +820,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					cancellable: false,
 				}, async () => {
 					await this.waitForIdle();
-					this.markReady();
+					this.markReady('idle after busy reconnect');
 				});
 			} else {
 				// Enter the ready state immediately if the session is not busy
-				this.markReady();
+				this.markReady('idle after reconnect');
 			}
 		}
 
@@ -855,13 +855,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * Opens the ready barrier and fires the ready event.
 	 */
-	private markReady() {
+	private markReady(reason: string) {
 		// Open the ready barrier so that we can start sending messages
 		this._ready.open();
 
 		// Move into the ready state if we're not already there
 		if (this._runtimeState !== positron.RuntimeState.Ready) {
-			this.onStateChange(positron.RuntimeState.Ready);
+			this.onStateChange(positron.RuntimeState.Ready, reason);
 		}
 	}
 
@@ -968,7 +968,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			await this._api.restartSession(this.metadata.sessionId);
 
 			// Mark ready after a successful restart
-			this.markReady();
+			this.markReady('restart complete');
 		} catch (err) {
 			if (err instanceof HttpError) {
 				throw new Error(err.body.message);
@@ -1018,6 +1018,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Clean up the session.
 	 */
 	dispose() {
+		// Close the websocket if it's open
+		if (this._socket) {
+			this._socket.close();
+		}
+
 		// Close the log streamer, the websocket, and any other disposables
 		this._disposables.forEach(d => d.dispose());
 		this._disposables = [];
@@ -1051,13 +1056,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	handleKernelMessage(data: any) {
 		if (data.hasOwnProperty('status')) {
+			// Extract the new status
+			const status = data.status.status;
+
 			// Check to see if the status is a valid runtime state
-			if (Object.values(positron.RuntimeState).includes(data.status)) {
+			if (Object.values(positron.RuntimeState).includes(status)) {
 				// The 'starting' state typically follows 'uninitialized' (new
 				// session) or 'exited' (a restart). We can ignore the message
 				// in other cases as we've already broadcasted the state change
 				// to the client.
-				if (data.status === positron.RuntimeState.Starting &&
+				if (status === positron.RuntimeState.Starting &&
 					this._runtimeState !== positron.RuntimeState.Uninitialized &&
 					this._runtimeState !== positron.RuntimeState.Exited) {
 					this.log(`Ignoring 'starting' state message; already in state '${this._runtimeState}'`, vscode.LogLevel.Trace);
@@ -1065,14 +1073,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 				// Same deal for 'ready' state; if we've already broadcasted the
 				// 'idle' state, ignore it.
-				if (data.status === positron.RuntimeState.Ready &&
+				if (status === positron.RuntimeState.Ready &&
 					this._runtimeState === positron.RuntimeState.Idle) {
 					this.log(`Ignoring 'ready' state message; already in state '${this._runtimeState}'`, vscode.LogLevel.Trace);
 					return;
 				}
-				this.onStateChange(data.status);
+				this.onStateChange(status, data.status.reason);
 			} else {
-				this.log(`Unknown state: ${data.status}`);
+				this.log(`Unknown state: ${status}`);
 			}
 		} else if (data.hasOwnProperty('output')) {
 			const output = data as KernelOutputMessage;
@@ -1089,13 +1097,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return this._runtimeState;
 	}
 
-	private onStateChange(newState: positron.RuntimeState) {
+	/**
+	 * Processs and emit a state change.
+	 *
+	 * @param newState The new kernel state
+	 * @param reason The reason for the state change
+	 */
+	private onStateChange(newState: positron.RuntimeState, reason: string) {
 		// If the kernel is ready, open the ready barrier
 		if (newState === positron.RuntimeState.Ready) {
 			this.log(`Kernel is ready.`);
 			this._ready.open();
 		}
-		this.log(`State: ${this._runtimeState} => ${newState}`, vscode.LogLevel.Debug);
+		this.log(`State: ${this._runtimeState} => ${newState} (${reason})`, vscode.LogLevel.Debug);
 		if (newState === positron.RuntimeState.Offline) {
 			// Close the connected barrier if the kernel is offline
 			this._connected = new Barrier();
@@ -1130,7 +1144,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	markExited(exitCode: number, reason: positron.RuntimeExitReason) {
 		this._exitReason = reason;
-		this.onStateChange(positron.RuntimeState.Exited);
+		this.onStateChange(positron.RuntimeState.Exited, 'kernel exited with code ' + exitCode);
 		this.onExited(exitCode);
 	}
 

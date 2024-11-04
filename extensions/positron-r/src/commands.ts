@@ -143,24 +143,12 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			await vscode.commands.executeCommand('workbench.action.languageRuntime.select', 'r');
 		}),
 
-		// Command used to source the current file
+		// Commands used to source the current file
 		vscode.commands.registerCommand('r.sourceCurrentFile', async () => {
-			try {
-				const filePath = await getEditorFilePathForCommand();
-				// In the future, we may want to shorten the path by making it
-				// relative to the current working directory.
-				if (filePath) {
-					const command = `source(${JSON.stringify(filePath)}, echo = TRUE)`;
-					positron.runtime.executeCode('r', command, false);
-				}
-			} catch (e) {
-				// This is not a valid file path, which isn't an error; it just
-				// means the active editor has something loaded into it that
-				// isn't a file on disk.  In Positron, there is currently a bug
-				// which causes the REPL to act like an active editor. See:
-				//
-				// https://github.com/posit-dev/positron/issues/780
-			}
+			sourceCurrentFile(false);
+		}),
+		vscode.commands.registerCommand('r.sourceCurrentFileWithEcho', async () => {
+			sourceCurrentFile(true);
 		}),
 
 		// Command used to source the current file
@@ -332,4 +320,27 @@ export async function getEditorFilePathForCommand() {
 		return filePath.replace(/\\/g, '/');
 	}
 	return;
+}
+
+async function sourceCurrentFile(echo: boolean) {
+	try {
+		const filePath = await getEditorFilePathForCommand();
+		// In the future, we may want to shorten the path by making it
+		// relative to the current working directory.
+		if (filePath) {
+			let command = `source(${JSON.stringify(filePath)})`;
+			if (echo) {
+				command = `source(${JSON.stringify(filePath)}, echo = TRUE)`;
+			}
+			positron.runtime.executeCode('r', command, false);
+		}
+	} catch (e) {
+		// This is not a valid file path, which isn't an error; it just
+		// means the active editor has something loaded into it that
+		// isn't a file on disk.  In Positron, there is currently a bug
+		// which causes the REPL to act like an active editor. See:
+		//
+		// https://github.com/posit-dev/positron/issues/780
+	}
+
 }
