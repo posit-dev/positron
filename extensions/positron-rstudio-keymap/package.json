@@ -170,6 +170,13 @@
         "key": "ctrl+shift+s",
         "when": "config.rstudio.keymap.enable && editorLangId == r",
         "command": "r.sourceCurrentFile"
+      },      {
+        "mac": "cmd+shift+enter",
+        "win": "ctrl+shift+enter",
+        "linux": "ctrl+shift+enter",
+        "key": "ctrl+shift+enter",
+        "when": "config.rstudio.keymap.enable && editorLangId == r",
+        "command": "r.sourceCurrentFileWithEcho"
       },
       {
         "mac": "cmd+shift+m",
