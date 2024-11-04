@@ -53,7 +53,7 @@ export interface RunAppOptions {
 	/**
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
-	appReadyMessage?: string,
+	appReadyMessage?: string;
 }
 
 /**
@@ -87,7 +87,7 @@ export interface DebugAppOptions {
 	/**
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
-	appReadyMessage?: string,
+	appReadyMessage?: string;
 }
 
 /**

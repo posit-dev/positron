@@ -32,8 +32,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
-            getShinyDebugConfig(document),
+        registerExecCommand(
+            Commands.Exec_Shiny_In_Terminal,
+            'Shiny',
+            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
             undefined,
             'Application startup complete',
         ),
@@ -43,8 +45,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
             getDashDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document),
+        registerDebugCommand(
+            Commands.Debug_FastAPI_In_Terminal,
+            'FastAPI',
+            (runtime, document, _urlPrefix) => getFastAPIDebugConfig(serviceContainer, runtime, document),
             '/docs',
             'Application startup complete',
         ),
@@ -54,8 +58,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
-            getShinyDebugConfig(document),
+        registerDebugCommand(
+            Commands.Debug_Shiny_In_Terminal,
+            'Shiny',
+            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
             undefined,
             'Application startup complete',
         ),
