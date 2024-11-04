@@ -6,7 +6,8 @@
 import { join } from 'path';
 import { Application, PositronNotebooks, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
-import { IElement } from '../../../../../automation/out/driver';
+import { expect } from '@playwright/test';
+
 
 describe('Large Notebooks', () => {
 	setupAndStartApp();
@@ -23,7 +24,7 @@ describe('Large Notebooks', () => {
 
 		it('Python - Large notebook execution [C...]', async function () {
 
-			this.timeout(90000);
+			this.timeout(160000);
 
 			await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
@@ -33,30 +34,32 @@ describe('Large Notebooks', () => {
 
 			const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: 'Stop Execution' });
 
-			while (await stopExecutionLocator.isVisible()) {
-				await app.code.wait(5000);
-			}
+			await expect(stopExecutionLocator).toBeVisible();
+			await expect(stopExecutionLocator).not.toBeVisible({ timeout: 30000 });
 
 			await app.workbench.quickaccess.runCommand('notebook.focusTop');
-			//await app.workbench.quickaccess.runCommand('notebook.focusBottom');
 
-			await app.code.driver.page.click('.notebook-overview-ruler-container');
+			await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
-			const allFigures: IElement[] = [];
-			for (let i = 0; i < 20; i++) {
+			const allFigures: any[] = [];
+			const uniqueFigureParents = new Set<string>();
 
-				await app.code.driver.page.mouse.move(0, i * 10);
+			for (let i = 0; i < 500; i++) {
+				await app.code.driver.page.mouse.wheel(0, 1000);
 
-				await app.code.driver.page.mouse.down();
-				await app.code.driver.page.mouse.move(0, 10);
-				await app.code.driver.page.mouse.up();
-
-				await app.code.wait(1000);
-
-				const figures = await app.code.getElements('.plot-container', false);
+				const figureLocator = app.workbench.positronNotebooks.frameLocator.locator('.plot-container');
+				const figures = await figureLocator.all();
 
 				if (figures!.length > 0) {
-					allFigures.push(...figures!);
+					for (const figure of figures!) {
+						const figureParentLocator = figure.locator('..');
+						const figureParent = await figureParentLocator.textContent();
+
+						if (figureParent && !uniqueFigureParents.has(figureParent)) {
+							uniqueFigureParents.add(figureParent);
+							allFigures.push(figure);
+						}
+					}
 				}
 			}
 
