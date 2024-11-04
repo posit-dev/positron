@@ -11,7 +11,7 @@ test.use({
 
 test.describe.configure({ retries: 1 });
 
-test('should fail first, then pass on retry', { tag: [] }, async ({ app, interpreter }, testInfo) => {
+test('should fail first, then pass on retry', { tag: ['@demo'] }, async ({ app, interpreter }, testInfo) => {
 	if (testInfo.retry) {
 		await interpreter.set('Python');
 		await app.workbench.positronLayouts.enterLayout('notebook');

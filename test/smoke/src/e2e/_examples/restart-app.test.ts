@@ -5,7 +5,7 @@
 
 import { test } from '../_test.setup';
 
-test.describe('App Instance Test', () => {
+test.describe('App Instance Test', { tag: [] }, () => {
 	test('1st test creates app instance at worker scope', async ({ app }) => {
 		await app.code.driver.wait(1000);
 		console.log('1st app instance');

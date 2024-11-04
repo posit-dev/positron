@@ -35,8 +35,8 @@ export class PlaywrightDriver {
 
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
+		private readonly context: playwright.BrowserContext,
 		// --- Start Positron ---
-		readonly context: playwright.BrowserContext,
 		readonly page: playwright.Page,
 		// --- End Positron ---
 		private readonly serverProcess: ChildProcess | undefined,
@@ -49,6 +49,7 @@ export class PlaywrightDriver {
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
+
 		try {
 			await measureAndLog(() => this.context.tracing.startChunk({ title: name }), `startTracing for ${name}`, this.options.logger);
 		} catch (error) {

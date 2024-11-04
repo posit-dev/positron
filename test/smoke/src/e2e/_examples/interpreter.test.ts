@@ -9,8 +9,12 @@ import { test } from '../_test.setup';
 // If the intended interpreter is already set, the interpreter will not restart/switch.
 // If the intended interpreter is not set, the interpreter will start/switch.
 
-test.describe('Interpreter Test', () => {
-	test('1st test - r interpreter should start', { tag: ['@web'] }, async ({ interpreter }) => {
+test.use({
+	suiteId: __filename
+});
+
+test.describe('Interpreter Test', { tag: ['@demo'] }, () => {
+	test('1st test - r interpreter should start', async ({ interpreter }) => {
 		await interpreter.set('R');
 	});
 

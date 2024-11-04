@@ -28,37 +28,9 @@ import { createApp } from '../utils';
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
-
 let SPEC_NAME = '';
-let logsCounter = 1;
 
-export type CustomTestOptions = playwright.PlaywrightTestOptions & {
-	web: boolean;
-	artifactDir: string;
-	headless?: boolean;
-};
-
-export const test = base.extend<{
-	restartApp: Application;
-	tracing: any;
-	page: playwright.Page;
-	context: playwright.BrowserContext;
-	attachScreenshotsToReport: any;
-	attachLogsToReport: any;
-	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
-	r: void;
-	python: void;
-	autoTestFixture: any;
-
-}, {
-	suiteId: string;
-	artifactDir: string;
-	options: any;
-	app: Application;
-	logsPath: string;
-	logger: Logger;
-}>({
-
+export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
 	logsPath: [async ({ }, use, workerInfo) => {
@@ -189,7 +161,7 @@ export const test = base.extend<{
 		await archive.finalize();
 
 		// attach the zipped file to the report
-		await testInfo.attach(`logs-${suiteId}-${logsCounter++}.zip`, {
+		await testInfo.attach(`logs-${path.basename(testInfo.file)}.zip`, {
 			path: zipPath,
 			contentType: 'application/zip',
 		});
@@ -218,10 +190,6 @@ export const test = base.extend<{
 
 	page: async ({ app }, use) => {
 		await use(app.code.driver.page);
-	},
-
-	context: async ({ app }, use) => {
-		await use(app.code.driver.context);
 	},
 
 	autoTestFixture: [async ({ logger, suiteId }, use, testInfo) => {
@@ -279,3 +247,31 @@ async function moveAndOverwrite(sourcePath: string, destinationPath: string) {
 	await mkdir(path.dirname(destinationPath), { recursive: true });
 	await rename(sourcePath, destinationPath);
 }
+
+
+interface TestFixtures {
+	restartApp: Application;
+	tracing: any;
+	page: playwright.Page;
+	attachScreenshotsToReport: any;
+	attachLogsToReport: any;
+	interpreter: { set: (interpreterName: 'Python' | 'R') => Promise<void> };
+	r: void;
+	python: void;
+	autoTestFixture: any;
+}
+
+interface WorkerFixtures {
+	suiteId: string;
+	artifactDir: string;
+	options: any;
+	app: Application;
+	logsPath: string;
+	logger: Logger;
+}
+
+export type CustomTestOptions = playwright.PlaywrightTestOptions & {
+	web: boolean;
+	artifactDir: string;
+	headless?: boolean;
+};

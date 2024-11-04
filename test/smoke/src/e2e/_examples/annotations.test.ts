@@ -20,7 +20,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('annotations and tags', () => {
+test.describe('annotations and tags', { tag: ['@demo'] }, () => {
 	test('should have tags', {
 		tag: ['@slow', '@fast'],
 	}, async () => {

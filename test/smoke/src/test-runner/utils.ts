@@ -12,7 +12,7 @@ const TEST_REPO = process.env.TEST_REPO;
 /**
  * Clones or copies the test repository based on options.
  */
-export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set') {
+export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WORKSPACE_PATH is not set cloneRepo') {
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 
 	if (TEST_REPO) {

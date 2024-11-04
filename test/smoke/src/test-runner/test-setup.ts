@@ -22,7 +22,7 @@ const BUILD = process.env.BUILD;
  *   2. initializes the test environment
  *   3. prepares the test data directory
  */
-export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'not set') {
+export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set prepareTestEnv') {
 	const logsRootPath = join(rootPath, '.build', 'logs', 'test-setup');
 	const logger = createLogger(logsRootPath);
 
@@ -48,7 +48,7 @@ export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'not set') {
 /**
  * Sets up the test environment for Electron or Web smoke tests.
  */
-function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'not set', logger: Logger): string | null {
+function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set initTestEnv', logger: Logger): string | null {
 	let version: string | null = null;
 
 	//
