@@ -86,7 +86,7 @@ jobs:
           yarn xunit-to-junit smoke-tests-electron
 
       - name: Publish Electron Test Report
-        uses: mikepenz/action-junit-report@v4
+        uses: mikepenz/action-junit-report@v5
         if: success() || failure()
         with:
           report_paths: "**/.build/logs/smoke-tests-electron/test-results/xunit-results.xml"
