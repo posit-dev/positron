@@ -371,7 +371,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		};
 
 		// Create the webview itself
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const webview = webviewType === WebviewType.Overlay
+			? this._webviewService.createWebviewOverlay(webviewInitInfo)
+			: this._webviewService.createWebviewElement(webviewInitInfo);
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.

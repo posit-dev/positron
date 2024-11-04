@@ -13,7 +13,6 @@ import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebv
 
 const LOADING_MESSAGE = localize('cellExecutionLoading', 'Loading...');
 const WEBVIEW_FAILED_MESSAGE = localize('cellExecutionWebviewFailed', 'Failed to create webview.');
-const DISPLAY_MESSAGE = localize('cellExecutionDisplayMessage', 'Display message');
 const PRELOAD_MESSAGE = localize('cellExecutionPreloadMessage', 'Preload message');
 
 export function PreloadMessageOutput({ preloadMessageResult }: { preloadMessageResult?: NotebookPreloadOutputResults }) {
@@ -62,7 +61,7 @@ function DisplayedPreloadMessage({ webview }: { webview: Promise<INotebookOutput
 	}, [webview]);
 
 	return <>
-		<div>{isLoading ? LOADING_MESSAGE : DISPLAY_MESSAGE}</div>
-		<div ref={containerRef} style={{ outline: '1px solid red' }} />
+		{isLoading ? <div>{LOADING_MESSAGE}</div> : null}
+		<div ref={containerRef} />
 	</>;
 }
