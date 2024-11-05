@@ -5,6 +5,10 @@
 
 import { test } from '../_test.setup';
 
+test.use({
+	suiteId: __filename
+});
+
 test.describe('App Instance Test', { tag: [] }, () => {
 	test('1st test creates app instance at worker scope', async ({ app }) => {
 		await app.code.driver.wait(1000);

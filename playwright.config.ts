@@ -58,10 +58,10 @@ export default defineConfig<CustomTestOptions>({
 			},
 		},
 		{
-			name: 'e2e-chromium',
+			name: 'e2e-browser',
 			use: {
 				web: true,
-				artifactDir: 'e2e-chromium',
+				artifactDir: 'e2e-browser',
 				headless: false,
 			},
 			grep: /@web/

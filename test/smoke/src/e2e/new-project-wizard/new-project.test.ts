@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../automation/out';
+import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../automation';
 import { test, expect } from '../_test.setup';
 
 test.use({
