@@ -10,12 +10,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
-import { KallichoreAdapterApi } from './kallichore-adapter';
+import { KallichoreAdapterApi } from './positron-supervisor';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles } from './async';
 
-const KALLICHORE_STATE_KEY = 'kallichore-adapter.v2';
+const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
 /**
  * The persisted state of the Kallichore server. This metadata is saved in

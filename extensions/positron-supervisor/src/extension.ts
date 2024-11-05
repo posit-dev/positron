@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 
-import { KallichoreAdapterApi } from './kallichore-adapter';
+import { KallichoreAdapterApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
 
 /** Singleton instance of the Kallichore API wrapper */

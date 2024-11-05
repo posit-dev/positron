@@ -1,6 +1,6 @@
 {
-	"displayName": "Positron Kallichore Adapter",
-	"description": "Runs Jupyter Kernels in the Kallichore Jupyter Kernel Supervisor",
+	"displayName": "Positron Kernel Supervisor",
+	"description": "Runs Jupyter Kernels in the Positron Jupyter Kernel Supervisor",
 	"configuration.logLevel.error.description": "Errors only",
 	"configuration.logLevel.warn.description": "Errors and warnings",
 	"configuration.logLevel.info.description": "Informational messages",
