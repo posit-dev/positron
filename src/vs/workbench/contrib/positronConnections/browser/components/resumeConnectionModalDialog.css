@@ -42,8 +42,7 @@
 
 .connections-resume-connection-modal .footer .button {
 	margin-left: auto;
-	padding-left: 15px;
-	padding-right: 15px;
+	padding: 0 15px;
 }
 
 .connections-resume-connection-modal .buttons {

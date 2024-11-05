@@ -34,8 +34,7 @@
 .connections-dtype::before {
 	content: ":";
 	color: var(--vscode-positronVariables-foreground);
-	margin-left: 3px;
-	margin-right: 3px;
+	margin: 0 3px;
 }
 
 .connections-language::before {
@@ -48,8 +47,7 @@
 .connections-item .connections-icon {
 	flex-shrink: 0;
 	flex-grow: 0;
-	padding-left: 5px;
-	padding-right: 5px;
+	padding: 0 5px;
 }
 
 .connections-item .connections-icon .disabled {
