@@ -50,13 +50,13 @@ class BaseConnectionsInstance extends Disposable {
 
 export class PositronConnectionsInstance extends BaseConnectionsInstance implements IPositronConnectionInstance {
 
-	private readonly onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>();
+	private readonly onDidChangeEntriesEmitter = this._register(new Emitter<IPositronConnectionEntry[]>());
 	readonly onDidChangeEntries = this.onDidChangeEntriesEmitter.event;
 
-	private readonly onDidChangeStatusEmitter = new Emitter<boolean>();
+	private readonly onDidChangeStatusEmitter = this._register(new Emitter<boolean>());
 	readonly onDidChangeStatus = this.onDidChangeStatusEmitter.event;
 
-	public readonly onToggleExpandEmitter = new Emitter<string>();
+	public readonly onToggleExpandEmitter = this._register(new Emitter<string>());
 	private readonly onToggleExpand = this.onToggleExpandEmitter.event;
 
 	private _active: boolean = true;
@@ -258,7 +258,7 @@ export class DisconnectedPositronConnectionsInstance extends BaseConnectionsInst
 	readonly expanded: boolean | undefined = false;
 	readonly active: boolean = false;
 	readonly onDidChangeStatus = Event.None;
-	readonly onToggleExpandEmitter = new Emitter<string>();
+	readonly onToggleExpandEmitter = this._register(new Emitter<string>());
 
 	get connect() {
 		if (!this.metadata.code) {

@@ -23,10 +23,10 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	readonly _serviceBrand: undefined;
 
-	private onDidChangeConnectionsEmitter = new Emitter<IPositronConnectionInstance[]>;
+	private onDidChangeConnectionsEmitter = this._register(new Emitter<IPositronConnectionInstance[]>);
 	onDidChangeConnections: Event<IPositronConnectionInstance[]> = this.onDidChangeConnectionsEmitter.event;
 
-	public onDidFocusEmitter = new Emitter<string>;
+	public onDidFocusEmitter = this._register(new Emitter<string>);
 	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
@@ -145,11 +145,11 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.connections.push(instance);
 		}
 
-		instance.onDidChangeStatus(() => {
+		this._register(instance.onDidChangeStatus(() => {
 			// We refresh the connections list whenever a connection changes its status
 			// Because we display that information in the connections view.
 			this.onDidChangeConnectionsEmitter.fire(this.connections);
-		});
+		}));
 
 		// Whenever a new connection is added we also update the storage
 		this.saveConnectionsState();
