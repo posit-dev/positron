@@ -16,7 +16,7 @@ export interface IPositronConnectionEntry extends IPositronConnectionItem {
 	/***
 	 * If the entry is expanded or not. Undefined if the entry is not expandable.
 	 */
-	expanded: boolean | undefined;
+	expanded?: boolean;
 
 	// If an error happens during some evaluation for that element
 	// we try to display some information .
