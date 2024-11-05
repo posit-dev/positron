@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, CSSProperties } from 'react';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import * as DOM from 'vs/base/browser/dom';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
@@ -62,7 +62,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 
 	const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>(undefined);
 
-	const ItemEntry = (props: { index: number; style: any }) => {
+	const ItemEntry = (props: { index: number; style: CSSProperties }) => {
 		const itemProps = instances[props.index];
 		const { language_id, name } = itemProps.metadata;
 

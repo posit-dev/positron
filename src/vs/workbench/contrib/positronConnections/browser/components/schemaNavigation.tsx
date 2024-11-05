@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { useEffect, useRef, useState, MouseEvent } from 'react';
+import React, { useEffect, useRef, useState, MouseEvent, CSSProperties } from 'react';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
@@ -142,7 +142,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 
 interface ItemEntryProps {
 	index: number;
-	style: any;
+	style: CSSProperties;
 }
 
 interface PositronConnectionsItemProps {
