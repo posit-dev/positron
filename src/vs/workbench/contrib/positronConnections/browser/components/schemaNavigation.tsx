@@ -264,16 +264,8 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 				onMouseDown={rowMouseDownHandler}
 			>
 				<span className='connections-name'>{props.item.name}</span>
-				{
-					props.item.dtype ?
-						<span className='connections-dtype'>{props.item.dtype}</span> :
-						<></>
-				}
-				{
-					props.item.error ?
-						<span className='connections-error codicon codicon-error' title={props.item.error}></span> :
-						<></>
-				}
+				{props.item.dtype && <span className='connections-dtype'>{props.item.dtype}</span>}
+				{props.item.error && <span className='connections-error codicon codicon-error' title={props.item.error}></span>}
 			</div>
 			<div
 				className='connections-icon'
