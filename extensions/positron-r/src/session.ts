@@ -472,9 +472,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		if (config.get<boolean>('enable', true)) {
 			// Use the Positron kernel supervisor if enabled
-			const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+			const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
 			if (!ext) {
-				throw new Error('Kallichore Adapter extension not found');
+				throw new Error('Positron Supervisor extension not found');
 			}
 			if (!ext.isActive) {
 				await ext.activate();
