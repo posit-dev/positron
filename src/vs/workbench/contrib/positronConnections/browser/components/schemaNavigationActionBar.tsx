@@ -35,9 +35,9 @@ interface ActionBarProps {
 }
 
 interface ConnectionActionBarProps extends ActionBarProps {
-	disconnectHandler: () => void;
-	backHandler: () => void;
-	refreshHandler: () => void;
+	onDisconnect: () => void;
+	onBack: () => void;
+	onRefresh: () => void;
 }
 
 export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProps>) => {
@@ -57,21 +57,21 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 							align='left'
 							iconId='arrow-left'
 							tooltip={() => localize('positron.schemaNavigationActionBar.back', 'Back')}
-							onPressed={() => props.backHandler()}
+							onPressed={() => props.onBack()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='positron-disconnect-connection'
 							text={localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect')}
-							onPressed={() => props.disconnectHandler()}
+							onPressed={() => props.onDisconnect()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='refresh'
 							text={localize('positron.schemaNavigationActionBar.refresh', 'Refresh')}
-							onPressed={() => props.refreshHandler()}
+							onPressed={() => props.onRefresh()}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>

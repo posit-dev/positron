@@ -83,9 +83,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<div className='positron-connections-schema-navigation'>
 				<ActionBar
 					{...context}
-					disconnectHandler={() => { }}
-					refreshHandler={() => { }}
-					backHandler={() => props.setActiveInstanceId(undefined)}
+					onDisconnect={() => { }}
+					onRefresh={() => { }}
+					onBack={() => props.setActiveInstanceId(undefined)}
 				>
 				</ActionBar>
 			</div>
@@ -103,8 +103,8 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			<PositronConnectionsItem
 				item={itemProps}
 				selected={itemProps.id === selectedId}
-				onSelectedHandler={() => setSelectedId(itemProps.id)}
-				onToggleExpandHandler={toggleExpandHandler}
+				onSelected={() => setSelectedId(itemProps.id)}
+				onToggleExpand={toggleExpandHandler}
 				style={props.style}>
 			</PositronConnectionsItem>
 		);
@@ -117,9 +117,9 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		<div className='positron-connections-schema-navigation'>
 			<ActionBar
 				{...context}
-				disconnectHandler={() => activeInstance.disconnect?.()}
-				refreshHandler={() => activeInstance.refresh?.()}
-				backHandler={() => props.setActiveInstanceId(undefined)}
+				onDisconnect={() => activeInstance.disconnect?.()}
+				onRefresh={() => activeInstance.refresh?.()}
+				onBack={() => props.setActiveInstanceId(undefined)}
 			>
 			</ActionBar>
 			<div className='connections-items-container'>
@@ -161,12 +161,12 @@ interface PositronConnectionsItemProps {
 	/**
 	 * What happens when a row is selected?
 	 */
-	onSelectedHandler: () => void;
+	onSelected: () => void;
 
 	/**
 	 * On toggle expand handler
 	 */
-	onToggleExpandHandler(id: string): void;
+	onToggleExpand(id: string): void;
 }
 
 const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnectionsItemProps>) => {
@@ -174,7 +174,7 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 	// If the connection is not expandable, we add some more padding.
 	const padding = props.item.level * 10 + (props.item.expanded === undefined ? 26 : 0);
 	const handleExpand = () => {
-		props.onToggleExpandHandler(props.item.id);
+		props.onToggleExpand(props.item.id);
 	};
 
 	const icon = (() => {
@@ -226,13 +226,13 @@ const PositronConnectionsItem = (props: React.PropsWithChildren<PositronConnecti
 			// Main button.
 			case 0:
 				// TODO: handle ctrl+ click, etc.
-				props.onSelectedHandler();
+				props.onSelected();
 				break;
 
 			// Secondary button.
 			case 2:
 				// TODO: more options here
-				props.onSelectedHandler();
+				props.onSelected();
 				break;
 		}
 	};

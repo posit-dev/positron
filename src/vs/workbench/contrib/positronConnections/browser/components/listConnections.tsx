@@ -114,7 +114,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 		<div className='positron-connections-list'>
 			<ActionBar
 				{...context}
-				deleteConnectionHandler={
+				onDeleteConnection={
 					selectedInstanceId ?
 						() => {
 							context.connectionsService.removeConnection(selectedInstanceId);
@@ -170,7 +170,7 @@ const ACTION_BAR_PADDING_RIGHT = 8;
 const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps extends PositronConnectionsServices {
-	deleteConnectionHandler?: () => void;
+	onDeleteConnection?: () => void;
 }
 
 const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
@@ -198,8 +198,8 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							align='right'
 							iconId='close'
 							text={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
-							disabled={props.deleteConnectionHandler === undefined}
-							onPressed={props.deleteConnectionHandler}
+							disabled={props.onDeleteConnection === undefined}
+							onPressed={props.onDeleteConnection}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>
