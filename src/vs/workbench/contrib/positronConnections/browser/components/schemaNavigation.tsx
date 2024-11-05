@@ -14,6 +14,8 @@ import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import 'vs/css!./schemaNavigation';
 import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
+import Severity from 'vs/base/common/severity';
+import { localize } from 'vs/nls';
 
 export interface SchemaNavigationProps extends ViewsProps { }
 
@@ -65,9 +67,15 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 			}
 		}));
 
-		activeInstance.refreshEntries();
+		activeInstance.refreshEntries().catch((e) => {
+			context.notificationService.notify({
+				message: localize('positron.schemaNavigation.failRefresh', 'Failed to refresh connection entries: {0}', e.message),
+				severity: Severity.Error,
+			});
+		});
+
 		return () => disposableStore.dispose();
-	}, [activeInstance, setActiveInstanceId]);
+	}, [activeInstance, setActiveInstanceId, context.notificationService]);
 
 	if (!activeInstance) {
 		// This should not be possible, the active instance must exist.
