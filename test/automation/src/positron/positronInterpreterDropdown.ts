@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { getInterpreterType, InterpreterInfo, InterpreterType } from './utils/positronInterpreterInfo';
 
@@ -60,14 +60,9 @@ export class PositronInterpreterDropdown {
 	 */
 	private async getPrimaryInterpreter(description: string | InterpreterType) {
 		// Wait for the primary interpreters to load
-		await this.code.waitForElements('.primary-interpreter', false);
-		const allPrimaryInterpreters = await this.interpreterGroups
-			.locator('.primary-interpreter')
-			.all();
-		if (allPrimaryInterpreters.length === 0) {
-			this.code.logger.log('Failed to locate primary interpreters');
-			return undefined;
-		}
+		const allPrimaryInterpreters = await this.code.driver.page.locator('.primary-interpreter').all();
+		expect(await this.code.driver.page.locator('.primary-interpreter').count()).toBeGreaterThan(0);
+		this.code.logger.log('Primary interpreters loaded: ', this.code.driver.page.locator('.primary-interpreter').count());
 
 		// Look for a primary interpreter that matches the provided description
 		for (const interpreter of allPrimaryInterpreters) {
