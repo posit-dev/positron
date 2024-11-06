@@ -1,0 +1,63 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connections-resume-connection-modal .positron-modal-dialog-box .content-area {
+	bottom: 0px;
+}
+
+.connections-resume-connection-modal .content {
+	height: 100%;
+	display: grid;
+	gap: 10px;
+	grid-template-rows: 18px auto 28px;
+	grid-template-columns: auto 90px;
+	grid-template-areas:
+		"title  title"
+		"code   buttons"
+		"footer buttons";
+}
+
+.connections-resume-connection-modal .title {
+	grid-area: title;
+}
+
+.connections-resume-connection-modal .code {
+	grid-area: code;
+	overflow: auto;
+	padding: 10px;
+	border-radius: 10px;
+	border: solid 1px var(--vscode-positronVariables-border);
+}
+
+.connections-resume-connection-modal .code code {
+	white-space: pre;
+}
+
+.connections-resume-connection-modal .footer {
+	grid-area: footer;
+	display: flex;
+}
+
+.connections-resume-connection-modal .footer .button {
+	margin-left: auto;
+	padding: 0 15px;
+}
+
+.connections-resume-connection-modal .buttons {
+	grid-area: buttons;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.connections-resume-connection-modal .buttons .top {
+	flex: 1;
+}
+
+.connections-resume-connection-modal .buttons .bottom {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}

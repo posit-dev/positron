@@ -5,7 +5,6 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronConnectionEntry, PositronConnectionsCache } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
 import { ConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
@@ -22,17 +21,13 @@ import { INotificationService, Severity } from 'vs/platform/notification/common/
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
-	private readonly _cache: PositronConnectionsCache;
 	readonly _serviceBrand: undefined;
 
-	private onDidChangeEntriesEmitter = new Emitter<IPositronConnectionEntry[]>;
-	onDidChangeEntries: Event<IPositronConnectionEntry[]> = this.onDidChangeEntriesEmitter.event;
+	private onDidChangeConnectionsEmitter = this._register(new Emitter<IPositronConnectionInstance[]>);
+	onDidChangeConnections: Event<IPositronConnectionInstance[]> = this.onDidChangeConnectionsEmitter.event;
 
-	public onDidChangeDataEmitter = new Emitter<void>;
-	private onDidChangeData = this.onDidChangeDataEmitter.event;
-
-	public onDidFocusEmitter = new Emitter<void>;
-	private onDidFocus = this.onDidFocusEmitter.event;
+	public onDidFocusEmitter = this._register(new Emitter<string>);
+	public onDidFocus = this.onDidFocusEmitter.event;
 
 	private readonly connections: IPositronConnectionInstance[] = [];
 	private readonly viewEnabled: IContextKey<boolean>;
@@ -57,11 +52,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.attachRuntime(runtime);
 		}));
 
-		this._cache = new PositronConnectionsCache(this);
-		this._register(this.onDidChangeData(() => {
-			this.refreshConnectionEntries();
-		}));
-
 		const storedConnections: ConnectionMetadata[] = JSON.parse(
 			this.storageService.get('positron-connections', StorageScope.WORKSPACE, '[]')
 		);
@@ -72,8 +62,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 			const instance = new DisconnectedPositronConnectionsInstance(
 				metadata,
-				this.onDidChangeDataEmitter,
-				this.runtimeSessionService
+				this.runtimeSessionService,
+				this
 			);
 
 			this.addConnection(instance);
@@ -83,8 +73,8 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.handleConfigChange(e);
 		}));
 
-		this._register(this.onDidFocus(() => {
-			this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
+		this._register(this.onDidFocus(async (id) => {
+			await this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
 		}));
 	}
 
@@ -92,20 +82,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		if (e.affectsConfiguration(USE_POSITRON_CONNECTIONS_KEY)) {
 			const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
 			this.viewEnabled.set(enabled);
-		}
-	}
-
-	getConnectionEntries() {
-		const entries = this._cache.entries;
-		return entries;
-	}
-
-	async refreshConnectionEntries() {
-		try {
-			await this._cache.refreshConnectionEntries();
-			this.onDidChangeEntriesEmitter.fire(this._cache.entries);
-		} catch (err) {
-			this.notificationService.error(`Failed to refresh connection entries: ${err.message}`);
 		}
 	}
 
@@ -169,10 +145,15 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.connections.push(instance);
 		}
 
+		this._register(instance.onDidChangeStatus(() => {
+			// We refresh the connections list whenever a connection changes its status
+			// Because we display that information in the connections view.
+			this.onDidChangeConnectionsEmitter.fire(this.connections);
+		}));
+
 		// Whenever a new connection is added we also update the storage
 		this.saveConnectionsState();
-
-		this.refreshConnectionEntries();
+		this.onDidChangeConnectionsEmitter.fire(this.connections);
 	}
 
 	getConnection(id: string) {
@@ -186,6 +167,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		if (connection && connection.disconnect) {
 			connection.disconnect();
 		}
+		this.onDidChangeConnectionsEmitter.fire(this.connections);
 		// We don't remove the connection from the `_connections` list as
 		// we expect that `connection.disconnect()` will make it inactive.
 	}
@@ -195,7 +177,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		ids.forEach((id) => {
 			this.removeConnection(id);
 		});
-		this.onDidChangeDataEmitter.fire();
+		this.onDidChangeConnectionsEmitter.fire(this.connections);
 	}
 
 	hasConnection(clientId: string) {
@@ -210,18 +192,12 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		});
 	}
 
-	private saveConnectionsState() {
-		this.storageService.store(
-			'positron-connections',
-			this.connections.map((con) => {
-				return con.metadata;
-			}),
-			StorageScope.WORKSPACE,
-			StorageTarget.USER
-		);
+	log(message: string) {
+		// Currently everything is logged as error
+		this.logService.error(message);
 	}
 
-	private removeConnection(id: string) {
+	removeConnection(id: string) {
 		const index = this.connections.findIndex((con) => {
 			return con.id === id;
 		});
@@ -237,9 +213,20 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			// if a disconnect method is implemented, we expect it to run onDidChangeDataEmitter
 			// otherwise, we run it ourselves.
 			connection.disconnect();
-		} else {
-			this.onDidChangeDataEmitter.fire();
 		}
+
+		this.onDidChangeConnectionsEmitter.fire(this.connections);
+	}
+
+	private saveConnectionsState() {
+		this.storageService.store(
+			'positron-connections',
+			this.connections.map((con) => {
+				return con.metadata;
+			}),
+			StorageScope.WORKSPACE,
+			StorageTarget.USER
+		);
 	}
 }
 

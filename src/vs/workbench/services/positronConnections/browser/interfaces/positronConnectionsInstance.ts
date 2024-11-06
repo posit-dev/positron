@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
+import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
 
 export interface ConnectionMetadata {
 	name: string;
@@ -19,14 +20,21 @@ export interface ConnectionMetadata {
  * source. Children of a connection instance are tables, views, and other
  * objects that can be queried and are represented by Connection Items.
  */
-export interface IPositronConnectionInstance extends IPositronConnectionItem {
-	language_id: string;
+export interface IPositronConnectionInstance {
+	id: string;
 	active: boolean;
 	metadata: ConnectionMetadata;
 
 	connect?(): Promise<void>;
 	disconnect?(): Promise<void>;
 	refresh?(): Promise<void>;
+
+	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
+	onDidChangeStatus: Event<boolean>;
+	refreshEntries(): Promise<void>;
+	getEntries(): IPositronConnectionEntry[];
+
+	onToggleExpandEmitter: Emitter<string>;
 }
 
 /***
@@ -40,22 +48,6 @@ export interface IPositronConnectionItem {
 	dtype?: string; // The data type of the item, usually only implemented if kind == field
 	icon?: string; // The icon that should be displayed next to the item
 	error?: string; // Any initialization error for the item.
-
-	expanded: boolean | undefined; // Wether the item is currently expanded
-
-	/**
-	 * Front-end may fire this event whenever the user clicks the
-	 * toggle expand button. Must be implemented if the item is
-	 * expandable.
-	 */
-	onToggleExpandEmitter?: Emitter<void>;
-
-	/**
-	 * Items fire this event whenever their data has changed.
-	 * Eg. The connections is turned off, or some child was expanded.
-	 * It's used to notify the renderer that the item has changed.
-	 */
-	onDidChangeDataEmitter: Emitter<void>;
 
 	/**
 	 * If the item can be previewed, it should implement this method.

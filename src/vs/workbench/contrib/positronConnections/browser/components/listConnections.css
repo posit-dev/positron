@@ -1,0 +1,93 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connections-list-container {
+	height: 100%;
+	position: relative;
+	left: 0.5px;
+}
+
+.connections-list-header {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var(--vscode-positronVariables-border);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.connections-list-header .vertical-splitter {
+	background-color: var(--vscode-positronVariables-border);
+}
+
+.positron-connections-list .action-bar-button.disabled {
+	cursor: not-allowed;
+}
+
+.positron-connections-list .action-bar-button.disabled .action-bar-button-text {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.connections-list-item {
+	margin-top: 5px;
+	display: flex;
+	align-items: center;
+}
+
+.connections-list-container .col-icon,
+.connections-list-container .col-name,
+.connections-list-container .col-language,
+.connections-list-container .col-status,
+.connections-list-container .col-action {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.connections-list-container .col-icon {
+	flex-shrink: 0;
+	height: 100%;
+}
+
+.connections-list-container .col-name {
+	padding-left: 5px;
+	flex-basis: 35%;
+	flex-grow: 1;
+}
+
+.connections-list-container .col-status {
+	padding-left: 5px;
+	flex-basis: 25%;
+	flex-shrink: 0;
+}
+
+.connections-list-item .col-status.disabled {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.connections-list-container .col-language {
+	padding-left: 5px;
+	flex-basis: 20%;
+	flex-shrink: 0;
+}
+
+.connections-list-container.col-action {
+	flex-shrink: 0;
+	height: 100%;
+}
+
+.connections-list-item .col-action {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.connections-list-item.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+	outline: 1px;
+	outline-offset: -1px;
+}
