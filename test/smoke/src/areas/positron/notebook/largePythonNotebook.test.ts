@@ -22,7 +22,7 @@ describe('Large Notebooks', () => {
 			await PositronPythonFixtures.SetupFixtures(app);
 		});
 
-		it('Python - Large notebook execution [C...]', async function () {
+		it('Python - Large notebook execution [C983592]', async function () {
 
 			// very long timeout
 			// not recommended for web or windows
