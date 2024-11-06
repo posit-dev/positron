@@ -49,6 +49,11 @@ export interface RunAppOptions {
 	 * The optional URL path at which to preview the application.
 	 */
 	urlPath?: string;
+
+	/**
+	 * The optional app ready message to wait for in the terminal before previewing the application.
+	 */
+	appReadyMessage?: string;
 }
 
 /**
@@ -78,9 +83,11 @@ export interface DebugAppOptions {
 	 * The optional URL path at which to preview the application.
 	 */
 	urlPath?: string;
-}
 
-export interface DebugConfiguration {
+	/**
+	 * The optional app ready message to wait for in the terminal before previewing the application.
+	 */
+	appReadyMessage?: string;
 }
 
 /**
