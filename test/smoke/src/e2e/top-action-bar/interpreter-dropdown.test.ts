@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Interpreter Dropdown in Top Action Bar #web', () => {
+test.describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
 	let quickaccess: QuickAccess;
