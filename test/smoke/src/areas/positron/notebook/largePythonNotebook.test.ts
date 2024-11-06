@@ -24,7 +24,9 @@ describe('Large Notebooks', () => {
 
 		it('Python - Large notebook execution [C...]', async function () {
 
-			this.timeout(120_000);
+			// very long timeout
+			// not recommended for web or windows
+			this.timeout(240_000);
 
 			await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
