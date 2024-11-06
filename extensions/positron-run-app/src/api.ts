@@ -23,6 +23,12 @@ type PositronProxyInfo = {
 	finishProxySetup: (targetOrigin: string) => Promise<void>;
 };
 
+type AppPreviewOptions = {
+	proxyInfo?: PositronProxyInfo;
+	urlPath?: string;
+	appReadyMessage?: string;
+};
+
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
 	private readonly _debugApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _debugApplicationDisposableByName = new Map<string, vscode.Disposable>();
@@ -162,7 +168,12 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 					await this.setShellIntegrationSupported(true);
 
 					if (e.terminal === terminal) {
-						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, proxyInfo, options.urlPath);
+						const previewOptions: AppPreviewOptions = {
+							proxyInfo,
+							urlPath: options.urlPath,
+							appReadyMessage: options.appReadyMessage,
+						};
+						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
 						if (didPreviewUrl) {
 							resolve(didPreviewUrl);
 						}
@@ -279,7 +290,12 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 							await this.setShellIntegrationSupported(true);
 
 							if (await e.terminal.processId === processId) {
-								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, proxyInfo, options.urlPath);
+								const previewOptions: AppPreviewOptions = {
+									proxyInfo,
+									urlPath: options.urlPath,
+									appReadyMessage: options.appReadyMessage,
+								};
+								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
 								if (didPreviewUrl) {
 									resolve(didPreviewUrl);
 								}
@@ -344,28 +360,65 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	}
 }
 
-async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, proxyInfo?: PositronProxyInfo, urlPath?: string) {
+async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {
 	// Wait for the server URL to appear in the terminal output, or a timeout.
 	const stream = execution.read();
+	const appReadyMessage = options.appReadyMessage?.trim();
 	const url = await raceTimeout(
 		(async () => {
+			// If an appReadyMessage is not provided, we'll consider the app ready as soon as the URL is found.
+			let appReady = !appReadyMessage;
+			let appUrl = undefined;
 			for await (const data of stream) {
-				log.warn('Execution:', execution.commandLine.value, data);
+				log.trace('Execution:', execution.commandLine.value, data);
+
 				// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
 				const dataCleaned = removeAnsiEscapeCodes(data);
-				const match = dataCleaned.match(localUrlRegex)?.[0];
-				if (match) {
-					return new URL(match.trim());
+
+				// Check if the app is ready, if it's not already ready and an appReadyMessage is provided.
+				if (!appReady && appReadyMessage) {
+					appReady = dataCleaned.includes(appReadyMessage);
+					if (appReady) {
+						log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
+						// If the app URL was already found, we're done!
+						if (appUrl) {
+							return appUrl;
+						}
+					}
+				}
+
+				// Check if the app url is found in the terminal output.
+				if (!appUrl) {
+					const match = dataCleaned.match(localUrlRegex)?.[0];
+					if (match) {
+						appUrl = new URL(match.trim());
+						log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
+						// If the app is ready, we're done!
+						if (appReady) {
+							return appUrl;
+						}
+					}
 				}
 			}
-			log.warn('URL not found in terminal output');
-			return undefined;
+
+			// If we're here, we've reached the end of the stream without finding the app URL and/or
+			// the appReadyMessage.
+			if (!appReady) {
+				// It's possible that the app is ready, but the appReadyMessage was not found, for
+				// example, if the message has changed or was missed somehow. Log a warning.
+				log.warn(`Expected app ready message '${appReadyMessage}' not found in terminal`);
+			}
+			if (!appUrl) {
+				log.error('App URL not found in terminal output');
+			}
+			return appUrl;
 		})(),
 		15_000,
+		() => log.error('Timed out waiting for server output in terminal'),
 	);
 
-	if (url === undefined) {
-		log.warn('Timed out waiting for server URL in terminal output');
+	if (!url) {
+		log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');
 		return false;
 	}
 
@@ -373,21 +426,25 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 	const localBaseUri = vscode.Uri.parse(url.toString());
 
 	// Example: http://localhost:8500/url/path or http://localhost:8500
-	const localUri = urlPath ?
-		vscode.Uri.joinPath(localBaseUri, urlPath) : localBaseUri;
+	const localUri = options.urlPath ?
+		vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
 
 	// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
 	let previewUri = undefined;
-	if (proxyInfo) {
+	if (options.proxyInfo) {
 		// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
 		// the urlPath appended to avoid issues where the app does not set the base url of the app
 		// or the base url of referenced assets correctly.
 		const applyWebPatch = isPositronWeb && !isRunningOnPwb;
 		const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
 
+		log.debug(`Finishing proxy setup for app at ${targetOrigin}`);
+
 		// Finish the Positron proxy setup so that proxy middleware is hooked up.
-		await proxyInfo.finishProxySetup(targetOrigin);
-		previewUri = !applyWebPatch && urlPath ? vscode.Uri.joinPath(proxyInfo.externalUri, urlPath) : proxyInfo.externalUri;
+		await options.proxyInfo.finishProxySetup(targetOrigin);
+		previewUri = !applyWebPatch && options.urlPath
+			? vscode.Uri.joinPath(options.proxyInfo.externalUri, options.urlPath)
+			: options.proxyInfo.externalUri;
 	} else {
 		previewUri = await vscode.env.asExternalUri(localUri);
 	}

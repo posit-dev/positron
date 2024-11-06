@@ -24,6 +24,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             'FastAPI',
             (runtime, document, _urlPrefix) => getFastAPIDebugConfig(serviceContainer, runtime, document),
             '/docs',
+            'Application startup complete',
         ),
         registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
             getFlaskDebugConfig(document),
@@ -31,8 +32,12 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
         ),
-        registerExecCommand(Commands.Exec_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
-            getShinyDebugConfig(document),
+        registerExecCommand(
+            Commands.Exec_Shiny_In_Terminal,
+            'Shiny',
+            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
+            undefined,
+            'Application startup complete',
         ),
         registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
             getStreamlitDebugConfig(document),
@@ -40,8 +45,12 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
             getDashDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_FastAPI_In_Terminal, 'FastAPI', (runtime, document, _urlPrefix) =>
-            getFastAPIDebugConfig(serviceContainer, runtime, document),
+        registerDebugCommand(
+            Commands.Debug_FastAPI_In_Terminal,
+            'FastAPI',
+            (runtime, document, _urlPrefix) => getFastAPIDebugConfig(serviceContainer, runtime, document),
+            '/docs',
+            'Application startup complete',
         ),
         registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
             getFlaskDebugConfig(document),
@@ -49,8 +58,12 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
             getGradioDebugConfig(document, urlPrefix),
         ),
-        registerDebugCommand(Commands.Debug_Shiny_In_Terminal, 'Shiny', (_runtime, document, _urlPrefix) =>
-            getShinyDebugConfig(document),
+        registerDebugCommand(
+            Commands.Debug_Shiny_In_Terminal,
+            'Shiny',
+            (_runtime, document, _urlPrefix) => getShinyDebugConfig(document),
+            undefined,
+            'Application startup complete',
         ),
         registerDebugCommand(Commands.Debug_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
             getStreamlitDebugConfig(document),
@@ -67,6 +80,7 @@ function registerExecCommand(
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
+    appReadyMessage?: string,
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -98,6 +112,7 @@ function registerExecCommand(
                 return terminalOptions;
             },
             urlPath,
+            appReadyMessage,
         });
     });
 }
@@ -110,6 +125,8 @@ function registerDebugCommand(
         document: vscode.TextDocument,
         urlPrefix?: string,
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
+    urlPath?: string,
+    appReadyMessage?: string,
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -129,6 +146,8 @@ function registerDebugCommand(
                     stopOnEntry: false,
                 };
             },
+            urlPath,
+            appReadyMessage,
         });
     });
 }
