@@ -31,6 +31,7 @@ export default defineConfig<CustomTestOptions>({
 		max: 10,
 		threshold: 60 * 1000, // 1 minute
 	},
+	testIgnore: ['./test/smoke/src/e2e/_examples'],
 	reporter: process.env.CI
 		? [
 			['github'],
@@ -52,13 +53,16 @@ export default defineConfig<CustomTestOptions>({
 	projects: [
 		{
 			name: 'e2e-electron',
+			testIgnore: ['**/_examples/**.test.ts'],
 			use: {
 				web: false,
 				artifactDir: 'e2e-electron'
 			},
+
 		},
 		{
 			name: 'e2e-browser',
+			testIgnore: ['**/_examples/**.test.ts'],
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser',
