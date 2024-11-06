@@ -395,9 +395,19 @@ export function registerTerminalDefaultProfileConfiguration(detectedProfiles?: {
 		properties: {
 			[TerminalSettingId.DefaultProfileLinux]: {
 				restricted: true,
-				markdownDescription: localize('terminal.integrated.defaultProfile.linux', "The default terminal profile on Linux."),
+				// --- Start Positron ---
+				// markdownDescription: localize('terminal.integrated.defaultProfile.linux', "The default terminal profile on Linux."),
+				markdownDescription: localize('terminal.integrated.defaultProfile.linux', "The default terminal profile on Linux.\n\nPositron sets the default profile to `bash` for a smoother Python Run App experience."),
+				// --- End Positron ---
 				type: ['string', 'null'],
-				default: null,
+				// --- Start Positron ---
+				// For a smoother Python Run App experience, we default to bash, as the default
+				// shell on Linux tends to be sh, which is not a supported Integrated Terminal.
+				// Refer to the markdown description of the 'terminal.integrated.shellIntegration.enabled'
+				// setting for more information on supported shells.
+				// default: null,
+				default: 'bash',
+				// --- End Positron ---
 				enum: detectedProfiles?.os === OperatingSystem.Linux ? profileEnum?.values : undefined,
 				markdownEnumDescriptions: detectedProfiles?.os === OperatingSystem.Linux ? profileEnum?.markdownDescriptions : undefined
 			},
