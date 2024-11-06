@@ -202,35 +202,44 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Web Smoke Tests
+      - name: Run Tests (Web)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-web-smoke-tests
-        run: DISPLAY=:10 yarn smoketest-web --tracing
+        # run: DISPLAY=:10 yarn smoketest-web --tracing
+        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
 
-      - name: Convert XUnit to JUnit
-        id: xunit-to-junit
-        if: success() || failure()
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-          yarn xunit-to-junit smoke-tests-browser
+      # - name: Convert XUnit to JUnit
+      #   id: xunit-to-junit
+      #   if: success() || failure()
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y libxml2-utils
+      #     yarn xunit-to-junit smoke-tests-browser
 
-      - name: Publish Web Test Report
-        uses: mikepenz/action-junit-report@v4
-        if: success() || failure()
-        with:
-          report_paths: "**/.build/logs/smoke-tests-browser/test-results/xunit-results.xml"
-          check_name: "Web Test Results"
-          token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Publish Web Test Report
+      #   uses: mikepenz/action-junit-report@v4
+      #   if: success() || failure()
+      #   with:
+      #     report_paths: "**/.build/logs/smoke-tests-browser/test-results/xunit-results.xml"
+      #     check_name: "Web Test Results"
+      #     token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Artifacts - Browser
-        if: always()
+      # - name: Upload Artifacts - Browser
+      #   if: always()
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: run-artifacts-browser
+      #     path: .build/logs/smoke-tests-browser/
+
+      - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
-          name: run-artifacts-browser
-          path: .build/logs/smoke-tests-browser/
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
 
       - name: Clean up license files
         if: always()
