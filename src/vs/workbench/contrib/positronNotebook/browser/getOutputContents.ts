@@ -121,10 +121,6 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 		return { type: 'text', content: message };
 	}
 
-	if (mime === 'text/html') {
-		return { type: 'html', content: message };
-	}
-
 	if (mime === 'image/png') {
 		return {
 			type: 'image',

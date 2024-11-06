@@ -15,7 +15,6 @@ import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
-import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
 import { PreloadMessageOutput } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/PreloadMessageOutput';
 
 
@@ -48,7 +47,7 @@ function CellOutput(output: NotebookCellOutputs) {
 		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const { parsed, outputId, outputs } = output;
+	const { parsed, outputs } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -61,8 +60,6 @@ function CellOutput(output: NotebookCellOutputs) {
 			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
-		case 'html':
-			return <NotebookHTMLContent content={parsed.content} outputId={outputId} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
 				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}

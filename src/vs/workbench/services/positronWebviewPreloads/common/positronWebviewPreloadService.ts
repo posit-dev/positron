@@ -63,8 +63,11 @@ export interface IPositronWebviewPreloadService {
 	 * Add output from a notebook cell and process it for webview preloads
 	 */
 	addNotebookOutput(
-		instance: IPositronNotebookInstance,
-		outputId: string,
-		outputs: { mime: string; data: VSBuffer }[]
+		opts:
+			{
+				instance: IPositronNotebookInstance;
+				outputId: string;
+				outputs: { mime: string; data: VSBuffer }[];
+			}
 	): NotebookPreloadOutputResults | undefined;
 }

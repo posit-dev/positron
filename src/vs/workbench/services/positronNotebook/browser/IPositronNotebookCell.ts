@@ -186,10 +186,6 @@ export type ParsedOutput = ParsedTextOutput |
 	dataUrl: string;
 } |
 {
-	type: 'html';
-	content: string;
-} |
-{
 	type: 'interupt';
 	trace: string;
 } |

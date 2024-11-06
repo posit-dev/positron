@@ -14,6 +14,7 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { VSBuffer } from 'vs/base/common/buffer';
 import { isWebviewDisplayMessage, isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { buildWebviewHTML, webviewMessageCodeString } from 'vs/workbench/contrib/positronWebviewPreloads/browser/notebookOutputUtils';
 
 /**
  * Format of output from a notebook cell
@@ -148,31 +149,108 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		};
 	}
 
-	public addNotebookOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']): NotebookPreloadOutputResults | undefined {
+	/**
+	 * Determines if a set of notebook cell outputs contains mime types that require webview handling.
+	 * This is used to check if outputs need special webview processing, either for:
+	 * 1. Display messages that create new webviews (e.g. interactive plots)
+	 * 2. Replay messages that need to be stored for later playback in webviews
+	 *
+	 * @param outputs Array of output objects containing mime types to check
+	 * @returns The type of webview message ('display', 'preload') or null if not handled
+	 */
+	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | 'html' | null {
+		const mimeTypes = outputs.map(output => output.mime);
+		if (isWebviewDisplayMessage(mimeTypes)) {
+			return 'display';
+		}
+		if (isWebviewReplayMessage(mimeTypes)) {
+			return 'preload';
+		}
+		if (mimeTypes.includes('text/html')) {
+			return 'html';
+		}
+		return null;
+	}
+
+	/**
+	 * Add a notebook output to service. Either for display or preload.
+	 * @param instance The notebook instance the output belongs to.
+	 * @param outputId The id of the output.
+	 * @param outputs The outputs to add.
+	 */
+	public addNotebookOutput({
+		instance,
+		outputId,
+		outputs
+	}: {
+		instance: IPositronNotebookInstance;
+		outputId: NotebookOutput['outputId'];
+		outputs: NotebookOutput['outputs'];
+	}): NotebookPreloadOutputResults | undefined {
 		const notebookMessages = this._messagesByNotebookId.get(instance.id);
 
 		if (!notebookMessages) {
 			throw new Error(`PositronWebviewPreloadService: Notebook ${instance.id} not found in messagesByNotebookId map.`);
 		}
 
-		// Check if we're working with a webview replay message
-		const mimeTypes = outputs.map(output => output.mime);
-		const isReplay = isWebviewReplayMessage(mimeTypes);
-		if (isWebviewDisplayMessage(mimeTypes)) {
-			// Create a new plot client.
-			const webview = this._createNotebookPlotWebview(instance, PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
-
-			return { preloadMessageType: 'display', webview };
-		} else if (isReplay) {
-
-			// Store the message for later playback.
-			notebookMessages.push(PositronWebviewPreloadService.notebookMessageToRuntimeOutput({ outputId, outputs }, RuntimeOutputKind.WebviewPreload));
-			return { preloadMessageType: 'preload' };
+		// Check if this output contains any mime types that require webview handling
+		// Returns undefined for outputs that don't need webview processing (e.g., plain text, images)
+		const messageType = PositronWebviewPreloadService.getWebviewMessageType(outputs);
+		if (!messageType) {
+			return undefined;
 		}
 
-		return undefined;
+		const runtimeOutput = PositronWebviewPreloadService.notebookMessageToRuntimeOutput(
+			{ outputId, outputs },
+			RuntimeOutputKind.WebviewPreload
+		);
+
+		// Display messages (e.g., interactive plots) need to create a new webview immediately
+		// and return it for rendering
+		if (messageType === 'display') {
+			return {
+				preloadMessageType: messageType,
+				webview: this._createNotebookPlotWebview(instance, runtimeOutput)
+			};
+		}
+
+		// We also want to send plain (non preload reliant) html messages to output.
+		if (messageType === 'html') {
+			return {
+				preloadMessageType: 'display',
+				webview: this._handleHtmlOutput(instance, outputId, outputs)
+			};
+		}
+
+		// Preload messages contain setup code or dependencies that need to be stored
+		// for future webviews but don't need to be displayed themselves
+		notebookMessages.push(runtimeOutput);
+		return { preloadMessageType: messageType };
 	}
 
+	/**
+	 * Create a webview for a plain html output.
+	 */
+	private async _handleHtmlOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']) {
+
+		// Get the output with mime type of html
+		const htmlOutput = outputs.find(output => output.mime === 'text/html');
+		if (!htmlOutput) {
+			throw new Error('Expected HTML output');
+		}
+
+		const notebookWebview = await this._notebookOutputWebviewService.createRawHtmlOutput({
+			id: outputId,
+			runtimeOrSessionId: instance.id,
+			html: buildWebviewHTML({
+				content: htmlOutput.data.toString(),
+				script: webviewMessageCodeString,
+			}),
+			webviewType: WebviewType.Standard
+		});
+
+		return notebookWebview;
+	}
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.
 	 * Alerts the plots pane that a new plot is ready.
@@ -258,6 +336,8 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		));
 		this._onDidCreatePlot.fire(client);
 	}
+
+
 
 }
 
