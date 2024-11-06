@@ -91,9 +91,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			if (!currentInterpreter.includes(interpreterName)) {
 				if (interpreterName === 'Python') {
-					await PositronPythonFixtures.SetupFixtures(app);
+					await PositronPythonFixtures.SetupFixtures(app, false);
 				} else if (interpreterName === 'R') {
-					await PositronRFixtures.SetupFixtures(app);
+					await PositronRFixtures.SetupFixtures(app, false);
 				}
 			}
 		};

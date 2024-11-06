@@ -67,7 +67,6 @@ export class PositronConsole {
 		}
 
 		await this.quickaccess.runCommand(command, { keepOpen: true });
-
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(desiredInterpreterString);
 
@@ -164,33 +163,22 @@ export class PositronConsole {
 	 * @throws An error if the console is not ready after the retry count.
 	 */
 	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
-		for (let i = 0; i < retryCount; i++) {
-			// Check if the console is ready with Python.
-			try {
-				await this.waitForReady('>>>', 5);
-				// The console is ready with Python.
-				return;
-			} catch (error) {
-				// Python is not ready. Try the next interpreter.
-			}
+		// wait for the dropdown to contain R, Python, or No Interpreter.
+		const page = this.code.driver.page;
+		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
-			// Check if the console is ready with R.
-			try {
-				await this.waitForReady('>', 5);
-				// The console is ready with R.
-				return;
-			} catch (error) {
-				// R is not ready. Try the next interpreter.
-			}
+		// ensure we are on Console tab before verifying console is ready
+		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
 
-			// Check if there is no interpreter running.
-			try {
-				await this.waitForNoInterpretersRunning(5);
-				// The console is ready with no interpreter running.
-				return;
-			} catch (error) {
-				// Text indicating no interpreter is running is not present. Try again.
-			}
+		if (currentInterpreter.includes('Python')) {
+			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
+			return;
+		} else if (currentInterpreter.includes('R')) {
+			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
+			return;
+		} else if (currentInterpreter.includes('Start Interpreter')) {
+			await expect(page.getByText('There is no interpreter')).toBeVisible();
+			return;
 		}
 
 		// If we reach here, the console is not ready.
