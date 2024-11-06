@@ -527,6 +527,14 @@ const newCommands: ApiCommand[] = [
 			return { range: typeConverters.Range.to(result.range), code: result.code };
 		})
 	),
+	// -- show help topic
+	new ApiCommand(
+		'positron.executeHelpTopicProvider', '_executeHelpTopicProvider', 'Execute help topic provider.',
+		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
+		new ApiCommandResult<string | null>('A promise that resolves to a string.', result => {
+			return result;
+		})
+	),
 	// --- End Positron
 
 	// --- context keys
