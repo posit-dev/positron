@@ -52,8 +52,10 @@ test.describe('Quarto #web', () => {
 
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
-	await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-	await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+	await test.step(`render quarto document`, async () => {
+		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+		await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+	});
 };
 
 const verifyDocumentExists = async (app: Application, fileExtension: string) => {

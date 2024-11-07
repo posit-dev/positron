@@ -45,7 +45,6 @@ export default defineConfig<CustomTestOptions>({
 		{
 			name: 'e2e-electron',
 			testIgnore: ['**/_examples/**.test.ts'],
-			outputDir: 'test-results/electron',
 			use: {
 				web: false,
 				artifactDir: 'e2e-electron'
@@ -55,7 +54,6 @@ export default defineConfig<CustomTestOptions>({
 		{
 			name: 'e2e-browser',
 			testIgnore: ['**/_examples/**.test.ts'],
-			outputDir: 'test-results/browser',
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser',
