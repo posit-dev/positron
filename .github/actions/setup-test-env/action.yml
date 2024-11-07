@@ -47,3 +47,6 @@ runs:
       uses: ./.github/actions/install-r
       with:
         version: "4.4.0"
+
+    - name: Compile E2E Tests
+      run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
