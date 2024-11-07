@@ -36,7 +36,7 @@ test.describe('R Package Development', { tag: ['@web'] }, () => {
 	});
 
 	test('R Package Development Tasks [C809821]', async function ({ app, logger }) {
-		test.setTimeout(200000);
+		test.slow();
 
 		await expect(async () => {
 			// Navigate to https://github.com/posit-dev/qa-example-content/tree/main/workspaces/r_testing

@@ -30,7 +30,7 @@ test.describe('Python - New Project Wizard', () => {
 
 	test('Create a new Conda environment [C628628]', async function ({ app }) {
 		// This test relies on Conda already being installed on the machine
-		test.setTimeout(180000);
+		test.slow();
 		const projSuffix = addRandomNumSuffix('_condaInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
