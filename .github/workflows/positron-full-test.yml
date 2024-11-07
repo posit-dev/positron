@@ -150,7 +150,7 @@ jobs:
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: blob-report-${{ matrix.shardIndex }}
           path: blob-report
@@ -170,12 +170,17 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
+      # - name: Download blob reports from GitHub Actions Artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     path: all-blob-reports
+      #     pattern: blob-report-*
+      #     merge-multiple: true
       - name: Download blob reports from GitHub Actions Artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v3
         with:
+          name: all-blob-reports
           path: all-blob-reports
-          pattern: blob-report-*
-          merge-multiple: true
 
       - name: Merge into HTML Report
         run: npx playwright merge-reports --reporter html ./all-blob-reports
