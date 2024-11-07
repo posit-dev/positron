@@ -38,6 +38,9 @@ interface KallichoreServerState {
 
 	/** The bearer token used to authenticate with the server */
 	bearer_token: string;
+
+	/** The path to the log file */
+	log_path: string;
 }
 
 export class KCApi implements KallichoreAdapterApi {
@@ -287,7 +290,8 @@ export class KCApi implements KallichoreAdapterApi {
 			port,
 			server_path: shellPath,
 			server_pid: await terminal.processId || 0,
-			bearer_token: bearerToken
+			bearer_token: bearerToken,
+			log_path: logFile
 		};
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
@@ -303,7 +307,6 @@ export class KCApi implements KallichoreAdapterApi {
 	async reconnect(serverState: KallichoreServerState): Promise<boolean> {
 		// Check to see if the pid is still running
 		const pid = serverState.server_pid;
-		this._log.appendLine(`Reconnecting to Kallichore server at ${serverState.base_path} (PID ${pid})`);
 		if (pid) {
 			try {
 				process.kill(pid, 0);
@@ -313,10 +316,25 @@ export class KCApi implements KallichoreAdapterApi {
 			}
 		}
 
+		// Clear logs from previous connection; since we don't maintain our
+		// position in the log file, we'll wind up with duplicate logs after
+		// reconnecting.
+		this._log.clear();
+		this._log.appendLine(`Reconnecting to Kallichore server at ${serverState.base_path} (PID ${pid})`);
+
 		// Re-establish the bearer token
 		const bearer = new HttpBearerAuth();
 		bearer.accessToken = serverState.bearer_token;
 		this._api.setDefaultAuthentication(bearer);
+
+		// Re-establish the log stream
+		if (this._logStreamer) {
+			this._logStreamer.dispose();
+		}
+		this._logStreamer = new LogStreamer(this._log, serverState.log_path);
+		this._logStreamer.watch().then(() => {
+			this._log.appendLine(`Streaming Kallichore server logs at ${serverState.log_path}`);
+		});
 
 		// Reconnect and get the session list
 		this._api.basePath = serverState.base_path;
