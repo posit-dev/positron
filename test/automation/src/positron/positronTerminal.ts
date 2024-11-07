@@ -15,6 +15,6 @@ export class PositronTerminal {
 	}
 
 	async clickTerminalTab() {
-		this.code.driver.page.getByRole('tab', { name: 'Terminal (⌃`)' }).locator('a').click();
+		await this.code.driver.page.getByRole('tab', { name: 'Terminal (⌃`)' }).locator('a').click();
 	}
 }
