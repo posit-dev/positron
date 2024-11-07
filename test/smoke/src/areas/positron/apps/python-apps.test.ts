@@ -36,9 +36,7 @@ describe('Python Applications #pr #win', () => {
 			await expect(viewer.getViewerFrame().getByText('Hello World')).toBeVisible({ timeout: 30000 });
 		});
 
-		// https://github.com/posit-dev/positron/issues/4949
-		// FastAPI is not working as expected on Ubuntu
-		it.skip('Python - Verify Basic FastAPI App [C903306]', async function () {
+		it('Python - Verify Basic FastAPI App [C903306]', async function () {
 			const app = this.app as Application;
 			const viewer = app.workbench.positronViewer;
 
