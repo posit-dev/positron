@@ -191,7 +191,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		const title = path.basename(`${testInfo.file}-trace`);
 		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
-		testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+
+		// attach the trace to the report if CI and test failed or not in CI
+		const isCI = process.env.CI === 'true';
+		if (!isCI ||
+			(isCI && testInfo.status !== testInfo.expectedStatus) ||
+			(isCI && testInfo.status === testInfo.expectedStatus && testInfo.retry)) {
+			testInfo.attachments.push({ name: 'trace', path: tracePath, contentType: 'application/zip' });
+		}
 
 	}, { auto: true, scope: 'test' }],
 
