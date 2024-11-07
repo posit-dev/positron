@@ -10,12 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R - New Project Wizard', () => {
-
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
-	});
-
+test.describe('R - New Project Wizard', { tag: ['@pr'] }, () => {
 	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
