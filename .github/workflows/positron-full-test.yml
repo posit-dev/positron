@@ -98,7 +98,12 @@ jobs:
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 80
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2]
+        shardTotal: [2]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -131,7 +136,7 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
         # run: DISPLAY=:10 yarn smoketest-all --tracing --skip-cleanup
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       # - name: Convert XUnit to JUnit
       #   id: xunit-to-junit

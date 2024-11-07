@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { defineConfig } from '@playwright/test';
-import { CustomTestOptions } from './test/smoke/src/areas/positron2/_test.setup';
+import { CustomTestOptions } from './test/smoke/src/areas/positron/_test.setup';
 
 /**
  * Read environment variables from file.
@@ -54,6 +54,7 @@ export default defineConfig<CustomTestOptions>({
 		{
 			name: 'e2e-electron',
 			testIgnore: ['**/_examples/**.test.ts'],
+			outputDir: 'test-results/electron',
 			use: {
 				web: false,
 				artifactDir: 'e2e-electron'
@@ -63,6 +64,7 @@ export default defineConfig<CustomTestOptions>({
 		{
 			name: 'e2e-browser',
 			testIgnore: ['**/_examples/**.test.ts'],
+			outputDir: 'test-results/browser',
 			use: {
 				web: true,
 				artifactDir: 'e2e-browser',
