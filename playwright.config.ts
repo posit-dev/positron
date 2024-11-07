@@ -22,10 +22,10 @@ export default defineConfig<CustomTestOptions>({
 	globalSetup: require.resolve('./test/smoke/src/areas/positron/_global.setup.ts'),
 	testDir: './test/smoke/src/areas/positron',
 	testMatch: '*.test.ts',
-	fullyParallel: false, // Run individual tests in parallel
+	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
-	workers: 3, // Number of parallel workers (tests will run in parallel)
+	workers: 3, // Number of parallel workers
 	timeout: 2 * 60 * 1000,
 	reportSlowTests: {
 		max: 10,

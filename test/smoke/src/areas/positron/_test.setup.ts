@@ -135,7 +135,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		await use();
 
-		// if test failed, attach screenshot
+		// if test failed, take and attach screenshot
 		if (testInfo.status !== testInfo.expectedStatus) {
 			const screenshot = await page.screenshot();
 			await testInfo.attach('on-test-end', { body: screenshot, contentType: 'image/png' });
@@ -171,13 +171,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			path: zipPath,
 			contentType: 'application/zip',
 		});
-
-		// Clear the TEMP_LOGS_PATH directory
-		// const files = await fs.promises.readdir(TEMP_LOGS_PATH);
-		// for (const file of files) {
-		// 	const filePath = path.join(TEMP_LOGS_PATH, file);
-		// 	await fs.promises.rm(filePath, { recursive: true, force: true });
-		// }
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {
@@ -187,8 +180,8 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 
 		// stop tracing
-		// do NOT use title of'trace' as it will conflict with the default trace
-		const title = path.basename(`${testInfo.file}-trace`);
+		// do NOT use title of 'trace' as it will conflict with the default trace
+		const title = path.basename(`${testInfo.file.replace('test.ts', '')}-trace`);
 		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
 
