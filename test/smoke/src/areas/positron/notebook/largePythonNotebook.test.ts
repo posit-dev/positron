@@ -8,8 +8,8 @@ import { Application, PositronNotebooks, PositronPythonFixtures } from '../../..
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { expect } from '@playwright/test';
 
-// This test is too time consuming to pass on web
-describe('Large Notebooks #web #win', () => {
+// Note that this test is too heavy to pass on web and windows
+describe('Large Notebooks', () => {
 	setupAndStartApp();
 
 	describe('Large Python Notebook', () => {
