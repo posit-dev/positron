@@ -8,6 +8,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
+ * Defines a string that contains the `${{APP_URL}}` placeholder.
+ */
+export type AppUrlString = `${string}{{APP_URL}}${string}`;
+
+/**
  * Represents options returned from ${@link RunAppOptions.getTerminalOptions}.
  */
 export interface RunAppTerminalOptions {
@@ -54,6 +59,11 @@ export interface RunAppOptions {
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
 	appReadyMessage?: string;
+
+	/**
+	 * An optional array of app URI formats to parse the URI from the terminal output.
+	 */
+	appUriFormat?: AppUrlString[];
 }
 
 /**
@@ -88,6 +98,11 @@ export interface DebugAppOptions {
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
 	appReadyMessage?: string;
+
+	/**
+	 * An optional array of app URI formats to parse the URI from the terminal output.
+	 */
+	appUriFormat?: AppUrlString[];
 }
 
 /**
