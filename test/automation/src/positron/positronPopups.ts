@@ -68,7 +68,6 @@ export class PositronPopups {
 				this.code.logger.log('Skipped Renv installation');
 			}
 		} catch (error) {
-			// If the locator doesn't appear within the timeout, perform an alternative action
 			this.code.logger.log('Did not find install Renv modal dialog box');
 		}
 	}

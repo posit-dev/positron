@@ -3,11 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Locator } from '@playwright/test';
 import { Code } from '../code';
 
 export class PositronTerminal {
+	terminalTab: Locator;
 
-	constructor(private code: Code) { }
+	constructor(private code: Code) {
+		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
+	}
 
 	async sendKeysToTerminal(key: string) {
 		await this.clickTerminalTab();
@@ -15,6 +19,6 @@ export class PositronTerminal {
 	}
 
 	async clickTerminalTab() {
-		await this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a').click();
+		await this.terminalTab.click();
 	}
 }
