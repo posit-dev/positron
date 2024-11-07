@@ -430,6 +430,7 @@ import 'vs/workbench/contrib/scrollLocking/browser/scrollLocking.contribution';
 // --- Start Positron ---
 
 // Contributions
+import 'vs/workbench/contrib/positronAssistant/browser/positronAssistant.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
 import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
 import 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution';
