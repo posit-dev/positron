@@ -291,6 +291,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *  no notebook session with the given notebook URI exists.
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
+		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
 		return this._notebookSessionsByNotebookUri.get(notebookUri);
 	}
 
@@ -864,6 +866,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				if (session.metadata.notebookUri) {
 					this._startingNotebooksByNotebookUri.delete(session.metadata.notebookUri);
+					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 				} else {
 					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
@@ -981,18 +984,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					break;
 
 				case RuntimeState.Exited:
-					// Remove the runtime from the set of starting or running runtimes.
-					this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
-					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
-					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-						if (session.metadata.notebookUri) {
-							this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
-						} else {
-							this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
-								`does not have a notebook URI.`);
-						}
-					}
+					this.updateSessionMapsAfterExit(session);
 					break;
 			}
 
@@ -1013,14 +1005,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		this._register(session.onDidEndSession(async exit => {
-			// The session is no longer running, so if it's the active console
-			// session, clear it.
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
-				if (consoleSession?.sessionId === session.sessionId) {
-					this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
-				}
-			}
+			this.updateSessionMapsAfterExit(session);
 
 			// Note that we need to do the following on the next tick since we
 			// need to ensure all the event handlers for the state change we are
@@ -1044,6 +1029,31 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 			}, 0);
 		}));
+	}
+
+	/**
+	 * Updates the session maps (for active consoles, notebooks, etc.), after a
+	 * session exits.
+	 *
+	 * @param session The session to update.
+	 */
+	private updateSessionMapsAfterExit(session: ILanguageRuntimeSession) {
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// The session is no longer running, so if it's the active console
+			// session, clear it.
+			const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
+			if (consoleSession?.sessionId === session.sessionId) {
+				this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+			}
+		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			if (session.metadata.notebookUri) {
+				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
+				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
+			} else {
+				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+					`does not have a notebook URI.`);
+			}
+		}
 	}
 
 	/**
