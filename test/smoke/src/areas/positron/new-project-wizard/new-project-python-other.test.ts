@@ -9,8 +9,8 @@ import { test, expect } from '../_test.setup';
 test.use({
 	suiteId: __filename
 });
-
-test.describe('Python - New Project Wizard', () => {
+// MARIE: REMOVE PR TAG
+test.describe('Python - New Project Wizard', { tag: ['@pr'] }, () => {
 	test.slow();
 
 	test('With ipykernel already installed [C609619]', async function ({ app }) {
