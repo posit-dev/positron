@@ -77,8 +77,6 @@ export class PositronPlots {
 
 		if (await clearPlotsButton.isVisible() && await clearPlotsButton.isEnabled()) {
 			await clearPlotsButton.click();
-		} else {
-			console.log('Clear Plots button is not available or active');
 		}
 	}
 
