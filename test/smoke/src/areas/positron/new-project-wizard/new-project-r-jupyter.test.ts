@@ -27,7 +27,7 @@ test.describe('R - New Project Wizard', () => {
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 
-	test('R - Accept Renv install [C633084]', async function ({ app }) {
+	test('R - Accept Renv install [C633084]', async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_installRenv');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Create a new R project - select Renv and install
@@ -43,7 +43,7 @@ test.describe('R - New Project Wizard', () => {
 			`myRProject${projSuffix}`
 		);
 		// Interact with the modal to install renv
-		await app.workbench.positronPopups.installRenv();
+		await app.workbench.positronPopups.handleRenvInstallDialog();
 
 		// If this test is running on a machine that is using Renv for the first time, we
 		// may need to interact with the Console to allow the renv installation to complete
@@ -58,16 +58,11 @@ test.describe('R - New Project Wizard', () => {
 		// await app.workbench.positronConsole.sendEnterKey();
 
 		// Verify renv files are present
-		await expect(async () => {
-			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
-			expect(projectFiles).toContain('renv');
-			expect(projectFiles).toContain('.Rprofile');
-			expect(projectFiles).toContain('renv.lock');
-		}).toPass({ timeout: 50000 });
-		// Verify that renv output in the console confirms no issues occurred
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('renv activated'))
-		);
+		await expect(page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix));
+		await expect(page.getByLabel('renv', { exact: true }).locator('a')).toBeVisible();
+		await expect(page.getByLabel('.Rprofile', { exact: true }).locator('a')).toBeVisible();
+		await expect(page.getByLabel('renv.lock', { exact: true }).locator('a')).toBeVisible();
+		await expect(page.getByText(/renv activated/)).toBeVisible();
 	});
 
 	test('R - Renv already installed [C656251]', async function ({ app }) {
@@ -98,7 +93,7 @@ test.describe('R - New Project Wizard', () => {
 		);
 	});
 
-	test('R - Cancel Renv install [C656252]', async function ({ app }) {
+	test('R - Cancel Renv install [C656252]', async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_cancelRenvInstall');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Remove renv package so we are prompted to install it again
@@ -119,14 +114,12 @@ test.describe('R - New Project Wizard', () => {
 			`myRProject${projSuffix}`
 		);
 		// Interact with the modal to skip installing renv
-		await app.workbench.positronPopups.installRenv(false);
+		await app.workbench.positronPopups.handleRenvInstallDialog(false);
 		// Verify renv files are **not** present
-		await expect(async () => {
-			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
-			expect(projectFiles).not.toContain('renv');
-			expect(projectFiles).not.toContain('.Rprofile');
-			expect(projectFiles).not.toContain('renv.lock');
-		}).toPass({ timeout: 50000 });
+		await expect(page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix));
+		await expect(page.getByLabel('renv', { exact: true }).locator('a')).not.toBeVisible();
+		await expect(page.getByLabel('.Rprofile', { exact: true }).locator('a')).not.toBeVisible();
+		await expect(page.getByLabel('renv.lock', { exact: true }).locator('a')).not.toBeVisible();
 	});
 
 });

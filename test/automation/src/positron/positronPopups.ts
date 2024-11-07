@@ -53,25 +53,22 @@ export class PositronPopups {
 	 * use Renv in the Project Wizard and creates a new project, but Renv is not installed.
 	 * @param install Whether to install Renv or not. Default is true.
 	 */
-	async installRenv(install: boolean = true) {
+	async handleRenvInstallDialog(install: boolean = true) {
 		try {
 			this.code.logger.log('Checking for install Renv modal dialog box');
-			// fail fast if the renv install modal is not present
-			await this.code.waitForTextContent(
-				POSITRON_MODAL_DIALOG_BOX_TITLE,
-				'Missing R package',
-				undefined,
-				50
-			);
+			const rInstallModal = this.code.driver.page.getByText('Missing R package');
+			await rInstallModal.waitFor({ timeout: 15000 });
+
+			// if modal is present, click the appropriate button
 			if (install) {
-				this.code.logger.log('Installing Renv');
-				await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
 				this.code.logger.log('Installed Renv');
 			} else {
-				this.code.logger.log('Skipping Renv installation');
-				await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
+				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_CANCEL).click();
+				this.code.logger.log('Skipped Renv installation');
 			}
-		} catch {
+		} catch (error) {
+			// If the locator doesn't appear within the timeout, perform an alternative action
 			this.code.logger.log('Did not find install Renv modal dialog box');
 		}
 	}
