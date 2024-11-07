@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../automation';
+import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { test, expect } from '../_test.setup';
 
 test.use({

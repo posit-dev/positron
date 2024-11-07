@@ -5,7 +5,7 @@
 
 import { join } from 'path';
 import { test, expect } from '../_test.setup';
-import { PositronUserSettingsFixtures } from '../../../../automation';
+import { PositronUserSettingsFixtures } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename

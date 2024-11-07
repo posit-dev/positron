@@ -10,7 +10,7 @@
 // 	suiteId: __filename
 // });
 
-// test.describe.skip('Interpreter Dropdown in Top Action Bar #web', () => {
+// test.../../../../../automation/outr Dropdown in Top Action Bar #web', () => {
 // 	let interpreterDropdown: PositronInterpreterDropdown;
 // 	let positronConsole: PositronConsole;
 // 	let quickaccess: QuickAccess;

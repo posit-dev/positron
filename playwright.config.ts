@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { defineConfig } from '@playwright/test';
-import { CustomTestOptions } from './test/smoke/src/e2e/_test.setup';
+import { CustomTestOptions } from './test/smoke/src/areas/positron2/_test.setup';
 
 /**
  * Read environment variables from file.
@@ -19,8 +19,8 @@ import { CustomTestOptions } from './test/smoke/src/e2e/_test.setup';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<CustomTestOptions>({
-	globalSetup: require.resolve('./test/smoke/src/e2e/_global.setup.ts'),
-	testDir: './test/smoke/src/e2e',
+	globalSetup: require.resolve('./test/smoke/src/areas/positron/_global.setup.ts'),
+	testDir: './test/smoke/src/areas/positron',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests in parallel
 	forbidOnly: !!process.env.CI,
@@ -31,7 +31,7 @@ export default defineConfig<CustomTestOptions>({
 		max: 10,
 		threshold: 60 * 1000, // 1 minute
 	},
-	testIgnore: ['./test/smoke/src/e2e/_examples'],
+	testIgnore: ['./test/smoke/src/areas/positron/_examples'],
 	reporter: process.env.CI
 		? [
 			['github'],
