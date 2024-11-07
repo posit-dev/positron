@@ -159,12 +159,15 @@ export class PositronConsole {
 
 	/**
 	 * Check if the console is ready with Python or R, or if no interpreter is running.
-	 * @param retryCount The number of times to retry waiting for the console to be ready.
 	 * @throws An error if the console is not ready after the retry count.
 	 */
-	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
-		// wait for the dropdown to contain R, Python, or No Interpreter.
+	async waitForReadyOrNoInterpreter() {
 		const page = this.code.driver.page;
+
+		// ensure interpreter is not starting up
+		await expect(page.getByText('Starting up...')).not.toBeVisible({ timeout: 30000 });
+
+		// wait for the dropdown to contain R, Python, or No Interpreter.
 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
 
 		// ensure we are on Console tab before verifying console is ready

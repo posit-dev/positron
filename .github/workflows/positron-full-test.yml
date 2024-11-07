@@ -154,15 +154,15 @@ jobs:
       #     check_name: "Electron Test Results"
       #     token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+      # - name: Set TestRail Run Title
+      #   id: set-testrail-run-title
+      #   if: ${{ !cancelled() }}
+      #   run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      # - name: Upload Test Results to TestRail (Electron ONLY)
+      #   id: testrail-upload
+      #   if: ${{ !cancelled() }}
+      #   run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/xunit-results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
