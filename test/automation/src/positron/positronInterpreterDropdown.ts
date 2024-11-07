@@ -60,11 +60,11 @@ export class PositronInterpreterDropdown {
 	 */
 	private async getPrimaryInterpreter(description: string | InterpreterType) {
 		// Wait for the primary interpreters to load
-		const allPrimaryInterpreters = await this.code.driver.page.locator('.primary-interpreter').all();
 		expect(await this.code.driver.page.locator('.primary-interpreter').count()).toBeGreaterThan(0);
 		this.code.logger.log('Primary interpreters loaded: ', this.code.driver.page.locator('.primary-interpreter').count());
 
 		// Look for a primary interpreter that matches the provided description
+		const allPrimaryInterpreters = await this.code.driver.page.locator('.primary-interpreter').all();
 		for (const interpreter of allPrimaryInterpreters) {
 			// Try to match on interpreter name
 			const interpreterName = await this.getInterpreterName(interpreter);
