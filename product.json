@@ -223,10 +223,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.13",
+			"version": "1.5.16",
 			"s3Bucket": "rsw-vscode-extension",
 			"type": "reh-web",
-			"sha256": "bfa920d48646f4828f83dc2dbc553e12c5871d6cd75182a0427ef3db4364733f",
+			"sha256": "520c252f9147ee87483cc698369659c58f52ee39a5e72df4bc557bd4f29d9272",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
