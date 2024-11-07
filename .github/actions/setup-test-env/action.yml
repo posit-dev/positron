@@ -49,4 +49,5 @@ runs:
         version: "4.4.0"
 
     - name: Compile E2E Tests
+      shell: bash
       run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
