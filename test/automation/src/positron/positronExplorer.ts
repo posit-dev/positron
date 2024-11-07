@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Code } from '../code';
 // import { QuickAccess } from '../quickaccess';
 import { PositronTextElement } from './positronBaseElement';
@@ -24,7 +25,7 @@ export class PositronExplorer {
 
 	/**
 	 * Constructs a string array of the top-level project files/directories in the explorer.
-	 * @param {string} locator - The locator for the project files/directories in the explorer.
+	 * @param locator - The locator for the project files/directories in the explorer.
 	 * @returns Promise<string[]> Array of strings representing the top-level project files/directories in the explorer.
 	 */
 	async getExplorerProjectFiles(locator: string = POSITRON_EXPLORER_PROJECT_FILES): Promise<string[]> {
@@ -39,6 +40,6 @@ export class PositronExplorer {
 
 	async waitForProjectFileToAppear(filename: string) {
 		const escapedFilename = filename.replace(/\./g, '\\.').toLowerCase();
-		await this.code.waitForElement(`.${escapedFilename}-name-file-icon`);
+		await expect(this.code.driver.page.locator(`.${escapedFilename}-name-file-icon`)).toBeVisible({ timeout: 30000 });
 	}
 }

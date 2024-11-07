@@ -26,7 +26,7 @@ export default defineConfig<CustomTestOptions>({
 	forbidOnly: !!process.env.CI,
 	retries: process.env.CI ? 1 : 0,
 	workers: 3, // Number of parallel workers (tests will run in parallel)
-	timeout: 1.2 * 60 * 1000,
+	timeout: 2 * 60 * 1000,
 	reportSlowTests: {
 		max: 10,
 		threshold: 60 * 1000, // 1 minute

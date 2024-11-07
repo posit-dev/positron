@@ -4,20 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../code';
-import { Selector } from '../terminal';
-
-const TERMINAL_TAB = 'a[aria-label="Terminal (⌃`)"]';
 
 export class PositronTerminal {
 
 	constructor(private code: Code) { }
 
 	async sendKeysToTerminal(key: string) {
-		await this.code.waitAndClick(Selector.TerminalView);
+		await this.clickTerminalTab();
 		await this.code.driver.getKeyboard().press(key);
 	}
 
 	async clickTerminalTab() {
-		await this.code.waitAndClick(TERMINAL_TAB);
+		this.code.driver.page.getByRole('tab', { name: 'Terminal (⌃`)' }).locator('a').click();
 	}
 }

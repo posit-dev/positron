@@ -17,7 +17,7 @@ test.describe('Python Applications', { tag: ['@pr', '@win'] }, () => {
 			await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 			// unreliable on ubuntu:
 			// await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
-			await app.workbench.positronViewer.refreshViewer();
+			await app.workbench.positronViewer.clearViewer();
 		});
 
 		test('Python - Verify Basic Dash App [C903305]', async function ({ app, python }) {

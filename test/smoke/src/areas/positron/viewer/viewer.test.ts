@@ -13,7 +13,6 @@ test.describe('Viewer', () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronViewer.clearViewer();
-
 	});
 
 	test('Python - Verify Viewer functionality with vetiver [C784887]', async function ({ app, logger, python }) {

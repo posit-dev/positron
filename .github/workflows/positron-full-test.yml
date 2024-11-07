@@ -167,7 +167,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install Playwright browsers
+      - name: Install Playwright
         run: npx playwright install --with-deps
 
       - name: Download blob reports from GitHub Actions Artifacts
