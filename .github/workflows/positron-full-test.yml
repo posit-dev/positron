@@ -167,7 +167,8 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - run: yarn add -D playwright
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
 
       - name: Download blob reports from GitHub Actions Artifacts
         uses: actions/download-artifact@v4
