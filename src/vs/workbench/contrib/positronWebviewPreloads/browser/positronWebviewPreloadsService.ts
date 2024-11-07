@@ -123,13 +123,6 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		const messagesForNotebook: ILanguageRuntimeMessageWebOutput[] = [];
 		this._messagesByNotebookId.set(instance.id, messagesForNotebook);
-
-		// Start by processing every cell in order on initialization
-		console.log('instance cells', instance.cells.get());
-
-		// Next listen for new cells runs and then process that cell's output as it happens.
-		// instance.cells.addObserver({});
-
 	}
 
 	static notebookMessageToRuntimeOutput(message: NotebookOutput, kind: RuntimeOutputKind): ILanguageRuntimeMessageWebOutput {

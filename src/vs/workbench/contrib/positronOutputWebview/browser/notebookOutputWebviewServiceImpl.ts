@@ -26,6 +26,7 @@ import { handleWebviewLinkClicksInjection } from './downloadUtils';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { OverlayWebview } from 'vs/workbench/contrib/webview/browser/overlayWebview';
 import { WebviewElement } from 'vs/workbench/contrib/webview/browser/webviewElement';
+import { webviewMessageCodeString } from 'vs/workbench/contrib/positronWebviewPreloads/browser/notebookOutputUtils';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -390,6 +391,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		window.prompt = (message, _default) => {
 			return _default ?? 'Untitled';
 		};
+		${webviewMessageCodeString}
 	</script>
 </head>
 <body>

@@ -3,12 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-type HTMLOutputWebviewMessage = {
-	type: 'webviewMetrics';
-	bodyScrollHeight: number;
-	bodyScrollWidth: number;
-};
-
 
 export function buildWebviewHTML(opts: {
 	content: string;
@@ -46,6 +40,16 @@ tr:nth-child(even) {
 }
 `;
 
+type HTMLOutputWebviewMessage = {
+	type: 'webviewMetrics';
+	bodyScrollHeight: number;
+	bodyScrollWidth: number;
+};
+
+
+export function isHTMLOutputWebviewMessage(message: any): message is HTMLOutputWebviewMessage {
+	return message?.type === 'webviewMetrics';
+}
 
 // Helper function for TypeScript typing
 function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) => void } {
@@ -54,14 +58,15 @@ function acquireVsCodeApi(): { postMessage: (message: HTMLOutputWebviewMessage) 
 
 function webviewMessageCode() {
 	const vscode = acquireVsCodeApi();
-	// Send message on load back to Positron
-	// eslint-disable-next-line no-restricted-globals
-	window.onload = () => {
+
+	const sendSizeMessage = () => {
 		// Get body of the webview and measure content sizes
 		// eslint-disable-next-line no-restricted-syntax
 		const body = document.body;
-		const bodyScrollHeight = body.scrollHeight;
-		const bodyScrollWidth = body.scrollWidth;
+		// eslint-disable-next-line no-restricted-syntax
+		const documentElement = document.documentElement;
+		const bodyScrollHeight = body.scrollHeight || documentElement.scrollHeight;
+		const bodyScrollWidth = body.scrollWidth || documentElement.scrollWidth;
 
 		vscode.postMessage({
 			type: 'webviewMetrics',
@@ -69,6 +74,22 @@ function webviewMessageCode() {
 			bodyScrollWidth
 		});
 	};
+
+	// Create resize observer to detect size changes
+	const resizeObserver = new ResizeObserver(() => {
+		sendSizeMessage();
+	});
+
+	try {
+		// eslint-disable-next-line no-restricted-syntax
+		const documentElement = document.documentElement;
+		resizeObserver.observe(documentElement);
+	} catch (e) {
+		console.error('Error observing documentElement', e);
+	}
+	// Send message on load back to Positron
+	// eslint-disable-next-line no-restricted-globals
+	window.onload = sendSizeMessage;
 }
 
 export const webviewMessageCodeString = `(${webviewMessageCode.toString()})();`;

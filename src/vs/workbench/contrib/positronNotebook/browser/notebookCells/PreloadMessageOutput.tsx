@@ -20,7 +20,6 @@ type DisplayedPreloadMessageProps = {
 const MESSAGES = {
 	LOADING: localize('cellExecutionLoading', 'Loading...'),
 	WEBVIEW_FAILED: localize('cellExecutionWebviewFailed', 'Failed to create webview.'),
-	PRELOAD: localize('cellExecutionPreloadMessage', 'Preload message')
 } as const;
 
 export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOutputProps) {
@@ -34,7 +33,7 @@ export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOut
 	}
 
 	if (preloadMessageResult.preloadMessageType === 'preload') {
-		return <div>{MESSAGES.PRELOAD}</div>;
+		return null;
 	}
 
 	return <DisplayedPreloadMessage webview={preloadMessageResult.webview} />;
@@ -50,7 +49,7 @@ function DisplayedPreloadMessage({ webview }: DisplayedPreloadMessageProps) {
 	return (
 		<>
 			{isLoading && <div>{MESSAGES.LOADING}</div>}
-			<div ref={containerRef} style={{ height: '400px' }} />
+			<div ref={containerRef} />
 		</>
 	);
 }
