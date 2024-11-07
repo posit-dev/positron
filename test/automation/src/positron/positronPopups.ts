@@ -67,7 +67,7 @@ export class PositronPopups {
 				await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_CANCEL).click();
 				this.code.logger.log('Skipped Renv installation');
 			}
-		} catch (error) {
+		} catch {
 			this.code.logger.log('Did not find install Renv modal dialog box');
 		}
 	}
