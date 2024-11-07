@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-// eslint-disable-next-line local/code-import-patterns
 import compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
@@ -21,6 +20,7 @@ test.describe('Plots', () => {
 	test.describe('Python Plots', () => {
 		test.beforeAll(async function ({ app, interpreter }) {
 			await interpreter.set('Python');
+
 			// Set the viewport to a size that ensures all the plots view actions are visible
 			if (process.platform === 'linux') {
 				await app.code.driver.setViewportSize({ width: 1280, height: 800 });

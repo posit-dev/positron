@@ -13,20 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: ['@web', '@win', '@pr']
 }, () => {
-	test.beforeEach(async function ({ interpreter }) {
-		await interpreter.set('Python');
-	});
-
-	// test.afterAll(async function ({ app }) {
-	// 	await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-	// 	await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-	// 	await app.workbench.positronConsole.barRestartButton.click();
-	// 	await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-	// 	await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('restarted')));
-
-	// });
-
-	test('Python Pandas - Verifies basic data explorer functionality [C557556]', async function ({ app, logger }) {
+	test('Python Pandas - Verifies basic data explorer functionality [C557556]', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 		const script = `import pandas as pd
 data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
@@ -61,7 +48,7 @@ df = pd.DataFrame(data)`;
 
 	});
 
-	test('Python Pandas - Verifies data explorer functionality with empty fields [C718262]', async function ({ app, logger }) {
+	test('Python Pandas - Verifies data explorer functionality with empty fields [C718262]', async function ({ app, python, logger }) {
 		const script = `import numpy as np
 import pandas as pd
 
@@ -103,7 +90,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Pandas - Verifies data explorer column info functionality [C734263]', async function ({ app, logger }) {
+	test('Python Pandas - Verifies data explorer column info functionality [C734263]', async function ({ app, python }) {
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('20%');
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('40%');
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(3)).toBe('40%');
@@ -136,7 +123,7 @@ df2 = pd.DataFrame(data)`;
 	});
 
 	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('Python Pandas - Verifies data explorer test.afterAll modification [C557574]', async function ({ app }) {
+	test('Python Pandas - Verifies data explorer test.afterAll modification [C557574]', async function ({ app, python }) {
 		// Restart python for clean environment & open the file
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');

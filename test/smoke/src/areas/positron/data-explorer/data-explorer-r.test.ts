@@ -12,11 +12,7 @@ test.use({
 test.describe('Data Explorer - R ', {
 	tag: ['@web', '@win']
 }, () => {
-	test.beforeEach(async function ({ interpreter }) {
-		await interpreter.set('R');
-	});
-
-	test('R - Verifies basic data explorer functionality [C609620]', { tag: ['@pr'] }, async function ({ app, logger }) {
+	test('R - Verifies basic data explorer functionality [C609620]', { tag: ['@pr'] }, async function ({ app, r, logger }) {
 		// snippet from https://www.w3schools.com/r/r_data_frames.asp
 		const script = `Data_Frame <- data.frame (
 	Training = c("Strength", "Stamina", "Other"),
@@ -50,7 +46,7 @@ test.describe('Data Explorer - R ', {
 	});
 	test('R - Verifies basic data explorer column info functionality [C734265]', {
 		tag: ['@pr']
-	}, async function ({ app }) {
+	}, async function ({ app, r }) {
 		await app.workbench.positronDataExplorer.expandSummary();
 
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
@@ -80,7 +76,7 @@ test.describe('Data Explorer - R ', {
 
 	});
 
-	test('R - Open Data Explorer for the second time brings focus back [C701143]', async function ({ app }) {
+	test('R - Open Data Explorer for the second time brings focus back [C701143]', async function ({ app, r }) {
 		// Regression test for https://github.com/posit-dev/positron/issues/4197
 		const script = `Data_Frame <- mtcars`;
 		await app.workbench.positronConsole.executeCode('R', script, '>');
@@ -102,6 +98,5 @@ test.describe('Data Explorer - R ', {
 
 		await app.workbench.positronDataExplorer.closeDataExplorer();
 		await app.workbench.quickaccess.runCommand('workbench.panel.positronVariables.focus');
-
 	});
 });

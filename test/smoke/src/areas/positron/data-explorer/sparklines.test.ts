@@ -22,16 +22,14 @@ test.describe('Data Explorer - Sparklines', {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 	});
 
-	test('Python Pandas - Verifies downward trending graph [C830552]', async ({ app, interpreter }) => {
-		await interpreter.set('Python');
+	test('Python Pandas - Verifies downward trending graph [C830552]', async ({ app, python }) => {
 		await app.workbench.positronConsole.executeCode('Python', pythonScript, '>>>');
 		await openDataExplorerColumnProfile(app, 'pythonData');
 		await verifyGraphBarHeights(app);
 	});
 
 
-	test('R - Verifies downward trending graph [C830553]', async ({ app, interpreter }) => {
-		await interpreter.set('R');
+	test('R - Verifies downward trending graph [C830553]', async ({ app, r }) => {
 		await app.workbench.positronConsole.executeCode('R', rScript, '>');
 		await openDataExplorerColumnProfile(app, 'rData');
 		await verifyGraphBarHeights(app);

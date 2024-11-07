@@ -11,8 +11,7 @@ test.use({
 
 test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 	test.describe('Python Notebooks', () => {
-		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('Python');
+		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.positronLayouts.enterLayout('notebook');
 			await app.workbench.positronNotebooks.createNewNotebook();
 			await app.workbench.positronNotebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
@@ -39,8 +38,7 @@ test.describe('Notebooks', { tag: ['@pr', '@web', '@win'] }, () => {
 	});
 
 	test.describe('R Notebooks', () => {
-		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('R');
+		test.beforeEach(async function ({ app, r }) {
 			await app.workbench.positronLayouts.enterLayout('notebook');
 			await app.workbench.positronNotebooks.createNewNotebook();
 			await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);

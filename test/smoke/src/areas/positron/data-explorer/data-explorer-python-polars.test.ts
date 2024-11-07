@@ -13,11 +13,7 @@ test.use({
 test.describe('Data Explorer - Python Polars', {
 	tag: ['@win', '@web', '@pr']
 }, () => {
-	test.beforeEach(async function ({ interpreter }) {
-		await interpreter.set('Python');
-	});
-
-	test('Python Polars - Verifies basic data explorer functionality [C644538]', async function ({ app, logger }) {
+	test('Python Polars - Verifies basic data explorer functionality [C644538]', async function ({ app, python, logger }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -47,7 +43,7 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function ({ app }) {
+	test('Python Polars - Verifies basic data explorer column info functionality [C734264]', async function ({ app, python }) {
 		await app.workbench.positronDataExplorer.expandSummary();
 
 		expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
@@ -80,7 +76,7 @@ test.describe('Data Explorer - Python Polars', {
 
 	});
 
-	test('Python Polars - Add Simple Column filter [C557557]', async function ({ app }) {
+	test('Python Polars - Add Simple Column filter [C557557]', async function ({ app, python }) {
 
 		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 		await app.workbench.positronDataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
@@ -100,7 +96,7 @@ test.describe('Data Explorer - Python Polars', {
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('Python Polars - Add Simple Column Sort [C557561]', async function ({ app }) {
+	test('Python Polars - Add Simple Column Sort [C557561]', async function ({ app, python }) {
 		await app.workbench.positronDataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 		let tableData;

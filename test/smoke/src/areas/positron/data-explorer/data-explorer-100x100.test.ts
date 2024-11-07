@@ -19,9 +19,8 @@ test.describe('Data Explorer 100x100', {
 		await app.workbench.positronDataExplorer.closeDataExplorer();
 	});
 
-	test('Data Explorer 100x100 - Python - Pandas [C557563]', async function ({ app, interpreter }) {
+	test('Data Explorer 100x100 - Python - Pandas [C557563]', async function ({ app, python }) {
 		test.setTimeout(180000);
-		await interpreter.set('Python');
 
 		const dataFrameName = 'pandas100x100';
 		await testDataExplorer(
@@ -37,9 +36,8 @@ test.describe('Data Explorer 100x100', {
 		);
 	});
 
-	test('Data Explorer 100x100 - Python - Polars [C674520]', async function ({ app, interpreter }) {
+	test('Data Explorer 100x100 - Python - Polars [C674520]', async function ({ app, python }) {
 		test.setTimeout(180000);
-		await interpreter.set('Python');
 
 		const dataFrameName = 'polars100x100';
 		await testDataExplorer(
@@ -55,9 +53,8 @@ test.describe('Data Explorer 100x100', {
 		);
 	});
 
-	test('Data Explorer 100x100 - R [C674521]', async function ({ app, interpreter }) {
+	test('Data Explorer 100x100 - R [C674521]', async function ({ app, r }) {
 		test.setTimeout(180000);
-		await interpreter.set('R');
 
 		// Test the data explorer.
 		const dataFrameName = 'r100x100';

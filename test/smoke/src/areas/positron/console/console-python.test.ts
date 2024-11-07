@@ -11,11 +11,7 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: ['@web', '@win'] }, () => {
 
-	test.beforeEach(async function ({ interpreter }) {
-		await interpreter.set('Python');
-	});
-
-	test('Verify restart button inside the console [C377918]', async function ({ app }) {
+	test('Verify restart button inside the console [C377918]', async function ({ app, python }) {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.barClearButton.click();
@@ -32,7 +28,7 @@ test.describe('Console Pane: Python', { tag: ['@web', '@win'] }, () => {
 		}).toPass();
 	});
 
-	test('Verify restart button on console bar [C617464]', async function ({ app }) {
+	test('Verify restart button on console bar [C617464]', async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();

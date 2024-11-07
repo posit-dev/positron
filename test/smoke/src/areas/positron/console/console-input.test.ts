@@ -14,13 +14,11 @@ test.describe('Console Input', {
 }, () => {
 
 	test.describe('Console Input - Python', () => {
-		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('Python');
+		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 		});
 
-		test('Python - Get Input String Console [C667516]', async function ({ app, interpreter }) {
-			await interpreter.set('Python');
+		test('Python - Get Input String Console [C667516]', async function ({ app }) {
 			const inputCode = `val = input("Enter your name: ")
 print(f'Hello {val}!')`;
 
@@ -40,8 +38,7 @@ print(f'Hello {val}!')`;
 	});
 
 	test.describe('Console Input - R', () => {
-		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('R');
+		test.beforeEach(async function ({ app, r }) {
 			await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 		});
 

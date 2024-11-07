@@ -14,9 +14,7 @@ test.describe('Console Output Log', { tag: ['@web'] }, () => {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});
 
-	test('Python - Verify Console Output Log Contents [C667518]', async function ({ app, interpreter }) {
-		await interpreter.set('Python');
-
+	test('Python - Verify Console Output Log Contents [C667518]', async function ({ app, python }) {
 		const activeConsole = app.workbench.positronConsole.activeConsole;
 		await activeConsole.click();
 
@@ -31,9 +29,7 @@ test.describe('Console Output Log', { tag: ['@web'] }, () => {
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('R - Verify Console Output Log Contents [C667519]', async function ({ app, interpreter }) {
-		await interpreter.set('R');
-
+	test('R - Verify Console Output Log Contents [C667519]', async function ({ app, r }) {
 		const activeConsole = app.workbench.positronConsole.activeConsole;
 		await activeConsole.click();
 
