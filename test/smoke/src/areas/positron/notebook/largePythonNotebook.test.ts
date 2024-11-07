@@ -9,7 +9,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { expect } from '@playwright/test';
 
 // This test is too time consuming to pass on web
-describe('Large Notebooks', () => {
+describe('Large Notebooks #web #win', () => {
 	setupAndStartApp();
 
 	describe('Large Python Notebook', () => {
@@ -24,9 +24,8 @@ describe('Large Notebooks', () => {
 
 		it('Python - Large notebook execution [C983592]', async function () {
 
-			// very long timeout
-			// not recommended for web or windows
-			this.timeout(240_000);
+			// huge timeout because this is a heavy test
+			this.timeout(480_000);
 
 			await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
@@ -37,7 +36,7 @@ describe('Large Notebooks', () => {
 			const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: 'Stop Execution' });
 
 			await expect(stopExecutionLocator).toBeVisible();
-			await expect(stopExecutionLocator).not.toBeVisible({ timeout: 60000 });
+			await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
 
 			await app.workbench.quickaccess.runCommand('notebook.focusTop');
 
@@ -48,6 +47,8 @@ describe('Large Notebooks', () => {
 
 			for (let i = 0; i < 6; i++) {
 
+				// the second param to wheel (y) seems to be ignored so we send
+				// more messages instead of one with a large y value
 				for (let j = 0; j < 100; j++) {
 					await app.code.driver.page.mouse.wheel(0, 1);
 					await app.code.wait(100);
