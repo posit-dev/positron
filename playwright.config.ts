@@ -36,7 +36,7 @@ export default defineConfig<CustomTestOptions>({
 		? [
 			['github'],
 			['junit', { outputFile: 'test-results/junit.xml' }],
-			['html']
+			['blob',]
 		]
 		: [
 			['list'],
