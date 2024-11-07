@@ -11,7 +11,7 @@ test.use({
 });
 
 // MARIE: REMOVE PR TAG
-test.describe('R - New Project Wizard', { tag: ['@pr'] }, () => {
+test.describe('R - New Project Wizard', { tag: ['@marie'] }, () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test('R - Project Defaults [C627913]', {

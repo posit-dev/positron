@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 // MARIE: REMOVE PR TAG
-test.describe('Python - New Project Wizard', { tag: ['@pr'] }, () => {
+test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 	test.slow();
 
 	test('With ipykernel already installed [C609619]', async function ({ app }) {
