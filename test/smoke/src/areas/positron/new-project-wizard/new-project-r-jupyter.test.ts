@@ -10,7 +10,9 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R - New Project Wizard', { tag: ['@pr'] }, () => {
+test.describe('R - New Project Wizard', () => {
+	test.describe.configure({ mode: 'serial' });
+
 	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -69,7 +71,7 @@ test.describe('R - New Project Wizard', { tag: ['@pr'] }, () => {
 	});
 
 	test('R - Renv already installed [C656251]', async function ({ app }) {
-		// Renv will already be installed from the previous test
+		// Renv will already be installed from the previous test - which is why tests are marked as "serial"
 		const projSuffix = addRandomNumSuffix('_renvAlreadyInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.R_PROJECT);
