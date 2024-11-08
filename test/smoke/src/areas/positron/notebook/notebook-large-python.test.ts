@@ -3,72 +3,63 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// import { join } from 'path';
-// import { Application, PositronNotebooks, PositronPythonFixtures } from '../../../../../automation/out';
-// import { setupAndStartApp } from '../../../test-runner/test-hooks';
-// import { expect } from '@playwright/test';
+import { join } from 'path';
+import { test, expect } from '../_test.setup';
 
-// // Note that this test is too heavy to pass on web and windows
-// describe('Large Notebooks', () => {
-// 	setupAndStartApp();
+test.use({
+	suiteId: __filename
+});
 
-// 	describe('Large Python Notebook', () => {
-// 		let app: Application;
-// 		let notebooks: PositronNotebooks;
 
-// 		before(async function () {
-// 			app = this.app as Application;
-// 			notebooks = app.workbench.positronNotebooks;
-// 			await PositronPythonFixtures.SetupFixtures(app);
-// 		});
+// Note that this test is too heavy to pass on web and windows
 
-// 		it('Python - Large notebook execution [C983592]', async function () {
+test.describe('Large Python Notebook', () => {
 
-// 			// huge timeout because this is a heavy test
-// 			this.timeout(480_000);
+	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
+		test.slow();
+		test.setTimeout(480_000); // huge timeout because this is a heavy test
+		const notebooks = app.workbench.positronNotebooks;
 
-// 			await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 
-// 			await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
+		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
+		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-// 			await app.code.driver.page.getByText('Run All').click();
+		await app.code.driver.page.getByText('Run All').click();
 
-// 			const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: 'Stop Execution' });
+		const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: 'Stop Execution' });
+		await expect(stopExecutionLocator).toBeVisible();
+		await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
 
-// 			await expect(stopExecutionLocator).toBeVisible();
-// 			await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
+		await app.workbench.quickaccess.runCommand('notebook.focusTop');
+		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
-// 			await app.workbench.quickaccess.runCommand('notebook.focusTop');
+		const allFigures: any[] = [];
+		const uniqueLocators = new Set<string>();
 
-// 			await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
+		for (let i = 0; i < 6; i++) {
 
-// 			const allFigures: any[] = [];
-// 			const uniqueLocators = new Set<string>();
+			// the second param to wheel (y) seems to be ignored so we send
+			// more messages instead of one with a large y value
+			await test.step('just scrolling...', async () => {
+				for (let j = 0; j < 100; j++) {
+					await app.code.driver.page.mouse.wheel(0, 1);
+					await app.code.driver.page.waitForTimeout(100);
+				}
+			});
 
-// 			for (let i = 0; i < 6; i++) {
+			const figureLocator = app.workbench.positronNotebooks.frameLocator.locator('.plot-container');
+			const figures = await figureLocator.all();
 
-// 				// the second param to wheel (y) seems to be ignored so we send
-// 				// more messages instead of one with a large y value
-// 				for (let j = 0; j < 100; j++) {
-// 					await app.code.driver.page.mouse.wheel(0, 1);
-// 					await app.code.wait(100);
-// 				}
+			if (figures!.length > 0) {
+				for (const figure of figures!) {
+					if (!uniqueLocators.has(figure.toString())) {
+						allFigures.push(figure);
+						uniqueLocators.add(figure.toString());
+					}
+				}
+			}
+		}
 
-// 				const figureLocator = app.workbench.positronNotebooks.frameLocator.locator('.plot-container');
-// 				const figures = await figureLocator.all();
-
-// 				if (figures!.length > 0) {
-// 					for (const figure of figures!) {
-// 						if (!uniqueLocators.has(figure.toString())) {
-// 							allFigures.push(figure);
-// 							uniqueLocators.add(figure.toString());
-// 						}
-// 					}
-// 				}
-// 			}
-
-// 			expect(allFigures.length).toBeGreaterThan(20);
-
-// 		});
-// 	});
-// });
+		expect(allFigures.length).toBeGreaterThan(20);
+	});
+});
