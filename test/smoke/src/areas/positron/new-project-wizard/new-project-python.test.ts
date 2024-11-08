@@ -3,22 +3,71 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
+import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { test, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-// MARIE: REMOVE PR TAG
 test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
+	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app }) {
+		// This is the default behavior for a new Python Project in the Project Wizard
+		const projSuffix = addRandomNumSuffix('_new_venv');
+		const pw = app.workbench.positronNewProjectWizard;
+		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myPythonProject${projSuffix}`);
+		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	});
 
-	test('With ipykernel already installed [C609619]', async function ({ app, python }) {
+	test('Create a new Conda environment [C628628]', async function ({ app }) {
+		// This test relies on Conda already being installed on the machine
+		test.slow();
+		const projSuffix = addRandomNumSuffix('_condaInstalled');
+		const pw = app.workbench.positronNewProjectWizard;
+		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		// Select 'Conda' as the environment provider
+		await pw.pythonConfigurationStep.selectEnvProvider('Conda');
+		await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+			`myPythonProject${projSuffix}`
+		);
+		// Check that the `.conda` folder gets created in the project
+		await expect(async () => {
+			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
+			expect(projectFiles).toContain('.conda');
+		}).toPass({ timeout: 50000 });
+		// The console should initialize without any prompts to install ipykernel
+		await app.workbench.positronConsole.waitForReady('>>>', 40000);
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	});
+
+	test('With ipykernel already installed [C609619]', async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
-		const interpreterInfo = await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
-		await installIpykernel(app);
-
+		const pythonFixtures = new PositronPythonFixtures(app);
+		// Start the Python interpreter and ensure ipykernel is installed
+		await pythonFixtures.startAndGetPythonInterpreter(true);
+		// Ensure the console is ready with the selected interpreter
+		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		const interpreterInfo =
+			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
+		expect(interpreterInfo?.path).toBeDefined();
+		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -39,8 +88,11 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		// await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
-		// await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+			`myPythonProject${projSuffix}`
+		);
+		// The console should initialize without any prompts to install ipykernel
+		await app.workbench.positronConsole.waitForReady('>>>', 10000);
 	});
 
 	test('With ipykernel not already installed [C609617]', async function ({ app }) {
@@ -49,12 +101,17 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 		const pythonFixtures = new PositronPythonFixtures(app);
 		// Start the Python interpreter and uninstall ipykernel
 		await pythonFixtures.startAndGetPythonInterpreter(true);
+		// Ensure the console is ready with the selected interpreter
+		await app.workbench.positronConsole.waitForReady('>>>', 10000);
 		const interpreterInfo =
 			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
-		await uninstallIpykernel(app);
-
+		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
+			contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
+		);
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -79,14 +136,15 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 		);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		// await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
-
-		// // If ipykernel was successfully installed during the new project initialization,
-		// // the console should be ready without any prompts to install ipykernel
-		// await app.workbench.positronConsole.waitForReady('>>>', 10000);
-		// await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		// await app.workbench.positronConsole.barClearButton.click();
-		// await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
+			`myPythonProject${projSuffix}`
+		);
+		// If ipykernel was successfully installed during the new project initialization,
+		// the console should be ready without any prompts to install ipykernel
+		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Default Python Project with git init [C674522]', { tag: ['@pr', '@win'] }, async function ({ app }) {
@@ -128,15 +186,3 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 function addRandomNumSuffix(name: string): string {
 	return `${name}_${Math.floor(Math.random() * 1000000)}`;
 }
-
-const installIpykernel = async (app: Application) => {
-	await app.code.driver.page.getByRole('tab', { name: 'Terminal' }).click();
-	await app.workbench.terminal.runCommandInTerminal('pip install ipykernel');
-	await expect(app.code.driver.page.getByText(/Successfully installed ipykernel|Requirement already satisfied/).first()).toBeVisible({ timeout: 30000 });
-};
-
-const uninstallIpykernel = async (app: Application) => {
-	await app.code.driver.page.getByRole('tab', { name: 'Terminal' }).click();
-	await app.workbench.terminal.runCommandInTerminal('pip uninstall -y ipykernel');
-	await expect(app.code.driver.page.getByText(/Successfully uninstalled ipykernel|Skipping ipykernel as it is not installed/).first()).toBeVisible({ timeout: 30000 });
-};
