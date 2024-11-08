@@ -26,10 +26,6 @@ type Positron = typeof positron;
 const mockedPositron: Partial<Positron> = {};
 export const mockedPositronNamespaces: { [P in keyof Positron]?: Positron[P] } = {};
 
-// TODO(seem): mockedPositron is currently empty. We can update it as needed as we add tests.
-
-import { patchMockingLibs } from './positron/initialize';
-
 function generatePositronMock<K extends keyof Positron>(name: K): void {
     const mockedObj = mock<Positron[K]>();
     (mockedPositron as any)[name] = instance(mockedObj);
@@ -107,11 +103,6 @@ export function initialize() {
         }
         return originalLoad.apply(this, arguments);
     };
-
-    // --- Start Positron ---
-    // See patchMockingLibs docs for why this is necessary.
-    patchMockingLibs();
-    // --- End Positron ---
 }
 
 mockedVSCode.ThemeIcon = vscodeMocks.ThemeIcon;
