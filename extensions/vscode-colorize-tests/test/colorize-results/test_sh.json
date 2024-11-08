@@ -1700,7 +1700,7 @@
 		}
 	},
 	{
-		"c": "./scripts/npm.sh",
+		"c": "npm",
 		"t": "source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.statement.command.name.shell entity.name.function.call.shell entity.name.command.shell",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
@@ -1720,7 +1720,7 @@
 		}
 	},
 	{
-		"c": "install",
+		"c": "i",
 		"t": "source.shell meta.function.shell meta.function.body.shell meta.statement.shell meta.statement.command.shell meta.argument.shell string.unquoted.argument.shell",
 		"r": {
 			"hc_black": "string: #CE9178",

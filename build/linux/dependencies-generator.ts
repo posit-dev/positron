@@ -19,7 +19,6 @@ import { isRpmArchString, RpmArchString } from './rpm/types';
 // which we don't need.
 // import product = require('../../product.json');
 // --- End Positron --
-import { isESM } from '../lib/esm';
 
 // A flag that can easily be toggled.
 // Make sure to compile the build directory after toggling the value.
@@ -34,7 +33,7 @@ import { isESM } from '../lib/esm';
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
 
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/124.0.6367.243:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/128.0.6613.186:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [
@@ -56,7 +55,7 @@ export async function getDependencies(packageType: 'deb' | 'rpm', buildDir: stri
 	}
 
 	// Get the files for which we want to find dependencies.
-	const canAsar = !isESM('ASAR disabled in Linux builds'); // TODO@esm ASAR disabled in ESM
+	const canAsar = false; // TODO@esm ASAR disabled in ESM
 	const nativeModulesPath = path.join(buildDir, 'resources', 'app', canAsar ? 'node_modules.asar.unpacked' : 'node_modules');
 	const findResult = spawnSync('find', [nativeModulesPath, '-name', '*.node']);
 	if (findResult.status) {

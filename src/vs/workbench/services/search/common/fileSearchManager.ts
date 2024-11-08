@@ -3,18 +3,17 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'vs/base/common/path';
-import { CancellationToken, CancellationTokenSource } from 'vs/base/common/cancellation';
-import { toErrorMessage } from 'vs/base/common/errorMessage';
-import * as glob from 'vs/base/common/glob';
-import * as resources from 'vs/base/common/resources';
-import { StopWatch } from 'vs/base/common/stopwatch';
-import { URI } from 'vs/base/common/uri';
-import { IFileMatch, IFileSearchProviderStats, IFolderQuery, ISearchCompleteStats, IFileQuery, QueryGlobTester, resolvePatternsForProvider, hasSiblingFn, excludeToGlobPattern, DEFAULT_MAX_SEARCH_RESULTS } from 'vs/workbench/services/search/common/search';
-import { FileSearchProviderFolderOptions, FileSearchProviderNew, FileSearchProviderOptions } from 'vs/workbench/services/search/common/searchExtTypes';
-import { TernarySearchTree } from 'vs/base/common/ternarySearchTree';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { OldFileSearchProviderConverter } from 'vs/workbench/services/search/common/searchExtConversionTypes';
+import * as path from '../../../../base/common/path.js';
+import { CancellationToken, CancellationTokenSource } from '../../../../base/common/cancellation.js';
+import { toErrorMessage } from '../../../../base/common/errorMessage.js';
+import * as glob from '../../../../base/common/glob.js';
+import * as resources from '../../../../base/common/resources.js';
+import { StopWatch } from '../../../../base/common/stopwatch.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IFileMatch, IFileSearchProviderStats, IFolderQuery, ISearchCompleteStats, IFileQuery, QueryGlobTester, resolvePatternsForProvider, hasSiblingFn, excludeToGlobPattern, DEFAULT_MAX_SEARCH_RESULTS } from './search.js';
+import { FileSearchProviderFolderOptions, FileSearchProviderNew, FileSearchProviderOptions } from './searchExtTypes.js';
+import { OldFileSearchProviderConverter } from './searchExtConversionTypes.js';
+import { FolderQuerySearchTree } from './folderQuerySearchTree.js';
 
 interface IInternalFileMatch {
 	base: URI;
@@ -126,13 +125,13 @@ class FileSearchEngine {
 		};
 
 
-		const folderMappings: TernarySearchTree<URI, FolderQueryInfo> = TernarySearchTree.forUris<FolderQueryInfo>();
-		fqs.forEach(fq => {
+		const getFolderQueryInfo = (fq: IFolderQuery) => {
 			const queryTester = new QueryGlobTester(this.config, fq);
 			const noSiblingsClauses = !queryTester.hasSiblingExcludeClauses();
-			folderMappings.set(fq.folder, { queryTester, noSiblingsClauses, folder: fq.folder, tree: this.initDirectoryTree() });
-		});
+			return { queryTester, noSiblingsClauses, folder: fq.folder, tree: this.initDirectoryTree() };
+		};
 
+		const folderMappings: FolderQuerySearchTree<FolderQueryInfo> = new FolderQuerySearchTree<FolderQueryInfo>(fqs, getFolderQueryInfo);
 
 		let providerSW: StopWatch;
 
@@ -154,8 +153,7 @@ class FileSearchEngine {
 
 			if (results) {
 				results.forEach(result => {
-
-					const fqFolderInfo = folderMappings.findSubstr(result)!;
+					const fqFolderInfo = folderMappings.findQueryFragmentAwareSubstr(result)!;
 					const relativePath = path.posix.relative(fqFolderInfo.folder.path, result.path);
 
 					if (fqFolderInfo.noSiblingsClauses) {
@@ -174,7 +172,7 @@ class FileSearchEngine {
 				return null;
 			}
 
-			folderMappings.forEach(e => {
+			folderMappings.forEachFolderQueryInfo(e => {
 				this.matchDirectoryTree(e.tree, e.queryTester, onResult);
 			});
 
@@ -307,19 +305,26 @@ interface IInternalSearchComplete {
 /**
  * For backwards compatibility, store both a cancellation token and a session object. The session object is the new implementation, where
  */
-class SessionLifecycle extends Disposable {
-	public readonly obj: object;
+class SessionLifecycle {
+	private _obj: object | undefined;
 	public readonly tokenSource: CancellationTokenSource;
 
 	constructor() {
-		super();
-		this.obj = new Object();
+		this._obj = new Object();
 		this.tokenSource = new CancellationTokenSource();
 	}
 
-	public override dispose(): void {
+	public get obj() {
+		if (this._obj) {
+			return this._obj;
+		}
+
+		throw new Error('Session object has been dereferenced.');
+	}
+
+	cancel() {
 		this.tokenSource.cancel();
-		super.dispose();
+		this._obj = undefined; // dereference
 	}
 }
 
@@ -356,7 +361,7 @@ export class FileSearchManager {
 
 	clearCache(cacheKey: string): void {
 		// cancel the token
-		this.sessions.get(cacheKey)?.dispose();
+		this.sessions.get(cacheKey)?.cancel();
 		// with no reference to this, it will be removed from WeakMaps
 		this.sessions.delete(cacheKey);
 	}

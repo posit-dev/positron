@@ -1,7 +1,7 @@
 [
 	{
 		"c": "test1",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": "dsd",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "test2",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": "abc-def",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -101,7 +101,7 @@
 	},
 	{
 		"c": "test-3",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -141,7 +141,7 @@
 	},
 	{
 		"c": "abcdef",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -151,7 +151,7 @@
 	},
 	{
 		"c": "test-4",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.key.yaml string.unquoted.plain.yaml entity.name.tag.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
 		"r": {
 			"hc_black": "entity.name.tag: #569CD6",
 			"positron_dark": "entity.name.tag: #569CD6",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -171,7 +171,7 @@
 	},
 	{
 		"c": ":",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.separator.map.value.yaml",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -181,7 +181,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml punctuation.whitespace.separator.yaml",
+		"t": "source.yaml",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -191,7 +191,7 @@
 	},
 	{
 		"c": "abc-def",
-		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",

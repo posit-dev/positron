@@ -99,7 +99,6 @@ module.exports.indentationFilter = [
 	'!src/vs/base/node/cpuUsage.sh',
 	'!src/vs/editor/common/languages/highlights/*.scm',
 	'!test/unit/assert.js',
-	'!test/unit/assert-esm.js',
 	'!resources/linux/snap/electron-launch',
 	'!build/ext.js',
 	'!build/npm/gyp/patches/gyp_spectre_mitigation_support.patch',
@@ -121,8 +120,7 @@ module.exports.indentationFilter = [
 
 	// except multiple specific files
 	'!**/package.json',
-	'!**/yarn.lock',
-	'!**/yarn-error.log',
+	'!**/package-lock.json',
 
 	// except multiple specific folders
 	'!**/codicon/**',
@@ -203,6 +201,7 @@ module.exports.copyrightFilter = [
 	'!extensions/markdown-language-features/media/highlight.css',
 	'!extensions/markdown-math/notebook-out/**',
 	'!extensions/ipynb/notebook-out/**',
+	'!extensions/simple-browser/media/codicon.css',
 	'!extensions/typescript-language-features/node-maintainer/**',
 	'!extensions/html-language-features/server/src/modes/typescript/*',
 	'!extensions/*/server/bin/*',
@@ -235,14 +234,16 @@ module.exports.tsFormattingFilter = [
 
 module.exports.eslintFilter = [
 	'**/*.js',
+	'**/*.cjs',
+	'**/*.mjs',
 	'**/*.ts',
 	// --- Start Positron ---
 	'**/*.tsx',
 	// --- End Positron ---
-	...readFileSync(join(__dirname, '../.eslintignore'))
-		.toString().split(/\r\n|\n/)
-		.filter(line => !line.startsWith('#'))
-		.filter(line => !!line)
+	...readFileSync(join(__dirname, '..', '.eslint-ignore'))
+		.toString()
+		.split(/\r\n|\n/)
+		.filter(line => line && !line.startsWith('#'))
 		.map(line => line.startsWith('!') ? line.slice(1) : `!${line}`)
 ];
 
