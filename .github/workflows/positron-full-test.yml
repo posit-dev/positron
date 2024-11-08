@@ -135,18 +135,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        # run: DISPLAY=:10 yarn smoketest-all --tracing --skip-cleanup
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
-
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
@@ -154,6 +143,14 @@ jobs:
         with:
           name: blob-report-electron-${{ matrix.shardIndex }}
           path: blob-report
+          retention-days: 1
+
+      - name: Upload junit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report-electron-${{ matrix.shardIndex }}
+          path: test-results
           retention-days: 1
 
   e2e-browser-tests:
@@ -213,6 +210,13 @@ jobs:
           path: blob-report
           retention-days: 1
 
+      - name: Upload junit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report-browser
+          path: test-results
+
       - name: Clean up license files
         if: always()
         run: cd .. && rm -rf positron-license
@@ -247,6 +251,26 @@ jobs:
           name: html-report--attempt-${{ github.run_attempt }}
           path: playwright-report
           retention-days: 14
+
+      - name: Download junit reports from GitHub Actions Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-junit-reports
+          pattern: junit-report-*
+          merge-multiple: true
+
+      - name: Merge into JUnit Report
+        run: npx junit-report-merger --input=all-junit-reports --output=junit.xml
+
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: ${{ !cancelled() }}
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail (Electron ONLY)
+        id: testrail-upload
+        if: ${{ !cancelled() }}
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
   # slack-notification:
   #   name: "slack-notification"
