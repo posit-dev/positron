@@ -9,7 +9,7 @@
 **/extensions/ipynb/notebook-out/**
 # --- Start Positron ---
 # Ignore OpenAPI generated files
-**/extensions/kallichore-adapter/src/kcclient/**
+**/extensions/positron-supervisor/src/kcclient/**
 # --- End Positron ---
 **/extensions/markdown-language-features/media/**
 **/extensions/markdown-language-features/notebook-out/**

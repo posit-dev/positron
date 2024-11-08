@@ -1,0 +1,16 @@
+{
+	"displayName": "Positron Kernel Supervisor",
+	"description": "Runs Jupyter Kernels in the Positron Jupyter Kernel Supervisor",
+	"configuration.logLevel.error.description": "Errors only",
+	"configuration.logLevel.warn.description": "Errors and warnings",
+	"configuration.logLevel.info.description": "Informational messages",
+	"configuration.logLevel.debug.description": "Debug messages",
+	"configuration.logLevel.trace.description": "Verbose tracing messages",
+	"configuration.logLevel.description": "Log level for the kernel supervisor (restart Positron to apply)",
+	"configuration.enable.description": "Run Jupyter kernels under the Positron kernel supervisor.",
+	"configuration.showTerminal.description": "Show the host terminal for the Positron kernel supervisor",
+	"configuration.attachOnStartup.description": "Run <f5> before starting up Jupyter kernel (when supported)",
+	"configuration.sleepOnStartup.description": "Sleep for n seconds before starting up Jupyter kernel (when supported)",
+	"command.positron.supervisor.category": "Kernel Supervisor",
+	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log"
+}
