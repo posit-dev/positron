@@ -10,12 +10,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
-import { KallichoreAdapterApi } from './kallichore-adapter';
+import { KallichoreAdapterApi } from './positron-supervisor';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
-import { Barrier, PromiseHandles } from './async';
+import { Barrier, createUniqueId, PromiseHandles } from './async';
+import { LogStreamer } from './LogStreamer';
 
-const KALLICHORE_STATE_KEY = 'kallichore-adapter.v2';
+const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
 /**
  * The persisted state of the Kallichore server. This metadata is saved in
@@ -37,6 +38,9 @@ interface KallichoreServerState {
 
 	/** The bearer token used to authenticate with the server */
 	bearer_token: string;
+
+	/** The path to the log file */
+	log_path: string;
 }
 
 export class KCApi implements KallichoreAdapterApi {
@@ -60,6 +64,11 @@ export class KCApi implements KallichoreAdapterApi {
 	private readonly _sessions: Array<KallichoreSession> = [];
 
 	/**
+	 * The streamer for the Kallichore server logs
+	 */
+	private _logStreamer: LogStreamer | undefined;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -67,15 +76,15 @@ export class KCApi implements KallichoreAdapterApi {
 	 */
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
-		private readonly _log: vscode.LogOutputChannel) {
+		private readonly _log: vscode.OutputChannel) {
 
 		this._api = new DefaultApi();
 
 		// If the Kallichore server is enabled in the configuration, start it
 		// eagerly so it's warm when we start trying to create or restore sessions.
-		if (vscode.workspace.getConfiguration('kallichoreSupervisor').get<boolean>('enabled')) {
+		if (vscode.workspace.getConfiguration('positronKernelSupervisor').get<boolean>('enabled')) {
 			this.ensureStarted().catch((err) => {
-				this._log.error(`Failed to start Kallichore server: ${err}`);
+				this._log.appendLine(`Failed to start Kallichore server: ${err}`);
 			});
 		}
 	}
@@ -135,11 +144,11 @@ export class KCApi implements KallichoreAdapterApi {
 					// reconnect to the server saved in the state, and it's
 					// normal for it to have exited if this is a new Positron
 					// session.
-					this._log.info(`Could not reconnect to Kallichore server ` +
+					this._log.appendLine(`Could not reconnect to Kallichore server ` +
 						`at ${serverState.base_path}. Starting a new server`);
 				}
 			} catch (err) {
-				this._log.error(`Failed to reconnect to Kallichore server ` +
+				this._log.appendLine(`Failed to reconnect to Kallichore server ` +
 					` at ${serverState.base_path}: ${err}. Starting a new server.`);
 			}
 		}
@@ -150,7 +159,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 
 		// Get the log level from the configuration
-		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
 
 		// Export the Positron version as an environment variable
@@ -162,12 +171,15 @@ export class KCApi implements KallichoreAdapterApi {
 			'POSITRON_MODE': vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server',
 		};
 
-		// Create a 16 hex digit UUID for the bearer token
-		const bearerToken = Math.floor(Math.random() * 0x100000000).toString(16);
+		// Create a server session ID (8 characters)
+		const sessionId = createUniqueId();
+
+		// Create unique bearer token for this session
+		const bearerToken = createUniqueId() + createUniqueId();
 
 		// Write it to a temporary file. Kallichore will delete it after reading
 		// the secret.
-		const tokenPath = path.join(os.tmpdir(), `kallichore-${bearerToken}.token`);
+		const tokenPath = path.join(os.tmpdir(), `kallichore-${sessionId}.token`);
 		fs.writeFileSync(tokenPath, bearerToken, 'utf8');
 
 		// Change the permissions on the file so only the current user can read it
@@ -186,12 +198,20 @@ export class KCApi implements KallichoreAdapterApi {
 		// Consult configuration to see if we should show this terminal
 		const showTerminal = config.get<boolean>('showTerminal', false);
 
+		// Create a temporary file with a random name to use for logs
+		const logFile = path.join(os.tmpdir(), `kallichore-${sessionId}.log`);
+
 		// Start the server in a new terminal
-		this._log.info(`Starting Kallichore server ${shellPath} on port ${port}`);
+		this._log.appendLine(`Starting Kallichore server ${shellPath} on port ${port}`);
 		const terminal = vscode.window.createTerminal(<vscode.TerminalOptions>{
 			name: 'Kallichore',
 			shellPath: shellPath,
-			shellArgs: ['--port', port.toString(), '--token', tokenPath],
+			shellArgs: [
+				'--port', port.toString(),
+				'--token', tokenPath,
+				'--log-level', logLevel,
+				'--log-file', logFile,
+			],
 			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: !showTerminal,
@@ -211,7 +231,7 @@ export class KCApi implements KallichoreAdapterApi {
 		for (let retry = 0; retry < 40; retry++) {
 			try {
 				const status = await this._api.serverStatus();
-				this._log.info(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
+				this._log.appendLine(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
 				break;
 			} catch (err) {
 				const elapsed = Date.now() - startTime;
@@ -226,14 +246,14 @@ export class KCApi implements KallichoreAdapterApi {
 						// the logs, and it's normal for us to encounter a few
 						// connection refusals before the server is ready.
 						if (retry % 5 === 0) {
-							this._log.debug(`Waiting for Kallichore server to start (attempt ${retry + 1}, ${elapsed}ms)`);
+							this._log.appendLine(`Waiting for Kallichore server to start (attempt ${retry + 1}, ${elapsed}ms)`);
 						}
 						// Wait a bit and try again
 						await new Promise((resolve) => setTimeout(resolve, 50));
 						continue;
 					} else {
 						// Give up; it shouldn't take this long to start
-						this._log.error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
+						this._log.appendLine(`Kallichore server did not start after ${Date.now() - startTime}ms`);
 						throw new Error(`Kallichore server did not start after ${Date.now() - startTime}ms`);
 					}
 				}
@@ -242,26 +262,37 @@ export class KCApi implements KallichoreAdapterApi {
 				// it hasn't been more than 10 seconds since we started. This
 				// can happen if the server is slow to start.
 				if (err.code === 'ETIMEDOUT' && elapsed < 10000) {
-					this._log.info(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
+					this._log.appendLine(`Request for server status timed out; retrying (attempt ${retry + 1}, ${elapsed}ms)`);
 					continue;
 				}
 
-				this._log.error(`Failed to get initial server status from Kallichore; ` +
+				this._log.appendLine(`Failed to get initial server status from Kallichore; ` +
 					`server may not be running or may not be ready. Check the terminal for errors. ` +
 					`Error: ${JSON.stringify(err)}`);
 				throw err;
 			}
 		}
 
+		this._log.appendLine(`Kallichore server started in ${Date.now() - startTime}ms`);
+
+		// Begin streaming the logs (cleaning up any existing streamer)
+		if (this._logStreamer) {
+			this._logStreamer.dispose();
+		}
+		this._logStreamer = new LogStreamer(this._log, logFile);
+		this._logStreamer.watch().then(() => {
+			this._log.appendLine(`Streaming Kallichore server logs from ${logFile} (log level: ${logLevel})`);
+		});
+
 		// Open the started barrier and save the server state since we're online
-		this._log.debug(`Kallichore server started in ${Date.now() - startTime}ms`);
 		this._started.open();
 		const state: KallichoreServerState = {
 			base_path: this._api.basePath,
 			port,
 			server_path: shellPath,
 			server_pid: await terminal.processId || 0,
-			bearer_token: bearerToken
+			bearer_token: bearerToken,
+			log_path: logFile
 		};
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
@@ -277,26 +308,40 @@ export class KCApi implements KallichoreAdapterApi {
 	async reconnect(serverState: KallichoreServerState): Promise<boolean> {
 		// Check to see if the pid is still running
 		const pid = serverState.server_pid;
-		this._log.info(`Reconnecting to Kallichore server at ${serverState.base_path} (PID ${pid})`);
 		if (pid) {
 			try {
 				process.kill(pid, 0);
 			} catch (err) {
-				this._log.warn(`Kallichore server PID ${pid} is not running`);
+				this._log.appendLine(`Kallichore server PID ${pid} is not running`);
 				return false;
 			}
 		}
+
+		// Clear logs from previous connection; since we don't maintain our
+		// position in the log file, we'll wind up with duplicate logs after
+		// reconnecting.
+		this._log.clear();
+		this._log.appendLine(`Reconnecting to Kallichore server at ${serverState.base_path} (PID ${pid})`);
 
 		// Re-establish the bearer token
 		const bearer = new HttpBearerAuth();
 		bearer.accessToken = serverState.bearer_token;
 		this._api.setDefaultAuthentication(bearer);
 
+		// Re-establish the log stream
+		if (this._logStreamer) {
+			this._logStreamer.dispose();
+		}
+		this._logStreamer = new LogStreamer(this._log, serverState.log_path);
+		this._logStreamer.watch().then(() => {
+			this._log.appendLine(`Streaming Kallichore server logs at ${serverState.log_path}`);
+		});
+
 		// Reconnect and get the session list
 		this._api.basePath = serverState.base_path;
 		const status = await this._api.serverStatus();
 		this._started.open();
-		this._log.info(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
+		this._log.appendLine(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
 		return true;
 	}
 
@@ -326,7 +371,7 @@ export class KCApi implements KallichoreAdapterApi {
 		const session = new KallichoreSession(
 			sessionMetadata, runtimeMetadata, dynState, this._api, true, _extra);
 
-		this._log.info(`Creating session: ${JSON.stringify(sessionMetadata)}`);
+		this._log.appendLine(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
 		// Create the session on the server
 		try {
@@ -335,7 +380,7 @@ export class KCApi implements KallichoreAdapterApi {
 			// If the connection was refused, check the server status; this
 			// suggests that the server may have exited
 			if (err.code === 'ECONNREFUSED') {
-				this._log.warn(`Connection refused while attempting to create session; checking server status`);
+				this._log.appendLine(`Connection refused while attempting to create session; checking server status`);
 				await this.testServerExited();
 			}
 
@@ -362,7 +407,7 @@ export class KCApi implements KallichoreAdapterApi {
 				// The websocket disconnected while the session was still
 				// running. This could signal a problem with the supervisor; we
 				// should see if it's still running.
-				this._log.info(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
+				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
 				await this.testServerExited();
 			}
 		});
@@ -394,7 +439,7 @@ export class KCApi implements KallichoreAdapterApi {
 
 		// If there's no server state, return as we can't check its status
 		if (!serverState) {
-			this._log.warn(`No Kallichore server state found; cannot test server process`);
+			this._log.appendLine(`No Kallichore server state found; cannot test server process`);
 			return;
 		}
 
@@ -405,9 +450,9 @@ export class KCApi implements KallichoreAdapterApi {
 		if (serverState.server_pid) {
 			try {
 				process.kill(serverState.server_pid, 0);
-				this._log.info(`Kallichore server PID ${serverState.server_pid} is still running`);
+				this._log.appendLine(`Kallichore server PID ${serverState.server_pid} is still running`);
 			} catch (err) {
-				this._log.warn(`Kallichore server PID ${serverState.server_pid} is not running`);
+				this._log.appendLine(`Kallichore server PID ${serverState.server_pid} is not running`);
 				serverRunning = false;
 			}
 		}
@@ -425,6 +470,12 @@ export class KCApi implements KallichoreAdapterApi {
 		// they cannot live without the supervisor.
 		for (const session of this._sessions) {
 			session.markExited(1, positron.RuntimeExitReason.Error);
+		}
+
+		// Stop streaming the logs from the old server
+		if (this._logStreamer) {
+			this._logStreamer.dispose();
+			this._logStreamer = undefined;
 		}
 
 		// Reset the start barrier and start the server again.
@@ -463,7 +514,7 @@ export class KCApi implements KallichoreAdapterApi {
 				// while we were disconnected.
 				const kcSession = response.body;
 				if (kcSession.status === Status.Exited) {
-					this._log.error(`Attempt to reconnect to session ${sessionMetadata.sessionId} failed because it is no longer running`);
+					this._log.appendLine(`Attempt to reconnect to session ${sessionMetadata.sessionId} failed because it is no longer running`);
 					reject(`Session ${sessionMetadata.sessionName} (${sessionMetadata.sessionId}) is no longer running`);
 					return;
 				}
@@ -478,9 +529,9 @@ export class KCApi implements KallichoreAdapterApi {
 				try {
 					session.restore(kcSession);
 				} catch (err) {
-					this._log.error(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+					this._log.appendLine(`Failed to restore session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 					if (err.code === 'ECONNREFUSED') {
-						this._log.warn(`Connection refused while attempting to restore session; checking server status`);
+						this._log.appendLine(`Connection refused while attempting to restore session; checking server status`);
 						await this.testServerExited();
 					}
 					reject(err);
@@ -491,10 +542,10 @@ export class KCApi implements KallichoreAdapterApi {
 				resolve(session);
 			}).catch((err) => {
 				if (err instanceof HttpError) {
-					this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
+					this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
 					reject(err.body.message);
 				} else {
-					this._log.error(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+					this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 					reject(err);
 				}
 			});
@@ -520,6 +571,12 @@ export class KCApi implements KallichoreAdapterApi {
 		// Dispose of each session
 		this._sessions.forEach(session => session.dispose());
 		this._sessions.length = 0;
+
+		// Dispose of the log streamer
+		if (this._logStreamer) {
+			this._logStreamer.dispose();
+			this._logStreamer = undefined;
+		}
 	}
 
 	findAvailablePort(excluding: Array<number>, maxTries: number): Promise<number> {
@@ -540,7 +597,7 @@ export class KCApi implements KallichoreAdapterApi {
 		// Look for locally built Debug or Release server binaries. If both exist, we'll use
 		// whichever is newest. This is the location where the kernel is typically built
 		// by developers, who have `positron` and `kallichore` directories side-by-side.
-		let devBinary;
+		let devBinary: string | undefined;
 		const positronParent = path.dirname(path.dirname(path.dirname(this._context.extensionPath)));
 		const devDebugBinary = path.join(positronParent, 'kallichore', 'target', 'debug', serverBin);
 		const devReleaseBinary = path.join(positronParent, 'kallichore', 'target', 'release', serverBin);
@@ -553,7 +610,7 @@ export class KCApi implements KallichoreAdapterApi {
 			devBinary = devReleaseBinary;
 		}
 		if (devBinary) {
-			this._log.info(`Loading Kallichore from disk in adjacent repository (${devBinary}). Make sure it's up-to-date.`);
+			this._log.appendLine(`Loading Kallichore from disk in adjacent repository (${devBinary}). Make sure it's up-to-date.`);
 			return devBinary;
 		}
 
