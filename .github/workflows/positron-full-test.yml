@@ -208,14 +208,6 @@ jobs:
           path: blob-report
           retention-days: 1
 
-      - name: Upload junit report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: junit-report-browser-${{ matrix.shardIndex }}
-          path: test-results
-          retention-days: 1
-
       - name: Clean up license files
         if: always()
         run: cd .. && rm -rf positron-license
@@ -264,12 +256,12 @@ jobs:
       - name: Set TestRail Run Title
         id: set-testrail-run-title
         if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly Smoke Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
 
       - name: Upload Test Results to TestRail (Electron ONLY)
         id: testrail-upload
         if: ${{ !cancelled() }}
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
   # slack-notification:
   #   name: "slack-notification"
