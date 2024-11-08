@@ -5,6 +5,7 @@
 
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/smoke/src/areas/positron/_test.setup';
+import type { GitHubActionOptions } from '@estruyf/github-actions-reporter';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -24,9 +25,13 @@ export default defineConfig<CustomTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			['list'],
+			['@estruyf/github-actions-reporter', <GitHubActionOptions>{
+				useDetails: true,
+				showError: true,
+				includeResults: ['skipped', 'fail', 'flaky']
+			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
-			['blob',]
+			['blob'], ['html']
 		]
 		: [
 			['list'],
