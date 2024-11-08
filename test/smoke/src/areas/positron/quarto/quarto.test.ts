@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Quarto #web', () => {
+test.describe('Quarto', { tag: ['@web'] }, () => {
 	test.beforeAll(async function ({ app }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 	});

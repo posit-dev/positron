@@ -266,7 +266,7 @@ jobs:
           merge-multiple: true
 
       - name: Merge into JUnit Report
-        run: npx junit-report-merger --input=all-junit-reports --output=junit.xml
+        run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
