@@ -217,35 +217,35 @@ jobs:
         if: always()
         run: cd .. && rm -rf positron-license
 
-        e2e-report:
-          runs-on: ubuntu-latest
-          needs: ["e2e-electron-tests"]
-          if: always()
-          steps:
-            - uses: actions/checkout@v4
+  e2e-report:
+    runs-on: ubuntu-latest
+    needs: ["e2e-electron-tests", "e2e-browser-tests"]
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
 
-            - uses: actions/setup-node@v4
-              with:
-                node-version-file: .nvmrc
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
 
-            - name: Install Playwright
-              run: npx playwright install --with-deps
+      - name: Install Playwright
+        run: npx playwright install --with-deps
 
-            - name: Download blob reports from GitHub Actions Artifacts
-              uses: actions/download-artifact@v3
-              with:
-                name: all-blob-reports
-                path: all-blob-reports
+      - name: Download blob reports from GitHub Actions Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: all-blob-reports
+          path: all-blob-reports
 
-            - name: Merge into HTML Report
-              run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - name: Merge into HTML Report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
 
-            - name: Upload HTML report
-              uses: actions/upload-artifact@v4
-              with:
-                name: html-report--attempt-${{ github.run_attempt }}
-                path: playwright-report
-                retention-days: 14
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: html-report--attempt-${{ github.run_attempt }}
+          path: playwright-report
+          retention-days: 14
 
   # slack-notification:
   #   name: "slack-notification"
