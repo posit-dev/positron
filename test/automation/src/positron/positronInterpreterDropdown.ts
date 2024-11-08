@@ -65,9 +65,11 @@ export class PositronInterpreterDropdown {
 
 		// Look for a primary interpreter that matches the provided description
 		const allPrimaryInterpreters = await this.code.driver.page.locator('.primary-interpreter').all();
+
 		for (const interpreter of allPrimaryInterpreters) {
 			// Try to match on interpreter name
 			const interpreterName = await this.getInterpreterName(interpreter);
+
 			if (!interpreterName) {
 				// Shouldn't happen, but if it does, proceed to the next interpreter
 				continue;

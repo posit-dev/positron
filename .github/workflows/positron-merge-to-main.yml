@@ -64,7 +64,7 @@ jobs:
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep @marie --reporter html
 
       - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

@@ -129,7 +129,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		app.code.driver.takeScreenshot = async function (name: string) {
 			const screenshotPath = testInfo.outputPath(`${screenShotCounter++}-${name}.png`);
-			page.screenshot({ path: screenshotPath });
+			await page.screenshot({ path: screenshotPath });
 			screenshots.push(screenshotPath);
 		};
 
@@ -181,7 +181,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		// stop tracing
 		// do NOT use title of 'trace' as it will conflict with the default trace
-		const title = path.basename(`${testInfo.file.replace('.test.ts', '')}-trace`);
+		const title = path.basename(`_trace`);
 		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
 

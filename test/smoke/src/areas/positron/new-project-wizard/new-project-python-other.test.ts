@@ -3,28 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
+import { Application, PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../../../automation';
 import { test, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Python - New Project Wizard', () => {
+// MARIE: REMOVE PR TAG
+test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 	test.slow();
 
-	test('With ipykernel already installed [C609619]', async function ({ app }) {
+	test('With ipykernel already installed [C609619]', async function ({ app, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
-		const pythonFixtures = new PositronPythonFixtures(app);
-		// Start the Python interpreter and ensure ipykernel is installed
-		await pythonFixtures.startAndGetPythonInterpreter(true);
-		// Ensure the console is ready with the selected interpreter
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
-		const interpreterInfo =
-			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
-		expect(interpreterInfo?.path).toBeDefined();
-		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
+		const interpreterInfo = await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
+		await installIpykernel(app);
+
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -45,10 +40,7 @@ test.describe('Python - New Project Wizard', () => {
 		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
-		// The console should initialize without any prompts to install ipykernel
+		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
 		await app.workbench.positronConsole.waitForReady('>>>', 10000);
 	});
 
@@ -58,17 +50,12 @@ test.describe('Python - New Project Wizard', () => {
 		const pythonFixtures = new PositronPythonFixtures(app);
 		// Start the Python interpreter and uninstall ipykernel
 		await pythonFixtures.startAndGetPythonInterpreter(true);
-		// Ensure the console is ready with the selected interpreter
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
 		const interpreterInfo =
 			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
 		await app.workbench.positronInterpreterDropdown.closeInterpreterDropdown();
-		await app.workbench.positronConsole.typeToConsole('pip uninstall -y ipykernel');
-		await app.workbench.positronConsole.sendEnterKey();
-		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
-			contents.some((line) => line.includes('Successfully uninstalled ipykernel'))
-		);
+		await uninstallIpykernel(app);
+
 		// Create a new Python project and use the selected python interpreter
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
@@ -93,9 +80,8 @@ test.describe('Python - New Project Wizard', () => {
 		);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
+		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
+
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
 		await app.workbench.positronConsole.waitForReady('>>>', 10000);
@@ -143,3 +129,15 @@ test.describe('Python - New Project Wizard', () => {
 function addRandomNumSuffix(name: string): string {
 	return `${name}_${Math.floor(Math.random() * 1000000)}`;
 }
+
+const installIpykernel = async (app: Application) => {
+	await app.code.driver.page.getByRole('tab', { name: 'Terminal' }).click();
+	await app.workbench.terminal.runCommandInTerminal('pip install ipykernel');
+	await expect(app.code.driver.page.getByText(/Successfully installed ipykernel|Requirement already satisfied/).first()).toBeVisible({ timeout: 30000 });
+};
+
+const uninstallIpykernel = async (app: Application) => {
+	await app.code.driver.page.getByRole('tab', { name: 'Terminal' }).click();
+	await app.workbench.terminal.runCommandInTerminal('pip uninstall -y ipykernel');
+	await expect(app.code.driver.page.getByText(/Successfully uninstalled ipykernel|Skipping ipykernel as it is not installed/).first()).toBeVisible({ timeout: 30000 });
+};

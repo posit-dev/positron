@@ -10,25 +10,8 @@ test.use({
 	suiteId: __filename
 });
 
-// MARIE: REMOVE PR TAG
-test.describe('R - New Project Wizard', { tag: ['@marie'] }, () => {
+test.describe('R - New Project Wizard', () => {
 	test.describe.configure({ mode: 'serial' });
-
-	test('R - Project Defaults [C627913]', {
-		tag: ['@pr', '@win']
-	}, async function ({ app }) {
-		const projSuffix = addRandomNumSuffix('_defaults');
-		const pw = app.workbench.positronNewProjectWizard;
-		await pw.startNewProject(ProjectType.R_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myRProject${projSuffix}`);
-		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
-		// here, but it's timing out in CI, so it is not included for now.
-	});
 
 	test('R - Accept Renv install [C633084]', async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_installRenv');
@@ -94,6 +77,22 @@ test.describe('R - New Project Wizard', { tag: ['@marie'] }, () => {
 		await app.workbench.positronConsole.waitForConsoleContents((contents) =>
 			contents.some((line) => line.includes('renv activated'))
 		);
+	});
+
+	test('R - Project Defaults [C627913]', {
+		tag: ['@pr', '@win']
+	}, async function ({ app }) {
+		const projSuffix = addRandomNumSuffix('_defaults');
+		const pw = app.workbench.positronNewProjectWizard;
+		await pw.startNewProject(ProjectType.R_PROJECT);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myRProject${projSuffix}`);
+		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
+		// here, but it's timing out in CI, so it is not included for now.
 	});
 
 	test('R - Cancel Renv install [C656252]', async function ({ app, page }) {

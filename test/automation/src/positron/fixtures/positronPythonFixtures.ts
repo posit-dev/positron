@@ -6,7 +6,6 @@
 import { fail } from 'assert';
 import { Application } from '../../application';
 import { InterpreterInfo, InterpreterType } from '../utils/positronInterpreterInfo';
-import { expect } from '@playwright/test';
 
 /*
  *  Reuseable Positron Python fixture tests can leverage to get a Python interpreter selected.
@@ -17,11 +16,7 @@ export class PositronPythonFixtures {
 
 	static async SetupFixtures(app: Application, skipReadinessCheck: boolean = false) {
 		const fixtures = new PositronPythonFixtures(app);
-		await expect(async () => {
-			await fixtures.startPythonInterpreter(skipReadinessCheck);
-		}).toPass({
-			timeout: 60000
-		});
+		await fixtures.startPythonInterpreter(skipReadinessCheck);
 	}
 
 	async startPythonInterpreter(skipReadinessCheck: boolean = false) {
@@ -36,7 +31,7 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython, skipReadinessCheck);
 			await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
 		} catch (e) {
-			this.app.code.driver.takeScreenshot('startPythonInterpreter');
+			await this.app.code.driver.takeScreenshot('startPythonInterpreter');
 			throw e;
 		}
 		await this.app.workbench.positronConsole.logConsoleContents();
