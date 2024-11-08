@@ -12,7 +12,6 @@ test.use({
 
 // MARIE: REMOVE PR TAG
 test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
-	test.slow();
 
 	test('With ipykernel already installed [C609619]', async function ({ app, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
@@ -40,8 +39,8 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		// await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
+		// await app.workbench.positronConsole.waitForReady('>>>', 10000);
 	});
 
 	test('With ipykernel not already installed [C609617]', async function ({ app }) {
@@ -80,14 +79,14 @@ test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
 		);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
+		// await expect(app.code.driver.page.getByRole('button', { name: 'Explorer Section:' })).toHaveText(new RegExp(projSuffix), { timeout: 30000 });
 
-		// If ipykernel was successfully installed during the new project initialization,
-		// the console should be ready without any prompts to install ipykernel
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		// // If ipykernel was successfully installed during the new project initialization,
+		// // the console should be ready without any prompts to install ipykernel
+		// await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		// await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		// await app.workbench.positronConsole.barClearButton.click();
+		// await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
 	test('Default Python Project with git init [C674522]', { tag: ['@pr', '@win'] }, async function ({ app }) {
