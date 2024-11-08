@@ -28,14 +28,21 @@ export default defineConfig<CustomTestOptions>({
 			['@estruyf/github-actions-reporter', <GitHubActionOptions>{
 				useDetails: true,
 				showError: true,
-				includeResults: ['skipped', 'fail', 'flaky']
+				includeResults: ['fail', 'flaky']
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['blob'], ['html']
 		]
 		: [
 			['list'],
-			['html', { open: 'on-failure' }]
+			['html', { open: 'on-failure' }],
+			[
+				'./node_modules/playwright-slack-report/dist/src/SlackReporter.js',
+				{
+					channels: ['pw-tests', 'ci'], // provide one or more Slack channels
+					sendResults: 'always', // "always" , "on-failure", "off"
+				},
+			],
 		],
 
 
