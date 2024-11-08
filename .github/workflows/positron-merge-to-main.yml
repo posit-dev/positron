@@ -61,7 +61,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep @pr --reporter html,github,junit --output test-results/junit.xml
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep @pr --reporter html,github
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
