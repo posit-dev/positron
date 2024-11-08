@@ -8,7 +8,18 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Defines a string that contains the `${{APP_URL}}` placeholder.
+ * Defines a string type that contains the app url placeholder.
+ *
+ * Unfortunately, if a string is constructed programmatically with this format, TypeScript will not
+ * recognize it as an `AppUrlString`. For example, the following will not work:
+ * ```ts
+ * const appUrlString = 'The url will be:' + '{{APP_URL}}';
+ * ```
+ *
+ * Strings must be defined as literals in the source code to be recognized as `AppUrlString`. For
+ * example, the following will work:
+ * ```ts
+ * const appUrlString: AppUrlString = 'The url will be: {{APP_URL}}';
  */
 export type AppUrlString = `${string}{{APP_URL}}${string}`;
 
@@ -63,7 +74,7 @@ export interface RunAppOptions {
 	/**
 	 * An optional array of app URI formats to parse the URI from the terminal output.
 	 */
-	appUriFormat?: AppUrlString[];
+	appUrlStrings?: AppUrlString[];
 }
 
 /**
@@ -102,7 +113,7 @@ export interface DebugAppOptions {
 	/**
 	 * An optional array of app URI formats to parse the URI from the terminal output.
 	 */
-	appUriFormat?: AppUrlString[];
+	appUrlStrings?: AppUrlString[];
 }
 
 /**

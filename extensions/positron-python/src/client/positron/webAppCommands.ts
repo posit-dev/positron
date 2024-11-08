@@ -36,6 +36,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             getFlaskDebugConfig(document),
             undefined,
             undefined,
+            // Flask url string is from Werkzeug: https://github.com/pallets/werkzeug/blob/7868bef5d978093a8baa0784464ebe5d775ae92a/src/werkzeug/serving.py#L833-L865
             ['Running on {{APP_URL}}'],
         ),
         registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
@@ -44,8 +45,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
             [
-                'Running on local URL: {{APP_URL}}',
-                'Running on public URL: {{APP_URL}}',
+                'Running on local URL:  {{APP_URL}}',
+                'Running on public URL:  {{APP_URL}}',
             ],
         ),
         registerExecCommand(
@@ -85,6 +86,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             getFlaskDebugConfig(document),
             undefined,
             undefined,
+            // Flask url string is from Werkzeug: https://github.com/pallets/werkzeug/blob/7868bef5d978093a8baa0784464ebe5d775ae92a/src/werkzeug/serving.py#L833-L865
             ['Running on {{APP_URL}}'],
         ),
         registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
@@ -93,8 +95,8 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
             [
-                'Running on local URL: {{APP_URL}}',
-                'Running on public URL: {{APP_URL}}',
+                'Running on local URL:  {{APP_URL}}',
+                'Running on public URL:  {{APP_URL}}',
             ],
         ),
         registerDebugCommand(
@@ -126,7 +128,7 @@ function registerExecCommand(
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
     appReadyMessage?: string,
-    appUriFormat?: AppUrlString[],
+    appUrlStrings?: AppUrlString[],
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -159,7 +161,7 @@ function registerExecCommand(
             },
             urlPath,
             appReadyMessage,
-            appUriFormat,
+            appUrlStrings,
         });
     });
 }
@@ -174,7 +176,7 @@ function registerDebugCommand(
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
     appReadyMessage?: string,
-    appUriFormat?: AppUrlString[],
+    appUrlStrings?: AppUrlString[],
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -196,7 +198,7 @@ function registerDebugCommand(
             },
             urlPath,
             appReadyMessage,
-            appUriFormat,
+            appUrlStrings,
         });
     });
 }
