@@ -1361,4 +1361,30 @@ declare module 'positron' {
 
 
 	}
+
+	/**
+	 * Experimental AI features.
+	 */
+	namespace ai {
+		/**
+		 * An assistant (experimental)
+		 */
+		export interface Assistant {
+			/**
+			 * The name of the assistant.
+			 */
+			readonly name: string;
+		}
+
+		export interface AssistantProvider {
+			provideAssistant(token: vscode.CancellationToken): vscode.ProviderResult<Assistant>;
+		}
+
+		/**
+		 * Register an assistant provider.
+		 */
+		export function registerAssistantProvider(
+			provider: AssistantProvider): vscode.Disposable;
+	}
+
 }

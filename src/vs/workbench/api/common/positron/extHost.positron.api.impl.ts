@@ -29,6 +29,7 @@ import { ExtHostConsoleService } from 'vs/workbench/api/common/positron/extHostC
 import { ExtHostMethods } from './extHostMethods';
 import { ExtHostEditors } from '../extHostTextEditors';
 import { UiFrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { ExtHostAiFeatures } from 'vs/workbench/api/common/positron/extHostAiFeatures';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -64,6 +65,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostEditors: ExtHostEditors = rpcProtocol.getRaw(ExtHostContext.ExtHostEditors);
 	const extHostDocuments: ExtHostDocuments = rpcProtocol.getRaw(ExtHostContext.ExtHostDocuments);
 	const extHostLanguageRuntime = rpcProtocol.set(ExtHostPositronContext.ExtHostLanguageRuntime, new ExtHostLanguageRuntime(rpcProtocol, extHostLogService));
+	const extHostAiFeatures = rpcProtocol.set(ExtHostPositronContext.ExtHostAiFeatures, new ExtHostAiFeatures(rpcProtocol));
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
@@ -192,6 +194,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 		};
 
+		const ai: typeof positron.ai = {
+			registerAssistantProvider(provider: positron.ai.AssistantProvider): vscode.Disposable {
+				return extHostAiFeatures.registerAssistantProvider(provider);
+			}
+		};
+
 		// --- End Positron ---
 
 		return <typeof positron>{
@@ -201,6 +209,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			window,
 			languages,
 			methods,
+			ai,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,

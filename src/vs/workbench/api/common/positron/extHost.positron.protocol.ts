@@ -106,6 +106,10 @@ export interface ExtHostMethodsShape {
 	showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean>;
 }
 
+export interface ExtHostAiFeaturesShape {
+	registerAssistantProvider(assistant: any): IDisposable;
+}
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -178,6 +182,7 @@ export const ExtHostPositronContext = {
 	ExtHostConsoleService: createProxyIdentifier<ExtHostConsoleServiceShape>('ExtHostConsoleService'),
 	ExtHostContextKeyService: createProxyIdentifier<ExtHostContextKeyServiceShape>('ExtHostContextKeyService'),
 	ExtHostMethods: createProxyIdentifier<ExtHostMethodsShape>('ExtHostMethods'),
+	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 };
 
 export const MainPositronContext = {
