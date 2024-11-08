@@ -26,6 +26,7 @@ export default defineConfig<CustomTestOptions>({
 	reporter: process.env.CI
 		? [
 			['@estruyf/github-actions-reporter', <GitHubActionOptions>{
+				title: '',
 				useDetails: true,
 				showError: true,
 				includeResults: ['fail', 'flaky']
