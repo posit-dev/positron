@@ -24,7 +24,7 @@ export default defineConfig<CustomTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			['github'],
+			['list'],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['blob',]
 		]
