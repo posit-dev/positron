@@ -6,8 +6,6 @@
 import {
 	PositronConsole,
 	PositronInterpreterDropdown,
-	PositronUserSettingsFixtures,
-	QuickAccess,
 } from '../../../../../automation';
 
 import { test, expect } from '../_test.setup';
@@ -20,21 +18,16 @@ test.use({
 test.describe('Interpreter Dropdown in Top Action Bar', { tag: ['@web', '@pr'] }, () => {
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
-	let quickaccess: QuickAccess;
-	let userSettings: PositronUserSettingsFixtures;
-	let desiredPython: string;
-	let desiredR: string;
 
 	test.beforeAll(async function ({ app }) {
 		interpreterDropdown = app.workbench.positronInterpreterDropdown;
 		positronConsole = app.workbench.positronConsole;
-		quickaccess = app.workbench.quickaccess;
-		userSettings = new PositronUserSettingsFixtures(app);
-		desiredPython = process.env.POSITRON_PY_VER_SEL!;
-		desiredR = process.env.POSITRON_R_VER_SEL!;
 	});
 
 	test('Python interpreter starts and shows running [C707212]', async function ({ app }) {
+		const desiredPython = process.env.POSITRON_PY_VER_SEL!;
+
+
 		// Start a Python interpreter using the interpreter dropdown
 		await expect(
 			async () =>
@@ -99,6 +92,8 @@ test.describe('Interpreter Dropdown in Top Action Bar', { tag: ['@web', '@pr'] }
 	});
 
 	test('R interpreter starts and shows running [C707214]', async function () {
+		const desiredR = process.env.POSITRON_R_VER_SEL!;
+
 		// Start an R interpreter using the interpreter dropdown
 		await expect(
 			async () => await interpreterDropdown.selectInterpreter('R', desiredR)
