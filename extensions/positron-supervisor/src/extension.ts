@@ -19,6 +19,11 @@ export function activate(context: vscode.ExtensionContext): KallichoreAdapterApi
 	// Create the singleton instance of the Kallichore API wrapper
 	API_INSTANCE = new KCApi(context, log);
 
+	// Listen for the command to open the logs
+	context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.showKernelSupervisorLog', () => {
+		log.show();
+	}));
+
 	return API_INSTANCE;
 }
 

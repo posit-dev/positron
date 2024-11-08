@@ -71,7 +71,15 @@
           "description": "%configuration.sleepOnStartup.description%"
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "positron.supervisor.showKernelSupervisorLog",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showKernelSupervisorLog.title%",
+        "shortTitle": "%command.showKernelSupervisorLog.title%"
+      }
+    ]
   },
   "repository": {
     "type": "git",
