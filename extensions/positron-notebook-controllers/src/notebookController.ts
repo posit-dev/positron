@@ -180,7 +180,6 @@ export class NotebookController implements vscode.Disposable {
 
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
 
-		let success: boolean;
 		try {
 			await executeCode({
 				session,
@@ -190,13 +189,11 @@ export class NotebookController implements vscode.Disposable {
 				errorBehavior: positron.RuntimeErrorBehavior.Stop,
 				callback: message => this.handleMessageForCellExecution(message, currentExecution, session),
 			});
-			success = true;
+			currentExecution.end(true, Date.now());
 		} catch (error) {
-			// No need to log since the error message will be displayed in the cell output.
-			success = false;
+			currentExecution.end(false, Date.now());
+			throw error;
 		}
-
-		currentExecution.end(success, Date.now());
 	}
 
 	private async handleMessageForCellExecution(
@@ -289,7 +286,9 @@ function executeCode(
 				// Handle the message.
 				if (message.type === positron.LanguageRuntimeMessageType.Error) {
 					const error = message as positron.LanguageRuntimeError;
-					throw error;
+					throw new Error(
+						`Received language runtime error message: ${JSON.stringify(error)}`
+					);
 				} else if (message.type === positron.LanguageRuntimeMessageType.State) {
 					const state = message as positron.LanguageRuntimeState;
 					if (state.state === positron.RuntimeOnlineState.Idle) {
