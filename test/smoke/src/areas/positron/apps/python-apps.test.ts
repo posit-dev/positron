@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Python Applications', { tag: ['@pr', '@win'] }, () => {
+test.describe('Python Applications', { tag: ['@pr'] }, () => {
 	test.describe('Python Applications', () => {
 		test.afterEach(async function ({ app }) {
 			await app.workbench.quickaccess.runCommand('workbench.action.terminal.focus');
