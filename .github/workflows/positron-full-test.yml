@@ -198,14 +198,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-web-smoke-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
-      # - name: Publish Web Test Report
-      #   uses: mikepenz/action-junit-report@v4
-      #   if: success() || failure()
-      #   with:
-      #     report_paths: "**/.build/logs/smoke-tests-browser/test-results/xunit-results.xml"
-      #     check_name: "Web Test Results"
-      #     token: ${{ secrets.GITHUB_TOKEN }}
+        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
