@@ -32,7 +32,7 @@ export default defineConfig<CustomTestOptions>({
 				includeResults: ['fail', 'flaky']
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
-			['blob'], ['html']
+			['list'], ['html']
 		]
 		: [
 			['list'],
