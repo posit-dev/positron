@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Python - New Project Wizard', { tag: ['@marie'] }, () => {
+test.describe('Python - New Project Wizard', () => {
 	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app }) {
 		// This is the default behavior for a new Python Project in the Project Wizard
 		const projSuffix = addRandomNumSuffix('_new_venv');

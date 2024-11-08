@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R - New Project Wizard', { tag: ['@marie'] }, () => {
+test.describe('R - New Project Wizard', () => {
 	test.describe.configure({ mode: 'serial' });
 
 	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
