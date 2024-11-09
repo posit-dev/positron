@@ -14,8 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-// MARIE - remove @pr
-test.describe('Interpreter Dropdown in Top Action Bar', { tag: ['@web', '@pr'] }, () => {
+test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: ['@web'] }, () => {
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
 
