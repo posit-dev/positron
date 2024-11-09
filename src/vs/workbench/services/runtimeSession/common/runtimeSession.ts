@@ -461,6 +461,24 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					`is already starting for the notebook ${notebookUri.toString()}. ` +
 					`Request source: ${source}`);
 			}
+
+			// If there is already a runtime running for the notebook, throw an error.
+			const runningLanguageRuntime = this._notebookSessionsByNotebookUri.get(notebookUri);
+			if (runningLanguageRuntime) {
+				const metadata = runningLanguageRuntime.runtimeMetadata;
+				if (metadata.runtimeId === languageRuntime.runtimeId) {
+					// If the runtime that is running is the one we were just asked
+					// to start, we're technically in good shape since the runtime
+					// is already running!
+					return runningLanguageRuntime.sessionId;
+				} else {
+					throw new Error(`A notebook for ` +
+						`${formatLanguageRuntimeMetadata(languageRuntime)} ` +
+						`cannot be started because a notebook for ` +
+						`${formatLanguageRuntimeMetadata(metadata)} is already running ` +
+						`for the URI ${notebookUri.toString()}.`);
+				}
+			}
 		}
 
 		// If the workspace is not trusted, defer starting the runtime until the
