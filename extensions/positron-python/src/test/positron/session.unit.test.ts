@@ -129,6 +129,11 @@ suite('Python Runtime Session', () => {
             return undefined;
         });
 
+        const nullConfig = ({ get: () => undefined } as Partial<
+            vscode.WorkspaceConfiguration
+        >) as vscode.WorkspaceConfiguration;
+        vscode.workspace.getConfiguration = () => nullConfig;
+
         const consoleMetadata = {
             sessionMode: positron.LanguageRuntimeSessionMode.Console,
         } as positron.RuntimeSessionMetadata;
