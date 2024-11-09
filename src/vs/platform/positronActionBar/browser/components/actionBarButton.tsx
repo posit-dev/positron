@@ -19,19 +19,19 @@ import { usePositronActionBarContext } from 'vs/platform/positronActionBar/brows
  * ActionBarButtonProps interface.
  */
 export interface ActionBarButtonProps {
-	fadeIn?: boolean;
-	iconId?: string;
-	iconFontSize?: number;
-	text?: string;
-	maxTextWidth?: number;
-	border?: boolean;
-	dropDown?: boolean;
-	align?: 'left' | 'right';
-	layout?: 'loose' | 'tight';
-	tooltip?: string | (() => string | undefined);
-	disabled?: boolean;
-	ariaLabel?: string;
-	onPressed?: () => void;
+	readonly fadeIn?: boolean;
+	readonly iconId?: string;
+	readonly iconFontSize?: number;
+	readonly text?: string;
+	readonly maxTextWidth?: number;
+	readonly border?: boolean;
+	readonly align?: 'left' | 'right';
+	readonly layout?: 'loose' | 'tight';
+	readonly tooltip?: string | (() => string | undefined);
+	readonly disabled?: boolean;
+	readonly ariaLabel?: string;
+	readonly showDropdownIndicator?: boolean;
+	readonly onPressed?: () => void;
 }
 
 /**
@@ -95,7 +95,7 @@ export const ActionBarButton = forwardRef<
 						{props.text}
 					</div>
 				)}
-				{props.dropDown && (
+				{props.showDropdownIndicator && (
 					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 				)}
 				{props.children}

@@ -12,8 +12,10 @@ import * as React from 'react';
 // Other dependencies.
 import { Emitter } from 'vs/base/common/event';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IMenuService } from 'vs/platform/actions/common/actions';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { ICommandService } from 'vs/platform/commands/common/commands';
+import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
 import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
@@ -22,6 +24,7 @@ import { IContextMenuService } from 'vs/platform/contextview/browser/contextView
 import { EditorActionBar } from 'vs/workbench/browser/parts/editor/editorActionBar';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { EditorActionBarFactory } from 'vs/workbench/browser/parts/editor/editorActionBarFactory';
 
 /**
  * Constants.
@@ -47,26 +50,32 @@ export class EditorActionBarControl extends Disposable {
 
 	//#endregion Private Properties
 
-	//#region Constructor & Dispose
+	//#region Constructor
 
 	/**
 	 * Constructor.
-	 * @param parent The parent HTML element.
+	 * @param _parent The parent HTML element.
+	 * @param _editorGroup The editor group.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
 	 * @param _contextMenuService The context menu service.
 	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
+	 * @param _menuService The menu service.
+	 * @param _telemetryService The telemetry service.
 	 */
 	constructor(
 		private readonly _parent: HTMLElement,
+		private readonly _editorGroup: IEditorGroupView,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@IMenuService private readonly _menuService: IMenuService,
+		@ITelemetryService _telemetryService: ITelemetryService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -76,8 +85,14 @@ export class EditorActionBarControl extends Disposable {
 		this._container.className = 'editor-action-bar-container';
 		this._parent.appendChild(this._container);
 
+		// Create the editor action bar factory.
+		const editorActionBarFactory = this._register(new EditorActionBarFactory(
+			this._editorGroup,
+			this._menuService,
+		));
+
 		// Render the editor action bar component in the editor action bar container.
-		this._positronReactRenderer = new PositronReactRenderer(this._container);
+		this._positronReactRenderer = this._register(new PositronReactRenderer(this._container));
 		this._positronReactRenderer.render(
 			<EditorActionBar
 				commandService={this._commandService}
@@ -86,31 +101,12 @@ export class EditorActionBarControl extends Disposable {
 				contextMenuService={this._contextMenuService}
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
+				editorActionBarFactory={editorActionBarFactory}
 			/>
 		);
 	}
 
-	/**
-	 * Dispose method.
-	 */
-	override dispose() {
-		// Dispose the React renderer.
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.dispose();
-			this._positronReactRenderer = undefined;
-		}
-
-		// Remove the container.
-		if (this._container) {
-			this._container.remove();
-			this._container = undefined;
-		}
-
-		// Call the base class's dispose method.
-		super.dispose();
-	}
-
-	//#endregion Constructor & Dispose
+	//#endregion Constructor
 
 	//#region Public Properties
 
@@ -213,14 +209,16 @@ export class EditorActionBarControlFactory {
 		// Add the onDidChangeConfiguration event listener to listen for changes to the
 		// configuration setting.
 		this._disposables.add(configurationService.onDidChangeConfiguration(e => {
+			// Check if the configuration setting has changed.
 			if (e.affectsConfiguration(CONFIGURATION_SETTING)) {
+				// Process the change.
 				if (configurationService.getValue(CONFIGURATION_SETTING)) {
-					// Create the contorl if it doesn't exist.
+					// Create the control, if it doesn't exist.
 					if (!this._control) {
 						this.createControl();
 					}
 				} else {
-					// Destroy the control if it exists.
+					// Destroy the control, if it exists.
 					if (this._control) {
 						this._controlDisposables.clear();
 						this._control = undefined;
@@ -250,9 +248,11 @@ export class EditorActionBarControlFactory {
 	 * @returns The control.
 	 */
 	private createControl() {
+		// Create the control.
 		this._control = this._controlDisposables.add(this._instantiationService.createInstance(
 			EditorActionBarControl,
-			this._container
+			this._container,
+			this._editorGroup
 		));
 	}
 

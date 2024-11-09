@@ -1,30 +1,36 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./actionBarMenuButton';
+
+// React.
 import * as React from 'react';
 import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { IAction } from 'vs/base/common/actions';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { IContextMenuEvent } from 'vs/base/browser/contextmenu';
+import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
 import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 
 /**
  * ActionBarMenuButtonProps interface.
  */
 interface ActionBarMenuButtonProps {
-	iconId?: string;
-	iconFontSize?: number;
-	text?: string;
-	ariaLabel?: string;
-	maxTextWidth?: number;
-	align?: 'left' | 'right';
-	tooltip?: string | (() => string | undefined);
-	actions: () => readonly IAction[] | Promise<readonly IAction[]>;
+	readonly iconId?: string;
+	readonly iconFontSize?: number;
+	readonly text?: string;
+	readonly ariaLabel?: string;
+	readonly maxTextWidth?: number;
+	readonly align?: 'left' | 'right';
+	readonly tooltip?: string | (() => string | undefined);
+	readonly hideDropdownIndicator?: boolean;
+	readonly actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }
 
 /**
@@ -89,5 +95,14 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} ref={buttonRef} dropDown={true} onPressed={pressedHandler} />;
+	return (
+		<ActionBarButton
+			ref={buttonRef}
+			{...props}
+			showDropdownIndicator={
+				props.hideDropdownIndicator ? !props.hideDropdownIndicator : true
+			}
+			onPressed={pressedHandler}
+		/>
+	);
 };

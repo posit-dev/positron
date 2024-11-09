@@ -80,9 +80,11 @@
 }
 
 .action-bar-button-drop-down-arrow {
-	width: 10px;
+	background-color: yellow;
+	width: 12px;
 	align-items: center;
 	justify-content: left;
+	justify-content: center;
 	font-size: 18px !important;
 	display: flex !important;
 	height: var(--positronActionBar-iconSize);
