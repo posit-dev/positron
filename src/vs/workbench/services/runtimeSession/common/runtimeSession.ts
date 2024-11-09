@@ -445,6 +445,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						`for the ${metadata.languageName} language.`);
 				}
 			}
+		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// If no notebook URI is provided, throw an error.
+			if (!notebookUri) {
+				throw new Error(`A notebook URI must be provided when starting a notebook session.`);
+			}
 		}
 
 		// If the workspace is not trusted, defer starting the runtime until the
