@@ -39,12 +39,10 @@ test.describe('Large Python Notebook', () => {
 
 			// the second param to wheel (y) seems to be ignored so we send
 			// more messages instead of one with a large y value
-			await test.step('just scrolling...', async () => {
-				for (let j = 0; j < 100; j++) {
-					await app.code.driver.page.mouse.wheel(0, 1);
-					await app.code.driver.page.waitForTimeout(100);
-				}
-			});
+			for (let j = 0; j < 100; j++) {
+				await app.code.driver.page.mouse.wheel(0, 1);
+				await app.code.driver.page.waitForTimeout(100);
+			}
 
 			const figureLocator = app.workbench.positronNotebooks.frameLocator.locator('.plot-container');
 			const figures = await figureLocator.all();
