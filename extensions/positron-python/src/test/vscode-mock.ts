@@ -16,6 +16,8 @@ export const mockedVSCodeNamespaces: { [P in keyof VSCode]?: VSCode[P] } = {};
 const originalLoad = Module._load;
 
 // --- Start Positron ---
+import * as positronMocks from './mocks/pst';
+
 // Import Positron for its type (the actual module is mocked below).
 import * as positron from 'positron';
 
@@ -174,3 +176,6 @@ mockedVSCode.LogLevel = vscodeMocks.LogLevel;
 (mockedVSCode as any).ProtocolTypeHierarchyItem = vscodeMocks.vscMockExtHostedTypes.ProtocolTypeHierarchyItem;
 (mockedVSCode as any).CancellationError = vscodeMocks.vscMockExtHostedTypes.CancellationError;
 (mockedVSCode as any).LSPCancellationError = vscodeMocks.vscMockExtHostedTypes.LSPCancellationError;
+// --- Start Positron ---
+mockedPositron.LanguageRuntimeSessionMode = positronMocks.LanguageRuntimeSessionMode;
+// --- End Positron ---

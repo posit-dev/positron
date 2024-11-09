@@ -285,12 +285,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Ensure that the ipykernel module is installed for the interpreter.
         await this._installIpykernel();
 
-        // Update the active environment in the Python extension.
-        this._interpreterPathService.update(
-            undefined,
-            vscode.ConfigurationTarget.WorkspaceFolder,
-            this.interpreter.path,
-        );
+        if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+            // Update the active environment in the Python extension.
+            this._interpreterPathService.update(
+                undefined,
+                vscode.ConfigurationTarget.WorkspaceFolder,
+                this.interpreter.path,
+            );
+        }
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {
