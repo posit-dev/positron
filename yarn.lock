@@ -779,10 +779,10 @@
   resolved "https://registry.yarnpkg.com/@microsoft/dynamicproto-js/-/dynamicproto-js-1.1.9.tgz#7437db7aa061162ee94e4131b69a62b8dad5dea6"
   integrity sha512-n1VPsljTSkthsAFYdiWfC+DKzK2WwcRp83Y1YAqdX552BstvsDjft9YXppjUzp11BPsapDoO1LDgrDB0XVsfNQ==
 
-"@midleman/github-actions-reporter@^1.9.4":
-  version "1.9.4"
-  resolved "https://registry.yarnpkg.com/@midleman/github-actions-reporter/-/github-actions-reporter-1.9.4.tgz#f33d52bad7e177b1486d11b45506dd8665dee47f"
-  integrity sha512-w2LsW1OGS2qK+R4QwWBjExefKGEMOWc4/2xtBIPw40z0QwlEsN5LoL7U+/lTk4/w6Y4Zex6B1n29chWtWmxsqQ==
+"@midleman/github-actions-reporter@^1.9.5":
+  version "1.9.5"
+  resolved "https://registry.yarnpkg.com/@midleman/github-actions-reporter/-/github-actions-reporter-1.9.5.tgz#19820b3c7077fefb9cdcff217df699f8e906cd0f"
+  integrity sha512-X8ye2ipbfizZ9tZWEEpjarcCLqQAWH3E+klv8EYCtIbESm8hXuXYdAAo+2x1bSfS4bfjrwBTNh31yreYwKfsMg==
   dependencies:
     "@actions/core" "^1.10.0"
     ansi-to-html "^0.7.2"

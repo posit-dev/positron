@@ -29,6 +29,7 @@ export default defineConfig<CustomTestOptions>({
 				title: '',
 				useDetails: true,
 				showError: true,
+				showAnnotations: false,
 				includeResults: ['fail', 'flaky']
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
