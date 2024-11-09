@@ -5,7 +5,7 @@
 
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/smoke/src/areas/positron/_test.setup';
-import type { GitHubActionOptions } from '@estruyf/github-actions-reporter';
+import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -25,7 +25,7 @@ export default defineConfig<CustomTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			['@estruyf/github-actions-reporter', <GitHubActionOptions>{
+			['@midleman/github-actions-reporter', <GitHubActionOptions>{
 				title: '',
 				useDetails: true,
 				showError: true,
@@ -37,13 +37,6 @@ export default defineConfig<CustomTestOptions>({
 		: [
 			['list'],
 			['html', { open: 'on-failure' }],
-			[
-				'./node_modules/playwright-slack-report/dist/src/SlackReporter.js',
-				{
-					channels: ['pw-tests', 'ci'], // provide one or more Slack channels
-					sendResults: 'always', // "always" , "on-failure", "off"
-				},
-			],
 		],
 
 

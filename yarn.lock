@@ -556,15 +556,6 @@
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-8.36.0.tgz#9837f768c03a1e4a30bd304a64fb8844f0e72efe"
   integrity sha512-lxJ9R5ygVm8ZWgYdUweoq5ownDlJ4upvoWmO4eLxBYHdMo+vZ/Rx0EN6MbKWDJOSUGrqJy2Gt+Dyv/VKml0fjg==
 
-"@estruyf/github-actions-reporter@^1.9.2":
-  version "1.9.2"
-  resolved "https://registry.yarnpkg.com/@estruyf/github-actions-reporter/-/github-actions-reporter-1.9.2.tgz#a3d8ee7823469a45cedb77a6ee22cea2abf82d35"
-  integrity sha512-D2+ePwTjbd4siY7VIWX1dJrE1bU3x9OO+FOj99hqU4zQhVGwMm0ozgNDUzJgHxdRZKtFoGcYWV5YLfZettR38A==
-  dependencies:
-    "@actions/core" "^1.10.0"
-    ansi-to-html "^0.7.2"
-    marked "^12.0.1"
-
 "@fastify/busboy@^2.0.0":
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/@fastify/busboy/-/busboy-2.1.1.tgz#b9da6a878a371829a0502c9b6c1c143ef6663f4d"
@@ -787,6 +778,15 @@
   version "1.1.9"
   resolved "https://registry.yarnpkg.com/@microsoft/dynamicproto-js/-/dynamicproto-js-1.1.9.tgz#7437db7aa061162ee94e4131b69a62b8dad5dea6"
   integrity sha512-n1VPsljTSkthsAFYdiWfC+DKzK2WwcRp83Y1YAqdX552BstvsDjft9YXppjUzp11BPsapDoO1LDgrDB0XVsfNQ==
+
+"@midleman/github-actions-reporter@^1.9.3":
+  version "1.9.3"
+  resolved "https://registry.yarnpkg.com/@midleman/github-actions-reporter/-/github-actions-reporter-1.9.3.tgz#c249e51e7fcab1a40e29bf0a50457638144df494"
+  integrity sha512-EOVbGTmIRb6NjOP6YgNmzLPFnBzjnfBT6x+qzb7m1T1stcZhgnOFWO2PoLfFYX6OEUsQp3ZNpFf/GiM4Jm9oxw==
+  dependencies:
+    "@actions/core" "^1.10.0"
+    ansi-to-html "^0.7.2"
+    marked "^12.0.1"
 
 "@nodelib/fs.scandir@2.1.3":
   version "2.1.3"
