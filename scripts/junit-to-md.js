@@ -13,7 +13,7 @@ try {
 	xml2js = require('xml2js');
 } catch (e) {
 	console.log('xml2js not found, installing...');
-	execSync('npm install xml2js', { stdio: 'inherit' });
+	execSync('npm install xml2js --legacy-peer-deps', { stdio: 'inherit' });
 	xml2js = require('xml2js');
 }
 
