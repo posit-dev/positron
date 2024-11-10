@@ -226,14 +226,14 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps
 
-      - name: Download blob reports from GitHub Actions Artifacts
+      - name: Download blob reports
         uses: actions/download-artifact@v4
         with:
           path: all-blob-reports
           pattern: blob-report-*
           merge-multiple: true
 
-      - name: Merge into HTML Report
+      - name: Merge blobs into HTML Report
         run: npx playwright merge-reports --reporter html ./all-blob-reports
 
       - name: Upload HTML report
@@ -243,15 +243,18 @@ jobs:
           path: playwright-report
           retention-days: 14
 
-      - name: Download junit reports from GitHub Actions Artifacts
+      - name: Download junit reports
         uses: actions/download-artifact@v4
         with:
           path: all-junit-reports
           pattern: junit-report-*
           merge-multiple: true
 
-      - name: Merge into JUnit Report
+      - name: Merge junit reports
         run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
+
+      - name: Markdown results to Github Summary
+        run: node scripts/junit-to-md.js ./junit.xml
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
