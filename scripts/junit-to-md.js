@@ -5,7 +5,18 @@
 
 const fs = require('fs');
 const path = require('path');
-const xml2js = require('xml2js');
+const { execSync } = require('child_process');
+
+// Try to require xml2js, install if not present
+let xml2js;
+try {
+	xml2js = require('xml2js');
+} catch (e) {
+	console.log('xml2js not found, installing...');
+	execSync('npm install xml2js', { stdio: 'inherit' });
+	xml2js = require('xml2js');
+}
+
 const parser = new xml2js.Parser();
 
 // Get the input file path from the command line arguments, or default to './junit.xml'
@@ -28,6 +39,7 @@ fs.readFile(inputFile, (err, data) => {
 		// If running in GitHub Actions, publish to summary
 		if (process.env.GITHUB_STEP_SUMMARY) {
 			fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown);
+			console.log('markdown appended to GitHub Actions step summary');
 		}
 	});
 });
@@ -97,6 +109,6 @@ function generateMarkdown(junitJson) {
 			markdown += suiteMarkdown;
 		}
 	});
-	console.log(`markdown generated: ${path.resolve(outputFile)}`);
+	console.log(`markdown output: ${path.resolve(outputFile)}`);
 	return markdown;
 }
