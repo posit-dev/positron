@@ -25,13 +25,13 @@ export default defineConfig<CustomTestOptions>({
 	},
 	reporter: process.env.CI
 		? [
-			// ['@midleman/github-actions-reporter', <GitHubActionOptions>{
-			// 	title: '',
-			// 	useDetails: true,
-			// 	showError: true,
-			// 	showAnnotations: false,
-			// 	includeResults: ['fail', 'flaky']
-			// }],
+			['@midleman/github-actions-reporter', <GitHubActionOptions>{
+				title: '',
+				useDetails: true,
+				showError: true,
+				showAnnotations: false,
+				includeResults: ['fail', 'flaky']
+			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['dot'], ['html'], ['blob']
 		]

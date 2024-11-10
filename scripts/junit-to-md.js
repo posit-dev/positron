@@ -88,14 +88,21 @@ function generateMarkdown(junitJson) {
 				hasFailures = true;
 				status = '❌ Fail';
 
-				// Extract the error text, isolating the first line and keeping the full message
+				// Extract the error text
 				const rawError = test.failure[0]._ || 'Error details not available';
 				const errorMessage = rawError;
 
-				// Get the first line of the error message for the summary
-				const firstLine = rawError.split('\n')[0] || 'Error details not available';
+				// Determine the first line of the error based on conditions
+				let firstLine;
+				if (/Test timeout of \d+ms exceeded/.test(rawError)) {
+					firstLine = 'Test timeout';
+				} else if (rawError.includes('Error:')) {
+					firstLine = rawError.split('Error:')[1].split('\n')[0].trim();
+				} else {
+					firstLine = 'Expand to view more...';
+				}
 
-				// Create a collapsible <details> for the error message
+				// Create a collapsible <details> for the full error message
 				error = `<details><summary>${firstLine}</summary><pre>${errorMessage}</pre></details>`;
 
 				// Add row for failed tests only
