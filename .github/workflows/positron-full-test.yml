@@ -150,7 +150,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: junit-report-electron-${{ matrix.shardIndex }}
-          path: test-results
+          path: test-results/junit.xml
           retention-days: 1
 
   e2e-browser-tests:
@@ -241,32 +241,32 @@ jobs:
       - name: Upload HTML report
         uses: actions/upload-artifact@v4
         with:
-          name: html-report--attempt-${{ github.run_attempt }}
+          name: html-report-${{ github.run_attempt }}
           path: playwright-report
           retention-days: 14
 
-      - name: Download junit reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-junit-reports
-          pattern: junit-report-*
-          merge-multiple: true
+      # - name: Download junit reports
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     path: all-junit-reports
+      #     pattern: junit-report-*
+      #     merge-multiple: true
 
-      - name: Merge junit reports
-        run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
+      # - name: Merge junit reports
+      #   run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
 
-      - name: Markdown results to Github Summary
-        run: node scripts/junit-to-md.js ./junit.xml
+      # - name: Markdown results to Github Summary
+      #   run: node scripts/junit-to-md.js ./junit.xml
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+      # - name: Set TestRail Run Title
+      #   id: set-testrail-run-title
+      #   if: ${{ !cancelled() }}
+      #   run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
 
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+      # - name: Upload Test Results to TestRail (Electron ONLY)
+      #   id: testrail-upload
+      #   if: ${{ !cancelled() }}
+      #   run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
   # slack-notification:
   #   name: "slack-notification"
