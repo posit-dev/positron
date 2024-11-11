@@ -35,7 +35,6 @@ export class PositronNotebooks {
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
-
 		await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
 		// Wait for either "select kernel" or "the desired kernel" to appear in KERNEL_LABEL
@@ -49,6 +48,7 @@ export class PositronNotebooks {
 		if (!new RegExp(desiredKernel).test(matchedText)) {
 			await this.code.driver.page.locator(KERNEL_ACTION).click();
 			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.selectQuickInputElementContaining(kernelGroup);
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
 			await this.quickinput.waitForQuickInputClosed();
 		}

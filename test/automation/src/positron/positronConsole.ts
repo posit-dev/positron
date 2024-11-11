@@ -73,9 +73,9 @@ export class PositronConsole {
 		// Wait until the desired interpreter string appears in the list and select it.
 		// We need to click instead of using 'enter' because the Python select interpreter command
 		// may include additional items above the desired interpreter string.
-		const interpreterElem = await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
+		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
-		return interpreterElem;
+		return;
 	}
 
 	async selectAndGetInterpreter(
