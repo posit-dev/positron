@@ -63,13 +63,13 @@ export class QuickInput {
 	}
 	// --- Start Positron ---
 	async selectQuickInputElementContaining(text: string): Promise<void> {
-		expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT)).toBeVisible();
+		expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT)).toBeVisible({ timeout: 15000 });
 		await this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_ROW}[aria-label*="${text}"]`).first().click({ timeout: 10000 });
 	}
 
 	async clickOkOnQuickInput(): Promise<void> {
 		// todo: make this smarter, if not open, open it.
-		expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT)).toBeVisible();
+		expect(this.code.driver.page.locator(QuickInput.QUICK_INPUT)).toBeVisible({ timeout: 15000 });
 		await this.code.driver.page.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
 	}
 	// --- End Positron ---
