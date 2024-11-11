@@ -18,6 +18,7 @@ const POSITRON_EXPLORER_PROJECT_FILES = 'div[id="workbench.view.explorer"] span[
  */
 export class PositronExplorer {
 	explorerProjectTitle: PositronTextElement;
+	explorerProjectTitleLocator = this.code.driver.page.locator(POSITRON_EXPLORER_PROJECT_TITLE);
 
 	constructor(protected code: Code) {
 		this.explorerProjectTitle = new PositronTextElement(POSITRON_EXPLORER_PROJECT_TITLE, this.code);

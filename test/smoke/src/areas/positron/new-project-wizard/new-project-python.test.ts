@@ -15,24 +15,7 @@ test.beforeEach(async function ({ app }) {
 });
 
 test.describe('Python - New Project Wizard', () => {
-	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app }) {
-		// This is the default behavior for a new Python Project in the Project Wizard
-		const projSuffix = addRandomNumSuffix('_new_venv');
-		const pw = app.workbench.positronNewProjectWizard;
-		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
-		await pw.navigate(ProjectWizardNavigateAction.NEXT);
-		await pw.navigate(ProjectWizardNavigateAction.CREATE);
-		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myPythonProject${projSuffix}`);
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.positronConsole.barClearButton.click();
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-	});
-
-	test('Create a new Conda environment [C628628]', async function ({ app }) {
+	test('Create a new Conda environment [C628628]', async function ({ app, page }) {
 		// This test relies on Conda already being installed on the machine
 		test.slow();
 		const projSuffix = addRandomNumSuffix('_condaInstalled');
@@ -45,22 +28,37 @@ test.describe('Python - New Project Wizard', () => {
 		await pw.pythonConfigurationStep.selectEnvProvider('Conda');
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
 		// Check that the `.conda` folder gets created in the project
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
 			expect(projectFiles).toContain('.conda');
 		}).toPass({ timeout: 50000 });
 		// The console should initialize without any prompts to install ipykernel
-		await app.workbench.positronConsole.waitForReady('>>>', 40000);
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('With ipykernel already installed [C609619]', async function ({ app }) {
+	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app, page }) {
+		// This is the default behavior for a new Python Project in the Project Wizard
+		const projSuffix = addRandomNumSuffix('_new_venv');
+		const pw = app.workbench.positronNewProjectWizard;
+		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.projectNameLocationStep.appendToProjectName(projSuffix);
+		await pw.navigate(ProjectWizardNavigateAction.NEXT);
+		await pw.navigate(ProjectWizardNavigateAction.CREATE);
+		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronConsole.barClearButton.click();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+	});
+
+	test('With ipykernel already installed [C609619]', async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
@@ -92,14 +90,11 @@ test.describe('Python - New Project Wizard', () => {
 		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
-		// The console should initialize without any prompts to install ipykernel
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 	});
 
-	test('With ipykernel not already installed [C609617]', async function ({ app }) {
+	test('With ipykernel not already installed [C609617]', async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
@@ -140,18 +135,17 @@ test.describe('Python - New Project Wizard', () => {
 		);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Default Python Project with git init [C674522]', { tag: ['@pr', '@win'] }, async function ({ app }) {
+	test('Default Python Project with git init [C674522]', { tag: ['@pr', '@win'] }, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_gitInit');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);
@@ -166,10 +160,8 @@ test.describe('Python - New Project Wizard', () => {
 
 		// Open the new project in the current window and wait for the console to be ready
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myPythonProject${projSuffix}`
-		);
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 
 		// Verify git-related files are present
 		await expect(async () => {
