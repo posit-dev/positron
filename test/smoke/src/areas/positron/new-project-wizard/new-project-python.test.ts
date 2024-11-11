@@ -11,7 +11,7 @@ test.use({
 });
 
 test.beforeEach(async function ({ app }) {
-	app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
 });
 
 test.describe('Python - New Project Wizard', () => {
