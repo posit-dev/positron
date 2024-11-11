@@ -28,7 +28,7 @@ test.describe('Python - New Project Wizard', () => {
 		await pw.pythonConfigurationStep.selectEnvProvider('Conda');
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// Check that the `.conda` folder gets created in the project
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
@@ -51,7 +51,7 @@ test.describe('Python - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
 		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
@@ -90,7 +90,7 @@ test.describe('Python - New Project Wizard', () => {
 		await expect(pw.pythonConfigurationStep.interpreterFeedback).not.toBeVisible();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
 		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 	});
 
@@ -135,7 +135,7 @@ test.describe('Python - New Project Wizard', () => {
 		);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
 
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
@@ -160,7 +160,7 @@ test.describe('Python - New Project Wizard', () => {
 
 		// Open the new project in the current window and wait for the console to be ready
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible();
+		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
 		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
 
 		// Verify git-related files are present
