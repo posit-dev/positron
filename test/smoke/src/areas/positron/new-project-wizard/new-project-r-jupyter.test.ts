@@ -27,7 +27,7 @@ test.describe('R - New Project Wizard', () => {
 		// here, but it's timing out in CI, so it is not included for now.
 	});
 
-	test('R - Accept Renv install [C633084]', async function ({ app }) {
+	test('R - Accept Renv install [C633084]', async function ({ app, r }) {
 		const projSuffix = addRandomNumSuffix('_installRenv');
 		const pw = app.workbench.positronNewProjectWizard;
 		// Create a new R project - select Renv and install
