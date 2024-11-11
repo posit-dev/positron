@@ -10,6 +10,10 @@ test.use({
 	suiteId: __filename
 });
 
+test.beforeEach(async function ({ app }) {
+	app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+});
+
 test.describe('Python - New Project Wizard', () => {
 	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app }) {
 		// This is the default behavior for a new Python Project in the Project Wizard

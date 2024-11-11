@@ -10,6 +10,10 @@ test.use({
 	suiteId: __filename
 });
 
+test.beforeEach(async function ({ app }) {
+	app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+});
+
 test.describe('R - New Project Wizard', () => {
 	test.describe.configure({ mode: 'serial' });
 
