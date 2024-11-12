@@ -13,7 +13,9 @@ test.use({
 
 // Note that this test is too heavy to pass on web and windows
 
-test.describe.skip('Large Python Notebook', () => {
+test.describe.skip('Large Python Notebook', {
+	annotation: [{ type: 'performance', description: 'This test is too heavy to run in CICD due to snapshots on the excessive scrolling.' }],
+}, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
 		test.setTimeout(480_000); // huge timeout because this is a heavy test

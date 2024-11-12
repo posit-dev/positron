@@ -95,7 +95,9 @@ test.describe('Python - New Project Wizard', () => {
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
 	});
 
-	test('With ipykernel not already installed [C609617]', async function ({ app, page }) {
+	test('With ipykernel not already installed [C609617]', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5286' }]
+	}, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
