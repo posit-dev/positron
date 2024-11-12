@@ -17,29 +17,52 @@ import { NotebookCellWrapper } from './NotebookCellWrapper';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
 import { PreloadMessageOutput } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/PreloadMessageOutput';
 
+interface CellExecutionControlsProps {
+	isRunning: boolean;
+	onRun: () => void;
+}
+
+function CellExecutionControls({ isRunning, onRun }: CellExecutionControlsProps) {
+	return (
+		<ActionButton
+			ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
+			onPressed={onRun}
+		>
+			<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+		</ActionButton>
+	);
+}
+
+interface CellOutputsSectionProps {
+	outputs: NotebookCellOutputs[] | undefined;
+}
+
+function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
+	return (
+		<div className='positron-notebook-code-cell-outputs'>
+			{outputs?.map((output) => (
+				<CellOutput key={output.outputId} {...output} />
+			))}
+		</div>
+	);
+}
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <NotebookCellWrapper cell={cell}>
-		<NotebookCellActionBar cell={cell}>
-			<ActionButton
-				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-				onPressed={() => cell.run()} >
-				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-			</ActionButton>
-		</NotebookCellActionBar>
-		<div className='positron-notebook-code-cell-contents'>
-			<CellEditorMonacoWidget cell={cell} />
-			<div className='positron-notebook-cell-outputs'>
-				{outputContents?.map((cellOutput) =>
-					<CellOutput key={cellOutput.outputId} {...cellOutput} />
-				)}
+	return (
+		<NotebookCellWrapper cell={cell}>
+			<NotebookCellActionBar cell={cell}>
+				<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />
+			</NotebookCellActionBar>
+			<div className='positron-notebook-code-cell-contents'>
+				<CellEditorMonacoWidget cell={cell} />
+				<CellOutputsSection outputs={outputContents} />
 			</div>
-		</div>
-	</NotebookCellWrapper>;
+		</NotebookCellWrapper>
+	);
 }
 
 function CellOutput(output: NotebookCellOutputs) {
