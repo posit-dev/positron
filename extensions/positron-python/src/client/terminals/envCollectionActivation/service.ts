@@ -182,7 +182,9 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             shell,
         );
         const env = activatedEnv ? normCaseKeys(activatedEnv) : undefined;
-        traceVerbose(`Activated environment variables for ${resource?.fsPath}`, env);
+        // --- Start Positron ---
+        traceVerbose(`Activated environment variables for ${resource?.fsPath}`);
+        // --- End Positron ---
         if (!env) {
             const shellType = identifyShellFromShellPath(shell);
             const defaultShell = defaultShells[this.platform.osType];
