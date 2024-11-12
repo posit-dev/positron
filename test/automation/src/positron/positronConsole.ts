@@ -164,8 +164,8 @@ export class PositronConsole {
 	async waitForReadyOrNoInterpreter() {
 		const page = this.code.driver.page;
 
-		// ensure interpreter is not starting up
-		await expect(page.getByText(/^(Starting(\s+up)?\.\.\.|Discovering interpreters(\s\(\d+\))?|starting)$/i)).not.toBeVisible({ timeout: 30000 });
+		// ensure interpreter(s) not starting up or loading
+		await expect(page.getByText(/Starting|Discovering/i)).not.toBeVisible({ timeout: 30000 });
 
 		// wait for the dropdown to contain R, Python, or No Interpreter.
 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
