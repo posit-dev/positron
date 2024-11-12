@@ -35,7 +35,7 @@ runs:
 
     - name: Compile and Download
       shell: bash
-      run: yarn npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
+      run: yarn npm-run-all --max_old_space_size=4095 -lp compile download-builtin-extensions # "electron x64" playwright-install
 
     # Although not directly part of the build environment, this configuration is essential for running unit, integration, and e2e tests.
     - name: Configure xvfb Service
