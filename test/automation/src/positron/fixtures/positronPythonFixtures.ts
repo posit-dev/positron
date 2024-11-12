@@ -52,7 +52,8 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronPopups.installIPyKernel();
 		}
 
-		await expect(this.app.code.driver.page.locator('.console-instance').getByText('>>>')).toBeVisible({ timeout: 30000 });
+		await expect(this.app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 30000 });
+		await this.app.workbench.positronConsole.logConsoleContents();
 
 		return interpreterInfo;
 	}

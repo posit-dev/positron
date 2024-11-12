@@ -20,7 +20,7 @@ on:
         type: string
 
 env:
-  e2e_grep: ${{ inputs.e2e_grep || '' }}
+  E2E_GREP: ${{ inputs.e2e_grep || '' }}
 
 permissions:
   id-token: write
@@ -61,7 +61,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.e2e_grep }}"
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
 
       # - name: Markdown results to Github Summary
       #   run: node scripts/junit-to-md.js test-results/junit.xml

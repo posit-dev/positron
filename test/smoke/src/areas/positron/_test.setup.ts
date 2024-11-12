@@ -11,6 +11,7 @@ const { test: base, expect: playwrightExpect } = playwright;
 import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
+
 import path = require('path');
 // eslint-disable-next-line local/code-import-patterns
 import { rename, rm, access, mkdir } from 'fs/promises';
@@ -27,7 +28,7 @@ import { createApp } from '../../utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();
-const LOGS_ROOT_PATH = join(ROOT_PATH, '.build', 'logs');
+const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 let SPEC_NAME = '';
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
@@ -240,19 +241,38 @@ test.afterAll(async function ({ logger }, testInfo) {
 
 export { playwrightExpect as expect };
 
-async function moveAndOverwrite(sourcePath: string, destinationPath: string) {
+async function moveAndOverwrite(sourcePath, destinationPath) {
+	try {
+		await access(sourcePath, constants.F_OK);
+	} catch {
+		// console.error(`Source path does not exist: ${sourcePath}`);
+		return;
+	}
+
 	try {
 		// check if the destination exists and delete it if so
 		await access(destinationPath, constants.F_OK);
 		await rm(destinationPath, { recursive: true, force: true });
-	} catch {
+		// console.log(`Removed existing destination path: ${destinationPath}`);
+	} catch (err) {
 		// if destination doesn't exist, continue without logging
+		// if (err.code !== 'ENOENT') {
+		// 	console.error(`Error accessing destination path: ${err}`);
+		// }
 	}
 
-	await mkdir(path.dirname(destinationPath), { recursive: true });
-	await rename(sourcePath, destinationPath);
-}
+	// Ensure parent directory of destination path exists
+	const destinationDir = path.dirname(destinationPath);
+	await mkdir(destinationDir, { recursive: true });
 
+	try {
+		// Rename source to destination
+		await rename(sourcePath, destinationPath);
+		// console.log(`Successfully moved ${sourcePath} to ${destinationPath}`);
+	} catch (err) {
+		// console.error(`Failed to move ${sourcePath} to ${destinationPath}: ${err}`);
+	}
+}
 
 interface TestFixtures {
 	restartApp: Application;
