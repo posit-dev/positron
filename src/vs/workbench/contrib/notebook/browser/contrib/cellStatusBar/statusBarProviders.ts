@@ -38,6 +38,15 @@ class CellStatusBarLanguagePickerProvider implements INotebookCellStatusBarItemP
 			return;
 		}
 
+		// --- Begin Positron ---
+		// To avoid cluttering the UI with redundant language indicators, we only show the language
+		// status bar for the first cell of each language type. This helps users identify language
+		// transitions while keeping the interface clean.
+		const firstCellIndex = doc.cells.findIndex(c => c.language === cell.language);
+		if (firstCellIndex !== index) {
+			return;
+		}
+		// --- End Positron ---
 		const statusBarItems: INotebookCellStatusBarItem[] = [];
 		let displayLanguage = cell.language;
 		if (cell.cellKind === CellKind.Markup) {

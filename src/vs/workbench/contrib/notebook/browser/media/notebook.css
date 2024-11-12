@@ -288,7 +288,10 @@
 	right: 0px;
 	left: 0px;
 	top: 0px;
-	bottom: 0px;
+	/* --- Begin Positron --- */
+	bottom: 22px;
+	border-radius: 4px;
+	/* --- End Positron --- */
 	outline-offset: -1px;
 	display: block;
 	position: absolute;
@@ -397,6 +400,10 @@
 .notebookOverlay .cell-bottom-toolbar-container .action-item,
 .notebookOverlay .cell-list-top-cell-toolbar-container .action-item {
 	border: solid 1px var(--vscode-notebook-cellToolbarSeparator);
+	/* --- Begin Positron --- */
+	/* Add rounded corners to the toolbar */
+	border-radius: 4px;
+	/* --- End Positron --- */
 }
 .notebookOverlay .monaco-action-bar .action-item.verticalSeparator {
 	background-color: var(--vscode-notebook-cellToolbarSeparator);

@@ -9,7 +9,9 @@ import { language } from 'vs/base/common/platform';
 import { localize } from 'vs/nls';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { themeColorFromId } from 'vs/platform/theme/common/themeService';
-import { ThemeIcon } from 'vs/base/common/themables';
+// --- Begin Positron ---
+// import { ThemeIcon } from 'vs/base/common/themables';
+// --- End Positron ---
 import { ICellVisibilityChangeEvent, NotebookVisibleCellObserver } from 'vs/workbench/contrib/notebook/browser/contrib/cellStatusBar/notebookVisibleCellObserver';
 import { ICellViewModel, INotebookEditor, INotebookEditorContribution, INotebookViewModel } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { registerNotebookContribution } from 'vs/workbench/contrib/notebook/browser/notebookEditorExtensions';
@@ -184,9 +186,12 @@ class ExecutionStateCellStatusBarItem extends Disposable {
 				priority: Number.MAX_SAFE_INTEGER
 			} satisfies INotebookCellStatusBarItem];
 		} else if (state === NotebookCellExecutionState.Executing) {
-			const icon = runState?.didPause ?
-				executingStateIcon :
-				ThemeIcon.modify(executingStateIcon, 'spin');
+			// --- Begin Positron ---
+			// const icon = runState?.didPause ?
+			// 	executingStateIcon :
+			// 	ThemeIcon.modify(executingStateIcon, 'spin');
+			const icon = executingStateIcon;
+			// --- End Positron ---
 			return [{
 				text: `$(${icon.id})`,
 				tooltip: localize('notebook.cell.status.executing', "Executing"),

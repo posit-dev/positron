@@ -9,6 +9,10 @@
 	display: flex;
 	position: relative;
 	overflow: hidden;
+	/* --- Begin Positron --- */
+	/* Make the background transparent */
+	background-color: transparent;
+	/* --- End Positron --- */
 }
 
 .monaco-workbench .notebookOverlay .cell-statusbar-hidden .cell-statusbar-container {

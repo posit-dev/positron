@@ -69,5 +69,8 @@ export class CellProgressBar extends CellContentPart {
 }
 
 function showProgressBar(progressBar: ProgressBar): void {
-	progressBar.infinite().show(500);
+	// --- Begin Positron ---
+	// Dont show the progress bar
+	// progressBar.infinite().show(500);
+	// --- End Positron ---
 }
