@@ -71,7 +71,7 @@ test.describe('R Package Development', { tag: ['@web'] }, () => {
 		await expect(async () => {
 			await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.startsWith('✔ Installed testfun 0.0.0.9000')));
 			await app.workbench.positronConsole.waitForReady('>');
-			await expect(app.code.driver.page.locator('.console-instance').getByText('restarted')).toBeVisible({ timeout: 30000 });
+			await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 30000 });
 		}).toPass({ timeout: 70000 });
 	});
 });

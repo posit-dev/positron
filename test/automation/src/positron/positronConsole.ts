@@ -36,7 +36,7 @@ export class PositronConsole {
 	consoleRestartButton: PositronBaseElement;
 
 	get activeConsole() {
-		return this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
+		return this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 	}
 
 	get emptyConsole() {
