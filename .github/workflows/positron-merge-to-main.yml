@@ -6,21 +6,21 @@ on:
       - main
   workflow_call:
     inputs:
-      smoketest_target:
+      e2e_grep:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
-        default: "smoketest-all"
+        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        default: ""
         type: string
   workflow_dispatch:
     inputs:
-      smoketest_target:
+      e2e_grep:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
-        default: "smoketest-all"
+        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        default: ""
         type: string
 
 env:
-  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-all' }}
+  e2e_grep: ${{ inputs.e2e_grep || '' }}
 
 permissions:
   id-token: write
@@ -61,7 +61,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep @pr
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.e2e_grep }}"
 
       # - name: Markdown results to Github Summary
       #   run: node scripts/junit-to-md.js test-results/junit.xml
@@ -120,13 +120,13 @@ jobs:
         run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
     outputs:
-      target: ${{ env.SMOKETEST_TARGET }}
+      target: ${{ env.e2e_grep }}
 
   slack-notification:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
     needs: [unit-integration, e2e-electron]
-    if: ${{ failure() && needs.unit-integration.outputs.target  == 'smoketest-all' }}
+    if: ${{ failure() && needs.unit-integration.outputs.target  == '' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
