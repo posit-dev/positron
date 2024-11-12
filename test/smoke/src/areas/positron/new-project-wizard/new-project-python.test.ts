@@ -58,7 +58,7 @@ test.describe('Python - New Project Wizard', () => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('With ipykernel already installed [C609619]', async function ({ app, page }) {
+	test('With ipykernel already installed [C609619]', async function ({ app, page, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
 		const pythonFixtures = new PositronPythonFixtures(app);
