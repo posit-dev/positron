@@ -47,7 +47,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	options: [async ({ logsPath, logger }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
-		const TEST_DATA_PATH = join(os.tmpdir(), 'e2e-tests');
+		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
