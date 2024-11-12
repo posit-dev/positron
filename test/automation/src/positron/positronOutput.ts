@@ -27,8 +27,12 @@ export class PositronOutput {
 		await this.quickinput.waitForQuickInputClosed();
 	}
 
+	async clickOutputTab() {
+		await this.code.driver.page.getByRole('tab', { name: 'Output' }).locator('a').click();
+	}
+
 	async waitForOutContaining(fragment: string) {
-		const outputLine = this.code.driver.getLocator(OUTPUT_LINE);
+		const outputLine = this.code.driver.page.locator(OUTPUT_LINE);
 		await outputLine.getByText(fragment).first().isVisible();
 	}
 }
