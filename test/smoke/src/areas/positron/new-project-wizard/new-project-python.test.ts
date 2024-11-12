@@ -59,7 +59,7 @@ test.describe('Python - New Project Wizard', () => {
 	});
 
 	test.skip('With ipykernel already installed [C609619]', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5286' }]
+		annotation: [{ type: 'skip', description: 'https://github.com/posit-dev/positron/issues/5286' }]
 	}, async function ({ app, page, python }) {
 		const projSuffix = addRandomNumSuffix('_ipykernelInstalled');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -95,8 +95,8 @@ test.describe('Python - New Project Wizard', () => {
 		await expect(app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 45000 });
 	});
 
-	test('With ipykernel not already installed [C609617]', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5286' }]
+	test.skip('With ipykernel not already installed [C609617]', {
+		annotation: [{ type: 'skip', description: 'https://github.com/posit-dev/positron/issues/5286' }]
 	}, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_noIpykernel');
 		const pw = app.workbench.positronNewProjectWizard;

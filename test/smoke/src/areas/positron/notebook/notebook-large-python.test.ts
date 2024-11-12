@@ -14,7 +14,7 @@ test.use({
 // Note that this test is too heavy to pass on web and windows
 
 test.describe.skip('Large Python Notebook', {
-	annotation: [{ type: 'performance', description: 'This test is too heavy to run in CICD due to snapshots on the excessive scrolling.' }],
+	annotation: [{ type: 'skip', description: 'This test is too heavy to run in CICD due to snapshots on the excessive scrolling.' }],
 }, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
