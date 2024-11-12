@@ -6,7 +6,7 @@
 import * as nls from 'vs/nls';
 import { DeferredPromise } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -1156,7 +1156,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		seconds: number,
 		warning: string) {
 
-		let disposable: IDisposable | undefined = undefined;
+		const disposables = new DisposableStore();
 		let prompt: IModalDialogPromptInstance | undefined = undefined;
 
 		return new Promise<void>((resolve, reject) => {
@@ -1178,27 +1178,41 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						session.forceQuit();
 					}
 					// Regardless of their choice, we are done waiting for a state change.
-					if (disposable) {
-						disposable.dispose();
-					}
+					disposables.dispose();
 				});
 			}, seconds * 1000);
 
-			// Listen for state changes.
-			disposable = session.onDidChangeRuntimeState(state => {
-				if (targetStates.includes(state)) {
-					clearTimeout(timer);
-					resolve();
+			// Runs when the requested state change was completed.
+			const completeStateChange = () => {
+				clearTimeout(timer);
+				resolve();
 
-					// If we were prompting the user to force quit the runtime,
-					// close the prompt ourselves since the runtime is now
-					// responding.
-					if (prompt) {
-						prompt.close();
-					}
-					disposable?.dispose();
+				// If we were prompting the user to force quit the runtime,
+				// close the prompt ourselves since the runtime is now
+				// responding.
+				if (prompt) {
+					prompt.close();
 				}
-			});
+				disposables.dispose();
+			};
+
+			// Listen for state changes.
+			disposables.add(session.onDidChangeRuntimeState(state => {
+				if (targetStates.includes(state)) {
+					completeStateChange();
+				}
+			}));
+
+			// Listen for the session to end. This should be treated as an exit
+			// for the purposes of waiting for the session to exit.
+			disposables.add(session.onDidEndSession(() => {
+				if (targetStates.includes(RuntimeState.Exited)) {
+					completeStateChange();
+				}
+			}));
+
+			// Ensure the timer's cleared.
+			disposables.add(toDisposable(() => clearTimeout(timer)));
 		});
 	}
 
