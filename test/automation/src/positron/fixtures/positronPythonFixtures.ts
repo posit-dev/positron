@@ -53,7 +53,6 @@ export class PositronPythonFixtures {
 		}
 
 		await expect(this.app.code.driver.page.locator('.console-instance').getByText('>>>')).toBeVisible({ timeout: 30000 });
-		// await this.app.workbench.positronConsole.logConsoleContents();
 
 		return interpreterInfo;
 	}

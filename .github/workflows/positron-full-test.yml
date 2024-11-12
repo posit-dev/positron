@@ -4,7 +4,7 @@ name: "Positron: Full Test Suite"
 on:
   # schedule:
   #   - cron: "0 4 * * 1-5"
-  # workflow_dispatch:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -97,13 +97,13 @@ jobs:
   #     run: cd .. && rm -rf positron-license
 
   e2e-electron-tests:
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-4x
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3]
-        shardTotal: [3]
+        shardIndex: [1, 2, 3, 4, 5]
+        shardTotal: [5]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -159,8 +159,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2]
-        shardTotal: [2]
+        shardIndex: [1, 2, 3]
+        shardTotal: [3]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -224,9 +224,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-
-      # - name: Install Playwright
-      #   run: npx playwright install --with-deps
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
