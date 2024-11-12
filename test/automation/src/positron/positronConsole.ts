@@ -165,7 +165,7 @@ export class PositronConsole {
 		const page = this.code.driver.page;
 
 		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(page.locator('text=/^Starting up|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 30000 });
+		await expect(page.locator('text=/^Starting up|^Starting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 30000 });
 
 		// ensure we are on Console tab
 		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
