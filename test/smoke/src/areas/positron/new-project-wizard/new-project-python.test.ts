@@ -64,8 +64,7 @@ test.describe('Python - New Project Wizard', () => {
 		const pythonFixtures = new PositronPythonFixtures(app);
 		// Start the Python interpreter and ensure ipykernel is installed
 		await pythonFixtures.startAndGetPythonInterpreter(true);
-		// Ensure the console is ready with the selected interpreter
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+
 		const interpreterInfo =
 			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
@@ -100,8 +99,7 @@ test.describe('Python - New Project Wizard', () => {
 		const pythonFixtures = new PositronPythonFixtures(app);
 		// Start the Python interpreter and uninstall ipykernel
 		await pythonFixtures.startAndGetPythonInterpreter(true);
-		// Ensure the console is ready with the selected interpreter
-		await app.workbench.positronConsole.waitForReady('>>>', 10000);
+
 		const interpreterInfo =
 			await app.workbench.positronInterpreterDropdown.getSelectedInterpreterInfo();
 		expect(interpreterInfo?.path).toBeDefined();
