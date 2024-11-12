@@ -4,7 +4,7 @@
 #
 
 import os
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, NamedTuple, Optional, cast
 from unittest.mock import Mock
 
 import pandas as pd
@@ -19,6 +19,7 @@ from positron_ipykernel._vendor.lsprotocol.types import (
     MarkupContent,
     MarkupKind,
     Position,
+    SemanticTokensParams,
     TextDocumentIdentifier,
 )
 from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
@@ -26,10 +27,14 @@ from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
     HelpTopicParams,
+    SemanticToken,
+    TokenModifier,
+    TokenType,
     _publish_diagnostics,
     positron_completion,
     positron_completion_item_resolve,
     positron_help_topic_request,
+    positron_semantic_tokens_full,
 )
 
 
@@ -295,3 +300,65 @@ def test_publish_diagnostics(source: str, messages: List[str]):
     actual_messages = [diagnostic.message for diagnostic in actual_diagnostics]
     assert actual_uri == uri
     assert actual_messages == messages
+
+
+def _parse_semantic_tokens(data: List[int]) -> List[SemanticToken]:
+    tokens = []
+    line = 0
+    start_char = 0
+
+    for i in range(0, len(data), 5):
+        delta_line = data[i]
+        delta_start_char = data[i + 1]
+        length = data[i + 2]
+        token_type = TokenType(data[i + 3])
+        token_modifiers_mask = data[i + 4]
+
+        line += delta_line
+        start_char = start_char + delta_start_char if delta_line == 0 else delta_start_char
+
+        token_modifiers = [
+            modifier for modifier in TokenModifier if token_modifiers_mask & (1 << modifier.value)
+        ]
+
+        tokens.append(SemanticToken(line, start_char, length, token_type, token_modifiers))
+
+    return tokens
+
+
+@pytest.mark.parametrize(
+    ("source", "expected_semantic_tokens"),
+    [
+        # Simple case with no tokens.
+        ("", []),
+        # Single token cases.
+        (
+            "import re, sys as s",
+            [
+                SemanticToken(0, 7, 2, TokenType.module, []),
+                SemanticToken(0, 11, 3, TokenType.module, []),
+                SemanticToken(0, 18, 1, TokenType.module, []),
+            ],
+        ),
+        (
+            "def func(x, y=123): pass",
+            [
+                SemanticToken(0, 4, 4, TokenType.function, [TokenModifier.declaration]),
+                SemanticToken(0, 9, 1, TokenType.parameter, [TokenModifier.declaration]),
+                SemanticToken(0, 12, 1, TokenType.parameter, [TokenModifier.declaration]),
+            ],
+        ),
+        ("print()", [SemanticToken(0, 0, 5, TokenType.function, [])]),
+    ],
+)
+def test_positron_semantic_tokens_full(
+    source: str, expected_semantic_tokens: List[SemanticToken]
+) -> None:
+    uri = "file:///foo.py"
+    server = mock_server(uri, source, {})
+    params = SemanticTokensParams(TextDocumentIdentifier(uri))
+
+    semantic_tokens = positron_semantic_tokens_full(server, params)
+
+    parsed_semantic_tokens = _parse_semantic_tokens(semantic_tokens.data)
+    assert parsed_semantic_tokens == expected_semantic_tokens

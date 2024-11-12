@@ -10,7 +10,7 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
 
@@ -47,6 +47,7 @@ from ._vendor.lsprotocol.types import (
     TEXT_DOCUMENT_HOVER,
     TEXT_DOCUMENT_REFERENCES,
     TEXT_DOCUMENT_RENAME,
+    TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
     TEXT_DOCUMENT_SIGNATURE_HELP,
     TEXT_DOCUMENT_TYPE_DEFINITION,
     WORKSPACE_DID_CHANGE_CONFIGURATION,
@@ -75,6 +76,9 @@ from ._vendor.lsprotocol.types import (
     MarkupKind,
     Position,
     RenameParams,
+    SemanticTokens,
+    SemanticTokensLegend,
+    SemanticTokensParams,
     SignatureHelp,
     SignatureHelpOptions,
     SymbolInformation,
@@ -661,6 +665,173 @@ def positron_did_close_diagnostics(
     server: PositronJediLanguageServer, params: DidCloseTextDocumentParams
 ) -> None:
     return did_close_diagnostics(server, params)
+
+
+class TokenType(enum.IntEnum):
+    variable = 0
+    keyword = enum.auto()
+    module = enum.auto()
+    function = enum.auto()
+    class_ = enum.auto()
+    parameter = enum.auto()
+
+
+class TokenModifier(enum.IntEnum):
+    declaration = 0
+
+
+class SemanticToken(NamedTuple):
+    line: int
+    start_char: int
+    length: int
+    token_type: TokenType
+    token_modifiers: List[TokenModifier]
+
+
+TOKEN_TYPES = [token_type.name for token_type in TokenType]
+TOKEN_MODIFIERS = [token_modifier.name for token_modifier in TokenModifier]
+
+
+def _encode_semantic_tokens(semantic_tokens: List[SemanticToken]) -> List[int]:
+    data = []
+    last_line = 0
+    last_start_char = 0
+
+    for token in semantic_tokens:
+        delta_line = token.line - last_line
+        delta_start_char = (
+            token.start_char - last_start_char if delta_line == 0 else token.start_char
+        )
+
+        token_modifiers_mask = 0
+        for modifier in token.token_modifiers:
+            token_modifiers_mask |= 1 << modifier.value
+
+        data.extend(
+            [
+                delta_line,
+                delta_start_char,
+                token.length,
+                token.token_type.value,
+                token_modifiers_mask,
+            ]
+        )
+
+        last_line = token.line
+        last_start_char = token.start_char
+
+    return data
+
+
+@POSITRON.feature(
+    TEXT_DOCUMENT_SEMANTIC_TOKENS_FULL,
+    SemanticTokensLegend(token_types=TOKEN_TYPES, token_modifiers=TOKEN_MODIFIERS),
+)
+def positron_semantic_tokens_full(
+    server: PositronJediLanguageServer, params: SemanticTokensParams
+) -> SemanticTokens:
+    logger.error("[WL] Semantic tokens full requested")
+
+    # Test data.
+    # data = [
+    #     0,  # line
+    #     0,  # offset
+    #     3,  # length
+    #     TOKEN_TYPES.index("variable"),  # token type
+    #     0,  # token modifier
+    # ]
+
+    document = server.workspace.get_document(params.text_document.uri)
+    jedi_script = interpreter(server.project, document, server.shell)
+
+    # Get all names (variables, functions, classes, etc.) in the script
+    names = jedi_script.get_names(all_scopes=True, definitions=True, references=True)
+
+    tokens = []
+    for name in names:
+        assert name.line is not None
+        assert name.column is not None
+
+        start_pos = (name.line, name.column)
+        end_pos = (name.line, name.column + len(name.name))
+        token_modifiers = []
+
+        def get_token_type(name_type: str) -> Optional[TokenType]:
+            if name_type == "variable":
+                return TokenType.variable
+            elif name_type == "keyword":
+                return TokenType.keyword
+            elif name_type == "module":
+                return TokenType.module
+            elif name_type == "function":
+                return TokenType.function
+            elif name_type == "class":
+                return TokenType.class_
+            elif name_type == "param":
+                return TokenType.parameter
+            elif name_type == "statement":
+                # TODO: This is probably very slow. Is there a better way?
+                # Try to infer the referenced object's type
+                inferred = name.infer()
+                if inferred:
+                    return get_token_type(inferred[0].type)
+            return None
+
+        # Determine token type
+        token_type = get_token_type(name.type)
+        if token_type is None:
+            continue
+
+        if name.type != "module" and name.is_definition():
+            token_modifiers.append(TokenModifier.declaration)
+
+        # Create the semantic token
+        line, start_char = start_pos
+        length = end_pos[1] - start_char
+        semantic_token = SemanticToken(
+            line=line - 1,  # Jedi is 1-indexed. VSCode is 0-indexed.
+            start_char=start_char,
+            length=length,
+            token_type=token_type,
+            token_modifiers=token_modifiers,
+        )
+
+        tokens.append(semantic_token)
+
+    # NOTE: This was a different approach using parso (the parser used by Jedi).
+    # from positron_ipykernel._vendor.parso.python.tree import ImportName, Module, PythonNode
+
+    # module_node: Module = jedi_script._module_node
+
+    # tokens = []
+    # for node in module_node.children:
+    #     print(node)
+    #     print(node.type)
+    #     if isinstance(node, ImportName):
+    #         defined_names = node.get_defined_names()
+    #         aliases = node._aliases()
+    #         print(node.get_paths())
+    #         for name in defined_names:
+    #             token = SemanticToken(
+    #                 name.start_pos[0],
+    #                 name.start_pos[1],
+    #                 len(name.get_code(include_prefix=False)),
+    #                 TokenType.module,
+    #                 [],
+    #             )
+    #             tokens.append(token)
+
+    #         print(node.children)
+    #         for child in node.children:
+    #             print(child.type)
+    #             if isinstance(child, PythonNode) and child.type == "dotted_as_names":
+    #                 print(child.children)
+    #         print(node.get_paths())
+    #         print(aliases)
+
+    data = _encode_semantic_tokens(tokens)
+
+    return SemanticTokens(data)
 
 
 @jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
