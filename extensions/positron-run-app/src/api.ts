@@ -603,10 +603,7 @@ function extractAppUrlFromString(str: string, appUrlStrings?: AppUrlString[]) {
 				// Placeholder is in the middle of the string.
 				// Example: 'Open {{APP_URL}} to view the app'
 				// [0] = 'Open ', [1] = '{{APP_URL}}', [2] = ' to view the app'
-				if (!startsWithAppUrl && !endsWithAppUrl) {
-					// The placeholder is not at the start or end of the string, so it's in the middle.
-					return match[1];
-				}
+				return match[1];
 			}
 		}
 	}
