@@ -167,11 +167,11 @@ export class PositronConsole {
 		// ensure interpreter(s) containing starting/discovering do not exist in DOM
 		await expect(page.locator('text=/^Starting up|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 30000 });
 
+		// ensure we are on Console tab
+		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
 		// wait for the dropdown to contain R, Python, or No Interpreter.
 		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
-
-		// ensure we are on Console tab before verifying console is ready
-		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
 
 		if (currentInterpreter.includes('Python')) {
 			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });

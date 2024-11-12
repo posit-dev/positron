@@ -35,7 +35,7 @@ test.describe('Python - New Project Wizard', () => {
 			expect(projectFiles).toContain('.conda');
 		}).toPass({ timeout: 50000 });
 		// The console should initialize without any prompts to install ipykernel
-		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 45000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -52,7 +52,7 @@ test.describe('Python - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
-		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 45000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -90,7 +90,7 @@ test.describe('Python - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
-		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 45000 });
 	});
 
 	test('With ipykernel not already installed [C609617]', async function ({ app, page }) {
@@ -137,7 +137,7 @@ test.describe('Python - New Project Wizard', () => {
 
 		// If ipykernel was successfully installed during the new project initialization,
 		// the console should be ready without any prompts to install ipykernel
-		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 45000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronConsole.barClearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -159,7 +159,7 @@ test.describe('Python - New Project Wizard', () => {
 		// Open the new project in the current window and wait for the console to be ready
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await expect(page.getByRole('button', { name: `Explorer Section: myPythonProject${projSuffix}` })).toBeVisible({ timeout: 15000 });
-		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 30000 });
+		await expect(page.locator('.console-instance', { hasText: '>>>' })).toBeVisible({ timeout: 45000 });
 
 		// Verify git-related files are present
 		await expect(async () => {

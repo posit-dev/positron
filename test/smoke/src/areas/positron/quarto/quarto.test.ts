@@ -59,10 +59,8 @@ const renderQuartoDocument = async (app: Application, fileExtension: string) => 
 };
 
 const verifyDocumentExists = async (app: Application, fileExtension: string) => {
-	await expect(async () => {
-		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
-		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
-	}).toPass();
+	await expect(app.code.driver.page.getByText(`Output created: quarto_basic.${fileExtension}`)).toBeVisible({ timeout: 30000 });
+	expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
 };
 
 const deleteGeneratedFiles = async (app: Application) => {
