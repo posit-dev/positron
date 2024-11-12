@@ -72,7 +72,7 @@ jobs:
         with:
           name: html-report-${{ github.run_attempt }}
           path: playwright-report/
-          retention-days: 7
+          retention-days: 14
 
   unit-integration:
     runs-on: ubuntu-latest
