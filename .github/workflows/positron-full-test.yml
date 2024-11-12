@@ -97,13 +97,13 @@ jobs:
   #     run: cd .. && rm -rf positron-license
 
   e2e-electron-tests:
-    runs-on: ubuntu-latest-4x
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4, 5]
-        shardTotal: [5]
+        shardIndex: [1]
+        shardTotal: [1]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -154,13 +154,13 @@ jobs:
           retention-days: 1
 
   e2e-browser-tests:
-    runs-on: ubuntu-latest-4x
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 50
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3]
-        shardTotal: [3]
+        shardIndex: [1]
+        shardTotal: [1]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
