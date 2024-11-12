@@ -47,7 +47,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 	options: [async ({ logsPath, logger }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
-		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
+		const TEST_DATA_PATH = join(os.tmpdir(), 'e2e-tests');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
@@ -181,8 +181,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 
 		// stop tracing
-		// do NOT use title of 'trace' as it will conflict with the default trace
-		const title = path.basename(`_trace`);
+		const title = path.basename(`_trace`); // do NOT use title of 'trace' - conflicts with the default trace
 		const tracePath = testInfo.outputPath(`${title}.zip`);
 		await app.stopTracing(title, true, tracePath);
 
@@ -245,33 +244,24 @@ async function moveAndOverwrite(sourcePath, destinationPath) {
 	try {
 		await access(sourcePath, constants.F_OK);
 	} catch {
-		// console.error(`Source path does not exist: ${sourcePath}`);
+		console.error(`moveAndOverwrite: source path does not exist: ${sourcePath}`);
 		return;
 	}
 
+	// check if the destination exists and delete it if so
 	try {
-		// check if the destination exists and delete it if so
 		await access(destinationPath, constants.F_OK);
 		await rm(destinationPath, { recursive: true, force: true });
-		// console.log(`Removed existing destination path: ${destinationPath}`);
-	} catch (err) {
-		// if destination doesn't exist, continue without logging
-		// if (err.code !== 'ENOENT') {
-		// 	console.error(`Error accessing destination path: ${err}`);
-		// }
-	}
+	} catch (err) { }
 
-	// Ensure parent directory of destination path exists
+	// ensure parent directory of destination path exists
 	const destinationDir = path.dirname(destinationPath);
 	await mkdir(destinationDir, { recursive: true });
 
+	// rename source to destination
 	try {
-		// Rename source to destination
 		await rename(sourcePath, destinationPath);
-		// console.log(`Successfully moved ${sourcePath} to ${destinationPath}`);
-	} catch (err) {
-		// console.error(`Failed to move ${sourcePath} to ${destinationPath}: ${err}`);
-	}
+	} catch (err) { }
 }
 
 interface TestFixtures {
