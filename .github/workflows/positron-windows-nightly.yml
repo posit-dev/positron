@@ -104,7 +104,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-smoke-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --grep @win --workers 1
+        run: npx playwright test --project e2e-electron --grep @win --workers 1
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
