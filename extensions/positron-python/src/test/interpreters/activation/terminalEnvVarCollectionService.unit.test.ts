@@ -140,10 +140,6 @@ suite('Terminal Environment Variable Collection Service', () => {
         // --- End Positron ---
 
         reset(experimentService);
-        // --- Start Positron ---
-        // Use globalCollection instead of collection since we're using a later version of @types/vscode
-        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
-        // --- End Positron ---
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(false);
         const applyCollectionStub = sinon.stub(terminalEnvVarCollectionService, '_applyCollection');
         applyCollectionStub.resolves();

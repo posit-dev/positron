@@ -125,10 +125,7 @@ suite('Common - Service Registry', () => {
             if (mapping.length === 2) {
                 serviceManager
                     .setup((s) =>
-                        // --- Start Positron ---
-                        // Fix for Typescript v5
-                        s.addSingleton<unknown>(
-                            // --- End Positron ---
+                        s.addSingleton(
                             typemoq.It.isValue(mapping[0] as any),
                             typemoq.It.is((value: any) => mapping[1] === value),
                         ),

@@ -25,6 +25,7 @@ import { CreateEnvironmentOptionsInternal } from '../../client/pythonEnvironment
 import { IPythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterQuickPick } from '../../client/interpreter/configuration/types';
 import { createEnvironmentAndRegister } from '../../client/positron/createEnvApi';
+import { createTypeMoq } from '../mocks/helper';
 
 chaiUse(chaiAsPromised.default);
 
@@ -33,7 +34,7 @@ suite('Positron Create Environment APIs', () => {
     let handleCreateEnvironmentCommandStub: sinon.SinonStub;
 
     const disposables: IDisposableRegistry = [];
-    const mockProvider = typemoq.Mock.ofType<CreateEnvironmentProvider>();
+    const mockProvider = createTypeMoq<CreateEnvironmentProvider>();
     const mockProviders = [mockProvider.object];
 
     let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
@@ -67,10 +68,10 @@ suite('Positron Create Environment APIs', () => {
         registerCommandStub = sinon.stub(commandApis, 'registerCommand');
         handleCreateEnvironmentCommandStub = sinon.stub(createEnvironmentApis, 'handleCreateEnvironmentCommand');
 
-        pythonRuntimeManager = typemoq.Mock.ofType<IPythonRuntimeManager>();
-        pathUtils = typemoq.Mock.ofType<IPathUtils>();
-        interpreterQuickPick = typemoq.Mock.ofType<IInterpreterQuickPick>();
-        interpreterPathService = typemoq.Mock.ofType<IInterpreterPathService>();
+        pythonRuntimeManager = createTypeMoq<IPythonRuntimeManager>();
+        pathUtils = createTypeMoq<IPathUtils>();
+        interpreterQuickPick = createTypeMoq<IInterpreterQuickPick>();
+        interpreterPathService = createTypeMoq<IInterpreterPathService>();
 
         registerCommandStub.callsFake((_command: string, _callback: (...args: any[]) => any) => ({
             dispose: () => {
@@ -98,7 +99,7 @@ suite('Positron Create Environment APIs', () => {
             const resultPath = '/path/to/created/env';
             pythonRuntimeManager
                 .setup((p) => p.registerLanguageRuntimeFromPath(resultPath))
-                .returns(() => Promise.resolve(typemoq.Mock.ofType<positron.LanguageRuntimeMetadata>().object))
+                .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.once());
             handleCreateEnvironmentCommandStub.returns(Promise.resolve({ path: resultPath }));
 
@@ -117,7 +118,7 @@ suite('Positron Create Environment APIs', () => {
         test(`Environment creation fails when options are missing: ${optionsName} `, async () => {
             pythonRuntimeManager
                 .setup((p) => p.registerLanguageRuntimeFromPath(typemoq.It.isAny()))
-                .returns(() => Promise.resolve(typemoq.Mock.ofType<positron.LanguageRuntimeMetadata>().object))
+                .returns(() => Promise.resolve(createTypeMoq<positron.LanguageRuntimeMetadata>().object))
                 .verifiable(typemoq.Times.never());
 
             const result = await createEnvironmentAndRegister(mockProviders, pythonRuntimeManager.object, options);
