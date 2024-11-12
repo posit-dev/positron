@@ -12,37 +12,29 @@ export async function registerUriHandler() {
 	vscode.window.registerUriHandler({ handleUri });
 }
 
+// Example of a URI we expect to handle:
+// positron://positron.positron-r/cli?command=x-r-run:testthat::snapshot_review('snap')
+//
+// How the example URI breaks down:
+// {
+//    "scheme": "positron",
+//    "authority": "positron.positron-r",
+//    "path": "/cli",
+//    "query": "command=x-r-run:testthat::snapshot_review('zzz')",
+//    "fragment": "",
+//    "fsPath": "/cli"
+// }
 function handleUri(uri: vscode.Uri): void {
-	LOGGER.info(`handleUri called with URI: ${uri.toString(true)}`);
-	//vscode.window.showInformationMessage(`handleUri called with URI: ${uri.toString(true)}`);
-
 	if (uri.path !== '/cli') {
 		return;
 	}
 
-	const queryParams = new URLSearchParams(uri.query);
-	const queryParamsObject: { [key: string]: string } = {};
-	queryParams.forEach((value, key) => {
-		queryParamsObject[key] = value;
-	});
-
-	const uriDetails = {
-		scheme: uri.scheme,
-		authority: uri.authority,
-		path: uri.path,
-		query: uri.query,
-		queryParams: queryParamsObject,
-		fragment: uri.fragment,
-		fsPath: uri.fsPath
-	};
-
-	const uriDetailsJson = JSON.stringify(uriDetails, null, 2);
-	vscode.window.showInformationMessage(`URI Details:\n${uriDetailsJson}`);
-
-	if (!queryParams.has('command')) {
-		return;
-	}
-	const command = queryParams.get('command');
+	// Turns this query string
+	// "command=x-r-run:testthat::snapshot_review('zzz')"
+	// into this object
+	// { "command": "x-r-run:testthat::snapshot_review('zzz')" }
+	const query = new URLSearchParams(uri.query);
+	const command = query.get('command');
 	if (!command) {
 		return;
 	}
