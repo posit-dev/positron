@@ -20,7 +20,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 			await app.workbench.positronViewer.clearViewer();
 		});
 
-		test('Python - Verify Basic Dash App [C903305]', async function ({ app, python }) {
+		test('Python - Verify Basic Dash App [C903305]', { tag: ['@win'] }, async function ({ app, python }) {
 			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'dash_example', 'dash_example.py'));
@@ -39,7 +39,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 			await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 		});
 
-		test('Python - Verify Basic Gradio App [C903307]', async function ({ app, python }) {
+		test('Python - Verify Basic Gradio App [C903307]', { tag: ['@win'] }, async function ({ app, python }) {
 			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
@@ -47,7 +47,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
 		});
 
-		test('Python - Verify Basic Streamlit App [C903308]', { tag: ['@web'] }, async function ({ app, python }) {
+		test('Python - Verify Basic Streamlit App [C903308]', { tag: ['@web', '@win'] }, async function ({ app, python }) {
 			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'streamlit_example', 'streamlit_example.py'));
