@@ -64,7 +64,7 @@ jobs:
           REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
           echo $REPORT_URL > url.txt
           echo "Report URL: $REPORT_URL"
-          echo "[View Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+          echo "📄 [View Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
       - name: Run Playwright Tests (Electron)
         env:
