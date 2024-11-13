@@ -134,7 +134,7 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
+        id: electron-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload logs
@@ -152,14 +152,6 @@ jobs:
           name: blob-report-electron-${{ matrix.shardIndex }}
           path: blob-report
           retention-days: 14
-
-      # - name: Upload junit report
-      #   if: ${{ !cancelled() }}
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: junit-report-electron-${{ matrix.shardIndex }}
-      #     path: test-results/junit.xml
-      #     retention-days: 14
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
@@ -206,11 +198,11 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run Tests (Web)
+      - name: Run Tests (Browser)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
-        id: electron-web-smoke-tests
+        id: browser-tests
         run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
 
       - name: Upload logs
@@ -239,10 +231,10 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       [
+        "unit-tests",
+        "integration-tests",
         "e2e-electron-tests",
         "e2e-browser-tests",
-        "integration-tests",
-        "unit-tests",
       ]
     if: ${{ !cancelled() }}
     steps:
