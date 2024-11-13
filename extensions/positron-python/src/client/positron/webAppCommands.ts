@@ -7,7 +7,7 @@ import * as path from 'path';
 // eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { AppUrlString, PositronRunApp, RunAppTerminalOptions } from '../positron-run-app.d';
+import { PositronRunApp, RunAppTerminalOptions } from '../positron-run-app.d';
 import { IServiceContainer } from '../ioc/types';
 import { IInterpreterService } from '../interpreter/contracts';
 import { IInstaller, Product } from '../common/types';
@@ -137,7 +137,7 @@ function registerExecCommand(
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
     appReadyMessage?: string,
-    appUrlStrings?: AppUrlString[],
+    appUrlStrings?: string[],
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
@@ -185,7 +185,7 @@ function registerDebugCommand(
     ) => DebugConfiguration | undefined | Promise<DebugConfiguration | undefined>,
     urlPath?: string,
     appReadyMessage?: string,
-    appUrlStrings?: AppUrlString[],
+    appUrlStrings?: string[],
 ): vscode.Disposable {
     return vscode.commands.registerCommand(command, async () => {
         const runAppApi = await getPositronRunAppApi();
