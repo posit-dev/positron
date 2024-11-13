@@ -81,15 +81,7 @@ jobs:
           REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
           echo $REPORT_URL > url.txt
           echo "Report URL: $REPORT_URL"
-
-      - name: Setup Job Summary
-        if: always()
-        run: |
-          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
-          # Capture the current summary, add the new link at the top, and overwrite the summary
-          CURRENT_SUMMARY=$(cat $GITHUB_STEP_SUMMARY)
           echo "[View Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
-          echo "$CURRENT_SUMMARY" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
