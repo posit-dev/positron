@@ -16,8 +16,10 @@ import { Commands } from '../common/constants';
 
 export function activateWebAppCommands(serviceContainer: IServiceContainer, disposables: vscode.Disposable[]): void {
     disposables.push(
-        registerExecCommand(Commands.Exec_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
-            getDashDebugConfig(document, urlPrefix),
+        registerExecCommand(
+            Commands.Exec_Dash_In_Terminal,
+            'Dash',
+            (_runtime, document, urlPrefix) => getDashDebugConfig(document, urlPrefix),
             undefined,
             undefined,
             // Dash url string: https://github.com/plotly/dash/blob/95665785f184aba4ce462637c30ccb7789280911/dash/dash.py#L2160
@@ -32,22 +34,23 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
             ['Uvicorn running on {{APP_URL}}'],
         ),
-        registerExecCommand(Commands.Exec_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
-            getFlaskDebugConfig(document),
+        registerExecCommand(
+            Commands.Exec_Flask_In_Terminal,
+            'Flask',
+            (_runtime, document, _urlPrefix) => getFlaskDebugConfig(document),
             undefined,
             undefined,
             // Flask url string is from Werkzeug: https://github.com/pallets/werkzeug/blob/7868bef5d978093a8baa0784464ebe5d775ae92a/src/werkzeug/serving.py#L833-L865
             ['Running on {{APP_URL}}'],
         ),
-        registerExecCommand(Commands.Exec_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
-            getGradioDebugConfig(document, urlPrefix),
+        registerExecCommand(
+            Commands.Exec_Gradio_In_Terminal,
+            'Gradio',
+            (_runtime, document, urlPrefix) => getGradioDebugConfig(document, urlPrefix),
             undefined,
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
-            [
-                'Running on local URL:  {{APP_URL}}',
-                'Running on public URL:  {{APP_URL}}',
-            ],
+            ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
         ),
         registerExecCommand(
             Commands.Exec_Shiny_In_Terminal,
@@ -58,15 +61,19 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
             ['Uvicorn running on {{APP_URL}}'],
         ),
-        registerExecCommand(Commands.Exec_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
-            getStreamlitDebugConfig(document),
+        registerExecCommand(
+            Commands.Exec_Streamlit_In_Terminal,
+            'Streamlit',
+            (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
             undefined,
             undefined,
             // Streamlit url string: https://github.com/streamlit/streamlit/blob/3e6248461cce366b1f54c273e787adf84a66148d/lib/streamlit/web/bootstrap.py#L197
             ['Local URL: {{APP_URL}}'],
         ),
-        registerDebugCommand(Commands.Debug_Dash_In_Terminal, 'Dash', (_runtime, document, urlPrefix) =>
-            getDashDebugConfig(document, urlPrefix),
+        registerDebugCommand(
+            Commands.Debug_Dash_In_Terminal,
+            'Dash',
+            (_runtime, document, urlPrefix) => getDashDebugConfig(document, urlPrefix),
             undefined,
             undefined,
             // Dash url string: https://github.com/plotly/dash/blob/95665785f184aba4ce462637c30ccb7789280911/dash/dash.py#L2160
@@ -80,24 +87,24 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             'Application startup complete',
             // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
             ['Uvicorn running on {{APP_URL}}'],
-
         ),
-        registerDebugCommand(Commands.Debug_Flask_In_Terminal, 'Flask', (_runtime, document, _urlPrefix) =>
-            getFlaskDebugConfig(document),
+        registerDebugCommand(
+            Commands.Debug_Flask_In_Terminal,
+            'Flask',
+            (_runtime, document, _urlPrefix) => getFlaskDebugConfig(document),
             undefined,
             undefined,
             // Flask url string is from Werkzeug: https://github.com/pallets/werkzeug/blob/7868bef5d978093a8baa0784464ebe5d775ae92a/src/werkzeug/serving.py#L833-L865
             ['Running on {{APP_URL}}'],
         ),
-        registerDebugCommand(Commands.Debug_Gradio_In_Terminal, 'Gradio', (_runtime, document, urlPrefix) =>
-            getGradioDebugConfig(document, urlPrefix),
+        registerDebugCommand(
+            Commands.Debug_Gradio_In_Terminal,
+            'Gradio',
+            (_runtime, document, urlPrefix) => getGradioDebugConfig(document, urlPrefix),
             undefined,
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
-            [
-                'Running on local URL:  {{APP_URL}}',
-                'Running on public URL:  {{APP_URL}}',
-            ],
+            ['Running on local URL:  {{APP_URL}}', 'Running on public URL:  {{APP_URL}}'],
         ),
         registerDebugCommand(
             Commands.Debug_Shiny_In_Terminal,
@@ -108,8 +115,10 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
             // Uvicorn url string: https://github.com/encode/uvicorn/blob/fe3910083e3990695bc19c2ef671dd447262ae18/uvicorn/config.py#L479-L525
             ['Uvicorn running on {{APP_URL}}'],
         ),
-        registerDebugCommand(Commands.Debug_Streamlit_In_Terminal, 'Streamlit', (_runtime, document, _urlPrefix) =>
-            getStreamlitDebugConfig(document),
+        registerDebugCommand(
+            Commands.Debug_Streamlit_In_Terminal,
+            'Streamlit',
+            (_runtime, document, _urlPrefix) => getStreamlitDebugConfig(document),
             undefined,
             undefined,
             // Streamlit url string: https://github.com/streamlit/streamlit/blob/3e6248461cce366b1f54c273e787adf84a66148d/lib/streamlit/web/bootstrap.py#L197
