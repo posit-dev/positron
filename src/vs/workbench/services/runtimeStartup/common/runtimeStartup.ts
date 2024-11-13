@@ -18,7 +18,7 @@ import { Event } from 'vs/base/common/event';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -694,14 +694,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Restores the set of active workspace sessions from the workspace storage.
 	 */
 	private async restoreSessions() {
-
-		// Don't attempt to restore sessions if we're not reloading
-		if (this._lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
-			// Clear any sessions that may have been saved from a previous
-			// window.
-			this.clearWorkspaceSessions();
-			return;
-		}
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
