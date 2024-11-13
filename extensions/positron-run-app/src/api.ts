@@ -8,14 +8,24 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { Config, log } from './extension';
-import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
+import { AppUrlString, DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
 import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 
-// Regex to match a URL with the format http://localhost:1234/path
-const localUrlRegex = /http:\/\/(localhost|127\.0\.0\.1):(\d{1,5})(\/[^\s]*)?/;
+// Regex to match a string that starts with http:// or https://.
+const httpUrlRegex = /((https?:\/\/)([a-zA-Z0-9.-]+)(:\d{1,5})?(\/[^\s]*)?)/;
+// A more permissive URL regex to be used with the AppUrlString type.
+const urlLikeRegex = /((https?:\/\/)?([a-zA-Z0-9.-]*[.:][a-zA-Z0-9.-]*)(:\d{1,5})?(\/[^\s]*)?)/;
 
+// App URL Placeholder string.
+const APP_URL_PLACEHOLDER = '{{APP_URL}}';
+
+// Flags to determine where Positron is running.
 const isPositronWeb = vscode.env.uiKind === vscode.UIKind.Web;
 const isRunningOnPwb = !!process.env.RS_SERVER_URL && isPositronWeb;
+
+// Timeouts.
+const terminalOutputTimeout = 25_000;
+const didPreviewUrlTimeout = terminalOutputTimeout + 5_000;
 
 type PositronProxyInfo = {
 	proxyPath: string;
@@ -27,6 +37,7 @@ type AppPreviewOptions = {
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
 	appReadyMessage?: string;
+	appUrlStrings?: AppUrlString[];
 };
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
@@ -172,6 +183,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 							proxyInfo,
 							urlPath: options.urlPath,
 							appReadyMessage: options.appReadyMessage,
+							appUrlStrings: options.appUrlStrings,
 						};
 						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
 						if (didPreviewUrl) {
@@ -181,7 +193,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				});
 				this._runApplicationDisposableByName.set(options.name, disposable);
 			}),
-			10_000,
+			didPreviewUrlTimeout,
 			async () => {
 				await this.setShellIntegrationSupported(false);
 			});
@@ -294,6 +306,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 									proxyInfo,
 									urlPath: options.urlPath,
 									appReadyMessage: options.appReadyMessage,
+									appUrlStrings: options.appUrlStrings,
 								};
 								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
 								if (didPreviewUrl) {
@@ -305,7 +318,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				});
 				this._debugApplicationDisposableByName.set(options.name, disposable);
 			}),
-			10_000,
+			didPreviewUrlTimeout,
 			async () => {
 				await this.setShellIntegrationSupported(false);
 			});
@@ -386,12 +399,11 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 						}
 					}
 				}
-
 				// Check if the app url is found in the terminal output.
 				if (!appUrl) {
-					const match = dataCleaned.match(localUrlRegex)?.[0];
+					const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
 					if (match) {
-						appUrl = new URL(match.trim());
+						appUrl = new URL(match);
 						log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
 						// If the app is ready, we're done!
 						if (appReady) {
@@ -413,7 +425,7 @@ async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecut
 			}
 			return appUrl;
 		})(),
-		15_000,
+		terminalOutputTimeout,
 		() => log.error('Timed out waiting for server output in terminal'),
 	);
 
@@ -553,4 +565,50 @@ function shouldUsePositronProxy(appName: string) {
 			// By default, proxy the app.
 			return true;
 	}
+}
+
+/**
+ * Extracts a URL from a string using the provided appUrlStrings.
+ * @param str The string to match the URL in.
+ * @param appUrlStrings An array of app url strings to match and extract the URL from.
+ * @returns The matched URL, or undefined if no URL is found.
+ */
+function extractAppUrlFromString(str: string, appUrlStrings?: AppUrlString[]) {
+	if (appUrlStrings && appUrlStrings.length > 0) {
+		// Try to match any of the provided appUrlStrings.
+		log.debug('Attempting to match URL with:', appUrlStrings);
+		for (const appUrlString of appUrlStrings) {
+			const pattern = appUrlString.replace(APP_URL_PLACEHOLDER, urlLikeRegex.source);
+			const appUrlRegex = new RegExp(pattern);
+
+			const match = str.match(appUrlRegex);
+			if (match) {
+				const endsWithAppUrl = appUrlString.endsWith(APP_URL_PLACEHOLDER);
+				// Placeholder is at the end of the string. This is the most common case.
+				// Example: 'The app is running at {{APP_URL}}'
+				// [0] = 'The app is running at ', [1] = '{{APP_URL}}'
+				// Also covers the case where the placeholder is the entire string.
+				if (endsWithAppUrl) {
+					return match[1];
+				}
+
+				const startsWithAppUrl = appUrlString.startsWith(APP_URL_PLACEHOLDER);
+				// Placeholder is at the start of the string.
+				// Example: '{{APP_URL}} is where the app is running'
+				// [0] = '{{APP_URL}}', [1] = ' is where the app is running'
+				if (startsWithAppUrl) {
+					return match[0];
+				}
+
+				// Placeholder is in the middle of the string.
+				// Example: 'Open {{APP_URL}} to view the app'
+				// [0] = 'Open ', [1] = '{{APP_URL}}', [2] = ' to view the app'
+				return match[1];
+			}
+		}
+	}
+
+	// Fall back to the default URL regex if no appUrlStrings were provided or matched.
+	log.debug('No appUrlStrings matched. Falling back to default URL regex to match URL.');
+	return str.match(httpUrlRegex)?.[0];
 }
