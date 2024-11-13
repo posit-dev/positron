@@ -8,33 +8,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 /**
- * Defines a string type that contains the app url placeholder.
- * @example 'The url will be: {{APP_URL}}'
- * @example 'string one' + '{{APP_URL}}' + 'string two' as AppUrlString
- *
- * Strings must be defined as literals in the source code to be recognized as `AppUrlString` if not
- * using type assertions. For example, the following _will_ work:
- * ```ts
- * const appUrlString: AppUrlString = 'The url will be: {{APP_URL}}';
- * ```
- *
- * Unfortunately, if a string is constructed programmatically with this format, TypeScript won't
- * recognize it as an `AppUrlString`. For example, the following _will not_ work:
- * ```ts
- * const appUrlString = 'The url will be:' + '{{APP_URL}}';
- * ```
- *
- * One way to work around this is to use a type assertion:
- * ```ts
- * const appUrlString = 'The url will be:' + '{{APP_URL}}' as AppUrlString;
- * ```
- *
- * @see https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-inference for
- * more on literal type inference.
- */
-export type AppUrlString = `${string}{{APP_URL}}${string}`;
-
-/**
  * Represents options returned from ${@link RunAppOptions.getTerminalOptions}.
  */
 export interface RunAppTerminalOptions {
@@ -85,7 +58,7 @@ export interface RunAppOptions {
     /**
      * An optional array of app URI formats to parse the URI from the terminal output.
      */
-    appUrlStrings?: AppUrlString[];
+    appUrlStrings?: string[];
 }
 
 /**
@@ -124,7 +97,7 @@ export interface DebugAppOptions {
     /**
      * An optional array of app URI formats to parse the URI from the terminal output.
      */
-    appUrlStrings?: AppUrlString[];
+    appUrlStrings?: string[];
 }
 
 /**

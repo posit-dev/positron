@@ -8,12 +8,12 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { Config, log } from './extension';
-import { AppUrlString, DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
+import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
 import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
 
 // Regex to match a string that starts with http:// or https://.
 const httpUrlRegex = /((https?:\/\/)([a-zA-Z0-9.-]+)(:\d{1,5})?(\/[^\s]*)?)/;
-// A more permissive URL regex to be used with the AppUrlString type.
+// A more permissive URL regex to be used when a string containing an {{APP_URL}} placeholder is expected.
 const urlLikeRegex = /((https?:\/\/)?([a-zA-Z0-9.-]*[.:][a-zA-Z0-9.-]*)(:\d{1,5})?(\/[^\s]*)?)/;
 
 // App URL Placeholder string.
@@ -37,7 +37,7 @@ type AppPreviewOptions = {
 	proxyInfo?: PositronProxyInfo;
 	urlPath?: string;
 	appReadyMessage?: string;
-	appUrlStrings?: AppUrlString[];
+	appUrlStrings?: string[];
 };
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
@@ -573,11 +573,16 @@ function shouldUsePositronProxy(appName: string) {
  * @param appUrlStrings An array of app url strings to match and extract the URL from.
  * @returns The matched URL, or undefined if no URL is found.
  */
-function extractAppUrlFromString(str: string, appUrlStrings?: AppUrlString[]) {
+function extractAppUrlFromString(str: string, appUrlStrings?: string[]) {
 	if (appUrlStrings && appUrlStrings.length > 0) {
 		// Try to match any of the provided appUrlStrings.
 		log.debug('Attempting to match URL with:', appUrlStrings);
 		for (const appUrlString of appUrlStrings) {
+			if (!appUrlString.includes(APP_URL_PLACEHOLDER)) {
+				log.warn(`Skipping '${appUrlString}' since it doesn't contain an ${APP_URL_PLACEHOLDER} placeholder.`);
+				continue;
+			}
+
 			const pattern = appUrlString.replace(APP_URL_PLACEHOLDER, urlLikeRegex.source);
 			const appUrlRegex = new RegExp(pattern);
 
