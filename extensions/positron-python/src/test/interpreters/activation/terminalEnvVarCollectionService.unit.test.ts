@@ -9,7 +9,9 @@ import { mock, instance, when, anything, verify, reset } from 'ts-mockito';
 import {
     EnvironmentVariableCollection,
     EnvironmentVariableMutatorOptions,
-    GlobalEnvironmentVariableCollection,
+    // --- Start Positron ---
+    // GlobalEnvironmentVariableCollection,
+    // --- End Positron ---
     ProgressLocation,
     Uri,
     WorkspaceFolder,
@@ -47,7 +49,9 @@ suite('Terminal Environment Variable Collection Service', () => {
     let shell: IApplicationShell;
     let experimentService: IExperimentService;
     let collection: EnvironmentVariableCollection;
-    let globalCollection: GlobalEnvironmentVariableCollection;
+    // --- Start Positron ---
+    //let globalCollection: GlobalEnvironmentVariableCollection;
+    // --- End Positron ---
     let applicationEnvironment: IApplicationEnvironment;
     let environmentActivationService: IEnvironmentActivationService;
     let workspaceService: IWorkspaceService;
@@ -78,9 +82,9 @@ suite('Terminal Environment Variable Collection Service', () => {
         const envVarProvider = mock<IEnvironmentVariablesProvider>();
         shellIntegrationService = mock<IShellIntegrationService>();
         when(shellIntegrationService.isWorking()).thenResolve(true);
-        globalCollection = mock<GlobalEnvironmentVariableCollection>();
-        collection = mock<EnvironmentVariableCollection>();
         // --- Start Positron ---
+        //globalCollection = mock<GlobalEnvironmentVariableCollection>();
+        collection = mock<EnvironmentVariableCollection>();
         when(context.environmentVariableCollection as EnvironmentVariableCollection).thenReturn(instance(collection));
         // when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
         // --- End Positron ---
@@ -144,7 +148,7 @@ suite('Terminal Environment Variable Collection Service', () => {
         reset(experimentService);
         // --- Start Positron ---
         // Use globalCollection instead of collection since we're using a later version of @types/vscode
-        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
+        //when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
         // --- End Positron ---
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(false);
         const applyCollectionStub = sinon.stub(terminalEnvVarCollectionService, '_applyCollection');
