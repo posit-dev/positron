@@ -50,7 +50,7 @@ suite('Terminal Environment Variable Collection Service', () => {
     let experimentService: IExperimentService;
     let collection: EnvironmentVariableCollection;
     // --- Start Positron ---
-    //let globalCollection: GlobalEnvironmentVariableCollection;
+    // let globalCollection: GlobalEnvironmentVariableCollection;
     // --- End Positron ---
     let applicationEnvironment: IApplicationEnvironment;
     let environmentActivationService: IEnvironmentActivationService;
@@ -83,7 +83,7 @@ suite('Terminal Environment Variable Collection Service', () => {
         shellIntegrationService = mock<IShellIntegrationService>();
         when(shellIntegrationService.isWorking()).thenResolve(true);
         // --- Start Positron ---
-        //globalCollection = mock<GlobalEnvironmentVariableCollection>();
+        // globalCollection = mock<GlobalEnvironmentVariableCollection>();
         collection = mock<EnvironmentVariableCollection>();
         when(context.environmentVariableCollection as EnvironmentVariableCollection).thenReturn(instance(collection));
         // when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
