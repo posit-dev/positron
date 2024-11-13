@@ -2,12 +2,9 @@ name: "Positron: Full Test Suite"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
-  # schedule:
-  #   - cron: "0 4 * * 1-5"
+  schedule:
+    - cron: "0 4 * * 1-5"
   workflow_dispatch:
-  pull_request:
-    branches:
-      - main
 
 permissions:
   id-token: write
@@ -137,14 +134,6 @@ jobs:
         id: electron-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
-      - name: Upload logs
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-electron-${{ matrix.shardIndex }}
-          path: test-logs
-          retention-days: 14
-
       - name: Upload blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -204,14 +193,6 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: browser-tests
         run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
-
-      - name: Upload logs
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-browser
-          path: test-logs
-          retention-days: 14
 
       - name: Upload blob report
         if: ${{ !cancelled() }}

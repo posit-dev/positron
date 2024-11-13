@@ -71,14 +71,6 @@ jobs:
           path: playwright-report/
           retention-days: 14
 
-      - name: Upload logs
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-browser
-          path: test-logs
-          retention-days: 14
-
   unit-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20

@@ -126,14 +126,6 @@ jobs:
           name: html-report
           path: playwright-report
 
-      - name: Upload logs
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: logs-electron
-          path: test-logs
-          retention-days: 14
-
   # slack-notification:
   #   name: "Send Slack notification"
   #   runs-on: ubuntu-latest
