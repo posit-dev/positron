@@ -20,6 +20,7 @@ import { PythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { PythonEnvironment } from '../../client/pythonEnvironments/info';
 import { mockedPositronNamespaces } from '../vscode-mock';
+import { createTypeMoq } from '../mocks/helper';
 
 suite('Python runtime manager', () => {
     const pythonPath = 'pythonPath';
@@ -34,12 +35,12 @@ suite('Python runtime manager', () => {
     let disposables: IDisposable[];
 
     setup(() => {
-        runtimeMetadata = TypeMoq.Mock.ofType<positron.LanguageRuntimeMetadata>();
-        interpreter = TypeMoq.Mock.ofType<PythonEnvironment>();
-        configService = TypeMoq.Mock.ofType<IConfigurationService>();
-        envVarsProvider = TypeMoq.Mock.ofType<IEnvironmentVariablesProvider>();
-        interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
-        serviceContainer = TypeMoq.Mock.ofType<IServiceContainer>();
+        runtimeMetadata = createTypeMoq<positron.LanguageRuntimeMetadata>();
+        interpreter = createTypeMoq<PythonEnvironment>();
+        configService = createTypeMoq<IConfigurationService>();
+        envVarsProvider = createTypeMoq<IEnvironmentVariablesProvider>();
+        interpreterService = createTypeMoq<IInterpreterService>();
+        serviceContainer = createTypeMoq<IServiceContainer>();
 
         runtimeMetadata.setup((r) => r.runtimeId).returns(() => 'runtimeId');
         runtimeMetadata
@@ -99,7 +100,7 @@ suite('Python runtime manager', () => {
     // });
 
     test('restoreSession: creates and returns a Python runtime session', async () => {
-        const sessionMetadata = TypeMoq.Mock.ofType<positron.RuntimeSessionMetadata>();
+        const sessionMetadata = createTypeMoq<positron.RuntimeSessionMetadata>();
         const pythonRuntimeSession = sinon.stub(session, 'PythonRuntimeSession');
 
         const result = await pythonRuntimeManager.restoreSession(runtimeMetadata.object, sessionMetadata.object);
@@ -130,7 +131,7 @@ suite('Python runtime manager', () => {
         pythonRuntimeManager.registeredPythonRuntimes.set(pythonPath, runtimeMetadata.object);
 
         // Create a metadata fragment (only contains extra data python path).
-        const runtimeMetadataFragment = TypeMoq.Mock.ofType<positron.LanguageRuntimeMetadata>();
+        const runtimeMetadataFragment = createTypeMoq<positron.LanguageRuntimeMetadata>();
         runtimeMetadataFragment.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath }));
 
         // Override the pathExists stub to return true and validate the metadata.
@@ -142,7 +143,7 @@ suite('Python runtime manager', () => {
     });
 
     test('validateMetadata: throws if extra data is missing', async () => {
-        const invalidRuntimeMetadata = TypeMoq.Mock.ofType<positron.LanguageRuntimeMetadata>();
+        const invalidRuntimeMetadata = createTypeMoq<positron.LanguageRuntimeMetadata>();
         assert.rejects(() => pythonRuntimeManager.validateMetadata(invalidRuntimeMetadata.object));
     });
 

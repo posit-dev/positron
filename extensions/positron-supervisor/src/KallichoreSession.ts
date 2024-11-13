@@ -9,11 +9,11 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
-import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, StartupError, Status } from './kcclient/api';
+import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
-import { Barrier, PromiseHandles, withTimeout } from './async';
+import { Barrier, createUniqueId, PromiseHandles, withTimeout } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
@@ -250,7 +250,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Initialize extra functionality, if any. These settings modify the
 		// argument list `args` in place, so need to happen right before we send
 		// the arg list to the server.
-		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		const sleepOnStartup = config.get('sleepOnStartup', undefined) && this._extra?.sleepOnStartup;
 		if (attachOnStartup) {
@@ -290,7 +290,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	async startPositronLsp(clientAddress: string) {
 		// Create a unique client ID for this instance
-		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
+		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 		this.log(`Starting LSP server ${clientId} for ${clientAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
@@ -335,7 +335,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// supported comms; the only way to know is to try to create one.
 
 		// Create a unique client ID for this instance
-		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${this.createUniqueId()}`;
+		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 		this.log(`Starting DAP server ${clientId} for ${serverAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
@@ -424,7 +424,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			data: request
 		};
 
-		const commRequest = new CommMsgRequest(this.createUniqueId(), commMsg);
+		const commRequest = new CommMsgRequest(createUniqueId(), commMsg);
 		this.sendRequest(commRequest).then((reply) => {
 			const response = reply.data;
 
@@ -780,7 +780,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Before connecting, check if we should attach to the session on
 		// startup
-		const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
 		const attachOnStartup = config.get('attachOnStartup', false) && this._extra?.attachOnStartup;
 		if (attachOnStartup) {
 			try {
@@ -1460,15 +1460,5 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this.log(`Failed to perform queued request '${req.method}': ${err}`, vscode.LogLevel.Error);
 			}
 		}
-	}
-
-	/**
-	 * Creates a short, unique ID. Use to help create unique identifiers for
-	 * comms, messages, etc.
-	 *
-	 * @returns An 8-character unique ID, like `a1b2c3d4`
-	 */
-	private createUniqueId(): string {
-		return Math.floor(Math.random() * 0x100000000).toString(16);
 	}
 }

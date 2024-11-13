@@ -285,12 +285,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Ensure that the ipykernel module is installed for the interpreter.
         await this._installIpykernel();
 
-        // Update the active environment in the Python extension.
-        this._interpreterPathService.update(
-            undefined,
-            vscode.ConfigurationTarget.WorkspaceFolder,
-            this.interpreter.path,
-        );
+        if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+            // Update the active environment in the Python extension.
+            this._interpreterPathService.update(
+                undefined,
+                vscode.ConfigurationTarget.WorkspaceFolder,
+                this.interpreter.path,
+            );
+        }
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {
@@ -434,20 +436,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-        // Determine whether to use the Kallichore supervisor
-        let useKallichore = true;
-        if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-            // In desktop mode, the supervisor is disabled by default, but can
-            // be enabled via the configuration.
-            const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
-            useKallichore = config.get<boolean>('enable', false);
-        }
-
-        if (useKallichore) {
-            // Use the Kallichore supervisor if enabled
-            const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+        const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+        if (config.get<boolean>('enable', true)) {
+            // Use the Positron kernel supervisor if enabled
+            const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
             if (!ext) {
-                throw new Error('Kallichore Adapter extension not found');
+                throw new Error('Positron Supervisor extension not found');
             }
             if (!ext.isActive) {
                 await ext.activate();

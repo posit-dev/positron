@@ -17,9 +17,6 @@ import { IS_CI_SERVER_TEST_DEBUGGER, MOCHA_REPORTER_JUNIT } from './ciConstants'
 import { IS_MULTI_ROOT_TEST, MAX_EXTENSION_ACTIVATION_TIME, TEST_RETRYCOUNT, TEST_TIMEOUT } from './constants';
 import { initialize } from './initialize';
 import { initializeLogger } from './testLogger';
-// --- Start Positron ---
-import { patchMockingLibs } from './positron/initialize';
-// --- End Positron ---
 
 initializeLogger();
 
@@ -161,11 +158,6 @@ export async function run(): Promise<void> {
     } catch (ex) {
         console.error('Failed to activate python extension without errors', ex);
     }
-
-    // --- Start Positron ---
-    // See patchMockingLibs docs for why this is necessary.
-    patchMockingLibs();
-    // --- End Positron ---
 
     // Run the tests.
     await new Promise<void>((resolve, reject) => {

@@ -16,6 +16,8 @@ export const mockedVSCodeNamespaces: { [P in keyof VSCode]?: VSCode[P] } = {};
 const originalLoad = Module._load;
 
 // --- Start Positron ---
+import * as positronMocks from './mocks/pst';
+
 // Import Positron for its type (the actual module is mocked below).
 import * as positron from 'positron';
 
@@ -25,10 +27,6 @@ type Positron = typeof positron;
 // Create the mocked Positron API; a partial type of Positron (all attributes are optional).
 const mockedPositron: Partial<Positron> = {};
 export const mockedPositronNamespaces: { [P in keyof Positron]?: Positron[P] } = {};
-
-// TODO(seem): mockedPositron is currently empty. We can update it as needed as we add tests.
-
-import { patchMockingLibs } from './positron/initialize';
 
 function generatePositronMock<K extends keyof Positron>(name: K): void {
     const mockedObj = mock<Positron[K]>();
@@ -107,11 +105,6 @@ export function initialize() {
         }
         return originalLoad.apply(this, arguments);
     };
-
-    // --- Start Positron ---
-    // See patchMockingLibs docs for why this is necessary.
-    patchMockingLibs();
-    // --- End Positron ---
 }
 
 mockedVSCode.ThemeIcon = vscodeMocks.ThemeIcon;
@@ -174,3 +167,6 @@ mockedVSCode.LogLevel = vscodeMocks.LogLevel;
 (mockedVSCode as any).ProtocolTypeHierarchyItem = vscodeMocks.vscMockExtHostedTypes.ProtocolTypeHierarchyItem;
 (mockedVSCode as any).CancellationError = vscodeMocks.vscMockExtHostedTypes.CancellationError;
 (mockedVSCode as any).LSPCancellationError = vscodeMocks.vscMockExtHostedTypes.LSPCancellationError;
+// --- Start Positron ---
+mockedPositron.LanguageRuntimeSessionMode = positronMocks.LanguageRuntimeSessionMode;
+// --- End Positron ---
