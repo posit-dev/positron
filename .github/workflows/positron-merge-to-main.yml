@@ -67,7 +67,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: html-report-${{ github.run_attempt }}
+          name: html-report
           path: playwright-report/
           retention-days: 14
 
