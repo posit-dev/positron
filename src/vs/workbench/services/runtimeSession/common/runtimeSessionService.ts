@@ -74,7 +74,7 @@ export interface IRuntimeSessionMetadata {
  * The main interface for interacting with a language runtime session.
  */
 
-export interface ILanguageRuntimeSession {
+export interface ILanguageRuntimeSession extends IDisposable {
 	/** The language runtime's static metadata */
 	readonly runtimeMetadata: ILanguageRuntimeMetadata;
 

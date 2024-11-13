@@ -5,21 +5,13 @@
 import assert from 'assert';
 import { timeout } from 'vs/base/common/async';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
-import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
-import { TestNotebookService } from 'vs/workbench/contrib/positronIPyWidgets/test/browser/positronIPyWidgetsService.test';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { PositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
+import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from 'vs/workbench/test/browser/positronWorkbenchTestServices';
 import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
-import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
-import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
+import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
 
 
 const hvPreloadMessage = {
@@ -56,27 +48,19 @@ const bokehDisplayMessage = {
 suite('Positron - PositronWebviewPreloadService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	let instantiationService: TestInstantiationService;
 	let positronWebviewPreloadService: PositronWebviewPreloadService;
-	let runtimeSessionService: TestRuntimeSessionService;
 
 	setup(() => {
-		const instantiationService = workbenchInstantiationService(undefined, disposables);
-		instantiationService.stub(INotebookRendererMessagingService, disposables.add(instantiationService.createInstance(NotebookRendererMessagingService)));
-		instantiationService.stub(INotebookService, new TestNotebookService());
-		instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
-		instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
-		runtimeSessionService = disposables.add(new TestRuntimeSessionService());
-		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-		positronWebviewPreloadService = disposables.add(instantiationService.createInstance(PositronWebviewPreloadService));
+		instantiationService = positronWorkbenchInstantiationService(disposables);
+		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		positronWebviewPreloadService = accessor.positronWebviewPreloadService;
 	});
 
 	async function createConsoleSession() {
 
 		// Start a console session.
-		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
-		runtimeSessionService.startSession(session);
-
-		await timeout(0);
+		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
 
 		const out: {
 			session: TestLanguageRuntimeSession;

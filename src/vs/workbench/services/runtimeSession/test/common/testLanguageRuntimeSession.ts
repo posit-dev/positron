@@ -7,9 +7,8 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { generateUuid } from 'vs/base/common/uuid';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
 
@@ -63,47 +62,20 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		busy: false,
 	};
 
-	private readonly _languageVersion = '0.0.1';
-	readonly runtimeMetadata: ILanguageRuntimeMetadata = {
-		base64EncodedIconSvg: '',
-		extensionId: new ExtensionIdentifier('test-extension'),
-		extraRuntimeData: {},
-		languageId: 'test',
-		languageName: 'Test',
-		languageVersion: this._languageVersion,
-		runtimeId: '00000000-0000-0000-0000-100000000000',
-		runtimeName: `Test ${this._languageVersion}`,
-		runtimePath: '/test',
-		runtimeShortName: this._languageVersion,
-		runtimeSource: 'Test',
-		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
-	};
-
-	readonly metadata: IRuntimeSessionMetadata;
-
 	readonly sessionId: string;
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
 	constructor(
-		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console,
-		notebookUri?: URI,
+		readonly metadata: IRuntimeSessionMetadata,
+		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 	) {
 		super();
 
-		this.sessionId = 'session-id';
+		this.sessionId = this.metadata.sessionId;
 
-		this.metadata = {
-			createdTimestamp: Date.now(),
-			sessionId: this.sessionId,
-			sessionMode,
-			sessionName: 'session-name',
-			startReason: 'test',
-			notebookUri,
-		};
-
+		// Track the runtime state.
+		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
 	getRuntimeState(): RuntimeState {
@@ -170,7 +142,18 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async start(): Promise<ILanguageRuntimeInfo> {
-		throw new Error('Not implemented.');
+		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
+
+		// Complete the startup on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Ready);
+		}, 0);
+
+		return {
+			banner: 'Test runtime started',
+			implementation_version: this.runtimeMetadata.runtimeVersion,
+			language_version: this.runtimeMetadata.languageVersion,
+		};
 	}
 
 	async interrupt(): Promise<void> {
@@ -178,11 +161,27 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async restart(): Promise<void> {
-		throw new Error('Not implemented.');
+		await this.shutdown(RuntimeExitReason.Restart);
+		await this.start();
 	}
 
-	async shutdown(_exitReason: RuntimeExitReason): Promise<void> {
-		throw new Error('Not implemented.');
+	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
+		if (exitReason === RuntimeExitReason.Restart) {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Restarting);
+		} else {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Exiting);
+		}
+
+		// Complete the shutdown on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
+			this._onDidEndSession.fire({
+				runtime_name: this.runtimeMetadata.runtimeName,
+				exit_code: 0,
+				reason: exitReason,
+				message: '',
+			});
+		}, 0);
 	}
 
 	async forceQuit(): Promise<void> {
@@ -204,7 +203,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	// Test helpers
 
 	setRuntimeState(state: RuntimeState) {
-		this._currentState = state;
 		this._onDidChangeRuntimeState.fire(state);
 	}
 
