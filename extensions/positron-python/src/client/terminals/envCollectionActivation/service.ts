@@ -9,10 +9,10 @@ import {
     // --- Start Positron ---
     // GlobalEnvironmentVariableCollection,
     // EnvironmentVariableScope,
+    EnvironmentVariableCollection,
     // --- End Positron ---
     EnvironmentVariableMutatorOptions,
     ProgressLocation,
-    EnvironmentVariableCollection,
 } from 'vscode';
 import { pathExists, normCase } from '../../common/platform/fs-paths';
 import { IExtensionActivationService } from '../../activation/types';
@@ -412,13 +412,13 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
         // TODO: Stop prepending altogether once https://github.com/microsoft/vscode/issues/145234 is available.
         return isActive
             ? {
-                applyAtShellIntegration: true,
-                applyAtProcessCreation: false,
-            }
+                  applyAtShellIntegration: true,
+                  applyAtProcessCreation: false,
+              }
             : {
-                applyAtShellIntegration: true, // Takes care of false negatives in case manual integration is being used.
-                applyAtProcessCreation: true,
-            };
+                  applyAtShellIntegration: true, // Takes care of false negatives in case manual integration is being used.
+                  applyAtProcessCreation: true,
+              };
     }
 
     // --- Start Positron ---
