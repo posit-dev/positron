@@ -13,6 +13,10 @@ import { ExtensionRuntime } from '../common/extHostTypes.js';
 import { timeout } from '../../../base/common/async.js';
 import { ExtHostConsoleForwarder } from './extHostConsoleForwarder.js';
 
+// --- Start Positron ---
+import { createPositronApiFactoryAndRegisterActors } from '../common/positron/extHost.positron.api.impl.js';
+// --- End Positron ---
+
 class WorkerRequireInterceptor extends RequireInterceptor {
 
 	protected _installInterceptor() { }

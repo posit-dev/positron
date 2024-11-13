@@ -52,9 +52,11 @@ import { CodeWindow, mainWindow } from '../../base/browser/window.js';
 // --- Start Positron ---
 import { IPositronTopActionBarService } from '../services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { PartViewInfo } from '../services/positronLayout/browser/interfaces/positronLayoutService.js';
-import { AbstractPaneCompositePart } from 'parts/paneCompositePart.js';
+import { AbstractPaneCompositePart } from './parts/paneCompositePart.js';
 import { CustomPositronLayoutDescription, KnownPositronLayoutParts, PartLayoutDescription } from '../services/positronLayout/common/positronCustomViews.js';
 import { clamp } from '../../base/common/numbers.js';
+// eslint-disable-next-line no-duplicate-imports
+import { SIDEBAR_PART_MINIMUM_WIDTH } from './parts/sidebar/sidebarPart.js';
 // --- End Positron ---
 
 //#region Layout Implementation

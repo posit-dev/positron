@@ -7,7 +7,7 @@
 import 'vs/css!./radioButton';
 
 // React.
-import React = require('react');
+import * as React from 'react';
 
 /**
  * RadioButtonItemOptions interface.

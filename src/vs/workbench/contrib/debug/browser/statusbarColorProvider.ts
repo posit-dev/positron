@@ -15,9 +15,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 // --- Start Positron ---
-import { inputBackground } from './colorRegistry.js';  // eslint-disable-line no-duplicate-imports
+import { inputBackground } from '../../../../platform/theme/common/colorRegistry.js';  // eslint-disable-line no-duplicate-imports
 // --- End Positron ---
-
 
 // colors for theming
 

@@ -28,8 +28,9 @@ import { // eslint-disable-line no-duplicate-imports
 	listInactiveSelectionForeground,
 	menuBorder,
 	tableColumnsBorder,
+	textPreformatForeground,
 	selectBorder
-} from './colorRegistry.js';
+} from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
 // < --- Workbench (not customizable) --- >

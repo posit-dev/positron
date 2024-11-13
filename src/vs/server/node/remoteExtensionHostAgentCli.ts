@@ -37,10 +37,7 @@ import { DownloadService } from '../../platform/download/common/downloadService.
 import { IDownloadService } from '../../platform/download/common/download.js';
 import { IUriIdentityService } from '../../platform/uriIdentity/common/uriIdentity.js';
 import { UriIdentityService } from '../../platform/uriIdentity/common/uriIdentityService.js';
-// --- Start Positron ---
-// @ts-ignore - unused import buildVersionMessage is preserved to avoid upstream merge conflicts.
-// --- End Positron ---
-import { buildHelpMessage, buildVersionMessage, OptionDescriptions } from '../../platform/environment/node/argv.js';
+import { buildHelpMessage, OptionDescriptions } from '../../platform/environment/node/argv.js';
 import { isWindows } from '../../base/common/platform.js';
 import { IExtensionsScannerService } from '../../platform/extensionManagement/common/extensionsScannerService.js';
 import { ExtensionsScannerService } from './extensionsScannerService.js';
@@ -53,6 +50,11 @@ import { LogService } from '../../platform/log/common/logService.js';
 import { LoggerService } from '../../platform/log/node/loggerService.js';
 import { localize } from '../../nls.js';
 import { addUNCHostToAllowlist, disableUNCAccessRestrictions } from '../../base/node/unc.js';
+
+// --- Start Postiron ---
+// eslint-disable-next-line no-duplicate-imports
+import { buildPositronVersionMessage } from '../../platform/environment/node/argv.js';
+// --- End Positron ---
 
 class CliMain extends Disposable {
 

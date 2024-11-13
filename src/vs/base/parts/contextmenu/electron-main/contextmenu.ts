@@ -21,7 +21,7 @@ export function registerContextMenuListener(): void {
 			menu.append(new MenuItem({
 				type: 'normal',
 				label: 'Inspect Element',
-				click: (menuItem, browserWindow, contextmenuEvent) => {
+				click: (menuItem, browserWindow: any, contextmenuEvent) => {
 					const webContents = browserWindow?.webContents;
 					if (webContents) {
 						// TODO (kevin): I had trouble convincing Electron to bring the devtools

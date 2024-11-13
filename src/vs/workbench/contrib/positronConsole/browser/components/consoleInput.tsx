@@ -46,6 +46,7 @@ import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrateg
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 
 // Position enumeration.
 const enum Position {

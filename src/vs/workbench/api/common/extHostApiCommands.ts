@@ -22,6 +22,9 @@ import * as types from './extHostTypes.js';
 import { TransientCellMetadata, TransientDocumentMetadata } from '../../contrib/notebook/common/notebookCommon.js';
 import * as search from '../../contrib/search/common/search.js';
 import type * as vscode from 'vscode';
+// --- Start Positron ---
+import type * as positron from 'positron';
+// --- End Positron ---
 
 //#region --- NEW world
 
@@ -521,7 +524,7 @@ const newCommands: ApiCommand[] = [
 	new ApiCommand(
 		'vscode.executeStatementRangeProvider', '_executeStatementRangeProvider', 'Execute statement range provider.',
 		[ApiCommandArgument.Uri, ApiCommandArgument.Position],
-		new ApiCommandResult<languages.IStatementRange, StatementRange>('A promise that resolves to a statement range.', result => {
+		new ApiCommandResult<languages.IStatementRange, positron.StatementRange>('A promise that resolves to a statement range.', result => {
 			// converter: convert from IRange (API type) to vscode.Range
 			return { range: typeConverters.Range.to(result.range), code: result.code };
 		})

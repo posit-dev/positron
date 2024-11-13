@@ -59,7 +59,7 @@ import { IHostService } from '../../../services/host/browser/host.js';
 import { DiffEditorInput } from '../../../common/editor/diffEditorInput.js';
 import { FileSystemProviderCapabilities, IFileService } from '../../../../platform/files/common/files.js';
 // --- Start Positron ---
-import { EditorActionBarControlFactory } from 'editorActionBarControl.js';
+import { EditorActionBarControlFactory } from './editorActionBarControl.js';
 // --- End Positron ---
 
 export class EditorGroupView extends Themable implements IEditorGroupView {

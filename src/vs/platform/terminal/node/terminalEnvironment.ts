@@ -21,7 +21,7 @@ import { MergedEnvironmentVariableCollection } from '../common/environmentVariab
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { isWeb } from '../../../common/platform.js';
+import { isWeb } from '../../../base/common/platform.js';
 // --- End Positron ---
 
 export function getWindowsBuildNumber(): number {
