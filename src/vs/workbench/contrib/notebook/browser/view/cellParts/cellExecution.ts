@@ -110,9 +110,11 @@ export class CellExecutionPart extends CellContentPart {
 					}
 				}
 				// -- Begin Positron --
-				// We have shrunk the main cell body by 22px so we need to
-				// shrink the execution order label by 22px as well.
-				top -= 22;
+				// We have shrunk the main cell body by a bit so we need to shrink the execution
+				// order label vertical position as well. This isnt exactly the same shift as we did
+				// for the editor cell because this shift also causes the number to align better
+				// with the botto of the cell.
+				top -= 13;
 				// -- End Positron --
 
 				this._executionOrderLabel.style.top = `${top}px`;

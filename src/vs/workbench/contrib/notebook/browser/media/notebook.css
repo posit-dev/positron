@@ -289,7 +289,7 @@
 	left: 0px;
 	top: 0px;
 	/* --- Begin Positron --- */
-	bottom: 22px;
+	bottom: 16px;
 	border-radius: 4px;
 	/* --- End Positron --- */
 	outline-offset: -1px;
@@ -298,6 +298,22 @@
 	pointer-events: none;
 }
 
+/* --- Begin Positron --- */
+/* There is a space beneath the cell caused by us shifting things around and removing the
+background color of the status bar. This psuedo element is used to fill in that space. */
+.monaco-workbench .notebookOverlay .monaco-list-row .cell-editor-part:after {
+	content: "";
+	right: 0px;
+	left: 0px;
+	height: 8px;
+	bottom: 16px;
+	border-radius: 4px 0px;
+	background-color: var(--vscode-notebook-cellEditorBackground);
+	display: block;
+	position: absolute;
+	pointer-events: none;
+}
+/* --- End Positron --- */
 .monaco-workbench .notebookOverlay .monaco-list .monaco-list-row .cell-insertion-indicator-top {
 	top: -15px;
 }

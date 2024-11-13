@@ -12,6 +12,9 @@
 	/* --- Begin Positron --- */
 	/* Make the background transparent */
 	background-color: transparent;
+	/* Shift down a few pixels to avoid overlapping the editor outline we added to give padding back
+	to bottom of cell */
+	transform: translateY(4px);
 	/* --- End Positron --- */
 }
 
