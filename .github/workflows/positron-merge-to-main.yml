@@ -83,14 +83,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/$REPORT_DIR --recursive
 
-      - name: Upload Playwright Report
-        uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
-        with:
-          name: html-report
-          path: playwright-report/
-          retention-days: 14
-
   unit-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 20

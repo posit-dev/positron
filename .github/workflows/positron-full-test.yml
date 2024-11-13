@@ -257,14 +257,6 @@ jobs:
           echo "Report URL: $REPORT_URL"
           echo "[Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
-      - name: Upload HTML report
-        if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
-        with:
-          name: html-report
-          path: playwright-report
-          retention-days: 14
-
       - name: "Send Slack notification"
         if: ${{ failure() }}
         uses: testlabauto/action-test-results-to-slack@v0.0.6
