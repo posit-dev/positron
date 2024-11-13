@@ -8,7 +8,7 @@ import { Application, PositronPythonFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
-describe('Python Applications #pr #win', () => {
+describe('Python Applications #pr', () => {
 	setupAndStartApp();
 
 	describe('Python Applications', () => {
@@ -26,7 +26,7 @@ describe('Python Applications #pr #win', () => {
 			await this.app.workbench.positronViewer.refreshViewer();
 		});
 
-		it('Python - Verify Basic Dash App [C903305]', async function () {
+		it('Python - Verify Basic Dash App [C903305] #win', async function () {
 			this.retries(1);
 			const app = this.app as Application;
 			const viewer = app.workbench.positronViewer;
@@ -45,7 +45,7 @@ describe('Python Applications #pr #win', () => {
 			await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 		});
 
-		it('Python - Verify Basic Gradio App [C903307]', async function () {
+		it('Python - Verify Basic Gradio App [C903307] #win', async function () {
 			const app = this.app as Application;
 			const viewer = app.workbench.positronViewer;
 
@@ -54,7 +54,7 @@ describe('Python Applications #pr #win', () => {
 			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
 		});
 
-		it('Python - Verify Basic Streamlit App [C903308] #web', async function () {
+		it('Python - Verify Basic Streamlit App [C903308] #web #win', async function () {
 
 			this.timeout(90000);
 
