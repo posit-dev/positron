@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WebSocket } from 'ws';
 import { JupyterChannel } from './JupyterChannel';
 import { PromiseHandles } from '../async';
 import { JupyterCommand } from './JupyterCommand';
@@ -21,6 +20,10 @@ export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 
 	public resolve(response: U): void {
 		this._promise.resolve(response);
+	}
+
+	public reject(reason: any): void {
+		this._promise.reject(reason);
 	}
 
 	public sendRpc(socket: SocketSession): Promise<U> {

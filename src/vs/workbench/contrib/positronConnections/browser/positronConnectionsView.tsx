@@ -26,6 +26,10 @@ import { PositronConnections } from 'vs/workbench/contrib/positronConnections/br
 import * as React from 'react';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
+import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
+import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -79,7 +83,11 @@ export class PositronConnectionsView
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@ICommandService private readonly commandService: ICommandService,
-		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService
+		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService,
+		@ILayoutService private readonly layoutService: ILayoutService,
+		@IClipboardService private readonly clipboardService: IClipboardService,
+		@INotificationService private readonly notificationService: INotificationService,
+		@IEditorService private readonly editorService: IEditorService
 	) {
 		super(
 			options,
@@ -132,7 +140,11 @@ export class PositronConnectionsView
 				hoverService={this.hoverService}
 				keybindingService={this.keybindingService}
 				connectionsService={this.connectionsService}
+				layoutService={this.layoutService}
 				reactComponentContainer={this}
+				clipboardService={this.clipboardService}
+				notificationService={this.notificationService}
+				editorService={this.editorService}
 			/>
 		);
 	}

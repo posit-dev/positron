@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronConnectionInstance, IPositronConnectionItem } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsCache';
-import { Event } from 'vs/base/common/event';
+import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { Emitter, Event } from 'vs/base/common/event';
 import Severity from 'vs/base/common/severity';
 import { INotificationHandle } from 'vs/platform/notification/common/notification';
+import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
@@ -17,25 +17,23 @@ export interface IPositronConnectionsService {
 	readonly _serviceBrand: undefined;
 	initialize(): void;
 	addConnection(instance: IPositronConnectionInstance): void;
-	getConnections(): IPositronConnectionItem[];
+	getConnections(): IPositronConnectionInstance[];
 	closeConnection(id: string): void;
+	removeConnection(id: string): void;
 	clearAllConnections(): void;
 
-	/**
-	 * Returns a flattended list of entries that the service is currently displaying.
-	 */
-	getConnectionEntries(): IPositronConnectionEntry[];
-
-	/**
-	 * Refresh the connections entries cache and fires the onDidChangeEntries event when it's done.
-	 */
-	refreshConnectionEntries(): Promise<void>;
-
-	/**
-	 * An event that users can subscribe to receive updates when the flattened list
-	 * of entries changes.
-	 */
-	onDidChangeEntries: Event<IPositronConnectionEntry[]>;
-
+	onDidChangeConnections: Event<IPositronConnectionInstance[]>;
 	notify(message: string, severity: Severity): INotificationHandle;
+	log(message: string): void;
+
+	// Exported API that you should really think if you want to use
+	// before you use it.
+
+	/**
+	 * Emits the id of the connection that has been focused
+	 */
+	onDidFocusEmitter: Emitter<string>;
+	onDidFocus: Event<string>;
+
+	runtimeSessionService: IRuntimeSessionService;
 }

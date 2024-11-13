@@ -216,6 +216,11 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Give the LSP server access to the kernel to enhance completions with live variables
         self.shell = shell
 
+        # If self.lsp has been used previously in this process and sucessfully exited, it will be
+        # marked with a shutdown flag, which makes it ignore all messages.
+        # We reset it here, so we allow the server to start again.
+        self.lsp._shutdown = False
+
         if self._server_thread is not None:
             logger.warning("LSP server thread was not properly shutdown")
             return

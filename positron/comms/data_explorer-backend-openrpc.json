@@ -387,6 +387,14 @@
 						"supported_features": {
 							"description": "The features currently supported by the backend instance",
 							"$ref": "#/components/schemas/supported_features"
+						},
+						"connected": {
+							"type": "boolean",
+							"description": "Optional flag allowing backend to report that it is unable to serve requests. This parameter may change."
+						},
+						"error_message": {
+							"type": "string",
+							"description": "Optional experimental parameter to provide an explanation when connected=false. This parameter may change."
 						}
 					}
 				}

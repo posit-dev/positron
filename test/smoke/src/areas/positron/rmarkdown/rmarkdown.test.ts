@@ -38,6 +38,9 @@ describe('RMarkdown #web', () => {
 
 	// test depends on the previous test
 	it('Preview RMarkdown [C709147]', async function () {
+
+		this.timeout(90000);
+
 		const app = this.app as Application; //Get handle to application
 
 		// Preview
@@ -47,7 +50,7 @@ describe('RMarkdown #web', () => {
 		// not factoring this locator because its not part of positron
 		const gettingStarted = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe').locator('h2[data-anchor-id="getting-started"]');
 
-		await expect(gettingStarted).toBeVisible({ timeout: 30000 });
+		await expect(gettingStarted).toBeVisible({ timeout: 60000 });
 		await expect(gettingStarted).toHaveText('Getting started');
 	});
 });

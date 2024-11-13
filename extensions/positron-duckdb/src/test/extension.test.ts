@@ -68,7 +68,7 @@ async function dxExec(rpc: DataExplorerRpc): Promise<any> {
 }
 
 function makeTempTableName(): string {
-	return `positron_${randomUUID().slice(0, 5)}`;
+	return `positron_${randomUUID().replace(/-/g, '')}`;
 }
 
 type InsertColumn = { name: string; type: string; values: Array<string> };

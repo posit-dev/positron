@@ -121,6 +121,12 @@
         "icon": "$(play)"
       },
       {
+        "command": "r.sourceCurrentFileWithEcho",
+        "category": "R",
+        "title": "%r.command.sourceCurrentFileWithEcho.title%",
+        "icon": "$(play)"
+      },
+      {
         "command": "workbench.action.positronConsole.executeCode",
         "category": "R",
         "title": "%r.command.executeSelectionInConsole.title%",
@@ -188,6 +194,24 @@
         "type": "object",
         "title": "%r.configuration.title-dev%",
         "properties": {
+          "positron.r.customRootFolders": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.customRootFolders.markdownDescription%"
+          },
+          "positron.r.customBinaries": {
+            "scope": "window",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": [],
+            "markdownDescription": "%r.configuration.customBinaries.markdownDescription%"
+          },
           "positron.r.kernel.path": {
             "scope": "window",
             "type": "string",
@@ -423,6 +447,13 @@
         },
         {
           "category": "R",
+          "command": "r.sourceCurrentFileWithEcho",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFileWithEcho.title%",
+          "when": "editorLangId == r"
+        },
+        {
+          "category": "R",
           "command": "workbench.action.positronConsole.executeCode",
           "icon": "$(play)",
           "title": "%r.command.executeSelectionInConsole.title%",
@@ -522,6 +553,13 @@
           "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
         },
         {
+          "command": "r.sourceCurrentFileWithEcho",
+          "group": "navigation@0",
+          "icon": "$(play)",
+          "title": "%r.command.sourceCurrentFileWithEcho.title%",
+          "when": "resourceLangId == r && !isInDiffEditor && !isRPackage"
+        },
+        {
           "command": "workbench.action.positronConsole.executeCode",
           "icon": "$(play)",
           "title": "%r.command.executeSelectionInConsole.title%",
@@ -596,9 +634,6 @@
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
   },
-  "extensionDependencies": [
-    "vscode.jupyter-adapter"
-  ],
   "devDependencies": {
     "@types/decompress": "^4.2.7",
     "@types/fs-extra": "^9.0.13",
@@ -635,7 +670,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.148"
+      "ark": "0.1.151"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

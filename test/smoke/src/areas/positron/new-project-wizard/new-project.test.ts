@@ -153,7 +153,7 @@ describe('New Project Wizard', () => {
 			});
 		});
 
-		it('Default Python Project with git init [C674522] #pr', async function () {
+		it('Default Python Project with git init [C674522] #pr #win', async function () {
 			const projSuffix = addRandomNumSuffix('_gitInit');
 			const app = this.app as Application;
 			const pw = app.workbench.positronNewProjectWizard;
@@ -191,7 +191,7 @@ describe('New Project Wizard', () => {
 	});
 
 	describe('R - New Project Wizard', () => {
-		it('R Project Defaults [C627913] #pr', async function () {
+		it('R Project Defaults [C627913] #pr #win', async function () {
 			const app = this.app as Application;
 			const pw = app.workbench.positronNewProjectWizard;
 			await pw.startNewProject(ProjectType.R_PROJECT);

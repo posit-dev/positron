@@ -13,6 +13,10 @@ const PWB_CHANGED_CONNECTION_KEY = 'pwb-changed-connections';
 const oldConnections = new Set();
 const inProgressDBs = new Set();
 
+// --- Start Positron ---
+const productName = 'positron';
+// --- End Positron ---
+
 function rs_openLoginTab() {
 	window.open(rs_getWorkbenchPrefix() + '/', 'rs_login');
 }
@@ -106,7 +110,7 @@ function rs_checkConnectionRequest() {
 			}
 			else if (xhr.status === 401) {
 				rs_showLoggedOutDialog();
-				clearVSCodeDb();
+				clearStateDbs();
 			}
 			else {
 				console.log(`Connection check status not ok: ${xhr.status}: ${xhr.statusText}:\n${xhr.responseText}`);
@@ -123,8 +127,9 @@ function rs_checkConnectionRequest() {
 		path = path.substring(prefixEnd);
 		url = prefix + url;
 	}
-	else if (prefixEnd == -1)
-		console.error("Unrecognized workbench vscode session path: " + path);
+	else if (prefixEnd === -1) {
+		console.error(`Unrecognized workbench ${productName} session path: ${path}`);
+	}
 
 	sCheckInProgress = true;
 	xhr.open('POST', url, true);
@@ -167,7 +172,7 @@ async function clearIndexedDB(name) {
 	});
 }
 
-async function clearVSCodeDb() {
+async function clearStateDbs() {
 	if (dbDeleteInProgress || dbDeleteComplete) { return; }
 	dbDeleteInProgress = true;
 	try {
@@ -260,9 +265,9 @@ function pwbRemoveFromSessionSet(dbName, key) {
 	}
 }
 
-function sendVSCodeSessionState(dbName, content) {
+function sendSessionState(dbName, content) {
 	const xhr = new XMLHttpRequest();
-	xhr.open('POST', rs_getWorkbenchPrefix() + '/storage/vscode_session_state', true);
+	xhr.open('POST', rs_getWorkbenchPrefix() + '/storage/session_state', true);
 	xhr.setRequestHeader('Content-Type', 'application/json;charset=UTF-8');
 	xhr.setRequestHeader('X-RS-CSRF-Token', sCSRFToken);
 	xhr.onreadystatechange = function () {
@@ -278,11 +283,11 @@ function sendVSCodeSessionState(dbName, content) {
 	xhr.onerror = function (error) {
 		console.error('Error saving state content to server: ', error.getMessage());
 	};
-	xhr.send(JSON.stringify({ 'method': 'vscode_session_state', 'params': [dbName, JSON.stringify(content)] }));
+	xhr.send(JSON.stringify({ 'method': 'session_state', 'params': [productName, dbName, JSON.stringify(content)] }));
 }
 
 async function checkIndexedDB() {
-	if (localStorage.getItem('clear-vscode-db-on-logout') !== 'true') {
+	if (localStorage.getItem('clear-browser-db-on-logout') !== 'true') {
 		return;
 	}
 	try {
@@ -300,7 +305,7 @@ async function checkIndexedDB() {
 				// back to the change list before we've saved these changes
 				pwbRemoveFromSessionSet(db.name, PWB_CHANGED_CONNECTION_KEY);
 				inProgressDBs.add(db.name);
-				sendVSCodeSessionState(db.name, content);
+				sendSessionState(db.name, content);
 			});
 		}
 	} catch (error) {

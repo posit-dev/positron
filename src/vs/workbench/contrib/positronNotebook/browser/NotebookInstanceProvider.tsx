@@ -35,4 +35,21 @@ export function useNotebookInstance() {
 	return instance;
 }
 
+/**
+ * Grab notebook config options from the current notebook instance.
+ * @returns Notebook options for the current notebook instance.
+ */
+export function useNotebookOptions() {
+	const instance = useNotebookInstance();
+	// Wrap in a usestate so we can trigger rerendering of notebooks when options change.
+	const [notebookOptions, setNotebookOptions] = React.useState(instance.notebookOptions);
 
+	React.useEffect(() => {
+		const listener = instance.notebookOptions.onDidChangeOptions(() => {
+			setNotebookOptions(instance.notebookOptions);
+		});
+		return () => listener.dispose();
+	}, [instance.notebookOptions]);
+
+	return notebookOptions;
+}

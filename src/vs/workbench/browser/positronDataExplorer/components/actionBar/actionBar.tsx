@@ -85,11 +85,11 @@ export const ActionBar = () => {
 							iconId='positron-open-in-new-window'
 							tooltip={moveIntoNewWindowButtonDescription}
 							ariaLabel={moveIntoNewWindowButtonDescription}
-							onPressed={() => {
+							onPressed={() =>
 								context.commandService.executeCommand(
 									'workbench.action.moveEditorToNewWindow'
-								);
-							}}
+								)
+							}
 						/>
 					</ActionBarRegion>
 				</PositronActionBar>

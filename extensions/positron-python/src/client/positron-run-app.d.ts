@@ -49,6 +49,16 @@ export interface RunAppOptions {
      * The optional URL path at which to preview the application.
      */
     urlPath?: string;
+
+    /**
+     * The optional app ready message to wait for in the terminal before previewing the application.
+     */
+    appReadyMessage?: string;
+
+    /**
+     * An optional array of app URI formats to parse the URI from the terminal output.
+     */
+    appUrlStrings?: string[];
 }
 
 /**
@@ -78,9 +88,17 @@ export interface DebugAppOptions {
      * The optional URL path at which to preview the application.
      */
     urlPath?: string;
-}
 
-export interface DebugConfiguration {}
+    /**
+     * The optional app ready message to wait for in the terminal before previewing the application.
+     */
+    appReadyMessage?: string;
+
+    /**
+     * An optional array of app URI formats to parse the URI from the terminal output.
+     */
+    appUrlStrings?: string[];
+}
 
 /**
  * The public API of the Positron Run App extension.

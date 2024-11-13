@@ -1,7 +1,7 @@
 {
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2024.11.0",
+	"positronVersion": "2024.12.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -223,10 +223,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.7",
+			"version": "1.5.16",
 			"s3Bucket": "rsw-vscode-extension",
 			"type": "reh-web",
-			"sha256": "9ac536b65c91fd86274fe2cbb2ea2c381e13ba309027044bc98438730c4fa66c",
+			"sha256": "520c252f9147ee87483cc698369659c58f52ee39a5e72df4bc557bd4f29d9272",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}

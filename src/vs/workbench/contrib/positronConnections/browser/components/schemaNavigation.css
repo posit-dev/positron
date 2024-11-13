@@ -1,0 +1,110 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connections-items-container {
+	height: 100%;
+	position: relative;
+	left: 0.5px;
+}
+
+.connections-item {
+	display: flex;
+	cursor: pointer;
+	align-items: center;
+	height: 26px;
+}
+
+.connections-details {
+	flex-grow: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	font-family: monospace;
+	display: flex;
+	align-items: center;
+}
+
+.connections-dtype {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+	font-weight: 300;
+}
+
+.connections-dtype::before {
+	content: ":";
+	color: var(--vscode-positronVariables-foreground);
+	margin: 0 3px;
+}
+
+.connections-language::before {
+	content: ":";
+	color: var(--vscode-positronVariables-foreground);
+	margin-left: 0px;
+	margin-right: 6px;
+}
+
+.connections-item .connections-icon {
+	flex-shrink: 0;
+	flex-grow: 0;
+	padding: 0 5px;
+}
+
+.connections-item .connections-icon .disabled {
+	opacity: 0.7;
+}
+
+.connections-item .expand-collapse-area {
+	width: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.connections-item.selected {
+	color: var(--vscode-positronVariables-activeSelectionForeground);
+	background: var(--vscode-positronVariables-activeSelectionBackground);
+	outline: 1px;
+	outline-offset: -1px;
+}
+
+.connection-disabled {
+	color: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.connections-error {
+	margin-left: 5px;
+}
+
+.connections-error.codicon {
+	color: var(--vscode-debugConsole-errorForeground);
+}
+
+.connections-instance-details {
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid var(--vscode-positronVariables-border);
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	width: calc(100% - 2px);
+}
+
+.connections-instance-details .connection-name {
+	padding-left: 10px;
+	flex-grow: 1;
+	flex-basis: 50%;
+}
+
+.connections-instance-details .connection-language {
+	flex-basis: 20%;
+}
+
+.connections-instance-details .connection-icon {
+	flex-grow: 0;
+	flex-shrink: 0;
+	width: 26px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}

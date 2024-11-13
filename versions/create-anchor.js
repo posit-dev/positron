@@ -26,12 +26,6 @@ if (fs.existsSync(anchorPath)) {
 	return 0;
 }
 
-const branch = child_process.execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-if (branch !== 'main') {
-	console.error(`Commit anchors can only be created on the main branch. You're on '${branch}'.`);
-	return 1;
-}
-
 // Create the anchor file with the commit hash at the head of the current branch
 const commit = child_process.execSync('git rev-parse HEAD').toString().trim();
 fs.writeFileSync(anchorPath, commit);
