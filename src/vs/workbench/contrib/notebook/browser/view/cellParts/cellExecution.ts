@@ -109,6 +109,11 @@ export class CellExecutionPart extends CellContentPart {
 						);
 					}
 				}
+				// -- Begin Positron --
+				// We have shrunk the main cell body by 22px so we need to
+				// shrink the execution order label by 22px as well.
+				top -= 22;
+				// -- End Positron --
 
 				this._executionOrderLabel.style.top = `${top}px`;
 			}
