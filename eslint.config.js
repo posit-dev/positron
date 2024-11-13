@@ -114,12 +114,11 @@ export default tseslint.config(
 				2,
 				'block',
 				[
-					'---------------------------------------------------------------------------------------------',
-					' *  Copyright (c) Microsoft Corporation. All rights reserved.',
-					' *  Licensed under the MIT License. See License.txt in the project root for license information.',
-					' *--------------------------------------------------------------------------------------------'
+					{
+						'pattern': '-{93}\r?\n [*] {2}((Copyright [(]c[)] Microsoft Corporation. All rights reserved.\r?\n [*] {2}Licensed under the MIT License. See License.txt in the project root for license information.)|(Copyright [(][cC]{1}[)]\\s?(20\\d{2})?(-20\\d{2})? Posit Software, PBC\\.( All rights reserved\\.)?\r?\n [*] {2}Licensed under the Elastic License 2\\.0\\. See LICENSE\\.txt for license information\\.))\r?\n [*]-{92}'
+					}
 				]
-			]
+			],
 		},
 	},
 	// TS
