@@ -11,7 +11,6 @@ test.use({
 });
 
 test.describe('Shiny Application', {
-	tag: ['@win'],
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		try {
@@ -23,6 +22,10 @@ test.describe('Shiny Application', {
 		}
 	});
 
+	test.afterEach(async function ({ app }) {
+		await app.workbench.positronViewer.refreshViewer();
+	});
+
 	test('Python - Verify Basic Shiny App [C699099]', async function ({ app, python }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
@@ -31,9 +34,6 @@ test.describe('Shiny Application', {
 
 		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
-
-		// refresh the viewer so the shutdown Python app goes away before we kick off the R app
-		await app.workbench.positronViewer.refreshViewer();
 	});
 
 	test('R - Verify Basic Shiny App [C699100]', async function ({ app, r }) {
@@ -46,10 +46,6 @@ runExample("01_hello")`;
 
 		await app.workbench.positronConsole.activeConsole.click();
 		await app.workbench.positronConsole.sendKeyboardKey('Control+C');
-
-		// not strictly needed yet, but in case another case is added later afterwards
-		// make sure that the shut down R app is not present
-		await app.workbench.positronViewer.refreshViewer();
 	});
 });
 
