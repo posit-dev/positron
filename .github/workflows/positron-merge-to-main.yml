@@ -21,7 +21,6 @@ on:
 
 env:
   E2E_GREP: ${{ inputs.e2e_grep || '' }}
-  AWS_REGION: us-east-1
   AWS_S3_BUCKET: positron-test-reports
   REPORT_DIR: playwright-report-${{ github.run_id }}
 
@@ -70,7 +69,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: "us-east-1"
 
       - name: Upload Playwright Report to S3 Bucket
         if: ${{ !cancelled() }}
@@ -79,15 +78,18 @@ jobs:
       - name: Create URL file
         if: always()
         run: |
-          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
+          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
           echo $REPORT_URL > url.txt
           echo "Report URL: $REPORT_URL"
 
       - name: Setup Job Summary
         if: always()
         run: |
-          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
-          echo " 🔗 [View Playwright Report]($REPORT_URL)" >> $GITHUB_STEP_SUMMARY
+          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
+          # Write the link to a temporary file and add existing summary content after
+          echo "[View Playwright Report]($REPORT_URL) <br>" > temp_summary
+          cat $GITHUB_STEP_SUMMARY >> temp_summary
+          mv temp_summary $GITHUB_STEP_SUMMARY
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
