@@ -244,7 +244,7 @@ jobs:
         "integration-tests",
         "unit-tests",
       ]
-    if: always()
+    if: ${{ !cancelled() }}
     steps:
       - uses: actions/checkout@v4
 
@@ -263,6 +263,7 @@ jobs:
         run: npx playwright merge-reports --reporter html ./all-blob-reports
 
       - name: Upload HTML report
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: html-report
@@ -277,16 +278,3 @@ jobs:
           slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
           slack_channel: C07FR1JNZNJ #positron-test-results channel
           suite_name: Positron Full Test Suite
-
-      # - name: Download junit reports
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     path: all-junit-reports
-      #     pattern: junit-report-*
-      #     merge-multiple: true
-
-      # - name: Merge junit reports
-      #   run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
-
-      # - name: Markdown results to Github Summary
-      #   run: node scripts/junit-to-md.js ./junit.xml

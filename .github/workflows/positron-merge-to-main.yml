@@ -63,15 +63,20 @@ jobs:
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
 
-      # - name: Markdown results to Github Summary
-      #   run: node scripts/junit-to-md.js test-results/junit.xml
-
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: html-report-${{ github.run_attempt }}
           path: playwright-report/
+          retention-days: 14
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-browser
+          path: test-logs
           retention-days: 14
 
   unit-integration:

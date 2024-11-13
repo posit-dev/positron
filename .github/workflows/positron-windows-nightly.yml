@@ -108,22 +108,30 @@ jobs:
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
-        if: success() || failure()
+        if: ${{ !cancelled() }}
         run: echo "TESTRAIL_TITLE=$(Get-Date -Format 'yyyy-MM-dd') Nightly Smoke Tests - $env:GITHUB_REF_NAME" >> $env:GITHUB_ENV
         shell: pwsh
 
       - name: Upload Test Results to TestRail
         id: testrail-upload
-        if: success() || failure()
+        if: ${{ !cancelled() }}
         shell: pwsh
         run: |
           trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
 
       - name: Upload HTML report
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: html-report-${{ github.run_attempt }}
+          name: html-report
           path: playwright-report
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-electron
+          path: test-logs
           retention-days: 14
 
   # slack-notification:
