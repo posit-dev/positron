@@ -191,6 +191,8 @@ describe('New Project Wizard', () => {
 	});
 
 	describe('R - New Project Wizard', () => {
+		const defaultProjectName = 'my-r-project';
+
 		it('R Project Defaults [C627913] #pr #win', async function () {
 			const app = this.app as Application;
 			const pw = app.workbench.positronNewProjectWizard;
@@ -199,7 +201,7 @@ describe('New Project Wizard', () => {
 			await pw.navigate(ProjectWizardNavigateAction.NEXT);
 			await pw.navigate(ProjectWizardNavigateAction.CREATE);
 			await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-			await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myRProject');
+			await app.workbench.positronExplorer.explorerProjectTitle.waitForText(defaultProjectName);
 			// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
 			// here, but it's timing out in CI, so it is not included for now.
 		});
@@ -225,7 +227,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myRProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// Interact with the modal to install renv
 				await app.workbench.positronPopups.installRenv();
@@ -269,7 +271,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myRProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// Verify renv files are present
 				await expect(async () => {
@@ -303,7 +305,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myRProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// Interact with the modal to skip installing renv
 				await app.workbench.positronPopups.installRenv(false);
