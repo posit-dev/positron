@@ -2,13 +2,12 @@
 	"extends": "../tsconfig.base.json",
 	"compilerOptions": {
 		"outDir": "./out",
-		"types": [
-			"node"
-		]
+		"types": ["node"],
+		"strict": false,
 	},
 	"include": [
 		"src/**/*",
 		"../../src/vscode-dts/vscode.d.ts",
-		"../../src/positron-dts/positron.d.ts"
-	]
+		"../../src/positron-dts/positron.d.ts",
+	],
 }
