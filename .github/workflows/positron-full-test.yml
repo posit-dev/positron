@@ -249,8 +249,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/$REPORT_DIR --recursive
 
-      - name: Create URL file
-        if: always()
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
         run: |
           REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.us-east-1.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
           echo $REPORT_URL > url.txt
