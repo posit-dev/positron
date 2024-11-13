@@ -80,8 +80,10 @@ suite('Terminal Environment Variable Collection Service', () => {
         when(shellIntegrationService.isWorking()).thenResolve(true);
         globalCollection = mock<GlobalEnvironmentVariableCollection>();
         collection = mock<EnvironmentVariableCollection>();
-        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
-        when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
+        // --- Start Positron ---
+        when(context.environmentVariableCollection as EnvironmentVariableCollection).thenReturn(instance(collection));
+        //when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
+        // --- End Positron ---
         experimentService = mock<IExperimentService>();
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(true);
         applicationEnvironment = mock<IApplicationEnvironment>();
