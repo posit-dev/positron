@@ -93,7 +93,11 @@ export class ExecutionStateCellStatusBarContrib extends Disposable implements IN
 		this._register(new NotebookStatusBarController(notebookEditor, (vm, cell) => instantiationService.createInstance(ExecutionStateCellStatusBarItem, vm, cell)));
 	}
 }
-registerNotebookContribution(ExecutionStateCellStatusBarContrib.id, ExecutionStateCellStatusBarContrib);
+// --- Begin Positron ---
+// Disable the execution status bar item in favor of our use of colors in the
+// timer item.
+// registerNotebookContribution(ExecutionStateCellStatusBarContrib.id, ExecutionStateCellStatusBarContrib);
+// --- End Positron ---
 
 /**
  * Shows the cell's execution state in the cell status bar. When the "executing" state is shown, it will be shown for a minimum brief time.
@@ -273,6 +277,20 @@ class TimerCellStatusBarItem extends Disposable {
 				});
 			}
 		}
+		// --- Begin Positron ---
+		// If we're finished executing, add a visual cue for success/failure
+		const isFinished = !state && typeof endTime === 'number';
+		if (isFinished && timerItem) {
+			const lastRunSuccess = this._cell.internalMetadata.lastRunSuccess;
+
+			timerItem = {
+				...timerItem,
+				color: lastRunSuccess === false
+					? themeColorFromId(cellStatusIconError)
+					: themeColorFromId(cellStatusIconSuccess),
+			};
+		}
+		// --- End Positron ---
 
 		const items = timerItem ? [timerItem] : [];
 

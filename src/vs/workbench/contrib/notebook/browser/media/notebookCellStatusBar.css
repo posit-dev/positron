@@ -61,6 +61,10 @@
 
 .monaco-workbench .notebookOverlay .cell-statusbar-container .cell-status-left > .cell-contributed-items {
 	margin-left: 10px;
+	/* --- Begin Positron --- */
+	/* Remove the margin left to align better with the cell editor outline */
+	margin-left: 0px;
+	/* --- End Positron --- */
 }
 
 .monaco-workbench .notebookOverlay .cell-statusbar-container .codicon {
