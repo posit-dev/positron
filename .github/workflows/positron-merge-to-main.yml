@@ -21,6 +21,9 @@ on:
 
 env:
   E2E_GREP: ${{ inputs.e2e_grep || '' }}
+  AWS_REGION: us-east-1
+  AWS_S3_BUCKET: positron-test-reports
+  REPORT_DIR: playwright-report-${{ github.run_id }}
 
 permissions:
   id-token: write
@@ -62,6 +65,29 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload Playwright Report to S3 Bucket
+        if: ${{ !cancelled() }}
+        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/$REPORT_DIR --recursive
+
+      - name: Create URL file
+        if: always()
+        run: |
+          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
+          echo $REPORT_URL > url.txt
+          echo "Report URL: $REPORT_URL"
+
+      - name: Setup Job Summary
+        if: always()
+        run: |
+          REPORT_URL="https://${{ env.AWS_S3_BUCKET }}.s3.${{ env.AWS_REGION }}.amazonaws.com/${{ env.REPORT_DIR }}/index.html"
+          echo " 🔗 [View Playwright Report]($REPORT_URL)" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
