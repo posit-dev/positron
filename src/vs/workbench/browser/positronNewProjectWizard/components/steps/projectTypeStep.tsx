@@ -18,6 +18,26 @@ import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProje
 import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
 import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/components/projectTypeGroup';
 import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
+import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+
+/**
+ * Generates a default project name based on the provided project type.
+ *
+ * @param projectType - The type of the project for which to generate a default name.
+ * @returns The default project name as a string.
+ */
+export const getDefaultProjectName = (projectType: NewProjectType) => {
+	const defaultProjectName = localize(
+		'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
+		"my"
+	);
+	// If the project type is an R Project, the project name is 'my-r-project'.
+	if (projectType === NewProjectType.RProject) {
+		return defaultProjectName + '-' + projectType.toLowerCase().replace(/\s/g, '-');
+	}
+	// The project name for all other project types is 'my' + projectType without spaces, eg. 'myPythonProject'.
+	return defaultProjectName + projectType.replace(/\s/g, '');
+};
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to
@@ -45,12 +65,7 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 			context.projectType !== selectedProjectType ||
 			context.projectName === ''
 		) {
-			// The default project name is 'my' + projectType without spaces, eg. 'myPythonProject'.
-			const defaultProjectName =
-				localize(
-					'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
-					"my"
-				) + selectedProjectType.replace(/\s/g, '');
+			const defaultProjectName = getDefaultProjectName(selectedProjectType);
 			context.projectType = selectedProjectType;
 			context.projectName = defaultProjectName;
 			context.projectNameFeedback = await checkProjectName(
