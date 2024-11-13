@@ -247,7 +247,7 @@ jobs:
 
       - name: Upload Playwright Report to S3 Bucket
         if: ${{ !cancelled() }}
-        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/$REPORT_DIR --recursive
+        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/${{ env.REPORT_DIR }} --recursive
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}

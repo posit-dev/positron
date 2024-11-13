@@ -165,7 +165,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 		// add all log files to the archive
 		archive.glob('**/*', { cwd: logsPath, ignore: ['logs.zip'] });
-		await archive.finalize();
+
+		// wait for the archive to finalize and the output stream to close
+		await new Promise((resolve, reject) => {
+			output.on('close', resolve);
+			output.on('error', reject);
+			archive.finalize();
+		});
 
 		// attach the zipped file to the report
 		await testInfo.attach(`logs-${path.basename(testInfo.file)}.zip`, {
