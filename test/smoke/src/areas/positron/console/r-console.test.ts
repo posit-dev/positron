@@ -7,7 +7,8 @@ import { expect } from '@playwright/test';
 import { Application, PositronRFixtures } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Console Pane: R', () => {
+// Skipping due to https://github.com/posit-dev/positron/issues/5356
+describe.skip('Console Pane: R', () => {
 	setupAndStartApp();
 
 	describe('R Console Restart #web #win', () => {
