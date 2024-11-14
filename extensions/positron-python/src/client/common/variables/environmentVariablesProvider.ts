@@ -7,7 +7,9 @@
 import { inject, injectable } from 'inversify';
 import * as path from 'path';
 import { ConfigurationChangeEvent, Disposable, Event, EventEmitter, FileSystemWatcher, Uri } from 'vscode';
-import { traceError, traceVerbose } from '../../logging';
+// --- Start Positron ---
+import { traceError } from '../../logging';
+// --- End Positron ---
 import { sendFileCreationTelemetry } from '../../telemetry/envFileTelemetry';
 import { IWorkspaceService } from '../application/types';
 import { PythonSettings } from '../configSettings';
@@ -72,7 +74,10 @@ export class EnvironmentVariablesProvider implements IEnvironmentVariablesProvid
         }
         const vars = await this._getEnvironmentVariables(resource);
         this.setCachedEnvironmentVariables(resource, vars);
-        traceVerbose('Dump environment variables', JSON.stringify(vars, null, 4));
+        // --- Start Positron ---
+        // Avoid printing out environment variables to the log as they may contain secrets.
+        // traceVerbose('Dump environment variables', JSON.stringify(vars, null, 4));
+        // --- End Positron ---
         return vars;
     }
 

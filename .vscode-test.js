@@ -74,7 +74,7 @@ const extensions = [
 	},
 	{
 		label: 'positron-notebook-controllers',
-		workspaceFolder: path.join(os.tmpdir(), `positron-notebook-controllers-${Math.floor(Math.random() * 100000)}`),
+		workspaceFolder: 'extensions/positron-notebook-controllers/test-workspace',
 		mocha: { timeout: 60_000 }
 	},
 	{

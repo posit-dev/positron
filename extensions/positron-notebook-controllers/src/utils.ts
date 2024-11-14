@@ -6,3 +6,10 @@
 export function delay(ms: number) {
 	return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+export function formatCount(count: number, unit: string): string {
+	if (count === 1) {
+		return `${count} ${unit}`;
+	}
+	return `${count} ${unit}s`;
+}
