@@ -26,7 +26,7 @@ import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/
  * @param projectType - The type of the project for which to generate a default name.
  * @returns The default project name as a string.
  */
-export const getDefaultProjectName = (projectType: NewProjectType) => {
+const getDefaultProjectName = (projectType: NewProjectType) => {
 	return localize(
 		'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
 		"my"
