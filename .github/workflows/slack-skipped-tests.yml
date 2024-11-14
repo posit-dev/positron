@@ -1,0 +1,19 @@
+name: Slack Skipped Tests
+
+on:
+  schedule:
+    # Run every Tuesday at 2pm UTC / 8am CST / 9am EST
+    - cron: '0 14 * * 2'
+  workflow_dispatch:
+
+jobs:
+  slack-skipped-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Slack Skipped Tests Script
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: node scripts/slack-skipped-tests.js $SLACK_WEBHOOK_URL
