@@ -831,6 +831,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startPromise.error(err);
 		}
 
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+
 		return sessionId;
 	}
 
