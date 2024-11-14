@@ -11,6 +11,8 @@ describe('New Project Wizard', () => {
 	setupAndStartApp();
 
 	describe('Python - New Project Wizard', () => {
+		const defaultProjectName = 'my-python-project';
+
 		describe('Python Project with new environment', () => {
 			it('Create a new Venv environment [C627912] #pr', async function () {
 				// This is the default behaviour for a new Python Project in the Project Wizard
@@ -21,7 +23,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.NEXT);
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-				await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myPythonProject');
+				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(defaultProjectName);
 				await app.workbench.positronConsole.waitForReady('>>>', 10000);
 				await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 				await app.workbench.positronConsole.barClearButton.click();
@@ -43,7 +45,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myPythonProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// Check that the `.conda` folder gets created in the project
 				await expect(async () => {
@@ -93,7 +95,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myPythonProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// The console should initialize without any prompts to install ipykernel
 				await app.workbench.positronConsole.waitForReady('>>>', 10000);
@@ -142,7 +144,7 @@ describe('New Project Wizard', () => {
 				await pw.navigate(ProjectWizardNavigateAction.CREATE);
 				await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 				await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-					`myPythonProject${projSuffix}`
+					defaultProjectName + projSuffix
 				);
 				// If ipykernel was successfully installed during the new project initialization,
 				// the console should be ready without any prompts to install ipykernel
@@ -170,7 +172,7 @@ describe('New Project Wizard', () => {
 			// Open the new project in the current window and wait for the console to be ready
 			await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 			await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-				`myPythonProject${projSuffix}`
+				defaultProjectName + projSuffix
 			);
 			await app.workbench.positronConsole.waitForReady('>>>', 10000);
 
@@ -321,6 +323,8 @@ describe('New Project Wizard', () => {
 	});
 
 	describe('Jupyter - New Project Wizard', () => {
+		const defaultProjectName = 'my-jupyter-notebook';
+
 		it('Jupyter Project Defaults [C629352] #pr', async function () {
 			const app = this.app as Application;
 			const pw = app.workbench.positronNewProjectWizard;
@@ -329,7 +333,7 @@ describe('New Project Wizard', () => {
 			await pw.navigate(ProjectWizardNavigateAction.NEXT);
 			await pw.navigate(ProjectWizardNavigateAction.CREATE);
 			await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-			await app.workbench.positronExplorer.explorerProjectTitle.waitForText('myJupyterNotebook');
+			await app.workbench.positronExplorer.explorerProjectTitle.waitForText(defaultProjectName);
 			// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
 			// here, but it's timing out in CI, so it is not included for now.
 		});
