@@ -542,12 +542,19 @@ export class KCApi implements KallichoreAdapterApi {
 				resolve(session);
 			}).catch((err) => {
 				if (err instanceof HttpError) {
-					this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
-					reject(err.body.message);
-				} else {
-					this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
-					reject(err);
+					if (err.body && err.body.message) {
+						this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
+						reject(err.body.message);
+						return;
+					} else if (err.statusCode) {
+						const message = `Failed to reconnect to session ${sessionMetadata.sessionId}: HTTP ${err.statusCode}`;
+						this._log.appendLine(message);
+						reject(message);
+						return;
+					}
 				}
+				this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
+				reject(err);
 			});
 		});
 	}

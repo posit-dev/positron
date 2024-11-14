@@ -944,10 +944,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			await this._api.interruptSession(this.metadata.sessionId);
 		} catch (err) {
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
-			} else {
-				throw err;
+				if (err.body?.message) {
+					throw new Error(err.body.message);
+				} else if (err.statusCode) {
+					throw new Error(`HTTP ${err.statusCode}`);
+				} else {
+					throw err;
+				}
 			}
+			throw err;
 		}
 	}
 
@@ -971,7 +976,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.markReady('restart complete');
 		} catch (err) {
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
+				if (err.body?.message) {
+					throw new Error(err.body.message);
+				} else if (err.statusCode) {
+					throw new Error(`HTTP ${err.statusCode}`);
+				} else {
+					throw err;
+				}
 			} else {
 				throw err;
 			}
@@ -1000,7 +1011,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} catch (err) {
 			this._exitReason = positron.RuntimeExitReason.Unknown;
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
+				if (err.body?.message) {
+					throw new Error(err.body.message);
+				} else if (err.statusCode) {
+					throw new Error(`HTTP ${err.statusCode}`);
+				} else {
+					throw err;
+				}
 			} else {
 				throw err;
 			}
