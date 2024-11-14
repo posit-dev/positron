@@ -280,9 +280,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return null;
 	}
 
-	async executeCommand(commandId: string): Promise<null> {
-		await this.commands.executeCommand(commandId);
-		return null;
+	async executeCommand(commandId: string): Promise<any> {
+		return await this.commands.executeCommand(commandId);
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
