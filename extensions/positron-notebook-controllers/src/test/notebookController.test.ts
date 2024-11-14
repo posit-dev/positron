@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
 import { JUPYTER_NOTEBOOK_TYPE } from '../constants';
-import { NotebookController } from '../notebookController';
+import { DidEndExecutionEvent, DidStartExecutionEvent, NotebookController } from '../notebookController';
 import { NotebookSessionService } from '../notebookSessionService';
 import { log } from '../extension';
 import { randomUUID } from 'crypto';
@@ -22,6 +22,7 @@ suite('NotebookController', () => {
 		languageId: 'test-language',
 	} as positron.LanguageRuntimeMetadata;
 
+	let disposables: vscode.Disposable[];
 	let notebookSessionService: sinon.SinonStubbedInstance<NotebookSessionService>;
 	let notebookController: NotebookController;
 	let onDidReceiveRuntimeMessage: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
@@ -31,6 +32,8 @@ suite('NotebookController', () => {
 	let executions: TestNotebookCellExecution[];
 
 	setup(async () => {
+		disposables = [];
+
 		// Reroute log messages to the console.
 		for (const level of ['trace', 'debug', 'info', 'warn', 'error']) {
 			sinon.stub(log, level as keyof typeof log).callsFake((...args) => {
@@ -40,6 +43,7 @@ suite('NotebookController', () => {
 
 		notebookSessionService = sinon.createStubInstance(NotebookSessionService);
 		notebookController = new NotebookController(runtime, notebookSessionService as any);
+		disposables.push(notebookController);
 
 		// Create a mock notebook.
 		notebook = {
@@ -76,14 +80,15 @@ suite('NotebookController', () => {
 
 		// Create a mock session.
 		onDidReceiveRuntimeMessage = new vscode.EventEmitter();
+		disposables.push(onDidReceiveRuntimeMessage);
 		session = {
 			metadata: {
 				sessionId: 'test-session',
-			},
-			interrupt() { },
+			} as positron.RuntimeSessionMetadata,
+			async interrupt() { },
 			onDidReceiveRuntimeMessage: onDidReceiveRuntimeMessage.event,
 			execute(_code, _id, _mode, _errorBehavior) { }
-		} as positron.LanguageRuntimeSession;
+		} as Partial<positron.LanguageRuntimeSession> as positron.LanguageRuntimeSession;
 		notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(session);
 
 		// Stub the notebook controller to return a test cell execution.
@@ -97,7 +102,7 @@ suite('NotebookController', () => {
 	});
 
 	teardown(() => {
-		notebookController.dispose();
+		disposables.forEach(d => d.dispose());
 		sinon.restore();
 	});
 
@@ -140,12 +145,15 @@ suite('NotebookController', () => {
 		} as positron.LanguageRuntimeError);
 	}
 
+	function onExecute(callback: (id: string) => void) {
+		sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
+			callback(id);
+		});
+	}
+
 	suite('executeHandler', () => {
 		test('single cell executes successfully on status idle message', async () => {
-			// On execution, fire an idle message.
-			sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
-				fireIdleMessage(id);
-			});
+			onExecute(fireIdleMessage);
 
 			await executeNotebook([0]);
 
@@ -154,11 +162,24 @@ suite('NotebookController', () => {
 			executions[0].assertDidEndSuccessfully();
 		});
 
+		test('single cell fires start and end execution events', async () => {
+			onExecute(fireIdleMessage);
+
+			const startExecution = sinon.spy((_e: DidStartExecutionEvent) => { });
+			disposables.push(notebookController.onDidStartExecution(startExecution));
+
+			const endExecution = sinon.spy((_e: DidEndExecutionEvent) => { });
+			disposables.push(notebookController.onDidEndExecution(endExecution));
+
+			await executeNotebook([0]);
+
+			sinon.assert.calledOnceWithExactly(startExecution, { cells: [executions[0].cell] });
+			sinon.assert.calledOnceWithMatch(endExecution, { cells: [executions[0].cell], duration: sinon.match.number });
+			sinon.assert.callOrder(startExecution, endExecution);
+		});
+
 		test('single cell executes unsuccessfully on error message', async () => {
-			// On execution, fire an error message.
-			sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
-				fireErrorMessage(id);
-			});
+			onExecute(fireErrorMessage);
 
 			await executeNotebook([0]);
 
@@ -168,10 +189,7 @@ suite('NotebookController', () => {
 		});
 
 		test('queued cells are not executed if a preceding cell errors', async () => {
-			// On execution, fire an error message.
-			sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
-				fireErrorMessage(id);
-			});
+			onExecute(fireErrorMessage);
 
 			await executeNotebook([0, 1]);
 
@@ -181,10 +199,7 @@ suite('NotebookController', () => {
 		});
 
 		test('queued cells execute in order', async () => {
-			// On execution, fire an idle message for each cell in order.
-			sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
-				fireIdleMessage(id);
-			});
+			onExecute(fireIdleMessage);
 
 			await executeNotebook([0, 1]);
 
