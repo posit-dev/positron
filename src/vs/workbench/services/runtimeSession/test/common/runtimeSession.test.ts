@@ -21,7 +21,6 @@ import { TestRuntimeSessionManager } from 'vs/workbench/test/common/positronWork
 import { TestWorkspaceTrustManagementService } from 'vs/workbench/test/common/workbenchTestServices';
 
 type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
-type IValidator<T> = (obj: T) => void;
 
 suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -116,226 +115,6 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 	}
 
-	async function testCallSuccessively<T>(task: () => Promise<T>, validate: IValidator<T>) {
-		const result1 = await task();
-		const result2 = await task();
-		const result3 = await task();
-
-		assert.equal(result1, result2);
-		assert.equal(result2, result3);
-
-		validate(result1);
-	}
-
-	async function testCallConcurrently<T>(task: () => Promise<T>, validate: (obj: T) => void) {
-		const [result1, result2, result3] = await Promise.all([task(), task(), task()]);
-
-		assert.equal(result1, result2);
-		assert.equal(result2, result3);
-
-		validate(result1);
-	}
-
-	async function testStartSuccessively(start: IStartSessionTask) {
-		await testCallSuccessively(start, (session) => assertSessionIsStarting(session));
-	}
-
-	async function testStartConcurrently(start: IStartSessionTask) {
-		await testCallConcurrently(start, (session) => assertSessionIsStarting(session));
-	}
-
-	async function testStartConsoleWhileAnotherIsStarting(start: IStartSessionTask, source?: string) {
-		await assert.rejects(
-			Promise.all([
-				start(),
-				start(anotherRuntime),
-			]),
-			new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} ` +
-				`cannot be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
-				`is already starting for the language.`
-				+ (source ? ` Request source: ${startReason}` : '')),
-		);
-	}
-
-	async function testStartConsoleWhileAnotherIsRunning(start: IStartSessionTask, source?: string) {
-		await start();
-		await assert.rejects(
-			start(anotherRuntime),
-			new Error(`A console for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-				`be started because a console for ${formatLanguageRuntimeMetadata(runtime)} ` +
-				`is already running for the ${runtime.languageName} language.` +
-				(source ? ` Request source: ${startReason}` : '')),
-		);
-	}
-
-	async function testStartNotebookWhileAnotherIsStarting(start: IStartSessionTask, source?: string) {
-		await assert.rejects(
-			Promise.all([
-				start(),
-				start(anotherRuntime),
-			]),
-			new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-				`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
-				`is already starting for the notebook ${notebookUri.toString()}.`
-				+ (source ? ` Request source: ${startReason}` : ''))
-		);
-	}
-
-	async function testStartNotebookWhileAnotherIsRunning(start: IStartSessionTask, source?: string) {
-		await start();
-		await assert.rejects(
-			start(anotherRuntime),
-			new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-				`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
-				`is already running for the URI ${notebookUri.toString()}.` +
-				(source ? ` Request source: ${startReason}` : '')),
-		);
-	}
-
-	async function testStartReturnsExpectedSession(start: IStartSessionTask) {
-		const session = await start();
-
-		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-		assert.equal(session.metadata.sessionName, sessionName);
-		assert.equal(session.metadata.startReason, startReason);
-		assert.equal(session.runtimeMetadata, runtime);
-
-		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			assert.equal(session.metadata.notebookUri, undefined);
-		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			assert.equal(session.metadata.notebookUri, notebookUri);
-		} else {
-			throw new Error(`Unexpected session mode: ${session.metadata.sessionMode}`);
-		}
-	}
-
-	async function testStartSetsExpectedServiceState(
-		start: IStartSessionTask,
-		verifyWhileStarting: () => void,
-		verifyAfterStarted: (session: ILanguageRuntimeSession) => void,
-	) {
-		// Check the initial state.
-		assertServiceState();
-
-		const promise = start();
-
-		// Check the state while starting.
-		verifyWhileStarting();
-
-		const session = await promise;
-
-		// Check the state after starting.
-		verifyAfterStarted(session);
-	}
-
-	function testStartConsoleSetsExpectedServiceState(start: IStartSessionTask) {
-		return testStartSetsExpectedServiceState(
-			start,
-			() => assertServiceState({ hasStartingOrRunningConsole: true }),
-			session => assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session }),
-		);
-	}
-
-	function testStartNotebookSetsExpectedServiceState(start: IStartSessionTask) {
-		return testStartSetsExpectedServiceState(
-			start,
-			() => assertServiceState(),
-			session => assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session }),
-		);
-	}
-
-	async function testStartFiresOnWillStartSession(start: IStartSessionTask, verify: () => void) {
-		let error: Error | undefined;
-		const target = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
-			try {
-				// TODO: Should onWillStartSession only fire once?
-				if (target.callCount > 1) {
-					return;
-				}
-				assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
-				verify();
-			} catch (e) {
-				error = e;
-			}
-		});
-		disposables.add(runtimeSessionService.onWillStartSession(target));
-		const session = await start();
-
-		// TODO: Should onWillStartSession only fire once?
-		sinon.assert.calledTwice(target);
-		// TODO: isNew is false for restored sessions...
-		sinon.assert.alwaysCalledWithExactly(target, { isNew: true, session });
-		assert.ifError(error);
-	}
-
-	async function testStartFiresOnDidStartRuntime(
-		start: IStartSessionTask,
-		verify: (session: ILanguageRuntimeSession) => void,
-	) {
-		let error: Error | undefined;
-		const target = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
-			try {
-				assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-				verify(session);
-			} catch (e) {
-				error = e;
-			}
-		});
-		disposables.add(runtimeSessionService.onDidStartRuntime(target));
-
-		const session = await start();
-
-		sinon.assert.calledOnceWithExactly(target, session);
-		assert.ifError(error);
-	}
-
-	async function testEncountersSessionStartError(
-		start: IStartSessionTask,
-		verify: (session: ILanguageRuntimeSession) => void,
-	) {
-		// Listen to the onWillStartSession event and stub session.start() to throw an error.
-		const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-			sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
-		});
-		disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
-
-		const didFailStartRuntime = sinon.spy();
-		disposables.add(runtimeSessionService.onDidFailStartRuntime(didFailStartRuntime));
-
-		const didStartRuntime = sinon.spy();
-		disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
-
-		const session = await start();
-
-		assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
-
-		verify(session);
-
-		sinon.assert.calledOnceWithExactly(didFailStartRuntime, session);
-		sinon.assert.callOrder(willStartSession, didFailStartRuntime);
-		sinon.assert.notCalled(didStartRuntime);
-	}
-
-	async function testStartFiresEventsInOrder(start: IStartSessionTask) {
-		const willStartSession = sinon.spy();
-		disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
-
-		const didStartRuntime = sinon.spy();
-		disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
-
-		await start();
-
-		sinon.assert.callOrder(willStartSession, didStartRuntime);
-	}
-
-	async function testStartUnknownRuntime(start: IStartSessionTask = startNotebook) {
-		const runtimeId = 'unknown-runtime-id';
-		await assert.rejects(
-			start({ runtimeId } as ILanguageRuntimeMetadata,),
-			new Error(`No language runtime with id '${runtimeId}' was found.`),
-		);
-	}
-
 	function assertSessionIsStarting(session: ILanguageRuntimeSession) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
@@ -367,7 +146,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 	const consoleSessionMetadata: IRuntimeSessionMetadata = {
 		sessionId: 'test-console-session-id',
-		sessionName: 'Test console session',
+		sessionName,
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		createdTimestamp: Date.now(),
 		notebookUri: undefined,
@@ -376,139 +155,259 @@ suite('Positron - RuntimeSessionService', () => {
 
 	const notebookSessionMetadata: IRuntimeSessionMetadata = {
 		sessionId: 'test-notebook-session-id',
-		sessionName: 'Test notebook session',
+		sessionName,
 		sessionMode: LanguageRuntimeSessionMode.Notebook,
 		createdTimestamp: Date.now(),
 		notebookUri,
 		startReason,
 	};
 
-	function createStartTests(
-		startConsole: IStartSessionTask,
-		startNotebook: IStartSessionTask | undefined,
-		name: string,
-		startReason?: string,
-	) {
-		test(`${name} console returns the expected session`, async () => {
-			await testStartReturnsExpectedSession(startConsole);
-		});
+	const data: { action: string; startConsole: IStartSessionTask; startNotebook: IStartSessionTask }[] = [
+		{ action: 'start', startConsole: startConsole, startNotebook: startNotebook },
+		{ action: 'restore', startConsole: restoreConsole, startNotebook: restoreNotebook },
+	];
+	for (const { action, startConsole, startNotebook } of data) {
 
-		test(`${name} console sets the expected service state`, async () => {
-			await testStartConsoleSetsExpectedServiceState(startConsole);
-		});
+		for (const mode of [LanguageRuntimeSessionMode.Console, LanguageRuntimeSessionMode.Notebook]) {
+			const start = mode === LanguageRuntimeSessionMode.Console ? startConsole : startNotebook;
 
-		test(`${name} console fires onWillStartSession`, async () => {
-			await testStartFiresOnWillStartSession(
-				startConsole,
-				() => assertServiceState({ hasStartingOrRunningConsole: true }),
-			);
-		});
+			test(`${action} ${mode} returns the expected session`, async () => {
+				const session = await start();
 
-		test(`${name} console fires onDidStartRuntime`, async () => {
-			await testStartFiresOnDidStartRuntime(
-				startConsole,
-				session => assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session }),
-			);
-		});
+				assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+				assert.equal(session.metadata.sessionName, sessionName);
+				assert.equal(session.metadata.sessionMode, mode);
+				assert.equal(session.metadata.startReason, startReason);
+				assert.equal(session.runtimeMetadata, runtime);
 
-		test(`${name} console fires events in order`, async () => {
-			await testStartFiresEventsInOrder(startConsole);
-		});
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					assert.equal(session.metadata.notebookUri, undefined);
+				} else {
+					assert.equal(session.metadata.notebookUri, notebookUri);
+				}
+			});
 
-		test(`${name} console sets foregroundSession`, async () => {
-			const target = sinon.spy();
-			disposables.add(runtimeSessionService.onDidChangeForegroundSession(target));
+			test(`${action} ${mode} sets the expected service state`, async () => {
+				// Check the initial state.
+				assertServiceState();
 
-			const session = await startConsole();
+				const promise = start();
 
-			assert.equal(runtimeSessionService.foregroundSession, session);
+				// Check the state while starting.
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					assertServiceState({ hasStartingOrRunningConsole: true });
+				} else {
+					assertServiceState();
+				}
 
-			await waitForRuntimeState(session, RuntimeState.Ready);
+				const session = await promise;
 
-			// TODO: Feels a bit surprising that this isn't fired. It's because we set the private
-			//       _foregroundSession property instead of the setter. When the 'ready' state is
-			//       entered, we skip setting foregroundSession because it already matches the session.
-			sinon.assert.notCalled(target);
-		});
+				// Check the state after starting.
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
+				} else {
+					assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session });
+				}
+			});
 
-		test(`${name} console encounters session.start() error`, async () => {
-			await testEncountersSessionStartError(
-				startConsole,
-				session => {
+			test(`${action} ${mode} fires onWillStartSession`, async () => {
+				if (action === 'restore') {
+					// TODO: I'm not sure if we should be emitting a 'starting' runtime state event
+					//       when reconnecting to a TestLanguageRuntimeSession. That's firing another
+					//       event with isNew = true.
+					return;
+				}
+
+				let error: Error | undefined;
+				const target = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
+					try {
+						// TODO: Should onWillStartSession only fire once?
+						if (target.callCount > 1) {
+							return;
+						}
+						assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
+
+						if (mode === LanguageRuntimeSessionMode.Console) {
+							assertServiceState({ hasStartingOrRunningConsole: true });
+						} else {
+							assertServiceState();
+						}
+					} catch (e) {
+						error = e;
+					}
+				});
+				disposables.add(runtimeSessionService.onWillStartSession(target));
+				const session = await start();
+
+				// TODO: Should onWillStartSession only fire once?
+				sinon.assert.calledTwice(target);
+				const isNew = action !== 'restore';
+				sinon.assert.alwaysCalledWithExactly(target, { isNew, session });
+				assert.ifError(error);
+			});
+
+			test(`${action} ${mode} fires onDidStartRuntime`, async () => {
+				let error: Error | undefined;
+				const target = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
+					try {
+						assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+
+						if (mode === LanguageRuntimeSessionMode.Console) {
+							assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
+						} else {
+							assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session });
+						}
+					} catch (e) {
+						error = e;
+					}
+				});
+				disposables.add(runtimeSessionService.onDidStartRuntime(target));
+
+				const session = await start();
+
+				sinon.assert.calledOnceWithExactly(target, session);
+				assert.ifError(error);
+			});
+
+			test(`${action} ${mode} fires events in order`, async () => {
+				const willStartSession = sinon.spy();
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
+				const didStartRuntime = sinon.spy();
+				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
+
+				await start();
+
+				sinon.assert.callOrder(willStartSession, didStartRuntime);
+			});
+
+			if (mode === LanguageRuntimeSessionMode.Console) {
+				test(`${action} ${mode} sets foregroundSession`, async () => {
+					const target = sinon.spy();
+					disposables.add(runtimeSessionService.onDidChangeForegroundSession(target));
+
+					const session = await start();
+
+					assert.equal(runtimeSessionService.foregroundSession, session);
+
+					await waitForRuntimeState(session, RuntimeState.Ready);
+
+					// TODO: Feels a bit surprising that this isn't fired. It's because we set the private
+					//       _foregroundSession property instead of the setter. When the 'ready' state is
+					//       entered, we skip setting foregroundSession because it already matches the session.
+					sinon.assert.notCalled(target);
+				});
+			}
+
+			if (action === 'start') {
+				test(`${action} ${mode} for unknown runtime`, async () => {
+					const runtimeId = 'unknown-runtime-id';
+					await assert.rejects(
+						start({ runtimeId } as ILanguageRuntimeMetadata,),
+						new Error(`No language runtime with id '${runtimeId}' was found.`),
+					);
+				});
+			}
+
+			test(`${action} ${mode} encounters session.start() error`, async () => {
+				// Listen to the onWillStartSession event and stub session.start() to throw an error.
+				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
+					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+				});
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
+				const didFailStartRuntime = sinon.spy();
+				disposables.add(runtimeSessionService.onDidFailStartRuntime(didFailStartRuntime));
+
+				const didStartRuntime = sinon.spy();
+				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
+
+				const session = await start();
+
+				assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
+
+				if (mode === LanguageRuntimeSessionMode.Console) {
 					// TODO: Seems unexpected that some of these are defined and others not.
 					assert.equal(runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId), false);
 					assert.equal(runtimeSessionService.getConsoleSessionForLanguage(runtime.languageId), undefined);
 					assert.equal(runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId), session);
 					assert.equal(runtimeSessionService.getSession(session.sessionId), session);
 					assert.deepEqual(runtimeSessionService.activeSessions, [session]);
-				}
-			);
-		});
-
-		test(`${name} console while another runtime is starting for the language`, async () => {
-			await testStartConsoleWhileAnotherIsStarting(startConsole, startReason);
-		});
-
-		test(`${name} console while another runtime is running for the language`, async () => {
-			await testStartConsoleWhileAnotherIsRunning(startConsole, startReason);
-		});
-
-		test(`${name} console successively`, async () => {
-			await testStartSuccessively(startConsole);
-		});
-
-		test(`${name} console concurrently`, async () => {
-			await testStartConcurrently(startConsole);
-		});
-
-		if (!startNotebook) {
-			return;
-		}
-
-		test(`${name} notebook returns the expected session`, async () => {
-			await testStartReturnsExpectedSession(startNotebook);
-		});
-
-		test(`${name} notebook sets the expected service state`, async () => {
-			await testStartNotebookSetsExpectedServiceState(startNotebook);
-		});
-
-		test.skip(`${name} notebook fires onWillStartSession`, async () => {
-			await testStartFiresOnWillStartSession(
-				startNotebook,
-				() => assertServiceState(),
-			);
-		});
-
-		test(`${name} notebook fires onDidStartRuntime`, async () => {
-			await testStartFiresOnDidStartRuntime(
-				startNotebook,
-				session => assertSessionIsStarting(session),
-			);
-		});
-
-		test(`${name} notebook fires events in order`, async () => {
-			await testStartFiresEventsInOrder(startNotebook);
-		});
-
-		test(`${name} notebook without notebook uri`, async () => {
-			await assert.rejects(
-				startSession(undefined, LanguageRuntimeSessionMode.Notebook, undefined),
-				new Error('A notebook URI must be provided when starting a notebook session.'),
-			);
-		});
-
-		test(`${name} notebook encounters session.start() error`, async () => {
-			await testEncountersSessionStartError(
-				startNotebook,
-				session => {
+				} else {
 					// TODO: Should failed notebook sessions be included in activeSessions?
 					assertServiceState({ activeSessions: [session] });
-				},
-			);
-		});
+				}
 
-		test(`${name} console and notebook from the same runtime concurrently`, async () => {
+				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session);
+				sinon.assert.callOrder(willStartSession, didFailStartRuntime);
+				sinon.assert.notCalled(didStartRuntime);
+			});
+
+			test(`${action} ${mode} while another runtime is starting for the language`, async () => {
+				let error: Error;
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} ` +
+						`cannot be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
+						`is already starting for the language.`
+						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
+				} else {
+					error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+						`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
+						`is already starting for the notebook ${notebookUri.toString()}.`
+						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
+				}
+
+				await assert.rejects(
+					Promise.all([
+						start(),
+						start(anotherRuntime),
+					]),
+					error);
+			});
+
+			test(`${action} ${mode} while another runtime is running for the language`, async () => {
+				let error: Error;
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					error = new Error(`A console for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+						`be started because a console for ${formatLanguageRuntimeMetadata(runtime)} ` +
+						`is already running for the ${runtime.languageName} language.` +
+						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
+				} else {
+					error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
+						`is already running for the URI ${notebookUri.toString()}.` +
+						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
+				}
+
+				await start();
+				await assert.rejects(
+					start(anotherRuntime),
+					error,
+				);
+			});
+
+			test(`${action} ${mode} successively`, async () => {
+				const result1 = await start();
+				const result2 = await start();
+				const result3 = await start();
+
+				assert.equal(result1, result2);
+				assert.equal(result2, result3);
+
+				assertSessionIsStarting(result1);
+			});
+
+			test(`${action} ${mode} concurrently`, async () => {
+				const [result1, result2, result3] = await Promise.all([start(), start(), start()]);
+
+				assert.equal(result1, result2);
+				assert.equal(result2, result3);
+
+				assertSessionIsStarting(result1);
+			});
+		}
+
+		test(`${action} console and notebook from the same runtime concurrently`, async () => {
 			// Consoles and notebooks shouldn't interfere with each other, even for the same runtime.
 			const [consoleSession, notebookSession] = await Promise.all([
 				startConsole(),
@@ -527,366 +426,340 @@ suite('Positron - RuntimeSessionService', () => {
 			});
 		});
 
-		test(`${name} notebook while another runtime is starting for the notebook`, async () => {
-			await testStartNotebookWhileAnotherIsStarting(startNotebook, startReason);
-		});
+		// suite('autoStartRuntime', () => {
+		// 	async function autoStartSession(runtimeMetadata = runtime) {
+		// 		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, 'Test requested to auto-start a runtime');
+		// 		if (!sessionId) {
+		// 			return undefined;
+		// 		}
+		// 		const session = runtimeSessionService.getSession(sessionId);
+		// 		assert.ok(session);
+		// 		disposables.add(session);
+		// 		return session;
+		// 	}
 
-		test(`${name} notebook while another runtime is running for the notebook`, async () => {
-			await testStartNotebookWhileAnotherIsRunning(startNotebook, startReason);
-		});
+		// 	let configService: TestConfigurationService;
+		// 	let workspaceTrustManagementService: TestWorkspaceTrustManagementService;
+		// 	let manager: TestRuntimeSessionManager;
 
-		test(`${name} notebook successively`, async () => {
-			await testStartSuccessively(startNotebook);
-		});
+		// 	setup(() => {
+		// 		configService = instantiationService.get(IConfigurationService) as TestConfigurationService;
+		// 		workspaceTrustManagementService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
+		// 		manager = TestRuntimeSessionManager.instance;
 
-		test(`${name} notebook concurrently`, async () => {
-			await testStartConcurrently(startNotebook);
-		});
+		// 		// Enable automatic startup.
+		// 		configService.setUserConfiguration('positron.interpreters.automaticStartup', true);
+
+		// 		// Trust the workspace.
+		// 		workspaceTrustManagementService.setWorkspaceTrust(true);
+		// 	});
+
+		// 	test('auto start console in a trusted workspace', async () => {
+		// 		const promise = autoStartSession();
+
+		// 		assert.equal(runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId), false);
+
+		// 		const session = await promise;
+
+		// 		// TODO: Do we need this? It's the same as starting a session.
+		// 		assert.ok(session);
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 		assert.equal(session.metadata.sessionName, runtime.runtimeName);
+		// 		assert.equal(session.metadata.sessionMode, LanguageRuntimeSessionMode.Console);
+		// 		assert.equal(session.metadata.startReason, 'Test requested to auto-start a runtime');
+		// 		assert.equal(session.runtimeMetadata, runtime);
+		// 	});
+
+		// 	// TODO: Should auto starting a notebook error?
+
+		// 	test('auto start validates runtime if unregistered', async () => {
+		// 		// The runtime should not yet be registered.
+		// 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+
+		// 		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
+		// 			return { ...metadata, extraRuntimeData: { someNewKey: 'someNewValue' } };
+		// 		});
+
+		// 		await autoStartSession(unregisteredRuntime);
+
+		// 		// The *validated* runtime should now be registered.
+		// 		assert.deepEqual(
+		// 			languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId),
+		// 			{ ...unregisteredRuntime, extraRuntimeData: { someNewKey: 'someNewValue' } }
+		// 		);
+		// 	});
+
+		// 	test('auto start encounters runtime validation error', async () => {
+		// 		// The runtime should not yet be registered.
+		// 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+
+		// 		const error = new Error('Failed to validate runtime metadata');
+		// 		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
+		// 			throw error;
+		// 		});
+
+		// 		await assert.rejects(autoStartSession(unregisteredRuntime), error);
+
+		// 		// The runtime should still not be registered.
+		// 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		// 	});
+
+		// 	test('auto start console does nothing if automatic startup is disabled', async () => {
+		// 		configService.setUserConfiguration('positron.interpreters.automaticStartup', false);
+
+		// 		const session = await autoStartSession();
+		// 		assert.equal(session, undefined);
+
+		// 		// TODO: Do we also need to check the session state?
+		// 	});
+
+		// 	test('auto start console in an untrusted workspace starts when trust is granted', async () => {
+		// 		workspaceTrustManagementService.setWorkspaceTrust(false);
+
+		// 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, 'Test requested to auto-start a runtime');
+		// 		assert.equal(sessionId, '');
+
+		// 		workspaceTrustManagementService.setWorkspaceTrust(true);
+
+		// 		await new Promise<void>(resolve => {
+		// 			disposables.add(runtimeSessionService.onDidStartRuntime(session => {
+		// 				if (session.runtimeMetadata === runtime) {
+		// 					disposables.add(session);
+		// 					resolve();
+		// 				}
+		// 			}));
+		// 		});
+
+		// 		// TODO: We should probably check more things here?
+		// 	});
+		// });
+
+		// suite('selectRuntime', () => {
+		// 	const startReason = 'Test requested to select a runtime';
+
+		// 	async function selectRuntime(runtimeMetadata = runtime) {
+		// 		await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason);
+		// 		const session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
+		// 		assert.ok(session instanceof TestLanguageRuntimeSession);
+		// 		disposables.add(session);
+		// 		return session;
+		// 	}
+
+		// 	createStartTests(selectRuntime, undefined, 'select runtime', startReason);
+
+		// 	// test('select runtime', async () => {
+		// 	// 	await testStartConsoleSetsExpectedServiceState(selectRuntime);
+		// 	// });
+		// });
+
+		// TODO: Check sessionManager validation...
+
+		// TODO: If workspace is trusted,
+
+		// suite('shutdownNotebookSession', () => {
+		// 	test('shutdown notebook', async () => {
+		// 		const session = await startNotebook();
+
+		// 		await runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
+		// 		// TODO: The session is in activeSessions and returned by getSession but not by
+		// 		//       getNotebookSessionForNotebookUri. Is that correct? This is also the only reason
+		// 		//       we need a notebookForNotebookUri parameter in assertServiceState.
+		// 		assertServiceState({ notebookSession: session });
+		// 	});
+
+		// 	test('shutdown notebook without running runtime', async () => {
+		// 		// It should not error, since it's already in the desired state.
+		// 		await runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown);
+		// 		assertServiceState();
+		// 	});
+
+		// 	test('shutdown notebook concurrently', async () => {
+		// 		const session = await startNotebook();
+
+		// 		await Promise.all([
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 		]);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
+		// 	});
+
+		// 	test('shutdown notebook while starting', async () => {
+		// 		const [session,] = await Promise.all([
+		// 			startNotebook(),
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 		]);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
+		// 		assertServiceState({ notebookSession: session });
+		// 	});
+		// });
+
+
+		// function restartSession(sessionId: string) {
+		// 	return runtimeSessionService.restartSession(
+		// 		sessionId, 'Test requested to restart a runtime session'
+		// 	);
+		// }
+
+		// suite('restartSession', () => {
+		// 	test('restart console in "ready" state', async () => {
+		// 		const session = await startConsole();
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// 		await restartSession(session.sessionId);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 	});
+
+		// 	test('restart console in "starting" state', async () => {
+		// 		const session = await startConsole();
+
+		// 		await restartSession(session.sessionId);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 	});
+
+		// 	test('restart console in "exited" state', async () => {
+		// 		const session = await startConsole();
+		// 		await session.shutdown(RuntimeExitReason.Shutdown);
+		// 		await waitForRuntimeState(session, RuntimeState.Exited);
+
+		// 		await restartSession(session.sessionId);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 	});
+
+		// 	test('restart session with unknown session id', async () => {
+		// 		const sessionId = 'unknown-session-id';
+		// 		assert.rejects(
+		// 			restartSession(sessionId),
+		// 			new Error(`No session with ID '${sessionId}' was found.`),
+		// 		);
+		// 	});
+
+		// 	test('restart console concurrently', async () => {
+		// 		const session = await startConsole();
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// 		const target = sinon.spy(session, 'restart');
+
+		// 		await Promise.all([
+		// 			restartSession(session.sessionId),
+		// 			restartSession(session.sessionId),
+		// 			restartSession(session.sessionId),
+		// 		]);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 		assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
+
+		// 		sinon.assert.calledOnce(target);
+		// 	});
+
+		// 	test('restart console successively', async () => {
+		// 		const session = await startConsole();
+
+		// 		const target = sinon.spy(session, 'restart');
+
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+		// 		await restartSession(session.sessionId);
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+		// 		await restartSession(session.sessionId);
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+		// 		await restartSession(session.sessionId);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 		assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
+
+		// 		sinon.assert.calledThrice(target);
+		// 	});
+
+		// });
+
+		// suite('queuing', () => {
+		// 	test(`${name} notebook while shutting down`, async () => {
+		// 		const session1 = await startNotebook();
+
+		// 		const [, session2,] = await Promise.all([
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 			startNotebook(),
+		// 		]);
+
+		// 		assert.equal(session1.getRuntimeState(), RuntimeState.Exited);
+		// 		assert.equal(session2.getRuntimeState(), RuntimeState.Starting);
+		// 		assertServiceState({
+		// 			notebookSession: session2,
+		// 			notebookSessionForNotebookUri: session2,
+		// 			activeSessions: [session1, session2],
+		// 		});
+		// 	});
+
+		// 	test(`${name} notebook while restarting and in "exited" state`, async () => {
+		// 		const session = await startNotebook();
+		// 		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// 		const target = sinon.spy(session, 'restart');
+
+		// 		const startPromise = new Promise<TestLanguageRuntimeSession>(resolve => {
+		// 			const disposable = session.onDidChangeRuntimeState(state => {
+		// 				if (state === RuntimeState.Exited) {
+		// 					disposable.dispose();
+		// 					resolve(startNotebook());
+		// 				}
+		// 			});
+		// 		});
+
+		// 		const [, session2,] = await Promise.all([
+		// 			restartSession(session.sessionId),
+		// 			startPromise,
+		// 			// startNotebook(),
+		// 		]);
+
+		// 		assert.equal(session, session2);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 		assertServiceState({
+		// 			notebookSession: session,
+		// 			notebookSessionForNotebookUri: session,
+		// 		});
+
+		// 		sinon.assert.calledOnce(target);
+		// 	});
+
+		// 	test('restart notebook while shutting down', async () => {
+		// 		const session = await startNotebook();
+
+		// 		await Promise.all([
+		// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
+		// 			restartSession(session.sessionId),
+		// 		]);
+
+		// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		// 		assertNotebookSessionIsStarted(session);
+		// 	});
+
+		// });
 	}
 
-	suite('startNewRuntimeSession', () => {
-		createStartTests(startConsole, startNotebook, 'start', startReason);
-
-		test('start console for unknown runtime', async () => {
-			await testStartUnknownRuntime(startConsole);
-		});
-
-		test('start notebook for unknown runtime', async () => {
-			await testStartUnknownRuntime(startNotebook);
-		});
-
+	test(`start notebook without notebook uri`, async () => {
+		await assert.rejects(
+			startSession(undefined, LanguageRuntimeSessionMode.Notebook, undefined),
+			new Error('A notebook URI must be provided when starting a notebook session.'),
+		);
 	});
 
-	suite('restoreRuntimeSession', () => {
-		createStartTests(restoreConsole, restoreNotebook, 'restore', undefined);
+	test('restore console registers runtime if unregistered', async () => {
+		// The runtime should not yet be registered.
+		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
 
-		test('restore console registers runtime if unregistered', async () => {
-			// The runtime should not yet be registered.
-			assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
+		await restoreConsole(unregisteredRuntime);
 
-			await restoreConsole(unregisteredRuntime);
-
-			// The runtime should now be registered.
-			assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), unregisteredRuntime);
-		});
+		// The runtime should now be registered.
+		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), unregisteredRuntime);
 	});
-
-	suite('autoStartRuntime', () => {
-		async function autoStartSession(runtimeMetadata = runtime) {
-			const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, 'Test requested to auto-start a runtime');
-			if (!sessionId) {
-				return undefined;
-			}
-			const session = runtimeSessionService.getSession(sessionId);
-			assert.ok(session);
-			disposables.add(session);
-			return session;
-		}
-
-		let configService: TestConfigurationService;
-		let workspaceTrustManagementService: TestWorkspaceTrustManagementService;
-		let manager: TestRuntimeSessionManager;
-
-		setup(() => {
-			configService = instantiationService.get(IConfigurationService) as TestConfigurationService;
-			workspaceTrustManagementService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
-			manager = TestRuntimeSessionManager.instance;
-
-			// Enable automatic startup.
-			configService.setUserConfiguration('positron.interpreters.automaticStartup', true);
-
-			// Trust the workspace.
-			workspaceTrustManagementService.setWorkspaceTrust(true);
-		});
-
-		test('auto start console in a trusted workspace', async () => {
-			const promise = autoStartSession();
-
-			assert.equal(runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId), false);
-
-			const session = await promise;
-
-			// TODO: Do we need this? It's the same as starting a session.
-			assert.ok(session);
-			assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-			assert.equal(session.metadata.sessionName, runtime.runtimeName);
-			assert.equal(session.metadata.sessionMode, LanguageRuntimeSessionMode.Console);
-			assert.equal(session.metadata.startReason, 'Test requested to auto-start a runtime');
-			assert.equal(session.runtimeMetadata, runtime);
-		});
-
-		// TODO: Should auto starting a notebook error?
-
-		test('auto start validates runtime if unregistered', async () => {
-			// The runtime should not yet be registered.
-			assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
-
-			manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
-				return { ...metadata, extraRuntimeData: { someNewKey: 'someNewValue' } };
-			});
-
-			await autoStartSession(unregisteredRuntime);
-
-			// The *validated* runtime should now be registered.
-			assert.deepEqual(
-				languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId),
-				{ ...unregisteredRuntime, extraRuntimeData: { someNewKey: 'someNewValue' } }
-			);
-		});
-
-		test('auto start encounters runtime validation error', async () => {
-			// The runtime should not yet be registered.
-			assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
-
-			const error = new Error('Failed to validate runtime metadata');
-			manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
-				throw error;
-			});
-
-			await assert.rejects(autoStartSession(unregisteredRuntime), error);
-
-			// The runtime should still not be registered.
-			assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
-		});
-
-		test('auto start console does nothing if automatic startup is disabled', async () => {
-			configService.setUserConfiguration('positron.interpreters.automaticStartup', false);
-
-			const session = await autoStartSession();
-			assert.equal(session, undefined);
-
-			// TODO: Do we also need to check the session state?
-		});
-
-		test('auto start console in an untrusted workspace starts when trust is granted', async () => {
-			workspaceTrustManagementService.setWorkspaceTrust(false);
-
-			const sessionId = await runtimeSessionService.autoStartRuntime(runtime, 'Test requested to auto-start a runtime');
-			assert.equal(sessionId, '');
-
-			workspaceTrustManagementService.setWorkspaceTrust(true);
-
-			await new Promise<void>(resolve => {
-				disposables.add(runtimeSessionService.onDidStartRuntime(session => {
-					if (session.runtimeMetadata === runtime) {
-						disposables.add(session);
-						resolve();
-					}
-				}));
-			});
-
-			// TODO: We should probably check more things here?
-		});
-	});
-
-	suite('selectRuntime', () => {
-		const startReason = 'Test requested to select a runtime';
-
-		async function selectRuntime(runtimeMetadata = runtime) {
-			await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason);
-			const session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
-			assert.ok(session instanceof TestLanguageRuntimeSession);
-			disposables.add(session);
-			return session;
-		}
-
-		createStartTests(selectRuntime, undefined, 'select runtime', startReason);
-
-		// test('select runtime', async () => {
-		// 	await testStartConsoleSetsExpectedServiceState(selectRuntime);
-		// });
-	});
-
-	// TODO: Check sessionManager validation...
-
-	// TODO: If workspace is trusted,
-
-	// suite('shutdownNotebookSession', () => {
-	// 	test('shutdown notebook', async () => {
-	// 		const session = await startNotebook();
-
-	// 		await runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
-	// 		// TODO: The session is in activeSessions and returned by getSession but not by
-	// 		//       getNotebookSessionForNotebookUri. Is that correct? This is also the only reason
-	// 		//       we need a notebookForNotebookUri parameter in assertServiceState.
-	// 		assertServiceState({ notebookSession: session });
-	// 	});
-
-	// 	test('shutdown notebook without running runtime', async () => {
-	// 		// It should not error, since it's already in the desired state.
-	// 		await runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown);
-	// 		assertServiceState();
-	// 	});
-
-	// 	test('shutdown notebook concurrently', async () => {
-	// 		const session = await startNotebook();
-
-	// 		await Promise.all([
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 		]);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
-	// 	});
-
-	// 	test('shutdown notebook while starting', async () => {
-	// 		const [session,] = await Promise.all([
-	// 			startNotebook(),
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 		]);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Exited);
-	// 		assertServiceState({ notebookSession: session });
-	// 	});
-	// });
-
-
-	// function restartSession(sessionId: string) {
-	// 	return runtimeSessionService.restartSession(
-	// 		sessionId, 'Test requested to restart a runtime session'
-	// 	);
-	// }
-
-	// suite('restartSession', () => {
-	// 	test('restart console in "ready" state', async () => {
-	// 		const session = await startConsole();
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-
-	// 		await restartSession(session.sessionId);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 	});
-
-	// 	test('restart console in "starting" state', async () => {
-	// 		const session = await startConsole();
-
-	// 		await restartSession(session.sessionId);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 	});
-
-	// 	test('restart console in "exited" state', async () => {
-	// 		const session = await startConsole();
-	// 		await session.shutdown(RuntimeExitReason.Shutdown);
-	// 		await waitForRuntimeState(session, RuntimeState.Exited);
-
-	// 		await restartSession(session.sessionId);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 	});
-
-	// 	test('restart session with unknown session id', async () => {
-	// 		const sessionId = 'unknown-session-id';
-	// 		assert.rejects(
-	// 			restartSession(sessionId),
-	// 			new Error(`No session with ID '${sessionId}' was found.`),
-	// 		);
-	// 	});
-
-	// 	test('restart console concurrently', async () => {
-	// 		const session = await startConsole();
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-
-	// 		const target = sinon.spy(session, 'restart');
-
-	// 		await Promise.all([
-	// 			restartSession(session.sessionId),
-	// 			restartSession(session.sessionId),
-	// 			restartSession(session.sessionId),
-	// 		]);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
-
-	// 		sinon.assert.calledOnce(target);
-	// 	});
-
-	// 	test('restart console successively', async () => {
-	// 		const session = await startConsole();
-
-	// 		const target = sinon.spy(session, 'restart');
-
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-	// 		await restartSession(session.sessionId);
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-	// 		await restartSession(session.sessionId);
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-	// 		await restartSession(session.sessionId);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
-
-	// 		sinon.assert.calledThrice(target);
-	// 	});
-
-	// });
-
-	// suite('queuing', () => {
-	// 	test(`${name} notebook while shutting down`, async () => {
-	// 		const session1 = await startNotebook();
-
-	// 		const [, session2,] = await Promise.all([
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			startNotebook(),
-	// 		]);
-
-	// 		assert.equal(session1.getRuntimeState(), RuntimeState.Exited);
-	// 		assert.equal(session2.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({
-	// 			notebookSession: session2,
-	// 			notebookSessionForNotebookUri: session2,
-	// 			activeSessions: [session1, session2],
-	// 		});
-	// 	});
-
-	// 	test(`${name} notebook while restarting and in "exited" state`, async () => {
-	// 		const session = await startNotebook();
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-
-	// 		const target = sinon.spy(session, 'restart');
-
-	// 		const startPromise = new Promise<TestLanguageRuntimeSession>(resolve => {
-	// 			const disposable = session.onDidChangeRuntimeState(state => {
-	// 				if (state === RuntimeState.Exited) {
-	// 					disposable.dispose();
-	// 					resolve(startNotebook());
-	// 				}
-	// 			});
-	// 		});
-
-	// 		const [, session2,] = await Promise.all([
-	// 			restartSession(session.sessionId),
-	// 			startPromise,
-	// 			// startNotebook(),
-	// 		]);
-
-	// 		assert.equal(session, session2);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({
-	// 			notebookSession: session,
-	// 			notebookSessionForNotebookUri: session,
-	// 		});
-
-	// 		sinon.assert.calledOnce(target);
-	// 	});
-
-	// 	test('restart notebook while shutting down', async () => {
-	// 		const session = await startNotebook();
-
-	// 		await Promise.all([
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			restartSession(session.sessionId),
-	// 		]);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertNotebookSessionIsStarted(session);
-	// 	});
-
-	// });
 });
 
 async function waitForRuntimeState(
