@@ -121,7 +121,7 @@ export class PositronPreviewEditor
 				positronPreviewService={this._positronPreviewService}
 			>
 				<EditorPreviewContainer
-					preview={this._positronPreviewService.activePreviewWebview}
+					preview={this._positronPreviewService.editorPreviewWebview()}
 					visible={this.containerVisible}
 					width={this._width}
 					height={this._height}

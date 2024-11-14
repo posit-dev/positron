@@ -75,7 +75,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	};
 
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor();
+		props.positronPreviewService.openEditor(currentUri);
 	};
 
 	// Handler for the clear button.

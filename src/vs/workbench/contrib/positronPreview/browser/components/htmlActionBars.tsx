@@ -32,7 +32,7 @@ export interface HtmlActionBarsProps extends PreviewActionBarsProps {
 
 export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) => {
 
-	const [title, setTitle] = useState(props.preview.html.title);
+	const [title, setTitle] = useState(props.preview.html?.title);
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
@@ -55,7 +55,7 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 
 	// Handler for open in editor button
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor();
+		props.positronPreviewService.openEditor(props.preview.uri, title);
 	};
 
 	// Main use effect.

@@ -26,6 +26,7 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 		if (props.preview) {
 			// If a preview is loaded into the pane, let it know its
 			// visibility status.
+
 			const webview = props.preview.webview;
 			props.preview.visible = props.visible;
 
@@ -35,6 +36,7 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 				if (webviewRef.current) {
 					const window = DOM.getWindow(webviewRef.current);
 					webview.webview.claim(this, window, undefined);
+					// actually moving preview to webview
 					webview.webview.layoutWebviewOverElement(webviewRef.current);
 					return () => {
 						webview?.webview.release(this);
