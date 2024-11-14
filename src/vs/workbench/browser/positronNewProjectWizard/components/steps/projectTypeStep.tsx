@@ -21,22 +21,16 @@ import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 
 /**
- * Generates a default project name based on the provided project type.
+ * Generates a default project name in kebab case based on the provided project type.
  *
  * @param projectType - The type of the project for which to generate a default name.
  * @returns The default project name as a string.
  */
 export const getDefaultProjectName = (projectType: NewProjectType) => {
-	const defaultProjectName = localize(
+	return localize(
 		'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
 		"my"
-	);
-	// If the project type is an R Project, the project name is 'my-r-project'.
-	if (projectType === NewProjectType.RProject) {
-		return defaultProjectName + '-' + projectType.toLowerCase().replace(/\s/g, '-');
-	}
-	// The project name for all other project types is 'my' + projectType without spaces, eg. 'myPythonProject'.
-	return defaultProjectName + projectType.replace(/\s/g, '');
+	) + '-' + projectType.toLowerCase().replace(/\s/g, '-');
 };
 
 /**
