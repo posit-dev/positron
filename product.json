@@ -223,10 +223,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.16",
-			"s3Bucket": "rsw-vscode-extension",
+			"version": "1.5.17",
+			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "520c252f9147ee87483cc698369659c58f52ee39a5e72df4bc557bd4f29d9272",
+			"sha256": "aae6e1d5551b0c5a6df035acdf79ca69438dd3dcdc2420186c1b4ab0d0c93441",
 			"metadata": {
 				"publisherDisplayName": "Posit PBC"
 			}
