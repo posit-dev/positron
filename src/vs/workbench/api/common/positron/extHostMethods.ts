@@ -281,7 +281,13 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	}
 
 	async executeCommand(commandId: string): Promise<any> {
-		return await this.commands.executeCommand(commandId);
+		const result = await this.commands.executeCommand(commandId);
+		if (result === undefined) {
+			// If result is undefined, it probably means that the command is a `void` function
+			// and we should return null.
+			return null;
+		}
+		return result;
 	}
 
 	async showQuestion(title: string, message: string, okButtonTitle: string, cancelButtonTitle: string): Promise<boolean> {
