@@ -8,39 +8,22 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: "3.10"
+
+    - name: Install AWS CLI via pip
+      shell: bash
+      run: |
+        python -m pip install --upgrade pip
+        pip install awscli
+
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
       with:
         role-to-assume: ${{ inputs.role-to-assume }}
         aws-region: "us-east-1"
-
-    - name: Check and Install AWS CLI if Needed
-      if: ${{ !cancelled() }}
-      shell: bash
-      env:
-        RUNNER_OS: ${{ runner.os }}
-      run: |
-        # Detect the OS and install AWS CLI accordingly
-        if ! command -v aws &> /dev/null; then
-          echo "AWS CLI not found. Installing..."
-          if [[ "$RUNNER_OS" == "Linux" ]]; then
-            # Install unzip if not available
-            if ! command -v unzip &> /dev/null; then
-              echo "unzip not found. Installing unzip..."
-              sudo apt-get update && sudo apt-get install -y unzip
-            fi
-            # Install AWS CLI on Linux (Ubuntu)
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-          elif [[ "$RUNNER_OS" == "Windows" ]]; then
-            # Install AWS CLI on Windows
-            curl "https://awscli.amazonaws.com/AWSCLIV2.msi" -o "AWSCLIV2.msi"
-            msiexec.exe /i AWSCLIV2.msi /quiet
-          fi
-        else
-          echo "AWS CLI is already installed."
-        fi
 
     - name: Upload Playwright Report to S3 Bucket
       if: ${{ !cancelled() }}
