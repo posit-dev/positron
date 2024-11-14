@@ -627,18 +627,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`${formatLanguageRuntimeMetadata(metadata)} (Source: ${source}) ` +
 				`because workspace trust has not been granted. ` +
 				`The runtime will be started when workspace trust is granted.`);
-			this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
+			const disposable = this._register(this._workspaceTrustManagementService.onDidChangeTrust((trusted) => {
 				if (!trusted) {
 					// If the workspace is still not trusted, do nothing.
-					return '';
+					return;
 				}
 				// If the workspace is trusted, start the runtime.
+				disposable.dispose();
 				this._logService.info(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(metadata)} ` +
 					`automatically starting after workspace trust was granted. ` +
 					`Source: ${source}`);
-				return this.doAutoStartRuntime(metadata, source);
-			});
+				this.doAutoStartRuntime(metadata, source);
+			}));
 		}
 
 		return '';
