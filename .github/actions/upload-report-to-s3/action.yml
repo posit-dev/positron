@@ -16,6 +16,6 @@ runs:
 
     - name: Upload Playwright Report to S3 Bucket
       if: ${{ !cancelled() }}
-      shell: bash
-      run: |
-        aws s3 cp playwright-report/. s3://positron-test-reports/playwright-report-${{ github.run_id }} --recursive
+      uses: aws-actions/aws-cli-action@v3
+      with:
+        args: s3 cp playwright-report/. s3://positron-test-reports/playwright-report-${{ github.run_id }} --recursive
