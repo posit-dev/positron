@@ -2,11 +2,8 @@ name: "Positron: Full Test Suite"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
-  pull_request:
-    branches:
-      - main
-  # schedule:
-  #   - cron: "0 4 * * 1-5"
+  schedule:
+    - cron: "0 4 * * 1-5"
   workflow_dispatch:
 
 permissions:
@@ -285,11 +282,11 @@ jobs:
         if: ${{ !cancelled() }}
         run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      # - name: "Send Slack notification"
-      #   if: ${{ failure() }}
-      #   uses: testlabauto/action-test-results-to-slack@v0.0.6
-      #   with:
-      #     github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-      #     slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-      #     slack_channel: C07FR1JNZNJ #positron-test-results channel
-      #     suite_name: Positron Full Test Suite
+      - name: "Send Slack notification"
+        if: ${{ failure() }}
+        uses: testlabauto/action-test-results-to-slack@v0.0.6
+        with:
+          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack_channel: C07FR1JNZNJ #positron-test-results channel
+          suite_name: Positron Full Test Suite
