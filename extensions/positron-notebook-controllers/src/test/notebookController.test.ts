@@ -173,8 +173,9 @@ suite('NotebookController', () => {
 
 			await executeNotebook([0]);
 
-			sinon.assert.calledOnceWithExactly(startExecution, { cells: [executions[0].cell] });
-			sinon.assert.calledOnceWithMatch(endExecution, { cells: [executions[0].cell], duration: sinon.match.number });
+			const executedCells = [executions[0].cell];
+			sinon.assert.calledOnceWithExactly(startExecution, { cells: executedCells });
+			sinon.assert.calledOnceWithExactly(endExecution, sinon.match({ cells: executedCells, duration: sinon.match.number }));
 			sinon.assert.callOrder(startExecution, endExecution);
 		});
 
