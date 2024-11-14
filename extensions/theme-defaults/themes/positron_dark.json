@@ -27,8 +27,6 @@
 		"tab.activeBorderTop": "#32485B",
 		"terminalCursor.foreground": "#32485B",
 		"terminal.tab.activeBorder": "#32485B",
-		"textLink.activeForeground": "#32485B",
-		"textLink.foreground": "#32485B",
 		"welcomePage.progress.foreground": "#32485B",
 	},
 }

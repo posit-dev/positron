@@ -6,7 +6,7 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension';
-import { NotebookController } from './notebookController';
+import { DidEndExecutionEvent, DidStartExecutionEvent, NotebookController } from './notebookController';
 import { NotebookSessionService } from './notebookSessionService';
 
 /**
@@ -15,6 +15,17 @@ import { NotebookSessionService } from './notebookSessionService';
 export class NotebookControllerManager implements vscode.Disposable {
 	/** Notebook controllers keyed by language runtime ID. */
 	public readonly controllers = new Map<string, NotebookController>();
+
+	private readonly _disposables = new Array<vscode.Disposable>();
+
+	private readonly _onDidStartExecution = new vscode.EventEmitter<DidStartExecutionEvent>();
+	private readonly _onDidEndExecution = new vscode.EventEmitter<DidEndExecutionEvent>();
+
+	/** An event that fires when a notebook execution starts. */
+	public readonly onDidStartExecution = this._onDidStartExecution.event;
+
+	/** An event that fires when a notebook execution ends. */
+	public readonly onDidEndExecution = this._onDidEndExecution.event;
 
 	/**
 	 *
@@ -34,6 +45,21 @@ export class NotebookControllerManager implements vscode.Disposable {
 		}
 		const controller = new NotebookController(runtimeMetadata, this._notebookSessionService);
 		this.controllers.set(runtimeId, controller);
+
+		this._disposables.push(
+			controller,
+
+			// Forward the start execution event.
+			controller.onDidStartExecution((e) => {
+				this._onDidStartExecution.fire(e);
+			}),
+
+			// Forward the end execution event.
+			controller.onDidEndExecution((e) => {
+				this._onDidEndExecution.fire(e);
+			})
+		);
+
 		log.info(`Registered notebook controller for runtime: ${runtimeId}`);
 	}
 
@@ -103,6 +129,6 @@ export class NotebookControllerManager implements vscode.Disposable {
 	}
 
 	dispose(): void {
-		this.controllers.forEach(c => c.dispose());
+		this._disposables.forEach(d => d.dispose());
 	}
 }

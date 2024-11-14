@@ -6,8 +6,11 @@ import { inject, injectable } from 'inversify';
 import {
     MarkdownString,
     WorkspaceFolder,
-    GlobalEnvironmentVariableCollection,
-    EnvironmentVariableScope,
+    // --- Start Positron ---
+    // GlobalEnvironmentVariableCollection,
+    // EnvironmentVariableScope,
+    EnvironmentVariableCollection,
+    // --- End Positron ---
     EnvironmentVariableMutatorOptions,
     ProgressLocation,
 } from 'vscode';
@@ -169,7 +172,10 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
     private async _applyCollectionImpl(resource: Resource, shell = this.applicationEnvironment.shell): Promise<void> {
         const workspaceFolder = this.getWorkspaceFolder(resource);
         const settings = this.configurationService.getSettings(resource);
-        const envVarCollection = this.getEnvironmentVariableCollection({ workspaceFolder });
+        // --- Start Positron ---
+        // remove workspace folder scope to avoid overwriting other extensions' env vars
+        const envVarCollection = this.getEnvironmentVariableCollection();
+        // --- End Positron ---
         if (!settings.terminal.activateEnvironment) {
             envVarCollection.clear();
             traceVerbose('Activating environments in terminal is disabled for', resource?.fsPath);
@@ -182,7 +188,10 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             shell,
         );
         const env = activatedEnv ? normCaseKeys(activatedEnv) : undefined;
-        traceVerbose(`Activated environment variables for ${resource?.fsPath}`, env);
+        // --- Start Positron ---
+        // Avoid printing out environment variables to the log as they may contain secrets.
+        traceVerbose(`Activated environment variables for ${resource?.fsPath}`);
+        // --- End Positron ---
         if (!env) {
             const shellType = identifyShellFromShellPath(shell);
             const defaultShell = defaultShells[this.platform.osType];
@@ -365,9 +374,12 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
     private async handleMicroVenv(resource: Resource) {
         try {
             const settings = this.configurationService.getSettings(resource);
-            const workspaceFolder = this.getWorkspaceFolder(resource);
+            // --- Start Positron ---
+            // remove workspace folder scope to avoid overwriting other extensions' env vars
+            // const workspaceFolder = this.getWorkspaceFolder(resource);
             if (!settings.terminal.activateEnvironment) {
-                this.getEnvironmentVariableCollection({ workspaceFolder }).clear();
+                this.getEnvironmentVariableCollection().clear();
+                // --- End Positron ---
                 traceVerbose(
                     'Do not activate microvenv as activating environments in terminal is disabled for',
                     resource?.fsPath,
@@ -378,7 +390,9 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
             if (interpreter?.envType === EnvironmentType.Venv) {
                 const activatePath = path.join(path.dirname(interpreter.path), 'activate');
                 if (!(await pathExists(activatePath))) {
-                    const envVarCollection = this.getEnvironmentVariableCollection({ workspaceFolder });
+                    // --- Start Positron ---
+                    // remove workspace folder scope to avoid overwriting other extensions' env vars
+                    const envVarCollection = this.getEnvironmentVariableCollection();
                     const pathVarName = getSearchPathEnvVarNames()[0];
                     envVarCollection.replace(
                         'PATH',
@@ -387,7 +401,8 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                     );
                     return;
                 }
-                this.getEnvironmentVariableCollection({ workspaceFolder }).clear();
+                this.getEnvironmentVariableCollection().clear();
+                // --- End Positron ---
             }
         } catch (ex) {
             traceWarn(`Microvenv failed as it is using proposed API which is constantly changing`, ex);
@@ -409,9 +424,18 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
               };
     }
 
-    private getEnvironmentVariableCollection(scope: EnvironmentVariableScope = {}) {
-        const envVarCollection = this.context.environmentVariableCollection as GlobalEnvironmentVariableCollection;
-        return envVarCollection.getScoped(scope);
+    // --- Start Positron ---
+    // Global Environment Variable Collections will overwrite other additions to the same environment variable
+    // from other extensions, eg, Quarto
+
+    private getEnvironmentVariableCollection() {
+        // private getEnvironmentVariableCollection(scope: EnvironmentVariableScope = {}) {
+        //     const envVarCollection = this.context.environmentVariableCollection as GlobalEnvironmentVariableCollection;
+        //     return envVarCollection.getScoped(scope);
+
+        const envVarCollection = this.context.environmentVariableCollection as EnvironmentVariableCollection;
+        return envVarCollection;
+        // --- End Positron ---
     }
 
     private getWorkspaceFolder(resource: Resource): WorkspaceFolder | undefined {
