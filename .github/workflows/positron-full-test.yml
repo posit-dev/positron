@@ -222,7 +222,7 @@ jobs:
           node-version-file: .nvmrc
 
       - name: Install Playwright CLI
-        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install @playwright/test
+        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install @playwright/test --legacy-peer-deps
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
