@@ -19,9 +19,6 @@ jobs:
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      BUILD_ARTIFACTSTAGINGDIRECTORY: ..\..\.build\logs\smoke-tests-electron
-      AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -121,9 +118,10 @@ jobs:
         run: |
           trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
 
-      - name: Upload Playwright Report to S3 Bucket
-        if: ${{ !cancelled() }}
-        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/${{ env.REPORT_DIR }} --recursive
+      - name: Upload Playwright Report to S3
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}

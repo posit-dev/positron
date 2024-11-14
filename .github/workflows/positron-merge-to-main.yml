@@ -21,8 +21,6 @@ on:
 
 env:
   E2E_GREP: ${{ inputs.e2e_grep || '' }}
-  AWS_S3_BUCKET: positron-test-reports
-  REPORT_DIR: playwright-report-${{ github.run_id }}
 
 permissions:
   id-token: write
@@ -73,15 +71,10 @@ jobs:
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Upload Playwright Report to S3
+        uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: "us-east-1"
-
-      - name: Upload Playwright Report to S3 Bucket
-        if: ${{ !cancelled() }}
-        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/$REPORT_DIR --recursive
 
   unit-integration:
     runs-on: ubuntu-latest

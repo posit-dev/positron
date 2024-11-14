@@ -218,9 +218,6 @@ jobs:
         "e2e-browser-tests",
       ]
     if: ${{ !cancelled() }}
-    env:
-      AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -239,15 +236,10 @@ jobs:
       - name: Merge blobs into HTML Report
         run: npx playwright merge-reports --reporter html ./all-blob-reports
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Upload Playwright Report to S3
+        uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          aws-region: "us-east-1"
-
-      - name: Upload Playwright Report to S3 Bucket
-        if: ${{ !cancelled() }}
-        run: aws s3 cp playwright-report/. s3://${{ env.AWS_S3_BUCKET }}/${{ env.REPORT_DIR }} --recursive
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}

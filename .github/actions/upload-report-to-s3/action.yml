@@ -1,0 +1,21 @@
+name: "Upload Playwright Report to S3"
+description: "Configures AWS credentials and uploads the Playwright report to S3"
+inputs:
+  role-to-assume:
+    description: "The AWS role to assume"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Configure AWS Credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ inputs.role-to-assume }}
+        aws-region: "us-east-1"
+
+    - name: Upload Playwright Report to S3 Bucket
+      if: ${{ !cancelled() }}
+      shell: bash
+      run: |
+        aws s3 cp playwright-report/. s3://positron-test-reports/playwright-report-${{ github.run_id }} --recursive
