@@ -9,7 +9,9 @@ import { mock, instance, when, anything, verify, reset } from 'ts-mockito';
 import {
     EnvironmentVariableCollection,
     EnvironmentVariableMutatorOptions,
-    GlobalEnvironmentVariableCollection,
+    // --- Start Positron ---
+    // GlobalEnvironmentVariableCollection,
+    // --- End Positron ---
     ProgressLocation,
     Uri,
     WorkspaceFolder,
@@ -47,7 +49,9 @@ suite('Terminal Environment Variable Collection Service', () => {
     let shell: IApplicationShell;
     let experimentService: IExperimentService;
     let collection: EnvironmentVariableCollection;
-    let globalCollection: GlobalEnvironmentVariableCollection;
+    // --- Start Positron ---
+    // let globalCollection: GlobalEnvironmentVariableCollection;
+    // --- End Positron ---
     let applicationEnvironment: IApplicationEnvironment;
     let environmentActivationService: IEnvironmentActivationService;
     let workspaceService: IWorkspaceService;
@@ -78,10 +82,12 @@ suite('Terminal Environment Variable Collection Service', () => {
         const envVarProvider = mock<IEnvironmentVariablesProvider>();
         shellIntegrationService = mock<IShellIntegrationService>();
         when(shellIntegrationService.isWorking()).thenResolve(true);
-        globalCollection = mock<GlobalEnvironmentVariableCollection>();
+        // --- Start Positron ---
+        // globalCollection = mock<GlobalEnvironmentVariableCollection>();
         collection = mock<EnvironmentVariableCollection>();
-        when(context.environmentVariableCollection).thenReturn(instance(globalCollection));
-        when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
+        when(context.environmentVariableCollection as EnvironmentVariableCollection).thenReturn(instance(collection));
+        // when(globalCollection.getScoped(anything())).thenReturn(instance(collection));
+        // --- End Positron ---
         experimentService = mock<IExperimentService>();
         when(experimentService.inExperimentSync(TerminalEnvVarActivation.experiment)).thenReturn(true);
         applicationEnvironment = mock<IApplicationEnvironment>();
