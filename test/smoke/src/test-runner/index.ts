@@ -5,4 +5,3 @@
 
 export { prepareTestEnv } from './test-setup';
 export { cloneTestRepo } from './utils';
-export { runMochaTests } from './mocha-runner';
