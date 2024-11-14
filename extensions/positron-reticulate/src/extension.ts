@@ -722,7 +722,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (!api) {
 				throw new Error('Failed to find the Positron Python extension API.');
 			}
-			return api.extensionPath + '/python_files/ipykernel';
+			return api.extensionPath + '/python_files/positron';
 		})
 	);
 
