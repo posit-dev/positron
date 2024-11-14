@@ -13,7 +13,7 @@ import { ActiveSession, DefaultApi, HttpError, InterruptMode, NewSession, Status
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
 import { KernelInfoReply, KernelInfoRequest } from './jupyter/KernelInfoRequest';
-import { Barrier, createUniqueId, PromiseHandles, withTimeout } from './async';
+import { Barrier, PromiseHandles, withTimeout } from './async';
 import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest';
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
@@ -37,6 +37,7 @@ import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
+import { createUniqueId, summarizeHttpError } from './util';
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -736,7 +737,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// Attempt to extract a message from the error, or just
 				// stringify it if it's not an Error
 				const message =
-					err instanceof Error ? err.message : JSON.stringify(err);
+					err instanceof HttpError ? summarizeHttpError(err) : err instanceof Error ? err.message : JSON.stringify(err);
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
 					exit_code: 0,
@@ -894,7 +895,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 
 			this._socket.ws.onerror = (err: any) => {
-				this.log(`Websocket error: ${err}`, vscode.LogLevel.Error);
+				this.log(`Websocket error: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
 				if (this._connected.isOpen()) {
 					// If the error happened after the connection was established,
 					// something bad happened. Close the connected barrier and
@@ -944,10 +945,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			await this._api.interruptSession(this.metadata.sessionId);
 		} catch (err) {
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
-			} else {
-				throw err;
+				throw new Error(summarizeHttpError(err));
 			}
+			throw err;
 		}
 	}
 
@@ -971,7 +971,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.markReady();
 		} catch (err) {
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
+				throw new Error(summarizeHttpError(err));
 			} else {
 				throw err;
 			}
@@ -1000,7 +1000,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} catch (err) {
 			this._exitReason = positron.RuntimeExitReason.Unknown;
 			if (err instanceof HttpError) {
-				throw new Error(err.body.message);
+				throw new Error(summarizeHttpError(err));
 			} else {
 				throw err;
 			}

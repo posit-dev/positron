@@ -119,6 +119,8 @@ import { SharedProcessRawConnection, SharedProcessLifecycle } from 'vs/platform/
 import { getOSReleaseInfo } from 'vs/base/node/osReleaseInfo';
 import { getDesktopEnvironment } from 'vs/base/common/desktopEnvironmentInfo';
 import { getCodeDisplayProtocol, getDisplayProtocol } from 'vs/base/node/osDisplayProtocolInfo';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
 
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
@@ -370,6 +372,11 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
 		// Remote Tunnel
 		services.set(IRemoteTunnelService, new SyncDescriptor(RemoteTunnelService));
+
+		// --- Start Positron ---
+		// Ephemeral State
+		services.set(IEphemeralStateService, new SyncDescriptor(EphemeralStateService));
+		// --- End Positron ---
 
 		return new InstantiationService(services);
 	}

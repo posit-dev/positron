@@ -72,13 +72,3 @@ export function withTimeout<T>(promise: Promise<T>,
 	]);
 }
 
-
-/**
- * Creates a short, unique ID. Use to help create unique identifiers for
- * comms, messages, etc.
- *
- * @returns An 8-character unique ID, like `a1b2c3d4`
- */
-export function createUniqueId(): string {
-	return Math.floor(Math.random() * 0x100000000).toString(16);
-}
