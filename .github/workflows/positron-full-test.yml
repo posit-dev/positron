@@ -142,15 +142,12 @@ jobs:
           path: blob-report
           retention-days: 14
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
+      - name: Upload junit report
         if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report-electron-${{ matrix.shardIndex }}
+          path: test-results/junit.xml
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-4x
@@ -248,6 +245,26 @@ jobs:
           echo $REPORT_URL > url.txt
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+
+      - name: Download junit reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-junit-reports
+          pattern: junit-report-*
+          merge-multiple: true
+
+      - name: Merge junit reports
+        run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
+
+      - name: Set TestRail Run Title
+        id: set-testrail-run-title
+        if: ${{ !cancelled() }}
+        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
+
+      - name: Upload Test Results to TestRail (Electron ONLY)
+        id: testrail-upload
+        if: ${{ !cancelled() }}
+        run: pip install trcli && trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: "Send Slack notification"
         if: ${{ failure() }}

@@ -17,11 +17,18 @@ runs:
     - name: Check and Install AWS CLI if Needed
       if: ${{ !cancelled() }}
       shell: bash
+      env:
+        RUNNER_OS: ${{ runner.os }}
       run: |
         # Detect the OS and install AWS CLI accordingly
         if ! command -v aws &> /dev/null; then
           echo "AWS CLI not found. Installing..."
           if [[ "$RUNNER_OS" == "Linux" ]]; then
+            # Install unzip if not available
+            if ! command -v unzip &> /dev/null; then
+              echo "unzip not found. Installing unzip..."
+              sudo apt-get update && sudo apt-get install -y unzip
+            fi
             # Install AWS CLI on Linux (Ubuntu)
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
@@ -40,5 +47,3 @@ runs:
       shell: bash
       run: |
         aws s3 cp playwright-report/. s3://positron-test-reports/playwright-report-${{ github.run_id }} --recursive
-      env:
-        RUNNER_OS: ${{ runner.os }}
