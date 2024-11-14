@@ -73,17 +73,6 @@ export class PlaywrightDriver {
 				// --- End Positron ---
 			}
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
-
-			// To ensure we have a screenshot at the end where
-			// it failed, also trigger one explicitly. Tracing
-			// does not guarantee to give us a screenshot unless
-			// some driver action ran before.
-			// --- Start Positron ---
-			if (!customPath && persist) { // only take screenshots if running via mocha.
-
-				await this.takeScreenshot(`${name}`);
-				// --- End Positron ---
-			}
 		} catch (error) {
 			// Ignore
 		}

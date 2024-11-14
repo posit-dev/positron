@@ -26,6 +26,9 @@ export interface LaunchOptions {
 	readonly remote?: boolean;
 	readonly web?: boolean;
 	readonly tracing?: boolean;
+	// --- Start Positron ---
+	readonly snapshots?: boolean;
+	// --- End Positron ---
 	readonly headless?: boolean;
 	readonly browser?: 'chromium' | 'webkit' | 'firefox';
 }

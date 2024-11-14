@@ -7,13 +7,12 @@ import { join } from 'path';
 import { test, expect } from '../_test.setup';
 
 test.use({
-	suiteId: __filename
+	suiteId: __filename,
+	skipSnapshots: true,
 });
 
-
 // Note that this test is too heavy to pass on web and windows
-
-test.describe.skip('Large Python Notebook', {
+test.describe('Large Python Notebook', {
 	annotation: [{ type: 'issue', description: 'This test is too heavy to run in CICD due to snapshots on the excessive scrolling.' }],
 }, () => {
 
