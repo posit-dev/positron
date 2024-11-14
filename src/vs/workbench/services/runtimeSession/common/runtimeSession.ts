@@ -517,6 +517,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} catch (err) {
 			startPromise.error(err);
 		}
+
+		startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
 	}
 
 	/**
