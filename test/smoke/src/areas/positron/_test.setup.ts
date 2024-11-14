@@ -34,7 +34,7 @@ let SPEC_NAME = '';
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
 
-	skipSnapshots: [false, { scope: 'worker', auto: true }],
+	snapshots: [true, { scope: 'worker', auto: true }],
 
 	logsPath: [async ({ }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
@@ -47,7 +47,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(logger);
 	}, { auto: true, scope: 'worker' }],
 
-	options: [async ({ logsPath, logger, skipSnapshots }, use, workerInfo) => {
+	options: [async ({ logsPath, logger, snapshots }, use, workerInfo) => {
 		const project = workerInfo.project.use as CustomTestOptions;
 		const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 		const EXTENSIONS_PATH = join(TEST_DATA_PATH, 'extensions-dir');
@@ -67,7 +67,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			web: project.web,
 			headless: project.headless,
 			tracing: true,
-			snapshots: !skipSnapshots,
+			snapshots,
 		};
 
 		await use(options);
@@ -288,7 +288,7 @@ interface TestFixtures {
 
 interface WorkerFixtures {
 	suiteId: string;
-	skipSnapshots: boolean;
+	snapshots: boolean;
 	artifactDir: string;
 	options: any;
 	app: Application;

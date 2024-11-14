@@ -8,13 +8,12 @@ import { test, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
-	skipSnapshots: true,
+	snapshots: false,
 });
 
 // Note that this test is too heavy to pass on web and windows
 test.describe('Large Python Notebook', {
 	annotation: [{ type: 'issue', description: 'This test is too heavy to run in CICD due to snapshots on the excessive scrolling.' }],
-	tag: '@pr'
 }, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
