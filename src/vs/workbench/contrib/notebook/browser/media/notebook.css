@@ -419,6 +419,8 @@ background color of the status bar. This psuedo element is used to fill in that 
 	/* --- Begin Positron --- */
 	/* Add rounded corners to the toolbar */
 	border-radius: 4px;
+	/* Move to the right of the cell a bit more with a transform */
+	transform: translateX(16px);
 	/* --- End Positron --- */
 }
 .notebookOverlay .monaco-action-bar .action-item.verticalSeparator {
