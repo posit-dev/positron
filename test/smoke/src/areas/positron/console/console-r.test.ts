@@ -9,7 +9,12 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: R', { tag: ['@web', '@win'] }, () => {
+test.describe.skip('Console Pane: R', {
+	tag: ['@web', '@win'],
+	annotation: [{
+		type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5356'
+	}]
+}, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
