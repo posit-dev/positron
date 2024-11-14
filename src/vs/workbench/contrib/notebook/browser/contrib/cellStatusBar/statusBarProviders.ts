@@ -21,6 +21,9 @@ import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { ILanguageDetectionService, LanguageDetectionHintConfig } from 'vs/workbench/services/languageDetection/common/languageDetectionWorkerService';
 import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 class CellStatusBarLanguagePickerProvider implements INotebookCellStatusBarItemProvider {
 
@@ -29,6 +32,9 @@ class CellStatusBarLanguagePickerProvider implements INotebookCellStatusBarItemP
 	constructor(
 		@INotebookService private readonly _notebookService: INotebookService,
 		@ILanguageService private readonly _languageService: ILanguageService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 	) { }
 
 	async provideCellStatusBarItems(uri: URI, index: number, _token: CancellationToken): Promise<INotebookCellStatusBarItemList | undefined> {
@@ -38,6 +44,17 @@ class CellStatusBarLanguagePickerProvider implements INotebookCellStatusBarItemP
 			return;
 		}
 
+		// --- Begin Positron ---
+		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+			// To avoid cluttering the UI with redundant language indicators, we only show the language
+			// status bar for the first cell of each language type. This helps users identify language
+			// transitions while keeping the interface clean.
+			const firstCellIndex = doc.cells.findIndex(c => c.language === cell.language);
+			if (firstCellIndex !== index) {
+				return;
+			}
+		}
+		// --- End Positron ---
 		const statusBarItems: INotebookCellStatusBarItem[] = [];
 		let displayLanguage = cell.language;
 		if (cell.cellKind === CellKind.Markup) {

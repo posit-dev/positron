@@ -68,3 +68,16 @@
 .monaco-workbench .notebookOverlay .cell-statusbar-container.is-active-cell .cell-status-item-show-when-active {
 	display: initial;
 }
+/* --- Begin Positron --- */
+.monaco-workbench .notebookOverlay.minimal-notebook-ui .cell-statusbar-container {
+	/* Make the background transparent */
+	background-color: transparent;
+	/* Shift down a few pixels to avoid overlapping the editor outline we added to give padding back
+	to bottom of cell */
+	transform: translateY(4px);
+}
+.monaco-workbench .notebookOverlay.minimal-notebook-ui .cell-statusbar-container .cell-status-left > .cell-contributed-items {
+	/* Remove the margin left to align better with the cell editor outline */
+	margin-left: 0px;
+}
+/* --- End Positron --- */

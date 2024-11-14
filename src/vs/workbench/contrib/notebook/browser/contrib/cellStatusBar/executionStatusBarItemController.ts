@@ -19,6 +19,9 @@ import { CellStatusbarAlignment, INotebookCellStatusBarItem, NotebookCellExecuti
 import { INotebookCellExecution, INotebookExecutionStateService, NotebookExecutionType } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IMarkdownString } from 'vs/base/common/htmlContent';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 export function formatCellDuration(duration: number, showMilliseconds: boolean = true): string {
 	if (showMilliseconds && duration < 1000) {
@@ -85,9 +88,18 @@ export class ExecutionStateCellStatusBarContrib extends Disposable implements IN
 	static id: string = 'workbench.notebook.statusBar.execState';
 
 	constructor(notebookEditor: INotebookEditor,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IInstantiationService instantiationService: IInstantiationService
 	) {
 		super();
+		// --- Begin Positron ---
+		// Early exit if minimal UI is enabled
+		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+			return;
+		}
+		// --- End Positron ---
 		this._register(new NotebookStatusBarController(notebookEditor, (vm, cell) => instantiationService.createInstance(ExecutionStateCellStatusBarItem, vm, cell)));
 	}
 }
@@ -107,6 +119,9 @@ class ExecutionStateCellStatusBarItem extends Disposable {
 	constructor(
 		private readonly _notebookViewModel: INotebookViewModel,
 		private readonly _cell: ICellViewModel,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService
 	) {
 		super();
@@ -184,6 +199,12 @@ class ExecutionStateCellStatusBarItem extends Disposable {
 				priority: Number.MAX_SAFE_INTEGER
 			} satisfies INotebookCellStatusBarItem];
 		} else if (state === NotebookCellExecutionState.Executing) {
+			// --- Begin Positron ---
+			// If the user has enabled the minimal notebook UI, we don't show the execution state in the status bar.
+			if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+				return [];
+			}
+			// --- End Positron ---
 			const icon = runState?.didPause ?
 				executingStateIcon :
 				ThemeIcon.modify(executingStateIcon, 'spin');
@@ -232,6 +253,9 @@ class TimerCellStatusBarItem extends Disposable {
 		private readonly _cell: ICellViewModel,
 		@INotebookExecutionStateService private readonly _executionStateService: INotebookExecutionStateService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -268,6 +292,22 @@ class TimerCellStatusBarItem extends Disposable {
 				});
 			}
 		}
+		// --- Begin Positron ---
+		// If we're finished executing, add a visual cue for success/failure
+		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+			const isFinished = !state && typeof endTime === 'number';
+			if (isFinished && timerItem) {
+				const lastRunSuccess = this._cell.internalMetadata.lastRunSuccess;
+
+				timerItem = {
+					...timerItem,
+					color: lastRunSuccess === false
+						? themeColorFromId(cellStatusIconError)
+						: themeColorFromId(cellStatusIconSuccess),
+				};
+			}
+		}
+		// --- End Positron ---
 
 		const items = timerItem ? [timerItem] : [];
 

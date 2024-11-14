@@ -13,6 +13,9 @@ import { CellContentPart } from 'vs/workbench/contrib/notebook/browser/view/cell
 import { CodeCellViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/codeCellViewModel';
 import { NotebookCellInternalMetadata } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 const UPDATE_EXECUTION_ORDER_GRACE_PERIOD = 200;
 
@@ -22,6 +25,9 @@ export class CellExecutionPart extends CellContentPart {
 	constructor(
 		private readonly _notebookEditor: INotebookEditorDelegate,
 		private readonly _executionOrderLabel: HTMLElement,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService
 	) {
 		super();
@@ -109,6 +115,15 @@ export class CellExecutionPart extends CellContentPart {
 						);
 					}
 				}
+				// --- Begin Positron ---
+				if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+					// We have shrunk the main cell body by a bit so we need to shrink the execution
+					// order label vertical position as well. This isnt exactly the same shift as we did
+					// for the editor cell because this shift also causes the number to align better
+					// with the botto of the cell.
+					top -= 13;
+				}
+				// --- End Positron ---
 
 				this._executionOrderLabel.style.top = `${top}px`;
 			}

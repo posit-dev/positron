@@ -3,11 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+
+/**
+ * Feature flags that positron adds for notebooks.
+ */
+export const PositronNotebookFeatureFlags = {
+	useMinimalNotebookUi: 'notebook.useMinimalNotebookUi',
+} as const;
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -47,6 +55,18 @@ export interface IPositronNotebookService {
 	 * Get instance by resource if it exists.
 	 */
 	getInstance(resource: URI): IPositronNotebookInstance | undefined;
+
+	/**
+	 * Get if the minimal UI is enabled for vscode notebooks
+	 */
+	isNotebookMinimalUiModeEnabled(): boolean;
+
+	/**
+	 * Register a callback that will be invoked when the minimal UI mode changes.
+	 * @param opts.callback The callback to invoke.
+	 * @param opts.runWhenFirstSet Whether to run the callback when listener is first set.
+	 */
+	onNotebookMinimalUiModeChanged(opts: { callback: (enabled: boolean) => void; runWhenFirstSet?: boolean }): IDisposable;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -60,7 +80,9 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
-	constructor() {
+	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService
+	) {
 		// Call the disposable constrcutor.
 		super();
 	}
@@ -104,6 +126,25 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 			}
 		}
 		return undefined;
+	}
+
+	public isNotebookMinimalUiModeEnabled(): boolean {
+		return this._configurationService.getValue<boolean>(PositronNotebookFeatureFlags.useMinimalNotebookUi);
+	}
+
+	public onNotebookMinimalUiModeChanged(opts: { callback: (enabled: boolean) => void; runWhenFirstSet?: boolean }): IDisposable {
+
+		const toCall = () => opts.callback(this.isNotebookMinimalUiModeEnabled());
+
+		if (opts.runWhenFirstSet) {
+			toCall();
+		}
+
+		return this._configurationService.onDidChangeConfiguration((e) => {
+			if (e.affectsConfiguration(PositronNotebookFeatureFlags.useMinimalNotebookUi)) {
+				toCall();
+			}
+		});
 	}
 	//#endregion Public Methods
 }

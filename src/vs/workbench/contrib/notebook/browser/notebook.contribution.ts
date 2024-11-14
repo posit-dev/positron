@@ -130,7 +130,7 @@ import { NotebookMultiDiffEditorInput } from 'vs/workbench/contrib/notebook/brow
 // --- Start Positron ---
 import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { IPositronNotebookService, PositronNotebookFeatureFlags } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 // --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
@@ -1169,6 +1169,14 @@ configurationRegistry.registerConfiguration({
 			type: 'boolean',
 			default: true
 		},
+		// --- Begin Positron ---
+		[PositronNotebookFeatureFlags.useMinimalNotebookUi]: {
+			description: nls.localize('notebook.useMinimalNotebookUi.description', "Whether to use experimental minimal notebook UI for a more streamlined notebook experience."),
+			type: 'boolean',
+			default: false,
+			tags: ['notebookLayout', 'positron', 'experimental']
+		},
+		// --- End Positron ---
 		[NotebookSetting.outputBackupSizeLimit]: {
 			markdownDescription: nls.localize('notebook.backup.sizeLimit', "The limit of notebook output size in kilobytes (KB) where notebook files will no longer be backed up for hot reload. Use 0 for unlimited."),
 			type: 'number',

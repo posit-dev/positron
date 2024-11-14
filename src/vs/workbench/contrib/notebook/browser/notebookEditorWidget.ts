@@ -103,6 +103,9 @@ import { PreventDefaultContextMenuItemsContextKeyName } from 'vs/workbench/contr
 import { NotebookAccessibilityProvider } from 'vs/workbench/contrib/notebook/browser/notebookAccessibilityProvider';
 import { NotebookHorizontalTracker } from 'vs/workbench/contrib/notebook/browser/viewParts/notebookHorizontalTracker';
 import { NotebookCellEditorPool } from 'vs/workbench/contrib/notebook/browser/view/notebookCellEditorPool';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 const $ = DOM.$;
 
@@ -319,6 +322,9 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
 		@IEditorProgressService private editorProgressService: IEditorProgressService,
 		@INotebookLoggingService private readonly logService: INotebookLoggingService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 	) {
 		super();
@@ -615,6 +621,18 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 		this._notebookTopToolbarContainer.style.display = 'none';
 		DOM.append(parent, this._notebookTopToolbarContainer);
 
+		// --- Begin Positron ---
+		// Making the setting string a variable to avoid mangling the imports more than necessary.
+		// Add class based on minimal UI setting
+		this._register(
+			this._positronNotebookService.onNotebookMinimalUiModeChanged({
+				callback: (useMinimalUi) => {
+					this._overlayContainer.classList.toggle('minimal-notebook-ui', useMinimalUi);
+				},
+				runWhenFirstSet: true
+			})
+		);
+		// --- End Positron ---
 		this._notebookStickyScrollContainer = document.createElement('div');
 		this._notebookStickyScrollContainer.classList.add('notebook-sticky-scroll-container');
 		DOM.append(parent, this._notebookStickyScrollContainer);

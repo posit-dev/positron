@@ -10,6 +10,9 @@ import { CellViewModelStateChangeEvent } from 'vs/workbench/contrib/notebook/bro
 import { CellContentPart } from 'vs/workbench/contrib/notebook/browser/view/cellPart';
 import { NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { ICellExecutionStateChangedEvent, INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 export class CellProgressBar extends CellContentPart {
 	private readonly _progressBar: ProgressBar;
@@ -18,6 +21,9 @@ export class CellProgressBar extends CellContentPart {
 	constructor(
 		editorContainer: HTMLElement,
 		collapsedInputContainer: HTMLElement,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@INotebookExecutionStateService private readonly _notebookExecutionStateService: INotebookExecutionStateService) {
 		super();
 
@@ -61,6 +67,11 @@ export class CellProgressBar extends CellContentPart {
 		const exeState = e?.changed ?? this._notebookExecutionStateService.getCellExecution(element.uri);
 		const progressBar = element.isInputCollapsed ? this._collapsedProgressBar : this._progressBar;
 		if (exeState?.state === NotebookCellExecutionState.Executing && (!exeState.didPause || element.isInputCollapsed)) {
+			// --- Begin Positron ---
+			if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+				return;
+			}
+			// --- End Positron ---
 			showProgressBar(progressBar);
 		} else {
 			progressBar.hide();
