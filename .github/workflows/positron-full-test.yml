@@ -207,6 +207,8 @@ jobs:
   #       run: cd .. && rm -rf positron-license
 
   e2e-report:
+    container:
+      image: mcr.microsoft.com/playwright:v1.48.0-jammy
     runs-on: ubuntu-latest
     # needs:
     #   [
@@ -224,8 +226,27 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Install Playwright CLI
-        run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install @playwright/test --legacy-peer-deps
+      # - uses: actions/setup-python@v2
+      #   with:
+      #     python-version: '3.x'
+      # - name: Install dependencies
+      #   run: |
+      #       python -m pip install --upgrade pip
+      #       pip install awscli
+
+      -  name: Install AWS CLI v2
+         run:  |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
+            unzip -q /tmp/awscliv2.zip -d /tmp
+            rm /tmp/awscliv2.zip
+            sudo /tmp/aws/install --update
+            rm -rf /tmp/aws/
+
+      # - name: Install Playwright CLI
+      #   run: PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 npm install @playwright/test --legacy-peer-deps
+
+      # - name: Install AWS CLI
+      #   uses: unfor19/install-aws-cli-action@v1
 
       # - name: Download blob reports
       #   uses: actions/download-artifact@v4
@@ -237,10 +258,10 @@ jobs:
       # - name: Merge blobs into HTML Report
       #   run: npx playwright merge-reports --reporter html ./all-blob-reports
 
-      # - name: Upload Playwright Report to S3
-      #   uses: ./.github/actions/upload-report-to-s3
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+      - name: Upload Playwright Report to S3
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
       # - name: Send HTML report URL to GitHub Summary
       #   if: ${{ !cancelled() }}
