@@ -816,11 +816,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
-		let startPromise = this._startingSessionsBySessionMapKey.get(
-			getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri));
+		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
+		let startPromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
 		if (!startPromise || startPromise.isSettled) {
 			startPromise = new DeferredPromise<string>();
-			const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 		}
 
