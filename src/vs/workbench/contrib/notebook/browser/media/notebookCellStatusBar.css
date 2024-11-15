@@ -94,8 +94,9 @@
 		transition-delay: 0.1s;
 	}
 
-	.cell-editor-focus .cell-status-item,
+	/* We show the status items when the cell is executing, focused, or hovered */
 	[aria-label*="executing"] .cell-status-item,
+	.monaco-list-row.focused.selected .cell-status-item,
 	.cell-statusbar-container:hover .cell-status-item {
 		opacity: 1;
 		visibility: visible;
