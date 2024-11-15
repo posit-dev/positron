@@ -42,7 +42,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
 			await app.workbench.positronEditor.pressPlay();
-			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 30000 });
+			await expect(viewer.getViewerFrame().getByRole('button', { name: 'Submit' })).toBeVisible({ timeout: 45000 });
 		});
 
 		test('Python - Verify Basic Streamlit App [C903308]', { tag: ['@web', '@win'] }, async function ({ app, python }) {

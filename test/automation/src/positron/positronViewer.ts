@@ -32,7 +32,6 @@ export class PositronViewer {
 	}
 
 	async clearViewer() {
-		await this.fullApp.getByRole('tab', { name: 'Viewer' }).locator('a').click();
 		await this.fullApp.getByLabel(/Clear the/).click();
 	}
 }
