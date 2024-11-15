@@ -85,7 +85,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await app.stop();
 
 		// rename the temp logs dir to the spec name
-		const specLogsPath = logsPath.split('/').slice(0, -1).join('/') + '/' + SPEC_NAME;
+		const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME);
 		await moveAndOverwrite(logsPath, specLogsPath);
 	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
@@ -181,6 +181,13 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 			path: zipPath,
 			contentType: 'application/zip',
 		});
+
+		// remove the logs.zip file
+		try {
+			await fs.promises.unlink(zipPath);
+		} catch (err) {
+			console.error(`Failed to remove ${zipPath}:`, err);
+		}
 	}, { auto: true }],
 
 	tracing: [async ({ app }, use, testInfo) => {

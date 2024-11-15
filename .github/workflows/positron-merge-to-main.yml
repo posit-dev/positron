@@ -28,7 +28,7 @@ permissions:
 
 jobs:
   e2e-electron:
-    timeout-minutes: 30
+    timeout-minutes: 45
     runs-on: ubuntu-latest-8x
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

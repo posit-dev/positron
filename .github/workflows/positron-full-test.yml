@@ -95,7 +95,7 @@ jobs:
 
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
-    timeout-minutes: 50
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -226,18 +226,14 @@ jobs:
       - name: Install unzip
         run: apt-get update && apt-get install -y unzip
 
-      - name: Install AWS CLI v2
+      - name: Install and Verify AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
           unzip -q /tmp/awscliv2.zip -d /tmp
           /tmp/aws/install -i $HOME/aws-cli -b $HOME/bin
           rm -rf /tmp/aws /tmp/awscliv2.zip
-
-      - name: Add AWS CLI to PATH
-        run: echo "$HOME/bin" >> $GITHUB_PATH
-
-      - name: Verify AWS CLI installation
-        run: aws --version
+          echo "$HOME/bin" >> $GITHUB_PATH
+          aws --version
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
@@ -283,7 +279,7 @@ jobs:
       - name: Upload Test Results to TestRail (Electron ONLY)
         id: testrail-upload
         if: ${{ !cancelled() }}
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
       - name: "Send Slack notification"
         if: ${{ failure() }}
