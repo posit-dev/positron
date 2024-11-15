@@ -18,13 +18,15 @@ import { Event } from 'vs/base/common/event';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { IEnvironmentService } from 'vs/platform/environment/common/environment';
+import { isWeb } from 'vs/base/common/platform';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -82,6 +84,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
+	// Whether we are currently quitting
+	private _quitting = false;
+
+	// Whether we are shutting down
+	private _shuttingDown = false;
+
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	constructor(
@@ -97,7 +105,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IEnvironmentService private readonly _environmentService: IEnvironmentService) {
 
 		super();
 
@@ -139,6 +148,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveWorkspaceSessions();
 
 			this._register(session.onDidEndSession(exit => {
+				// Ignore if shutting down
+				if (this._shuttingDown) {
+					return;
+				}
+
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
 
@@ -263,18 +277,25 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		});
 		// Register a shutdown event handler to clear the workspace sessions to
 		// prepare for a clean start of Positron next time.
-		this._lifecycleService.onBeforeShutdown((e) => {
+		this._register(this._lifecycleService.onBeforeShutdown((e) => {
+			this._shuttingDown = true;
 			if (e.reason === ShutdownReason.QUIT) {
-				// We're quitting; clear the workspace sessions.
-				e.veto(this.clearWorkspaceSessions(),
-					'positron.runtimeStartup.clearWorkspaceSessions');
+				// We're quitting. Set this flag so that we can clean up the workspace sessions in the storage.
+				this._quitting = true;
 			} else if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
 				// before reloading.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
 			}
-		});
+		}));
+
+		this._register(this._storageService.onWillSaveState((_e) => {
+			if (this._quitting) {
+				// We're quitting; clear the workspace sessions.
+				this.clearWorkspaceSessions();
+			}
+		}));
 	}
 
 	/**
@@ -695,6 +716,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async restoreSessions() {
 
+		this._logService.debug(`[Runtime startup] Session restore; isBuilt: ${this._environmentService.isBuilt}, isWeb: ${isWeb}, startupKind: ${this._lifecycleService.startupKind}`);
+
+		if (!this._environmentService.isBuilt) {
+			// In desktop development builds, sessions are not cleared on exit,
+			// so if this is a new window, clear up the sessions instead of
+			// restoring them.
+			if (!isWeb && this._lifecycleService.startupKind === StartupKind.NewWindow) {
+				this._logService.debug(`[Runtime startup] Clearing sessions at startup`);
+				this.clearWorkspaceSessions();
+				return;
+			}
+		}
+
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
 		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
@@ -762,6 +796,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private async saveWorkspaceSessions(): Promise<boolean> {
+		// Ignore if we are currently quitting
+		if (this._quitting) {
+			return false;
+		}
 
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions
@@ -785,6 +823,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			`${session.metadata.sessionName} (${session.metadata.sessionId})`).join(', ')}`);
 
 		// Save the sessions to the workspace storage.
+		this._logService.debug(`[Runtime startup] Saving workspace sessions (${workspaceSessions.length})`);
 		this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
 			JSON.stringify(workspaceSessions),
 			StorageScope.WORKSPACE,
