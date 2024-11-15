@@ -24,15 +24,17 @@ type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise
 
 suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
-	const sessionName = 'Test session';
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
 	let instantiationService: TestInstantiationService;
 	let languageRuntimeService: ILanguageRuntimeService;
 	let runtimeSessionService: IRuntimeSessionService;
 	let runtime: ILanguageRuntimeMetadata;
+	let sessionName: string;
 	let anotherRuntime: ILanguageRuntimeMetadata;
 	let unregisteredRuntime: ILanguageRuntimeMetadata;
+	let consoleSessionMetadata: IRuntimeSessionMetadata;
+	let notebookSessionMetadata: IRuntimeSessionMetadata;
 
 	setup(() => {
 		instantiationService = disposables.add(new TestInstantiationService());
@@ -40,8 +42,25 @@ suite('Positron - RuntimeSessionService', () => {
 		languageRuntimeService = instantiationService.get(ILanguageRuntimeService);
 		runtimeSessionService = instantiationService.get(IRuntimeSessionService);
 		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
+		sessionName = runtime.runtimeName;
 		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
+		consoleSessionMetadata = {
+			sessionId: 'test-console-session-id',
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			createdTimestamp: Date.now(),
+			notebookUri: undefined,
+			startReason,
+		};
+		notebookSessionMetadata = {
+			sessionId: 'test-notebook-session-id',
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			createdTimestamp: Date.now(),
+			notebookUri,
+			startReason,
+		};
 	});
 
 	function startSession(
@@ -144,24 +163,6 @@ suite('Positron - RuntimeSessionService', () => {
 		return restoreSession(notebookSessionMetadata, runtimeMetadata);
 	}
 
-	const consoleSessionMetadata: IRuntimeSessionMetadata = {
-		sessionId: 'test-console-session-id',
-		sessionName,
-		sessionMode: LanguageRuntimeSessionMode.Console,
-		createdTimestamp: Date.now(),
-		notebookUri: undefined,
-		startReason,
-	};
-
-	const notebookSessionMetadata: IRuntimeSessionMetadata = {
-		sessionId: 'test-notebook-session-id',
-		sessionName,
-		sessionMode: LanguageRuntimeSessionMode.Notebook,
-		createdTimestamp: Date.now(),
-		notebookUri,
-		startReason,
-	};
-
 	async function selectRuntime(runtimeMetadata = runtime) {
 		await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason);
 		const session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
@@ -180,7 +181,7 @@ suite('Positron - RuntimeSessionService', () => {
 		for (const mode of [LanguageRuntimeSessionMode.Console, LanguageRuntimeSessionMode.Notebook]) {
 			const start = mode === LanguageRuntimeSessionMode.Console ? startConsole : startNotebook;
 			if (!start) {
-				return;
+				continue;
 			}
 
 			test(`${action} ${mode} returns the expected session`, async () => {
@@ -215,11 +216,7 @@ suite('Positron - RuntimeSessionService', () => {
 				const session = await promise;
 
 				// Check the state after starting.
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
-				} else {
-					assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session });
-				}
+				assertSessionIsStarting(session);
 			});
 
 			test(`${action} ${mode} fires onWillStartSession`, async () => {
@@ -264,11 +261,7 @@ suite('Positron - RuntimeSessionService', () => {
 					try {
 						assert.equal(session.getRuntimeState(), RuntimeState.Starting);
 
-						if (mode === LanguageRuntimeSessionMode.Console) {
-							assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session });
-						} else {
-							assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session });
-						}
+						assertSessionIsStarting(session);
 					} catch (e) {
 						error = e;
 					}
@@ -312,7 +305,7 @@ suite('Positron - RuntimeSessionService', () => {
 			}
 
 			if (action === 'start') {
-				test(`${action} ${mode} for unknown runtime`, async () => {
+				test(`${action} ${mode} throws for unknown runtime`, async () => {
 					const runtimeId = 'unknown-runtime-id';
 					await assert.rejects(
 						start({ runtimeId } as ILanguageRuntimeMetadata,),
@@ -355,7 +348,7 @@ suite('Positron - RuntimeSessionService', () => {
 				sinon.assert.notCalled(didStartRuntime);
 			});
 
-			test(`${action} ${mode} while another runtime is starting for the language`, async () => {
+			test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
 				let error: Error;
 				if (mode === LanguageRuntimeSessionMode.Console) {
 					error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} ` +
@@ -377,26 +370,29 @@ suite('Positron - RuntimeSessionService', () => {
 					error);
 			});
 
-			test(`${action} ${mode} while another runtime is running for the language`, async () => {
-				let error: Error;
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					error = new Error(`A console for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-						`be started because a console for ${formatLanguageRuntimeMetadata(runtime)} ` +
-						`is already running for the ${runtime.languageName} language.` +
-						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
-				} else {
-					error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
-						`is already running for the URI ${notebookUri.toString()}.` +
-						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
-				}
+			// Skip for 'select' since selecting another runtime is expected.
+			if (action !== 'select') {
+				test(`${action} ${mode} throws if another runtime is running for the language`, async () => {
+					let error: Error;
+					if (mode === LanguageRuntimeSessionMode.Console) {
+						error = new Error(`A console for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+							`be started because a console for ${formatLanguageRuntimeMetadata(runtime)} ` +
+							`is already running for the ${runtime.languageName} language.` +
+							(action !== 'restore' ? ` Request source: ${startReason}` : ''));
+					} else {
+						error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+							`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
+							`is already running for the URI ${notebookUri.toString()}.` +
+							(action !== 'restore' ? ` Request source: ${startReason}` : ''));
+					}
 
-				await start();
-				await assert.rejects(
-					start(anotherRuntime),
-					error,
-				);
-			});
+					await start();
+					await assert.rejects(
+						start(anotherRuntime),
+						error,
+					);
+				});
+			}
 
 			test(`${action} ${mode} successively`, async () => {
 				const result1 = await start();
