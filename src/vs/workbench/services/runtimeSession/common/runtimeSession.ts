@@ -366,22 +366,29 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
+		let disposable: IDisposable | undefined;
 		const promise = new Promise<void>(resolve => {
-			const disposable = session.onDidEndSession((exit) => {
+			disposable = session.onDidEndSession((exit) => {
 				resolve();
-				disposable.dispose();
+				disposable?.dispose();
 			});
 		});
 
 		const timeout = new Promise<void>((_, reject) => {
 			setTimeout(() => {
+				disposable?.dispose();
 				reject(new Error(`Timed out waiting for runtime ` +
 					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
 			}, 5000);
 		});
 
 		// Ask the runtime to shut down.
-		await session.shutdown(exitReason);
+		try {
+			await session.shutdown(exitReason);
+		} catch (err) {
+			disposable?.dispose();
+			throw err;
+		}
 
 		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
 		// (whichever comes first)
