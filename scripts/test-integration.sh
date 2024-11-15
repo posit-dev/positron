@@ -145,6 +145,12 @@ echo
 yarn test-extension -l positron-duckdb
 kill_app
 
+echo
+echo "### Positron Zed tests"
+echo
+yarn test-extension -l positron-zed
+kill_app
+
 # --- End Positron ---
 
 # Tests standalone (CommonJS)
