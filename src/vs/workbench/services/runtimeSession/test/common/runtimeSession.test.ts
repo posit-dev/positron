@@ -5,7 +5,6 @@
 
 import { strict as assert } from 'assert';
 import * as sinon from 'sinon';
-import { CancellationError } from 'vs/base/common/errors';
 import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
@@ -15,7 +14,7 @@ import { TestInstantiationService } from 'vs/platform/instantiation/test/common/
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { formatLanguageRuntimeMetadata, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
+import { TestLanguageRuntimeSession, waitForRuntimeState } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 import { TestRuntimeSessionManager } from 'vs/workbench/test/common/positronWorkbenchTestServices';
 import { TestWorkspaceTrustManagementService } from 'vs/workbench/test/common/workbenchTestServices';
@@ -156,14 +155,27 @@ suite('Positron - RuntimeSessionService', () => {
 		}
 	}
 
-	function assertSessionIsStarting(session: ILanguageRuntimeSession) {
-		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-
+	function assertSingleSession(session: ILanguageRuntimeSession) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session }, session.runtimeMetadata);
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session }, session.runtimeMetadata);
 		}
+	}
+
+	function assertSessionIsStarting(session: ILanguageRuntimeSession) {
+		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
+		assertSingleSession(session);
+	}
+
+	function assertSessionIsRestarting(session: ILanguageRuntimeSession) {
+		assert.equal(session.getRuntimeState(), RuntimeState.Restarting);
+		assertSingleSession(session);
+	}
+
+	function assertSessionIsStarted(session: ILanguageRuntimeSession) {
+		assert.equal(session.getRuntimeState(), RuntimeState.Ready);
+		assertSingleSession(session);
 	}
 
 	async function restoreSession(
@@ -568,6 +580,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 	test('select console while another runtime is running for the language', async () => {
 		const session1 = await startConsole(anotherRuntime);
+		await waitForRuntimeState(session1, RuntimeState.Ready);
 		const session2 = await selectRuntime();
 
 		assert.equal(session1.getRuntimeState(), RuntimeState.Exited);
@@ -578,6 +591,14 @@ suite('Positron - RuntimeSessionService', () => {
 			consoleSession: session2,
 			activeSessions: [session1, session2],
 		});
+	});
+
+	test('select console throws if session is still starting', async () => {
+		await startConsole(anotherRuntime);
+		await assert.rejects(
+			selectRuntime(),
+			new Error('Cannot shut down kernel; it is not (yet) running. (state = starting)'),
+		);
 	});
 
 	test('select console to the same runtime sets the foreground session', async () => {
@@ -620,7 +641,11 @@ suite('Positron - RuntimeSessionService', () => {
 
 				await restartSession(session.sessionId);
 
-				assertSessionIsStarting(session);
+				assert.equal(session.getRuntimeState(), RuntimeState.Restarting);
+				assertSessionIsRestarting(session);
+
+				await waitForRuntimeState(session, RuntimeState.Ready);
+				assertSessionIsStarted(session);
 			});
 		}
 
@@ -628,6 +653,7 @@ suite('Positron - RuntimeSessionService', () => {
 			test(`restart ${mode} in '${state}' state`, async () => {
 				// Get a session to the exited state.
 				const session = await start();
+				await waitForRuntimeState(session, RuntimeState.Ready);
 				await session.shutdown(RuntimeExitReason.Shutdown);
 				await waitForRuntimeState(session, RuntimeState.Exited);
 
@@ -688,7 +714,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 			await restartSession(session.sessionId);
 
-			assertSessionIsStarting(session);
+			assertSessionIsRestarting(session);
 
 			sinon.assert.notCalled(target);
 		});
@@ -705,7 +731,7 @@ suite('Positron - RuntimeSessionService', () => {
 				restartSession(session.sessionId),
 			]);
 
-			assertSessionIsStarting(session);
+			assertSessionIsRestarting(session);
 
 			sinon.assert.calledOnce(target);
 		});
@@ -722,91 +748,94 @@ suite('Positron - RuntimeSessionService', () => {
 			await waitForRuntimeState(session, RuntimeState.Ready);
 			await restartSession(session.sessionId);
 
-			assertSessionIsStarting(session);
+			assertSessionIsRestarting(session);
 
 			sinon.assert.calledThrice(target);
 		});
 	}
 
-	// 	test(`${name} notebook while shutting down`, async () => {
-	// 		const session1 = await startNotebook();
+	suite('queueing', () => {
+		// Consider the following sequence of actions:
+		//   start -> restart == should do both -- not possible since restart requires session ID
+		//   start -> select == select should noop
+		//   restart -> start == start should noop
+		//   restart -> select == select should noop
+		//   select -> start == start should noop
+		//   select -> restart == restart should noop -- not possible since restart requires session ID
+		test(`start console -> select console`, async () => {
+			const [session,] = await Promise.all([
+				startConsole(),
+				selectRuntime(),
+			]);
 
-	// 		const [, session2,] = await Promise.all([
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			startNotebook(),
-	// 		]);
-
-	// 		assert.equal(session1.getRuntimeState(), RuntimeState.Exited);
-	// 		assert.equal(session2.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({
-	// 			notebookSession: session2,
-	// 			notebookSessionForNotebookUri: session2,
-	// 			activeSessions: [session1, session2],
-	// 		});
-	// 	});
-
-	// 	test(`${name} notebook while restarting and in "exited" state`, async () => {
-	// 		const session = await startNotebook();
-	// 		await waitForRuntimeState(session, RuntimeState.Ready);
-
-	// 		const target = sinon.spy(session, 'restart');
-
-	// 		const startPromise = new Promise<TestLanguageRuntimeSession>(resolve => {
-	// 			const disposable = session.onDidChangeRuntimeState(state => {
-	// 				if (state === RuntimeState.Exited) {
-	// 					disposable.dispose();
-	// 					resolve(startNotebook());
-	// 				}
-	// 			});
-	// 		});
-
-	// 		const [, session2,] = await Promise.all([
-	// 			restartSession(session.sessionId),
-	// 			startPromise,
-	// 			// startNotebook(),
-	// 		]);
-
-	// 		assert.equal(session, session2);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertServiceState({
-	// 			notebookSession: session,
-	// 			notebookSessionForNotebookUri: session,
-	// 		});
-
-	// 		sinon.assert.calledOnce(target);
-	// 	});
-
-	// 	test('restart notebook while shutting down', async () => {
-	// 		const session = await startNotebook();
-
-	// 		await Promise.all([
-	// 			runtimeSessionService.shutdownNotebookSession(notebookUri, RuntimeExitReason.Shutdown),
-	// 			restartSession(session.sessionId),
-	// 		]);
-
-	// 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
-	// 		assertNotebookSessionIsStarted(session);
-	// 	});
-});
-
-async function waitForRuntimeState(
-	session: ILanguageRuntimeSession,
-	state: RuntimeState,
-	timeout = 10_000,
-) {
-	return new Promise<void>((resolve, reject) => {
-		const timer = setTimeout(() => {
-			disposable.dispose();
-			reject(new CancellationError());
-		}, timeout);
-
-		const disposable = session.onDidChangeRuntimeState(newState => {
-			if (newState === state) {
-				clearTimeout(timer);
-				disposable.dispose();
-				resolve();
-			}
+			assertSessionIsStarting(session);
 		});
+
+		// TODO: I think this behavior is undefined at the moment... We don't have any safety checks
+		//       in start based on restart behavior.
+		test(`restart console -> start console`, async () => {
+			const session = await startConsole();
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			const didChangeRuntimeState = sinon.spy((_state: RuntimeState) => { });
+			disposables.add(session.onDidChangeRuntimeState(didChangeRuntimeState));
+
+			const promise2 = new Promise<ILanguageRuntimeSession>(resolve => {
+				disposables.add(session.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Exited) {
+						const result = startConsole();
+						resolve(result);
+					}
+				}));
+			});
+
+			const promise = restartSession(session.sessionId);
+
+			await Promise.all([promise, promise2]);
+
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			console.log(didChangeRuntimeState.getCalls().map(call => call.args));
+			sinon.assert.callCount(didChangeRuntimeState, 4);
+			sinon.assert.callOrder(
+				didChangeRuntimeState.withArgs(RuntimeState.Restarting),
+				didChangeRuntimeState.withArgs(RuntimeState.Exited),
+				didChangeRuntimeState.withArgs(RuntimeState.Starting),
+				didChangeRuntimeState.withArgs(RuntimeState.Ready),
+			);
+			sinon.assert.calledOnce(didChangeRuntimeState.withArgs(RuntimeState.Exited));
+
+			// await Promise.all([
+			// 	restartSession(session.sessionId),
+			// 	// TODO: This returns the existing sessionId because it's still considered 'running'.
+			// 	// Shouldn't the session going to 'exited' remove it from console sessions?
+			// 	startConsole(),
+			// ]);
+
+			// TODO: Is it possible to start a session immediately when the session goes to 'exited'?
+
+			assertSessionIsRestarting(session);
+		});
+
+		// test(`restart console -> select console`, async () => {
+		// 	const session1 = await startConsole();
+		// 	await waitForRuntimeState(session1, RuntimeState.Ready);
+
+		// 	const target = sinon.spy((_state: RuntimeState) => { });
+		// 	disposables.add(session1.onDidChangeRuntimeState(target));
+
+		// 	const [, session2] = await Promise.all([
+		// 		restartSession(session1.sessionId),
+		// 		selectRuntime(),
+		// 	]);
+
+		// 	assert.equal(session1.sessionId, session2.sessionId);
+
+		// 	assertSessionIsStarting(session1);
+
+		// 	sinon.assert.called(target);
+		// 	sinon.assert.calledOnce(target.withArgs(RuntimeState.Starting));
+		// 	console.log(target.getCalls().map(call => call.args));
+		// });
 	});
-}
+});
