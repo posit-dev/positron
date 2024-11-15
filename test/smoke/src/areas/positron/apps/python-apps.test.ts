@@ -29,9 +29,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 		});
 
 		// FastAPI is not working as expected on Ubuntu
-		test.skip('Python - Verify Basic FastAPI App [C903306]', {
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4949' }]
-		}, async function ({ app, python }) {
+		test('Python - Verify Basic FastAPI App [C903306]', async function ({ app, python }) {
 			const viewer = app.workbench.positronViewer;
 
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'fastapi_example', 'fastapi_example.py'));
