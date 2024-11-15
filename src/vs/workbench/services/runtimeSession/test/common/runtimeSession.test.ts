@@ -6,6 +6,7 @@
 import { strict as assert } from 'assert';
 import * as sinon from 'sinon';
 import { CancellationError } from 'vs/base/common/errors';
+import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -148,6 +149,14 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 	}
 
+	function assertSessionWillStart(sessionMode: LanguageRuntimeSessionMode) {
+		if (sessionMode === LanguageRuntimeSessionMode.Console) {
+			assertServiceState({ hasStartingOrRunningConsole: true });
+		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			assertServiceState();
+		}
+	}
+
 	function assertSessionIsStarting(session: ILanguageRuntimeSession) {
 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
 
@@ -233,16 +242,12 @@ suite('Positron - RuntimeSessionService', () => {
 
 				const promise = start();
 
-				// Check the state while starting.
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					assertServiceState({ hasStartingOrRunningConsole: true });
-				} else {
-					assertServiceState();
-				}
+				// Check the state before awaiting the promise.
+				assertSessionWillStart(mode);
 
 				const session = await promise;
 
-				// Check the state after starting.
+				// Check the state after awaiting the promise.
 				assertSessionIsStarting(session);
 			});
 
@@ -263,11 +268,7 @@ suite('Positron - RuntimeSessionService', () => {
 						}
 						assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
 
-						if (mode === LanguageRuntimeSessionMode.Console) {
-							assertServiceState({ hasStartingOrRunningConsole: true });
-						} else {
-							assertServiceState();
-						}
+						assertSessionWillStart(mode);
 					} catch (e) {
 						error = e;
 					}
@@ -341,7 +342,7 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			}
 
-			test(`${action} ${mode} encounters session.start() error`, async () => {
+			test(`${action} ${mode} fires onDidFailStartRuntime if session.start() errors`, async () => {
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
 				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
 					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
@@ -366,7 +367,7 @@ suite('Positron - RuntimeSessionService', () => {
 					assert.equal(runtimeSessionService.getSession(session.sessionId), session);
 					assert.deepEqual(runtimeSessionService.activeSessions, [session]);
 				} else {
-					// TODO: Should failed notebook sessions be included in activeSessions?
+					// TODO: Should failed sessions be included in activeSessions?
 					assertServiceState({ activeSessions: [session] });
 				}
 
@@ -625,37 +626,40 @@ suite('Positron - RuntimeSessionService', () => {
 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), unregisteredRuntime);
 	});
 
-	// TODO: Should auto starting a notebook error?
-
 	test('auto start validates runtime if unregistered', async () => {
 		// The runtime should not yet be registered.
 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
 
+		// Update the validator to add extra runtime data.
+		const validatedMetadata: Partial<ILanguageRuntimeMetadata> = {
+			extraRuntimeData: { someNewKey: 'someNewValue' }
+		};
 		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
-			return { ...metadata, extraRuntimeData: { someNewKey: 'someNewValue' } };
+			return { ...metadata, ...validatedMetadata };
 		});
 
 		await autoStartSession(unregisteredRuntime);
 
-		// The *validated* runtime should now be registered.
+		// The validated metadata should now be registered.
 		assert.deepEqual(
 			languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId),
-			{ ...unregisteredRuntime, extraRuntimeData: { someNewKey: 'someNewValue' } }
+			{ ...unregisteredRuntime, ...validatedMetadata }
 		);
 	});
 
-	test('auto start encounters runtime validation error', async () => {
+	test('auto start throws if runtime validation errors', async () => {
 		// The runtime should not yet be registered.
 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
 
+		// Update the validator to throw.
 		const error = new Error('Failed to validate runtime metadata');
-		manager.setValidateMetadata(async (metadata: ILanguageRuntimeMetadata) => {
+		manager.setValidateMetadata(async (_metadata: ILanguageRuntimeMetadata) => {
 			throw error;
 		});
 
 		await assert.rejects(autoStartSession(unregisteredRuntime), error);
 
-		// The runtime should still not be registered.
+		// The runtime should remain unregistered.
 		assert.equal(languageRuntimeService.getRegisteredRuntime(unregisteredRuntime.runtimeId), undefined);
 	});
 
@@ -663,51 +667,35 @@ suite('Positron - RuntimeSessionService', () => {
 		configService.setUserConfiguration('positron.interpreters.automaticStartup', false);
 
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
-		assert.equal(sessionId, '');
 
-		// TODO: Do we also need to check the session state?
+		assert.equal(sessionId, '');
+		assertServiceState();
 	});
 
-	// TODO: Reuse code in below two tests.
-	test('auto start console in an untrusted workspace defers until trust is granted', async () => {
-		workspaceTrustManagementService.setWorkspaceTrust(false);
+	for (const action of ['auto start', 'start']) {
+		test(`${action} console in an untrusted workspace defers until trust is granted`, async () => {
+			workspaceTrustManagementService.setWorkspaceTrust(false);
 
-		const sessionId = await runtimeSessionService.autoStartRuntime(runtime, 'Test requested to auto-start a runtime');
-		assert.equal(sessionId, '');
+			let sessionId: string;
+			if (action === 'auto start') {
+				sessionId = await runtimeSessionService.autoStartRuntime(runtime, startReason);
+			} else {
+				sessionId = await runtimeSessionService.startNewRuntimeSession(
+					runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason);
+			}
 
-		workspaceTrustManagementService.setWorkspaceTrust(true);
+			assert.equal(sessionId, '');
+			assertServiceState();
 
-		await new Promise<void>(resolve => {
-			disposables.add(runtimeSessionService.onDidStartRuntime(session => {
-				if (session.runtimeMetadata === runtime) {
-					disposables.add(session);
-					resolve();
-				}
-			}));
+			workspaceTrustManagementService.setWorkspaceTrust(true);
+
+			// The session should eventually start.
+			const session = await Event.toPromise(runtimeSessionService.onDidStartRuntime);
+			disposables.add(session);
+
+			assertSessionIsStarting(session);
 		});
-
-		// TODO: We should probably check more things here?
-	});
-
-	test('start console in an untrusted workspace defers until trust is granted', async () => {
-		workspaceTrustManagementService.setWorkspaceTrust(false);
-
-		const sessionId = await runtimeSessionService.startNewRuntimeSession(runtime.runtimeId, sessionName, LanguageRuntimeSessionMode.Console, undefined, startReason);
-		assert.equal(sessionId, '');
-
-		workspaceTrustManagementService.setWorkspaceTrust(true);
-
-		await new Promise<void>(resolve => {
-			disposables.add(runtimeSessionService.onDidStartRuntime(session => {
-				if (session.runtimeMetadata === runtime) {
-					disposables.add(session);
-					resolve();
-				}
-			}));
-		});
-
-		// TODO: We should probably check more things here?
-	});
+	}
 
 	test('start notebook in an untrusted workspace throws', async () => {
 		workspaceTrustManagementService.setWorkspaceTrust(false);
