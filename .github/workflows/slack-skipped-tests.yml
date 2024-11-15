@@ -1,9 +1,12 @@
 name: Slack Skipped Tests
 
 on:
-  schedule:
-    # Run every Tuesday at 2pm UTC / 8am CST / 9am EST
-    - cron: '0 14 * * 2'
+  pull_request:
+    branches:
+      - main
+  # schedule:
+  #   # Run every Tuesday at 2pm UTC / 8am CST / 9am EST
+  #   - cron: '0 14 * * 2'
   workflow_dispatch:
 
 jobs:
