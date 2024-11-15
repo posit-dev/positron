@@ -1171,7 +1171,10 @@ configurationRegistry.registerConfiguration({
 		},
 		// --- Begin Positron ---
 		[PositronNotebookFeatureFlags.useMinimalNotebookUi]: {
-			description: nls.localize('notebook.useMinimalNotebookUi.description', "Whether to use experimental minimal notebook UI for a more streamlined notebook experience."),
+			markdownDescription: nls.localize(
+				'notebook.usePositronMinimalNotebookUi.description',
+				"Enable Positron's minimal notebook UI for a more streamlined notebook experience.\n\n**CAUTION**: This feature is experimental."
+			),
 			type: 'boolean',
 			default: false,
 			tags: ['notebookLayout', 'positron', 'experimental']
