@@ -26,7 +26,7 @@ describe('Connections Pane #web #win', () => {
 		after(async function () {
 
 			const app = this.app as Application;
-			app.workbench.positronConnections.removeConnectionButton.click();
+			await app.workbench.positronConnections.removeConnectionButton.click();
 
 		});
 
