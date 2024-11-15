@@ -14,7 +14,8 @@ import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IManagedHover } from 'vs/base/browser/ui/hover/hover';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 
 /**
  * MouseTrigger enumeration.
@@ -38,7 +39,6 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 interface ButtonProps {
-	readonly hoverService?: IHoverService;
 	readonly hoverManager?: IHoverManager;
 	readonly className?: string;
 	readonly style?: CSSProperties | undefined;
@@ -63,38 +63,71 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
-	React.useEffect(() => {
-		if (props.hoverManager) {
-			// Get the tooltip.
-			const tooltip = (() => {
-				if (!props.tooltip) {
-					// There isn't a tooltip.
-					return undefined;
-				} else if (typeof props.tooltip === 'string') {
-					// Return the string tooltip.
-					return props.tooltip;
-				} else {
-					// Return the dynamic tooltip.
-					return props.tooltip();
-				}
-			})();
+	const [managedHover, setManagedHover] = React.useState<IManagedHover | undefined>(undefined);
 
-			// If there's a tooltip, show it.
-			if (tooltip) {
-				props.hoverManager.updateHover({
-					content: tooltip,
-					target: buttonRef.current,
-					persistence: {
-						hideOnKeyDown: true,
-						hideOnHover: false
-					},
-					appearance: {
-						showPointer: true
-					}
-				}, false);
+	React.useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Get the tooltip.
+		const tooltip = (() => {
+			if (!props.tooltip) {
+				// There isn't a tooltip.
+				return undefined;
+			} else if (typeof props.tooltip === 'string') {
+				// Return the string tooltip.
+				return props.tooltip;
+			} else {
+				// Return the dynamic tooltip.
+				return props.tooltip();
+			}
+		})();
+
+		if (props.hoverManager && tooltip) {
+			if (managedHover) {
+				managedHover.update(tooltip);
+			} else {
+				setManagedHover(props.hoverManager.setupManagedHover(buttonRef.current, tooltip));
 			}
 		}
-	}, [props]);
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+
+	}, [props, props.hoverManager, managedHover]);
+
+	// React.useEffect(() => {
+	// 	if (props.hoverManager) {
+	// 		// Get the tooltip.
+	// 		const tooltip = (() => {
+	// 			if (!props.tooltip) {
+	// 				// There isn't a tooltip.
+	// 				return undefined;
+	// 			} else if (typeof props.tooltip === 'string') {
+	// 				// Return the string tooltip.
+	// 				return props.tooltip;
+	// 			} else {
+	// 				// Return the dynamic tooltip.
+	// 				return props.tooltip();
+	// 			}
+	// 		})();
+
+	// 		// If there's a tooltip, show it.
+	// 		if (tooltip) {
+	// 			props.hoverManager.updateHoverYack({
+	// 				content: tooltip,
+	// 				target: buttonRef.current,
+	// 				persistence: {
+	// 					hideOnKeyDown: true,
+	// 					hideOnHover: false
+	// 				},
+	// 				appearance: {
+	// 					showPointer: true
+	// 				}
+	// 			}, false);
+	// 		}
+	// 	}
+	// }, [props]);
 
 	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
@@ -104,7 +137,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 		e.preventDefault();
 		e.stopPropagation();
 
-		props.hoverManager?.hideHover();
+		// props.hoverManager?.hideHoverYack();
 
 		// Raise the onPressed event if the button isn't disabled.
 		if (!props.disabled && props.onPressed) {
@@ -143,37 +176,40 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseEnterHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// If there's a hover manager, see if there's a tooltip.
-		if (props.hoverManager) {
-			// Get the tooltip.
-			const tooltip = (() => {
-				if (!props.tooltip) {
-					// There isn't a tooltip.
-					return undefined;
-				} else if (typeof props.tooltip === 'string') {
-					// Return the string tooltip.
-					return props.tooltip;
-				} else {
-					// Return the dynamic tooltip.
-					return props.tooltip();
-				}
-			})();
+		// if (props.hoverManager) {
+		// 	props.hoverManager.showManagedHover(buttonRef.current);
+		// }
+		// // If there's a hover manager, see if there's a tooltip.
+		// if (props.hoverManager) {
+		// 	// Get the tooltip.
+		// 	const tooltip = (() => {
+		// 		if (!props.tooltip) {
+		// 			// There isn't a tooltip.
+		// 			return undefined;
+		// 		} else if (typeof props.tooltip === 'string') {
+		// 			// Return the string tooltip.
+		// 			return props.tooltip;
+		// 		} else {
+		// 			// Return the dynamic tooltip.
+		// 			return props.tooltip();
+		// 		}
+		// 	})();
 
-			// If there's a tooltip, show it.
-			if (tooltip) {
-				props.hoverManager.showHover({
-					content: tooltip,
-					target: buttonRef.current,
-					persistence: {
-						hideOnKeyDown: true,
-						hideOnHover: false
-					},
-					appearance: {
-						showPointer: true
-					}
-				}, false);
-			}
-		}
+		// 	// If there's a tooltip, show it.
+		// 	if (tooltip) {
+		// 		props.hoverManager.showHoverYack({
+		// 			content: tooltip,
+		// 			target: buttonRef.current,
+		// 			persistence: {
+		// 				hideOnKeyDown: true,
+		// 				hideOnHover: false
+		// 			},
+		// 			appearance: {
+		// 				showPointer: true
+		// 			}
+		// 		}, false);
+		// 	}
+		// }
 
 		// Call the onMouseEnter callback.
 		props.onMouseEnter?.();
@@ -184,10 +220,13 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseLeaveHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// If there's a hover manager, hide hover.
-		if (props.hoverManager) {
-			props.hoverManager.hideHover();
+		if (managedHover) {
+			managedHover.hide();
 		}
+		// // If there's a hover manager, hide hover.
+		// if (props.hoverManager) {
+		// 	props.hoverManager.hideHoverYack();
+		// }
 
 		// Call the onMouseLeave callback.
 		props.onMouseLeave?.();

@@ -4,31 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
-import { IHoverOptions, IHoverTarget, IHoverWidget } from 'vs/base/browser/ui/hover/hover';
+import { IManagedHover } from 'vs/base/browser/ui/hover/hover';
 import { Disposable, toDisposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IHoverDelegate, IHoverDelegateOptions } from 'vs/base/browser/ui/hover/hoverDelegate';
 
 /**
  * IHoverManager interface.
  */
 export interface IHoverManager {
 	/**
-	 * Shows a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
+	 * Sets up a managed hover.
+	 * @param targetElement The target element to show the hover for.
+	 * @param content The content to show in the hover.
+	 * @returns The managed hover.
 	 */
-	showHover(options: IHoverOptions, focus?: boolean): void;
+	setupManagedHover(targetElement: HTMLElement, text: string): IManagedHover;
 
 	/**
-	 * Updates a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
-	 */
-	updateHover(options: IHoverOptions, focus?: boolean): void;
-
-	/**
-	 * Hides a hover.
+	 * Hides the hover if it was visible.
 	 */
 	hideHover(): void;
 }
@@ -36,11 +30,8 @@ export interface IHoverManager {
 /**
  * HoverManager class.
  */
-export class HoverManager extends Disposable implements IHoverManager {
-	/**
-	 * Gets or sets the hover leave time.
-	 */
-	private static _hoverLeaveTime: number = 0;
+export class HoverManager extends Disposable implements IHoverManager, IHoverDelegate {
+	//#region Private Properties
 
 	/**
 	 * The hover delay.
@@ -48,19 +39,13 @@ export class HoverManager extends Disposable implements IHoverManager {
 	private _hoverDelay: number;
 
 	/**
-	 * Gets or sets the timeout.
+	 * Gets or sets the hover leave time.
 	 */
-	private _timeout?: NodeJS.Timeout;
+	private _hoverLeaveTime: number = 0;
 
-	/**
-	 * Gets or sets the last hover target.
-	 */
-	private _lastHoverTarget?: IHoverTarget | HTMLElement;
+	//#endregion Private Properties
 
-	/**
-	 * Gets or sets the last hover widget.
-	 */
-	private _lastHoverWidget?: IHoverWidget;
+	//#region Constructor
 
 	/**
 	 * Constructor.
@@ -88,72 +73,91 @@ export class HoverManager extends Disposable implements IHoverManager {
 		this._register(toDisposable(() => this.hideHover()));
 	}
 
-	/**
-	 * Shows a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
-	 */
-	public showHover(options: IHoverOptions, focus?: boolean) {
-		// Hide the hover.
-		this.hideHover();
+	//#endregion Constructor
 
-		/**
-		 * Shows the hover.
-		 * @param skipFadeInAnimation A value which indicates whether to skip fade in animation.
-		 */
-		const showHover = (skipFadeInAnimation: boolean) => {
-			// Update the position and appearance options.
-			options.position = { ...options.position, hoverPosition: HoverPosition.BELOW };
-			options.appearance = { ...options.appearance, skipFadeInAnimation };
+	//#region IHoverManager Implementation
 
-			// If the compact appearance is not set, set it.
-			if (!options.appearance.compact) {
-				options.appearance = { ...options.appearance, compact: this._compact };
+	showHover(options: IHoverDelegateOptions, focus?: boolean): IHoverWidget | undefined {
+
+		return this._hoverService.showHover({
+			...options,
+			// ...overrideOptions,
+			persistence: {
+				hideOnKeyDown: true,
+				// ...overrideOptions.persistence
+			},
+			// id,
+			appearance: {
+				...options.appearance,
+				compact: true,
+				skipFadeInAnimation: this.isInstantlyHovering(),
+				// ...overrideOptions.appearance
 			}
+		}, false);
 
-			// Show the hover and set the last hover widget.
-			this._lastHoverTarget = options.target;
-			this._lastHoverWidget = this._hoverService.showHover(options, focus);
-		};
 
-		// If a hover was recently shown, show the hover immediately and skip the fade in animation.
-		// If not, schedule the hover for display with fade in animation.
-		if (Date.now() - HoverManager._hoverLeaveTime < 200) {
-			showHover(true);
-		} else {
-			// Set the timeout to show the hover.
-			this._timeout = setTimeout(() => showHover(false), this._hoverDelay);
-		}
+		// return this._hoverService.showHover(options, false);
+		// // Update the position and appearance options.
+		// options.position = { ...options.position, hoverPosition: HoverPosition.BELOW };
+		// options.appearance = { ...options.appearance, skipFadeInAnimation };
+
+		// // If the compact appearance is not set, set it.
+		// if (!options.appearance.compact) {
+		// 	options.appearance = { ...options.appearance, compact: this._compact };
+		// }
+
+		// // Show the hover and set the last hover widget.
+		// this._lastHoverTarget = options.target;
+		// this._lastHoverWidget = this._hoverService.showHover(options, focus);
 	}
 
+	onDidHideHover(): void {
+		this._hoverLeaveTime = Date.now();
+	}
+
+	get delay() {
+		const result = this.isInstantlyHovering() ? 0 : this._hoverDelay;
+		console.log(`Hover manager hover delay is ${result}`);
+		return result;
+	}
+
+	get placement(): 'element' | 'mouse' | undefined {
+		return 'element';
+	}
+
+	get showNativeHover(): boolean | undefined {
+		return false;
+	}
+
+	//#endregion IHoverManager Implementation
+
+	//#region IHoverDelegate Implementation
+
 	/**
-	 * Updates a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
+	 * Sets up a managed hover.
+	 * @param targetElement The target element to show the hover for.
+	 * @param content The content to show in the hover.
+	 * @returns The managed hover.
 	 */
-	public updateHover(options: IHoverOptions, focus?: boolean) {
-		if (this._lastHoverTarget === options.target && this._lastHoverWidget) {
-			this.showHover(options, focus);
-		}
+	public setupManagedHover(targetElement: HTMLElement, content: string): IManagedHover {
+		const x = this._hoverService.setupManagedHover(this, targetElement, content);
+		return x;
 	}
 
 	/**
-	 * Hides a hover.
+	 * Hides the hover if it was visible.
 	 */
 	public hideHover() {
-		// Clear pending timeout.
-		if (this._timeout) {
-			clearTimeout(this._timeout);
-			this._timeout = undefined;
-		}
-
-		this._lastHoverTarget = undefined;
-
-		// If there is a last hover widget, dispose of it and set the hover leave time.
-		if (this._lastHoverWidget) {
-			this._lastHoverWidget.dispose();
-			this._lastHoverWidget = undefined;
-			HoverManager._hoverLeaveTime = Date.now();
-		}
+		this._hoverService.hideHover();
 	}
+
+	//#region IHoverDelegate Implementation
+
+	//#region Private Methods
+
+	private isInstantlyHovering(): boolean {
+		return Date.now() - this._hoverLeaveTime < 200;
+	}
+
+	//#endregion Private Methods
 }

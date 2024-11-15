@@ -73,7 +73,6 @@ export const ActionBarButton = forwardRef<
 	return (
 		<Button
 			ref={buttonRef}
-			hoverService={context.hoverService}
 			hoverManager={context.hoverManager}
 			className={positronClassNames(
 				'action-bar-button',
@@ -119,7 +118,6 @@ export const ActionBarButton = forwardRef<
 					<Button
 						ref={dropdownButtonRef}
 						className='action-bar-button-drop-down-button'
-						hoverService={context.hoverService}
 						hoverManager={context.hoverManager}
 						ariaLabel={ariaLabel}
 						tooltip={props.tooltip}
