@@ -36,6 +36,8 @@ jobs:
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      REPORT_DIR: playwright-report
     steps:
       - uses: actions/checkout@v4
 

@@ -215,6 +215,9 @@ jobs:
         "e2e-browser-tests",
       ]
     if: ${{ !cancelled() }}
+    env:
+      AWS_S3_BUCKET: positron-test-reports
+      REPORT_DIR: playwright-report
 
     steps:
       - uses: actions/checkout@v4
