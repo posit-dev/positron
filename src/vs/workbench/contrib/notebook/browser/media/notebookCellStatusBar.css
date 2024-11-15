@@ -96,7 +96,7 @@
 
 	/* We show the status items when the cell is executing, focused, or hovered */
 	[aria-label*="executing"] .cell-status-item,
-	.monaco-list-row.focused.selected .cell-status-item,
+	.monaco-list-row.focused .cell-status-item,
 	.cell-statusbar-container:hover .cell-status-item {
 		opacity: 1;
 		visibility: visible;
