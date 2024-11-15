@@ -10,6 +10,7 @@ runs:
   steps:
     - name: Configure AWS Credentials
       uses: aws-actions/configure-aws-credentials@v4
+      if: ${{ !cancelled() }}
       with:
         role-to-assume: ${{ inputs.role-to-assume }}
         aws-region: "us-east-1"

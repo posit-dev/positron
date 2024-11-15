@@ -254,6 +254,7 @@ jobs:
 
       - name: Upload Playwright Report to S3
         uses: ./.github/actions/upload-report-to-s3
+        if: ${{ !cancelled() }}
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
