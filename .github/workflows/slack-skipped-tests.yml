@@ -6,6 +6,9 @@ on:
     - cron: '0 14 * * 2'
   workflow_dispatch:
 
+env:
+  SLACK_WEBHOOK_URL: https://hooks.slack.com/services/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
+
 jobs:
   slack-skipped-tests:
     runs-on: ubuntu-latest
