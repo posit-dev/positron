@@ -217,7 +217,7 @@ jobs:
     if: ${{ !cancelled() }}
     env:
       AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report
+      REPORT_DIR: playwright-report-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4

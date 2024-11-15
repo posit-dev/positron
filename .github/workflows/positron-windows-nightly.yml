@@ -20,7 +20,7 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report
+      REPORT_DIR: playwright-report-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
