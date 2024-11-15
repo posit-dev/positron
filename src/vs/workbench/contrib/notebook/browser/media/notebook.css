@@ -296,12 +296,13 @@
 }
 /* --- Begin Positron --- */
 .monaco-workbench .notebookOverlay.minimal-notebook-ui {
+	/* Other rounded corners in positron are 6px */
 	.monaco-list-row {
 		.cell-editor-part {
 			/* Adjust the cell editor's bottom padding and add rounded corners */
 			&:before {
 				bottom: 16px;
-				border-radius: 4px;
+				border-radius: 6px;
 			}
 
 			/* There is a space beneath the cell caused by us shifting things around and removing the
@@ -312,7 +313,7 @@
 				left: 0px;
 				height: 8px;
 				bottom: 16px;
-				border-radius: 4px 0px;
+				border-radius: 6px 0px;
 				background-color: var(--vscode-notebook-cellEditorBackground);
 				display: block;
 				position: absolute;
@@ -323,12 +324,14 @@
 		/* Style adjustments for cell toolbars in minimal UI mode:
 		- Add rounded corners to match the cell editor
 		- Move toolbar slightly to the right for better visual separation */
-		.cell-title-toolbar,
-		.cell-bottom-toolbar-container .action-item,
-		.cell-list-top-cell-toolbar-container .action-item {
-			border-radius: 4px;
+		.cell-title-toolbar {
+			border-radius: 6px;
 			transform: translateX(16px);
 		}
+	}
+
+	.action-item {
+		border-radius: 6px;
 	}
 }
 /* --- End Positron --- */
