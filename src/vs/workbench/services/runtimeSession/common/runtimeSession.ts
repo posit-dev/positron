@@ -996,14 +996,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						this.foregroundSession = session;
 					}
 
-					// If this is a console session and there isn't already a console session
-					// for this language, set this one as the console session.
-					// (This restores the console session in the case of a
-					// restart)
+					// Restore the session in the case of a restart.
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
 						!this._consoleSessionsByLanguageId.has(session.runtimeMetadata.languageId)) {
 						this._consoleSessionsByLanguageId.set(session.runtimeMetadata.languageId,
 							session);
+					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
+						session.metadata.notebookUri &&
+						!this._notebookSessionsByNotebookUri.has(session.metadata.notebookUri)) {
+						this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 					}
 
 
