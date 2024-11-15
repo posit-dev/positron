@@ -700,6 +700,34 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		metadata: ILanguageRuntimeMetadata,
 		source: string): Promise<string> {
 
+		// Auto-started runtimes are (currently) always console sessions.
+		const sessionMode = LanguageRuntimeSessionMode.Console;
+		const notebookUri = undefined;
+
+		// See if we are already starting the requested session. If we
+		// are, return the promise that resolves when the session is ready to
+		// use. This makes it possible for multiple requests to start the same
+		// session to be coalesced.
+		const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(
+			getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri));
+		if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+			return startingRuntimePromise.p;
+		}
+
+		const runningSessionId = this.validateRuntimeSessionStart(sessionMode, metadata, notebookUri, source);
+		if (runningSessionId) {
+			return runningSessionId;
+		}
+
+		// Before attempting to validate the runtime, add it to the set of
+		// starting consoles.
+		this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
+
+		// Create a promise that resolves when the runtime is ready to use.
+		const startPromise = new DeferredPromise<string>();
+		const sessionMapKey = getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri);
+		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
 		// Check to see if the runtime has already been registered with the
 		// language runtime service.
 		const languageRuntime =
@@ -709,10 +737,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If it has not been registered, validate the metadata.
 		if (!languageRuntime) {
 			try {
-				// Before attempting to validate the runtime, add it to the set of
-				// starting consoles.
-				this._startingConsolesByLanguageId.set(metadata.languageId, metadata);
-
 				// Attempt to validate the metadata. Note that this can throw if the metadata
 				// is invalid!
 				const validated = await sessionManager.validateMetadata(metadata);
@@ -764,9 +788,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		// Auto-started runtimes are (currently) always console sessions.
-		return this.doCreateRuntimeSession(metadata, metadata.runtimeName,
-			LanguageRuntimeSessionMode.Console, source);
+		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, notebookUri);
 	}
 
 	/**
@@ -793,10 +815,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._startingNotebooksByNotebookUri.set(notebookUri, runtimeMetadata);
 		}
 
-		// Create a promise that resolves when the runtime is ready to use.
-		const startPromise = new DeferredPromise<string>();
-		const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
-		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
+		let startPromise = this._startingSessionsBySessionMapKey.get(
+			getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri));
+		if (!startPromise || startPromise.isSettled) {
+			startPromise = new DeferredPromise<string>();
+			const sessionMapKey = getSessionMapKey(sessionMode, runtimeMetadata.runtimeId, notebookUri);
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+		}
 
 		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
