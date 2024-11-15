@@ -17,6 +17,8 @@ test.beforeEach(async function ({ app }) {
 test.describe('R - New Project Wizard', () => {
 	test.describe.configure({ mode: 'serial' });
 
+	const defaultProjectName = 'my-r-project';
+
 	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -26,7 +28,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myRProject${projSuffix}`);
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.
 	});
@@ -43,9 +45,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myRProject${projSuffix}`
-		);
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// Interact with the modal to install renv
 		await app.workbench.positronPopups.installRenv();
 
@@ -86,9 +86,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myRProject${projSuffix}`
-		);
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// Verify renv files are present
 		await expect(async () => {
 			const projectFiles = await app.workbench.positronExplorer.getExplorerProjectFiles();
@@ -119,9 +117,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(
-			`myRProject${projSuffix}`
-		);
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// Interact with the modal to skip installing renv
 		await app.workbench.positronPopups.installRenv(false);
 		// Verify renv files are **not** present
@@ -136,6 +132,8 @@ test.describe('R - New Project Wizard', () => {
 });
 
 test.describe('Jupyter - New Project Wizard', () => {
+	const defaultProjectName = 'my-jupyter-notebook';
+
 	test('Jupyter Project Defaults [C629352]', { tag: ['@pr'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -146,7 +144,7 @@ test.describe('Jupyter - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await app.code.driver.wait(10000);
-		await app.workbench.positronExplorer.explorerProjectTitle.waitForText(`myJupyterNotebook${projSuffix}`);
+		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.
 	});
