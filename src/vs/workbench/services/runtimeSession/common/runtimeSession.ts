@@ -426,7 +426,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// If the workspace is not trusted, defer starting the runtime until the
 		// workspace is trusted.
 		if (!this._workspaceTrustManagementService.isWorkspaceTrusted()) {
-			return this.autoStartRuntime(languageRuntime, source);
+			if (sessionMode === LanguageRuntimeSessionMode.Console) {
+				return this.autoStartRuntime(languageRuntime, source);
+			} else {
+				throw new Error(`Cannot start a ${sessionMode} session in an untrusted workspace.`);
+			}
 		}
 
 		// Start the runtime.
