@@ -229,14 +229,18 @@ jobs:
       - name: Install unzip
         run: apt-get update && apt-get install -y unzip
 
-      - name: Install and Verify AWS CLI
+      - name: Install AWS CLI
         run: |
           curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
           unzip -q /tmp/awscliv2.zip -d /tmp
           /tmp/aws/install -i $HOME/aws-cli -b $HOME/bin
           rm -rf /tmp/aws /tmp/awscliv2.zip
-          echo "$HOME/bin" >> $GITHUB_PATH
-          aws --version
+
+      - name: Add AWS CLI to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Verify AWS CLI installation
+        run: aws --version
 
       - name: Download blob reports
         uses: actions/download-artifact@v4
