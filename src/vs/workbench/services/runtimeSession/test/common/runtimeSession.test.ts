@@ -341,6 +341,14 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			}
 
+			const createOrRestoreMethod = action === 'restore' ? 'restoreSession' : 'createSession';
+			test(`${action} ${mode} encounters ${createOrRestoreMethod}() error`, async () => {
+				const error = new Error('Failed to create session');
+				sinon.stub(manager, createOrRestoreMethod).rejects(error);
+
+				await assert.rejects(start(), error);
+			});
+
 			test(`${action} ${mode} fires onDidFailStartRuntime if session.start() errors`, async () => {
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
 				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {

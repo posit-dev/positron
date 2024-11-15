@@ -482,6 +482,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+
 		// Add the runtime to the starting runtimes.
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			this._startingConsolesByLanguageId.set(runtimeMetadata.languageId, runtimeMetadata);
@@ -520,8 +524,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} catch (err) {
 			startPromise.error(err);
 		}
-
-		startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
 	}
 
 	/**
@@ -728,6 +730,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionMapKey = getSessionMapKey(sessionMode, metadata.runtimeId, notebookUri);
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+
 		// Check to see if the runtime has already been registered with the
 		// language runtime service.
 		const languageRuntime =
@@ -821,6 +827,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		if (!startPromise || startPromise.isSettled) {
 			startPromise = new DeferredPromise<string>();
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
+			// It's possible that startPromise is never awaited, so we log any errors here
+			// at the debug level since we still expect the error to be handled/logged elsewhere.
+			startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 		}
 
 		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
@@ -860,10 +870,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} catch (err) {
 			startPromise.error(err);
 		}
-
-		// It's possible that startPromise is never awaited, so we log any errors here
-		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 
 		return sessionId;
 	}
