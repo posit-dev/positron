@@ -12,7 +12,7 @@ test.use({
 
 test.describe('SQLite DB Connection', { tag: ['@web', '@win'] }, () => {
 	test.afterEach(async function ({ app }) {
-		app.workbench.positronConnections.removeConnectionButton.click();
+		await app.workbench.positronConnections.removeConnectionButton.click();
 	});
 
 	test('Python - SQLite DB Connection [C628636]', async function ({ app, logger, python }) {
