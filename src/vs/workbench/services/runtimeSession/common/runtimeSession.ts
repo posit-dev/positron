@@ -311,8 +311,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	async selectRuntime(runtimeId: string, source: string): Promise<void> {
 		const runtime = this._languageRuntimeService.getRegisteredRuntime(runtimeId);
 		if (!runtime) {
-			return Promise.reject(new Error(`Language runtime ID '${runtimeId}' ` +
-				`is not registered.`));
+			throw new Error(`No language runtime with id '${runtimeId}' was found.`);
 		}
 
 		// Shut down any other runtime consoles for the language.
