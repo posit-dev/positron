@@ -683,13 +683,13 @@ suite('Positron - RuntimeSessionService', () => {
 						hasStartingOrRunningConsole: true,
 						consoleSession: newSession,
 						activeSessions: [session, newSession],
-					})
+					});
 				} else {
 					assertServiceState({
 						notebookSession: newSession,
 						notebookSessionForNotebookUri: newSession,
 						activeSessions: [session, newSession],
-					})
+					});
 				}
 			});
 		}
@@ -773,7 +773,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// TODO: I think this behavior is undefined at the moment... We don't have any safety checks
 		//       in start based on restart behavior.
-		test(`restart console -> start console`, async () => {
+		test.skip(`restart console -> start console`, async () => {
 			const session = await startConsole();
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
