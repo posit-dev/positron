@@ -14,7 +14,7 @@ import { IPositronNotebookInstance } from 'vs/workbench/services/positronNoteboo
  * Feature flags that positron adds for notebooks.
  */
 export const PositronNotebookFeatureFlags = {
-	useMinimalNotebookUi: 'notebook.usePositronMinimalNotebookUi',
+	useMinimalNotebookUi: 'notebook.usePositronMinimalNotebookUI',
 } as const;
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
