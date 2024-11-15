@@ -116,6 +116,8 @@ An [example test](https://github.com/posit-dev/positron/blob/main/test/smoke/src
 
 In order to run the tests you'll need to have two environment variables set. These are so Positron knows what R and Python versions to load. A typical place to set them on a mac is in your `.zshrc`, but you should use your environment variable setting method of choice!
 
+Make sure you have the selected R and Python version installed that you are using for the environment variables. The easiest way is to open Positron and copy a version number you have available in the interpreter picker.
+
 Add these to your .zshrc or the relevant configuration file for your shell:
 
 ```bash
@@ -123,11 +125,11 @@ export POSITRON_PY_VER_SEL="3.11.5"
 export POSITRON_R_VER_SEL="4.2.1"
 ```
 
-Make sure you actually have the version you chose installed. Easiest way is to open Positron and just copy a version number you have available in the picker.
-
-_Note: If you forgot to do this before trying to run the tests, you'll need to restart VSCode or whatever editor you're using before they will take effect._
+_Note: If you forgot to set the environment variables before running the tests, you'll need to restart your editor or shell session for the environment variables to be loaded in._
 
 ## Dependencies
+
+Below are the different package and environment dependencies you'll need to install that are used in the smoke tests.
 
 ### Python Dependencies
 
@@ -158,7 +160,7 @@ Graphviz is external software that has a Python package to render graphs. Instal
 
 Some smoke tests use Conda environments. Install a lightweight version of Conda:
 
-- [miniforge](https://github.com/conda-forge/miniforge?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
+- [miniforge](https://github.com/conda-forge/miniforge/tree/main?tab=readme-ov-file#install) (On Mac, you can `brew install miniforge`. The equivalent installer may also be available via package managers on Linux and Windows.)
 - [miniconda](https://docs.anaconda.com/miniconda/#quick-command-line-install) (On Mac, you can `brew install miniconda`. The equivalent installer may also be available via package managers on Linux and Windows.)
 
 ### Resemblejs
@@ -196,7 +198,7 @@ _You may see errors in test files before you run this builder step once, as it's
 
 You can start the smoke tests using the `Launch Smoke Test` action from the debug dropdown (it’s near the bottom of the list). In debug mode, **tests run serially - parallel execution is not supported** — so running the entire suite can take a long time.
 
-To speed things up, you can focus on specific tests by adding the `it()` function to your test. If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
+To speed things up, you can focus on specific tests by adding the `.only()` function to your test. If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
 
 _Note: Don't forget to remove the `.only()`s when you're done!_
 
@@ -208,7 +210,7 @@ The command line is a faster way to run tests since it **allows for parallel exe
 2. Execute the following command to trigger the subset of tests:
 
 ```bash
-yarn somketest-only
+yarn smoketest-only
 ```
 
 Remember to remove any `#only` from test titles before committing!
