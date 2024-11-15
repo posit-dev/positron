@@ -78,11 +78,14 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath }, use) => {
+	app: [async ({ options, logsPath, logger }, use) => {
 		const app = createApp(options);
 		await app.start();
+
 		await use(app);
+
 		await app.stop();
+		logger.close!();
 
 		// rename the temp logs dir to the spec name
 		const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME);
