@@ -79,6 +79,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** A timestamp assigned when the session was created. */
 	private _created: number;
 
+	/** Cache of installed packages and associated version info */
+	private packageCache: Map<string, RPackageInstallation> = new Map();
+
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
 
@@ -386,26 +389,68 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/**
 	 * Gets information from the runtime about a specific installed package (or maybe not
-	 *   installed).
+	 *   installed). This method caches the results of the package check and, by default, consults
+	 *   this cache in subsequent calls. If positron-r initiates package installation via
+	 *   checkInstalled(), we update the cache. But our cache does not reflect changes made through
+	 *   other channels.
 	 * @param pkgName The name of the package to check.
 	 * @param minimumVersion Optionally, a minimum version to check for. This may seem weird, but we
 	 *   need R to compare versions for us. We can't easily do it over here.
+	 * @param refresh If true, removes any cache entry for pkgName (without regard to
+	 *   minimumVersion), gets fresh info from the runtime, and caches it.
 	 * @returns An instance of RPackageInstallation if the package is installed, `null` otherwise.
 	 */
-	async packageVersion(pkgName: string,
+	public async packageVersion(
+		pkgName: string,
 		minimumVersion: string | null = null,
-		refresh: boolean = false): Promise<RPackageInstallation | null> {
+		refresh: boolean = false
+	): Promise<RPackageInstallation | null> {
+		const cacheKey = `${pkgName}>=${minimumVersion ?? '0.0.0'}`;
+
+		if (!refresh) {
+			if (this.packageCache.has(cacheKey)) {
+				return this.packageCache.get(cacheKey)!;
+			}
+
+			if (minimumVersion === null) {
+				for (const key of this.packageCache.keys()) {
+					if (key.startsWith(pkgName)) {
+						return this.packageCache.get(key)!;
+					}
+				}
+			}
+		}
+		// Possible sceanrios:
+		// - We're skipping the cache and refreshing the package info.
+		// - The package isn't in the cache.
+		// - The package is in the cache, but version is insufficient (last time we checked).
+
+		// Remove a pre-existing cache entry for this package, regardless of minimumVersion.
+		for (const key of this.packageCache.keys()) {
+			if (key.startsWith(pkgName)) {
+				this.packageCache.delete(key);
+			}
+		}
+
+		const pkgInst = await this._getPackageVersion(pkgName, minimumVersion);
+
+		if (pkgInst) {
+			this.packageCache.set(cacheKey, pkgInst);
+		}
+
+		return pkgInst;
+	}
+
+	private async _getPackageVersion(
+		pkgName: string,
+		minimumVersion: string | null = null
+	): Promise<RPackageInstallation | null> {
 		let pkg: any;
 		try {
-			if (minimumVersion) {
-				pkg = await this.callMethod('packageVersion', pkgName, minimumVersion);
-			} else {
-				pkg = await this.callMethod('packageVersion', pkgName);
-			}
+			pkg = await this.callMethod('packageVersion', pkgName, minimumVersion);
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
-			throw new Error(`Error getting version of package ${pkgName}: ${runtimeError.message} ` +
-				`(${runtimeError.code})`);
+			throw new Error(`Error getting version of package ${pkgName}: ${runtimeError.message} (${runtimeError.code})`);
 		}
 
 		if (pkg.version === null) {
@@ -424,40 +469,37 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 
 	/**
 	 * Checks whether a package is installed in the runtime, possibly at a minimum version. If not,
-	 * prompts the user to install the package.
+	 * prompts the user to install the package. See the documentation for `packageVersion() for some
+	 * caveats around caching.
 	 * @param pkgName The name of the package to check.
 	 * @param minimumVersion Optionally, the version of the package needed.
-	 * @returns true if the package is installed, false otherwise
+	 * @returns true if the package is installed, at a sufficient version, false otherwise.
 	 */
 
 	async checkInstalled(pkgName: string, minimumVersion: string | null = null): Promise<boolean> {
-		let pkgInst: RPackageInstallation | null = null;
-		if (minimumVersion) {
-			pkgInst = await this.packageVersion(pkgName, minimumVersion);
-		} else {
-			pkgInst = await this.packageVersion(pkgName);
-		}
-
+		let pkgInst = await this.packageVersion(pkgName, minimumVersion);
 		const installed = pkgInst !== null;
-
-		if (installed && minimumVersion === null) {
-			return true;
-		}
-
-		const compatible = pkgInst?.compatible ?? false;
-
+		let compatible = pkgInst?.compatible ?? false;
 		if (compatible) {
 			return true;
 		}
-		// either the package is not installed or its version is insufficient
+		// One of these is true:
+		// - Package is not installed.
+		// - Package is installed, but version is insufficient.
+		// - (Our cache gave us outdated info, but we're just accepting this risk.)
 
-		const title = installed ? vscode.l10n.t('Insufficient package version') : vscode.l10n.t('Missing R package');
-		const message = installed ?
-			vscode.l10n.t(
+		const title = installed
+			? vscode.l10n.t('Insufficient package version')
+			: vscode.l10n.t('Missing R package');
+		const message = installed
+			? vscode.l10n.t(
 				'The {0} package is installed at version {1}, but version {2} is required.',
 				pkgName, pkgInst!.packageVersion, minimumVersion as string
-			) : vscode.l10n.t('The {0} package is required, but not installed.', pkgName);
-		const okButtonTitle = installed ? vscode.l10n.t('Update now') : vscode.l10n.t('Install now');
+			)
+			: vscode.l10n.t('The {0} package is required, but not installed.', pkgName);
+		const okButtonTitle = installed
+			? vscode.l10n.t('Update now')
+			: vscode.l10n.t('Install now');
 
 		const install = await positron.window.showSimpleModalDialogPrompt(
 			title,
@@ -492,8 +534,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Wait for the the runtime to be idle, or for the timeout:
 		await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
 
-		return true;
-
+		pkgInst = await this.packageVersion(pkgName, minimumVersion);
+		compatible = pkgInst?.compatible ?? false;
+		return compatible;
 	}
 
 	async isPackageAttached(packageName: string): Promise<boolean> {
