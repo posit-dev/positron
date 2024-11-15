@@ -30,6 +30,7 @@ import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -72,6 +73,7 @@ export class PositronConnectionsView
 
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -133,6 +135,7 @@ export class PositronConnectionsView
 		this._register(this.positronReactRenderer);
 		this.positronReactRenderer.render(
 			<PositronConnections
+				accessibilityService={this.accessibilityService}
 				configurationService={this.configurationService}
 				commandService={this.commandService}
 				contextKeyService={this.contextKeyService}

@@ -29,6 +29,7 @@ import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positron
 import { ActionBars } from 'vs/workbench/contrib/positronHelp/browser/components/actionBars';
 import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * PositronHelpView class.
@@ -149,23 +150,25 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 
 	/**
 	 * Constructor.
-	 * @param options The IViewPaneOptions for the view pane.
-	 * @param commandService The ICommandService.
-	 * @param configurationService The IConfigurationService.
-	 * @param contextKeyService The IContextKeyService.
-	 * @param contextMenuService The IContextMenuService.
-	 * @param hoverService The IHoverService.
-	 * @param instantiationService The IInstantiationService.
-	 * @param keybindingService The IKeybindingService.
-	 * @param openerService The IOpenerService.
-	 * @param positronHelpService The IPositronHelpService.
-	 * @param telemetryService The ITelemetryService.
-	 * @param themeService The IThemeService.
-	 * @param viewDescriptorService The IViewDescriptorService.
-	 * @param webviewService The IWebviewService.
+	 * @param options The options for the view pane.
+	 * @param _accessibilityService The accessibility service.
+	 * @param commandService The command service.
+	 * @param configurationService The configuration service.
+	 * @param contextKeyService The context key service.
+	 * @param contextMenuService The context menu service.
+	 * @param hoverService The hover service.
+	 * @param instantiationService The instantiation service.
+	 * @param keybindingService The keybinding service.
+	 * @param openerService The opener service.
+	 * @param positronHelpService The positron help service.
+	 * @param telemetryService The telemetry service.
+	 * @param themeService The theme service.
+	 * @param viewDescriptorService The view descriptor service.
+	 * @param webviewService The webview service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -264,6 +267,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		// Render the ActionBars component.
 		this.positronReactRendererHelpActionBars.render(
 			<ActionBars
+				accessibilityService={this._accessibilityService}
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}

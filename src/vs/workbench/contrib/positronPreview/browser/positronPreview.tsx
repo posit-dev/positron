@@ -27,12 +27,14 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
 import { HtmlActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/htmlActionBars';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * PositronPreviewProps interface.
  */
 export interface PositronPreviewProps extends PositronPreviewServices {
 	// Services.
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

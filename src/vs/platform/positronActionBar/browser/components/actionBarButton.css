@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,8 +14,8 @@
 }
 
 .action-bar-button {
-	height: 28px;
 	padding: 0;
+	height: 28px;
 	border: none;
 	display: flex;
 	cursor: pointer;
@@ -64,10 +64,10 @@
 }
 
 .action-bar-button-icon {
+	padding: 0 6px;
 	align-items: center;
 	justify-content: center;
 	display: flex !important;
-	width: var(--positronActionBar-iconSize);
 	height: var(--positronActionBar-iconSize);
 }
 
@@ -79,14 +79,37 @@
 	color: var(--positronActionBar-disabledForeground);
 }
 
+.action-bar-button-icon.enabled-split {
+	padding: 0 2px 0 6px;
+}
+
+.action-bar-button-icon.enabled-split:hover {
+	border-radius: 6px;
+	padding: 0 2px 0 6px;
+	filter: brightness(90%);
+	background: var(--positronActionBar-hoverBackground);
+}
+
+.action-bar-button-drop-down-container {
+	padding-right: 5px;
+}
+
+.action-bar-button-drop-down-button {
+	padding: 0 5px;
+}
+
+.action-bar-button-drop-down-button:hover {
+	border-radius: 6px;
+	filter: brightness(90%);
+	background: var(--positronActionBar-hoverBackground);
+}
+
 .action-bar-button-drop-down-arrow {
-	background-color: yellow;
-	width: 12px;
 	align-items: center;
 	justify-content: left;
 	justify-content: center;
-	font-size: 18px !important;
 	display: flex !important;
+	font-size: 18px !important;
 	height: var(--positronActionBar-iconSize);
 }
 

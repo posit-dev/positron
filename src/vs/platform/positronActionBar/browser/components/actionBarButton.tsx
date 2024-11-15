@@ -8,7 +8,7 @@ import 'vs/css!./actionBarButton';
 
 // React.
 import * as React from 'react';
-import { forwardRef, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import { forwardRef, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -26,12 +26,14 @@ export interface ActionBarButtonProps {
 	readonly maxTextWidth?: number;
 	readonly border?: boolean;
 	readonly align?: 'left' | 'right';
-	readonly layout?: 'loose' | 'tight';
 	readonly tooltip?: string | (() => string | undefined);
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
-	readonly showDropdownIndicator?: boolean;
+	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
+	readonly onMouseEnter?: () => void;
+	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
+	readonly onDropdownPressed?: () => void;
 }
 
 /**
@@ -47,6 +49,15 @@ export const ActionBarButton = forwardRef<
 	// Context hooks.
 	const context = usePositronActionBarContext();
 
+	// Reference hooks.
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+	const dropdownButtonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Imperative handle to ref.
+	useImperativeHandle(ref, () => props.dropdownIndicator === 'enabled-split' ?
+		dropdownButtonRef.current : buttonRef.current
+	);
+
 	// Create the icon style.
 	let iconStyle: React.CSSProperties = {};
 	if (props.iconId && props.iconFontSize) {
@@ -61,26 +72,30 @@ export const ActionBarButton = forwardRef<
 	// Render.
 	return (
 		<Button
-			ref={ref}
+			ref={buttonRef}
+			hoverService={context.hoverService}
 			hoverManager={context.hoverManager}
 			className={positronClassNames(
 				'action-bar-button',
 				{ 'border': optionalBoolean(props.border) },
 				{ 'fade-in': optionalBoolean(props.fadeIn) }
 			)}
-			onPressed={props.onPressed}
 			ariaLabel={ariaLabel}
 			tooltip={props.tooltip}
 			disabled={props.disabled}
+			onMouseEnter={props.onMouseEnter}
+			onMouseLeave={props.onMouseLeave}
+			onPressed={props.onPressed}
 		>
-			<div
-				className='action-bar-button-face'
-				style={{ padding: props.layout === 'tight' ? '0' : '0 2px' }}
-				aria-hidden='true'
-			>
+			<div className='action-bar-button-face' aria-hidden='true'>
 				{props.iconId && (
 					<div
-						className={`action-bar-button-icon codicon codicon-${props.iconId}`}
+						className={positronClassNames(
+							'action-bar-button-icon',
+							props.dropdownIndicator,
+							'codicon',
+							`codicon-${props.iconId}`
+						)}
 						style={iconStyle}
 					/>
 				)}
@@ -95,8 +110,23 @@ export const ActionBarButton = forwardRef<
 						{props.text}
 					</div>
 				)}
-				{props.showDropdownIndicator && (
-					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+				{props.dropdownIndicator === 'enabled' && (
+					<div className='action-bar-button-drop-down-container'>
+						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+					</div>
+				)}
+				{props.dropdownIndicator === 'enabled-split' && (
+					<Button
+						ref={dropdownButtonRef}
+						className='action-bar-button-drop-down-button'
+						hoverService={context.hoverService}
+						hoverManager={context.hoverManager}
+						ariaLabel={ariaLabel}
+						tooltip={props.tooltip}
+						onPressed={props.onDropdownPressed}
+					>
+						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+					</Button>
 				)}
 				{props.children}
 			</div>

@@ -8,18 +8,22 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
+import { OS } from 'vs/base/common/platform';
 import { Emitter } from 'vs/base/common/event';
+import { UILabelProvider } from 'vs/base/common/keybindingLabels';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator, SubmenuAction } from 'vs/base/common/actions';
 import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
+import { dumpActions } from 'vs/workbench/browser/parts/editor/actionUtils';
+import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
+import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
 import { IMenu, IMenuService, MenuId, MenuItemAction } from 'vs/platform/actions/common/actions';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
+import { ActionBarActionButton } from 'vs/platform/positronActionBar/browser/components/actionBarActionButton';
 import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/components/actionBarCommandButton';
-import { dumpActions } from 'vs/workbench/browser/parts/editor/actionUtils';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -96,10 +100,14 @@ export class EditorActionBarFactory extends Disposable {
 	/**
 	 * Constructor.
 	 * @param _editorGroup The editor group.
+	 * @param _contextKeyService The context key service.
+	 * @param _keybindingService The keybinding service.
 	 * @param _menuService The menu service.
 	 */
 	constructor(
 		private readonly _editorGroup: IEditorGroupView,
+		private readonly _contextKeyService: IContextKeyService,
+		private readonly _keybindingService: IKeybindingService,
 		private readonly _menuService: IMenuService,
 	) {
 		// Call the base class's constructor.
@@ -175,6 +183,9 @@ export class EditorActionBarFactory extends Disposable {
 	 * @returns The action bar.
 	 */
 	create(auxiliaryWindow?: boolean) {
+		// const useAlternativeActions = modifierKeyEmitter.keyStatus.altKey ||
+		// 	((isWindows || isLinux) && modifierKeyEmitter.keyStatus.shiftKey);
+
 		// Break the actions into primary actions, secondary actions, and submenu descriptors.
 		const primaryActions: IAction[] = [];
 		const secondaryActions: IAction[] = [];
@@ -222,41 +233,41 @@ export class EditorActionBarFactory extends Disposable {
 			secondaryActions
 		);
 
-		// Build the action bar
+		// Build the action bar elements.
 		const elements: JSX.Element[] = [];
-
 		for (const action of primaryActions) {
+			// Process the action.
 			if (action instanceof Separator) {
+				// Separator action.
 				elements.push(<ActionBarSeparator />);
-			} else if (action instanceof SubmenuAction) {
-				elements.push(
-					<ActionBarMenuButton
-						iconId='play'
-						ariaLabel={'ayya'}
-						align='left'
-						tooltip='ayya'
-						actions={() => action.actions}
-					/>
-				);
 			} else if (action instanceof MenuItemAction) {
-				// Extract the icon ID from the class.
-				const iconIdResult = action.class?.match(CODICON_ID);
-				const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
-
-				// Push the action bar button.
+				// Menu item action.
 				elements.push(
-					<ActionBarButton
-						disabled={!action.enabled}
-						iconId={iconId}
-						tooltip={action.tooltip}
-						ariaLabel={action.label}
-						onPressed={() => {
-							if (action.enabled) {
-								action.run();
-							}
-						}}
-					/>
+					<ActionBarActionButton action={action} />
 				);
+			} else if (action instanceof SubmenuAction) {
+				// Submenu action. Get the first action.
+				const firstAction = action.actions[0];
+
+				// The first action must be a menu item action.
+				if (firstAction instanceof MenuItemAction) {
+					// Extract the icon ID from the class.
+					const iconIdResult = action.actions[0].class?.match(CODICON_ID);
+					const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+
+					// Push the action bar menu button.
+					elements.push(
+						<ActionBarMenuButton
+							iconId={iconId}
+							text={iconId ? undefined : firstAction.label}
+							ariaLabel={this.actionTooltip(firstAction)}
+							align='left'
+							tooltip={firstAction.label}
+							dropdownIndicator='enabled-split'
+							actions={() => action.actions}
+						/>
+					);
+				}
 			}
 		}
 
@@ -280,9 +291,9 @@ export class EditorActionBarFactory extends Disposable {
 				<ActionBarMenuButton
 					iconId='toolbar-more'
 					ariaLabel={positronMoreActionsAriaLabel}
-					hideDropdownIndicator={true}
 					align='left'
 					tooltip={positronMoreActionsTooltip}
+					dropdownIndicator='disabled'
 					actions={() => secondaryActions}
 				/>
 			);
@@ -325,6 +336,49 @@ export class EditorActionBarFactory extends Disposable {
 	 */
 	private shouldInlineSubmenuAction(group: string, action: SubmenuAction) {
 		return this.isPrimaryGroup(group) && action.actions.length <= 1;
+	}
+
+	/**
+	 * Returns the action tooltip.
+	 * @param action The action.
+	 * @returns The action tooltip.
+	 */
+	private actionTooltip(action: IAction) {
+		// Get the keybinding and keybinding label.
+		const keybinding = this._keybindingService.lookupKeybinding(
+			action.id,
+			this._contextKeyService
+		);
+		const keybindingLabel = keybinding && keybinding.getLabel();
+
+		// Get the tooltip and format the result.
+		const tooltip = action.tooltip || action.label;
+		let formattedTooltip = keybindingLabel ?
+			localize('titleAndKb', "{0} ({1})", tooltip, keybindingLabel) :
+			tooltip;
+
+		if (action instanceof MenuItemAction && action.alt) {
+			// Get the alt keybinding and alt keybinding label.
+			const altKeybinding = this._keybindingService.lookupKeybinding(
+				action.alt.id,
+				this._contextKeyService
+			);
+			const altKeybindingLabel = altKeybinding && altKeybinding.getLabel();
+
+			// Get the tooltip and format the result.
+			const altTooltip = action.alt.tooltip || action.alt.label;
+			formattedTooltip = localize(
+				'titleAndKbAndAlt', "{0}\n[{1}] {2}",
+				formattedTooltip,
+				UILabelProvider.modifierLabels[OS].altKey,
+				altKeybindingLabel
+					? localize('titleAndKb', "{0} ({1})", altTooltip, altKeybindingLabel)
+					: altTooltip
+			);
+		}
+
+		// Return the formatted tooltip.
+		return formattedTooltip;
 	}
 
 	//#endregion Private Methods

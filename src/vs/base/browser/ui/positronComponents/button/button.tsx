@@ -13,7 +13,8 @@ import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren
 
 // Other dependencies.
 import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
+import { IHoverService } from 'vs/platform/hover/browser/hover';
 
 /**
  * MouseTrigger enumeration.
@@ -37,6 +38,7 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 interface ButtonProps {
+	readonly hoverService?: IHoverService;
 	readonly hoverManager?: IHoverManager;
 	readonly className?: string;
 	readonly style?: CSSProperties | undefined;
@@ -47,6 +49,8 @@ interface ButtonProps {
 	readonly mouseTrigger?: MouseTrigger;
 	readonly onBlur?: () => void;
 	readonly onFocus?: () => void;
+	readonly onMouseEnter?: () => void;
+	readonly onMouseLeave?: () => void;
 	readonly onPressed?: (e: KeyboardModifiers) => void;
 }
 
@@ -58,6 +62,39 @@ interface ButtonProps {
 export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProps>>((props, ref) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	React.useEffect(() => {
+		if (props.hoverManager) {
+			// Get the tooltip.
+			const tooltip = (() => {
+				if (!props.tooltip) {
+					// There isn't a tooltip.
+					return undefined;
+				} else if (typeof props.tooltip === 'string') {
+					// Return the string tooltip.
+					return props.tooltip;
+				} else {
+					// Return the dynamic tooltip.
+					return props.tooltip();
+				}
+			})();
+
+			// If there's a tooltip, show it.
+			if (tooltip) {
+				props.hoverManager.updateHover({
+					content: tooltip,
+					target: buttonRef.current,
+					persistence: {
+						hideOnKeyDown: true,
+						hideOnHover: false
+					},
+					appearance: {
+						showPointer: true
+					}
+				}, false);
+			}
+		}
+	}, [props]);
 
 	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
@@ -137,6 +174,9 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 				}, false);
 			}
 		}
+
+		// Call the onMouseEnter callback.
+		props.onMouseEnter?.();
 	};
 
 	/**
@@ -148,6 +188,9 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 		if (props.hoverManager) {
 			props.hoverManager.hideHover();
 		}
+
+		// Call the onMouseLeave callback.
+		props.onMouseLeave?.();
 	};
 
 	/**
@@ -160,6 +203,8 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 			sendOnPressed(e);
 		}
 	};
+
+	console.log(`Rendering Button component with tooltip ${props.tooltip}`);
 
 	// Render.
 	return (

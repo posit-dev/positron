@@ -24,6 +24,7 @@ import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/com
 import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
 import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positronViewPane';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * PositronSessionsViewPane class.
@@ -154,6 +155,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
+	 * @param _accessibilityService The accessibility service.
 	 * @param _commandService The command service.
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
@@ -172,6 +174,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
@@ -232,6 +235,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronSessions
+				accessibilityService={this._accessibilityService}
 				commandService={this._commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}

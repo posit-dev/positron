@@ -25,6 +25,7 @@ import { EditorActionBar } from 'vs/workbench/browser/parts/editor/editorActionB
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { EditorActionBarFactory } from 'vs/workbench/browser/parts/editor/editorActionBarFactory';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * Constants.
@@ -56,6 +57,7 @@ export class EditorActionBarControl extends Disposable {
 	 * Constructor.
 	 * @param _parent The parent HTML element.
 	 * @param _editorGroup The editor group.
+	 * @param _accessibilityService The accessibility service.
 	 * @param _commandService The command service.
 	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
@@ -68,6 +70,7 @@ export class EditorActionBarControl extends Disposable {
 	constructor(
 		private readonly _parent: HTMLElement,
 		private readonly _editorGroup: IEditorGroupView,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -88,6 +91,8 @@ export class EditorActionBarControl extends Disposable {
 		// Create the editor action bar factory.
 		const editorActionBarFactory = this._register(new EditorActionBarFactory(
 			this._editorGroup,
+			this._contextKeyService,
+			this._keybindingService,
 			this._menuService,
 		));
 
@@ -95,6 +100,7 @@ export class EditorActionBarControl extends Disposable {
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._container));
 		this._positronReactRenderer.render(
 			<EditorActionBar
+				accessibilityService={this._accessibilityService}
 				commandService={this._commandService}
 				configurationService={this._configurationService}
 				contextKeyService={this._contextKeyService}

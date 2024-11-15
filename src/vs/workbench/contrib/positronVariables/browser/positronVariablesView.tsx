@@ -30,6 +30,7 @@ import { PositronViewPane } from 'vs/workbench/browser/positronViewPane/positron
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 /**
  * PositronVariablesViewPane class.
@@ -163,6 +164,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
+	 * @param _accessibilityService The accessibility service.
 	 * @param clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param configurationService The configuration service.
@@ -183,6 +185,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -264,6 +267,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronVariables
+				accessibilityService={this._accessibilityService}
 				clipboardService={this.clipboardService}
 				commandService={this._commandService}
 				configurationService={this.configurationService}

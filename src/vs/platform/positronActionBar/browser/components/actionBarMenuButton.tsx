@@ -29,7 +29,7 @@ interface ActionBarMenuButtonProps {
 	readonly maxTextWidth?: number;
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
-	readonly hideDropdownIndicator?: boolean;
+	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
 	readonly actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }
 
@@ -39,8 +39,10 @@ interface ActionBarMenuButtonProps {
  * @returns The rendered component.
  */
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
-	// Hooks.
+	// Context hooks.
 	const positronActionBarContext = usePositronActionBarContext();
+
+	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Manage the aria-haspopup and aria-expanded attributes.
@@ -48,20 +50,23 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 		buttonRef.current.setAttribute('aria-haspopup', 'menu');
 	}, []);
 
+	// Manage the aria-expanded attribute.
 	useEffect(() => {
 		if (positronActionBarContext.menuShowing) {
 			buttonRef.current.setAttribute('aria-expanded', 'true');
 		} else {
 			buttonRef.current.removeAttribute('aria-expanded');
 		}
-
 	}, [positronActionBarContext.menuShowing]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
-	// Handlers.
-	const pressedHandler = async () => {
+	/**
+	 * Shows the menu.
+	 * @returns A Promise<void> that resolves when the menu is shown.
+	 */
+	const showMenu = async () => {
 		// Get the actions.
 		const actions = await props.actions();
 		if (!actions.length) {
@@ -99,10 +104,19 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 		<ActionBarButton
 			ref={buttonRef}
 			{...props}
-			showDropdownIndicator={
-				props.hideDropdownIndicator ? !props.hideDropdownIndicator : true
-			}
-			onPressed={pressedHandler}
+			dropdownIndicator={props.dropdownIndicator ?? 'enabled'}
+			onPressed={async () => {
+				if (props.dropdownIndicator !== 'enabled-split') {
+					await showMenu();
+				} else {
+					// Get the actions and run the first action.
+					const actions = await props.actions();
+					if (actions.length) {
+						actions[0].run();
+					}
+				}
+			}}
+			onDropdownPressed={async () => await showMenu()}
 		/>
 	);
 };
