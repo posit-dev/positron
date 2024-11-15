@@ -9,7 +9,7 @@ import { ZedRuntimeManager } from './manager';
 
 /**
  * Activates the extension.
- * @param context An ExtensionContext that contains the extention context.
+ * @param context An ExtensionContext that contains the extension context.
  */
 export function activate(context: vscode.ExtensionContext) {
 	// Register the Zed runtime manager with the Positron runtime.
