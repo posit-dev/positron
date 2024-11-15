@@ -28,8 +28,7 @@ test.describe('Console Pane: Python', { tag: ['@web', '@win'] }, () => {
 		}).toPass();
 	});
 
-	test.skip('Verify restart button on console bar [C617464]', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5285' }]
+	test('Verify restart button on console bar [C617464]', {
 	}, async function ({ app, python }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
