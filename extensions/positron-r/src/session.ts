@@ -80,7 +80,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _created: number;
 
 	/** Cache of installed packages and associated version info */
-	private packageCache: Map<string, RPackageInstallation> = new Map();
+	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
@@ -408,14 +408,14 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		const cacheKey = `${pkgName}>=${minimumVersion ?? '0.0.0'}`;
 
 		if (!refresh) {
-			if (this.packageCache.has(cacheKey)) {
-				return this.packageCache.get(cacheKey)!;
+			if (this._packageCache.has(cacheKey)) {
+				return this._packageCache.get(cacheKey)!;
 			}
 
 			if (minimumVersion === null) {
-				for (const key of this.packageCache.keys()) {
+				for (const key of this._packageCache.keys()) {
 					if (key.startsWith(pkgName)) {
-						return this.packageCache.get(key)!;
+						return this._packageCache.get(key)!;
 					}
 				}
 			}
@@ -426,16 +426,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// - The package is in the cache, but version is insufficient (last time we checked).
 
 		// Remove a pre-existing cache entry for this package, regardless of minimumVersion.
-		for (const key of this.packageCache.keys()) {
+		for (const key of this._packageCache.keys()) {
 			if (key.startsWith(pkgName)) {
-				this.packageCache.delete(key);
+				this._packageCache.delete(key);
 			}
 		}
 
 		const pkgInst = await this._getPackageVersion(pkgName, minimumVersion);
 
 		if (pkgInst) {
-			this.packageCache.set(cacheKey, pkgInst);
+			this._packageCache.set(cacheKey, pkgInst);
 		}
 
 		return pkgInst;
