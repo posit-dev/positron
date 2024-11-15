@@ -124,6 +124,11 @@ describe('Connections Pane #web #win', () => {
 				await app.workbench.positronConnections.openConnectionsNodes(["mtcars"]);
 			}).toPass();
 
+			// disconnect icon appearance requires hover
+			await app.workbench.positronConnections.rConnectionOpenState.hover();
+			await app.workbench.positronConnections.disconnectButton.click();
+			await app.workbench.positronConnections.reconnectButton.waitforVisible();
+
 		});
 
 	});
