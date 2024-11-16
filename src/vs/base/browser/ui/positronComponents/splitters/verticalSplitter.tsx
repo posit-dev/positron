@@ -15,6 +15,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { Delayer } from 'vs/base/common/async';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { Button, KeyboardModifiers, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -153,8 +154,8 @@ export const VerticalSplitter = ({
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
-	const [collapsed, setCollapsed] = useState(false);
-	const [ resizing, setResizing ] = useState(false);
+	const [collapsed, setCollapsed, collapsedRef] = useStateRef(false);
+	const [resizing, setResizing] = useState(false);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -324,7 +325,7 @@ export const VerticalSplitter = ({
 			onResize(newWidth);
 
 			// Set the collapsed state.
-			if (newCollapsed !== collapsed) {
+			if (newCollapsed !== collapsedRef.current) {
 				setCollapsed(newCollapsed);
 				onCollapsedChanged?.(newCollapsed);
 			}
