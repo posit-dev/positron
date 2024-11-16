@@ -79,6 +79,11 @@ import { RemoteUserDataProfilesServiceChannel } from 'vs/platform/userDataProfil
 import { NodePtyHostStarter } from 'vs/platform/terminal/node/nodePtyHostStarter';
 import { CSSDevelopmentService, ICSSDevelopmentService } from 'vs/platform/cssDev/node/cssDevService';
 
+// --- Start Positron ---
+import { EphemeralStateService } from 'vs/platform/ephemeralState/node/ephemeralStateService';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+// --- End Positron ---
+
 const eventPrefix = 'monacoworkbench';
 
 export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore) {
@@ -204,6 +209,11 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	);
 	const ptyHostService = instantiationService.createInstance(PtyHostService, ptyHostStarter);
 	services.set(IPtyService, ptyHostService);
+
+	// --- Start Positron ---
+	const ephemeralStateService = new EphemeralStateService();
+	services.set(IEphemeralStateService, ephemeralStateService);
+	// --- End Positron ---
 
 	instantiationService.invokeFunction(accessor => {
 		const extensionManagementService = accessor.get(INativeServerExtensionManagementService);

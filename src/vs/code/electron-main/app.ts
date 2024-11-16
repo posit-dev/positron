@@ -123,6 +123,11 @@ import { AuxiliaryWindowsMainService } from 'vs/platform/auxiliaryWindow/electro
 import { normalizeNFC } from 'vs/base/common/normalization';
 import { ICSSDevelopmentService, CSSDevelopmentService } from 'vs/platform/cssDev/node/cssDevService';
 
+// --- Start Positron ---
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/node/ephemeralStateService';
+// --- End Positron ---
+
 /**
  * The main VS Code application. There will only ever be one instance,
  * even if the user starts many instances (e.g. from the command line).
@@ -1111,6 +1116,10 @@ export class CodeApplication extends Disposable {
 
 		// Dev Only: CSS service (for ESM)
 		services.set(ICSSDevelopmentService, new SyncDescriptor(CSSDevelopmentService, undefined, true));
+
+		// --- Start Positron ---
+		services.set(IEphemeralStateService, new SyncDescriptor(EphemeralStateService, undefined, true));
+		// --- End Positron ---
 
 		// Init services that require it
 		await Promises.settled([

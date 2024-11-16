@@ -10,6 +10,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
@@ -18,7 +19,7 @@ import { Event } from 'vs/base/common/event';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -106,7 +107,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IEnvironmentService private readonly _environmentService: IEnvironmentService) {
+		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
+		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService) {
 
 		super();
 
@@ -289,13 +291,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					'positron.runtimeStartup.saveWorkspaceSessions');
 			}
 		}));
-
-		this._register(this._storageService.onWillSaveState((_e) => {
-			if (this._quitting) {
-				// We're quitting; clear the workspace sessions.
-				this.clearWorkspaceSessions();
-			}
-		}));
 	}
 
 	/**
@@ -327,23 +322,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Then, discover all language runtimes.
 		await this.discoverAllRuntimes();
-	}
-
-	/**
-	 * Clears all known workspace sessions from the workspace storage.
-	 *
-	 * This is done for hygiene reasons; it's not strictly necessary, because
-	 * new windows don't load the workspace storage from the previous window.
-	 *
-	 * @returns False, always, so that it can be called during the shutdown
-	 */
-	private clearWorkspaceSessions(): boolean {
-
-		// Remove the storage key.
-		this._storageService.remove(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			StorageScope.WORKSPACE);
-
-		return false;
 	}
 
 	/**
@@ -716,29 +694,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	private async restoreSessions() {
 
-		this._logService.debug(`[Runtime startup] Session restore; isBuilt: ${this._environmentService.isBuilt}, isWeb: ${isWeb}, startupKind: ${this._lifecycleService.startupKind}`);
+		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, isBuilt: ${this._environmentService.isBuilt}, isWeb: ${isWeb}, startupKind: ${this._lifecycleService.startupKind}`);
 
-		if (!this._environmentService.isBuilt) {
-			// In desktop development builds, sessions are not cleared on exit,
-			// so if this is a new window, clear up the sessions instead of
-			// restoring them.
-			if (!isWeb && this._lifecycleService.startupKind === StartupKind.NewWindow) {
-				this._logService.debug(`[Runtime startup] Clearing sessions at startup`);
-				this.clearWorkspaceSessions();
-				return;
-			}
-		}
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
-		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			StorageScope.WORKSPACE);
+		const storedSessions = this._ephemeralStateService.getItem<SerializedSessionMetadata[]>(PERSISTENT_WORKSPACE_SESSIONS_KEY);
 		if (storedSessions) {
 			try {
-				const serializedSessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
-
 				// Revive the URIs in the session metadata.
-				const sessions: SerializedSessionMetadata[] = serializedSessions.map(session => ({
+				const sessions: SerializedSessionMetadata[] = storedSessions.map(session => ({
 					...session,
 					metadata: {
 						...session.metadata,
@@ -824,10 +789,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Save the sessions to the workspace storage.
 		this._logService.debug(`[Runtime startup] Saving workspace sessions (${workspaceSessions.length})`);
-		this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			JSON.stringify(workspaceSessions),
-			StorageScope.WORKSPACE,
-			StorageTarget.MACHINE);
+		this._ephemeralStateService.setItem(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+			workspaceSessions);
 		return false;
 	}
 
@@ -886,7 +849,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			{
 				label: nls.localize('openOutputLogs', 'Open Logs'),
 				run: () => {
-					session.showOutput()
+					session.showOutput();
 				}
 			},
 		]);
