@@ -534,7 +534,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		// Wait for the the runtime to be idle, or for the timeout:
 		await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
 
-		pkgInst = await this.packageVersion(pkgName, minimumVersion);
+		pkgInst = await this.packageVersion(pkgName, minimumVersion, true);
 		compatible = pkgInst?.compatible ?? false;
 		return compatible;
 	}
