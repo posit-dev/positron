@@ -8,7 +8,7 @@ on:
 
 jobs:
   positron-ci:
-    uses: ./.github/workflows/positron-merge-to-main.yml
+    uses: ./.github/workflows/positron-merge-to-branch.yml
     secrets: inherit
     with:
       smoketest_target: smoketest-pr
