@@ -67,6 +67,9 @@ import { mainWindow } from 'vs/base/browser/window';
 import { TestCodeEditorService } from 'vs/editor/test/browser/editorTestServices';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookOutlineDataSourceFactory';
 import { ILanguageDetectionService } from 'vs/workbench/services/languageDetection/common/languageDetectionWorkerService';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 export class TestCell extends NotebookCellTextModel {
 	constructor(
@@ -229,7 +232,13 @@ function _createTestNotebookEditor(instantiationService: TestInstantiationServic
 	}), {}, { transientCellMetadata: {}, transientDocumentMetadata: {}, cellContentMetadata: {}, transientOutputs: false }));
 
 	const model = disposables.add(new NotebookEditorTestModel(notebook));
-	const notebookOptions = disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService)));
+	// --- Begin Positron ---
+	// Add in our notebook service to constructor arguments
+	const notebookOptions = disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(IPositronNotebookService), instantiationService.get(ICodeEditorService)));
+
+	// Old version
+	// const notebookOptions = disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService)));
+	// --- End Positron ---
 	const baseCellEditorOptions = new class extends mock<IBaseCellEditorOptions>() { };
 	const viewContext = new ViewContext(notebookOptions, disposables.add(new NotebookEventDispatcher()), () => baseCellEditorOptions);
 	const viewModel: NotebookViewModel = disposables.add(instantiationService.createInstance(NotebookViewModel, viewType, model.notebook, viewContext, null, { isReadOnly: false }));
@@ -482,7 +491,12 @@ export function createNotebookCellList(instantiationService: TestInstantiationSe
 	};
 
 	const notebookOptions = !!viewContext ? viewContext.notebookOptions
-		: disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService)));
+		// --- Begin Positron ---
+		: disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(IPositronNotebookService), instantiationService.get(ICodeEditorService)));
+	// Old version
+	// 	: disposables.add(new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService)));
+	// --- End Positron ---
+
 	const cellList: NotebookCellList = disposables.add(instantiationService.createInstance(
 		NotebookCellList,
 		'NotebookCellList',

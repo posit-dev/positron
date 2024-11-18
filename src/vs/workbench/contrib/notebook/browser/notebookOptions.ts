@@ -16,6 +16,9 @@ import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { ConfigurationTarget, IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { InteractiveWindowCollapseCodeCells, NotebookCellDefaultCollapseConfig, NotebookCellInternalMetadata, NotebookSetting, ShowCellStatusBarType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
+// --- Begin Positron ---
+import { IPositronNotebookService, PositronNotebookSizes } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 const SCROLLABLE_ELEMENT_PADDING_TOP = 18;
 
@@ -141,6 +144,9 @@ export class NotebookOptions extends Disposable {
 		private readonly overrides: { cellToolbarInteraction: string; globalToolbar: boolean; stickyScrollEnabled: boolean; dragAndDropEnabled: boolean } | undefined,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@ICodeEditorService private readonly codeEditorService: ICodeEditorService,
 	) {
 		super();
@@ -679,6 +685,9 @@ export class NotebookOptions extends Disposable {
 		return outerWidth
 			- this._layoutConfiguration.markdownCellGutter
 			- this._layoutConfiguration.markdownCellLeftMargin
+			// --- Begin Positron ---
+			- (this._positronNotebookService.isNotebookMinimalUiModeEnabled() ? PositronNotebookSizes.WIDTH_OF_STATUS_BAR : 0)
+			// --- End Positron ---
 			- this._layoutConfiguration.cellRightMargin;
 	}
 
@@ -779,6 +788,11 @@ export class NotebookOptions extends Disposable {
 
 
 	computeEditorStatusbarHeight(internalMetadata: NotebookCellInternalMetadata, cellUri: URI) {
+		// --- Begin Positron ---
+		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+			return 0;
+		}
+		// --- End Positron ---
 		return this.statusBarIsVisible(internalMetadata, cellUri) ? this.computeStatusBarHeight() : 0;
 	}
 

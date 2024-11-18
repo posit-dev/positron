@@ -32,6 +32,9 @@ import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import type { IManagedHoverTooltipMarkdownString } from 'vs/base/browser/ui/hover/hover';
+// --- Begin Positron ---
+import { IPositronNotebookService, PositronNotebookSizes } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 const $ = DOM.$;
 
@@ -61,6 +64,9 @@ export class CellEditorStatusBar extends CellContentPart {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IHoverService hoverService: IHoverService,
 		@IConfigurationService configurationService: IConfigurationService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IThemeService private readonly _themeService: IThemeService,
 	) {
 		super();
@@ -180,6 +186,12 @@ export class CellEditorStatusBar extends CellContentPart {
 	override updateInternalLayoutNow(element: ICellViewModel): void {
 		// todo@rebornix layer breaker
 		this._cellContainer.classList.toggle('cell-statusbar-hidden', this._notebookEditor.notebookOptions.computeEditorStatusbarHeight(element.internalMetadata, element.uri) === 0);
+		// --- Begin Positron ---
+		const positronMinimalUiModeEnabled = this._positronNotebookService.isNotebookMinimalUiModeEnabled();
+		if (positronMinimalUiModeEnabled) {
+			this._cellContainer.classList.toggle('cell-statusbar-hidden', false);
+		}
+		// --- End Positron ---
 
 		const layoutInfo = element.layoutInfo;
 		const width = layoutInfo.editorWidth;
@@ -189,6 +201,11 @@ export class CellEditorStatusBar extends CellContentPart {
 
 		this.width = width;
 		this.statusBarContainer.style.width = `${width}px`;
+		// --- Begin Positron ---
+		if (positronMinimalUiModeEnabled) {
+			this.statusBarContainer.style.width = `${PositronNotebookSizes.WIDTH_OF_STATUS_BAR}px`;
+		}
+		// --- End Positron ---
 
 		const maxItemWidth = this.getMaxItemWidth();
 		this.leftItems.forEach(item => item.maxWidth = maxItemWidth);

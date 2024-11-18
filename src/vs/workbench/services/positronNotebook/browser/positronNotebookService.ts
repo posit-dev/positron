@@ -69,6 +69,14 @@ export interface IPositronNotebookService {
 	onNotebookMinimalUiModeChanged(opts: { callback: (enabled: boolean) => void; runWhenFirstSet?: boolean }): IDisposable;
 }
 
+/**
+ * Constants for use in styling notebooks
+ */
+export const PositronNotebookSizes = {
+	// The width of the status bar in pixels.
+	WIDTH_OF_STATUS_BAR: 50,
+} as const;
+
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
 
 	// Needed for service branding in dependency injector.

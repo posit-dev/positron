@@ -32,6 +32,9 @@ import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/uti
 import { mainWindow } from 'vs/base/browser/window';
 import { ICodeEditorService } from 'vs/editor/browser/services/codeEditorService';
 import { ILanguageDetectionService } from 'vs/workbench/services/languageDetection/common/languageDetectionWorkerService';
+// --- Begin Positron ---
+import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 suite('NotebookViewModel', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
@@ -66,7 +69,13 @@ suite('NotebookViewModel', () => {
 	test('ctor', function () {
 		const notebook = new NotebookTextModel('notebook', URI.parse('test'), [], {}, { transientCellMetadata: {}, transientDocumentMetadata: {}, transientOutputs: false, cellContentMetadata: {} }, undoRedoService, modelService, languageService, languageDetectionService);
 		const model = new NotebookEditorTestModel(notebook);
-		const options = new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService));
+		// --- Begin Positron ---
+		// Add in our notebook service to constructor arguments
+		const options = new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(IPositronNotebookService), instantiationService.get(ICodeEditorService));
+
+		// Old version
+		// const options = new NotebookOptions(mainWindow, false, undefined, instantiationService.get(IConfigurationService), instantiationService.get(INotebookExecutionStateService), instantiationService.get(ICodeEditorService));
+		// --- End Positron ---
 		const eventDispatcher = new NotebookEventDispatcher();
 		const viewContext = new ViewContext(options, eventDispatcher, () => ({} as IBaseCellEditorOptions));
 		const viewModel = new NotebookViewModel('notebook', model.notebook, viewContext, null, { isReadOnly: false }, instantiationService, bulkEditService, undoRedoService, textModelService, notebookExecutionStateService);

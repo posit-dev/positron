@@ -33,6 +33,9 @@ import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/co
 import { WordHighlighterContribution } from 'vs/editor/contrib/wordHighlighter/browser/wordHighlighter';
 import { CodeActionController } from 'vs/editor/contrib/codeAction/browser/codeActionController';
 import { NotebookCellEditorPool } from 'vs/workbench/contrib/notebook/browser/view/notebookCellEditorPool';
+// --- Begin Positron ---
+import { IPositronNotebookService, PositronNotebookSizes } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+// --- End Positron ---
 
 export class CodeCell extends Disposable {
 	private _outputContainerRenderer: CellOutputContainer;
@@ -56,6 +59,9 @@ export class CodeCell extends Disposable {
 		@IOpenerService openerService: IOpenerService,
 		@ILanguageService private readonly languageService: ILanguageService,
 		@IConfigurationService private configurationService: IConfigurationService,
+		// --- Begin Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@INotebookExecutionStateService notebookExecutionStateService: INotebookExecutionStateService,
 	) {
 		super();
@@ -582,9 +588,17 @@ export class CodeCell extends Disposable {
 		const maxHeight = Math.min(
 			editorLayout.height
 			- editorLayout.stickyHeight
+			// --- Begin Positron ---
+			+ (this._positronNotebookService.isNotebookMinimalUiModeEnabled() ? 26 : 0)
+			// --- End Positron ---
 			- 26 /** notebook toolbar */,
 			dimension.height
 		);
+		// --- Begin Positron ---
+		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
+			dimension.width -= PositronNotebookSizes.WIDTH_OF_STATUS_BAR;
+		}
+		// --- End Positron ---
 		this.templateData.editor?.layout({
 			width: dimension.width,
 			height: maxHeight

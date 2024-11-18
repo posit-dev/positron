@@ -73,10 +73,23 @@
 	/* Styles for the minimal notebook UI container */
 	.cell-statusbar-container {
 		/* Make the background transparent */
-		background-color: transparent;
 		/* Shift down a few pixels to avoid overlapping the editor outline we added to give padding back
 		to bottom of cell */
-		transform: translateY(4px);
+
+		height: 100%;
+
+		flex-direction: column-reverse;
+		align-items: flex-end;
+		justify-content: space-between;
+
+		.cell-status-right {
+			margin-top: 6px;
+		}
+
+		.cell-status-left {
+			margin-bottom: 6px;
+			flex-grow: unset;
+		}
 
 		.cell-status-left > .cell-contributed-items {
 			/* Remove the margin left to align better with the cell editor outline */
