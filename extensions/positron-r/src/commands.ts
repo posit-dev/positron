@@ -118,15 +118,6 @@ export async function registerCommands(context: vscode.ExtensionContext) {
 			}
 		}),
 
-		vscode.commands.registerCommand('r.cliHyperlinks', async () => {
-			const tasks = await getRPackageTasks();
-			const task = tasks.filter(task => task.definition.task === 'r.task.cliHyperlinks')[0];
-			const isInstalled = await checkInstalled(task.definition.pkg);
-			if (isInstalled) {
-				vscode.tasks.executeTask(task);
-			}
-		}),
-
 		vscode.commands.registerCommand('r.useTestthat', async () => {
 			executeCodeForCommand('usethis', 'usethis::use_testthat()');
 		}),

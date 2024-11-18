@@ -88,12 +88,6 @@
         "shortTitle": "%r.menu.packageTest.title%"
       },
       {
-        "command": "r.cliHyperlinks",
-        "category": "R",
-        "title": "%r.command.cliHyperlinks.title%",
-        "shortTitle": "%r.menu.cliHyperlinks.title%"
-      },
-      {
         "command": "r.useTestthat",
         "category": "R",
         "title": "%r.command.useTestthat.title%"

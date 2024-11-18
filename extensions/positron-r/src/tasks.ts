@@ -60,13 +60,6 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			}
 		},
 		{
-			task: 'r.task.cliHyperlinks',
-			message: vscode.l10n.t('{taskName}', { taskName: 'Emit a cli run hyperlink' }),
-			rcode: 'cli::cli_text("{.run usethis::proj_sitrep()} {.help usethis::proj_sitrep} {.vignette pkgdown::accessibility}")',
-			package: 'cli',
-			envVars: { ... await prepCliEnvVars() }
-		},
-		{
 			task: 'r.task.rmarkdownRender',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Render document with R Markdown' }),
 			rcode: `rmarkdown::render("${editorFilePath}")`,
