@@ -71,7 +71,6 @@ class PositronPreviewContribution extends Disposable implements IWorkbenchContri
 
 	private registerActions(): void {
 		registerAction2(PositronOpenUrlInViewerAction);
-		//registerAction2(PreviewEditorAction);
 	}
 }
 

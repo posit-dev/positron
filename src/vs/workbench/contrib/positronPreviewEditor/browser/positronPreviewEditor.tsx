@@ -28,10 +28,6 @@ export interface IPositronPreviewEditorOptions extends IEditorOptions {
 	get identifier(): string | undefined;
 }
 
-export interface IPositronPreviewEditor {
-	get identifier(): string | undefined;
-}
-
 export class PositronPreviewEditor
 	extends EditorPane
 	implements IReactComponentContainer {
@@ -123,7 +119,7 @@ export class PositronPreviewEditor
 				positronPreviewService={this._positronPreviewService}
 			>
 				<EditorPreviewContainer
-					preview={this._positronPreviewService.editorPreviewWebview(previewId)}
+					preview={this._positronPreviewService.editorWebview(previewId)}
 					width={this._width}
 					height={this._height}
 				/>
@@ -148,7 +144,10 @@ export class PositronPreviewEditor
 	): Promise<void> {
 		const previewId = input._previewId;
 		if (!previewId) { throw Error; }
+
 		this.renderContainer(previewId);
+
+		// redraw if the editor is resized
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;

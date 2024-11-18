@@ -27,7 +27,7 @@ export class PositronPreviewEditorInput extends EditorInput {
 	}
 
 	override dispose(): void {
-		this._positronPreviewService.disposePreview(this._previewId);
+		this._positronPreviewService.disposeEditor(this._previewId);
 		super.dispose();
 	}
 

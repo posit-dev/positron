@@ -9,7 +9,6 @@ import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 import * as DOM from 'vs/base/browser/dom';
 
-
 /**
  * PreviewContainerProps interface.
  */

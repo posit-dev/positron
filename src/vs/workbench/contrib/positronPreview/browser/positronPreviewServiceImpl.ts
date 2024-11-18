@@ -47,7 +47,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
-	private _editorURI: Map<string, { uri: URI; webview: PreviewWebview; title?: string }> = new Map();
+	private _editors: Map<string, { uri: URI; webview: PreviewWebview; title?: string }> = new Map();
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
@@ -107,6 +107,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 			}
 		}));
 	}
+
 	createHtmlWebview(sessionId: string,
 		extension: WebviewExtensionDescription | undefined,
 		event: IShowHtmlUriEvent): PreviewHtml {
@@ -272,7 +273,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	 *
 	 * @param preview The preview to make active
 	 */
-	private makeActivePreview(preview: PreviewWebview, isEditor?: boolean): void {
+	private makeActivePreview(preview: PreviewWebview): void {
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
 		this._items.forEach((value) => {
@@ -280,9 +281,6 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 		this._items.clear();
 		this._items.set(preview.previewId, preview);
-		if (isEditor) {
-			return;
-		}
 		// Open the preview
 		this.openPreviewWebview(preview);
 	}
@@ -355,7 +353,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	openPreviewWebview(
 		preview: PreviewWebview,
-		preserveFocus?: boolean | undefined,
+		preserveFocus?: boolean | undefined
 	) {
 		this._onDidCreatePreviewWebviewEmitter.fire(preview);
 		this.activePreviewWebviewId = preview.previewId;
@@ -364,6 +362,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._register(preview.webview.onDidDispose(() => {
 
 			const wasActive = this.activePreviewWebviewId === preview.previewId;
+
+			this._items.delete(preview.previewId);
 
 			// Select a new preview webview if the closed one was active
 			if (wasActive) {
@@ -502,9 +502,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	}
 
 	public async openEditor(uri: URI, title?: string): Promise<void> {
-		// Create a unique ID for this preview.
+		// Create and store webview overlay for editor
 		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
-		this._editorURI.set(previewId, { uri: uri, webview: this.createPreviewUrl(previewId, undefined, uri), title: title });
+		this._editors.set(previewId, {
+			uri: uri,
+			webview: this.createPreviewUrl(previewId, undefined, uri),
+			title: title
+		});
 
 		await this._editorService.openEditor({
 			resource: URI.from({
@@ -514,17 +518,17 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		});
 	}
 
-	public editorPreviewWebview(editorId: string): PreviewWebview | undefined {
-		return this._editorURI.get(editorId)?.webview;
-	}
-
-	public disposePreview(previewId: string): void {
-		this._editorURI.get(previewId)?.webview.dispose();
-		// Remove the preview
-		this._editorURI.delete(previewId);
+	public editorWebview(editorId: string): PreviewWebview | undefined {
+		return this._editors.get(editorId)?.webview;
 	}
 
 	public editorTitle(previewId: string): string | undefined {
-		return this._editorURI.get(previewId)?.title;
+		return this._editors.get(previewId)?.title;
+	}
+
+	public disposeEditor(previewId: string): void {
+		this._editors.get(previewId)?.webview.dispose();
+		// Remove the preview
+		this._editors.delete(previewId);
 	}
 }
