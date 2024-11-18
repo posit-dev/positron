@@ -87,7 +87,7 @@ class PositronComm:
 
     def __init__(self, comm: comm.base_comm.BaseComm) -> None:
         self.comm = comm
-        self.send_lock = threading.Lock()
+        self.send_lock = threading.RLock()
 
     @classmethod
     def create(cls, target_name: str, comm_id: str) -> PositronComm:
@@ -193,6 +193,24 @@ class PositronComm:
                 _handle_msg(raw_msg)
 
         self.comm.on_msg(handle_msg)
+
+    def handle_msg(self, raw_msg: JsonRecord) -> None:
+        """
+        Handle a raw JSON-RPC message from the frontend-side version of this comm.
+
+        Parameters
+        ----------
+        raw_msg
+            The raw JSON-RPC message.
+        """
+        return self.comm.handle_msg(raw_msg)
+
+    @property
+    def messages(self):
+        """
+        Messages sent to the frontend-side version of this comm, when recorded for testing purposes.
+        """
+        return getattr(self.comm, "messages")
 
     def send_result(self, data: JsonData = None, metadata: Optional[JsonRecord] = None) -> None:
         """
