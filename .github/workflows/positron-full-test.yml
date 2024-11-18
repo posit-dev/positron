@@ -289,8 +289,32 @@ jobs:
         if: ${{ !cancelled() }}
         run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-      - name: "Send Slack notification"
-        if: ${{ failure() }}
+      - name: Check Upstream Job Status
+        if: ${{ !cancelled() }}
+        run: |
+          FAILED_JOBS=""
+          if [ "${{ needs.unit-tests.result }}" == "failure" ]; then
+            FAILED_JOBS="${FAILED_JOBS} Unit Tests"
+          fi
+          if [ "${{ needs.integration-tests.result }}" == "failure" ]; then
+            FAILED_JOBS="${FAILED_JOBS} Integration Tests"
+          fi
+          if [ "${{ needs.e2e-electron-tests.result }}" == "failure" ]; then
+            FAILED_JOBS="${FAILED_JOBS} E2E Electron Tests"
+          fi
+          if [ "${{ needs.e2e-browser-tests.result }}" == "failure" ]; then
+            FAILED_JOBS="${FAILED_JOBS} E2E Browser Tests"
+          fi
+
+          if [ -z "$FAILED_JOBS" ]; then
+            echo "All upstream jobs succeeded. Exiting early."
+            exit 0
+          else
+            echo "Failed jobs detected: $FAILED_JOBS. Proceeding to Slack notification."
+          fi
+
+      - name: Send Slack notification
+        if: ${{ !cancelled() }}
         uses: testlabauto/action-test-results-to-slack@v0.0.6
         with:
           github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
