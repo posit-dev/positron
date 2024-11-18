@@ -13,7 +13,7 @@ export class PositronPreviewEditorInput extends EditorInput {
 
 	static readonly EditorID: string = 'workbench.editor.positronPreview';
 
-	_name: string = 'Editor Preview';
+	_name: string;
 
 	_previewId: string;
 
@@ -23,6 +23,7 @@ export class PositronPreviewEditorInput extends EditorInput {
 	) {
 		super();
 		this._previewId = this.resource.path;
+		this._name = this._positronPreviewService.editorTitle(this._previewId) || this._previewId;
 	}
 
 	override dispose(): void {

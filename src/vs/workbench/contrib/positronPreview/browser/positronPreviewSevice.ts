@@ -119,7 +119,9 @@ export interface IPositronPreviewService {
 
 	openEditor(uri: URI, title?: string): Promise<void>;
 
+	editorPreviewWebview(editorId: string): PreviewWebview | undefined;
+
 	disposePreview(previewId: string): void;
 
-	editorPreviewWebview(editorId: string): PreviewWebview | undefined;
+	editorTitle(previewId: string): string | undefined;
 }

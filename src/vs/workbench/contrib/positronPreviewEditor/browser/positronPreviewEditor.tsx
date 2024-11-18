@@ -43,7 +43,7 @@ export class PositronPreviewEditor
 
 	private _height = 0;
 
-	private _identifier? = 'hellothere';
+	private _identifier?: string;
 
 	private readonly _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
