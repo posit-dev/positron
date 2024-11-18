@@ -329,7 +329,7 @@ jobs:
 
       - name: Install miniconda
         uses: conda-incubator/setup-miniconda@v3
-        if: matrix.os == 'macos-latest'
+        if: matrix.os == 'macos-latest' && matrix.test-suite == 'venv'
         with:
           python-version: "3.11"
 
