@@ -121,5 +121,5 @@ export interface IPositronPreviewService {
 
 	disposePreview(previewId: string): void;
 
-	editorPreviewWebview(): PreviewWebview | undefined;
+	editorPreviewWebview(editorId: string): PreviewWebview | undefined;
 }

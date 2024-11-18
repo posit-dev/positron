@@ -13,18 +13,20 @@ export class PositronPreviewEditorInput extends EditorInput {
 
 	static readonly EditorID: string = 'workbench.editor.positronPreview';
 
-	_name: string = this._positronPreviewService.activePreviewWebview?.name || 'Preview';
+	_name: string = 'Editor Preview';
+
+	_previewId: string;
 
 	constructor(
 		readonly resource: URI,
 		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService
-	) { super(); }
+	) {
+		super();
+		this._previewId = this.resource.path;
+	}
 
 	override dispose(): void {
-		const previewId = this._positronPreviewService.activePreviewWebviewId;
-		if (previewId) {
-			this._positronPreviewService.disposePreview(previewId);
-		}
+		this._positronPreviewService.disposePreview(this._previewId);
 		super.dispose();
 	}
 

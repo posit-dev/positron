@@ -24,7 +24,9 @@ import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsSe
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { EditorPreviewContainer } from 'vs/workbench/contrib/positronPreviewEditor/browser/editorPreviewContainer';
 
-export interface IPositronPreviewEditorOptions extends IEditorOptions { }
+export interface IPositronPreviewEditorOptions extends IEditorOptions {
+	get identifier(): string | undefined;
+}
 
 export interface IPositronPreviewEditor {
 	get identifier(): string | undefined;
@@ -41,7 +43,7 @@ export class PositronPreviewEditor
 
 	private _height = 0;
 
-	private _identifier?: string;
+	private _identifier? = 'hellothere';
 
 	private readonly _onSizeChangedEmitter = this._register(new Emitter<ISize>());
 
@@ -111,7 +113,7 @@ export class PositronPreviewEditor
 		this._container = DOM.$('.positron-preview-editor-container');
 	}
 
-	private renderContainer(): void {
+	private renderContainer(previewId: string): void {
 		if (!this._positronReactRenderer) {
 			this._positronReactRenderer = new PositronReactRenderer(this._container);
 		}
@@ -121,8 +123,7 @@ export class PositronPreviewEditor
 				positronPreviewService={this._positronPreviewService}
 			>
 				<EditorPreviewContainer
-					preview={this._positronPreviewService.editorPreviewWebview()}
-					visible={this.containerVisible}
+					preview={this._positronPreviewService.editorPreviewWebview(previewId)}
 					width={this._width}
 					height={this._height}
 				/>
@@ -145,13 +146,15 @@ export class PositronPreviewEditor
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		this.renderContainer();
+		const previewId = input._previewId;
+		if (!previewId) { throw Error; }
+		this.renderContainer(previewId);
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
 
 			if (this._positronReactRenderer) {
-				this.renderContainer();
+				this.renderContainer(previewId);
 			}
 		});
 

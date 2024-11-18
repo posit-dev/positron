@@ -46,7 +46,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private _onDidCreatePreviewWebviewEmitter = new Emitter<PreviewWebview>();
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
-	private _editorURI: URI | undefined;
+
+	private _editorURI: Map<string, URI> = new Map();
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
@@ -503,44 +504,21 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	public async openEditor(uri: URI, title?: string): Promise<void> {
 		// Create a unique ID for this preview.
 		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
-		const oldPreviewId = this.activePreviewWebviewId;
+		this._editorURI.set(previewId, uri);
 
-		if (!this.activePreviewWebview) {
-			return;
-		}
-
-		const oldPreview = this._items.get(oldPreviewId);
-		if (!oldPreview) {
-			return;
-		}
-
-		//const webview = this.createWebview(this.activePreviewWebview.viewType, uri, undefined);
-
-		// //const preview = new PreviewWebview(this.activePreviewWebview.viewType, previewId, uri.toString(), webview);
-		// const preview = new PreviewUrl(previewId, webview, uri);
-
-		this._editorURI = uri;
-
-		const editorPane = await this._editorService.openEditor({
+		await this._editorService.openEditor({
 			resource: URI.from({
 				scheme: Schemas.positronPreviewEditor,
 				path: previewId
-			})
+			}),
 		});
-
-		if (!editorPane) {
-			throw new Error('Failed to open editor');
-		}
-
 	}
 
-	public editorPreviewWebview(): PreviewWebview | undefined {
-		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
-		if (!this._editorURI) { return; }
+	public editorPreviewWebview(editorId: string): PreviewWebview | undefined {
+		const uri = this._editorURI.get(editorId);
+		if (!uri) { return; }
 
-		const preview = this.createPreviewUrl(previewId, undefined, this._editorURI);
-
-		return preview;
+		return this.createPreviewUrl(editorId, undefined, uri);
 	}
 
 	public disposePreview(previewId: string): void {
