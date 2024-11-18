@@ -8,7 +8,7 @@ on:
 
 jobs:
   tests:
-    uses: ./.github/workflows/positron-merge-to-main.yml
+    uses: ./.github/workflows/positron-merge-to-branch.yml
     secrets: inherit
     with:
       e2e_grep: "@pr"
