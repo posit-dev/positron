@@ -100,12 +100,28 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $REPORT_URL = "https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo $REPORT_URL > url.txt
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $env:GITHUB_STEP_SUMMARY
+
       - name: Run Tests on Windows (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
+        if: ${{ !cancelled() }}
+        id: e2e-win-electron-tests
         run: npx playwright test --project e2e-electron --grep "@win" --workers 1
+
+      - name: Upload Playwright Report to S3
+        uses: ./.github/actions/upload-report-to-s3
+        if: ${{ !cancelled() }}
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
       - name: Set TestRail Run Title
         id: set-testrail-run-title
@@ -119,21 +135,6 @@ jobs:
         shell: pwsh
         run: |
           trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
-
-      - name: Upload Playwright Report to S3
-        uses: ./.github/actions/upload-report-to-s3
-        if: ${{ !cancelled() }}
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        shell: pwsh
-        run: |
-          $REPORT_URL = "https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo $REPORT_URL > url.txt
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $env:GITHUB_STEP_SUMMARY
 
   slack-notification:
     name: "Send Slack notification"

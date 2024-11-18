@@ -17,6 +17,7 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 			await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 			// unreliable on ubuntu:
 			// await this.app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('^C')));
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronViewer.clearViewer();
 		});
 
@@ -53,15 +54,15 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			const viewerFrame = viewer.getViewerFrame();
-			const headerLocator = app.web
-				? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
-				: viewerFrame.getByRole('button', { name: 'Deploy' });
 
 			await expect(async () => {
+				const headerLocator = app.web
+					? viewerFrame.frameLocator('iframe').getByRole('button', { name: 'Deploy' })
+					: viewerFrame.getByRole('button', { name: 'Deploy' });
+
+
 				await expect(headerLocator).toBeVisible({ timeout: 30000 });
 			}).toPass({ timeout: 60000 });
-
-			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 	});
 });
