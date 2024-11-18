@@ -87,6 +87,11 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win'] }, () => {
 			// that table and click on it
 			await app.workbench.positronConnections.openConnectionsNodes(["mtcars"]);
 		}).toPass();
+
+		// disconnect icon appearance requires hover
+		await app.workbench.positronConnections.rConnectionOpenState.hover();
+		await app.workbench.positronConnections.disconnectButton.click();
+		await app.workbench.positronConnections.reconnectButton.waitforVisible();
 	});
 
 });
