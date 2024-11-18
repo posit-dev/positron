@@ -18,6 +18,7 @@ export class PositronTerminal {
 	}
 
 	async clickTerminalTab() {
+		await this.clickTerminalTab();
 		await this.terminalTab.click();
 	}
 }

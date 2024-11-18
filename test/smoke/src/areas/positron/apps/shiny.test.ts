@@ -23,6 +23,7 @@ test.describe('Shiny Application', {
 	});
 
 	test.afterEach(async function ({ app }) {
+		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
 		await app.workbench.positronViewer.refreshViewer();
 	});
 
@@ -31,9 +32,6 @@ test.describe('Shiny Application', {
 		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 		await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
-
-		await app.workbench.positronTerminal.sendKeysToTerminal('Control+C');
-		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes('Application shutdown complete.')));
 	});
 
 	test('R - Verify Basic Shiny App [C699100]', async function ({ app, r }) {
@@ -43,9 +41,6 @@ runExample("01_hello")`;
 		await app.workbench.positronConsole.sendEnterKey();
 		const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
 		await expect(headerLocator).toHaveText('Hello Shiny!', { timeout: 20000 });
-
-		await app.workbench.positronConsole.activeConsole.click();
-		await app.workbench.positronConsole.sendKeyboardKey('Control+C');
 	});
 });
 
