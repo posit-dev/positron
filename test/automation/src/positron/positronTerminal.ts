@@ -14,7 +14,6 @@ export class PositronTerminal {
 	}
 
 	async sendKeysToTerminal(key: string) {
-		await this.clickTerminalTab();
 		await this.code.driver.getKeyboard().press(key);
 	}
 
