@@ -188,7 +188,7 @@ test.describe('Plots', () => {
 			await expect(treeNodes).toHaveCount(9);
 
 			// collapse the tree, only parent nodes should be visible
-			treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
+			await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
 			await expect(treeNodes).toHaveCount(3);
 
 			// return to stacked layout
