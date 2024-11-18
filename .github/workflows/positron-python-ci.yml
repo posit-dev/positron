@@ -331,7 +331,7 @@ jobs:
         uses: conda-incubator/setup-miniconda@v3
         if: matrix.os == 'macos-latest'
         with:
-          python-version: ${{ matrix.python }}
+          python-version: "3.11"
 
       - name: Prepare conda for venv tests
         env:
