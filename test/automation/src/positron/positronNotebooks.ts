@@ -31,10 +31,13 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 export class PositronNotebooks {
 	kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
+
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
+		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 		await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
 		// Wait for either "select kernel" or "the desired kernel" to appear in KERNEL_LABEL

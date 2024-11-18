@@ -44,9 +44,6 @@ test.describe('Variables Pane - Notebook', { tag: ['@pr', '@web'] }, () => {
 	test('R - Verifies Variables pane basic function for notebook [C669189]', async function ({ app, r }) {
 		await app.workbench.positronNotebooks.createNewNotebook();
 
-		// workaround issue where starting multiple interpreters in quick succession can cause startup failure
-		await app.code.wait(1000);
-
 		await app.workbench.positronNotebooks.selectInterpreter('R Environments', process.env.POSITRON_R_VER_SEL!);
 		await app.workbench.positronNotebooks.addCodeToFirstCell('y <- c(2, 3, 4, 5)');
 		await app.workbench.positronNotebooks.executeCodeInCell();
