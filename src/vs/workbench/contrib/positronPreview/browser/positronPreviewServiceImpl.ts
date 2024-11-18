@@ -47,7 +47,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
-	private _editorURI: Map<string, { uri: URI, webview: PreviewWebview, title?: string }> = new Map();
+	private _editorURI: Map<string, { uri: URI; webview: PreviewWebview; title?: string }> = new Map();
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
