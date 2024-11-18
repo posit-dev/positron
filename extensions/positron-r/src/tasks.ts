@@ -62,7 +62,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		{
 			task: 'r.task.cliHyperlinks',
 			message: vscode.l10n.t('{taskName}', { taskName: 'Emit a cli run hyperlink' }),
-			rcode: 'cli::cli_text("{.run usethis::proj_sitrep()}")',
+			rcode: 'cli::cli_text("{.run usethis::proj_sitrep()} {.help usethis::proj_sitrep} {.vignette pkgdown::accessibility}")',
 			package: 'cli',
 			envVars: { ... await prepCliEnvVars() }
 		},
