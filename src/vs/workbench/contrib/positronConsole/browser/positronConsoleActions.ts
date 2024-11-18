@@ -10,7 +10,6 @@ import { ITextModel } from 'vs/editor/common/model';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
 import { Position } from 'vs/editor/common/core/position';
-import { IStatementRange, StatementRangeProvider } from 'vs/editor/common/languages';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
@@ -22,10 +21,12 @@ import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { IStatementRange, StatementRangeProvider } from 'vs/editor/common/languages';
 import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
 import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
+import { RuntimeCodeExecutionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
@@ -268,7 +269,8 @@ export function registerPositronConsoleActions() {
 		 * @param opts Options for code execution
 		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
 		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
-		 * @param advance Whether to advance the cursor to the next statement.
+		 *   - advance: Optionally, if the cursor should be advanced to the next statement. If `undefined`, fallbacks to `true`.
+		 *   - runtimeCodeExecutionMode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
 		 */
 		async run(
 			accessor: ServicesAccessor,
@@ -276,6 +278,7 @@ export function registerPositronConsoleActions() {
 				allowIncomplete?: boolean;
 				languageId?: string;
 				advance?: boolean;
+				runtimeCodeExecutionMode?: RuntimeCodeExecutionMode;
 			} = {}
 		) {
 			// Access services.
@@ -427,7 +430,7 @@ export function registerPositronConsoleActions() {
 
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete)) {
+			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.runtimeCodeExecutionMode)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

@@ -1213,13 +1213,15 @@ declare module 'positron' {
 		 * @param focus Whether to focus the runtime's console
 		 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
+		 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
 			focus: boolean,
-			allowIncomplete?: boolean): Thenable<boolean>;
+			allowIncomplete?: boolean,
+			runtimeCodeExecutionMode?: RuntimeCodeExecutionMode): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime manager with Positron. Returns a
