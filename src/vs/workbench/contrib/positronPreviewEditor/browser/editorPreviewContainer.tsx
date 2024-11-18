@@ -23,15 +23,10 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 	useEffect(() => {
 
 		if (props.preview) {
-			// If a preview is loaded into the pane, let it know its
-			// visibility status.
-
 			const webview = props.preview.webview;
-			//props.preview.visible = props.visible;
 
 			// If the preview is visible, claim the webview and release it when
 			// we're unmounted.
-			// if (props.visible) {
 			if (webviewRef.current) {
 				const window = DOM.getWindow(webviewRef.current);
 				webview.webview.claim(this, window, undefined);
@@ -41,10 +36,6 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 					webview?.webview.release(this);
 				};
 			}
-			// } else {
-			// 	// If the preview is not visible, release the webview.
-			// 	webview.webview.release(this);
-			// }
 		}
 		return () => { };
 	}, [props.preview]);
