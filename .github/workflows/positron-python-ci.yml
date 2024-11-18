@@ -154,7 +154,7 @@ jobs:
         include:
           - os: 'ubuntu-latest'
             python: '3.8'
-          - os: 'macos-13'
+          - os: 'macos-latest'
             python: '3.9'
           - os: 'windows-latest'
             python: '3.10'
@@ -326,6 +326,12 @@ jobs:
           } else {
             & ".venv/bin/python" ./build/ci/addEnvPath.py ${{ env.PYTHON_VIRTUAL_ENVS_LOCATION }} venvPath
           }
+
+      - name: Install miniconda
+        uses: conda-incubator/setup-miniconda@v3
+        if: matrix.os == 'macos-latest'
+        with:
+          python-version: ${{ matrix.python }}
 
       - name: Prepare conda for venv tests
         env:
