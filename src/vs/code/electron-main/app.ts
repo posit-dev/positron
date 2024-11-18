@@ -125,7 +125,7 @@ import { ICSSDevelopmentService, CSSDevelopmentService } from 'vs/platform/cssDe
 
 // --- Start Positron ---
 import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
-import { EphemeralStateService } from 'vs/platform/ephemeralState/node/ephemeralStateService';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
 // --- End Positron ---
 
 /**

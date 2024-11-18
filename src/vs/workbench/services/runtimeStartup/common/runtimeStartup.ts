@@ -696,10 +696,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, isBuilt: ${this._environmentService.isBuilt}, isWeb: ${isWeb}, startupKind: ${this._lifecycleService.startupKind}`);
 
-
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
-		const storedSessions = this._ephemeralStateService.getItem<SerializedSessionMetadata[]>(PERSISTENT_WORKSPACE_SESSIONS_KEY);
+		const storedSessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(PERSISTENT_WORKSPACE_SESSIONS_KEY);
 		if (storedSessions) {
 			try {
 				// Revive the URIs in the session metadata.

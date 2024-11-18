@@ -442,6 +442,7 @@ import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contr
 import 'vs/workbench/contrib/positronNewProject/browser/positronNewProject.contribution';
 
 // Workbench services
+import 'vs/workbench/services/ephemeralState/browser/ephemeralStateService';
 import 'vs/workbench/services/languageRuntime/common/languageRuntime';
 import 'vs/workbench/services/runtimeSession/common/runtimeSession';
 import 'vs/workbench/services/runtimeStartup/common/runtimeStartup';

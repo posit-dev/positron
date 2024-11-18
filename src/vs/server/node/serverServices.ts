@@ -80,7 +80,7 @@ import { NodePtyHostStarter } from 'vs/platform/terminal/node/nodePtyHostStarter
 import { CSSDevelopmentService, ICSSDevelopmentService } from 'vs/platform/cssDev/node/cssDevService';
 
 // --- Start Positron ---
-import { EphemeralStateService } from 'vs/platform/ephemeralState/node/ephemeralStateService';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
 import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
 // --- End Positron ---
 

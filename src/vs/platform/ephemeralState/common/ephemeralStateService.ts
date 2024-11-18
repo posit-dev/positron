@@ -11,15 +11,15 @@ export class EphemeralStateService implements IEphemeralStateService {
 
 	private readonly data = new Map<string, object | string | number | boolean | undefined | null>();
 
-	setItem(key: string, data?: object | string | number | boolean | undefined | null): void {
+	async setItem(key: string, data?: object | string | number | boolean | undefined | null): Promise<void> {
 		this.data.set(key, data);
 	}
 
-	getItem<T>(key: string): T | undefined {
+	async getItem<T>(key: string): Promise<T | undefined> {
 		return this.data.get(key) as T | undefined;
 	}
 
-	removeItem(key: string): void {
+	async removeItem(key: string): Promise<void> {
 		this.data.delete(key);
 	}
 }

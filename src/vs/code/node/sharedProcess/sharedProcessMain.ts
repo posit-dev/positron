@@ -119,6 +119,9 @@ import { SharedProcessRawConnection, SharedProcessLifecycle } from 'vs/platform/
 import { getOSReleaseInfo } from 'vs/base/node/osReleaseInfo';
 import { getDesktopEnvironment } from 'vs/base/common/desktopEnvironmentInfo';
 import { getCodeDisplayProtocol, getDisplayProtocol } from 'vs/base/node/osDisplayProtocolInfo';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
+import { EPHEMERAL_STATE_CHANNEL_NAME } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
 
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
@@ -371,6 +374,11 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		// Remote Tunnel
 		services.set(IRemoteTunnelService, new SyncDescriptor(RemoteTunnelService));
 
+		// --- Start Positron ---
+		// Ephemeral State
+		services.set(IEphemeralStateService, new SyncDescriptor(EphemeralStateService));
+		// --- End Positron ---
+
 		return new InstantiationService(services);
 	}
 
@@ -423,6 +431,12 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 		this.server.registerChannel('userDataAutoSync', ProxyChannel.fromService(userDataAutoSync, this._store));
 
 		this.server.registerChannel('IUserDataSyncResourceProviderService', ProxyChannel.fromService(accessor.get(IUserDataSyncResourceProviderService), this._store));
+
+		// --- Start Positron ---
+		// Ephemeral State
+		const ephemeralStateChannel = ProxyChannel.fromService(accessor.get(IEphemeralStateService), this._store);
+		this.server.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+		// --- End Positron ---
 
 		// Tunnel
 		const sharedProcessTunnelChannel = ProxyChannel.fromService(accessor.get(ISharedProcessTunnelService), this._store);
