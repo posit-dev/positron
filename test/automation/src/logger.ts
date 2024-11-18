@@ -9,9 +9,6 @@ import { EOL } from 'os';
 
 export interface Logger {
 	log(message: string, ...args: any[]): void;
-	// --- Start Positron
-	close?(): void;
-	// --- End Positron
 }
 
 export class ConsoleLogger implements Logger {
@@ -22,34 +19,19 @@ export class ConsoleLogger implements Logger {
 }
 
 export class FileLogger implements Logger {
-	// --- Start Positron
-	private closed = false;
-	// --- End Positron
 
 	constructor(private path: string) {
 		writeFileSync(path, '');
 	}
 
 	log(message: string, ...args: any[]): void {
-		// --- Start Positron
-		if (this.closed) {
-			console.warn(`Attempted to log to closed logger: ${message}`);
-			return;
-		}
-		// --- End Positron
-
 		const date = new Date().toISOString();
 		appendFileSync(this.path, `[${date}] ${format(message, ...args)}${EOL}`);
 	}
-
-	// --- Start Positron
-	close(): void {
-		this.closed = true;
-	}
-	// --- End Positron
 }
 
 export class MultiLogger implements Logger {
+
 	constructor(private loggers: Logger[]) { }
 
 	log(message: string, ...args: any[]): void {
@@ -57,16 +39,6 @@ export class MultiLogger implements Logger {
 			logger.log(message, ...args);
 		}
 	}
-
-	// --- Start Positron
-	close(): void {
-		for (const logger of this.loggers) {
-			if (logger.close) {
-				logger.close();
-			}
-		}
-	}
-	// --- End Positron
 }
 
 export async function measureAndLog<T>(promiseFactory: () => Promise<T>, name: string, logger: Logger): Promise<T> {

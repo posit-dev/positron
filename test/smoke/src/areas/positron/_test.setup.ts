@@ -85,7 +85,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 
 		await app.stop();
-		logger.close!();
 
 		// rename the temp logs dir to the spec name
 		const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME);
