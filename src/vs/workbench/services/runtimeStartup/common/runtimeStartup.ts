@@ -43,10 +43,12 @@ interface SerializedSessionMetadata {
 }
 
 /**
- * Key for storing the set of persistent workspace session list; bump version at
- * end when changing storage format.
+ * Key for storing the set of persistent workspace session list.
+ *
+ * Amended with the workspace ID to allow for multiple workspaces to store their
+ * sessions separately.
  */
-const PERSISTENT_WORKSPACE_SESSIONS_KEY = 'positron.workspaceSessionList.v1';
+const PERSISTENT_WORKSPACE_SESSIONS_PREFIX = 'positron.workspaceSessionList';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -698,7 +700,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
-		const storedSessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(PERSISTENT_WORKSPACE_SESSIONS_KEY);
+		const storedSessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getPersistentWorkspaceSessionsKey());
 		if (storedSessions) {
 			try {
 				// Revive the URIs in the session metadata.
@@ -788,7 +790,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Save the sessions to the workspace storage.
 		this._logService.debug(`[Runtime startup] Saving workspace sessions (${workspaceSessions.length})`);
-		this._ephemeralStateService.setItem(PERSISTENT_WORKSPACE_SESSIONS_KEY,
+		this._ephemeralStateService.setItem(this.getPersistentWorkspaceSessionsKey(),
 			workspaceSessions);
 		return false;
 	}
@@ -853,6 +855,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			},
 		]);
 
+	}
+
+	private getPersistentWorkspaceSessionsKey(): string {
+		return `${PERSISTENT_WORKSPACE_SESSIONS_PREFIX}.${this._workspaceContextService.getWorkspace().id}`;
 	}
 }
 

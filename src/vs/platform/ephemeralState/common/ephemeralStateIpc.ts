@@ -12,10 +12,9 @@ export const EPHEMERAL_STATE_CHANNEL_NAME = 'ephemeralState';
 
 export class EphemeralStateChannel implements IServerChannel {
 	constructor(private readonly service: IEphemeralStateService) {
-
 	}
 
-	async call<T>(_ctx: string, command: string, args?: any, cancellationToken?: CancellationToken): Promise<T> {
+	async call<T>(_ctx: any, command: string, args?: any, cancellationToken?: CancellationToken): Promise<T> {
 		switch (command) {
 			case 'get': {
 				return await this.service.getItem(args.key, args.defaultValue);
@@ -32,11 +31,10 @@ export class EphemeralStateChannel implements IServerChannel {
 		throw new Error(`Command not found: ${command}`);
 	}
 
-	listen<T>(ctx: string, event: string, arg?: any): Event<T> {
+	listen<T>(_ctx: any, event: string, arg?: any): Event<T> {
 		throw new Error('Method not implemented.');
 	}
 }
-
 
 export class EphemeralStateChannelClient implements IEphemeralStateService {
 	constructor(private readonly _channel: IChannel) { }

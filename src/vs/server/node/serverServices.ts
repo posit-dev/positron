@@ -82,6 +82,7 @@ import { CSSDevelopmentService, ICSSDevelopmentService } from 'vs/platform/cssDe
 // --- Start Positron ---
 import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
 import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';
@@ -238,6 +239,12 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 		const channel = new ExtensionManagementChannel(extensionManagementService, (ctx: RemoteAgentConnectionContext) => getUriTransformer(ctx.remoteAuthority));
 		socketServer.registerChannel('extensions', channel);
+
+		// --- Start Positron ---
+		// Ephemeral State
+		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
+		socketServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+		// --- End Positron ---
 
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());
