@@ -8,6 +8,7 @@ import * as os from 'os';
 import { RSessionManager } from './session-manager';
 import { getPandocPath } from './pandoc';
 import { getEnvVars } from './session';
+import { prepCliEnvVars } from './uri-handler';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -39,7 +40,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
 			rcode: 'devtools::check()',
 			package: 'devtools',
-			envVars: null
+			envVars: { ... await prepCliEnvVars() }
 		},
 		{
 			task: 'r.task.packageInstall',
@@ -54,17 +55,8 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			rcode: 'devtools::test()',
 			package: 'devtools',
 			envVars: {
-				...await getEnvVars(['TESTTHAT_MAX_FAILS']),
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINKS: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_RUN: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_HELP: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_VIGNETTE: "TRUE"
+				... await getEnvVars(['TESTTHAT_MAX_FAILS']),
+				... await prepCliEnvVars()
 			}
 		},
 		{
@@ -72,18 +64,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Emit a cli run hyperlink' }),
 			rcode: 'cli::cli_text("{.run usethis::proj_sitrep()}")',
 			package: 'cli',
-			envVars: {
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINKS: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_RUN: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_HELP: "TRUE",
-				// eslint-disable-next-line @typescript-eslint/naming-convention
-				R_CLI_HYPERLINK_VIGNETTE: "TRUE"
-			}
+			envVars: { ... await prepCliEnvVars() }
 		},
 		{
 			task: 'r.task.rmarkdownRender',

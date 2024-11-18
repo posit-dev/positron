@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 
 import { LOGGER } from './extension';
 import { RSessionManager } from './session-manager';
+import { EnvVar, RSession } from './session';
 
 export async function registerUriHandler() {
 	vscode.window.registerUriHandler({ handleUri });
@@ -51,4 +52,36 @@ function handleUri(uri: vscode.Uri): void {
 
 	session.openResource(command);
 	vscode.commands.executeCommand('workbench.panel.positronConsole.focus');
+}
+
+export async function prepCliEnvVars(session?: RSession): Promise<EnvVar> {
+	session = session || RSessionManager.instance.getConsoleSession();
+	if (!session) {
+		return {};
+	}
+
+	// cli 3.6.3.9001 gained support for configuring the URL format for hyperlinks.
+	const cliPkg = await session.packageVersion('cli', '3.6.3.9001');
+	const cliSupportsHyperlinks = cliPkg?.compatible ?? false;
+
+	if (!cliSupportsHyperlinks) {
+		// eslint-disable-next-line @typescript-eslint/naming-convention
+		return { R_CLI_HYPERLINKS: 'FALSE' };
+	}
+
+	return {
+		/* eslint-disable @typescript-eslint/naming-convention */
+		R_CLI_HYPERLINKS: 'TRUE',
+		// TODO: I'd like to request POSIX compliant hyperlinks in the future, but currently
+		// cli's tests implicitly assume the default and there are more important changes to
+		// propose in cli, such as tweaks to file hyperlinks. Leave this alone for now.
+		// R_CLI_HYPERLINK_MODE: "posix",
+		R_CLI_HYPERLINK_RUN: 'TRUE',
+		R_CLI_HYPERLINK_RUN_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-run:{code}',
+		R_CLI_HYPERLINK_HELP: 'TRUE',
+		R_CLI_HYPERLINK_HELP_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-help:{topic}',
+		R_CLI_HYPERLINK_VIGNETTE: 'TRUE',
+		R_CLI_HYPERLINK_VIGNETTE_URL_FORMAT: 'positron://positron.positron-r/cli?command=x-r-vignette:{vignette}'
+		/* eslint-enable @typescript-eslint/naming-convention */
+	};
 }
