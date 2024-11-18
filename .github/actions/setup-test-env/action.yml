@@ -23,13 +23,6 @@ runs:
     - name: Setup Graphviz
       uses: ts-graphviz/setup-graphviz@v2.0.2
 
-    - name: Setup Quarto
-      uses: quarto-dev/quarto-actions/setup@v2
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-      with:
-        tinytex: true
-
     - name: Setup Conda (Miniforge3)
       shell: bash
       run: |
