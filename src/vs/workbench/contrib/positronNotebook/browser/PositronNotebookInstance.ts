@@ -19,7 +19,7 @@ import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/no
 import { CellEditType, CellKind, ICellReplaceEdit, SelectionStateType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { createNotebookCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { createNotebookCell } from './PositronNotebookCells/createNotebookCell';
 import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions';
 import * as DOM from 'vs/base/browser/dom';
@@ -36,6 +36,7 @@ import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/not
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { isEqual } from 'vs/base/common/resources';
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
 interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
 	viewModel: NotebookViewModel;
@@ -44,10 +45,24 @@ interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookIn
 	textModel: NotebookTextModel;
 }
 
+/**
+ * Implementation of IPositronNotebookInstance that handles the core notebook functionality
+ * and state management. This class serves as the bridge between the UI and the underlying
+ * notebook model.
+ *
+ * Key responsibilities:
+ * - Manages notebook cell state and execution
+ * - Handles kernel connectivity
+ * - Coordinates selection and editing states
+ * - Manages the lifecycle of the notebook view
+ */
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
 
 	// ===== Statics =====
 	// #region Statics
+	/** Map of all active notebook instances, keyed by notebook URI */
+	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
+
 	/**
 	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
 	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
@@ -78,14 +93,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return instance;
 	}
 
-	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
-
-	/**
-	 * Value to keep track of what instance number.
-	 * Used for keeping track in the logs.
-	 */
-	static _count = 0;
-
 	// #endregion
 
 	// =============================================================================================
@@ -96,14 +103,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _cells: IPositronNotebookCell[] = [];
 
-	private _language: string | undefined = undefined;
-
 	/**
 	 * A set of disposables that are linked to a given model
 	 * that need to be cleaned up when the model is changed.
 	 */
 	private readonly _modelStore = this._register(new DisposableStore());
 
+	/**
+	 * Dom element that contains the notebook is rendered in.
+	 */
 	private _container: HTMLElement | undefined = undefined;
 
 	/**
@@ -122,6 +130,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _viewModel: NotebookViewModel | undefined = undefined;
 
+	/**
+	 * Model for the notebook contents.
+	 */
 	private _textModel: NotebookTextModel | undefined = undefined;
 
 	/**
@@ -141,13 +152,21 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * notebook gets fleshed out.
 	 */
 	private _notebookOptions: NotebookOptions | undefined;
+
+	/**
+	 * Keep track of if this editor has been disposed.
+	 */
+	private _isDisposed: boolean = false;
 	// #endregion
 
 
 	// =============================================================================================
 	// #region Public Properties
 
-	id: string = `positron.notebook.instance.${PositronNotebookInstance._count++}`;
+	/**
+	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
+	 */
+	private _id: string;
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
@@ -163,12 +182,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
 
+	/**
+	 * Current runtime for the notebook.
+	 */
 	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
 
-	/**
-	 * Keep track of if this editor has been disposed.
-	 */
-	isDisposed: boolean = false;
 
 	// #endregion
 
@@ -222,6 +240,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._notebookOptions;
 	}
 
+	get id(): string {
+		return this._id;
+	}
+
+	get isDisposed(): boolean {
+		return this._isDisposed;
+	}
+
 	// #endregion
 
 	// =============================================================================================
@@ -241,9 +267,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super();
 
+		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
@@ -307,6 +335,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			})
 		);
 
+		this._webviewPreloadService.attachNotebookInstance(this);
+
 		this._logService.info(this.id, 'constructor');
 	}
 
@@ -339,16 +369,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	addCell(type: CellKind, index: number): void {
 		this._assertViewModel();
 
-		if (!this._language) {
-			throw new Error(localize('noLanguage', "No language for notebook"));
-		}
+		const language = this._getDefaultLanguage();
+
 		const synchronous = true;
 		const pushUndoStop = true;
 		insertCellAtIndex(
 			this.viewModel,
 			index,
 			'',
-			this._language,
+			language,
 			type,
 			undefined,
 			[],
@@ -548,13 +577,17 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._modelStore.add(
 			this._textModel.onDidChangeContent((e) => {
-				// Only update cells if the number of cells has changed. Aka we've added or removed
-				// cells. There's a chance this is not smart enough. E.g. it may be possible to
-				// swap cells in the notebook and this would not catch that.
-				const numOldCells = this._cells.length;
-				const numNewCells = this._textModel?.cells.length;
+				// Check if cells are in the same order by comparing references
+				this._assertTextModel();
+				const newCells = this.textModel.cells;
 
-				if (numOldCells === numNewCells) {
+				if (
+					// If there are the same number of cells...
+					newCells.length === this._cells.length &&
+					// ... and they are in the same order...
+					newCells.every((cell, i) => this._cells[i].cellModel === cell)
+				) {
+					// ... then we don't need to sync the cells.
 					return;
 				}
 
@@ -567,11 +600,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * Method to sync the editor cells with the current cells in the model.
 	 */
 	private _syncCells() {
-		const modelCells = this._textModel?.cells;
-
-		if (!modelCells) {
-			throw new Error('No cells in notebook model to fill editor with.');
-		}
+		this._assertTextModel();
+		const modelCells = this.textModel.cells;
 
 		const cellModelToCellMap = new Map(
 			this._cells.map(cell => [cell.cellModel, cell])
@@ -603,7 +633,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
-		this._language = modelCells[0].language;
 		this.cells.set(this._cells, undefined);
 		this.selectionStateMachine.setCells(this._cells);
 	}
@@ -684,6 +713,23 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._modelStore.clear();
 		this._viewModel?.dispose();
 		this._viewModel = undefined;
+	}
+
+	/**
+	 * Gets the default language for new cells based on the notebook's current state
+	 * @returns The language to use for new cells
+	 */
+	private _getDefaultLanguage(): string {
+		this._assertTextModel();
+
+		// If we have a text model with cells, use the language of the first cell
+		if (this.textModel.cells.length > 0) {
+			return this.textModel.cells[0].language;
+		}
+
+		// Default to python if we don't have any cells yet
+		// TODO: Make this configurable or based on notebook metadata
+		return 'python';
 	}
 
 	// #endregion

@@ -6,7 +6,7 @@ import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
 import { NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { isParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
 import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
 import { localize } from 'vs/nls';
@@ -14,45 +14,63 @@ import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/bro
 import { CellTextOutput } from './CellTextOutput';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { pickPreferredOutputItem, PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
-import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
+import { PreloadMessageOutput } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/PreloadMessageOutput';
 
+interface CellExecutionControlsProps {
+	isRunning: boolean;
+	onRun: () => void;
+}
+
+function CellExecutionControls({ isRunning, onRun }: CellExecutionControlsProps) {
+	return (
+		<ActionButton
+			ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
+			onPressed={onRun}
+		>
+			<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
+		</ActionButton>
+	);
+}
+
+interface CellOutputsSectionProps {
+	outputs: NotebookCellOutputs[] | undefined;
+}
+
+function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
+	return (
+		<div className='positron-notebook-code-cell-outputs'>
+			{outputs?.map((output) => (
+				<CellOutput key={output.outputId} {...output} />
+			))}
+		</div>
+	);
+}
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 	const outputContents = useObservedValue(cell.outputs);
 	const executionStatus = useObservedValue(cell.executionStatus);
 	const isRunning = executionStatus === 'running';
 
-	return <NotebookCellWrapper cell={cell}>
-		<NotebookCellActionBar cell={cell}>
-			<ActionButton
-				ariaLabel={isRunning ? localize('stopExecution', 'Stop execution') : localize('runCell', 'Run cell')}
-				onPressed={() => cell.run()} >
-				<div className={`button-icon codicon ${isRunning ? 'codicon-primitive-square' : 'codicon-run'}`} />
-			</ActionButton>
-		</NotebookCellActionBar>
-		<div className='cell-contents'>
-			<CellEditorMonacoWidget cell={cell} />
-			<div className='positron-notebook-cell-outputs'>
-				{outputContents?.map(({ outputs, outputId }) =>
-					<CellOutput key={outputId} outputs={outputs} outputId={outputId} />
-				)}
+	return (
+		<NotebookCellWrapper cell={cell}>
+			<NotebookCellActionBar cell={cell}>
+				<CellExecutionControls isRunning={isRunning} onRun={() => cell.run()} />
+			</NotebookCellActionBar>
+			<div className='positron-notebook-code-cell-contents'>
+				<CellEditorMonacoWidget cell={cell} />
+				<CellOutputsSection outputs={outputContents} />
 			</div>
-		</div>
-	</NotebookCellWrapper>;
-
+		</NotebookCellWrapper>
+	);
 }
 
-function CellOutput({ outputs, outputId }: NotebookCellOutputs) {
-	const services = useServices();
-	const preferredOutput = pickPreferredOutputItem(outputs, services.logService.warn);
-
-	if (!preferredOutput) {
-		return null;
+function CellOutput(output: NotebookCellOutputs) {
+	if (output.preloadMessageResult) {
+		return <PreloadMessageOutput preloadMessageResult={output.preloadMessageResult} />;
 	}
 
-	const parsed = parseOutputData(preferredOutput);
+	const { parsed, outputs } = output;
 
 	if (isParsedTextOutput(parsed)) {
 		return <CellTextOutput {...parsed} />;
@@ -65,11 +83,9 @@ function CellOutput({ outputs, outputId }: NotebookCellOutputs) {
 			</div>;
 		case 'image':
 			return <img src={parsed.dataUrl} alt='output image' />;
-		case 'html':
-			return <NotebookHTMLContent content={parsed.content} outputId={outputId} />;
 		case 'unknown':
 			return <div className='unknown-mime-type'>
-				{localize('cellExecutionUnknownMimeType', 'Cant handle mime type "{0}" yet', preferredOutput.mime)}
+				{localize('cellExecutionUnknownMimeType', 'Can\'t handle mime types "{0}" yet', outputs.map(o => o.mime).join(','))}
 			</div>;
 	}
 }

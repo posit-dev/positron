@@ -39,7 +39,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	static count = 0;
 
-	private _identifier = `Positron Notebook | Input(${PositronNotebookEditorInput.count++}) |`;
+	/**
+	 * Unique identifier for this specific input instance
+	 */
+	readonly uniqueId: string = `positron-notebook-${PositronNotebookEditorInput.count++}`;
+
+	private _identifier = `Positron Notebook | Input(${this.uniqueId}) |`;
 	//#region Static Properties
 	/**
 	 * Gets the type ID.

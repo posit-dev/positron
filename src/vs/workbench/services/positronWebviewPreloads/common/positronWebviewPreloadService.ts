@@ -6,6 +6,10 @@
 import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
 import { Event } from 'vs/base/common/event';
 import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { VSBuffer } from 'vs/base/common/buffer';
+// TODO: Fix this import ordering violation
+import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
@@ -15,6 +19,9 @@ export const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
 export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
 
 export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
+export type NotebookPreloadOutputResults =
+	| { preloadMessageType: 'preload' }
+	| { preloadMessageType: 'display'; webview: Promise<INotebookOutputWebview> };
 
 export interface IPositronWebviewPreloadService {
 	/**
@@ -36,4 +43,23 @@ export interface IPositronWebviewPreloadService {
 	 * Session info (used for testing)
 	 */
 	sessionInfo(sessionId: string): { numberOfMessages: number } | null;
+
+
+	/**
+	 * Add a notebook to the known list for replay of messages when creating webviews.
+	 * @param instance Instance for the notebook
+	 */
+	attachNotebookInstance(instance: IPositronNotebookInstance): void;
+
+	/**
+	 * Add output from a notebook cell and process it for webview preloads
+	 */
+	addNotebookOutput(
+		opts:
+			{
+				instance: IPositronNotebookInstance;
+				outputId: string;
+				outputs: { mime: string; data: VSBuffer }[];
+			}
+	): NotebookPreloadOutputResults | undefined;
 }

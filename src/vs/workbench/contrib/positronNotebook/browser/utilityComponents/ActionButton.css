@@ -12,7 +12,7 @@
 	cursor: pointer;
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 
-	&:hover {
+	&:hover, &:focus {
 		background-color: var(--vscode-positronTopActionBar-hoverBackground);
 	}
 }
