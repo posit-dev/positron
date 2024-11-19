@@ -204,119 +204,19 @@ jobs:
         run: cd .. && rm -rf positron-license
 
   e2e-report:
+    runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
-    runs-on: ubuntu-latest
-    needs:
-      [
-        "unit-tests",
-        "integration-tests",
-        "e2e-electron-tests",
-        "e2e-browser-tests",
-      ]
-    if: ${{ !cancelled() }}
-    env:
-      AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
-
+    needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Run E2E Report
+        uses: ./.github/actions/e2e-report
         with:
-          node-version-file: .nvmrc
-
-      - name: Install unzip
-        run: apt-get update && apt-get install -y unzip
-
-      - name: Install AWS CLI
-        run: |
-          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-          unzip -q /tmp/awscliv2.zip -d /tmp
-          /tmp/aws/install -i $HOME/aws-cli -b $HOME/bin
-          rm -rf /tmp/aws /tmp/awscliv2.zip
-
-      - name: Add AWS CLI to PATH
-        run: echo "$HOME/bin" >> $GITHUB_PATH
-
-      - name: Verify AWS CLI installation
-        run: aws --version
-
-      - name: Download blob reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-blob-reports
-          pattern: blob-report-*
-          merge-multiple: true
-
-      - name: Merge blobs into HTML Report
-        run: npx playwright merge-reports --reporter html ./all-blob-reports
-
-      - name: Upload Playwright Report to S3
-        uses: ./.github/actions/upload-report-to-s3
-        if: ${{ !cancelled() }}
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
-
-      - name: Download junit reports
-        uses: actions/download-artifact@v4
-        with:
-          path: all-junit-reports
-          pattern: junit-report-*
-          merge-multiple: true
-
-      - name: Merge junit reports
-        run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
-
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Nightly E2E Electron Tests - $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Install trcli
-        run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
-
-      - name: Upload Test Results to TestRail (Electron ONLY)
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-      - name: Check Upstream Job Status
-        if: ${{ !cancelled() }}
-        run: |
-          FAILED_JOBS=""
-          if [ "${{ needs.unit-tests.result }}" = "failure" ]; then
-            FAILED_JOBS="${FAILED_JOBS} Unit Tests"
-          fi
-          if [ "${{ needs.integration-tests.result }}" = "failure" ]; then
-            FAILED_JOBS="${FAILED_JOBS} Integration Tests"
-          fi
-          if [ "${{ needs.e2e-electron-tests.result }}" = "failure" ]; then
-            FAILED_JOBS="${FAILED_JOBS} E2E Electron Tests"
-          fi
-          if [ "${{ needs.e2e-browser-tests.result }}" = "failure" ]; then
-            FAILED_JOBS="${FAILED_JOBS} E2E Browser Tests"
-          fi
-
-          if [ -z "$FAILED_JOBS" ]; then
-            echo "All upstream jobs succeeded. Exiting early."
-            exit 0
-          else
-            echo "Failed jobs detected: $FAILED_JOBS. Proceeding to Slack notification."
-          fi
-
-      - name: Send Slack notification
-        if: ${{ !cancelled() }}
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Full Test Suite
+          aws-s3-bucket: positron-test-reports
+          aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          slack-token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack-channel: C07FR1JNZNJ
+          slack-title: "Full Test Suite (Electron)"
+          testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
+          testrail-title: "E2E Electron Test Run"
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}

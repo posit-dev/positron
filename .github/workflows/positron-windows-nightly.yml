@@ -11,8 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  windows:
-    name: Tests on Windows
+  e2e-windows-tests:
     runs-on:
       labels: [windows-latest-8x]
     timeout-minutes: 60
@@ -100,14 +99,6 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        shell: pwsh
-        run: |
-          $REPORT_URL = "https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $env:GITHUB_STEP_SUMMARY
-
       - name: Run Tests on Windows (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
@@ -116,35 +107,36 @@ jobs:
         id: e2e-win-electron-tests
         run: npx playwright test --project e2e-electron --grep "@win" --workers 1
 
-      - name: Upload Playwright Report to S3
-        uses: ./.github/actions/upload-report-to-s3
+      - name: Upload blob report
         if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
         with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          name: blob-report-electron-${{ matrix.shardIndex }}
+          path: blob-report
+          retention-days: 14
 
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
+      - name: Upload junit report
         if: ${{ !cancelled() }}
-        run: echo "TESTRAIL_TITLE=$(Get-Date -Format 'yyyy-MM-dd') Nightly Smoke Tests - $env:GITHUB_REF_NAME" >> $env:GITHUB_ENV
-        shell: pwsh
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-report-electron-${{ matrix.shardIndex }}
+          path: test-results/junit.xml
 
-      - name: Upload Test Results to TestRail
-        id: testrail-upload
-        if: ${{ !cancelled() }}
-        shell: pwsh
-        run: |
-          trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$env:TESTRAIL_TITLE" --close-run
-
-  slack-notification:
-    name: "Send Slack notification"
+  e2e-report:
     runs-on: ubuntu-latest
-    needs: windows
-    if: failure()
+    container:
+      image: mcr.microsoft.com/playwright:v1.48.0-jammy
+    needs:
+      - e2e-windows-tests
     steps:
-      - name: "Send Slack notification"
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
+      - name: Run E2E Report
+        uses: ./.github/actions/e2e-report
         with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Full Test Suite (Windows)
+          aws-s3-bucket: positron-test-reports
+          aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          slack-token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+          slack-channel: C07FR1JNZNJ
+          slack-title: "Full Test Suite (Windows)"
+          testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
+          testrail-title: "E2E Windows Test Run"
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
