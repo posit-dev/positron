@@ -3,10 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Application, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Reticulate', () => {
+describe('Reticulate #win #web', () => {
 	setupAndStartApp();
 	let app: Application;
 	let userSettings: PositronUserSettingsFixtures;
@@ -21,6 +22,8 @@ describe('Reticulate', () => {
 
 				userSettings = new PositronUserSettingsFixtures(app);
 
+				// remove this once https://github.com/posit-dev/positron/issues/5226
+				// is resolved
 				const kernelSupervisorSetting: UserSetting = ['positronKernelSupervisor.enable', 'false'];
 				const reticulateSetting: UserSetting = ['positron.reticulate.enabled', 'true'];
 
@@ -37,8 +40,6 @@ describe('Reticulate', () => {
 		});
 
 		after(async function () {
-
-			// unset the use of the VSCode file picker
 			await userSettings.unsetUserSettings();
 
 		});
@@ -50,7 +51,21 @@ describe('Reticulate', () => {
 
 			await app.workbench.positronConsole.waitForReady('>>>');
 
-			console.log('test');
+			await app.workbench.positronConsole.pasteCodeToConsole('x=100');
+			await app.workbench.positronConsole.sendEnterKey();
+
+			await PositronRFixtures.SetupFixtures(this.app as Application);
+
+			await app.workbench.positronConsole.pasteCodeToConsole('y<-reticulate::py$x');
+			await app.workbench.positronConsole.sendEnterKey();
+
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+
+			await expect(async () => {
+				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+				expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
+			}).toPass({ timeout: 60000 });
+
 		});
 	});
 });
