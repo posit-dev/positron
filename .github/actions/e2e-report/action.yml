@@ -99,6 +99,10 @@ runs:
       shell: bash
       run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
 
+    - name: Install trcli
+      shell: bash
+      run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
+
     - name: Upload Test Results to TestRail
       shell: bash
       run: |
