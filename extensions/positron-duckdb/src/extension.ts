@@ -18,6 +18,7 @@ import {
 	ColumnProfileType,
 	ColumnSchema,
 	ColumnSortKey,
+	ColumnSummaryStats,
 	ColumnValue,
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
@@ -44,6 +45,10 @@ import {
 	RowFilterType,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
+	SummaryStatsDate,
+	SummaryStatsDatetime,
+	SummaryStatsNumber,
+	SummaryStatsString,
 	SupportStatus,
 	TableData,
 	TableRowLabels,
@@ -299,10 +304,11 @@ class ColumnProfileEvaluator {
 				case ColumnProfileType.SmallHistogram: {
 					this.addHistogramStats(fieldName, spec.params as ColumnHistogramParams);
 				}
-				case ColumnProfileType.LargeFrequencyTable:
-				case ColumnProfileType.SmallFrequencyTable:
-					break;
 				case ColumnProfileType.SummaryStats:
+					this.addSummaryStats(columnSchema);
+					break;
+				default:
+					// Frequency tables do not need any summary stats
 					break;
 			}
 		}
@@ -317,6 +323,15 @@ class ColumnProfileEvaluator {
 		this.statsExprs.add(`MAX("${fieldName}") AS "max_${fieldName}"`);
 	}
 
+	private addMinMaxStringified(fieldName: string) {
+		this.statsExprs.add(`MIN("${fieldName}")::VARCHAR AS "string_min_${fieldName}"`);
+		this.statsExprs.add(`MAX("${fieldName}")::VARCHAR AS "string_max_${fieldName}"`);
+	}
+
+	private addNumUnique(fieldName: string) {
+		this.statsExprs.add(`COUNT(DISTINCT "${fieldName}") AS "nunique_${fieldName}"`);
+	}
+
 	private addIqr(fieldName: string) {
 		this.statsExprs.add(
 			`APPROX_QUANTILE("${fieldName}", 0.75) - APPROX_QUANTILE("${fieldName}", 0.25)
@@ -325,13 +340,7 @@ class ColumnProfileEvaluator {
 	}
 
 	private addHistogramStats(fieldName: string, params: ColumnHistogramParams) {
-		// const quotedName = quoteIdentifier(fieldName);
-
-		// Append the bin width support statistics and bin width expression
 		this.addMinMax(fieldName);
-		const minValue = `"min_${fieldName}"`;
-		const maxValue = `"max_${fieldName}"`;
-
 		switch (params.method) {
 			case ColumnHistogramParamsMethod.FreedmanDiaconis:
 				this.addIqr(fieldName);
@@ -339,6 +348,35 @@ class ColumnProfileEvaluator {
 			default:
 				// TODO: stats for other methods
 				break;
+		}
+	}
+
+	private addSummaryStats(columnSchema: SchemaEntry) {
+		const fieldName = columnSchema.column_name;
+
+		if (isNumeric(columnSchema.column_type)) {
+			this.addMinMax(fieldName);
+			this.statsExprs.add(`AVG("${fieldName}") AS "mean_${fieldName}"`);
+			this.statsExprs.add(`STDDEV_SAMP("${fieldName}") AS "stdev_${fieldName}"`);
+			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
+		} else if (columnSchema.column_type === 'VARCHAR') {
+			this.addNumUnique(fieldName);
+
+			// count strings that are equal to empty string
+			this.statsExprs.add(`COUNT(CASE WHEN "${fieldName}" = '' THEN 1 END) AS "nempty_${fieldName}"`);
+		} else if (columnSchema.column_type === 'BOOLEAN') {
+			this.addNullCount(fieldName);
+			this.statsExprs.add(`COUNT(CASE WHEN "${fieldName}" THEN 1 END) AS "ntrue_${fieldName}"`);
+			this.statsExprs.add(`COUNT(CASE WHEN NOT "${fieldName}" THEN 1 END) AS "nfalse_${fieldName}"`);
+		} else if (columnSchema.column_type === 'TIMESTAMP' ||
+			columnSchema.column_type === 'DATE'
+		) {
+			this.addMinMaxStringified(fieldName);
+			this.addNumUnique(fieldName);
+			this.statsExprs.add(`(AVG("${fieldName}"::BIGINT)::${columnSchema.column_type})::VARCHAR
+				AS "string_mean_${fieldName}"`);
+			this.statsExprs.add(`(MEDIAN("${fieldName}"::BIGINT)::${columnSchema.column_type})::VARCHAR
+					AS "string_median_${fieldName}"`);
 		}
 	}
 
@@ -475,6 +513,67 @@ class ColumnProfileEvaluator {
 		return output;
 	}
 
+	private unboxSummaryStats(columnSchema: SchemaEntry, stats: Map<string, any>
+	): ColumnSummaryStats {
+		const formatNumber = (value: number) => {
+			return Number(value).toString();
+		};
+		if (isNumeric(columnSchema.column_type)) {
+			return {
+				type_display: ColumnDisplayType.Number,
+				number_stats: {
+					min_value: formatNumber(stats.get(`min_${columnSchema.column_name}`)),
+					max_value: formatNumber(stats.get(`max_${columnSchema.column_name}`)),
+					mean: formatNumber(stats.get(`mean_${columnSchema.column_name}`)),
+					stdev: formatNumber(stats.get(`stdev_${columnSchema.column_name}`)),
+					median: formatNumber(stats.get(`median_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type === 'VARCHAR') {
+			return {
+				type_display: ColumnDisplayType.String,
+				string_stats: {
+					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`)),
+					num_empty: Number(stats.get(`nempty_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type === 'BOOLEAN') {
+			return {
+				type_display: ColumnDisplayType.Boolean,
+				boolean_stats: {
+					true_count: Number(stats.get(`ntrue_${columnSchema.column_name}`)),
+					false_count: Number(stats.get(`nfalse_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type === 'TIMESTAMP') {
+			return {
+				type_display: ColumnDisplayType.Datetime,
+				datetime_stats: {
+					min_date: stats.get(`string_min_${columnSchema.column_name}`),
+					max_date: stats.get(`string_max_${columnSchema.column_name}`),
+					mean_date: stats.get(`string_mean_${columnSchema.column_name}`),
+					median_date: stats.get(`string_median_${columnSchema.column_name}`),
+					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`))
+				}
+			};
+		} else if (columnSchema.column_type === 'DATE') {
+			return {
+				type_display: ColumnDisplayType.Datetime,
+				date_stats: {
+					min_date: stats.get(`string_min_${columnSchema.column_name}`),
+					max_date: stats.get(`string_max_${columnSchema.column_name}`),
+					mean_date: stats.get(`string_mean_${columnSchema.column_name}`),
+					median_date: stats.get(`string_median_${columnSchema.column_name}`),
+					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`))
+				}
+			};
+		} else {
+			return {
+				type_display: ColumnDisplayType.Unknown
+			};
+		}
+	}
+
 	async evaluate() {
 		for (let i = 0; i < this.params.profiles.length; ++i) {
 			this.collectStats(i, this.params.profiles[i]);
@@ -519,6 +618,9 @@ class ColumnProfileEvaluator {
 							columnSchema, spec.params as ColumnFrequencyTableParams
 						);
 						break;
+					case ColumnProfileType.SummaryStats:
+						result.summary_stats = this.unboxSummaryStats(columnSchema, stats);
+						break;
 					default:
 						break;
 				}
@@ -540,6 +642,10 @@ function isInteger(duckdbName: string) {
 		default:
 			return false;
 	}
+}
+
+function isNumeric(duckdbName: string) {
+	return isInteger(duckdbName) || duckdbName === 'FLOAT' || duckdbName === 'DOUBLE';
 }
 
 /**
@@ -869,7 +975,11 @@ END`;
 						{
 							profile_type: ColumnProfileType.LargeFrequencyTable,
 							support_status: SupportStatus.Supported
-						}
+						},
+						{
+							profile_type: ColumnProfileType.SummaryStats,
+							support_status: SupportStatus.Supported
+						},
 					]
 				},
 				search_schema: {
