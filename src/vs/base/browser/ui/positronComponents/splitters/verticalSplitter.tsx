@@ -256,7 +256,7 @@ export const VerticalSplitter = ({
 	 * pointerDown handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const pointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
+	const sashPointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		// Ignore events we don't process.
 		if (e.pointerType === 'mouse' && e.buttons !== 1) {
 			return;
@@ -382,7 +382,7 @@ export const VerticalSplitter = ({
 				}}
 				onPointerEnter={sashPointerEnterHandler}
 				onPointerLeave={sashPointerLeaveHandler}
-				onPointerDown={pointerDownHandler}
+				onPointerDown={sashPointerDownHandler}
 			>
 				{showSash && (hovering || resizing) &&
 					<div
