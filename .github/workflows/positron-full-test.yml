@@ -293,16 +293,16 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           FAILED_JOBS=""
-          if [ "${{ needs.unit-tests.result }}" == "failure" ]; then
+          if [ "${{ needs.unit-tests.result }}" = "failure" ]; then
             FAILED_JOBS="${FAILED_JOBS} Unit Tests"
           fi
-          if [ "${{ needs.integration-tests.result }}" == "failure" ]; then
+          if [ "${{ needs.integration-tests.result }}" = "failure" ]; then
             FAILED_JOBS="${FAILED_JOBS} Integration Tests"
           fi
-          if [ "${{ needs.e2e-electron-tests.result }}" == "failure" ]; then
+          if [ "${{ needs.e2e-electron-tests.result }}" = "failure" ]; then
             FAILED_JOBS="${FAILED_JOBS} E2E Electron Tests"
           fi
-          if [ "${{ needs.e2e-browser-tests.result }}" == "failure" ]; then
+          if [ "${{ needs.e2e-browser-tests.result }}" = "failure" ]; then
             FAILED_JOBS="${FAILED_JOBS} E2E Browser Tests"
           fi
 
