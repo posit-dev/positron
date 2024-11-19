@@ -790,7 +790,7 @@ export class NotebookOptions extends Disposable {
 	computeEditorStatusbarHeight(internalMetadata: NotebookCellInternalMetadata, cellUri: URI) {
 		// --- Begin Positron ---
 		if (this._positronNotebookService.isNotebookMinimalUiModeEnabled()) {
-			return 0;
+			return PositronNotebookSizes.HEIGHT_OF_BOTTOM_PADDING;
 		}
 		// --- End Positron ---
 		return this.statusBarIsVisible(internalMetadata, cellUri) ? this.computeStatusBarHeight() : 0;

@@ -306,7 +306,7 @@
 				border-radius: 6px;
 				/* Add a bit more padding to the bottom of the cell window as enclosed by the
 				outline created by the psuedo element */
-				bottom: -7px;
+				bottom: calc(var(--positron-notebook-minimal-ui-height, 0) * -1);
 			}
 
 			/* There is a space beneath the cell caused by us shifting things around and removing the
@@ -315,8 +315,8 @@ background color of the status bar. This psuedo element is used to fill in that 
 				content: "";
 				right: 0px;
 				left: 0px;
-				height: 11px;
-				bottom: -7px;
+				height: calc(var(--positron-notebook-minimal-ui-height, 0) + 4px);
+				bottom: calc(var(--positron-notebook-minimal-ui-height, 0) * -1);
 				border-radius: 0px 6px;
 				background-color: var(--vscode-notebook-cellEditorBackground);
 				display: block;

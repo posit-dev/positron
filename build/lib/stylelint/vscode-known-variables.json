@@ -693,6 +693,7 @@
 		"--vscode-positronWelcome-secondaryForeground",
 		"--vscode-positronWelcome-background",
 		"--vscode-positronWelcome-hoverBackground",
+		"--vscode-positronNotebook-minimal-ui-bottom-padding",
 		"--vscode-problemsErrorIcon-foreground",
 		"--vscode-problemsInfoIcon-foreground",
 		"--vscode-problemsWarningIcon-foreground",

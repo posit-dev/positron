@@ -104,7 +104,7 @@ import { NotebookAccessibilityProvider } from 'vs/workbench/contrib/notebook/bro
 import { NotebookHorizontalTracker } from 'vs/workbench/contrib/notebook/browser/viewParts/notebookHorizontalTracker';
 import { NotebookCellEditorPool } from 'vs/workbench/contrib/notebook/browser/view/notebookCellEditorPool';
 // --- Begin Positron ---
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { IPositronNotebookService, PositronNotebookSizes } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
 // --- End Positron ---
 
 const $ = DOM.$;
@@ -628,6 +628,10 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 			this._positronNotebookService.onNotebookMinimalUiModeChanged({
 				callback: (useMinimalUi) => {
 					this._overlayContainer.classList.toggle('minimal-notebook-ui', useMinimalUi);
+					// Add a css variable to the overlay container that we can use to communicate
+					// sizing into the css.
+					this._overlayContainer.style.setProperty('--vscode-positronNotebook-minimal-ui-bottom-padding', `${PositronNotebookSizes.HEIGHT_OF_BOTTOM_PADDING}px`);
+					// this._body.style.setProperty('--notebook-minimal-ui-height', `${PositronNotebookSizes.HEIGHT_OF_BOTTOM_PADDING}px`);
 				},
 				runWhenFirstSet: true
 			})

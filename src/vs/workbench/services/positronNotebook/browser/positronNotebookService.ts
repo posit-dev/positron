@@ -75,6 +75,7 @@ export interface IPositronNotebookService {
 export const PositronNotebookSizes = {
 	// The width of the status bar in pixels.
 	WIDTH_OF_STATUS_BAR: 50,
+	HEIGHT_OF_BOTTOM_PADDING: 8,
 } as const;
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
