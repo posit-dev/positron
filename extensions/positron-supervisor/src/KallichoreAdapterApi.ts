@@ -13,8 +13,9 @@ import { findAvailablePort } from './PortFinder';
 import { KallichoreAdapterApi } from './positron-supervisor';
 import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './jupyter-adapter';
 import { KallichoreSession } from './KallichoreSession';
-import { Barrier, createUniqueId, PromiseHandles } from './async';
+import { Barrier, PromiseHandles } from './async';
 import { LogStreamer } from './LogStreamer';
+import { createUniqueId, summarizeHttpError } from './util';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
@@ -542,16 +543,10 @@ export class KCApi implements KallichoreAdapterApi {
 				resolve(session);
 			}).catch((err) => {
 				if (err instanceof HttpError) {
-					if (err.body && err.body.message) {
-						this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${err.body.message}`);
-						reject(err.body.message);
-						return;
-					} else if (err.statusCode) {
-						const message = `Failed to reconnect to session ${sessionMetadata.sessionId}: HTTP ${err.statusCode}`;
-						this._log.appendLine(message);
-						reject(message);
-						return;
-					}
+					const message = summarizeHttpError(err);
+					this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${message}`);
+					reject(message);
+					return;
 				}
 				this._log.appendLine(`Failed to reconnect to session ${sessionMetadata.sessionId}: ${JSON.stringify(err)}`);
 				reject(err);
