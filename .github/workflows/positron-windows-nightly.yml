@@ -127,7 +127,7 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: e2e-windows-tests
-    if: ${{  needs.e2e-windows-tests.result != 'cancelled' }}
+    if: always()
     steps:
       - uses: actions/checkout@v4
 

@@ -208,7 +208,7 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
-    if: ${{  needs.e2e-electron-tests.result != 'cancelled' && needs.e2e-browser-tests.result != 'cancelled' }}
+    if: always()
     steps:
       - uses: actions/checkout@v4
 
