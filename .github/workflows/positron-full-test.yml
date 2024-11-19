@@ -262,7 +262,6 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo $REPORT_URL > url.txt
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
