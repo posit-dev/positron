@@ -208,7 +208,15 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
+    if: ${{  needs.e2e-electron-tests.result != 'cancelled' && needs.e2e-browser-tests.result != 'cancelled' }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
       - name: Run E2E Report
         uses: ./.github/actions/e2e-report
         with:
