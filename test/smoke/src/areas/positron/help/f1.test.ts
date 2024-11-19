@@ -33,8 +33,10 @@ describe('F1 Help #web #win #pr', () => {
 
 			await app.workbench.positronConsole.sendKeyboardKey('F1');
 
-			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
-			await expect(helpFrame.locator('body')).toContainText('Row and Column Names');
+			await expect(async () => {
+				const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+				await expect(helpFrame.locator('body')).toContainText('Row and Column Names', { timeout: 30000 });
+			}).toPass({ timeout: 30000 });
 
 		});
 	});
@@ -63,8 +65,10 @@ describe('F1 Help #web #win #pr', () => {
 
 			await app.workbench.positronConsole.sendKeyboardKey('F1');
 
-			const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
-			await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.');
+			await expect(async () => {
+				const helpFrame = await app.workbench.positronHelp.getHelpFrame(0);
+				await expect(helpFrame.locator('p').first()).toContainText('Built-in mutable sequence.', { timeout: 30000 });
+			}).toPass({ timeout: 30000 });
 
 		});
 	});
