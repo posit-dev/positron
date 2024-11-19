@@ -70,8 +70,11 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: reporter-${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
+        run: DISPLAY=:10 npx pwc --key ${{ env.CURRENTS_RECORD_KEY }} --project-id ${{ env.CURRENTS_PROJECT_ID }} --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
