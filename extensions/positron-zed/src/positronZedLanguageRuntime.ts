@@ -63,7 +63,8 @@ const HelpLines = [
 	'env rm X         - Removes X variables',
 	'env update X     - Updates X variables',
 	'error X Y Z      - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'exec X Y         - Executes a code snippet Y in the language X',
+	'exec silent X Y  - Executes a code snippet Y in the language X silently',
+	'exec X Y         - Executes a code snippet Y in the language X interactively',
 	'fancy            - Simulates fancy HTML output',
 	'flicker          - Simulates a flickering console prompt',
 	'help             - Shows this help',
@@ -381,16 +382,17 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 				this.shutdown();
 			}
 			return;
-			// } else if (match = code.match(/^view( .+)?/)) {
-			// 	// Simulate a data viewer
-			// 	const title = (match.length > 1 && match[1]) ? match[1].trim() : 'Data';
-			// 	this.simulateDataView(id, code, `Zed: ${title}`);
-			// 	return;
+		} else if (match = code.match(/^exec silent ([a-zA-Z]+) (.+)/)) {
+			// Execute code silently in another language.
+			const languageId = match[1];
+			const codeToExecute = match[2];
+			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Silent);
+			return;
 		} else if (match = code.match(/^exec ([a-zA-Z]+) (.+)/)) {
 			// Execute code in another language.
 			const languageId = match[1];
 			const codeToExecute = match[2];
-			this.simulateCodeExecution(id, code, languageId, codeToExecute);
+			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Interactive);
 			return;
 		} else if (match = code.match(/^preview( .+)?/)) {
 			const command = (match.length > 1 && match[1]) ? match[1].trim() : 'default';
@@ -1592,11 +1594,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * @param code The Zed code the user entered.
 	 * @param languageId The language identifier
 	 * @param codeToExecute The code to execute.
+	 * @param mode The execution mode to conform to.
 	 */
 	private async simulateCodeExecution(parentId: string,
 		code: string,
 		languageId: string,
-		codeToExecute: string) {
+		codeToExecute: string,
+		mode: positron.RuntimeCodeExecutionMode) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
@@ -1604,8 +1608,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		// Let the user know what we're about to do
 		this.simulateOutputMessage(parentId, `Executing ${languageId} snippet: ${codeToExecute}`);
 
+		// Don't focus the console if code should being executed silently
+		const focus = mode !== positron.RuntimeCodeExecutionMode.Silent;
+
 		// Perform the execution
-		const success = await positron.runtime.executeCode(languageId, codeToExecute, true, true);
+		const success = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode);
 		if (!success) {
 			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
 		}
