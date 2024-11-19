@@ -573,17 +573,6 @@ class ColumnProfileEvaluator {
 					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`))
 				}
 			};
-		} else if (columnSchema.column_type === 'DATE') {
-			return {
-				type_display: ColumnDisplayType.Datetime,
-				date_stats: {
-					min_date: stats.get(`string_min_${columnSchema.column_name}`),
-					max_date: stats.get(`string_max_${columnSchema.column_name}`),
-					mean_date: stats.get(`string_mean_${columnSchema.column_name}`),
-					median_date: stats.get(`string_median_${columnSchema.column_name}`),
-					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`))
-				}
-			};
 		} else {
 			return {
 				type_display: ColumnDisplayType.Unknown
