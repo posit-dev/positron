@@ -87,9 +87,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
-	// Whether we are currently quitting
-	private _quitting = false;
-
 	// Whether we are shutting down
 	private _shuttingDown = false;
 
@@ -152,7 +149,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveWorkspaceSessions();
 
 			this._register(session.onDidEndSession(exit => {
-				// Ignore if shutting down
+				// Ignore if shutting down; sessions 'exit' during shutdown as
+				// they disconnect from the extension host.
 				if (this._shuttingDown) {
 					return;
 				}
@@ -279,16 +277,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		});
-		// Register a shutdown event handler to clear the workspace sessions to
-		// prepare for a clean start of Positron next time.
+
+		// Register a shutdown event handler so that we have a chance to save
+		// state before a reload.
 		this._register(this._lifecycleService.onBeforeShutdown((e) => {
+			// Mark that we are shutting down
 			this._shuttingDown = true;
-			if (e.reason === ShutdownReason.QUIT) {
-				// We're quitting. Set this flag so that we can clean up the workspace sessions in the storage.
-				this._quitting = true;
-			} else if (e.reason === ShutdownReason.RELOAD) {
+			if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
-				// before reloading.
+				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
 			}
@@ -774,11 +771,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * process.
 	 */
 	private async saveWorkspaceSessions(): Promise<boolean> {
-		// Ignore if we are currently quitting
-		if (this._quitting) {
-			return false;
-		}
-
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
