@@ -28,7 +28,7 @@ import './browser/actions/quickAccessActions.js';
 import './browser/actions/widgetNavigationCommands.js';
 
 // --- Start Positron ---
-import 'vs/workbench/browser/actions/positronActions';
+import './browser/actions/positronActions.js';
 // --- End Positron ---
 
 //#endregion
@@ -52,7 +52,7 @@ import './browser/parts/banner/bannerPart.js';
 import './browser/parts/statusbar/statusbarPart.js';
 
 // --- Start Positron ---
-import 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarPart';
+import './browser/parts/positronTopActionBar/positronTopActionBarPart.js';
 // --- End Positron ---
 
 //#endregion
@@ -190,7 +190,7 @@ import './contrib/performance/browser/performance.contribution.js';
 import './contrib/contextmenu/browser/contextmenu.contribution.js';
 
 // --- Start Positron ---
-import 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogs.contribution';
+import './contrib/positronModalDialogs/browser/positronModalDialogs.contribution.js';
 // --- End Positron ---
 
 // Notebook
@@ -288,15 +288,13 @@ import './contrib/output/browser/output.contribution.js';
 import './contrib/output/browser/outputView.js';
 
 // --- Start Positron ---
-import 'vs/workbench/contrib/positronVariables/browser/positronVariables.contribution';
-import 'vs/workbench/contrib/positronHelp/browser/positronHelp.contribution';
-// import 'vs/workbench/contrib/positronHistory/browser/positronHistory.contribution';  Disabled for Private Alpha
-// import 'vs/workbench/contrib/positronOutline/browser/positronOutline.contribution';  Disabled for Private Alpha
-import 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
-import 'vs/workbench/contrib/positronPlots/browser/positronPlots.contribution';
-import 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution';
-import 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview.contribution';
-import 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
+import './contrib/positronVariables/browser/positronVariables.contribution.js';
+import './contrib/positronHelp/browser/positronHelp.contribution.js';
+import './contrib/positronPreview/browser/positronPreview.contribution.js';
+import './contrib/positronPlots/browser/positronPlots.contribution.js';
+import './contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import './contrib/positronOutputWebview/browser/notebookOutputWebview.contribution.js';
+import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
 // --- End Positron ---
 
 // Terminal
@@ -431,25 +429,25 @@ import './contrib/inlineCompletions/browser/inlineCompletions.contribution.js';
 // --- Start Positron ---
 
 // Contributions
-import 'vs/workbench/contrib/positronConsole/browser/positronConsole.contribution';
-import 'vs/workbench/contrib/positronConsole/browser/positronConsoleView';
-import 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution';
-import 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor';
-import 'vs/workbench/contrib/positronConnections/browser/positronConnections.contribution';
-import 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution';
-import 'vs/workbench/contrib/languageRuntime/browser/languageRuntime.contribution';
-import 'vs/workbench/contrib/executionHistory/common/executionHistory';
-import 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution';
-import 'vs/workbench/contrib/positronNewProject/browser/positronNewProject.contribution';
+import './contrib/positronConsole/browser/positronConsole.contribution.js';
+import './contrib/positronConsole/browser/positronConsoleView.js';
+import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.contribution.js';
+import './contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor.js';
+import './contrib/positronConnections/browser/positronConnections.contribution.js';
+import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contribution.js';
+import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
+import './contrib/executionHistory/common/executionHistory.js';
+import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';
+import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
 
 // Workbench services
-import 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import 'vs/workbench/services/runtimeSession/common/runtimeSession';
-import 'vs/workbench/services/runtimeStartup/common/runtimeStartup';
-import 'vs/workbench/services/positronConsole/browser/positronConsoleService';
-import 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import 'vs/workbench/services/positronVariables/common/positronVariablesService';
-import 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerService';
-import 'vs/workbench/services/positronConnections/browser/positronConnectionsService';
-import 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
+import './services/languageRuntime/common/languageRuntime.js';
+import './services/runtimeSession/common/runtimeSession.js';
+import './services/runtimeStartup/common/runtimeStartup.js';
+import './services/positronConsole/browser/positronConsoleService.js';
+import './contrib/positronHelp/browser/positronHelpService.js';
+import './services/positronVariables/common/positronVariablesService.js';
+import './services/positronDataExplorer/browser/positronDataExplorerService.js';
+import './services/positronConnections/browser/positronConnectionsService.js';
+import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 // --- End Positron ---

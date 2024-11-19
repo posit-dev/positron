@@ -181,7 +181,7 @@ import './contrib/encryption/electron-sandbox/encryption.contribution.js';
 import './contrib/emergencyAlert/electron-sandbox/emergencyAlert.contribution.js';
 
 // --- Start Positron ---
-import 'vs/workbench/contrib/positronPreview/electron-sandbox/positronPreview.contribution';
+import './contrib/positronPreview/electron-sandbox/positronPreview.contribution.js';
 // --- End Positron ---
 
 //#endregion
