@@ -75,8 +75,32 @@ export interface IPositronNotebookService {
 export const PositronNotebookSizes = {
 	// The width of the status bar in pixels.
 	WIDTH_OF_STATUS_BAR: 50,
+	// Padding on top and bottom of right-docked status bar.
+	STATUS_BAR_VERTICAL_PADDING: 6,
+	// Height of additional bottom padding in minimal UI mode.
 	HEIGHT_OF_BOTTOM_PADDING: 8,
 } as const;
+
+const NotebookSizesCSSVariables = {
+	WIDTH_OF_STATUS_BAR: '--vscode-positron-notebook-minimal-ui-status-bar-width',
+	STATUS_BAR_VERTICAL_PADDING: '--vscode-positron-notebook-minimal-ui-status-bar-vertical-padding',
+	HEIGHT_OF_BOTTOM_PADDING: '--vscode-positron-notebook-minimal-ui-bottom-padding',
+} as const satisfies Record<keyof typeof PositronNotebookSizes, string>;
+
+/**
+ * Attach the various CSS variables to the overlay container based on the minimal UI mode.
+ */
+export function setMinimalUiCSSVariables(overlayContainer: HTMLElement, enabled: boolean) {
+	for (const [key, value] of Object.entries(PositronNotebookSizes)) {
+		const pixelValue = `${value}px`;
+		const variableName = NotebookSizesCSSVariables[key as keyof typeof NotebookSizesCSSVariables];
+		if (enabled) {
+			overlayContainer.style.setProperty(variableName, pixelValue);
+		} else {
+			overlayContainer.style.removeProperty(variableName);
+		}
+	}
+}
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
 

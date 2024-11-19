@@ -83,11 +83,11 @@
 		justify-content: space-between;
 
 		.cell-status-right {
-			margin-top: 6px;
+			margin-top: var(--vscode-positron-notebook-minimal-ui-status-bar-vertical-padding);
 		}
 
 		.cell-status-left {
-			margin-bottom: 6px;
+			margin-bottom: var(--vscode-positron-notebook-minimal-ui-bottom-padding);
 			flex-grow: unset;
 		}
 
