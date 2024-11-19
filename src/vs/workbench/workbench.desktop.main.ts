@@ -85,6 +85,10 @@ import 'vs/platform/userDataProfile/electron-sandbox/userDataProfileStorageServi
 import 'vs/workbench/services/auxiliaryWindow/electron-sandbox/auxiliaryWindowService';
 import 'vs/platform/extensionManagement/electron-sandbox/extensionsProfileScannerService';
 
+// --- Start Positron ---
+import 'vs/workbench/services/ephemeralState/electron-sandbox/ephemeralStateService';
+// --- End Positron ---
+
 import { registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IUserDataInitializationService, UserDataInitializationService } from 'vs/workbench/services/userData/browser/userDataInit';
 import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';

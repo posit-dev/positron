@@ -126,6 +126,7 @@ import { ICSSDevelopmentService, CSSDevelopmentService } from 'vs/platform/cssDe
 // --- Start Positron ---
 import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
 import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
 // --- End Positron ---
 
 /**
@@ -1241,6 +1242,12 @@ export class CodeApplication extends Disposable {
 		// Extension Host Starter
 		const extensionHostStarterChannel = ProxyChannel.fromService(accessor.get(IExtensionHostStarter), disposables);
 		mainProcessElectronServer.registerChannel(ipcExtensionHostStarterChannelName, extensionHostStarterChannel);
+
+		// --- Start Positron ---
+		// Ephemeral State
+		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
+		mainProcessElectronServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+		// --- End Positron ---
 
 		// Utility Process Worker
 		const utilityProcessWorkerChannel = ProxyChannel.fromService(accessor.get(IUtilityProcessWorkerMainService), disposables);
