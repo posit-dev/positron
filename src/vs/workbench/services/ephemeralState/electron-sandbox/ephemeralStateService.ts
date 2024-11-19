@@ -27,12 +27,10 @@ export class ElectronEphemeralStateService implements IEphemeralStateService {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IMainProcessService mainProcessService: IMainProcessService,
 	) {
-		console.log('New ElectronEphemeralStateService');
 		this._channel = instantiationService.createInstance(EphemeralStateChannelClient, mainProcessService.getChannel(EPHEMERAL_STATE_CHANNEL_NAME));
 	}
 
 	getItem<T>(key: unknown, defaultValue?: unknown): Promise<T | undefined> {
-		console.log('[E] Waiting for remote agent to get item: ', key);
 		return this._channel.getItem(key, defaultValue);
 	}
 

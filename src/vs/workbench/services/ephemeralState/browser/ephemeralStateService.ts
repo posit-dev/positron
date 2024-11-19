@@ -41,7 +41,7 @@ export class BrowserEphemeralStateService implements IEphemeralStateService {
 
 	setItem(key: string, data?: object | string | number | boolean | undefined | null): Promise<void> {
 		if (!this._channel) {
-			throw new Error(`Cannot get item ${key}; no remote connection.`);
+			throw new Error(`Cannot set item ${key}; no remote connection.`);
 		}
 		return this._channel.setItem(key, data);
 	}

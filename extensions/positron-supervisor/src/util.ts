@@ -27,7 +27,7 @@ export function summarizeHttpError(err: HttpError): string {
 	let result = '';
 
 	// Add the URL if it's available
-	if (err.response.url) {
+	if (err.response && err.response.url) {
 		result += `${err.response.url}: `;
 	}
 

@@ -26,8 +26,6 @@ import { ICommandService } from 'vs/platform/commands/common/commands';
 import { URI } from 'vs/base/common/uri';
 import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { IEnvironmentService } from 'vs/platform/environment/common/environment';
-import { isWeb } from 'vs/base/common/platform';
 
 interface ILanguageRuntimeProviderMetadata {
 	languageId: string;
@@ -43,7 +41,9 @@ interface SerializedSessionMetadata {
 }
 
 /**
- * Key for storing the set of persistent workspace session list.
+ * Key for storing the set of persistent workspace session list. The session
+ * list is stored in ephemeral storage; it persists across browser
+ * reloads/reconnects, but not across Positron sessions.
  *
  * Amended with the workspace ID to allow for multiple workspaces to store their
  * sessions separately.
@@ -106,7 +106,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IEnvironmentService private readonly _environmentService: IEnvironmentService,
 		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService) {
 
 		super();
@@ -689,11 +688,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Restores the set of active workspace sessions from the workspace storage.
+	 * Restores the set of active workspace sessions from ephemeral storage.
 	 */
 	private async restoreSessions() {
 
-		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, isBuilt: ${this._environmentService.isBuilt}, isWeb: ${isWeb}, startupKind: ${this._lifecycleService.startupKind}`);
+		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, startupKind: ${this._lifecycleService.startupKind}`);
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
