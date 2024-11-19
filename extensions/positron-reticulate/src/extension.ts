@@ -716,6 +716,16 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 		}));
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.getIPykernelPath', () => {
+			const api = vscode.extensions.getExtension('ms-python.python');
+			if (!api) {
+				throw new Error('Failed to find the Positron Python extension API.');
+			}
+			return api.extensionPath + '/python_files/positron/positron_ipykernel';
+		})
+	);
+
 	context.subscriptions.push(reticulateProvider);
 
 	return reticulateProvider;

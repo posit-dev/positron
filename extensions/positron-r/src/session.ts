@@ -22,7 +22,9 @@ import { getPandocPath } from './pandoc';
 
 interface RPackageInstallation {
 	packageName: string;
-	packageVersion?: string;
+	packageVersion: string;
+	minimumVersion: string;
+	compatible: boolean;
 }
 
 interface EnvVar {
@@ -33,6 +35,7 @@ interface EnvVar {
 // locale to also be present here, such as LC_CTYPE or LC_TIME. These can vary by OS, so this
 // interface doesn't attempt to enumerate them.
 interface Locale {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
 	LANG: string;
 	[key: string]: string;
 }
@@ -76,8 +79,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** A timestamp assigned when the session was created. */
 	private _created: number;
 
-	/** Cache for which packages we know are installed in this runtime **/
-	private _packageCache = new Array<RPackageInstallation>();
+	/** Cache of installed packages and associated version info */
+	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
@@ -385,71 +388,155 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Checks whether a package is installed in the runtime.
-	 * @param pkgName The name of the package to check
-	 * @param pkgVersion Optionally, the version of the package needed
-	 * @returns true if the package is installed, false otherwise
+	 * Gets information from the runtime about a specific installed package (or maybe not
+	 *   installed). This method caches the results of the package check and, by default, consults
+	 *   this cache in subsequent calls. If positron-r initiates package installation via
+	 *   checkInstalled(), we update the cache. But our cache does not reflect changes made through
+	 *   other channels.
+	 * @param pkgName The name of the package to check.
+	 * @param minimumVersion Optionally, a minimum version to check for. This may seem weird, but we
+	 *   need R to compare versions for us. We can't easily do it over here.
+	 * @param refresh If true, removes any cache entry for pkgName (without regard to
+	 *   minimumVersion), gets fresh info from the runtime, and caches it.
+	 * @returns An instance of RPackageInstallation if the package is installed, `null` otherwise.
 	 */
+	public async packageVersion(
+		pkgName: string,
+		minimumVersion: string | null = null,
+		refresh: boolean = false
+	): Promise<RPackageInstallation | null> {
+		const cacheKey = `${pkgName}>=${minimumVersion ?? '0.0.0'}`;
 
-	async checkInstalled(pkgName: string, pkgVersion?: string): Promise<boolean> {
-		let isInstalled: boolean;
-		// Check the cache first
-		if (this._packageCache.includes({ packageName: pkgName, packageVersion: pkgVersion }) ||
-			(pkgVersion === undefined && this._packageCache.some(p => p.packageName === pkgName))) {
-			return true;
-		}
-		try {
-			if (pkgVersion) {
-				isInstalled = await this.callMethod('is_installed', pkgName, pkgVersion);
-			} else {
-				isInstalled = await this.callMethod('is_installed', pkgName);
+		if (!refresh) {
+			if (this._packageCache.has(cacheKey)) {
+				return this._packageCache.get(cacheKey)!;
 			}
+
+			if (minimumVersion === null) {
+				for (const key of this._packageCache.keys()) {
+					if (key.startsWith(pkgName)) {
+						return this._packageCache.get(key)!;
+					}
+				}
+			}
+		}
+		// Possible sceanrios:
+		// - We're skipping the cache and refreshing the package info.
+		// - The package isn't in the cache.
+		// - The package is in the cache, but version is insufficient (last time we checked).
+
+		// Remove a pre-existing cache entry for this package, regardless of minimumVersion.
+		for (const key of this._packageCache.keys()) {
+			if (key.startsWith(pkgName)) {
+				this._packageCache.delete(key);
+			}
+		}
+
+		const pkgInst = await this._getPackageVersion(pkgName, minimumVersion);
+
+		if (pkgInst) {
+			this._packageCache.set(cacheKey, pkgInst);
+		}
+
+		return pkgInst;
+	}
+
+	private async _getPackageVersion(
+		pkgName: string,
+		minimumVersion: string | null = null
+	): Promise<RPackageInstallation | null> {
+		let pkg: any;
+		try {
+			pkg = await this.callMethod('packageVersion', pkgName, minimumVersion);
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
-			throw new Error(`Error checking for package ${pkgName}: ${runtimeError.message} ` +
-				`(${runtimeError.code})`);
+			throw new Error(`Error getting version of package ${pkgName}: ${runtimeError.message} (${runtimeError.code})`);
 		}
 
-		if (!isInstalled) {
-			const message = pkgVersion ? vscode.l10n.t('Package `{0}` version `{1}` required but not installed.', pkgName, pkgVersion)
-				: vscode.l10n.t('Package `{0}` required but not installed.', pkgName);
-			const install = await positron.window.showSimpleModalDialogPrompt(
-				vscode.l10n.t('Missing R package'),
-				message,
-				vscode.l10n.t('Install now')
-			);
-			if (install) {
-				const id = randomUUID();
-
-				// A promise that resolves when the runtime is idle:
-				const promise = new Promise<void>(resolve => {
-					const disp = this.onDidReceiveRuntimeMessage(runtimeMessage => {
-						if (runtimeMessage.parent_id === id &&
-							runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
-							const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
-							if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
-								resolve();
-								disp.dispose();
-							}
-						}
-					});
-				});
-
-				this.execute(`install.packages("${pkgName}")`,
-					id,
-					positron.RuntimeCodeExecutionMode.Interactive,
-					positron.RuntimeErrorBehavior.Continue);
-
-				// Wait for the the runtime to be idle, or for the timeout:
-				await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
-
-				return true;
-			} else {
-				return false;
-			}
+		if (pkg.version === null) {
+			return null;
 		}
-		this._packageCache.push({ packageName: pkgName, packageVersion: pkgVersion });
-		return true;
+
+		const pkgInst: RPackageInstallation = {
+			packageName: pkgName,
+			packageVersion: pkg.version,
+			minimumVersion: minimumVersion ?? '0.0.0',
+			compatible: pkg.compatible
+		};
+
+		return pkgInst;
+	}
+
+	/**
+	 * Checks whether a package is installed in the runtime, possibly at a minimum version. If not,
+	 * prompts the user to install the package. See the documentation for `packageVersion() for some
+	 * caveats around caching.
+	 * @param pkgName The name of the package to check.
+	 * @param minimumVersion Optionally, the version of the package needed.
+	 * @returns true if the package is installed, at a sufficient version, false otherwise.
+	 */
+
+	async checkInstalled(pkgName: string, minimumVersion: string | null = null): Promise<boolean> {
+		let pkgInst = await this.packageVersion(pkgName, minimumVersion);
+		const installed = pkgInst !== null;
+		let compatible = pkgInst?.compatible ?? false;
+		if (compatible) {
+			return true;
+		}
+		// One of these is true:
+		// - Package is not installed.
+		// - Package is installed, but version is insufficient.
+		// - (Our cache gave us outdated info, but we're just accepting this risk.)
+
+		const title = installed
+			? vscode.l10n.t('Insufficient package version')
+			: vscode.l10n.t('Missing R package');
+		const message = installed
+			? vscode.l10n.t(
+				'The {0} package is installed at version {1}, but version {2} is required.',
+				pkgName, pkgInst!.packageVersion, minimumVersion as string
+			)
+			: vscode.l10n.t('The {0} package is required, but not installed.', pkgName);
+		const okButtonTitle = installed
+			? vscode.l10n.t('Update now')
+			: vscode.l10n.t('Install now');
+
+		const install = await positron.window.showSimpleModalDialogPrompt(
+			title,
+			message,
+			okButtonTitle
+		);
+		if (!install) {
+			return false;
+		}
+
+		const id = randomUUID();
+
+		// A promise that resolves when the runtime is idle:
+		const promise = new Promise<void>(resolve => {
+			const disp = this.onDidReceiveRuntimeMessage(runtimeMessage => {
+				if (runtimeMessage.parent_id === id &&
+					runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
+					const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
+					if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+					}
+				}
+			});
+		});
+
+		this.execute(`install.packages("${pkgName}")`,
+			id,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue);
+
+		// Wait for the the runtime to be idle, or for the timeout:
+		await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
+
+		pkgInst = await this.packageVersion(pkgName, minimumVersion, true);
+		compatible = pkgInst?.compatible ?? false;
+		return compatible;
 	}
 
 	async isPackageAttached(packageName: string): Promise<boolean> {

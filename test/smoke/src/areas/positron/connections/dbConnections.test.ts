@@ -26,7 +26,7 @@ describe('Connections Pane #web #win', () => {
 		after(async function () {
 
 			const app = this.app as Application;
-			app.workbench.positronConnections.removeConnectionButton.click();
+			await app.workbench.positronConnections.removeConnectionButton.click();
 
 		});
 
@@ -63,7 +63,7 @@ describe('Connections Pane #web #win', () => {
 		afterEach(async function () {
 
 			const app = this.app as Application;
-			app.workbench.positronConnections.removeConnectionButton.click();
+			await app.workbench.positronConnections.removeConnectionButton.click();
 
 		});
 
@@ -123,6 +123,11 @@ describe('Connections Pane #web #win', () => {
 				// that table and click on it
 				await app.workbench.positronConnections.openConnectionsNodes(["mtcars"]);
 			}).toPass();
+
+			// disconnect icon appearance requires hover
+			await app.workbench.positronConnections.rConnectionOpenState.hover();
+			await app.workbench.positronConnections.disconnectButton.click();
+			await app.workbench.positronConnections.reconnectButton.waitforVisible();
 
 		});
 
