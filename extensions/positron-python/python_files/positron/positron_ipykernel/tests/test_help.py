@@ -12,10 +12,10 @@ import pandas as pd
 import pytest
 
 from positron_ipykernel.help import HelpService, help
-from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent
+from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
 
 from .conftest import DummyComm
-from .utils import json_rpc_request
+from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
 
 TARGET_NAME = "target_name"
 
@@ -36,18 +36,27 @@ def running_help_service(help_service: HelpService):
 
 
 @pytest.fixture
-def help_comm(help_service: HelpService) -> DummyComm:
+def help_comm(help_service: HelpService):
     """
     Open a dummy comm for the help service.
     """
     # Open a comm
     help_comm = DummyComm(TARGET_NAME)
     help_service.on_comm_open(help_comm, {})
+    assert help_service._comm is not None, "Comm was not created"
 
     # Clear messages due to the comm_open
     help_comm.messages.clear()
 
-    return help_comm
+    return help_service._comm
+
+
+@pytest.fixture
+def mock_pydoc_thread(help_service, monkeypatch):
+    mock_pydoc_thread = Mock()
+    mock_pydoc_thread.url = "http://localhost:1234/"
+    monkeypatch.setattr(help_service, "_pydoc_thread", mock_pydoc_thread)
+    return mock_pydoc_thread
 
 
 def test_pydoc_server_starts_and_shuts_down(running_help_service: HelpService):
@@ -81,6 +90,12 @@ def test_pydoc_server_styling(running_help_service: HelpService):
     assert "#ee77aa" not in html
 
 
+def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
+    return json_rpc_notification(
+        HelpFrontendEvent.ShowHelp.value, {"kind": kind, "focus": focus, "content": content}
+    )
+
+
 @pytest.mark.parametrize(
     ("obj", "expected_path"),
     [
@@ -109,50 +124,25 @@ def test_pydoc_server_styling(running_help_service: HelpService):
     ],
 )
 def test_show_help(
-    obj: Any, expected_path: str, help_service: HelpService, help_comm: DummyComm, monkeypatch
+    obj: Any, expected_path: str, help_service: HelpService, help_comm, mock_pydoc_thread
 ):
     """
     Calling `show_help` should resolve an object to a url and send a `ShowHelp` event over the comm.
     """
-    # Mock the pydoc server
-    url = "http://localhost:1234/"
-    mock_pydoc_thread = Mock()
-    mock_pydoc_thread.url = url
-    monkeypatch.setattr(help_service, "_pydoc_thread", mock_pydoc_thread)
-
     help_service.show_help(obj)
 
-    [event] = help_comm.messages
-    data = event["data"]
-    assert data["method"] == HelpFrontendEvent.ShowHelp.value
-
-    params = data["params"]
-    assert params["kind"] == "url"
-    assert params["focus"]
-    prefix = f"{url}get?key="
-    assert params["content"].startswith(prefix)
-    assert params["content"][len(prefix) :] == expected_path
+    assert help_comm.messages == [
+        show_help_event(f"{mock_pydoc_thread.url}get?key={expected_path}")
+    ]
 
 
-def test_handle_show_help_topic(
-    help_service: HelpService, help_comm: DummyComm, monkeypatch
-) -> None:
-    # Mock the show_help method
-    mock_show_help = Mock()
-    monkeypatch.setattr(help_service, "show_help", mock_show_help)
-
+def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
     msg = json_rpc_request(
         HelpBackendRequest.ShowHelpTopic, {"topic": "logging"}, comm_id="dummy_comm_id"
     )
     help_comm.handle_msg(msg)
 
     assert help_comm.messages == [
-        {
-            "data": {"jsonrpc": "2.0", "result": True},
-            "metadata": None,
-            "buffers": None,
-            "msg_type": "comm_msg",
-        }
+        json_rpc_response(True),
+        show_help_event(f"{mock_pydoc_thread.url}get?key=logging"),
     ]
-
-    mock_show_help.assert_called_once_with("logging")
