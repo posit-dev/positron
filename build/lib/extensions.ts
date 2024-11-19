@@ -281,13 +281,13 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 }
 
 // --- Start PWB: Bundle PWB extension ---
-export function fromS3Bucket({ name: extensionName, version, sha256, s3Bucket, metadata }: IExtensionDefinition): Stream {
+export function fromPositUrl({ name: extensionName, version, sha256, positUrl, metadata }: IExtensionDefinition): Stream {
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [, name] = extensionName.split('.');
-	const url = `https://${s3Bucket}.s3.amazonaws.com/${name}-${version}.vsix`;
+	const url = `${positUrl}/${name}-${version}.vsix`;
 
-	fancyLog('Downloading extension from S3:', ansiColors.yellow(`${extensionName}@${version}`), '...');
+	fancyLog('Downloading extension from Posit CDN:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 
 	const packageJsonFilter = filter('package.json', { restore: true });
 

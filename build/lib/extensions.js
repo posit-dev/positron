@@ -5,7 +5,7 @@
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.fromMarketplace = fromMarketplace;
-exports.fromS3Bucket = fromS3Bucket;
+exports.fromPositUrl = fromPositUrl;
 exports.fromGithub = fromGithub;
 exports.packageLocalExtensionsStream = packageLocalExtensionsStream;
 exports.packageMarketplaceExtensionsStream = packageMarketplaceExtensionsStream;
@@ -255,11 +255,11 @@ function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, met
         .pipe(packageJsonFilter.restore);
 }
 // --- Start PWB: Bundle PWB extension ---
-function fromS3Bucket({ name: extensionName, version, sha256, s3Bucket, metadata }) {
+function fromPositUrl({ name: extensionName, version, sha256, positUrl, metadata }) {
     const json = require('gulp-json-editor');
     const [, name] = extensionName.split('.');
-    const url = `https://${s3Bucket}.s3.amazonaws.com/${name}-${version}.vsix`;
-    fancyLog('Downloading extension from S3:', ansiColors.yellow(`${extensionName}@${version}`), '...');
+    const url = `${positUrl}/${name}-${version}.vsix`;
+    fancyLog('Downloading extension from Posit CDN:', ansiColors.yellow(`${extensionName}@${version}`), '...');
     const packageJsonFilter = filter('package.json', { restore: true });
     return (0, fetch_1.fetchUrls)('', {
         base: url,
