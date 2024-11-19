@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
+import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState } from './positronConsoleState.js';
 
 /**
  * Create the Positron console context.

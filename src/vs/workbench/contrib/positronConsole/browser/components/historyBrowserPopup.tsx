@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import 'vs/css!./historyBrowserPopup';
-import * as nls from 'vs/nls';
+import * as nls from '../../../../../nls.js';
 import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
-import { HistoryCompletionItem } from 'vs/workbench/contrib/positronConsole/browser/components/historyCompletionItem';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { HistoryCompletionItem } from './historyCompletionItem.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect } from 'react';
-import { HistoryMatch } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { HistoryMatch } from '../../common/historyMatchStrategy.js';
 
 export interface HistoryBrowserPopupProps {
 	/// The list of history items to display.

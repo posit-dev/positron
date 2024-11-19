@@ -11,8 +11,8 @@ import * as React from 'react';
 
 // Other dependencies.
 import { ReactElement } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { localize } from '../../../../../nls.js';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * OKCancelActionBarProps interface.

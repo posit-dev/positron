@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as React from 'react';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 
 
 interface ExternalLinkProps extends React.ComponentPropsWithoutRef<'a'> {

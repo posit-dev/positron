@@ -5,8 +5,8 @@
 
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { PositronPlotsServices } from '../positronPlotsState.js';
+import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * PlotGalleryThumbnailProps interface.

@@ -4,22 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useState, useEffect, useRef, CSSProperties } from 'react';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import * as DOM from 'vs/base/browser/dom';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
-import { PositronConnectionsServices, usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ViewsProps } from '../positronConnections.js';
+import { PositronConnectionsServices, usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { FixedSizeList as List } from 'react-window';
 import 'vs/css!./listConnections';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { languageIdToName } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigation';
-import { IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { showResumeConnectionModalDialog } from 'vs/workbench/contrib/positronConnections/browser/components/resumeConnectionModalDialog';
-import { localize } from 'vs/nls';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { languageIdToName } from './schemaNavigation.js';
+import { IPositronConnectionInstance } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsInstance.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.js';
+import { localize } from '../../../../../nls.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 

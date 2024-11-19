@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronPreviewServices, PositronPreviewState, usePositronPreviewState } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
+import { PositronPreviewServices, PositronPreviewState, usePositronPreviewState } from './positronPreviewState.js';
 
 /**
  * Create the Positron preview context.

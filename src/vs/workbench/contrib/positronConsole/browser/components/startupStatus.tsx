@@ -5,11 +5,11 @@
 
 import 'vs/css!./startupStatus';
 import * as React from 'react';
-import { localize } from 'vs/nls';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { localize } from '../../../../../nls.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect, useState } from 'react';

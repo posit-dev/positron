@@ -6,9 +6,9 @@
 import 'vs/css!./runtimeClient';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { Event } from 'vs/base/common/event';
+import { IRuntimeClientInstance, RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Event } from '../../../../../base/common/event.js';
 
 interface runtimeClientProps {
 	readonly client: IRuntimeClientInstance<any, any>;

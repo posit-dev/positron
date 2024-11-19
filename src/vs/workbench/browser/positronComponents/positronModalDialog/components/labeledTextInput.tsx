@@ -9,10 +9,10 @@ import 'vs/css!./labeledTextInput';
 // React.
 import * as React from 'react';
 import { ChangeEventHandler, forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 // Other dependencies.
-import { useDebouncedValidator, ValidatorFn } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+import { useDebouncedValidator, ValidatorFn } from './useDebouncedValidator.js';
 
 /**
  * LabeledTextInputProps interface.

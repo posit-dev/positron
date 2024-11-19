@@ -5,13 +5,13 @@
 import 'vs/css!./CellTextOutput';
 
 import * as React from 'react';
-import { ANSIOutput } from 'vs/base/common/ansiOutput';
-import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLines';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { ParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { NotebookDisplayOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
+import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
+import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
+import { useServices } from '../ServicesProvider.js';
+import { ParsedTextOutput } from '../getOutputContents.js';
+import { useNotebookOptions } from '../NotebookInstanceProvider.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
 
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;

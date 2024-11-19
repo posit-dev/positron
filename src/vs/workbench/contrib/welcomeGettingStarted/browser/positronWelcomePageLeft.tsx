@@ -9,16 +9,16 @@ import 'vs/css!./media/positronGettingStarted';
 // React.
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { PositronWelcomePageStart } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePageStart';
-import { PositronWelcomePageHelp } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomePageHelp';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
+import { PositronWelcomePageHelp } from './positronWelcomePageHelp.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 export interface PositronWelcomePageLeftProps {
 	openerService: IOpenerService;

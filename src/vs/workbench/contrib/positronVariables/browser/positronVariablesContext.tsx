@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronVariablesServices, PositronVariablesState, usePositronVariablesState } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesState';
+import { PositronVariablesServices, PositronVariablesState, usePositronVariablesState } from './positronVariablesState.js';
 
 /**
  * Create the Positron variables context.

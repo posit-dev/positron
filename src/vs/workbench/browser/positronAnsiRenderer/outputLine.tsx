@@ -5,10 +5,10 @@
 
 import 'vs/css!./outputLine';
 import * as React from 'react';
-import { ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { OutputRun } from 'vs/workbench/browser/positronAnsiRenderer/outputRun';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { INotificationService } from 'vs/platform/notification/common/notification';
+import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
+import { OutputRun } from './outputRun.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
 
 // OutputLineProps interface.
 export interface OutputLineProps {

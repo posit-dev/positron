@@ -11,12 +11,12 @@ import * as React from 'react';
 import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import * as DOM from 'vs/base/browser/dom';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { CustomFolderModalPopup } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderModalPopup';
+import { localize } from '../../../../../nls.js';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
+import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
+import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
 
 /**
  * Localized strings.

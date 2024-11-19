@@ -5,10 +5,10 @@
 import 'vs/css!./AddCellButtons';
 
 import * as React from 'react';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { localize } from 'vs/nls';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { useNotebookInstance } from './NotebookInstanceProvider.js';
+import { localize } from '../../../../nls.js';
+import { CellKind } from '../../notebook/common/notebookCommon.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { IconedButton } from './utilityComponents/IconedButton';
 
 export function AddCellButtons({ index }: { index: number }) {

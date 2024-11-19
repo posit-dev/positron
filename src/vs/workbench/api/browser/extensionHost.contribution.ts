@@ -91,11 +91,11 @@ import './mainThreadAiRelatedInformation.js';
 import './mainThreadAiEmbeddingVector.js';
 
 // --- Begin Positron ---
-import './positron/mainThreadLanguageRuntime';
-import './positron/mainThreadPreviewPanel';
-import './positron/mainThreadModalDialogs';
-import './positron/mainThreadConsoleService';
-import './positron/mainThreadContextKeyService';
+import './positron/mainThreadLanguageRuntime.js';
+import './positron/mainThreadPreviewPanel.js';
+import './positron/mainThreadModalDialogs.js';
+import './positron/mainThreadConsoleService.js';
+import './positron/mainThreadContextKeyService.js';
 // --- End Positron ---
 
 export class ExtensionPoints implements IWorkbenchContribution {

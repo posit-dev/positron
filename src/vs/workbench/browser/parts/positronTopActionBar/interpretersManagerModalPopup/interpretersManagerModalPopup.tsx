@@ -10,14 +10,14 @@ import 'vs/css!./interpretersManagerModalPopup';
 import * as React from 'react';
 
 // Other dependencies.
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { InterpreterGroups } from 'vs/workbench/browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
+import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { InterpreterGroups } from './interpreterGroups.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 /**
  * InterpretersManagerModalPopupProps interface.

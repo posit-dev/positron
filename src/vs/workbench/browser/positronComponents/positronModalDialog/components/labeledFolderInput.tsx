@@ -9,13 +9,13 @@ import 'vs/css!./labeledFolderInput';
 // React.
 import * as React from 'react';
 import { ChangeEventHandler } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
+import { localize } from '../../../../../nls.js';
 
 // Other dependencies.
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { checkIfPathExists, checkIfPathValid } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
-import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
-import { IFileService } from 'vs/platform/files/common/files';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { checkIfPathExists, checkIfPathValid } from './fileInputValidators.js';
+import { useDebouncedValidator } from './useDebouncedValidator.js';
+import { IFileService } from '../../../../../platform/files/common/files.js';
 
 /**
  * FolderInputProps interface.

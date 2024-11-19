@@ -10,10 +10,10 @@ import 'vs/css!./deleteAllVariablesModalDialog';
 import * as React from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { ConfirmationModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/confirmationModalDialog';
+import { localize } from '../../../../../nls.js';
+import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { ConfirmationModalDialog } from '../../../../browser/positronComponents/positronModalDialog/confirmationModalDialog.js';
 
 /**
  * DeleteAllVariablesResult interface.

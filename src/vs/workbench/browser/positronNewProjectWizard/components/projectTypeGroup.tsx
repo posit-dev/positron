@@ -11,8 +11,8 @@ import * as React from 'react';
 import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ProjectType } from 'vs/workbench/browser/positronNewProjectWizard/components/projectType';
-import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { ProjectType } from './projectType.js';
+import { NewProjectType } from '../../../services/positronNewProject/common/positronNewProject.js';
 
 /**
  * ProjectTypeProps interface.

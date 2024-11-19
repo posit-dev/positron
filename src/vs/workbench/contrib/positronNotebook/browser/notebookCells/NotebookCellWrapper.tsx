@@ -5,10 +5,10 @@
 import 'vs/css!./NotebookCellWrapper';
 
 import * as React from 'react';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useSelectionStatus } from './useSelectionStatus';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {

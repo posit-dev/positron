@@ -11,14 +11,14 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import * as DOM from 'vs/base/browser/dom';
-import { isAuxiliaryWindow } from 'vs/base/browser/window';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { localize } from '../../../../nls.js';
+import * as DOM from '../../../../base/browser/dom.js';
+import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
+import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 // Constants.
 const PADDING_LEFT = 8;

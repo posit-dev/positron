@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/components/panZoomImage';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { PanZoomImage } from './panZoomImage.js';
+import { ZoomLevel } from './zoomPlotMenuButton.js';
+import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
  * StaticPlotInstanceProps interface.

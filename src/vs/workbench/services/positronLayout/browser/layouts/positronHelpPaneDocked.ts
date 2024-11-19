@@ -6,7 +6,7 @@
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
-import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction';
+import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 // Layout that puts the help pane in the auxiliary bar under the sessions tab. Used for testing the
 // help pane collapse and open logic.

@@ -5,24 +5,24 @@
 
 import 'vs/css!./customFolderMenuItems';
 import * as React from 'react';
-import { localize } from 'vs/nls';
-import { URI } from 'vs/base/common/uri';
-import { isMacintosh } from 'vs/base/common/platform';
-import { IWindowOpenable } from 'vs/platform/window/common/window';
-import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILabelService, Verbosity } from 'vs/platform/label/common/label';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
-import { CommandAction } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { ContextKeyExpr, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { ClearRecentWorkspacesAction } from 'vs/workbench/browser/parts/editor/workspaceActions';
-import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from 'vs/workbench/common/contextkeys';
-import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from 'vs/platform/workspaces/common/workspaces';
-import { CustomFolderMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItem';
-import { CustomFolderMenuSeparator } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuSeparator';
-import { CustomFolderRecentlyUsedMenuItem } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderRecentlyUsedMenuItem';
-import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from 'vs/workbench/browser/actions/positronActions';
+import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { IWindowOpenable } from '../../../../../platform/window/common/window.js';
+import { IHostService } from '../../../../services/host/browser/host.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { ILabelService, Verbosity } from '../../../../../platform/label/common/label.js';
+import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
+import { OpenFolderAction } from '../../../actions/workspaceActions.js';
+import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { ClearRecentWorkspacesAction } from '../../editor/workspaceActions.js';
+import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
+import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../../platform/workspaces/common/workspaces.js';
+import { CustomFolderMenuItem } from './customFolderMenuItem.js';
+import { CustomFolderMenuSeparator } from './customFolderMenuSeparator.js';
+import { CustomFolderRecentlyUsedMenuItem } from './customFolderRecentlyUsedMenuItem.js';
+import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
 
 /**
  * Constants.

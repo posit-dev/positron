@@ -5,10 +5,10 @@
 
 import 'vs/css!./runtimePendingInput';
 import * as React from 'react';
-import { FontInfo } from 'vs/editor/common/config/fontInfo';
-import { OutputRun } from 'vs/workbench/browser/positronAnsiRenderer/outputRun';
-import { RuntimeItemPendingInput } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemPendingInput';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
+import { RuntimeItemPendingInput } from '../../../../services/positronConsole/browser/classes/runtimeItemPendingInput.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 
 // RuntimePendingInputProps interface.
 export interface RuntimePendingInputProps {

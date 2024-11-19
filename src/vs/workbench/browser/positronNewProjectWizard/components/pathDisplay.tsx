@@ -8,8 +8,8 @@ import 'vs/css!./pathDisplay';
 
 import * as React from 'react';
 import { useState } from 'react';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { truncateMiddle } from 'vs/base/common/strings';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { truncateMiddle } from '../../../../base/common/strings.js';
 
 
 interface NewEnvironmentLocationDisplayProps {

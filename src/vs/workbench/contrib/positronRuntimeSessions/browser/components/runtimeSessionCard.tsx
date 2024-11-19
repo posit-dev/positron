@@ -6,10 +6,10 @@
 import 'vs/css!./runtimeSessionCard';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { RuntimeClientList } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeClientList';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeClientList } from './runtimeClientList.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 interface runtimeSessionCardProps {
 	readonly session: ILanguageRuntimeSession;

@@ -11,13 +11,13 @@ import * as React from 'react';
 import { PointerEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { Delayer } from 'vs/base/common/async';
-import { isMacintosh } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { Button, KeyboardModifiers, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
+import * as DOM from '../../../dom.js';
+import { Delayer } from '../../../../common/async.js';
+import { isMacintosh } from '../../../../common/platform.js';
+import { DisposableStore } from '../../../../common/lifecycle.js';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
+import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
 
 /**
  * Constants.

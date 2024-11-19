@@ -5,7 +5,7 @@
 
 import 'vs/css!./customFolderMenuItem';
 import * as React from 'react';
-import { KeyboardModifiers, Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { KeyboardModifiers, Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * CustomFolderMenuItemProps interface.

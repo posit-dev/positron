@@ -12,8 +12,8 @@ import * as React from 'react';
 import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { IHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
 
 /**
  * MouseTrigger enumeration.

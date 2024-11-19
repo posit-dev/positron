@@ -8,8 +8,8 @@ import 'vs/css!./dataGridRow';
 
 // React.
 import * as React from 'react';
-import { DataGridRowCell } from 'vs/workbench/browser/positronDataGrid/components/dataGridRowCell';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import { DataGridRowCell } from './dataGridRowCell.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 // Other dependencies.
 

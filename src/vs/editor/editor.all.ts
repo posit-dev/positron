@@ -63,9 +63,9 @@ import './contrib/readOnlyMessage/browser/contribution.js';
 import './contrib/diffEditorBreadcrumbs/browser/contribution.js';
 
 // --- Start Positron ---
-import 'vs/editor/contrib/positronEditorActions/browser/positronEditorActions';
-import 'vs/editor/contrib/positronStatementRange/browser/provideStatementRange';
-import 'vs/editor/contrib/positronHelp/browser/provideHelpTopic';
+import './contrib/positronEditorActions/browser/positronEditorActions.js';
+import './contrib/positronStatementRange/browser/provideStatementRange.js';
+import './contrib/positronHelp/browser/provideHelpTopic.js';
 // --- End Positron ---
 
 // Load up these strings even in VSCode, even if they are not used

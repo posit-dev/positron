@@ -5,7 +5,7 @@
 
 import 'vs/css!./historyCompletionItem';
 import * as React from 'react';
-import { HistoryMatch } from 'vs/workbench/contrib/positronConsole/common/historyMatchStrategy';
+import { HistoryMatch } from '../../common/historyMatchStrategy.js';
 
 export interface HistoryCompletionItemProps {
 	readonly match: HistoryMatch;

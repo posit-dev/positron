@@ -20,7 +20,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { DataExplorerClientInstance, DataExplorerUiEvent } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';

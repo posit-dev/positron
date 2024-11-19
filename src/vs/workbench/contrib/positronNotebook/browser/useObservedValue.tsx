@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { Event } from 'vs/base/common/event';
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { Event } from '../../../../base/common/event.js';
 
 /**
  * Automatically updates the component when the observable changes.

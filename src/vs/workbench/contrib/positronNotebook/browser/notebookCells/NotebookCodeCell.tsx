@@ -5,18 +5,18 @@
 import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
-import { NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { isParsedTextOutput, parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { isParsedTextOutput, parseOutputData } from '../getOutputContents.js';
+import { useObservedValue } from '../useObservedValue.js';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
-import { localize } from 'vs/nls';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
+import { localize } from '../../../../../nls.js';
+import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { CellTextOutput } from './CellTextOutput';
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
+import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { pickPreferredOutputItem, PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
-import { NotebookHTMLContent } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookHTMLOutput';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+import { pickPreferredOutputItem, PositronNotebookCodeCell } from '../PositronNotebookCell.js';
+import { NotebookHTMLContent } from './NotebookHTMLOutput.js';
+import { useServices } from '../ServicesProvider.js';
 
 
 export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {

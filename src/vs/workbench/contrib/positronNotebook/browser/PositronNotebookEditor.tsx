@@ -4,59 +4,59 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
+import * as DOM from '../../../../base/browser/dom.js';
 
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { Emitter } from 'vs/base/common/event';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { observableValue } from 'vs/base/common/observableInternal/base';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { BareFontInfo, FontInfo } from 'vs/editor/common/config/fontInfo';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { ITextResourceConfigurationService } from 'vs/editor/common/services/textResourceConfiguration';
-import { localize } from 'vs/nls';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ServiceCollection } from 'vs/platform/instantiation/common/serviceCollection';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
+import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
+import { ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { observableValue } from '../../../../base/common/observableInternal/base.js';
+import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
+import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
+import { BareFontInfo, FontInfo } from '../../../../editor/common/config/fontInfo.js';
+import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
+import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
+import { localize } from '../../../../nls.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ServiceCollection } from '../../../../platform/instantiation/common/serviceCollection.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import {
 	EditorPaneSelectionChangeReason,
 	IEditorMemento,
 	IEditorOpenContext,
 	IEditorPaneSelectionChangeEvent
-} from 'vs/workbench/common/editor';
+} from '../../../common/editor.js';
 import {
 	INotebookEditorOptions,
 	INotebookEditorViewState
-} from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { NotebookLayoutChangedEvent } from 'vs/workbench/contrib/notebook/browser/notebookViewEvents';
-import { NotebookEventDispatcher } from 'vs/workbench/contrib/notebook/browser/viewModel/eventDispatcher';
-import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
-import { ViewContext } from 'vs/workbench/contrib/notebook/browser/viewModel/viewContext';
-import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent';
-import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
+} from '../../notebook/browser/notebookBrowser.js';
+import { NotebookLayoutChangedEvent } from '../../notebook/browser/notebookViewEvents.js';
+import { NotebookEventDispatcher } from '../../notebook/browser/viewModel/eventDispatcher.js';
+import { NotebookViewModel } from '../../notebook/browser/viewModel/notebookViewModelImpl.js';
+import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
+import { PositronNotebookComponent } from './PositronNotebookComponent.js';
+import { ServicesProvider } from './ServicesProvider.js';
 import {
 	GroupsOrder,
 	IEditorGroup,
 	IEditorGroupsService
-} from 'vs/workbench/services/editor/common/editorGroupsService';
+} from '../../../services/editor/common/editorGroupsService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IWebviewService } from '../../webview/browser/webview.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 
 
 interface NotebookLayoutInfo {

@@ -6,7 +6,7 @@
 import { localize2 } from '../../../../../nls.js';
 import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
 import { Parts } from '../../../layout/browser/layoutService.js';
-import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction';
+import { PositronLayoutAction, PositronLayoutInfo } from './layoutAction.js';
 
 export const positronNotebookLayout: PositronLayoutInfo = {
 	id: 'workbench.action.positronNotebookLayout',

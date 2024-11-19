@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { Scrollable } from 'vs/base/browser/ui/positronComponents/scrollable/Scrollable';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
+import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
+import { ZoomLevel } from './zoomPlotMenuButton.js';
 
 interface PanZoomImageProps {
 	width: number;

@@ -11,7 +11,7 @@ import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { generateUuid } from 'vs/base/common/uuid';
+import { generateUuid } from '../../../../../base/common/uuid.js';
 
 /**
  * CheckboxProps interface.

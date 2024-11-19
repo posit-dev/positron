@@ -5,11 +5,11 @@
 
 import 'vs/css!./topActionBarCommandCenter';
 import * as React from 'react';
-import { localize } from 'vs/nls';
+import { localize } from '../../../../../nls.js';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import { AnythingQuickAccessProviderRunOptions } from 'vs/platform/quickinput/common/quickAccess';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
+import { AnythingQuickAccessProviderRunOptions } from '../../../../../platform/quickinput/common/quickAccess.js';
+import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 
 /**
  * Localized strings.

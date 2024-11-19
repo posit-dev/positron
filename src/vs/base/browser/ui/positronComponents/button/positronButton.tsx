@@ -8,7 +8,7 @@ import * as React from 'react';
 import { forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
 
 /**
  * MouseTrigger enumeration.

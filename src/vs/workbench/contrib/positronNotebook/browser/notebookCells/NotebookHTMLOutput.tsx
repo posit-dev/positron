@@ -5,12 +5,12 @@
 import 'vs/css!./NotebookCodeCell';
 
 import * as React from 'react';
-import { getWindow } from 'vs/base/browser/dom';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
-import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
+import { getWindow } from '../../../../../base/browser/dom.js';
+import { useServices } from '../ServicesProvider.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
+import { WebviewType } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { useObservedValue } from '../useObservedValue.js';
+import { IWebviewElement } from '../../../webview/browser/webview.js';
 
 
 // Styles that get added to the HTML content of the webview for things like cleaning

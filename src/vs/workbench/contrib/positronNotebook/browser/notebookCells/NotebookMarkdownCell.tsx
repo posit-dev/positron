@@ -5,14 +5,14 @@
 import 'vs/css!./NotebookMarkdownCell';
 import * as React from 'react';
 
-import { CellEditorMonacoWidget } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/CellEditorMonacoWidget';
-import { NotebookCellActionBar } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellActionBar';
-import { useObservedValue } from 'vs/workbench/contrib/positronNotebook/browser/useObservedValue';
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
+import { NotebookCellActionBar } from './NotebookCellActionBar.js';
+import { useObservedValue } from '../useObservedValue.js';
 import { Markdown } from './Markdown';
-import { localize } from 'vs/nls';
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
-import { NotebookCellWrapper } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellWrapper';
-import { PositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { localize } from '../../../../../nls.js';
+import { ActionButton } from '../utilityComponents/ActionButton.js';
+import { NotebookCellWrapper } from './NotebookCellWrapper.js';
+import { PositronNotebookMarkdownCell } from '../PositronNotebookCell.js';
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 

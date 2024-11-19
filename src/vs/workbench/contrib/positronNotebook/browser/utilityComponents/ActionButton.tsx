@@ -5,7 +5,7 @@
 import 'vs/css!./ActionButton';
 
 import * as React from 'react';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 
 /**
  * Plain classed button for actions in notebook with common styles.

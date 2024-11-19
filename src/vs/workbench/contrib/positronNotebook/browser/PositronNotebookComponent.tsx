@@ -5,21 +5,21 @@
 
 import 'vs/css!./PositronNotebookComponent';
 
-import * as DOM from 'vs/base/browser/dom';
+import * as DOM from '../../../../base/browser/dom.js';
 import * as React from 'react';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons';
 import { useObservedValue } from './useObservedValue';
-import { localize } from 'vs/nls';
+import { localize } from '../../../../nls.js';
 import { PositronNotebookHeader } from './PositronNotebookHeader';
-import { NotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCodeCell';
-import { NotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookMarkdownCell';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
-import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
-import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
+import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
+import { useServices } from './ServicesProvider.js';
+import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
+import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
+import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
+import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
+import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 
 
 export function PositronNotebookComponent() {

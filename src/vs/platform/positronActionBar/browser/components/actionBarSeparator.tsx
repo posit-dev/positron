@@ -5,7 +5,7 @@
 
 import 'vs/css!./actionBarSeparator';
 import * as React from 'react';
-import { optionalBoolean, positronClassNames } from 'vs/base/common/positronUtilities';
+import { optionalBoolean, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarSeparatorProps interface.

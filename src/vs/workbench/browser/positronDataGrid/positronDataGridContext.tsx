@@ -8,10 +8,10 @@ import * as React from 'react';
 import { PropsWithChildren, createContext, useContext, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { DataGridInstance } from './classes/dataGridInstance.js';
 
 /**
  * PositronDataGridServices interface.

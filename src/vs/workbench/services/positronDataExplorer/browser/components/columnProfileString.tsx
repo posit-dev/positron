@@ -10,11 +10,11 @@ import 'vs/css!./columnProfileString';
 import * as React from 'react';
 
 // Other dependencies.
-import { StatsValue } from 'vs/workbench/services/positronDataExplorer/browser/components/statsValue';
-import { positronEmpty, positronMissing, positronUnique } from 'vs/workbench/services/positronDataExplorer/common/constants';
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ColumnProfileNullCountValue } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNullCountValue';
-import { ColumnProfileSparklineFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileSparklines';
+import { StatsValue } from './statsValue.js';
+import { positronEmpty, positronMissing, positronUnique } from '../../common/constants.js';
+import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
+import { ColumnProfileNullCountValue } from './columnProfileNullCountValue.js';
+import { ColumnProfileSparklineFrequencyTable } from './columnProfileSparklines.js';
 
 /**
  * Constants.

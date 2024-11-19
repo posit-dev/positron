@@ -11,8 +11,8 @@ import * as React from 'react';
 import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
+import { localize } from '../../../../../../../../nls.js';
+import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import {
 	RowFilterDescriptor,
 	RowFilterDescriptorComparison,
@@ -25,8 +25,8 @@ import {
 	RowFilterDescriptorIsNull,
 	RowFilterDescriptorIsTrue,
 	RowFilterDescriptorSearch
-} from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/rowFilterDescriptor';
-import { RowFilterCondition } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+} from '../../addEditRowFilterModalPopup/rowFilterDescriptor.js';
+import { RowFilterCondition } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * RowFilterWidgetProps interface.

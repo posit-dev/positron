@@ -10,16 +10,16 @@ import 'vs/css!./customFolderModalPopup';
 import * as React from 'react';
 
 // Other dependencies.
-import { ILabelService } from 'vs/platform/label/common/label';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IHostService } from 'vs/workbench/services/host/browser/host';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IRecentlyOpened, IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
-import { PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { CustomFolderMenuItems } from 'vs/workbench/browser/parts/positronTopActionBar/customFolderModalPopup/customFolderMenuItems';
+import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { IHostService } from '../../../../services/host/browser/host.js';
+import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
+import { IRecentlyOpened, IWorkspacesService } from '../../../../../platform/workspaces/common/workspaces.js';
+import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
+import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { CustomFolderMenuItems } from './customFolderMenuItems.js';
 
 /**
  * CustomFolderModalPopupProps interface.

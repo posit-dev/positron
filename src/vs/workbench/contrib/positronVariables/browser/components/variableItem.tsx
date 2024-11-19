@@ -6,19 +6,19 @@
 import 'vs/css!./variableItem';
 import * as React from 'react';
 import { CSSProperties, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { isNumber } from 'vs/base/common/types';
-import * as platform from 'vs/base/common/platform';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { VerticalSplitter, VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { IPositronVariablesInstance, PositronVariablesSorting } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesIdentifiers';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { Event } from 'vs/base/common/event';
+import { localize } from '../../../../../nls.js';
+import { isNumber } from '../../../../../base/common/types.js';
+import * as platform from '../../../../../base/common/platform.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { Event } from '../../../../../base/common/event.js';
 
 /**
  * Formats a size for display.

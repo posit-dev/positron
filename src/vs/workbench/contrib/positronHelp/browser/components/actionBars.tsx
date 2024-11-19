@@ -6,19 +6,19 @@
 import 'vs/css!./actionBars';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { IAction } from 'vs/base/common/actions';
-import { generateUuid } from 'vs/base/common/uuid';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { ActionBarButton } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
-import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { PositronActionBarContextProvider } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
+import { localize } from '../../../../../nls.js';
+import { IAction } from '../../../../../base/common/actions.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { IPositronHelpService } from '../positronHelpService.js';
+import { PositronActionBarServices } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;

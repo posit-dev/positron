@@ -5,7 +5,7 @@
 
 import 'vs/css!./variablesEmpty';
 import * as React from 'react';
-import { localize } from 'vs/nls';
+import { localize } from '../../../../../nls.js';
 
 // VariablesEmptyProps interface.
 interface VariablesEmptyProps {

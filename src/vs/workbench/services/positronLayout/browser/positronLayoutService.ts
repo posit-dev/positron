@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IPositronLayoutService } from './interfaces/positronLayoutService';
+import { IPositronLayoutService } from './interfaces/positronLayoutService.js';
 import { CustomPositronLayoutDescription } from '../common/positronCustomViews.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IViewDescriptorService } from '../../../common/views.js';

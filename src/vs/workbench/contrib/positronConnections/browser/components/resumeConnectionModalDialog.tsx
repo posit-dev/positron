@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { PropsWithChildren } from 'react';
-import { localize } from 'vs/nls';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+import { localize } from '../../../../../nls.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronConnectionsServices } from '../positronConnectionsContext.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import 'vs/css!./resumeConnectionModalDialog';
-import Severity from 'vs/base/common/severity';
+import Severity from '../../../../../base/common/severity.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;

@@ -6,27 +6,27 @@
 import 'vs/css!./positronPreview';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PreviewContainer } from 'vs/workbench/contrib/positronPreview/browser/components/previewContainer';
-import { PositronPreviewServices } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewState';
-import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { PositronPreviewViewPane } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewView';
-import { UrlActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/urlActionBars';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { PreviewUrl } from 'vs/workbench/contrib/positronPreview/browser/previewUrl';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { PreviewHtml } from 'vs/workbench/contrib/positronPreview/browser/previewHtml';
-import { HtmlActionBars } from 'vs/workbench/contrib/positronPreview/browser/components/htmlActionBars';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { PreviewContainer } from './components/previewContainer.js';
+import { PositronPreviewServices } from './positronPreviewState.js';
+import { PositronPreviewContextProvider } from './positronPreviewContext.js';
+import { IPositronPreviewService } from './positronPreviewSevice.js';
+import { PreviewWebview } from './previewWebview.js';
+import { PositronPreviewViewPane } from './positronPreviewView.js';
+import { UrlActionBars } from './components/urlActionBars.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { PreviewUrl } from './previewUrl.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { PreviewHtml } from './previewHtml.js';
+import { HtmlActionBars } from './components/htmlActionBars.js';
 
 /**
  * PositronPreviewProps interface.

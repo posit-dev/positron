@@ -11,20 +11,20 @@ import * as React from 'react';
 import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
-import { VectorHistogram } from 'vs/workbench/services/positronDataExplorer/browser/components/vectorHistogram';
-import { ColumnProfileDate } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDate';
-import { ColumnProfileNumber } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileNumber';
-import { ColumnProfileString } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileString';
-import { VectorFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/vectorFrequencyTable';
-import { ColumnProfileBoolean } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileBoolean';
-import { ColumnProfileDatetime } from 'vs/workbench/services/positronDataExplorer/browser/components/columnProfileDatetime';
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { dataExplorerExperimentalFeatureEnabled } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerExperimentalConfig';
+import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
+import { HoverPosition } from '../../../../../base/browser/ui/hover/hoverWidget.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
+import { VectorHistogram } from './vectorHistogram.js';
+import { ColumnProfileDate } from './columnProfileDate.js';
+import { ColumnProfileNumber } from './columnProfileNumber.js';
+import { ColumnProfileString } from './columnProfileString.js';
+import { VectorFrequencyTable } from './vectorFrequencyTable.js';
+import { ColumnProfileBoolean } from './columnProfileBoolean.js';
+import { ColumnProfileDatetime } from './columnProfileDatetime.js';
+import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
+import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
 
 /**
  * Constants.

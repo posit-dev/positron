@@ -6,7 +6,7 @@
 import 'vs/css!./actionBarSearch';
 import * as React from 'react';
 import { useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /* THIS IS NOT CURRENTLY BEING USED. IT WAS KEPT AROUND BECAUSE I ANTICIPATE THAT IT WILL */
 /* BE USED IN THE FUTURE AND I DON'T WANT TO HAVE TO REWRITE IT. */

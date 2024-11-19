@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 import { IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { CustomPositronLayoutDescription } from '../common/positronCustomViews.js';
-import { positronFourPaneDsLayout } from './layouts/positronFourPaneDsLayout';
-import { positronTwoPaneLayout } from './layouts/positronTwoPaneLayout';
-import { positronNotebookLayout } from './layouts/positronNotebookLayout';
-import { PositronLayoutInfo } from './layouts/layoutAction';
+import { positronFourPaneDsLayout } from './layouts/positronFourPaneDsLayout.js';
+import { positronTwoPaneLayout } from './layouts/positronTwoPaneLayout.js';
+import { positronNotebookLayout } from './layouts/positronNotebookLayout.js';
+import { PositronLayoutInfo } from './layouts/layoutAction.js';
 
 // Imports needed to register the layout service and non-primary layouts. (Otherwise the scripts
 // are not run and the commands are not registered.)
-import 'vs/workbench/services/positronLayout/browser/positronLayoutService';
-import './layouts/maximizedPartLayouts';
-import './layouts/positronHelpPaneDocked';
+import './positronLayoutService.js';
+import './layouts/maximizedPartLayouts.js';
+import './layouts/positronHelpPaneDocked.js';
 
 
 type LayoutPick = IQuickPickItem & { layoutDescriptor: CustomPositronLayoutDescription };

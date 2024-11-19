@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
+import * as DOM from '../../../../../base/browser/dom.js';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { localize } from 'vs/nls';
-import { PanZoomImage } from 'vs/workbench/contrib/positronPlots/browser/components/panZoomImage';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
-import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
-import { PlotClientInstance, PlotClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { PlotSizingPolicyAuto } from 'vs/workbench/services/positronPlots/common/sizingPolicyAuto';
-import { PlotSizingPolicyIntrinsic } from 'vs/workbench/services/positronPlots/common/sizingPolicyIntrinsic';
+import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { localize } from '../../../../../nls.js';
+import { PanZoomImage } from './panZoomImage.js';
+import { ZoomLevel } from './zoomPlotMenuButton.js';
+import { usePositronPlotsContext } from '../positronPlotsContext.js';
+import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
+import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
+import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 
 /**
  * DynamicPlotInstanceProps interface.

@@ -5,16 +5,16 @@
 
 import 'vs/css!./consoleCore';
 import * as React from 'react';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
-import { EmptyConsole } from 'vs/workbench/contrib/positronConsole/browser/components/emptyConsole';
-import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { StartupStatus } from 'vs/workbench/contrib/positronConsole/browser/components/startupStatus';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ActionBar } from './actionBar.js';
+import { EmptyConsole } from './emptyConsole.js';
+import { ConsoleInstance } from './consoleInstance.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { StartupStatus } from './startupStatus.js';
 
 // eslint-disable-next-line no-duplicate-imports
 import { useEffect, useState } from 'react';
-import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {

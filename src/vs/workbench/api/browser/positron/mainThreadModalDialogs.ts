@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MainThreadModalDialogsShape, MainPositronContext } from '../../common/positron/extHost.positron.protocol';
+import { MainThreadModalDialogsShape, MainPositronContext } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';

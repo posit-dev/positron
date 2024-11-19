@@ -5,11 +5,11 @@
 import 'vs/css!./KernelStatusBadge';
 
 import * as React from 'react';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue';
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { SELECT_KERNEL_ID_POSITRON } from 'vs/workbench/contrib/positronNotebook/browser/SelectPositronNotebookKernelAction';
+import { ActionButton } from './utilityComponents/ActionButton.js';
+import { useServices } from './ServicesProvider.js';
+import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
 
 // This component will eventually be much more complicated and used to
 // control the kernel choice etc. For now, it just displays the kernel status.

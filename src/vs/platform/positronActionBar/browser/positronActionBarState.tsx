@@ -7,18 +7,18 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { unmnemonicLabel } from 'vs/base/common/labels';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { Action, IAction, Separator } from 'vs/base/common/actions';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IHoverOptions, IHoverWidget } from 'vs/base/browser/ui/hover/hover';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { unmnemonicLabel } from '../../../base/common/labels.js';
+import { IHoverService } from '../../hover/browser/hover.js';
+import { Action, IAction, Separator } from '../../../base/common/actions.js';
+import { HoverPosition } from '../../../base/browser/ui/hover/hoverWidget.js';
+import { ICommandService } from '../../commands/common/commands.js';
+import { IHoverOptions, IHoverWidget } from '../../../base/browser/ui/hover/hover.js';
+import { IKeybindingService } from '../../keybinding/common/keybinding.js';
+import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
+import { IContextMenuService } from '../../contextview/browser/contextView.js';
+import { Disposable, DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../configuration/common/configuration.js';
+import { ContextKeyExpression, IContextKeyService } from '../../contextkey/common/contextkey.js';
 
 /**
  * IHoverManager interface.

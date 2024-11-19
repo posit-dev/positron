@@ -6,11 +6,11 @@
 import 'vs/css!./positronConsole';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ConsoleCore } from 'vs/workbench/contrib/positronConsole/browser/components/consoleCore';
-import { PositronConsoleServices } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleState';
-import { PositronConsoleContextProvider } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
+import { ConsoleCore } from './components/consoleCore.js';
+import { PositronConsoleServices } from './positronConsoleState.js';
+import { PositronConsoleContextProvider } from './positronConsoleContext.js';
 
 /**
  * PositronConsoleProps interface.

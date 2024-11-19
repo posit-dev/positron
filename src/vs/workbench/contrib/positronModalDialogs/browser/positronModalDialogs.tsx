@@ -10,20 +10,20 @@ import 'vs/css!./positronModalDialogs';
 import * as React from 'react';
 
 // Other dependencies.
-import { Emitter } from 'vs/base/common/event';
-import { renderHtml } from 'vs/base/browser/positron/renderHtml';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { OKActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okActionBar';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
-import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
-import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
+import { Emitter } from '../../../../base/common/event.js';
+import { renderHtml } from '../../../../base/browser/positron/renderHtml.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ContentArea } from '../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { OKActionBar } from '../../../browser/positronComponents/positronModalDialog/components/okActionBar.js';
+import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
+import { PositronModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { OKCancelActionBar } from '../../../browser/positronComponents/positronModalDialog/components/okCancelActionBar.js';
+import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
+import { IModalDialogPromptInstance, IPositronModalDialogsService, ShowConfirmationModalDialogOptions } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 
 /**
  * PositronModalDialogs class.

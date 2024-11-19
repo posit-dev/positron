@@ -5,8 +5,8 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { PlaceholderThumbnail } from './placeholderThumbnail.js';
+import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * DynamicPlotThumbnailProps interface.

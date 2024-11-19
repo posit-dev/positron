@@ -11,13 +11,13 @@ import * as React from 'react';
 import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { OKCancelBackNextActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
-import { ProjectTypeGroup } from 'vs/workbench/browser/positronNewProjectWizard/components/projectTypeGroup';
-import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
+import { localize } from '../../../../../nls.js';
+import { useNewProjectWizardContext } from '../../newProjectWizardContext.js';
+import { NewProjectWizardStep } from '../../interfaces/newProjectWizardEnums.js';
+import { NewProjectWizardStepProps } from '../../interfaces/newProjectWizardStepProps.js';
+import { OKCancelBackNextActionBar } from '../../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+import { ProjectTypeGroup } from '../projectTypeGroup.js';
+import { checkProjectName } from '../../utilities/projectNameUtils.js';
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to

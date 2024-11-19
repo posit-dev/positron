@@ -10,31 +10,31 @@ import 'vs/css!./positronDataExplorerEditor';
 import * as React from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { IEditorOpenContext } from 'vs/workbench/common/editor';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { EditorActivation, IEditorOptions } from 'vs/platform/editor/common/editor';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { PositronDataExplorer } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorer';
-import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
-import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
+import * as DOM from '../../../../base/browser/dom.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IEditorOpenContext } from '../../../common/editor.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { PositronDataExplorer } from '../../../browser/positronDataExplorer/positronDataExplorer.js';
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
+import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.

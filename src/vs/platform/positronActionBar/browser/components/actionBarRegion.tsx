@@ -6,7 +6,7 @@
 import 'vs/css!./actionBarRegion';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { optionalValue, positronClassNames } from 'vs/base/common/positronUtilities';
+import { optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarRegionProps interface.

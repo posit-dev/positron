@@ -11,10 +11,10 @@ import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { OKCancelActionBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelActionBar';
-import { PositronModalDialog, PositronModalDialogProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { VerticalSpacer } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalSpacer';
+import { ContentArea } from './components/contentArea.js';
+import { OKCancelActionBar } from './components/okCancelActionBar.js';
+import { PositronModalDialog, PositronModalDialogProps } from './positronModalDialog.js';
+import { VerticalSpacer } from './components/verticalSpacer.js';
 
 /**
  * OKCancelModalDialogProps interface.

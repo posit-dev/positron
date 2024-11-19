@@ -5,8 +5,8 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronTopActionBarServices } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBar';
-import { PositronTopActionBarState, usePositronTopActionBarState } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarState';
+import { PositronTopActionBarServices } from './positronTopActionBar.js';
+import { PositronTopActionBarState, usePositronTopActionBarState } from './positronTopActionBarState.js';
 
 /**
  * Create the Positron top action bar context.

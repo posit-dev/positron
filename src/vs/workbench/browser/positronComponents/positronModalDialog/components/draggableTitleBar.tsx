@@ -11,8 +11,8 @@ import * as React from 'react';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 
 /**
  * DraggableTitleBarProps interface.

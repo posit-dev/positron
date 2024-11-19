@@ -6,16 +6,16 @@
 import 'vs/css!./positronPlots';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { PositronPlotsServices } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
-import { PositronPlotsContextProvider } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
-import { HistoryPolicy, IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PlotsContainer } from 'vs/workbench/contrib/positronPlots/browser/components/plotsContainer';
-import { ActionBars } from 'vs/workbench/contrib/positronPlots/browser/components/actionBars';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { PositronPlotsViewPane } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsView';
-import { ZoomLevel } from 'vs/workbench/contrib/positronPlots/browser/components/zoomPlotMenuButton';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { PositronPlotsServices } from './positronPlotsState.js';
+import { PositronPlotsContextProvider } from './positronPlotsContext.js';
+import { HistoryPolicy, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { PlotsContainer } from './components/plotsContainer.js';
+import { ActionBars } from './components/actionBars.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { PositronPlotsViewPane } from './positronPlotsView.js';
+import { ZoomLevel } from './components/zoomPlotMenuButton.js';
 
 /**
  * PositronPlotsProps interface.

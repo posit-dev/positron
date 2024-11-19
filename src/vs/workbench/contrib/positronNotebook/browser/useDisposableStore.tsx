@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 /**
  * Create a disposable store for the component.

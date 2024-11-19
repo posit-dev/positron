@@ -11,7 +11,7 @@ import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ColumnHistogram } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * VectorHistogramProps interface.

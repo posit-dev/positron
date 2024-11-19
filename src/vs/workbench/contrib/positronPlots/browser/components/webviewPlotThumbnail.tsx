@@ -5,8 +5,8 @@
 
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PlaceholderThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/placeholderThumbnail';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { PlaceholderThumbnail } from './placeholderThumbnail.js';
+import { WebviewPlotClient } from '../webviewPlotClient.js';
 
 /**
  * WebviewPlotThumbnailProps interface.

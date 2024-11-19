@@ -5,11 +5,11 @@
 
 import 'vs/css!./groupingMenuButton';
 import * as React from 'react';
-import { localize } from 'vs/nls';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { PositronVariablesGrouping } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
+import { localize } from '../../../../../nls.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { PositronVariablesGrouping } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
  * Localized strings.

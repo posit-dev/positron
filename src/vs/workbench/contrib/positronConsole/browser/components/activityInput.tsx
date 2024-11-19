@@ -6,12 +6,12 @@
 import 'vs/css!./activityInput';
 import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { FontInfo } from 'vs/editor/common/config/fontInfo';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { OutputRun } from 'vs/workbench/browser/positronAnsiRenderer/outputRun';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 
 // ActivityInputProps interface.
 export interface ActivityInputProps {

@@ -6,8 +6,8 @@
 import 'vs/css!./actionBarFilter';
 import * as React from 'react';
 import { ChangeEvent, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { localize } from '../../../../nls.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarFilterProps interface.

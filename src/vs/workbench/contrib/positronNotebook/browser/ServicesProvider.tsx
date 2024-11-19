@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { ISize } from 'vs/base/browser/positronReactRenderer';
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IScopedContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ILogService } from 'vs/platform/log/common/log';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
+import { ISize } from '../../../../base/browser/positronReactRenderer.js';
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IScopedContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IWebviewService } from '../../webview/browser/webview.js';
 
 
 

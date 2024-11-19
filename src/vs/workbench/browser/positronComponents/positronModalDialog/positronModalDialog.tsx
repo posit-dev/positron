@@ -11,10 +11,10 @@ import * as React from 'react';
 import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { DraggableTitleBar } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/draggableTitleBar';
+import * as DOM from '../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { DraggableTitleBar } from './components/draggableTitleBar.js';
 
 /**
  * Focusable element selectors.

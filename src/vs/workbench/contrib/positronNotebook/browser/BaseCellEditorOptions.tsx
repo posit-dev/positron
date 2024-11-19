@@ -7,13 +7,13 @@
 // notebooks extension. It's setup to be less restrictive on the types needed for the constructor
 // and also so that we can have our own settings in the future.
 
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { IBaseCellEditorOptions, INotebookEditorDelegate } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { Emitter, Event } from 'vs/base/common/event';
-import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
-import { deepClone } from 'vs/base/common/objects';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IBaseCellEditorOptions, INotebookEditorDelegate } from '../../notebook/browser/notebookBrowser.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
+import { deepClone } from '../../../../base/common/objects.js';
 
 export class BaseCellEditorOptions extends Disposable implements IBaseCellEditorOptions {
 	private static fixedEditorOptions: IEditorOptions = {

@@ -10,7 +10,7 @@ import { VariableItem } from './classes/variableItem.js';
 import { VariableGroup } from './classes/variableGroup.js';
 import { VariableOverflow } from './classes/variableOverflow.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
-import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from './helpers/utils.js';
 import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from '../../languageRuntime/common/languageRuntimeVariablesClient.js';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from './interfaces/positronVariablesInstance.js';

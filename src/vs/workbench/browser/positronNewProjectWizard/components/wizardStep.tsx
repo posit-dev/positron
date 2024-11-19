@@ -6,8 +6,8 @@
 import 'vs/css!./wizardStep';
 import * as React from 'react';
 import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
-import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/okCancelBackNextActionBar';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
+import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from '../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+import { VerticalStack } from '../../positronComponents/positronModalDialog/components/verticalStack.js';
 
 /**
  * PositronWizardModalDialog interface.

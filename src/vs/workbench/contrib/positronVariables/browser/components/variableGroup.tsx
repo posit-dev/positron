@@ -6,15 +6,15 @@
 import 'vs/css!./variableGroup';
 import * as React from 'react';
 import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
-import * as nls from 'vs/nls';
-import { IAction } from 'vs/base/common/actions';
-import * as platform from 'vs/base/common/platform';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_EXPAND } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesIdentifiers';
+import * as nls from '../../../../../nls.js';
+import { IAction } from '../../../../../base/common/actions.js';
+import * as platform from '../../../../../base/common/platform.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { IVariableGroup } from '../../../../services/positronVariables/common/interfaces/variableGroup.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_EXPAND } from '../positronVariablesIdentifiers.js';
 
 /**
  * VariableGroupProps interface.

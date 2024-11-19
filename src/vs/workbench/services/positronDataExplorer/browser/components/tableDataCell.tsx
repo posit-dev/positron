@@ -10,9 +10,9 @@ import 'vs/css!./tableDataCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { DataCell, DataCellKind } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
-import { PositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerColumn';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { DataCell, DataCellKind } from '../../common/tableDataCache.js';
+import { PositronDataExplorerColumn } from '../positronDataExplorerColumn.js';
 
 /**
  * TableDataCellProps interface.

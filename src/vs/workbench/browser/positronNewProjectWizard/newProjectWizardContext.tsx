@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { NewProjectWizardStateManager, NewProjectWizardStateConfig } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
+import { NewProjectWizardStateManager, NewProjectWizardStateConfig } from './newProjectWizardState.js';
 
 /**
  * Create the New Project Wizard context.

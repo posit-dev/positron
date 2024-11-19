@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from 'vs/workbench/contrib/positronRuntimeSessions/browser/positronRuntimeSessionsState';
+import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from './positronRuntimeSessionsState.js';
 
 /**
  * Create the Positron sessions context.

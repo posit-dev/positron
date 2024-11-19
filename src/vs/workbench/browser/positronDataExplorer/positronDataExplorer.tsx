@@ -11,16 +11,16 @@ import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { ActionBar } from 'vs/workbench/browser/positronDataExplorer/components/actionBar/actionBar';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { PositronDataExplorerContextProvider } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
-import { DataExplorerPanel } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/dataExplorerPanel';
-import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
+import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
+import { IAccessibilityService } from '../../../platform/accessibility/common/accessibility.js';
+import { ActionBar } from './components/actionBar/actionBar.js';
+import { PositronActionBarServices } from '../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { PositronDataExplorerContextProvider } from './positronDataExplorerContext.js';
+import { DataExplorerPanel } from './components/dataExplorerPanel/dataExplorerPanel.js';
+import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
+import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from './components/dataExplorerClosed/positronDataExplorerClosed.js';
 
 /**
  * PositronDataExplorerServices interface.

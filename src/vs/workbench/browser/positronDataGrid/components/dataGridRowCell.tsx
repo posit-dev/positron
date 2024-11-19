@@ -11,12 +11,12 @@ import * as React from 'react';
 import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/mouseUtilities';
-import { CellSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { HorizontalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/horizontalSplitter';
-import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { selectionType } from '../utilities/mouseUtilities.js';
+import { CellSelectionState } from '../classes/dataGridInstance.js';
+import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { HorizontalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
  * DataGridRowCellProps interface.

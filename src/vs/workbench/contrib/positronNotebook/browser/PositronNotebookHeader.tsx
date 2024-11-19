@@ -6,10 +6,10 @@ import 'vs/css!./PositronNotebookHeader';
 
 import * as React from 'react';
 import { AddCodeCellButton, AddMarkdownCellButton } from './AddCellButtons';
-import { localize } from 'vs/nls';
+import { localize } from '../../../../nls.js';
 import { KernelStatusBadge } from './KernelStatusBadge';
-import { IconedButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/IconedButton';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { IconedButton } from './utilityComponents/IconedButton.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 
 export function PositronNotebookHeader({ notebookInstance }: { notebookInstance: PositronNotebookInstance }) {
 	return <div className='positron-notebook-header'>

@@ -6,19 +6,19 @@
 import 'vs/css!./positronVariables';
 import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { VariablesCore } from 'vs/workbench/contrib/positronVariables/browser/components/variablesCore';
-import { PositronVariablesServices } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesState';
-import { PositronVariablesContextProvider } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { VariablesCore } from './components/variablesCore.js';
+import { PositronVariablesServices } from './positronVariablesState.js';
+import { PositronVariablesContextProvider } from './positronVariablesContext.js';
+import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 
 /**
  * PositronVariablesProps interface.

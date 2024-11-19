@@ -7,29 +7,29 @@
 import * as React from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { NewProjectWizardContextProvider, useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { NewProjectWizardState } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardState';
-import { NewProjectWizardStepContainer } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardStepContainer';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { IFileService } from 'vs/platform/files/common/files';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IPositronNewProjectService, NewProjectConfiguration } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { EnvironmentSetupType, NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { URI } from 'vs/base/common/uri';
+import { localize } from '../../../nls.js';
+import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
+import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { NewProjectWizardContextProvider, useNewProjectWizardContext } from './newProjectWizardContext.js';
+import { ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { NewProjectWizardState } from './newProjectWizardState.js';
+import { NewProjectWizardStepContainer } from './newProjectWizardStepContainer.js';
+import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { IFileService } from '../../../platform/files/common/files.js';
+import { ICommandService } from '../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { IPositronNewProjectService, NewProjectConfiguration } from '../../services/positronNewProject/common/positronNewProject.js';
+import { EnvironmentSetupType, NewProjectWizardStep } from './interfaces/newProjectWizardEnums.js';
+import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
+import { showChooseNewProjectWindowModalDialog } from './chooseNewProjectWindowModalDialog.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { URI } from '../../../base/common/uri.js';
 
 /**
  * Shows the NewProjectModalDialog.

@@ -8,23 +8,23 @@ import * as React from 'react';
 import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { URI } from 'vs/base/common/uri';
-import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
-import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
-import { PositronWizardSubStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardSubStep';
-import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
-import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
-import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
-import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { checkIfPathValid, checkIfURIExists } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
-import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
-import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+import { localize } from '../../../../../nls.js';
+import { useNewProjectWizardContext } from '../../newProjectWizardContext.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { NewProjectWizardStep } from '../../interfaces/newProjectWizardEnums.js';
+import { NewProjectWizardStepProps } from '../../interfaces/newProjectWizardStepProps.js';
+import { PositronWizardStep } from '../wizardStep.js';
+import { PositronWizardSubStep } from '../wizardSubStep.js';
+import { LabeledTextInput } from '../../../positronComponents/positronModalDialog/components/labeledTextInput.js';
+import { LabeledFolderInput } from '../../../positronComponents/positronModalDialog/components/labeledFolderInput.js';
+import { Checkbox } from '../../../positronComponents/positronModalDialog/components/checkbox.js';
+import { WizardFormattedText, WizardFormattedTextType } from '../wizardFormattedText.js';
+import { checkProjectName } from '../../utilities/projectNameUtils.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { NewProjectType } from '../../../../services/positronNewProject/common/positronNewProject.js';
+import { checkIfPathValid, checkIfURIExists } from '../../../positronComponents/positronModalDialog/components/fileInputValidators.js';
+import { PathDisplay } from '../pathDisplay.js';
+import { useDebouncedValidator } from '../../../positronComponents/positronModalDialog/components/useDebouncedValidator.js';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.

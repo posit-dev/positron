@@ -11,7 +11,7 @@ import * as React from 'react';
 import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { ColumnFrequencyTable } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { ColumnFrequencyTable } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * VectorFrequencyTableProps interface.

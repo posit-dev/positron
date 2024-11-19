@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { CellSelectionStatus, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { SelectionState } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { useNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
+import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { SelectionState } from '../../../../services/positronNotebook/browser/selectionMachine.js';
+import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 
 /**
  * Hook to get selection status of a given cell.

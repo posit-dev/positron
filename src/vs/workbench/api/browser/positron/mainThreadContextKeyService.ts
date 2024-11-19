@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { MainPositronContext, MainThreadContextKeyServiceShape } from '../../common/positron/extHost.positron.protocol';
+import { MainPositronContext, MainThreadContextKeyServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 

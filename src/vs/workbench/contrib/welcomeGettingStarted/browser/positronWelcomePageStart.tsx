@@ -10,19 +10,19 @@ import 'vs/css!./media/positronGettingStarted';
 import * as React from 'react';
 
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { WelcomeButton } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomeButton';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { PositronNewProjectAction } from 'vs/workbench/browser/actions/positronActions';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { WelcomeMenuButton } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomeMenuButton';
-import { PythonLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoPython';
-import { RLogo } from 'vs/workbench/browser/positronNewProjectWizard/components/logos/logoR';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { WelcomeConsoleButton } from 'vs/workbench/contrib/welcomeGettingStarted/browser/positronWelcomeConsoleButton';
+import { localize } from '../../../../nls.js';
+import { WelcomeButton } from './positronWelcomeButton.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { PositronNewProjectAction } from '../../../browser/actions/positronActions.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
+import { PythonLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoPython.js';
+import { RLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoR.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { WelcomeConsoleButton } from './positronWelcomeConsoleButton.js';
 
 export interface PositronWelcomePageStartProps {
 	keybindingService: IKeybindingService;

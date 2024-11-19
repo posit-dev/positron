@@ -5,23 +5,23 @@
 
 import 'vs/css!./topActionBarOpenMenu';
 import * as React from 'react';
-import { localize } from 'vs/nls';
-import { URI } from 'vs/base/common/uri';
-import { isMacintosh } from 'vs/base/common/platform';
-import { unmnemonicLabel } from 'vs/base/common/labels';
-import { Verbosity } from 'vs/platform/label/common/label';
-import { IWindowOpenable } from 'vs/platform/window/common/window';
-import { Action, IAction, Separator } from 'vs/base/common/actions';
-import { OpenRecentAction } from 'vs/workbench/browser/actions/windowActions';
-import { IsMacNativeContext } from 'vs/platform/contextkey/common/contextkeys';
-import { IOpenRecentAction } from 'vs/workbench/browser/parts/titlebar/menubarControl';
-import { ClearRecentFilesAction } from 'vs/workbench/browser/parts/editor/editorActions';
-import { IRecent, isRecentFolder, isRecentWorkspace } from 'vs/platform/workspaces/common/workspaces';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronTopActionBarState } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarState';
-import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from 'vs/workbench/browser/actions/workspaceActions';
-import { usePositronTopActionBarContext } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarContext';
+import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { unmnemonicLabel } from '../../../../../base/common/labels.js';
+import { Verbosity } from '../../../../../platform/label/common/label.js';
+import { IWindowOpenable } from '../../../../../platform/window/common/window.js';
+import { Action, IAction, Separator } from '../../../../../base/common/actions.js';
+import { OpenRecentAction } from '../../../actions/windowActions.js';
+import { IsMacNativeContext } from '../../../../../platform/contextkey/common/contextkeys.js';
+import { IOpenRecentAction } from '../../titlebar/menubarControl.js';
+import { ClearRecentFilesAction } from '../../editor/editorActions.js';
+import { IRecent, isRecentFolder, isRecentWorkspace } from '../../../../../platform/workspaces/common/workspaces.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronTopActionBarState } from '../positronTopActionBarState.js';
+import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from '../../../actions/workspaceActions.js';
+import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 
 /**
  * Constants.

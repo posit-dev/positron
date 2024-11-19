@@ -6,10 +6,10 @@
 import 'vs/css!./activityErrorMessage';
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemErrorMessage';
+import { localize } from '../../../../../nls.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { OutputLines } from './outputLines.js';
+import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {

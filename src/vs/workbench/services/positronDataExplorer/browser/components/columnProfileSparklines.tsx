@@ -10,9 +10,9 @@ import 'vs/css!./columnProfileSparklines';
 import * as React from 'react';
 
 // Other dependencies.
-import { VectorHistogram } from 'vs/workbench/services/positronDataExplorer/browser/components/vectorHistogram';
-import { VectorFrequencyTable } from 'vs/workbench/services/positronDataExplorer/browser/components/vectorFrequencyTable';
-import { ColumnFrequencyTable, ColumnHistogram } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { VectorHistogram } from './vectorHistogram.js';
+import { VectorFrequencyTable } from './vectorFrequencyTable.js';
+import { ColumnFrequencyTable, ColumnHistogram } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.

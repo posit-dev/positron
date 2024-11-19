@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronActionBarServices, PositronActionBarState, usePositronActionBarState } from 'vs/platform/positronActionBar/browser/positronActionBarState';
+import { PositronActionBarServices, PositronActionBarState, usePositronActionBarState } from './positronActionBarState.js';
 
 /**
  * Create the Positron action bar context.

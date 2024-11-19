@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useRef, useState, MouseEvent, CSSProperties } from 'react';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { usePositronConnectionsContext } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import * as DOM from 'vs/base/browser/dom';
-import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
-import { ActionBar, ACTION_BAR_HEIGHT } from 'vs/workbench/contrib/positronConnections/browser/components/schemaNavigationActionBar';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
+import * as DOM from '../../../../../base/browser/dom.js';
+import { IPositronConnectionEntry } from '../../../../services/positronConnections/browser/positronConnectionsUtils.js';
+import { ActionBar, ACTION_BAR_HEIGHT } from './schemaNavigationActionBar.js';
 import { FixedSizeList as List } from 'react-window';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import 'vs/css!./schemaNavigation';
-import { ViewsProps } from 'vs/workbench/contrib/positronConnections/browser/positronConnections';
-import Severity from 'vs/base/common/severity';
-import { localize } from 'vs/nls';
+import { ViewsProps } from '../positronConnections.js';
+import Severity from '../../../../../base/common/severity.js';
+import { localize } from '../../../../../nls.js';
 
 export interface SchemaNavigationProps extends ViewsProps { }
 

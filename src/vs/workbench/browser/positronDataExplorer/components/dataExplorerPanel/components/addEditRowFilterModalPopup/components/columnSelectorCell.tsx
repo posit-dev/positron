@@ -10,10 +10,10 @@ import 'vs/css!./columnSelectorCell';
 import * as React from 'react';
 
 // Other dependencies.
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
+import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities.js';
+import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 
 /**
  * ColumnSummaryCellProps interface.

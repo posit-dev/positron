@@ -5,12 +5,12 @@
 
 import 'vs/css!./consoleInstanceMenuButton';
 import * as React from 'react';
-import { IAction } from 'vs/base/common/actions';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
+import { IAction } from '../../../../../base/common/actions.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 
 // ConsoleInstanceMenuButtonProps interface.
 interface ConsoleInstanceMenuButtonProps {

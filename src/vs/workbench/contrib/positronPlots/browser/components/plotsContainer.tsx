@@ -5,18 +5,18 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { DynamicPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotInstance';
-import { DynamicPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/dynamicPlotThumbnail';
-import { PlotGalleryThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/plotGalleryThumbnail';
-import { StaticPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotInstance';
-import { StaticPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/staticPlotThumbnail';
-import { WebviewPlotInstance } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotInstance';
-import { WebviewPlotThumbnail } from 'vs/workbench/contrib/positronPlots/browser/components/webviewPlotThumbnail';
-import { usePositronPlotsContext } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsContext';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { DynamicPlotInstance } from './dynamicPlotInstance.js';
+import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
+import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
+import { StaticPlotInstance } from './staticPlotInstance.js';
+import { StaticPlotThumbnail } from './staticPlotThumbnail.js';
+import { WebviewPlotInstance } from './webviewPlotInstance.js';
+import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
+import { usePositronPlotsContext } from '../positronPlotsContext.js';
+import { WebviewPlotClient } from '../webviewPlotClient.js';
+import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
  * PlotContainerProps interface.

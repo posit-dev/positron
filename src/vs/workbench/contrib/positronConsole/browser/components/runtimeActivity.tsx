@@ -5,24 +5,24 @@
 
 import 'vs/css!./runtimeActivity';
 import * as React from 'react';
-import { FontInfo } from 'vs/editor/common/config/fontInfo';
-import { ActivityInput } from 'vs/workbench/contrib/positronConsole/browser/components/activityInput';
-import { ActivityPrompt } from 'vs/workbench/contrib/positronConsole/browser/components/activityPrompt';
-import { ActivityItemInput } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
-import { RuntimeItemActivity } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity';
-import { ActivityOutputPlot } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputPlot';
-import { ActivityOutputHtml } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputHtml';
-import { ActivityErrorStream } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorStream';
-import { ActivityOutputStream } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputStream';
-import { ActivityErrorMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityErrorMessage';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
-import { ActivityOutputMessage } from 'vs/workbench/contrib/positronConsole/browser/components/activityOutputMessage';
-import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemErrorMessage';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputMessage';
-import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { ActivityInput } from './activityInput.js';
+import { ActivityPrompt } from './activityPrompt.js';
+import { ActivityItemInput } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
+import { ActivityItemPrompt } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
+import { RuntimeItemActivity } from '../../../../services/positronConsole/browser/classes/runtimeItemActivity.js';
+import { ActivityOutputPlot } from './activityOutputPlot.js';
+import { ActivityOutputHtml } from './activityOutputHtml.js';
+import { ActivityErrorStream } from './activityErrorStream.js';
+import { ActivityOutputStream } from './activityOutputStream.js';
+import { ActivityErrorMessage } from './activityErrorMessage.js';
+import { ActivityItemOutputPlot } from '../../../../services/positronConsole/browser/classes/activityItemOutputPlot.js';
+import { ActivityItemOutputHtml } from '../../../../services/positronConsole/browser/classes/activityItemOutputHtml.js';
+import { ActivityOutputMessage } from './activityOutputMessage.js';
+import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ActivityItemOutputMessage } from '../../../../services/positronConsole/browser/classes/activityItemOutputMessage.js';
+import { ActivityItemErrorStream, ActivityItemOutputStream } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HtmlNode, parseHtml } from 'vs/base/common/htmlParser';
+import { HtmlNode, parseHtml } from '../../common/htmlParser.js';
 import * as React from 'react';
 
 

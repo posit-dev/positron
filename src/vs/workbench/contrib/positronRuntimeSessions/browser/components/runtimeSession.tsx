@@ -6,10 +6,10 @@
 import 'vs/css!./runtimeSession';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { RuntimeSessionCard } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeSessionCard';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { RuntimeSessionCard } from './runtimeSessionCard.js';
 
 /**
  * RuntimeSessionProps interface.

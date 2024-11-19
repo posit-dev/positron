@@ -5,8 +5,8 @@
 
 import 'vs/css!./runtimeOffline';
 import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemOffline } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemOffline';
+import { OutputLines } from './outputLines.js';
+import { RuntimeItemOffline } from '../../../../services/positronConsole/browser/classes/runtimeItemOffline.js';
 
 // RuntimeExitedProps interface.
 export interface RuntimeOfflineProps {

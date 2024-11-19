@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronPlotsServices, PositronPlotsState, usePositronPlotsState } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
+import { PositronPlotsServices, PositronPlotsState, usePositronPlotsState } from './positronPlotsState.js';
 
 /**
  * Create the Positron plots context.

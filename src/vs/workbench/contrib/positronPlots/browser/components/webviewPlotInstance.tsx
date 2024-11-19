@@ -5,7 +5,7 @@
 
 import * as React from 'react';
 import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { WebviewPlotClient } from '../webviewPlotClient.js';
 
 /**
  * WebviewPlotInstanceProps interface.

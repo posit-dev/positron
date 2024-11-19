@@ -6,9 +6,9 @@
 import 'vs/css!./runtimeClientList';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { RuntimeClient } from 'vs/workbench/contrib/positronRuntimeSessions/browser/components/runtimeClient';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { RuntimeClient } from './runtimeClient.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 interface runtimeClientListProps {
 	readonly session: ILanguageRuntimeSession;

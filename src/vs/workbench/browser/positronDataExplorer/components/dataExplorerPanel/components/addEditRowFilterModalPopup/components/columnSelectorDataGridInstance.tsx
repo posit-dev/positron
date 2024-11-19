@@ -7,12 +7,12 @@
 import * as React from 'react';
 
 // Other dependencies.
-import { Emitter } from 'vs/base/common/event';
-import { DataGridInstance } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
-import { ColumnSchemaCache } from 'vs/workbench/services/positronDataExplorer/common/columnSchemaCache';
-import { BackendState, ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { ColumnSelectorCell } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorCell';
+import { Emitter } from '../../../../../../../../base/common/event.js';
+import { DataGridInstance } from '../../../../../../positronDataGrid/classes/dataGridInstance.js';
+import { ColumnSchemaCache } from '../../../../../../../services/positronDataExplorer/common/columnSchemaCache.js';
+import { BackendState, ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { DataExplorerClientInstance } from '../../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { ColumnSelectorCell } from './columnSelectorCell.js';
 
 /**
  * Constants.

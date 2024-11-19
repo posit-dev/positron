@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { StaticPlotClient } from 'vs/workbench/services/positronPlots/common/staticPlotClient';
+import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 
 /**
  * StaticPlotThumbnailProps interface.

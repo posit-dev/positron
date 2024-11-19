@@ -10,9 +10,9 @@ import 'vs/css!./media/positronGettingStarted';
 import * as React from 'react';
 import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
 
-import { ExternalLink } from 'vs/base/browser/ui/ExternalLink/ExternalLink';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { localize } from 'vs/nls';
+import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { localize } from '../../../../nls.js';
 
 export interface PositronWelcomePageHelpProps {
 	openerService: IOpenerService;
