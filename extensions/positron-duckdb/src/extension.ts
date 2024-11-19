@@ -368,14 +368,12 @@ class ColumnProfileEvaluator {
 			this.addNullCount(fieldName);
 			this.statsExprs.add(`COUNT(CASE WHEN "${fieldName}" THEN 1 END) AS "ntrue_${fieldName}"`);
 			this.statsExprs.add(`COUNT(CASE WHEN NOT "${fieldName}" THEN 1 END) AS "nfalse_${fieldName}"`);
-		} else if (columnSchema.column_type === 'TIMESTAMP' ||
-			columnSchema.column_type === 'DATE'
-		) {
+		} else if (columnSchema.column_type === 'TIMESTAMP') {
 			this.addMinMaxStringified(fieldName);
 			this.addNumUnique(fieldName);
-			this.statsExprs.add(`(AVG("${fieldName}"::BIGINT)::${columnSchema.column_type})::VARCHAR
+			this.statsExprs.add(`epoch_ms(FLOOR(AVG(epoch_ms("${fieldName}")))::BIGINT)::VARCHAR
 				AS "string_mean_${fieldName}"`);
-			this.statsExprs.add(`(MEDIAN("${fieldName}"::BIGINT)::${columnSchema.column_type})::VARCHAR
+			this.statsExprs.add(`epoch_ms(MEDIAN(epoch_ms("${fieldName}"))::BIGINT)::VARCHAR
 					AS "string_median_${fieldName}"`);
 		}
 	}
@@ -520,10 +518,22 @@ class ColumnProfileEvaluator {
 		return output;
 	}
 
-	private unboxSummaryStats(columnSchema: SchemaEntry, stats: Map<string, any>
+	private unboxSummaryStats(
+		columnSchema: SchemaEntry,
+		stats: Map<string, any>
 	): ColumnSummaryStats {
 		const formatNumber = (value: number) => {
-			return Number(value).toString();
+			value = Number(value);
+
+			if (value - Math.floor(value) === 0) {
+				return value.toString();
+			}
+
+			if (Math.abs(value) < 1) {
+				return value.toFixed(this.params.format_options.small_num_digits);
+			} else {
+				return value.toFixed(this.params.format_options.large_num_digits);
+			}
 		};
 		if (isNumeric(columnSchema.column_type)) {
 			return {
