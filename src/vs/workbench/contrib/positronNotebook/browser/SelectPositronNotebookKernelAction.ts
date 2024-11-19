@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2, localize } from 'vs/nls';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IQuickInputService, IQuickPickItem } from 'vs/platform/quickinput/common/quickInput';
-import { selectKernelIcon } from 'vs/workbench/contrib/notebook/browser/notebookIcons';
-import { INotebookKernelService, INotebookKernel } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { localize2, localize } from '../../../../nls.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IQuickInputService, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
+import { selectKernelIcon } from '../../notebook/browser/notebookIcons.js';
+import { INotebookKernelService, INotebookKernel } from '../../notebook/common/notebookKernelService.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 
 export const SELECT_KERNEL_ID_POSITRON = 'positronNotebook.selectKernel';
 const NOTEBOOK_ACTIONS_CATEGORY_POSITRON = localize2('positronNotebookActions.category', 'Positron Notebook');

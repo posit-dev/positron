@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { Event } from '../../../../base/common/event.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * Export the service identifier.

@@ -3,19 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILogService } from 'vs/platform/log/common/log';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { LanguageRuntimeSessionMode, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { PositronVariablesInstance } from './positronVariablesInstance.js';
+import { IPositronVariablesService } from './interfaces/positronVariablesService.js';
+import { IPositronVariablesInstance } from './interfaces/positronVariablesInstance.js';
+import { LanguageRuntimeSessionMode, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { isEqual } from 'vs/base/common/resources';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronVariablesService class.

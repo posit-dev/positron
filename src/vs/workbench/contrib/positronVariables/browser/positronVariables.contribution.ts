@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { KeyMod, KeyCode } from 'vs/base/common/keyCodes';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { PositronVariablesFocused } from 'vs/workbench/common/contextkeys';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { PositronVariablesViewPane } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesView';
-import { PositronVariablesRefreshAction } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesActions';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from 'vs/workbench/common/contributions';
-import { Extensions as ViewContainerExtensions, IViewsRegistry } from 'vs/workbench/common/views';
-import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesIdentifiers';
-import { POSITRON_SESSION_CONTAINER, positronSessionViewIcon } from 'vs/workbench/contrib/positronSession/browser/positronSessionContainer';
+import * as nls from '../../../../nls.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { KeyMod, KeyCode } from '../../../../base/common/keyCodes.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { PositronVariablesFocused } from '../../../common/contextkeys.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { PositronVariablesViewPane } from './positronVariablesView.js';
+import { PositronVariablesRefreshAction } from './positronVariablesActions.js';
+import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
+import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
+import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND } from './positronVariablesIdentifiers.js';
+import { POSITRON_SESSION_CONTAINER, positronSessionViewIcon } from '../../positronSession/browser/positronSessionContainer.js';
 
 // The Positron variables view identifier.
 export const POSITRON_VARIABLES_VIEW_ID = 'workbench.panel.positronVariables';

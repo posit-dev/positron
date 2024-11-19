@@ -46,8 +46,8 @@ import { IInstantiationService } from '../../instantiation/common/instantiation.
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { isLinux } from 'vs/base/common/platform';
-import { join } from 'vs/base/common/path';
+import { isLinux } from '../../../base/common/platform.js';
+import { join } from '../../../base/common/path.js';
 // -- End Positron ---
 
 export interface IWindowCreationOptions {

@@ -37,7 +37,7 @@ import { EnablementState } from '../../../../services/extensionManagement/common
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { DeferredPromise } from 'vs/base/common/async';
+import { DeferredPromise } from '../../../../../base/common/async.js';
 // --- End Positron ---
 type KernelPick = IQuickPickItem & { kernel: INotebookKernel };
 function isKernelPick(item: QuickPickInput<IQuickPickItem>): item is KernelPick {

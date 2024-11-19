@@ -2,10 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { FromWebviewMessage, ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
+import { Emitter } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { IIPyWidgetsWebviewMessaging } from '../../common/languageRuntimeIPyWidgetClient.js';
+import { FromWebviewMessage, ToWebviewMessage } from '../../common/positronIPyWidgetsWebviewMessages.js';
 
 export class TestIPyWidgetsWebviewMessaging extends Disposable implements IIPyWidgetsWebviewMessaging {
 	private readonly _messageEmitter = new Emitter<FromWebviewMessage>();

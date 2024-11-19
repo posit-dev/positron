@@ -13,8 +13,8 @@ import * as extHostProtocol from '../common/extHost.protocol.js';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
 
 // --- Begin Positron ---
-import { MainThreadPreviewPanel } from 'vs/workbench/api/browser/positron/mainThreadPreviewPanel';
-import * as extHostPositronProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
+import { MainThreadPreviewPanel } from './positron/mainThreadPreviewPanel.js';
+import * as extHostPositronProtocol from '../common/positron/extHost.positron.protocol.js';
 // --- End Positron ---
 
 @extHostCustomer

@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IDataColumn } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
-import { IColumnSortKey } from 'vs/workbench/browser/positronDataGrid/interfaces/columnSortKey';
-import { AnchorPoint } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
-import { ILayoutEntry, LayoutManager } from 'vs/workbench/services/positronDataExplorer/common/layoutManager';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IDataColumn } from '../interfaces/dataColumn.js';
+import { IColumnSortKey } from '../interfaces/columnSortKey.js';
+import { AnchorPoint } from '../../positronComponents/positronModalPopup/positronModalPopup.js';
+import { ILayoutEntry, LayoutManager } from '../../../services/positronDataExplorer/common/layoutManager.js';
 
 /**
  * ColumnHeaderOptions type.

@@ -31,7 +31,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../servi
 import { TerminalCommandId } from '../../terminal/common/terminal.js';
 
 // --- Start Positron ---
-import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
+import { IPositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProject.js';
 // --- End Positron ---
 
 export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restorableWalkthroughs';

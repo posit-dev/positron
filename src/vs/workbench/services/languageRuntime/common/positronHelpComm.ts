@@ -7,9 +7,9 @@
 // AUTO-GENERATED from help.json; do not edit.
 //
 
-import { Event } from 'vs/base/common/event';
-import { PositronBaseComm, PositronCommOptions } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { Event } from '../../../../base/common/event.js';
+import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 /**
  * Parameters for the ShowHelpTopic method.

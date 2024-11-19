@@ -3,29 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { CommandsRegistry, ICommandService } from 'vs/platform/commands/common/commands';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronDataExplorerFocused } from 'vs/workbench/common/contextkeys';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { DataExplorerClientInstance, DataExplorerUiEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { PositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/positronDataExplorerInstance';
+import { localize } from '../../../../nls.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IEditorService } from '../../editor/common/editorService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
+import { DataExplorerClientInstance, DataExplorerUiEvent } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { PositronDataExplorerComm } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { PositronDataExplorerDuckDBBackend } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerDuckDBBackend';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
+import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
+import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 
 /**
  * DataExplorerRuntime class.

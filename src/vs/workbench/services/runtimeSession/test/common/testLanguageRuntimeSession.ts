@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { generateUuid } from 'vs/base/common/uuid';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
+import { Emitter } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../base/common/uri.js';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from '../../common/runtimeSessionService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
+import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());

@@ -13,14 +13,14 @@ import { IWindowsMainService } from '../../windows/electron-main/windows.js';
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { Rectangle, webFrameMain } from 'electron';
-import { VSBuffer } from 'vs/base/common/buffer';
+import { VSBuffer } from '../../../base/common/buffer.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { IDisposable } from '../../../base/common/lifecycle.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId, FrameNavigationEvent } from 'vs/platform/webview/common/webviewManagerService';
-import { DeferredPromise } from 'vs/base/common/async';
+import { WebviewFrameId, FrameNavigationEvent } from '../common/webviewManagerService.js';
+import { DeferredPromise } from '../../../base/common/async.js';
 // --- End Positron ---
 
 export class WebviewMainService extends Disposable implements IWebviewManagerService {

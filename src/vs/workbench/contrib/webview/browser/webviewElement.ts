@@ -41,11 +41,11 @@ import { CodeWindow } from '../../../../base/browser/window.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { VSBuffer } from 'vs/base/common/buffer';
-import { FrameNavigationEvent, WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { FrameNavigationEvent, WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { FileAccess } from 'vs/base/common/network';
+import { FileAccess } from '../../../../base/common/network.js';
 // --- End Positron ---
 
 interface WebviewContent {

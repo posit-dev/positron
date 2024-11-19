@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { NotebookCellOutputTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellOutputTextModel';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { ICellOutput } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { ICellOutput } from '../../notebook/common/notebookCommon.js';
 
 type CellOutputInfo = { id: string; content: string };
 

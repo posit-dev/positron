@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
+import { Event } from '../common/event.js';
 import { createRoot, Root } from 'react-dom/client';
-import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, IDisposable } from '../common/lifecycle.js';
 
 /**
  * ISize interface.

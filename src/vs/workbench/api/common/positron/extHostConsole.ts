@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import { MainThreadConsoleServiceShape } from './extHost.positron.protocol';
-import { ILogService } from 'vs/platform/log/common/log';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 export class ExtHostConsole {
 

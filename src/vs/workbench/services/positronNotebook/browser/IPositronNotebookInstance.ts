@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable } from 'vs/base/common/observableInternal/base';
-import { URI } from 'vs/base/common/uri';
-import { CellKind, IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { URI } from '../../../../base/common/uri.js';
+import { CellKind, IPositronNotebookCell } from './IPositronNotebookCell.js';
+import { SelectionStateMachine } from './selectionMachine.js';
+import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 
 export enum KernelStatus {
 	Uninitialized = 'Uninitialized',

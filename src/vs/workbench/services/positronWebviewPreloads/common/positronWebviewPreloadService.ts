@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { Event } from 'vs/base/common/event';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { Event } from '../../../../base/common/event.js';
+import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
 export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';

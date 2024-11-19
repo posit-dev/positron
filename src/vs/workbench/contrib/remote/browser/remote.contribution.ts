@@ -14,7 +14,7 @@ import { AutomaticPortForwarding, ForwardedPortsView, PortRestore } from './remo
 import { InitialRemoteConnectionHealthContribution } from './remoteConnectionHealth.js';
 
 // --- Start Positron ---
-import { registerRemoteConfiguration } from 'vs/workbench/contrib/remote/browser/remoteConfiguration';
+import { registerRemoteConfiguration } from './remoteConfiguration.js';
 // --- End Positron ---
 
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);

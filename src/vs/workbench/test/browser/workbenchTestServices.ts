@@ -184,8 +184,8 @@ import { NullHoverService } from '../../../platform/hover/test/browser/nullHover
 import { IActionViewItemService, NullActionViewItemService } from '../../../platform/actions/browser/actionViewItemService.js';
 
 // --- Start Positron ---
-import { PartViewInfo } from 'vs/workbench/services/positronLayout/browser/interfaces/positronLayoutService';
-import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+import { PartViewInfo } from '../../services/positronLayout/browser/interfaces/positronLayoutService.js';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from '../../services/positronLayout/common/positronCustomViews.js';
 // --- End Positron ---
 export function createFileEditorInput(instantiationService: IInstantiationService, resource: URI): FileEditorInput {
 	return instantiationService.createInstance(FileEditorInput, resource, undefined, undefined, undefined, undefined, undefined, undefined);

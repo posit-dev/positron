@@ -4,21 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { raceTimeout, timeout } from 'vs/base/common/async';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
-import { PositronPlotsService } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsService';
-import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
-import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronIPyWidgetsService } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { HistoryPolicy, IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
-import { IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { TestViewsService, workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { raceTimeout, timeout } from '../../../../../base/common/async.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { PositronIPyWidgetsService } from '../../../positronIPyWidgets/browser/positronIPyWidgetsService.js';
+import { PositronPlotsService } from '../../browser/positronPlotsService.js';
+import { PositronWebviewPreloadService } from '../../../positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
+import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronIPyWidgetsService } from '../../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { HistoryPolicy, IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/common/positronWebviewPreloadService.js';
+import { IRuntimeSessionService, RuntimeClientType } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { TestRuntimeSessionService } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { IViewsService } from '../../../../services/views/common/viewsService.js';
+import { TestViewsService, workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 
 suite('Positron - Plots Service', () => {
 

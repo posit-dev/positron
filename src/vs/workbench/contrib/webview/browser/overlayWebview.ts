@@ -17,8 +17,8 @@ import { IWorkbenchLayoutService } from '../../../services/layout/browser/layout
 import { IOverlayWebview, IWebview, IWebviewElement, IWebviewService, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_ENABLED, KEYBINDING_CONTEXT_WEBVIEW_FIND_WIDGET_VISIBLE, WebviewContentOptions, WebviewExtensionDescription, WebviewInitInfo, WebviewMessageReceivedEvent, WebviewOptions } from './webview.js';
 
 // --- Start Positron ---
-import { VSBuffer } from 'vs/base/common/buffer';
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 // --- End Positron ---
 
 /**

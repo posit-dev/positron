@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { Schemas } from 'vs/base/common/network';
+import { URI } from '../../../../base/common/uri.js';
+import { Schemas } from '../../../../base/common/network.js';
 
 /**
  * PositronDataExplorerUri class.

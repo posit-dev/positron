@@ -45,7 +45,7 @@ import { IUserDataProfilesService } from '../../../../platform/userDataProfile/c
 import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uriIdentity.js';
 
 // --- Start Positron ---
-import { validatePositronExtensionManifest } from 'vs/platform/extensions/common/positronExtensionValidator';
+import { validatePositronExtensionManifest } from '../../../../platform/extensions/common/positronExtensionValidator.js';
 // --- End Positron ---
 
 type GalleryExtensionInfo = { readonly id: string; preRelease?: boolean; migrateStorageFrom?: string };

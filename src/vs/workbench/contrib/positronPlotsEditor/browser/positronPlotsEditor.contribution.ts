@@ -3,22 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Schemas } from 'vs/base/common/network';
-import { localize } from 'vs/nls';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from 'vs/platform/configuration/common/configurationRegistry';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
-import { applicationConfigurationNodeBase } from 'vs/workbench/common/configuration';
-import { registerWorkbenchContribution2, WorkbenchPhase } from 'vs/workbench/common/contributions';
-import { EditorExtensions } from 'vs/workbench/common/editor';
-import { PositronPlotsEditor } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditor';
-import { PositronPlotsEditorInput } from 'vs/workbench/contrib/positronPlotsEditor/browser/positronPlotsEditorInput';
-import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
+import { applicationConfigurationNodeBase } from '../../../common/configuration.js';
+import { registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { EditorExtensions } from '../../../common/editor.js';
+import { PositronPlotsEditor } from './positronPlotsEditor.js';
+import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
+import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
 export const POSITRON_EDITOR_PLOTS = 'application.experimental.positronPlotsInEditorTab';
 

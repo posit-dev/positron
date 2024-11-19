@@ -3,32 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ExtHostLanguageRuntime } from 'vs/workbench/api/common/positron/extHostLanguageRuntime';
+import { ExtHostLanguageRuntime } from './extHostLanguageRuntime.js';
 import type * as positron from 'positron';
 import type * as vscode from 'vscode';
-import { IExtHostRpcService } from 'vs/workbench/api/common/extHostRpcService';
-import { ILogService } from 'vs/platform/log/common/log';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IExtensionRegistries } from 'vs/workbench/api/common/extHost.api.impl';
-import { IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { ExtHostConfigProvider } from 'vs/workbench/api/common/extHostConfiguration';
-import { ExtHostPositronContext } from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-import * as extHostTypes from 'vs/workbench/api/common/positron/extHostTypes.positron';
-import { IExtHostInitDataService } from 'vs/workbench/api/common/extHostInitDataService';
-import { ExtHostPreviewPanels } from 'vs/workbench/api/common/positron/extHostPreviewPanels';
-import { ExtHostModalDialogs } from 'vs/workbench/api/common/positron/extHostModalDialogs';
-import { ExtHostContextKeyService } from 'vs/workbench/api/common/positron/extHostContextKeyService';
-import { ExtHostDocuments } from 'vs/workbench/api/common/extHostDocuments';
-import { ExtHostContext } from 'vs/workbench/api/common/extHost.protocol';
-import { IExtHostWorkspace } from 'vs/workbench/api/common/extHostWorkspace';
-import { IExtHostCommands } from 'vs/workbench/api/common/extHostCommands';
-import { ExtHostWebviews } from 'vs/workbench/api/common/extHostWebview';
-import { ExtHostLanguageFeatures } from 'vs/workbench/api/common/extHostLanguageFeatures';
-import { ExtHostOutputService } from 'vs/workbench/api/common/extHostOutput';
-import { ExtHostConsoleService } from 'vs/workbench/api/common/positron/extHostConsoleService';
+import { IExtHostRpcService } from '../extHostRpcService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IExtensionRegistries } from '../extHost.api.impl.js';
+import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { ExtHostConfigProvider } from '../extHostConfiguration.js';
+import { ExtHostPositronContext } from './extHost.positron.protocol.js';
+import * as extHostTypes from './extHostTypes.positron.js';
+import { IExtHostInitDataService } from '../extHostInitDataService.js';
+import { ExtHostPreviewPanels } from './extHostPreviewPanels.js';
+import { ExtHostModalDialogs } from './extHostModalDialogs.js';
+import { ExtHostContextKeyService } from './extHostContextKeyService.js';
+import { ExtHostDocuments } from '../extHostDocuments.js';
+import { ExtHostContext } from '../extHost.protocol.js';
+import { IExtHostWorkspace } from '../extHostWorkspace.js';
+import { IExtHostCommands } from '../extHostCommands.js';
+import { ExtHostWebviews } from '../extHostWebview.js';
+import { ExtHostLanguageFeatures } from '../extHostLanguageFeatures.js';
+import { ExtHostOutputService } from '../extHostOutput.js';
+import { ExtHostConsoleService } from './extHostConsoleService.js';
 import { ExtHostMethods } from './extHostMethods';
 import { ExtHostEditors } from '../extHostTextEditors';
-import { UiFrontendRequest } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.

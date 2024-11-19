@@ -10,7 +10,7 @@ import type { NotebookCellMetadata } from '../../../common/notebookCommon.js';
 import type * as rendererApi from 'vscode-notebook-renderer';
 
 // !! IMPORTANT !! ----------------------------------------------------------------------------------
-// import { RenderOutputType } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
+// import { RenderOutputType } from '../../notebookBrowser.js';
 // We can ONLY IMPORT as type in this module. This also applies to const enums that would evaporate
 // in normal compiles but remain a dependency in transpile-only compiles
 // !! IMPORTANT !! ----------------------------------------------------------------------------------

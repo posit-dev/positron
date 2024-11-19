@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
-import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { VariableOverflow } from 'vs/workbench/services/positronVariables/common/classes/variableOverflow';
-import { PositronVariable } from 'vs/workbench/services/languageRuntime/common/languageRuntimeVariablesClient';
-import { ClipboardFormatFormat } from 'vs/workbench/services/languageRuntime/common/positronVariablesComm';
-import { ISettableObservable, observableValue } from 'vs/base/common/observable';
+import { generateUuid } from '../../../../../base/common/uuid.js';
+import { IVariableItem } from '../interfaces/variableItem.js';
+import { VariableOverflow } from './variableOverflow.js';
+import { PositronVariable } from '../../../languageRuntime/common/languageRuntimeVariablesClient.js';
+import { ClipboardFormatFormat } from '../../../languageRuntime/common/positronVariablesComm.js';
+import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 
 /**
  * VariableItem class. This is used to represent an variable in a language runtime.

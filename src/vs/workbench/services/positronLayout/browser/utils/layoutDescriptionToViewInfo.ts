@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
-import { ViewContainerLocation } from 'vs/workbench/common/views';
-import { Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { CustomPositronLayoutDescription, KnownPositronLayoutParts } from '../../common/positronCustomViews.js';
+import { ViewContainerLocation } from '../../../../common/views.js';
+import { Parts } from '../../../layout/browser/layoutService.js';
 
 
 const partToViewContainerLocation: Record<KnownPositronLayoutParts, ViewContainerLocation> = {

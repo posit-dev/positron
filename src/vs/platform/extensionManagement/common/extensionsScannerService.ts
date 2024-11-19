@@ -38,7 +38,7 @@ import { IUriIdentityService } from '../../uriIdentity/common/uriIdentity.js';
 import { localizeManifest } from './extensionNls.js';
 
 // --- Start Positron ---
-import { validatePositronExtensionManifest } from 'vs/platform/extensions/common/positronExtensionValidator';
+import { validatePositronExtensionManifest } from '../../extensions/common/positronExtensionValidator.js';
 // --- End Positron ---
 
 export type IScannedExtensionManifest = IRelaxedExtensionManifest & { __metadata?: Metadata };

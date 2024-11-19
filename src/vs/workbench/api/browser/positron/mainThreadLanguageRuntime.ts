@@ -10,37 +10,37 @@ import {
 	ExtHostPositronContext,
 	RuntimeInitialState
 } from '../../common/positron/extHost.positron.protocol';
-import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { DeferredPromise } from 'vs/base/common/async';
-import { generateUuid } from 'vs/base/common/uuid';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from 'vs/workbench/services/positronIPyWidgets/common/positronIPyWidgetsService';
-import { IPositronHelpService } from 'vs/workbench/contrib/positronHelp/browser/positronHelpService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { URI } from 'vs/base/common/uri';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IEditor } from 'vs/editor/common/editorCommon';
-import { Selection } from 'vs/editor/common/core/selection';
-import { ITextResourceEditorInput } from 'vs/platform/editor/common/editor';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
-import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
-import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState as ILanguageRuntimeSessionState, ILanguageRuntimeService, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeExit, RuntimeOutputKind, RuntimeExitReason, ILanguageRuntimeMessageWebOutput, PositronOutputLocation, LanguageRuntimeSessionMode, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronIPyWidgetsService, MIME_TYPE_WIDGET_STATE, MIME_TYPE_WIDGET_VIEW } from '../../../services/positronIPyWidgets/common/positronIPyWidgetsService.js';
+import { IPositronHelpService } from '../../../contrib/positronHelp/browser/positronHelpService.js';
+import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
+import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
+import { URI } from '../../../../base/common/uri.js';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { Selection } from '../../../../editor/common/core/selection.js';
+import { ITextResourceEditorInput } from '../../../../platform/editor/common/editor.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { IRuntimeStartupService, RuntimeStartupPhase } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
+import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/common/positronWebviewPreloadService.js';
+import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)

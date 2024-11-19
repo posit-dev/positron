@@ -16,7 +16,7 @@ import { createDecorator, ServicesAccessor } from '../../instantiation/common/in
 import { IKeybindingRule, KeybindingsRegistry } from '../../keybinding/common/keybindingsRegistry.js';
 
 // --- Start Positron ---
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 // --- End Positron ---
 
 

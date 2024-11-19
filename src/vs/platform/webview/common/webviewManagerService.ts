@@ -7,7 +7,7 @@ import { Event } from '../../../base/common/event.js';
 import { createDecorator } from '../../instantiation/common/instantiation.js';
 
 // --- Start Positron ---
-import { VSBuffer } from 'vs/base/common/buffer';
+import { VSBuffer } from '../../../base/common/buffer.js';
 // --- End Positron ---
 
 export const IWebviewManagerService = createDecorator<IWebviewManagerService>('webviewManagerService');

@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IOverlayWebview, IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Event } from 'vs/base/common/event';
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IOverlayWebview, IWebviewElement } from '../../webview/browser/webview.js';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Event } from '../../../../base/common/event.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 
 export const POSITRON_NOTEBOOK_OUTPUT_WEBVIEW_SERVICE_ID = 'positronNotebookOutputWebview';
 

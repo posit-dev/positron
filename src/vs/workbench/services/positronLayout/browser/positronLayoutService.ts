@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPositronLayoutService } from './interfaces/positronLayoutService';
-import { CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
+import { CustomPositronLayoutDescription } from '../common/positronCustomViews.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { IWorkbenchLayoutService } from '../../layout/browser/layoutService.js';
 
 
 class PositronLayoutService extends Disposable implements IPositronLayoutService {

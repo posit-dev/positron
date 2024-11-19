@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { TableData, TableSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+import { TableData, TableSchema } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 export interface DataFetchRange {
 	/// Start index is inclusive

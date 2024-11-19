@@ -43,10 +43,10 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { validateLicenseKey } from 'vs/server/node/remoteLicenseKey';
+import { validateLicenseKey } from './remoteLicenseKey.js';
 
 // eslint-disable-next-line no-duplicate-imports
-import { MandatoryServerConnectionToken } from 'vs/server/node/serverConnectionToken';
+import { MandatoryServerConnectionToken } from './serverConnectionToken.js';
 // --- End Positron ---
 
 // --- Start PWB: Server proxy support ---

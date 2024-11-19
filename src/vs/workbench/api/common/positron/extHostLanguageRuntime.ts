@@ -4,20 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 
 import type * as positron from 'positron';
-import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ILanguageRuntimeMessage, ILanguageRuntimeMessageCommClosed, ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import * as extHostProtocol from './extHost.positron.protocol';
-import { Emitter } from 'vs/base/common/event';
-import { DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
-import { Disposable, LanguageRuntimeMessageType } from 'vs/workbench/api/common/extHostTypes';
-import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
-import { ExtHostRuntimeClientInstance } from 'vs/workbench/api/common/positron/extHostClientInstance';
-import { ExtensionIdentifier, IExtensionDescription } from 'vs/platform/extensions/common/extensions';
-import { URI } from 'vs/base/common/uri';
-import { DeferredPromise, retry } from 'vs/base/common/async';
-import { IRuntimeSessionMetadata } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { ILogService } from 'vs/platform/log/common/log';
-import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { VSBuffer } from 'vs/base/common/buffer';
+import { Emitter } from '../../../../base/common/event.js';
+import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
+import { RuntimeClientType } from './extHostTypes.positron.js';
+import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
+import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
+import { URI } from '../../../../base/common/uri.js';
+import { DeferredPromise, retry } from '../../../../base/common/async.js';
+import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
  * A language runtime manager and metadata about the extension that registered it.

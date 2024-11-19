@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { URI } from 'vs/base/common/uri';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { Event } from '../../../../base/common/event.js';
+import { URI } from '../../../../base/common/uri.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from '../../languageRuntime/common/languageRuntimeService';
-import { RuntimeClientType, IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { IDisposable } from 'vs/base/common/lifecycle';
+import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 
 export const IRuntimeSessionService =
 	createDecorator<IRuntimeSessionService>('runtimeSessionService');

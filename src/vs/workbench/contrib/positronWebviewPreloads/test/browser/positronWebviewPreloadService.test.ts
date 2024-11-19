@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import assert from 'assert';
-import { timeout } from 'vs/base/common/async';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { NotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/browser/services/notebookRendererMessagingServiceImpl';
-import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
-import { TestNotebookService } from 'vs/workbench/contrib/positronIPyWidgets/test/browser/positronIPyWidgetsService.test';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { PositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
-import { IWebviewService } from 'vs/workbench/contrib/webview/browser/webview';
-import { WebviewService } from 'vs/workbench/contrib/webview/browser/webviewService';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { timeout } from '../../../../../base/common/async.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { NotebookRendererMessagingService } from '../../../notebook/browser/services/notebookRendererMessagingServiceImpl.js';
+import { INotebookRendererMessagingService } from '../../../notebook/common/notebookRendererMessagingService.js';
+import { INotebookService } from '../../../notebook/common/notebookService.js';
+import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
+import { TestNotebookService } from '../../../positronIPyWidgets/test/browser/positronIPyWidgetsService.test.js';
+import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { PositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
+import { WebviewPlotClient } from '../../../positronPlots/browser/webviewPlotClient.js';
+import { IWebviewService } from '../../../webview/browser/webview.js';
+import { WebviewService } from '../../../webview/browser/webviewService.js';
+import { LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
+import { TestRuntimeSessionService } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 
 
 const hvPreloadMessage = {

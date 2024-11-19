@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { Event } from 'vs/base/common/event';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { Barrier } from 'vs/base/common/async';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { Event } from '../../../../base/common/event.js';
+import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { Barrier } from '../../../../base/common/async.js';
 
 export const POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY = 'positron.newProjectConfig';
 

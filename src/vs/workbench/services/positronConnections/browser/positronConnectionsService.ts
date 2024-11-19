@@ -3,21 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
-import { ConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
-import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
-import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { ILogService } from 'vs/platform/log/common/log';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { ConnectionsClientInstance } from '../../languageRuntime/common/languageRuntimeConnectionsClient.js';
+import { ConnectionMetadata, IPositronConnectionInstance } from './interfaces/positronConnectionsInstance.js';
+import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from './interfaces/positronConnectionsService.js';
+import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from './positronConnectionsInstance.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from './positronConnectionsFeatureFlag.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IConfigurationChangeEvent, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IViewsService } from '../../views/common/viewsService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 

@@ -132,9 +132,9 @@ import { INotebookOutlineEntryFactory, NotebookOutlineEntryFactory } from './vie
 import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetadataTextModel.js';
 
 // --- Start Positron ---
-import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
-import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
+import { getShouldUsePositronEditor } from '../../positronNotebook/browser/positronNotebook.contribution.js';
+import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 // --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 

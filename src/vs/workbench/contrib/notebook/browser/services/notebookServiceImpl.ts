@@ -47,8 +47,8 @@ import type { IEditorGroup } from '../../../../services/editor/common/editorGrou
 import { NotebookMultiDiffEditorInput } from '../diff/notebookMultiDiffEditorInput.js';
 
 // --- Start Positron ---
-import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { getShouldUsePositronEditor } from 'vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution';
+import { PositronNotebookEditorInput } from '../../../positronNotebook/browser/PositronNotebookEditorInput.js';
+import { getShouldUsePositronEditor } from '../../../positronNotebook/browser/positronNotebook.contribution.js';
 // --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {

@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
-import { ActivityItemPrompt } from 'vs/workbench/services/positronConsole/browser/classes/activityItemPrompt';
-import { ActivityItemOutputHtml } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputHtml';
-import { ActivityItemOutputPlot } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputPlot';
-import { ActivityItemErrorMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemErrorMessage';
-import { ActivityItemOutputMessage } from 'vs/workbench/services/positronConsole/browser/classes/activityItemOutputMessage';
-import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
-import { ActivityItemErrorStream, ActivityItemOutputStream, ActivityItemStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
+import { RuntimeItem } from './runtimeItem.js';
+import { ActivityItemPrompt } from './activityItemPrompt.js';
+import { ActivityItemOutputHtml } from './activityItemOutputHtml.js';
+import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
+import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
+import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
+import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
+import { ActivityItemErrorStream, ActivityItemOutputStream, ActivityItemStream } from './activityItemStream.js';
 
 /**
  * The ActivityItem type alias.

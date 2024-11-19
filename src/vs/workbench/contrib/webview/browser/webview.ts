@@ -20,9 +20,9 @@ import { IWebviewPortMapping } from '../../../../platform/webview/common/webview
 import { Memento, MementoObject } from '../../../common/memento.js';
 
 // --- Start Positron ---
-import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFindDelegate } from './webviewFindWidget.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 // --- End Positron ---
 
 /**

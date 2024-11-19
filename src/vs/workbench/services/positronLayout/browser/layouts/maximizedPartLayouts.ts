@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize2 } from 'vs/nls';
-import { registerAction2 } from 'vs/platform/actions/common/actions';
-import { Parts } from 'vs/workbench/services/layout/browser/layoutService';
+import { localize2 } from '../../../../../nls.js';
+import { registerAction2 } from '../../../../../platform/actions/common/actions.js';
+import { Parts } from '../../../layout/browser/layoutService.js';
 import { PositronLayoutAction } from './layoutAction';
-import { KnownPositronLayoutParts, CustomPositronLayoutDescription } from 'vs/workbench/services/positronLayout/common/positronCustomViews';
+import { KnownPositronLayoutParts, CustomPositronLayoutDescription } from '../../common/positronCustomViews.js';
 
 // Layouts that maximize a single part as much as possible.
 function makeMaximizedPartLayout(part: KnownPositronLayoutParts): CustomPositronLayoutDescription {

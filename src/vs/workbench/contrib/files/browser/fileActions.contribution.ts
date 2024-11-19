@@ -34,7 +34,7 @@ import { IsEnabledFileDownloads, IsEnabledFileUploads } from '../../../common/co
 // --- End PWB ---
 
 // --- Start Positron --
-import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+import { CommandCenter } from '../../../../platform/commandCenter/common/commandCenter.js';
 // --- End Positron --
 
 // Contribute Global Actions

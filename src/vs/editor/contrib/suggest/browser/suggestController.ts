@@ -48,7 +48,7 @@ import { WindowIdleValue, getWindow } from '../../../../base/browser/dom.js';
 import { ModelDecorationOptions } from '../../../common/model/textModel.js';
 
 // --- Start Positron ---
-import { TabSuggestContextKey } from 'vs/editor/contrib/suggest/browser/tabSuggestContextKey';
+import { TabSuggestContextKey } from './tabSuggestContextKey.js';
 // --- End Positron ---
 
 // sticky suggest widget which doesn't disappear on focus out and such

@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { URI } from 'vs/base/common/uri';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { URI } from '../../../../base/common/uri.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {

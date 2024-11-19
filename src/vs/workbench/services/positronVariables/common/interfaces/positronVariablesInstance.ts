@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from 'vs/base/common/event';
-import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
-import { IVariableGroup } from 'vs/workbench/services/positronVariables/common/interfaces/variableGroup';
-import { IVariableOverflow as IVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/variableOverflow';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { Event } from '../../../../../base/common/event.js';
+import { IVariableItem } from './variableItem.js';
+import { IVariableGroup } from './variableGroup.js';
+import { IVariableOverflow as IVariableOverflow } from './variableOverflow.js';
+import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { RuntimeClientState } from '../../../languageRuntime/common/languageRuntimeClientInstance.js';
 
 /**
  * PositronVariablesGrouping enumeration.

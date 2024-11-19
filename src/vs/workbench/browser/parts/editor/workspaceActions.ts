@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Categories } from 'vs/platform/action/common/actionCommonCategories';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { localize } from 'vs/nls';
-import { ServicesAccessor } from 'vs/editor/browser/editorExtensions';
-import { IDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { IWorkspacesService } from 'vs/platform/workspaces/common/workspaces';
+import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { localize } from '../../../../nls.js';
+import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { IDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
 
 
 /**

@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { Event } from 'vs/base/common/event';
-import { ThemeIcon } from 'vs/base/common/themables';
-import { MarkdownString } from 'vs/base/common/htmlContent';
-import { ILinkDescriptor } from 'vs/platform/opener/browser/link';
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { URI } from '../../../../base/common/uri.js';
+import { Event } from '../../../../base/common/event.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { MarkdownString } from '../../../../base/common/htmlContent.js';
+import { ILinkDescriptor } from '../../../../platform/opener/browser/link.js';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * IPositronTopActionBarItem interface.

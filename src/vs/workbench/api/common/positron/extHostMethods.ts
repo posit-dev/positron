@@ -11,9 +11,9 @@ import { ExtHostCommands } from '..//extHostCommands';
 import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
 import { ExtHostContextKeyService } from '../positron/extHostContextKeyService';
 import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
-import { UiFrontendRequest, EditorContext, Range as UIRange } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
-import { JsonRpcErrorCode } from 'vs/workbench/services/languageRuntime/common/positronBaseComm';
-import { Range } from 'vs/workbench/api/common/extHostTypes';
+import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
+import { Range } from '../extHostTypes.js';
 import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;

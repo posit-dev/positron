@@ -118,14 +118,14 @@ suite('TokensStore', () => {
 	test('issue #86303 - color shifting between different tokens', () => {
 		testTokensAdjustment(
 			[
-				`import { |URI| } from 'vs/base/common/uri';`,
+				`import { |URI| } from '../../../../base/common/uri.js';`,
 				`const foo = |URI|.parse('hey');`
 			],
 			[
 				{ range: new Range(2, 9, 2, 10), text: '' }
 			],
 			[
-				`import { |URI| } from 'vs/base/common/uri';`,
+				`import { |URI| } from '../../../../base/common/uri.js';`,
 				`const fo = |URI|.parse('hey');`
 			]
 		);
@@ -134,14 +134,14 @@ suite('TokensStore', () => {
 	test('deleting a newline', () => {
 		testTokensAdjustment(
 			[
-				`import { |URI| } from 'vs/base/common/uri';`,
+				`import { |URI| } from '../../../../base/common/uri.js';`,
 				`const foo = |URI|.parse('hey');`
 			],
 			[
 				{ range: new Range(1, 42, 2, 1), text: '' }
 			],
 			[
-				`import { |URI| } from 'vs/base/common/uri';const foo = |URI|.parse('hey');`
+				`import { |URI| } from '../../../../base/common/uri.js';const foo = |URI|.parse('hey');`
 			]
 		);
 	});
@@ -149,13 +149,13 @@ suite('TokensStore', () => {
 	test('inserting a newline', () => {
 		testTokensAdjustment(
 			[
-				`import { |URI| } from 'vs/base/common/uri';const foo = |URI|.parse('hey');`
+				`import { |URI| } from '../../../../base/common/uri.js';const foo = |URI|.parse('hey');`
 			],
 			[
 				{ range: new Range(1, 42, 1, 42), text: '\n' }
 			],
 			[
-				`import { |URI| } from 'vs/base/common/uri';`,
+				`import { |URI| } from '../../../../base/common/uri.js';`,
 				`const foo = |URI|.parse('hey');`
 			]
 		);
@@ -165,13 +165,13 @@ suite('TokensStore', () => {
 		testTokensAdjustment(
 			[
 				`import { `,
-				`    |URI| } from 'vs/base/common/uri';const foo = |URI|.parse('hey');`
+				`    |URI| } from '../../../../base/common/uri.js';const foo = |URI|.parse('hey');`
 			],
 			[
 				{ range: new Range(1, 10, 2, 5), text: '' }
 			],
 			[
-				`import { |URI| } from 'vs/base/common/uri';const foo = |URI|.parse('hey');`
+				`import { |URI| } from '../../../../base/common/uri.js';const foo = |URI|.parse('hey');`
 			]
 		);
 	});

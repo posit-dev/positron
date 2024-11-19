@@ -4,26 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Other dependencies.
-import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
-import { IFileService } from 'vs/platform/files/common/files';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { PythonEnvironmentProviderInfo } from 'vs/workbench/browser/positronNewProjectWizard/utilities/pythonEnvironmentStepUtils';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Emitter, Event } from 'vs/base/common/event';
-import { WizardFormattedTextItem } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { LanguageIds, NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from 'vs/workbench/browser/positronNewProjectWizard/utilities/condaUtils';
-import { URI } from 'vs/base/common/uri';
+import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService, RuntimeStartupPhase } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from './interfaces/newProjectWizardEnums.js';
+import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { IOpenerService } from '../../../platform/opener/common/opener.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { IFileService } from '../../../platform/files/common/files.js';
+import { ICommandService } from '../../../platform/commands/common/commands.js';
+import { PythonEnvironmentProviderInfo } from './utilities/pythonEnvironmentStepUtils.js';
+import { Disposable } from '../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../base/common/event.js';
+import { WizardFormattedTextItem } from './components/wizardFormattedText.js';
+import { LanguageIds, NewProjectType } from '../../services/positronNewProject/common/positronNewProject.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
+import { URI } from '../../../base/common/uri.js';
 
 /**
  * NewProjectWizardServices interface.

@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DataColumnAlignment } from 'vs/workbench/browser/positronDataGrid/interfaces/dataColumn';
-import { ColumnSchema, ColumnDisplayType } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { IPositronDataExplorerColumn } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerColumn';
+import { DataColumnAlignment } from '../../../browser/positronDataGrid/interfaces/dataColumn.js';
+import { ColumnSchema, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { IPositronDataExplorerColumn } from './interfaces/positronDataExplorerColumn.js';
 
 /**
  * PositronDataExplorerColumn class.

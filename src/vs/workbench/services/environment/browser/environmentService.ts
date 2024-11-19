@@ -21,7 +21,7 @@ import { ITextEditorOptions } from '../../../../platform/editor/common/editor.js
 import { EXTENSION_IDENTIFIER_WITH_LOG_REGEX } from '../../../../platform/environment/common/environmentService.js';
 
 // --- Start PWB ---
-import { isWeb } from 'vs/base/common/platform';
+import { isWeb } from '../../../../base/common/platform.js';
 // --- End PWB ---
 
 export const IBrowserWorkbenchEnvironmentService = refineServiceDecorator<IEnvironmentService, IBrowserWorkbenchEnvironmentService>(IEnvironmentService);

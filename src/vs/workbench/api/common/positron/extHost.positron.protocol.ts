@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IDisposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
-import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
-import { URI, UriComponents } from 'vs/base/common/uri';
-import { IEditorContext } from 'vs/workbench/services/frontendMethods/common/editorContext';
-import { RuntimeClientType } from 'vs/workbench/api/common/positron/extHostTypes.positron';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeInfo, ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeState, ILanguageRuntimeMessage, ILanguageRuntimeExit, RuntimeExitReason, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
+import { MainContext, IWebviewPortMapping, WebviewExtensionDescription } from '../extHost.protocol.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
+import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
+import { RuntimeClientType } from './extHostTypes.positron.js';
 import { LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler

@@ -34,9 +34,9 @@ import { TitlebarStyle } from '../../../platform/window/common/window.js';
 import { IPreferencesService } from '../../services/preferences/common/preferences.js';
 
 // --- Start Positron ---
-import { PositronToggleTopActionBarVisibilityAction } from 'vs/workbench/browser/parts/positronTopActionBar/positronTopActionBarActions';
-import { PositronTopActionBarVisibleContext } from 'vs/workbench/common/contextkeys';  // eslint-disable-line no-duplicate-imports
-import { positronCustomLayoutOptions } from 'vs/workbench/services/positronLayout/browser/positronCustomViews';
+import { PositronToggleTopActionBarVisibilityAction } from '../parts/positronTopActionBar/positronTopActionBarActions.js';
+import { PositronTopActionBarVisibleContext } from '../../common/contextkeys.js';  // eslint-disable-line no-duplicate-imports
+import { positronCustomLayoutOptions } from '../../services/positronLayout/browser/positronCustomViews.js';
 // --- End Positron ---
 
 // Register Icons

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { generateUuid } from 'vs/base/common/uuid';
+import { generateUuid } from '../../../../base/common/uuid.js';
 import {
 	TextSearchType,
 	ColumnSchema,
@@ -15,7 +15,7 @@ import {
 	RowFilterCondition,
 	ColumnDisplayType,
 	FilterComparisonOp
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
+} from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 const exampleTypes: [string, ColumnDisplayType, object][] = [
 	['int64', ColumnDisplayType.Number, {}],

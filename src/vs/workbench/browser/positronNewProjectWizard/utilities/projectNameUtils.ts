@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { localize } from 'vs/nls';
-import { IFileService } from 'vs/platform/files/common/files';
-import { WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
+import { URI } from '../../../../base/common/uri.js';
+import { localize } from '../../../../nls.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { WizardFormattedTextType } from '../components/wizardFormattedText.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /**
  * Checks the project name to ensure it is valid.

@@ -3,26 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ISettableObservable, observableValue } from 'vs/base/common/observable';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
-import { IWorkspaceContextService } from 'vs/platform/workspace/common/workspace';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { Event } from 'vs/base/common/event';
-import { Barrier } from 'vs/base/common/async';
-import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IFileService } from 'vs/platform/files/common/files';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { joinPath } from 'vs/base/common/resources';
-import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbench/services/positronNewProject/common/positronNewProjectTemplates';
-import { URI } from 'vs/base/common/uri';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { localize } from 'vs/nls';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Schemas } from 'vs/base/common/network';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from './positronNewProject.js';
+import { Event } from '../../../../base/common/event.js';
+import { Barrier } from '../../../../base/common/async.js';
+import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { joinPath } from '../../../../base/common/resources.js';
+import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from './positronNewProjectTemplates.js';
+import { URI } from '../../../../base/common/uri.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { localize } from '../../../../nls.js';
+import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { Schemas } from '../../../../base/common/network.js';
 
 /**
  * PositronNewProjectService class.

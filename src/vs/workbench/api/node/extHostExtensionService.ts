@@ -22,7 +22,7 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 // --- Start Positron ---
-import { createPositronApiFactoryAndRegisterActors } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+import { createPositronApiFactoryAndRegisterActors } from '../common/positron/extHost.positron.api.impl.js';
 // --- End Positron ---
 
 class NodeModuleRequireInterceptor extends RequireInterceptor {

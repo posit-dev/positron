@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
+import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { MainPositronContext, MainThreadContextKeyServiceShape } from '../../common/positron/extHost.positron.protocol';
-import { ContextKeyExpr, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadContextKeyService)
 export class MainThreadContextKeyService implements MainThreadContextKeyServiceShape {

@@ -59,7 +59,7 @@ import { IFileService } from '../../../../../platform/files/common/files.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { SAVE_ALL_TITLED_COMMAND_ID, SAVE_ALL_TITLED_LABEL } from 'vs/workbench/contrib/files/browser/fileConstants';
+import { SAVE_ALL_TITLED_COMMAND_ID, SAVE_ALL_TITLED_LABEL } from '../fileConstants.js';
 // --- End Positron ---
 
 const $ = dom.$;

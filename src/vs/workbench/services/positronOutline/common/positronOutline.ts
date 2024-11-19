@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from 'vs/platform/instantiation/common/instantiation';
+import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 
 export const POSITRON_OUTLINE_VIEW_ID = 'workbench.panel.positronOutline';
 

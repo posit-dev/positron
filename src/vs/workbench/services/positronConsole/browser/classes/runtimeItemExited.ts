@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ANSIOutput, ANSIOutputLine } from 'vs/base/common/ansiOutput';
-import { RuntimeItem } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItem';
-import { RuntimeExitReason } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { RuntimeItem } from './runtimeItem.js';
+import { RuntimeExitReason } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * RuntimeItemExited class.

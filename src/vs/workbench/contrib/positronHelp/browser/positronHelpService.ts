@@ -3,27 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { FileAccess } from 'vs/base/common/network';
-import { join } from 'vs/base/common/path';
-import { Emitter, Event } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IFileService } from 'vs/platform/files/common/files';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
-import { WebviewThemeDataProvider } from 'vs/workbench/contrib/webview/browser/themeing';
-import { HelpEntry, IHelpEntry } from 'vs/workbench/contrib/positronHelp/browser/helpEntry';
-import { ShowHelpEvent } from 'vs/workbench/services/languageRuntime/common/positronHelpComm';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IInstantiationService, createDecorator } from 'vs/platform/instantiation/common/instantiation';
-import { HelpClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeHelpClient';
-import { RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { localize } from '../../../../nls.js';
+import { FileAccess } from '../../../../base/common/network.js';
+import { join } from '../../../../base/common/path.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { isLocalhost } from './utils.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IOpenerService, OpenExternalOptions } from '../../../../platform/opener/common/opener.js';
+import { WebviewThemeDataProvider } from '../../webview/browser/themeing.js';
+import { HelpEntry, IHelpEntry } from './helpEntry.js';
+import { ShowHelpEvent } from '../../../services/languageRuntime/common/positronHelpComm.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IInstantiationService, createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
+import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * The help HTML file path.

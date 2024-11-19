@@ -29,7 +29,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { WebviewFrameId } from 'vs/platform/webview/common/webviewManagerService';
+import { WebviewFrameId } from '../../../../platform/webview/common/webviewManagerService.js';
 // --- End Positron ---
 
 /**

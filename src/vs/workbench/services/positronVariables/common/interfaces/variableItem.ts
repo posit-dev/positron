@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IObservable } from 'vs/base/common/observable';
+import { IObservable } from '../../../../../base/common/observable.js';
 
 /**
  * IVariableItem interface.

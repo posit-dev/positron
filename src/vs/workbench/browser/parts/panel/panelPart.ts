@@ -34,7 +34,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { PANEL_HEADER_BACKGROUND } from 'vs/workbench/common/theme';
+import { PANEL_HEADER_BACKGROUND } from '../../../common/theme.js';
 // --- End Positron ---
 
 export class PanelPart extends AbstractPaneCompositePart {

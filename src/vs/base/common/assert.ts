@@ -11,7 +11,7 @@ import { BugIndicatingError, onUnexpectedError } from './errors.js';
  * @deprecated Use `assert(...)` instead.
  * This method is usually used like this:
  * ```ts
- * import * as assert from 'vs/base/common/assert';
+ * import * as assert from './assert.js';
  * assert.ok(...);
  * ```
  *

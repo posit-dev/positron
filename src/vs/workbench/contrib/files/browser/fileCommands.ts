@@ -54,7 +54,7 @@ import { ExplorerView } from './views/explorerView.js';
 import { IListService } from '../../../../platform/list/browser/listService.js';
 
 // --- Start Positron ---
-import { SAVE_ALL_TITLED_COMMAND_ID } from 'vs/workbench/contrib/files/browser/fileConstants';
+import { SAVE_ALL_TITLED_COMMAND_ID } from './fileConstants.js';
 // --- End Positron ---
 
 export const openWindowCommand = (accessor: ServicesAccessor, toOpen: IWindowOpenable[], options?: IOpenWindowOptions) => {

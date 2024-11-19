@@ -3,27 +3,27 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as DOM from 'vs/base/browser/dom';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { Schemas } from 'vs/base/common/network';
-import { URI } from 'vs/base/common/uri';
-import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
-import { IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewMessages';
-import { preloadsScriptStr } from 'vs/workbench/contrib/notebook/browser/view/renderers/webviewPreloads';
-import { INotebookRendererInfo, RENDERER_NOT_AVAILABLE, RendererMessagingSpec } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
-import { NotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebview';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IOverlayWebview, IWebviewElement, IWebviewService, WebviewInitInfo } from 'vs/workbench/contrib/webview/browser/webview';
-import { asWebviewUri } from 'vs/workbench/contrib/webview/common/webview';
-import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
-import { ILanguageRuntimeMessageWebOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { dirname } from 'vs/base/common/resources';
-import { INotebookRendererMessagingService } from 'vs/workbench/contrib/notebook/common/notebookRendererMessagingService';
-import { ILogService } from 'vs/platform/log/common/log';
+import * as DOM from '../../../../base/browser/dom.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
+import { IPositronRenderMessage, RendererMetadata, StaticPreloadMetadata } from '../../notebook/browser/view/renderers/webviewMessages.js';
+import { preloadsScriptStr } from '../../notebook/browser/view/renderers/webviewPreloads.js';
+import { INotebookRendererInfo, RENDERER_NOT_AVAILABLE, RendererMessagingSpec } from '../../notebook/common/notebookCommon.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
+import { NotebookOutputWebview } from './notebookOutputWebview.js';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from './notebookOutputWebviewService.js';
+import { IOverlayWebview, IWebviewElement, IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
+import { asWebviewUri } from '../../webview/common/webview.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { dirname } from '../../../../base/common/resources.js';
+import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 import { handleWebviewLinkClicksInjection } from './downloadUtils';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.

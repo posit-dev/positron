@@ -6,8 +6,8 @@
 import assert from 'assert';
 import { StandardTokenType } from '../../../common/encodedTokenAttributes.js';
 import * as fs from 'fs';
-// import { getPathFromAmdModule } from 'vs/base/test/node/testUtils';
-// import { parse } from 'vs/editor/common/modes/tokenization/typescript';
+// import { getPathFromAmdModule } from '../../../../base/test/node/testUtils.js';
+// import { parse } from './.js';
 import { toStandardTokenType } from '../../../common/languages/supports/tokenization.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 

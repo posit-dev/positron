@@ -3,32 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { isString } from 'vs/base/common/types';
-import { Codicon } from 'vs/base/common/codicons';
-import { ITextModel } from 'vs/editor/common/model';
-import { IEditor } from 'vs/editor/common/editorCommon';
-import { ILogService } from 'vs/platform/log/common/log';
-import { Position } from 'vs/editor/common/core/position';
-import { IStatementRange, StatementRangeProvider } from 'vs/editor/common/languages';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { EditorContextKeys } from 'vs/editor/common/editorContextKeys';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { PositronConsoleFocused } from 'vs/workbench/common/contextkeys';
-import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { ILanguageFeaturesService } from 'vs/editor/common/services/languageFeatures';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
-import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { localize } from '../../../../nls.js';
+import { isString } from '../../../../base/common/types.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { IEditor } from '../../../../editor/common/editorCommon.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { Position } from '../../../../editor/common/core/position.js';
+import { IStatementRange, StatementRangeProvider } from '../../../../editor/common/languages.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
+import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * Positron console command ID's.

@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { PositronUiComm } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
+import { PositronUiComm } from './positronUiComm.js';
 
 export class PositronUiCommInstance extends PositronUiComm {
 	constructor(client: IRuntimeClientInstance<any, any>) {

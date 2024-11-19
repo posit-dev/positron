@@ -3,32 +3,32 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Schemas } from 'vs/base/common/network';
-import { URI } from 'vs/base/common/uri';
-import { localize } from 'vs/nls';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { IInstantiationService, ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from 'vs/workbench/common/contributions';
-import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from 'vs/workbench/common/editor';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { URI } from '../../../../base/common/uri.js';
+import { localize } from '../../../../nls.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
+import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 
-import { parse } from 'vs/base/common/marshalling';
-import { assertType } from 'vs/base/common/types';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from 'vs/platform/configuration/common/configurationRegistry';
-import { EditorInput } from 'vs/workbench/common/editor/editorInput';
-import { IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
-import { LifecyclePhase } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { parse } from '../../../../base/common/marshalling.js';
+import { assertType } from '../../../../base/common/types.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
+import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
+import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput';
-import { positronConfigurationNodeBase } from 'vs/workbench/services/languageRuntime/common/languageRuntime';
-import { KeyChord, KeyCode, KeyMod } from 'vs/base/common/keyCodes';
-import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
-import { IPositronNotebookInstance } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookInstance';
+import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
+import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 
 
 

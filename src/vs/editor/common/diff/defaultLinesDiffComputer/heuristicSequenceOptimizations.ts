@@ -119,10 +119,10 @@ function joinSequenceDiffsByShifting(sequence1: ISequence, sequence2: ISequence,
 // ->
 // import { [IArr, ]IBar } from "foo";
 
-// import { ITransaction, observableValue, transaction } from 'vs/base/common/observable';
-// import { ITransaction, observable[FromEvent, observable]Value, transaction } from 'vs/base/common/observable';
+// import { ITransaction, observableValue, transaction } from '../../../../base/common/observable.js';
+// import { ITransaction, observable[FromEvent, observable]Value, transaction } from '../../../../base/common/observable.js';
 // ->
-// import { ITransaction, [observableFromEvent, ]observableValue, transaction } from 'vs/base/common/observable';
+// import { ITransaction, [observableFromEvent, ]observableValue, transaction } from '../../../../base/common/observable.js';
 
 // collectBrackets(level + 1, levelPerBracketType);
 // collectBrackets(level + 1, levelPerBracket[ + 1, levelPerBracket]Type);

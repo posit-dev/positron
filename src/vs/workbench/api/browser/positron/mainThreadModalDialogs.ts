@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { MainThreadModalDialogsShape, MainPositronContext } from '../../common/positron/extHost.positron.protocol';
-import { extHostNamedCustomer, IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadModalDialogs)
 export class MainThreadModalDialogs implements MainThreadModalDialogsShape {

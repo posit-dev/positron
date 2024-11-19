@@ -53,7 +53,7 @@ import { workbenchConfigurationNodeBase } from '../../../common/configuration.js
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 // --- Start Positron ---
-import { POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY } from 'vs/workbench/contrib/remote/browser/remoteConfiguration';
+import { POSITRON_REMOTE_SSH_EXPERIMENTAL_KEY } from './remoteConfiguration.js';
 // --- End Positron ---
 
 type ActionGroup = [string, Array<MenuItemAction | SubmenuItemAction>];

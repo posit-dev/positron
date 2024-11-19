@@ -3,24 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as nls from 'vs/nls';
-import { generateUuid } from 'vs/base/common/uuid';
-import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
-import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
-import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from 'vs/platform/quickinput/common/quickInput';
-import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
-import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from 'vs/workbench/contrib/languageRuntime/common/languageRuntime';
-import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { groupBy } from 'vs/base/common/collections';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { dispose } from 'vs/base/common/lifecycle';
+import * as nls from '../../../../nls.js';
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from '../../../../platform/quickinput/common/quickInput.js';
+import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
+import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { groupBy } from '../../../../base/common/collections.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { dispose } from '../../../../base/common/lifecycle.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };

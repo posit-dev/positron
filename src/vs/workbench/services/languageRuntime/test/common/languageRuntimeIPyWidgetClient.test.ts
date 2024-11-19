@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
-import { timeout } from 'vs/base/common/async';
-import { VSBuffer } from 'vs/base/common/buffer';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
-import { ILogService, NullLogger } from 'vs/platform/log/common/log';
-import { RuntimeClientState, RuntimeClientType } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IPyWidgetClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeIPyWidgetClient';
-import { TestIPyWidgetsWebviewMessaging } from 'vs/workbench/services/languageRuntime/test/common/testIPyWidgetsWebviewMessaging';
-import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
+import { timeout } from '../../../../../base/common/async.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { ILogService, NullLogger } from '../../../../../platform/log/common/log.js';
+import { RuntimeClientState, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
+import { IPyWidgetClientInstance } from '../../common/languageRuntimeIPyWidgetClient.js';
+import { TestIPyWidgetsWebviewMessaging } from './testIPyWidgetsWebviewMessaging.js';
+import { TestRuntimeClientInstance } from './testRuntimeClientInstance.js';
 
 suite('Positron - IPyWidgetClientInstance', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

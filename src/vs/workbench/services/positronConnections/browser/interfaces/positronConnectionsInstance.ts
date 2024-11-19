@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from 'vs/base/common/event';
-import { IPositronConnectionEntry } from 'vs/workbench/services/positronConnections/browser/positronConnectionsUtils';
+import { Emitter, Event } from '../../../../../base/common/event.js';
+import { IPositronConnectionEntry } from '../positronConnectionsUtils.js';
 
 export interface ConnectionMetadata {
 	name: string;

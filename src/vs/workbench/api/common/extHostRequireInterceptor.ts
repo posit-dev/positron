@@ -19,7 +19,7 @@ import { ILogService } from '../../../platform/log/common/log.js';
 import { escapeRegExpCharacters } from '../../../base/common/strings.js';
 
 // --- Start Positron ---
-import { IExtensionPositronApiFactory } from 'vs/workbench/api/common/positron/extHost.positron.api.impl';
+import { IExtensionPositronApiFactory } from './positron/extHost.positron.api.impl.js';
 import * as positron from 'positron';
 // --- End Positron ---
 

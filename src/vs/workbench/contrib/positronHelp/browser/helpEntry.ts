@@ -3,26 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import * as DOM from 'vs/base/browser/dom';
-import { IAction } from 'vs/base/common/actions';
-import { isMacintosh } from 'vs/base/common/platform';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Emitter, Event } from 'vs/base/common/event';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { PositronHelpFocused } from 'vs/workbench/common/contextkeys';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { isLocalhost } from 'vs/workbench/contrib/positronHelp/browser/utils';
-import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { KeyEvent } from 'vs/workbench/contrib/webview/browser/webviewMessages';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IOpenerService, OpenExternalOptions } from 'vs/platform/opener/common/opener';
-import { WebviewFindDelegate } from 'vs/workbench/contrib/webview/browser/webviewFindWidget';
-import { AnchorAlignment, AnchorAxisAlignment } from 'vs/base/browser/ui/contextview/contextview';
-import { POSITRON_HELP_COPY } from 'vs/workbench/contrib/positronHelp/browser/positronHelpIdentifiers';
-import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from 'vs/workbench/contrib/webview/browser/webview';
+import { localize } from '../../../../nls.js';
+import * as DOM from '../../../../base/browser/dom.js';
+import { IAction } from '../../../../base/common/actions.js';
+import { isMacintosh } from '../../../../base/common/platform.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { PositronHelpFocused } from '../../../common/contextkeys.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { isLocalhost } from './utils.js';
+import { ExtensionIdentifier } from '../../../../platform/extensions/common/extensions.js';
+import { KeyEvent } from '../../webview/browser/webviewMessages.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IOpenerService, OpenExternalOptions } from '../../../../platform/opener/common/opener.js';
+import { WebviewFindDelegate } from '../../webview/browser/webviewFindWidget.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
+import { POSITRON_HELP_COPY } from './positronHelpIdentifiers.js';
+import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from '../../webview/browser/webview.js';
 
 /**
  * Constants.

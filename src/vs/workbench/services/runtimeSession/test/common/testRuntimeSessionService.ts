@@ -2,10 +2,10 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeClientCreatedEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { Emitter } from '../../../../../base/common/event.js';
+import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeClientCreatedEvent } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from '../../common/runtimeSessionService.js';
 
 export class TestRuntimeSessionService extends Disposable implements Partial<IRuntimeSessionService> {
 	private readonly _willStartEmitter = this._register(new Emitter<IRuntimeSessionWillStartEvent>());

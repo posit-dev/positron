@@ -3,19 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
-import { URI } from 'vs/base/common/uri';
-import { ITextModel } from 'vs/editor/common/model';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, NotebookCellOutputItem } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { CellSelectionType } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { disposableTimeout } from 'vs/base/common/async';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { URI } from '../../../../base/common/uri.js';
+import { ITextModel } from '../../../../editor/common/model.js';
+import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { CellKind } from '../../notebook/common/notebookCommon.js';
+import { ExecutionStatus, IPositronNotebookCodeCell, IPositronNotebookCell, IPositronNotebookMarkdownCell, NotebookCellOutputs, NotebookCellOutputItem } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { CellSelectionType } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { PositronNotebookInstance } from './PositronNotebookInstance.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
 
 export abstract class PositronNotebookCellGeneral extends Disposable implements IPositronNotebookCell {
 	kind!: CellKind;

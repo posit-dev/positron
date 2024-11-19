@@ -2,15 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { Emitter } from 'vs/base/common/event';
-import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IPositronNotebookOutputWebviewService } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
-import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageWebOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronWebviewPreloadService, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_HOLOVIEWS_EXEC } from '../../../services/positronWebviewPreloads/common/positronWebviewPreloadService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/notebookMultiMessagePlotClient.js';
+import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 
 const MIME_TYPE_HTML = 'text/html';
 const MIME_TYPE_PLAIN = 'text/plain';
