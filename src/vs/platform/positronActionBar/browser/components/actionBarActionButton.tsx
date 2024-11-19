@@ -8,7 +8,7 @@ import 'vs/css!./actionBarActionButton';
 
 // React.
 import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useMemo, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import { localize } from 'vs/nls';
@@ -16,8 +16,10 @@ import { OS } from 'vs/base/common/platform';
 import { IAction } from 'vs/base/common/actions';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { UILabelProvider } from 'vs/base/common/keybindingLabels';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { MenuItemAction } from 'vs/platform/actions/common/actions';
 import { IModifierKeyStatus, ModifierKeyEmitter } from 'vs/base/browser/dom';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
@@ -28,18 +30,46 @@ import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActio
 const CODICON_ID = /^codicon codicon-(.+)$/;
 
 /**
- * Determines whether alternative actions should be used.
+ * Determines whether the alternative action should be used.
+ * @param accessibilityService The accessibility service.
+ * @param mouseOver A value which indicates whether the mouse is over the action bar action button.
  * @param modifierKeyStatus The modifier key status.
  * @returns A value which indicates whether alternative actions should be used.
  */
-const shouldUseAlternativeActions = (modifierKeyStatus?: IModifierKeyStatus) => {
+const shouldUseAlternativeAction = (
+	accessibilityService: IAccessibilityService,
+	menuItemAction?: MenuItemAction,
+	mouseOver?: boolean,
+	modifierKeyStatus?: IModifierKeyStatus
+) => {
+	// If a menu item action was not supplied, return false
+	if (!menuItemAction) {
+		return false;
+	}
+
+	// If there isn't an alt action, or there is and it's not enabled, return false
+	if (!menuItemAction.alt?.enabled) {
+		return false;
+	}
+
 	// If the modifier key status was not supplied, get it from the modifier key emitter.
 	if (!modifierKeyStatus) {
 		modifierKeyStatus = ModifierKeyEmitter.getInstance().keyStatus;
 	}
 
-	// Return true if the alt key or shift key is pressed.
-	return modifierKeyStatus.altKey || modifierKeyStatus.shiftKey;
+	// If motion is not reduced and the alt key is pressed, return true.
+	if (!accessibilityService.isMotionReduced() && modifierKeyStatus.altKey) {
+		return true;
+	}
+
+	// If the mouse is over the action bar action button and the shift or alt key is pressed, return
+	// true.
+	if (mouseOver && (modifierKeyStatus.shiftKey || modifierKeyStatus.altKey)) {
+		return true;
+	}
+
+	// Do not use the alternative action.
+	return false;
 };
 
 /**
@@ -61,10 +91,19 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
+	// Menu action item.
+	const menuActionItem = useMemo(() => {
+		if (props.action instanceof MenuItemAction) {
+			return props.action;
+		} else {
+			return undefined;
+		}
+	}, [props.action]);
+
 	// State hooks.
-	const [mouseInside, setMouseInside] = useState(false);
-	const [useAlternativeActions, setUseAlternativeActions] = useState(
-		shouldUseAlternativeActions()
+	const [, setMouseInside, mouseInsideRef] = useStateRef(false);
+	const [useAlternativeAction, setUseAlternativeAction] = useState(
+		shouldUseAlternativeAction(context.accessibilityService, menuActionItem)
 	);
 
 	// Main use effect.
@@ -72,51 +111,60 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Get the modifier key emitter.
+		// Get the modifier key emitter and add the event listener to it.
 		const modifierKeyEmitter = ModifierKeyEmitter.getInstance();
 		disposableStore.add(modifierKeyEmitter.event(modifierKeyStatus => {
-			setUseAlternativeActions(shouldUseAlternativeActions(modifierKeyStatus));
+			console.log(`MODIFIER KEY MOUSE INSIDE ${mouseInsideRef.current} STATUS:`, modifierKeyStatus);
+			setUseAlternativeAction(shouldUseAlternativeAction(
+				context.accessibilityService,
+				menuActionItem,
+				mouseInsideRef.current,
+				modifierKeyStatus
+			));
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [context.hoverManager]);
+	}, [context.accessibilityService, menuActionItem, mouseInsideRef]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
-	// Log.
-	console.log(`Rendering ActionBarActionButton useAlternativeActions is ${context.useAlternativeActions}`);
+	// Get the action we're going to render.
+	const action = menuActionItem &&
+		useAlternativeAction &&
+		menuActionItem.alt?.enabled ? menuActionItem.alt : props.action;
 
 	/**
 	 * Returns the action tooltip.
 	 * @param action The action.
 	 * @returns The action tooltip.
 	 */
-	const actionTooltip = (action: IAction) => {
-		// Get the keybinding and keybinding label.
+	const actionTooltip = () => {
+		// Get the keybinding, keybinding label, and tooltip.
 		const keybinding = context.keybindingService.lookupKeybinding(
 			action.id,
 			context.contextKeyService
 		);
 		const keybindingLabel = keybinding && keybinding.getLabel();
-
-		// Get the tooltip and format the result.
 		const tooltip = action.tooltip || action.label;
+
+		// Set the formatted tooltip.
 		let formattedTooltip = keybindingLabel ?
 			localize('titleAndKb', "{0} ({1})", tooltip, keybindingLabel) :
 			tooltip;
 
-		if (action instanceof MenuItemAction && action.alt && action.alt.enabled && !context.useAlternativeActions) {
-			// Get the alt keybinding and alt keybinding label.
+		// Add the alt keybinding and label to the formatted tooltip.
+		if (!useAlternativeAction && menuActionItem && menuActionItem.alt?.enabled) {
+			// Get the alt keybinding, alt keybinding label, and alt tooltip.
 			const altKeybinding = context.keybindingService.lookupKeybinding(
-				action.alt.id,
+				menuActionItem.alt.id,
 				context.contextKeyService
 			);
 			const altKeybindingLabel = altKeybinding && altKeybinding.getLabel();
+			const altTooltip = menuActionItem.alt.tooltip || menuActionItem.alt.label;
 
-			// Get the tooltip and format the result.
-			const altTooltip = action.alt.tooltip || action.alt.label;
+			// Update the formatted tooltip.
 			formattedTooltip = localize(
 				'titleAndKbAndAlt', "{0}\n[{1}] {2}",
 				formattedTooltip,
@@ -133,29 +181,20 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 
 	// Build the dynamic properties.
 	const dynamicProps = ((): ActionBarButtonProps => {
-		// Get the action.
-		const action = props.action instanceof MenuItemAction &&
-			props.action.alt &&
-			props.action.alt.enabled &&
-			(context.useAlternativeActions || (mouseInside && useAlternativeActions)) ?
-			props.action.alt :
-			props.action;
-
 		// Extract the icon ID from the action's class.
 		const iconIdResult = action.class?.match(CODICON_ID);
 		const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
-
-		console.log(`Rendering ActionBarActionButton tooltip is ${actionTooltip(action)}`);
 
 		// Return the properties.
 		return {
 			ariaLabel: action.label,
 			iconId: iconId,
-			tooltip: actionTooltip(action),
+			tooltip: actionTooltip(),
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),
-			onPressed: () => action.run()
+			onPressed: () =>
+				action.run()
 		};
 	})();
 

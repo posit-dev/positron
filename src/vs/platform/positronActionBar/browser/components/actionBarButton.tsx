@@ -117,10 +117,10 @@ export const ActionBarButton = forwardRef<
 				{props.dropdownIndicator === 'enabled-split' && (
 					<Button
 						ref={dropdownButtonRef}
-						className='action-bar-button-drop-down-button'
 						hoverManager={context.hoverManager}
+						className='action-bar-button-drop-down-button'
 						ariaLabel={ariaLabel}
-						tooltip={props.tooltip}
+						tooltip={/*props.tooltip*/ 'dropdown tooltip'}
 						onPressed={props.onDropdownPressed}
 					>
 						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />

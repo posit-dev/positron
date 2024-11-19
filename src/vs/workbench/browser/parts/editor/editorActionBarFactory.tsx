@@ -242,9 +242,7 @@ export class EditorActionBarFactory extends Disposable {
 				elements.push(<ActionBarSeparator />);
 			} else if (action instanceof MenuItemAction) {
 				// Menu item action.
-				elements.push(
-					<ActionBarActionButton action={action} />
-				);
+				elements.push(<ActionBarActionButton action={action} />);
 			} else if (action instanceof SubmenuAction) {
 				// Submenu action. Get the first action.
 				const firstAction = action.actions[0];

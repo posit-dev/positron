@@ -12,14 +12,14 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { Action, IAction, Separator } from 'vs/base/common/actions';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IModifierKeyStatus, ModifierKeyEmitter } from 'vs/base/browser/dom';
+import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { HoverManager, IHoverManager } from 'vs/platform/hover/browser/hoverManager';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
+import { PositronActionBarHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarHoverManager';
 
 /**
  * PositronActionBarServices interface. Defines the set of services that are required by a Positron
@@ -49,7 +49,6 @@ export interface CommandAction {
  * The Positron action bar state.
  */
 export interface PositronActionBarState extends PositronActionBarServices {
-	useAlternativeActions: boolean;
 	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
 	hoverManager: IHoverManager;
@@ -59,22 +58,6 @@ export interface PositronActionBarState extends PositronActionBarServices {
 }
 
 /**
- * Determines whether alternative actions should be used.
- * @param accessibilityService The accessibility service.
- * @param modifierKeyStatus The modifier key status.
- * @returns A value which indicates whether alternative actions should be used.
- */
-const shouldUseAlternativeActions = (accessibilityService: IAccessibilityService, modifierKeyStatus?: IModifierKeyStatus) => {
-	// If the modifier key status was not supplied, get it from the modifier key emitter.
-	if (!modifierKeyStatus) {
-		modifierKeyStatus = ModifierKeyEmitter.getInstance().keyStatus;
-	}
-
-	// Return true if the alt key is pressed and motion is not reduced.
-	return modifierKeyStatus.altKey && !accessibilityService.isMotionReduced();
-};
-
-/**
  * The usePositronActionBarState custom hook.
  * @param services A PositronActionBarServices that contains the Positron action bar services.
  * @returns The hook.
@@ -82,13 +65,9 @@ const shouldUseAlternativeActions = (accessibilityService: IAccessibilityService
 export const usePositronActionBarState = (
 	services: PositronActionBarServices
 ): PositronActionBarState => {
-	// State hooks.
-	const [useAlternativeActions, setUseAlternativeActions] = useState(
-		shouldUseAlternativeActions(services.accessibilityService)
-	);
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
-	const [hoverManager, setHoverManager] = useState<HoverManager>(undefined!);
+	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
 
 	// Main use effect.
 	useEffect(() => {
@@ -96,21 +75,11 @@ export const usePositronActionBarState = (
 		const disposableStore = new DisposableStore();
 
 		// Create the hover manager.
-		setHoverManager(disposableStore.add(new HoverManager(
+		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(
 			true,
 			services.configurationService,
 			services.hoverService
 		)));
-
-		// Get the modifier key emitter.
-		const modifierKeyEmitter = ModifierKeyEmitter.getInstance();
-		disposableStore.add(modifierKeyEmitter.event(modifierKeyStatus => {
-			// Update the use alternative actions state.
-			setUseAlternativeActions(shouldUseAlternativeActions(
-				services.accessibilityService,
-				modifierKeyStatus
-			));
-		}));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
@@ -178,7 +147,6 @@ export const usePositronActionBarState = (
 	// Return the Positron top action bar state.
 	return {
 		...services,
-		useAlternativeActions,
 		appendCommandAction,
 		isCommandEnabled,
 		hoverManager,

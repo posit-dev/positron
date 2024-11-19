@@ -67,12 +67,13 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	 * @returns A Promise<void> that resolves when the menu is shown.
 	 */
 	const showMenu = async () => {
-		// Get the actions.
+		// Get the actions. If there are no actions, return.
 		const actions = await props.actions();
 		if (!actions.length) {
 			return;
 		}
 
+		// Set the menu showing state and show the context menu.
 		positronActionBarContext.setMenuShowing(true);
 		positronActionBarContext.contextMenuService.showContextMenu({
 			getActions: () => actions,
