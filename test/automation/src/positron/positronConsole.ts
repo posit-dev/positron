@@ -215,6 +215,10 @@ export class PositronConsole {
 		);
 	}
 
+	async doubleClickConsoleText(text: string) {
+		await this.code.driver.page.locator(`${ACTIVE_CONSOLE_INSTANCE} div span`).getByText(text).dblclick();
+	}
+
 	async waitForConsoleContents(accept?: (contents: string[]) => boolean) {
 		const elements = await this.code.waitForElements(`${ACTIVE_CONSOLE_INSTANCE} div span`,
 			false,
