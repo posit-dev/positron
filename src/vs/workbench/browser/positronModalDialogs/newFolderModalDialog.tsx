@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./newFolderModalDialog';
+import './newFolderModalDialog.css';
 
 // React.
 import * as React from 'react';
