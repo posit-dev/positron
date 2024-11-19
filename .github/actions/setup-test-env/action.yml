@@ -14,6 +14,10 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Compile E2E Tests
+      shell: bash
+      run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
+
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -47,7 +51,3 @@ runs:
       uses: ./.github/actions/install-r
       with:
         version: "4.4.0"
-
-    - name: Compile E2E Tests
-      shell: bash
-      run: yarn --cwd test/automation compile && yarn --cwd test/smoke compile
