@@ -399,6 +399,8 @@ class ColumnProfileEvaluator {
 		FROM freq_table
 		ORDER BY freq DESC;`) as Table<any>;
 
+		// TODO: compute the OTHER group
+
 		const values: string[] = [];
 		const counts: number[] = [];
 
