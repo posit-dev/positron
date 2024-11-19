@@ -19,7 +19,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
 
     steps:
       - uses: actions/checkout@v4
@@ -123,11 +122,14 @@ jobs:
           path: test-results/junit.xml
 
   e2e-report:
+    if: always()
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: e2e-windows-tests
-    if: always()
+    env:
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+
     steps:
       - uses: actions/checkout@v4
 

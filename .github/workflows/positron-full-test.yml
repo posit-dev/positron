@@ -204,11 +204,14 @@ jobs:
         run: cd .. && rm -rf positron-license
 
   e2e-report:
+    if: always()
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
-    if: always()
+    env:
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+
     steps:
       - uses: actions/checkout@v4
 
