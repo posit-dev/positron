@@ -9,8 +9,9 @@ import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebv
 import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from 'vs/workbench/test/browser/positronWorkbenchTestServices';
 import { RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { TestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
-import { TestRuntimeSessionService } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
-import { workbenchInstantiationService } from 'vs/workbench/test/browser/workbenchTestServices';
+import { startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
+import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
+import { NotebookMultiMessagePlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookMultiMessagePlotClient';
 
 
 const hvPreloadMessage = {
