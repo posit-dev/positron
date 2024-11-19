@@ -7,8 +7,13 @@ import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/epheme
 import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannelClient } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
+import { ILogService } from 'vs/platform/log/common/log';
 import { IRemoteAgentService } from 'vs/workbench/services/remote/common/remoteAgentService';
 
+/**
+ * The implementation of the `IEphemeralStateService` for the browser. This is
+ * only used in web-based environments.
+ */
 export class BrowserEphemeralStateService implements IEphemeralStateService {
 
 	_serviceBrand: undefined;
@@ -17,10 +22,13 @@ export class BrowserEphemeralStateService implements IEphemeralStateService {
 	constructor(
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IRemoteAgentService remoteAgentService: IRemoteAgentService,
+		@ILogService logService: ILogService,
 	) {
 		const connection = remoteAgentService.getConnection();
 		if (connection) {
 			this._channel = instantiationService.createInstance(EphemeralStateChannelClient, connection.getChannel(EPHEMERAL_STATE_CHANNEL_NAME));
+		} else {
+			logService.warn(`Cannot create ephemeral state service; no remote connection.`);
 		}
 	}
 

@@ -5,10 +5,14 @@
 
 import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
 
+/**
+ * A simple service that stores data in memory.
+ */
 export class EphemeralStateService implements IEphemeralStateService {
 
 	_serviceBrand: undefined;
 
+	/// The in-memory data store.
 	private readonly data = new Map<string, object | string | number | boolean | undefined | null>();
 
 	async setItem(key: string, data?: object | string | number | boolean | undefined | null): Promise<void> {

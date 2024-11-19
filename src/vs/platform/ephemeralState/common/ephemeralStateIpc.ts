@@ -10,6 +10,9 @@ import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/epheme
 
 export const EPHEMERAL_STATE_CHANNEL_NAME = 'ephemeralState';
 
+/**
+ * The server side of the channel for the EphemeralStateService.
+ */
 export class EphemeralStateChannel implements IServerChannel {
 	constructor(private readonly service: IEphemeralStateService) {
 	}
@@ -31,12 +34,24 @@ export class EphemeralStateChannel implements IServerChannel {
 		throw new Error(`Command not found: ${command}`);
 	}
 
+	/**
+	 * Event listener; currently not implemented since this service doesn't
+	 * expose any events.
+	 */
 	listen<T>(_ctx: any, event: string, arg?: any): Event<T> {
 		throw new Error('Method not implemented.');
 	}
 }
 
+/**
+ * The client side of the channel for the EphemeralStateService.
+ */
 export class EphemeralStateChannelClient implements IEphemeralStateService {
+	/**
+	 * Create a new instance of the EphemeralStateChannelClient.
+	 *
+	 * @param _channel The channel to use for communication.
+	 */
 	constructor(private readonly _channel: IChannel) { }
 	_serviceBrand: undefined;
 

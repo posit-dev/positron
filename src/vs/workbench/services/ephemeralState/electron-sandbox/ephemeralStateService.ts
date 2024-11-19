@@ -9,6 +9,15 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { IMainProcessService } from 'vs/platform/ipc/common/mainProcessService';
 
+/**
+ * The implementation of the `IEphemeralStateService` for the Electron sandbox.
+ * This is used in desktop environments; see `BrowserEphemeralStateService` for
+ * web-based environments.
+ *
+ * The main difference between these two implementations is that the Electron
+ * sandbox implementation uses IPC to communicate with the main process, while
+ * the browser implementation uses the remote agent service.
+ */
 export class ElectronEphemeralStateService implements IEphemeralStateService {
 
 	_serviceBrand: undefined;

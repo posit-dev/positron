@@ -7,6 +7,12 @@ import { createDecorator } from 'vs/platform/instantiation/common/instantiation'
 
 export const IEphemeralStateService = createDecorator<IEphemeralStateService>('ephemeralStateService');
 
+/**
+ * A simple service that stores data in memory.
+ *
+ * This service is used to store data at the session level, such that it
+ * survives a browser refresh but doesn't persist across user sessions.
+ */
 export interface IEphemeralStateService {
 
 	readonly _serviceBrand: undefined;
