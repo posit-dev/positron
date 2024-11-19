@@ -86,6 +86,28 @@ describe('Python Applications #pr', () => {
 
 			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
+
+		it('Python - Verify Basic Flask App [C1013655] #win #web', async function () {
+
+			this.timeout(90000);
+
+			const app = this.app as Application;
+			const viewer = app.workbench.positronViewer;
+
+			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'flask_example', '__init__.py'));
+			await app.workbench.positronEditor.pressPlay();
+
+			const viewerFrame = viewer.getViewerFrame();
+			const loginLocator = this.app.web
+				? viewerFrame.frameLocator('iframe').getByText('Log In')
+				: viewerFrame.getByText('Log In');
+
+			await expect(async () => {
+				await expect(loginLocator).toBeVisible({ timeout: 30000 });
+			}).toPass({ timeout: 60000 });
+
+		});
+
 	});
 });
 
