@@ -894,7 +894,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 
 			this._socket.ws.onerror = (err: any) => {
-				this.log(`Websocket error: ${err}`, vscode.LogLevel.Error);
+				this.log(`Websocket error: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
 				if (this._connected.isOpen()) {
 					// If the error happened after the connection was established,
 					// something bad happened. Close the connected barrier and
