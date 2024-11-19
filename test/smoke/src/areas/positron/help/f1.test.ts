@@ -10,7 +10,7 @@ import { setupAndStartApp } from '../../../test-runner/test-hooks';
 import { join } from 'path';
 
 
-describe('F1 Help #web #win #pr', () => {
+describe('F1 Help #web #win', () => {
 	setupAndStartApp();
 
 	describe('R F1 Help', () => {
