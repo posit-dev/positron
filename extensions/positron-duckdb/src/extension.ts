@@ -393,11 +393,11 @@ class ColumnProfileEvaluator {
 			SELECT "${field}" AS value, COUNT(*) AS freq
 			FROM ${this.tableName} ${composedPred}
 			GROUP BY 1
-			ORDER BY 1 DESC
 			LIMIT ${params.limit}
 		)
 		SELECT value::VARCHAR AS value, freq
-		FROM freq_table;`) as Table<any>;
+		FROM freq_table
+		ORDER BY freq DESC;`) as Table<any>;
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -475,9 +475,13 @@ class ColumnProfileEvaluator {
 			};
 		}
 
+		let numBins = Math.ceil(peakToPeak / binWidth);
 		// If number of bins from estimate is larger than the number passed by the UI,
 		// which is treated as a maximum # of bins, we use the lower number
-		let numBins = Math.min(Math.ceil(peakToPeak / binWidth), params.num_bins);
+		if (numBins > params.num_bins) {
+			numBins = params.num_bins;
+			binWidth = peakToPeak / numBins;
+		}
 
 		// For integer types, if the peak-to-peak range is larger than the # bins from the
 		// estimator, we use the p-t-p range instead for the number of bins
@@ -486,8 +490,9 @@ class ColumnProfileEvaluator {
 			binWidth = peakToPeak / numBins;
 		}
 
+		// TODO: Casting to DOUBLE is not safe for BIGINT
 		const result = await this.db.runQuery(`
-		SELECT FLOOR(("${field}" - ${minValue}) / ${binWidth})::INTEGER AS bin_id,
+		SELECT FLOOR(("${field}"::DOUBLE - ${minValue}) / ${binWidth})::INTEGER AS bin_id,
 			COUNT(*) AS bin_count
 		FROM ${this.tableName} ${this.whereClause}
 		GROUP BY 1;`);
