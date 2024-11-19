@@ -1823,7 +1823,7 @@
         "p-queue": "^6.6.2",
         "portfinder": "^1.0.28",
         "reflect-metadata": "^0.1.12",
-        "requirejs": "^2.3.6",
+        "requirejs": "^2.3.7",
         "rxjs": "^6.5.4",
         "rxjs-compat": "^6.5.4",
         "semver": "^7.5.2",
@@ -1916,5 +1916,9 @@
         "webpack-require-from": "^1.8.6",
         "worker-loader": "^3.0.8",
         "yargs": "^15.3.1"
+    },
+    "resolutions": {
+        "markdown-to-jsx": "7.4.0",
+        "sanitize-html": "2.12.1"
     }
 }
