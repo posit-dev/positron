@@ -700,27 +700,39 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
-		const storedSessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getPersistentWorkspaceSessionsKey());
-		if (storedSessions) {
-			try {
-				// Revive the URIs in the session metadata.
-				const sessions: SerializedSessionMetadata[] = storedSessions.map(session => ({
-					...session,
-					metadata: {
-						...session.metadata,
-						notebookUri: URI.revive(session.metadata.notebookUri),
-					},
-				}));
-
-				if (sessions.length > 0) {
-					// If this workspace has sessions, attempt to reconnect to
-					// them.
-					await this.restoreWorkspaceSessions(sessions);
-				}
-			} catch (err) {
-				this._logService.error(`Could not restore workspace sessions: ${err} ` +
-					`(data: ${storedSessions})`);
+		let storedSessions: Array<SerializedSessionMetadata> = new Array();
+		try {
+			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getPersistentWorkspaceSessionsKey());
+			if (sessions) {
+				storedSessions = sessions;
 			}
+		} catch (err) {
+			this._logService.warn(`Can't read workspace sessions from ${this.getPersistentWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
+		}
+
+		if (!storedSessions) {
+			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
+			return;
+		}
+
+		try {
+			// Revive the URIs in the session metadata.
+			const sessions: SerializedSessionMetadata[] = storedSessions.map(session => ({
+				...session,
+				metadata: {
+					...session.metadata,
+					notebookUri: URI.revive(session.metadata.notebookUri),
+				},
+			}));
+
+			if (sessions.length > 0) {
+				// If this workspace has sessions, attempt to reconnect to
+				// them.
+				await this.restoreWorkspaceSessions(sessions);
+			}
+		} catch (err) {
+			this._logService.error(`Could not restore workspace sessions: ${err} ` +
+				`(data: ${storedSessions})`);
 		}
 	}
 
