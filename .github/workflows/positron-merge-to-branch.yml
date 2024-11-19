@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'prerelease/**'
   workflow_call:
     inputs:
       smoketest_target:
