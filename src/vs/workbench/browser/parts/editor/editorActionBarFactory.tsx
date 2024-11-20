@@ -12,7 +12,6 @@ import { Emitter } from 'vs/base/common/event';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator, SubmenuAction } from 'vs/base/common/actions';
 import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
-import { dumpActions } from 'vs/workbench/browser/parts/editor/actionUtils';
 import { actionTooltip } from 'vs/platform/positronActionBar/common/helpers';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -221,13 +220,6 @@ export class EditorActionBarFactory extends Disposable {
 				target.splice(index, 1, ...action.actions);
 			}
 		}
-
-		// Dump the actions.
-		dumpActions(
-			'EditorActionBarActionsManager Primary and Secondary Actions',
-			primaryActions,
-			secondaryActions
-		);
 
 		// Build the action bar elements.
 		const elements: JSX.Element[] = [];
