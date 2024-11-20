@@ -13,6 +13,7 @@ interface EditorPreviewContainerProps {
 	preview?: PreviewWebview;
 	height: number;
 	width: number;
+	visible: boolean;
 }
 
 export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
@@ -27,25 +28,30 @@ export const EditorPreviewContainer = (props: EditorPreviewContainerProps) => {
 
 			// If the preview is visible, claim the webview and release it when
 			// we're unmounted.
-			if (webviewRef.current) {
-				const window = DOM.getWindow(webviewRef.current);
-				webview.webview.claim(this, window, undefined);
-				// actually moving preview to webview
-				webview.webview.layoutWebviewOverElement(webviewRef.current);
-				return () => {
-					webview?.webview.release(this);
-				};
+			if (props.visible) {
+				if (webviewRef.current) {
+					const window = DOM.getWindow(webviewRef.current);
+					webview.webview.claim(this, window, undefined);
+					// actually moving preview to webview
+					webview.webview.layoutWebviewOverElement(webviewRef.current);
+					return () => {
+						webview?.webview.release(this);
+					};
+				}
+			}
+			else {
+				webview.webview.release(this);
 			}
 		}
 		return () => { };
-	}, [props.preview]);
+	}, [props.preview, props.visible]);
 
 	// This `useEffect` intentionally runs on every render. It is responsible
 	// for laying out the webview over the preview container; since the webview
 	// is absolutely positioned over the container, it needs to be repositioned
 	// every time the container is resized or moved.
 	useEffect(() => {
-		if (props.preview && webviewRef.current) {
+		if (props.preview && webviewRef.current && props.visible) {
 			props.preview.webview.webview.layoutWebviewOverElement(webviewRef.current);
 		}
 	});

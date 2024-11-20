@@ -39,6 +39,8 @@ export class PositronPreviewEditor
 
 	private _height = 0;
 
+	private _visible = this.isVisible();
+
 	private _identifier?: string;
 
 	private readonly _onSizeChangedEmitter = this._register(new Emitter<ISize>());
@@ -70,7 +72,7 @@ export class PositronPreviewEditor
 	}
 
 	get containerVisible() {
-		return this.isVisible();
+		return this._visible;
 	}
 
 	takeFocus(): void {
@@ -105,7 +107,7 @@ export class PositronPreviewEditor
 			themeService,
 			storageService
 		);
-
+		this.onVisibilityChanged
 		this._container = DOM.$('.positron-preview-editor-container');
 	}
 
@@ -122,6 +124,7 @@ export class PositronPreviewEditor
 					preview={this._positronPreviewService.editorWebview(previewId)}
 					width={this._width}
 					height={this._height}
+					visible={this.containerVisible}
 				/>
 			</PositronPreviewContextProvider>
 		);
@@ -143,6 +146,7 @@ export class PositronPreviewEditor
 		token: CancellationToken
 	): Promise<void> {
 		const previewId = input._previewId;
+
 		if (!previewId) { throw Error; }
 
 		this.renderContainer(previewId);
@@ -157,7 +161,25 @@ export class PositronPreviewEditor
 			}
 		});
 
+		this.onVisibilityChanged((visible: boolean) => {
+			this._visible = visible;
+
+			if (this._positronReactRenderer) {
+				this.renderContainer(previewId);
+			}
+		});
+
 		await super.setInput(input, options, context, token);
+	}
+
+	/**
+	 * Sets editor visibility.
+	 * @param visible A value which indicates whether the editor should be visible.
+	 */
+	protected override setEditorVisible(visible: boolean): void {
+		// Call the base class's method.
+		super.setEditorVisible(visible);
+		this._onVisibilityChangedEmitter.fire(visible);
 	}
 
 	override layout(dimension: DOM.Dimension): void {
