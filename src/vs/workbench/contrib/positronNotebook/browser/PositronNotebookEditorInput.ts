@@ -17,6 +17,7 @@ import { IInstantiationService } from 'vs/platform/instantiation/common/instanti
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
 import { ILogService } from 'vs/platform/log/common/log';
+import { ExtUri } from 'vs/base/common/resources';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -139,7 +140,8 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @returns The display name of this input.
 	 */
 	override getName(): string {
-		return localize('positronNotebookInputName', "Positron Notebook");
+		const extUri = new ExtUri(() => false);
+		return extUri.basename(this.resource) ?? localize('positronNotebookInputName', "Positron Notebook");
 	}
 
 	/**
