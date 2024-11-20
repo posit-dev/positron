@@ -7,7 +7,10 @@ import { expect } from '@playwright/test';
 import { Application, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../../automation';
 import { setupAndStartApp } from '../../../test-runner/test-hooks';
 
-describe('Reticulate #win #web', () => {
+// In order to run this test on Windows, I think we need to set the env var:
+// RETICULATE_PYTHON
+// to the installed python path
+describe('Reticulate #web', () => {
 	setupAndStartApp();
 	let app: Application;
 	let userSettings: PositronUserSettingsFixtures;
