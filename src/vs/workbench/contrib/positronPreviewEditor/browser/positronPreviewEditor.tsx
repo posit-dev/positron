@@ -39,7 +39,7 @@ export class PositronPreviewEditor
 
 	private _height = 0;
 
-	private _visible = this.isVisible();
+	private _visible = true;
 
 	private _identifier?: string;
 
