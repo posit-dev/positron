@@ -67,5 +67,26 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 			await expect(headerLocator).toBeVisible({ timeout: 30000 });
 		}).toPass({ timeout: 60000 });
 	});
+
+	test('Python - Verify Basic Flask App [C1013655]', {
+		tag: ['@web', '@win']
+	}, async function ({ app, python }) {
+		const viewer = app.workbench.positronViewer;
+
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'flask_example', '__init__.py'));
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		await app.workbench.positronEditor.pressPlay();
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+		const viewerFrame = viewer.getViewerFrame();
+		const loginLocator = app.web
+			? viewerFrame.frameLocator('iframe').getByText('Log In')
+			: viewerFrame.getByText('Log In');
+
+		await expect(async () => {
+			await expect(loginLocator).toBeVisible({ timeout: 30000 });
+		}).toPass({ timeout: 60000 });
+		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
+	});
 });
 
