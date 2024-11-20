@@ -107,7 +107,6 @@ export class PositronPreviewEditor
 			themeService,
 			storageService
 		);
-		this.onVisibilityChanged
 		this._container = DOM.$('.positron-preview-editor-container');
 	}
 
