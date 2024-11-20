@@ -33,7 +33,7 @@ const CODICON_ID = /^codicon codicon-(.+)$/;
  * @param menuItemAction The menu item action.
  * @param mouseOver Whether the mouse is over the action bar action button.
  * @param modifierKeyStatus The modifier key status.
- * @returns A value which indicates whether alternative actions should be used.
+ * @returns A value which indicates whether the alternative action should be used.
  */
 const shouldUseAlternativeAction = (
 	accessibilityService: IAccessibilityService,
