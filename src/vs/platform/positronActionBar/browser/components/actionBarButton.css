@@ -31,10 +31,6 @@
 	background: var(--positronActionBar-hoverBackground);
 }
 
-.action-bar-button.border {
-	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
-}
-
 .action-bar-button.fade-in {
 	opacity: 0;
 	animation: positronActionBarButton-fadeIn 0.25s ease-in 0.25s 1 forwards;
@@ -47,6 +43,10 @@
 .action-bar-button:focus-visible {
 	border-radius: 6px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
+}
+
+.action-bar-button-action-button {
+	padding: 0;
 }
 
 .action-bar-button-face {
@@ -80,6 +80,7 @@
 }
 
 .action-bar-button-icon.enabled-split {
+	display: flex;
 	padding: 0 2px 0 6px;
 }
 
@@ -91,10 +92,12 @@
 }
 
 .action-bar-button-drop-down-container {
+	display: flex;
 	padding-right: 5px;
 }
 
 .action-bar-button-drop-down-button {
+	display: flex;
 	padding: 0 5px;
 }
 

@@ -26,9 +26,11 @@ interface ActionBarMenuButtonProps {
 	readonly iconFontSize?: number;
 	readonly text?: string;
 	readonly ariaLabel?: string;
+	readonly dropdownAriaLabel?: string;
 	readonly maxTextWidth?: number;
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
+	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
 	readonly actions: () => readonly IAction[] | Promise<readonly IAction[]>;
 }

@@ -24,11 +24,12 @@ export interface ActionBarButtonProps {
 	readonly iconFontSize?: number;
 	readonly text?: string;
 	readonly maxTextWidth?: number;
-	readonly border?: boolean;
 	readonly align?: 'left' | 'right';
 	readonly tooltip?: string | (() => string | undefined);
+	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
+	readonly dropdownAriaLabel?: string;
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
@@ -69,23 +70,12 @@ export const ActionBarButton = forwardRef<
 	// https://github.com/microsoft/vscode/issues/181739#issuecomment-1779701917
 	const ariaLabel = props.ariaLabel ? props.ariaLabel : props.text;
 
-	// Render.
-	return (
-		<Button
-			ref={buttonRef}
-			hoverManager={context.hoverManager}
-			className={positronClassNames(
-				'action-bar-button',
-				{ 'border': optionalBoolean(props.border) },
-				{ 'fade-in': optionalBoolean(props.fadeIn) }
-			)}
-			ariaLabel={ariaLabel}
-			tooltip={props.tooltip}
-			disabled={props.disabled}
-			onMouseEnter={props.onMouseEnter}
-			onMouseLeave={props.onMouseLeave}
-			onPressed={props.onPressed}
-		>
+	/**
+	 * ActionBarButtonFace component.
+	 * @returns The rendered component.
+	 */
+	const ActionBarButtonFace = () => {
+		return (
 			<div className='action-bar-button-face' aria-hidden='true'>
 				{props.iconId && (
 					<div
@@ -114,22 +104,63 @@ export const ActionBarButton = forwardRef<
 						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
 					</div>
 				)}
-				{props.dropdownIndicator === 'enabled-split' && (
-					<Button
-						ref={dropdownButtonRef}
-						hoverManager={context.hoverManager}
-						className='action-bar-button-drop-down-button'
-						ariaLabel={ariaLabel}
-						tooltip={/*props.tooltip*/ 'dropdown tooltip'}
-						onPressed={props.onDropdownPressed}
-					>
-						<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
-					</Button>
+			</div>
+		);
+	};
+
+	// Render.
+	if (props.dropdownIndicator !== 'enabled-split') {
+		return (
+			<Button
+				ref={buttonRef}
+				hoverManager={context.hoverManager}
+				className={positronClassNames(
+					'action-bar-button',
+					{ 'fade-in': optionalBoolean(props.fadeIn) }
 				)}
+				ariaLabel={ariaLabel}
+				tooltip={props.tooltip}
+				disabled={props.disabled}
+				onMouseEnter={props.onMouseEnter}
+				onMouseLeave={props.onMouseLeave}
+				onPressed={props.onPressed}
+			>
+				<ActionBarButtonFace />
+			</Button>
+		);
+	} else {
+		return (
+			<div className={positronClassNames(
+				'action-bar-button',
+				{ 'fade-in': optionalBoolean(props.fadeIn) }
+			)}>
+				<Button
+					ref={buttonRef}
+					hoverManager={context.hoverManager}
+					className='action-bar-button-action-button'
+					ariaLabel={ariaLabel}
+					tooltip={props.tooltip}
+					disabled={props.disabled}
+					onMouseEnter={props.onMouseEnter}
+					onMouseLeave={props.onMouseLeave}
+					onPressed={props.onPressed}
+				>
+					<ActionBarButtonFace />
+				</Button>
+				<Button
+					ref={dropdownButtonRef}
+					hoverManager={context.hoverManager}
+					className='action-bar-button-drop-down-button'
+					ariaLabel={props.dropdownAriaLabel}
+					tooltip={props.dropdownTooltip}
+					onPressed={props.onDropdownPressed}
+				>
+					<div className='action-bar-button-drop-down-arrow codicon codicon-positron-drop-down-arrow' />
+				</Button>
 				{props.children}
 			</div>
-		</Button>
-	);
+		);
+	}
 });
 
 // Set the display name.

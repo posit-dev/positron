@@ -8,13 +8,12 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from 'vs/nls';
-import { OS } from 'vs/base/common/platform';
 import { Emitter } from 'vs/base/common/event';
-import { UILabelProvider } from 'vs/base/common/keybindingLabels';
 import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
 import { IAction, Separator, SubmenuAction } from 'vs/base/common/actions';
 import { IEditorGroupView } from 'vs/workbench/browser/parts/editor/editor';
 import { dumpActions } from 'vs/workbench/browser/parts/editor/actionUtils';
+import { actionTooltip } from 'vs/platform/positronActionBar/common/helpers';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
@@ -183,9 +182,6 @@ export class EditorActionBarFactory extends Disposable {
 	 * @returns The action bar.
 	 */
 	create(auxiliaryWindow?: boolean) {
-		// const useAlternativeActions = modifierKeyEmitter.keyStatus.altKey ||
-		// 	((isWindows || isLinux) && modifierKeyEmitter.keyStatus.shiftKey);
-
 		// Break the actions into primary actions, secondary actions, and submenu descriptors.
 		const primaryActions: IAction[] = [];
 		const secondaryActions: IAction[] = [];
@@ -258,9 +254,21 @@ export class EditorActionBarFactory extends Disposable {
 						<ActionBarMenuButton
 							iconId={iconId}
 							text={iconId ? undefined : firstAction.label}
-							ariaLabel={this.actionTooltip(firstAction)}
+							ariaLabel={firstAction.label ?? firstAction.tooltip}
+							dropdownAriaLabel={action.label ?? action.tooltip}
 							align='left'
-							tooltip={firstAction.label}
+							tooltip={actionTooltip(
+								this._contextKeyService,
+								this._keybindingService,
+								firstAction,
+								false
+							)}
+							dropdownTooltip={actionTooltip(
+								this._contextKeyService,
+								this._keybindingService,
+								action,
+								false
+							)}
 							dropdownIndicator='enabled-split'
 							actions={() => action.actions}
 						/>
@@ -334,49 +342,6 @@ export class EditorActionBarFactory extends Disposable {
 	 */
 	private shouldInlineSubmenuAction(group: string, action: SubmenuAction) {
 		return this.isPrimaryGroup(group) && action.actions.length <= 1;
-	}
-
-	/**
-	 * Returns the action tooltip.
-	 * @param action The action.
-	 * @returns The action tooltip.
-	 */
-	private actionTooltip(action: IAction) {
-		// Get the keybinding and keybinding label.
-		const keybinding = this._keybindingService.lookupKeybinding(
-			action.id,
-			this._contextKeyService
-		);
-		const keybindingLabel = keybinding && keybinding.getLabel();
-
-		// Get the tooltip and format the result.
-		const tooltip = action.tooltip || action.label;
-		let formattedTooltip = keybindingLabel ?
-			localize('titleAndKb', "{0} ({1})", tooltip, keybindingLabel) :
-			tooltip;
-
-		if (action instanceof MenuItemAction && action.alt) {
-			// Get the alt keybinding and alt keybinding label.
-			const altKeybinding = this._keybindingService.lookupKeybinding(
-				action.alt.id,
-				this._contextKeyService
-			);
-			const altKeybindingLabel = altKeybinding && altKeybinding.getLabel();
-
-			// Get the tooltip and format the result.
-			const altTooltip = action.alt.tooltip || action.alt.label;
-			formattedTooltip = localize(
-				'titleAndKbAndAlt', "{0}\n[{1}] {2}",
-				formattedTooltip,
-				UILabelProvider.modifierLabels[OS].altKey,
-				altKeybindingLabel
-					? localize('titleAndKb', "{0} ({1})", altTooltip, altKeybindingLabel)
-					: altTooltip
-			);
-		}
-
-		// Return the formatted tooltip.
-		return formattedTooltip;
 	}
 
 	//#endregion Private Methods

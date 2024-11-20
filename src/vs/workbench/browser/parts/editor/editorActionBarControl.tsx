@@ -51,7 +51,7 @@ export class EditorActionBarControl extends Disposable {
 
 	//#endregion Private Properties
 
-	//#region Constructor
+	//#region Constructor & Dispose
 
 	/**
 	 * Constructor.
@@ -112,7 +112,18 @@ export class EditorActionBarControl extends Disposable {
 		);
 	}
 
-	//#endregion Constructor
+	/**
+	 * Disposes the editor action bar control.
+	 */
+	override dispose() {
+		// Remove the editor action bar container.
+		this._container?.remove();
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
+	//#endregion Constructor & Dispose
 
 	//#region Public Properties
 
@@ -191,17 +202,17 @@ export class EditorActionBarControlFactory {
 	 * Constructor.
 	 * @param _container The container.
 	 * @param _editorGroup The editor group.
-	 * @param configurationService The configuration service.
+	 * @param _configurationService The configuration service.
 	 * @param _instantiationService The instantiation service.
 	 */
 	constructor(
 		private readonly _container: HTMLElement,
 		private readonly _editorGroup: IEditorGroupView,
-		@IConfigurationService configurationService: IConfigurationService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
 		// Check if the configuration setting is enabled. If so, create the control.
-		if (configurationService.getValue<boolean>(CONFIGURATION_SETTING)) {
+		if (this._configurationService.getValue<boolean>(CONFIGURATION_SETTING)) {
 			this.createControl();
 		}
 
@@ -214,11 +225,11 @@ export class EditorActionBarControlFactory {
 
 		// Add the onDidChangeConfiguration event listener to listen for changes to the
 		// configuration setting.
-		this._disposables.add(configurationService.onDidChangeConfiguration(e => {
+		this._disposables.add(this._configurationService.onDidChangeConfiguration(e => {
 			// Check if the configuration setting has changed.
 			if (e.affectsConfiguration(CONFIGURATION_SETTING)) {
 				// Process the change.
-				if (configurationService.getValue(CONFIGURATION_SETTING)) {
+				if (this._configurationService.getValue(CONFIGURATION_SETTING)) {
 					// Create the control, if it doesn't exist.
 					if (!this._control) {
 						this.createControl();

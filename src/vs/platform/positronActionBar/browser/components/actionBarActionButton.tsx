@@ -8,14 +8,11 @@ import 'vs/css!./actionBarActionButton';
 
 // React.
 import * as React from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { OS } from 'vs/base/common/platform';
 import { IAction } from 'vs/base/common/actions';
 import { DisposableStore } from 'vs/base/common/lifecycle';
-import { UILabelProvider } from 'vs/base/common/keybindingLabels';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { MenuItemAction } from 'vs/platform/actions/common/actions';
 import { IModifierKeyStatus, ModifierKeyEmitter } from 'vs/base/browser/dom';
@@ -23,6 +20,7 @@ import { IAccessibilityService } from 'vs/platform/accessibility/common/accessib
 import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
+import { actionTooltip, toMenuActionItem } from 'vs/platform/positronActionBar/common/helpers';
 
 /**
  * Constants.
@@ -92,13 +90,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Menu action item.
-	const menuActionItem = useMemo(() => {
-		if (props.action instanceof MenuItemAction) {
-			return props.action;
-		} else {
-			return undefined;
-		}
-	}, [props.action]);
+	const menuActionItem = toMenuActionItem(props.action);
 
 	// State hooks.
 	const [, setMouseInside, mouseInsideRef] = useStateRef(false);
@@ -114,7 +106,6 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		// Get the modifier key emitter and add the event listener to it.
 		const modifierKeyEmitter = ModifierKeyEmitter.getInstance();
 		disposableStore.add(modifierKeyEmitter.event(modifierKeyStatus => {
-			console.log(`MODIFIER KEY MOUSE INSIDE ${mouseInsideRef.current} STATUS:`, modifierKeyStatus);
 			setUseAlternativeAction(shouldUseAlternativeAction(
 				context.accessibilityService,
 				menuActionItem,
@@ -135,50 +126,6 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		useAlternativeAction &&
 		menuActionItem.alt?.enabled ? menuActionItem.alt : props.action;
 
-	/**
-	 * Returns the action tooltip.
-	 * @param action The action.
-	 * @returns The action tooltip.
-	 */
-	const actionTooltip = () => {
-		// Get the keybinding, keybinding label, and tooltip.
-		const keybinding = context.keybindingService.lookupKeybinding(
-			action.id,
-			context.contextKeyService
-		);
-		const keybindingLabel = keybinding && keybinding.getLabel();
-		const tooltip = action.tooltip || action.label;
-
-		// Set the formatted tooltip.
-		let formattedTooltip = keybindingLabel ?
-			localize('titleAndKb', "{0} ({1})", tooltip, keybindingLabel) :
-			tooltip;
-
-		// Add the alt keybinding and label to the formatted tooltip.
-		if (!useAlternativeAction && menuActionItem && menuActionItem.alt?.enabled) {
-			// Get the alt keybinding, alt keybinding label, and alt tooltip.
-			const altKeybinding = context.keybindingService.lookupKeybinding(
-				menuActionItem.alt.id,
-				context.contextKeyService
-			);
-			const altKeybindingLabel = altKeybinding && altKeybinding.getLabel();
-			const altTooltip = menuActionItem.alt.tooltip || menuActionItem.alt.label;
-
-			// Update the formatted tooltip.
-			formattedTooltip = localize(
-				'titleAndKbAndAlt', "{0}\n[{1}] {2}",
-				formattedTooltip,
-				UILabelProvider.modifierLabels[OS].altKey,
-				altKeybindingLabel
-					? localize('titleAndKb', "{0} ({1})", altTooltip, altKeybindingLabel)
-					: altTooltip
-			);
-		}
-
-		// Return the formatted tooltip.
-		return formattedTooltip;
-	};
-
 	// Build the dynamic properties.
 	const dynamicProps = ((): ActionBarButtonProps => {
 		// Extract the icon ID from the action's class.
@@ -187,9 +134,14 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 
 		// Return the properties.
 		return {
-			ariaLabel: action.label,
+			ariaLabel: action.label ?? action.tooltip,
 			iconId: iconId,
-			tooltip: actionTooltip(),
+			tooltip: actionTooltip(
+				context.contextKeyService,
+				context.keybindingService,
+				action,
+				!useAlternativeAction
+			),
 			disabled: !action.enabled,
 			onMouseEnter: () => setMouseInside(true),
 			onMouseLeave: () => setMouseInside(false),

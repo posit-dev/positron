@@ -78,7 +78,7 @@ const dumpAction = (action: IAction, level: number) => {
 	const spacer = '    '.repeat(level);
 
 	// Format the action info.
-	let actionInfo = `id: ${action.id} label: ${action.label} enabled: ${action.enabled}`;
+	let actionInfo = `id: ${action.id} label: ${action.label} tooltip: ${action.tooltip} enabled: ${action.enabled}`;
 	if (action.class) {
 		actionInfo += ` class: ${action.class}`;
 	}
