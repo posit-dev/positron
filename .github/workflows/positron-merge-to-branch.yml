@@ -30,7 +30,7 @@ permissions:
 jobs:
   e2e-electron:
     timeout-minutes: 45
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-4x
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -42,7 +42,7 @@ jobs:
     strategy:
         fail-fast: false
         matrix:
-          shard: [1, 2]
+          shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
