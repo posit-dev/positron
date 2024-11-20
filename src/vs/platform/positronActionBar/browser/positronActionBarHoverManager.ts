@@ -89,7 +89,7 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 			this._timeout = undefined;
 		}
 
-		// If there is a last hover widget, dispose of it and set the hover leave time.
+		// If there is a last hover widget, dispose of it.
 		if (this._lastHoverWidget) {
 			this._lastHoverWidget.dispose();
 			this._lastHoverWidget = undefined;
