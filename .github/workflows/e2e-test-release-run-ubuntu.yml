@@ -8,6 +8,9 @@ on:
         description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
         default: ""
         type: string
+  pull_request:
+    branches:
+      - main
 
 permissions:
   id-token: write
