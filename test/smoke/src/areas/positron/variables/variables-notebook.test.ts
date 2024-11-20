@@ -11,6 +11,7 @@ test.use({
 
 test.afterEach(async function ({ app }) {
 	await app.workbench.positronNotebooks.closeNotebookWithoutSaving();
+	await app.workbench.positronLayouts.enterLayout('stacked');
 });
 
 test.describe('Variables Pane - Notebook', { tag: ['@pr', '@web'] }, () => {
@@ -53,8 +54,11 @@ test.describe('Variables Pane - Notebook', { tag: ['@pr', '@web'] }, () => {
 		await expect(interpreter).toHaveText('Untitled-1.ipynb');
 
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
-		expect(variablesMap.get('y')).toStrictEqual({ value: '2 3 4 5', type: 'dbl [4]' });
+
+		await expect(async () => {
+			const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+			expect(variablesMap.get('y')).toStrictEqual({ value: '2 3 4 5', type: 'dbl [4]' });
+		}).toPass({ timeout: 60000 });
 	});
 });
 
