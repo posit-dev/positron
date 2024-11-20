@@ -81,7 +81,7 @@ jobs:
           COMMIT_INFO_MESSAGE: "pwc-p: ${{ github.event.head_commit.message }}"
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove test blobs
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx pwc-p -- --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }} --reporter blob
+        run: DISPLAY=:10 npx pwc-p --project e2e-electron -- --workers 2 --grep=${{ env.E2E_GREP }} --reporter blob
 
       - name: Generate HTML report from blob
         run: |
