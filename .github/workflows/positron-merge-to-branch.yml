@@ -78,7 +78,7 @@ jobs:
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: reporter-${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx pwc -k ${{ env.CURRENTS_RECORD_KEY }} -p ${{ env.CURRENTS_PROJECT_ID }} --ci-build-id ${{ env.CURRENTS_CI_BUILD_ID }} --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }} --shard=${{ matrix.shard }}/${{ strategy.job-total }}"
+        run: DISPLAY=:10 npx pwc -k ${{ env.CURRENTS_RECORD_KEY }} -p ${{ env.CURRENTS_PROJECT_ID }} --ci-build-id ${{ env.CURRENTS_CI_BUILD_ID }} --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}" --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
