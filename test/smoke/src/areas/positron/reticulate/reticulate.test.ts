@@ -49,6 +49,15 @@ describe('Reticulate #win #web', () => {
 			await app.workbench.positronConsole.pasteCodeToConsole('reticulate::repl_python()');
 			await app.workbench.positronConsole.sendEnterKey();
 
+			try {
+				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Yes/no/cancel')));
+				await app.workbench.positronConsole.typeToConsole('no');
+				await app.workbench.positronConsole.sendEnterKey();
+
+			} catch {
+				// Prompt did not appear
+			}
+
 			await app.workbench.positronConsole.waitForReady('>>>');
 
 			await app.workbench.positronConsole.pasteCodeToConsole('x=100');
