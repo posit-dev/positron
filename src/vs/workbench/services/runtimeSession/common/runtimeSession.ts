@@ -113,6 +113,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
 
+	// A map of disposables associated with each session, keyed by the session ID.
+	private readonly _sessionDisposables = new Map<string, DisposableStore>;
+
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
 		this._register(new Emitter<IRuntimeSessionWillStartEvent>);
@@ -926,9 +929,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private attachToSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager): void {
 
-		// Ignore if already attached.
-		if (this._activeSessionsBySessionId.has(session.sessionId)) {
-			return;
+		// Remove any previous event registrations for this session.
+		let disposables = this._sessionDisposables.get(session.sessionId);
+		if (disposables) {
+			// There's already a disposable store for this session; dispose its
+			// contents (but don't mark it disposed; we can reuse it)
+			disposables.clear();
+		} else {
+			// There is no disposable store for this session; create one and register it.
+			disposables = new DisposableStore();
+			this._register(disposables);
+			this._sessionDisposables.set(session.sessionId, disposables);
 		}
 
 		// Save the session info.
@@ -936,7 +947,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			new LanguageRuntimeSessionInfo(session, manager));
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._register(session.onDidChangeRuntimeState(state => {
+		disposables.add(session.onDidChangeRuntimeState(state => {
 			// Process the state change.
 			switch (state) {
 				case RuntimeState.Ready:
@@ -1004,7 +1015,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}));
 
-		this._register(session.onDidEndSession(async exit => {
+		disposables.add(session.onDidEndSession(async exit => {
 			this.updateSessionMapsAfterExit(session);
 
 			// Note that we need to do the following on the next tick since we
