@@ -967,11 +967,7 @@ END`;
 							support_status: SupportStatus.Supported
 						},
 						{
-							profile_type: ColumnProfileType.SmallHistogram,
-							support_status: SupportStatus.Supported
-						},
-						{
-							profile_type: ColumnProfileType.LargeHistogram,
+							profile_type: ColumnProfileType.SummaryStats,
 							support_status: SupportStatus.Supported
 						},
 						{
@@ -983,9 +979,13 @@ END`;
 							support_status: SupportStatus.Supported
 						},
 						{
-							profile_type: ColumnProfileType.SummaryStats,
+							profile_type: ColumnProfileType.SmallHistogram,
 							support_status: SupportStatus.Supported
 						},
+						{
+							profile_type: ColumnProfileType.LargeHistogram,
+							support_status: SupportStatus.Supported
+						}
 					]
 				},
 				search_schema: {
@@ -1191,7 +1191,7 @@ export class DataExplorerRpcHandler {
 			// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
 			// and especially given that Parquet files may materialize much larger than that appear
 			// on disk.
-			const VIEW_THRESHOLD = 10_000_000;
+			const VIEW_THRESHOLD = 25_000_000;
 			const catalogType = fileStats.size > VIEW_THRESHOLD ? 'VIEW' : 'TABLE';
 
 			scanQuery = `
