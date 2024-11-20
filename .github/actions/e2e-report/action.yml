@@ -78,8 +78,6 @@ runs:
       uses: ./.github/actions/upload-report-to-s3
       with:
         role-to-assume: ${{ inputs.aws-role }}
-        bucket: ${{ inputs.aws-s3-bucket }}
-        path: ./all-blob-reports
 
     - name: Send HTML Report URL to GitHub Summary
       shell: bash
