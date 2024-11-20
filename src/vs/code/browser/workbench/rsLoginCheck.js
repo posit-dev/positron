@@ -284,7 +284,7 @@ function sendSessionState(dbName, content) {
 }
 
 async function checkIndexedDB() {
-	if (localStorage.getItem('clear-browser-db-on-logout') !== 'true') {
+	if (localStorage.getItem(`clear-${productName}-db-on-logout`) !== 'true') {
 		return;
 	}
 	try {
