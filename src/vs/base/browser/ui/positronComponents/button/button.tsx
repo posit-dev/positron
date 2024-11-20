@@ -136,7 +136,7 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseLeaveHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// Clear the mouse over state.
+		// Clear the mouse inside state.
 		setMouseInside(false);
 
 		// Hide the hover.
