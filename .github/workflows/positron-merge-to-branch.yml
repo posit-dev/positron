@@ -63,12 +63,12 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+      # - name: Send HTML report URL to GitHub Summary
+      #   if: ${{ !cancelled() }}
+      #   run: |
+      #     REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+      #     echo "Report URL: $REPORT_URL"
+      #     echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
       - name: Run Playwright Tests (Electron)
         continue-on-error: false
@@ -137,6 +137,21 @@ jobs:
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+
+  e2e-report:
+    name: "Generate E2E Report"
+    runs-on: ubuntu-latest
+    needs: [e2e-electron]
+    if: ${{ always() }}
+    env:
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+    steps:
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
+          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
   slack-notification:
     name: "Send Slack notification"
