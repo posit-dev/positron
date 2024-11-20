@@ -33,7 +33,6 @@ import { disposableTimeout } from 'vs/base/common/async';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction';
 import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { isEqual } from 'vs/base/common/resources';
 import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
@@ -259,7 +258,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
-		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -270,6 +268,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super();
+
+		this._setupNotebookTextModel();
 
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
@@ -283,23 +283,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._instantiationService.createInstance(SelectionStateMachine)
 		);
 
-		this._register(
-			this._notebookService.onDidAddNotebookDocument((model) => {
-				// Is this our notebook?
-				if (this._isThisNotebook(model.uri)) {
-					this._setupNotebookTextModel();
-				}
-			})
-		);
-
-		this._register(
-			this._notebookService.onDidRemoveNotebookDocument((model) => {
-				// Is this our notebook?
-				if (this._isThisNotebook(model.uri)) {
-					this._detachModel();
-				}
-			})
-		);
 
 		this._register(
 			this.notebookKernelService.onDidChangeSelectedNotebooks((e) => {
@@ -523,6 +506,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._notebookOptions?.dispose();
 		this._notebookOptions = undefined;
 		this._detachModel();
+	}
+
+	close(): void {
+		console.log('Closing a notebook instance');
+		this.dispose();
 	}
 
 	// #endregion

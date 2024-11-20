@@ -131,4 +131,9 @@ export interface IPositronNotebookInstance {
 	 * @param cell The cell to set as editing, or undefined to clear editing state
 	 */
 	setEditingCell(cell: IPositronNotebookCell | undefined): void;
+
+	/**
+	 * Closes the notebook instance.
+	 */
+	close(): void;
 }
