@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { Locator } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 
 const CURRENT_PLOT = '.plot-instance img';
@@ -47,11 +47,11 @@ export class PositronPlots {
 	}
 
 	async waitForCurrentPlot() {
-		await this.code.waitForElement(CURRENT_PLOT);
+		await expect(this.code.driver.page.locator(CURRENT_PLOT)).toBeVisible({ timeout: 30000 });
 	}
 
 	async waitForCurrentStaticPlot() {
-		await this.code.waitForElement(CURRENT_STATIC_PLOT);
+		await expect(this.code.driver.page.locator(CURRENT_STATIC_PLOT)).toBeVisible({ timeout: 30000 });
 	}
 
 	getWebviewPlotLocator(selector: string): Locator {
@@ -63,20 +63,25 @@ export class PositronPlots {
 	}
 
 	async waitForWebviewPlot(selector: string, state: 'attached' | 'visible' = 'visible', RWeb = false) {
+		const locator = RWeb ? this.getRWebWebviewPlotLocator(selector) : this.getWebviewPlotLocator(selector);
 
-		if (RWeb) {
-			await this.getRWebWebviewPlotLocator(selector).waitFor({ state, timeout: 30000 });
+		if (state === 'attached') {
+			await expect(locator).toBeAttached({ timeout: 30000 });
 		} else {
-			await this.getWebviewPlotLocator(selector).waitFor({ state, timeout: 30000 });
+			await expect(locator).toBeVisible({ timeout: 30000 });
 		}
 	}
 
 	async clearPlots() {
-		await this.code.waitAndClick(CLEAR_PLOTS);
+		const clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS);
+
+		if (await clearPlotsButton.isVisible() && await clearPlotsButton.isEnabled()) {
+			await clearPlotsButton.click();
+		}
 	}
 
 	async waitForNoPlots() {
-		await this.code.waitForElement(CURRENT_PLOT, (result) => !result);
+		await expect(this.code.driver.page.locator(CURRENT_PLOT)).not.toBeVisible();
 	}
 
 	async getCurrentPlotAsBuffer(): Promise<Buffer> {

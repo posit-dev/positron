@@ -3,23 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { Application, PositronPythonFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { test, expect } from '../_test.setup';
 
-describe('Variables - Expanded View #web', () => {
-	setupAndStartApp();
+test.use({
+	suiteId: __filename
+});
 
-	beforeEach(async function () {
-		const app = this.app as Application;
-		await PositronPythonFixtures.SetupFixtures(app);
+test.describe('Variables - Expanded View', { tag: ['@web'] }, () => {
+	test.beforeEach(async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-
 	});
 
-	it('Python - should display children values and types when variable is expanded', async function () {
-		const app = this.app as Application;
+	test('Python - should display children values and types when variable is expanded', async function ({ app }) {
 		const variables = app.workbench.positronVariables;
 
 		await variables.expandVariable('df');

@@ -7,31 +7,81 @@ on:
       - 'prerelease/**'
   workflow_call:
     inputs:
-      smoketest_target:
+      e2e_grep:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
-        default: "smoketest-all"
+        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        default: ""
         type: string
   workflow_dispatch:
     inputs:
-      smoketest_target:
+      e2e_grep:
         required: false
-        description: "Smoketest suite to run, e.g. smoketest-all or smoketest-pr"
-        default: "smoketest-all"
+        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        default: ""
         type: string
 
 env:
-  SMOKETEST_TARGET: ${{ inputs.smoketest_target || 'smoketest-all' }}
+  E2E_GREP: ${{ inputs.e2e_grep || '' }}
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  linux:
-    name: Tests on Linux
-    runs-on: ubuntu-latest-8x
+  e2e-electron:
     timeout-minutes: 45
+    runs-on: ubuntu-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
+          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+
+      - name: Run Playwright Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+        id: e2e-playwright-tests
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
+
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+
+  unit-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -57,12 +107,11 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup E2E Test Environment
-        uses: ./.github/actions/setup-test-env
+      # one unit test needs this: Can list tables and fields from R connections
+      - name: Setup R
+        uses: ./.github/actions/install-r
         with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          version: "4.4.0"
 
       - name: Compile Integration Tests
         run: yarn --cwd test/integration/browser compile
@@ -75,47 +124,11 @@ jobs:
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
-      - name: Run Smoke Tests (Electron)
-        if: success() || failure()
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-        id: electron-smoke-tests
-        run: DISPLAY=:10 yarn ${{ env.SMOKETEST_TARGET }} --tracing --parallel --jobs 2 --skip-cleanup
-
-      - name: Convert XUnit to JUnit
-        id: xunit-to-junit
-        if: success() || failure()
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libxml2-utils
-          /usr/bin/xmllint --version
-          yarn xunit-to-junit smoke-tests-electron
-
-      - name: Set TestRail Run Title
-        id: set-testrail-run-title
-        if: always()
-        run: echo "TESTRAIL_TITLE=$(date +'%Y-%m-%d') Smoke Tests on branch $GITHUB_REF_NAME" >> $GITHUB_ENV
-
-      - name: Upload Test Results to TestRail
-        id: testrail-upload
-        if: always()
-        run: trcli --host "https://posit.testrail.io/" --project Positron --username testrailautomation@posit.co --key ${{ secrets.TESTRAIL_API_KEY}} parse_junit --file ".build/logs/smoke-tests-electron/test-results/results.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-      - name: Upload run artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: run-artifacts
-          path: .build/logs/smoke-tests-electron/
-    outputs:
-      target: ${{ env.SMOKETEST_TARGET }}
-
   slack-notification:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
-    needs: linux
-    if: ${{ failure() && needs.linux.outputs.target  == 'smoketest-all' }}
+    needs: [unit-integration, e2e-electron]
+    if: ${{ failure() && inputs.e2e_grep == '' }}
     steps:
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6

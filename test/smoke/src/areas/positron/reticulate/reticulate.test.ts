@@ -3,81 +3,74 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
-import { Application, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+import { test, expect } from '../_test.setup';
+import { PositronUserSettingsFixtures, UserSetting } from '../../../../../automation';
+
+test.use({
+	suiteId: __filename
+});
 
 // In order to run this test on Windows, I think we need to set the env var:
 // RETICULATE_PYTHON
 // to the installed python path
-describe('Reticulate #web', () => {
-	setupAndStartApp();
-	let app: Application;
-	let userSettings: PositronUserSettingsFixtures;
+let userSettings: PositronUserSettingsFixtures;
 
-	describe('Reticulate', () => {
-		before(async function () {
-			app = this.app as Application;
+test.describe('Reticulate', {
+	tag: ['@web'],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5226' }]
+}, () => {
+	test.beforeAll(async function ({ app }) {
+		try {
+			userSettings = new PositronUserSettingsFixtures(app);
 
-			try {
+			// remove this once https://github.com/posit-dev/positron/issues/5226
+			// is resolved
+			const kernelSupervisorSetting: UserSetting = ['positronKernelSupervisor.enable', 'false'];
+			const reticulateSetting: UserSetting = ['positron.reticulate.enabled', 'true'];
 
-				await PositronRFixtures.SetupFixtures(this.app as Application);
+			await userSettings.setUserSettings([
+				kernelSupervisorSetting,
+				reticulateSetting
+			]);
 
-				userSettings = new PositronUserSettingsFixtures(app);
+		} catch (e) {
+			app.code.driver.takeScreenshot('reticulateSetup');
+			throw e;
+		}
+	});
 
-				// remove this once https://github.com/posit-dev/positron/issues/5226
-				// is resolved
-				const kernelSupervisorSetting: UserSetting = ['positronKernelSupervisor.enable', 'false'];
-				const reticulateSetting: UserSetting = ['positron.reticulate.enabled', 'true'];
+	test.afterAll(async function () {
+		await userSettings.unsetUserSettings();
 
-				await userSettings.setUserSettings([
-					kernelSupervisorSetting,
-					reticulateSetting
-				]
-				);
+	});
 
-			} catch (e) {
-				this.app.code.driver.takeScreenshot('reticulateSetup');
-				throw e;
-			}
-		});
+	test('R - Verify Basic Reticulate Functionality [C...]', async function ({ app, r, interpreter }) {
 
-		after(async function () {
-			await userSettings.unsetUserSettings();
+		await app.workbench.positronConsole.pasteCodeToConsole('reticulate::repl_python()');
+		await app.workbench.positronConsole.sendEnterKey();
 
-		});
-
-		it('R - Verify Basic Reticulate Functionality [C...]', async function () {
-
-			await app.workbench.positronConsole.pasteCodeToConsole('reticulate::repl_python()');
+		try {
+			await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Yes/no/cancel')));
+			await app.workbench.positronConsole.typeToConsole('no');
 			await app.workbench.positronConsole.sendEnterKey();
+		} catch {
+			// Prompt did not appear
+		}
 
-			try {
-				await app.workbench.positronConsole.waitForConsoleContents((contents) => contents.some((line) => line.includes('Yes/no/cancel')));
-				await app.workbench.positronConsole.typeToConsole('no');
-				await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronConsole.waitForReady('>>>');
+		await app.workbench.positronConsole.pasteCodeToConsole('x=100');
+		await app.workbench.positronConsole.sendEnterKey();
 
-			} catch {
-				// Prompt did not appear
-			}
+		await interpreter.set('R');
 
-			await app.workbench.positronConsole.waitForReady('>>>');
+		await app.workbench.positronConsole.pasteCodeToConsole('y<-reticulate::py$x');
+		await app.workbench.positronConsole.sendEnterKey();
+		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
-			await app.workbench.positronConsole.pasteCodeToConsole('x=100');
-			await app.workbench.positronConsole.sendEnterKey();
+		await expect(async () => {
+			const variablesMap = await app.workbench.positronVariables.getFlatVariables();
+			expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
+		}).toPass({ timeout: 60000 });
 
-			await PositronRFixtures.SetupFixtures(this.app as Application);
-
-			await app.workbench.positronConsole.pasteCodeToConsole('y<-reticulate::py$x');
-			await app.workbench.positronConsole.sendEnterKey();
-
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-
-			await expect(async () => {
-				const variablesMap = await app.workbench.positronVariables.getFlatVariables();
-				expect(variablesMap.get('y')).toStrictEqual({ value: '100', type: 'int' });
-			}).toPass({ timeout: 60000 });
-
-		});
 	});
 });

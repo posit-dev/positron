@@ -3,31 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { test, expect } from '../_test.setup';
 
-import { expect } from '@playwright/test';
-import { Application, PositronPythonFixtures, PositronRFixtures } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+test.use({
+	suiteId: __filename
+});
 
-describe('Welcome Page', () => {
-	setupAndStartApp();
-
-	before(async function () {
-		await PositronPythonFixtures.SetupFixtures(this.app as Application);
-	});
-
-	beforeEach(async function () {
-		const app = this.app as Application;
+test.describe('Welcome Page', () => {
+	test.beforeEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('Help: Welcome');
 	});
 
-	afterEach(async function () {
-		const app = this.app as Application;
+	test.afterEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('View: Close All Editors');
 	});
 
-	describe('General', () => {
-		it('Verify Welcome page header and footer [C684750]', async function () {
-			const app = this.app as Application;
+	test.describe('General', () => {
+		test('Verify Welcome page header and footer [C684750]', async function ({ app }) {
 
 			await expect(app.workbench.positronWelcome.logo).toBeVisible();
 
@@ -37,8 +29,7 @@ describe('Welcome Page', () => {
 			await expect(app.workbench.positronWelcome.footer).toHaveText('Show welcome page on startup');
 		});
 
-		it('Verify Welcome page content [C610960]', async function () {
-			const app = this.app as Application;
+		test('Verify Welcome page content [C610960]', async function ({ app }) {
 			const OPEN_BUTTONS_LABELS = process.platform === 'darwin' ?
 				['Open...', 'New Folder...', 'New Folder from Git...']
 				: ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
@@ -63,9 +54,7 @@ describe('Welcome Page', () => {
 			await expect(app.workbench.positronWelcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
-		it('Click on new project from the Welcome page [C684751]', async function () {
-			const app = this.app as Application;
-
+		test('Click on new project from the Welcome page [C684751]', async function ({ app }) {
 			await app.workbench.positronWelcome.newProjectButton.click();
 			await app.workbench.positronPopups.popupCurrentlyOpen();
 
@@ -78,13 +67,8 @@ describe('Welcome Page', () => {
 		});
 	});
 
-	describe('Python', () => {
-		before(async function () {
-			await PositronPythonFixtures.SetupFixtures(this.app as Application);
-		});
-
-		it('Create a new Python file from the Welcome page [C684752]', async function () {
-			const app = this.app as Application;
+	test.describe('Python', () => {
+		test('Create a new Python file from the Welcome page [C684752]', async function ({ app, python }) {
 
 			await app.workbench.positronWelcome.newFileButton.click();
 
@@ -95,8 +79,7 @@ describe('Welcome Page', () => {
 			await app.workbench.quickaccess.runCommand('View: Close Editor');
 		});
 
-		it('Create a new Python notebook from the Welcome page [C684753]', async function () {
-			const app = this.app as Application;
+		test('Create a new Python notebook from the Welcome page [C684753]', async function ({ app, python }) {
 
 			await app.workbench.positronWelcome.newNotebookButton.click();
 
@@ -108,8 +91,7 @@ describe('Welcome Page', () => {
 			await expect(app.workbench.positronNotebooks.kernelLabel).toHaveText(expectedInterpreterVersion);
 		});
 
-		it('Click on Python console from the Welcome page [C684754]', async function () {
-			const app = this.app as Application;
+		test('Click on Python console from the Welcome page [C684754]', async function ({ app, python }) {
 
 			await app.workbench.positronWelcome.newConsoleButton.click();
 			await app.workbench.positronPopups.popupCurrentlyOpen();
@@ -125,14 +107,8 @@ describe('Welcome Page', () => {
 		});
 	});
 
-	describe('R', () => {
-		before(async function () {
-			await PositronRFixtures.SetupFixtures(this.app as Application);
-		});
-
-		it('Create a new R file from the Welcome page [C684755]', async function () {
-			const app = this.app as Application;
-
+	test.describe('R', () => {
+		test('Create a new R file from the Welcome page [C684755]', async function ({ app, r }) {
 			await app.workbench.positronWelcome.newFileButton.click();
 
 			await app.workbench.quickinput.selectQuickInputElementContaining('R File');
@@ -140,9 +116,7 @@ describe('Welcome Page', () => {
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 		});
 
-		it('Click on R console from the Welcome page [C684756]', async function () {
-			const app = this.app as Application;
-
+		test('Click on R console from the Welcome page [C684756]', async function ({ app, r }) {
 			await app.workbench.positronWelcome.newConsoleButton.click();
 			await app.workbench.positronPopups.popupCurrentlyOpen();
 
@@ -156,9 +130,7 @@ describe('Welcome Page', () => {
 			await expect(app.workbench.positronLayouts.panelViewsTab.and(app.code.driver.getLocator('.checked'))).toHaveText('Console');
 		});
 
-		it('Create a new R notebook from the Welcome page [C684757]', async function () {
-			const app = this.app as Application;
-
+		test('Create a new R notebook from the Welcome page [C684757]', async function ({ app, r }) {
 			await app.workbench.positronWelcome.newNotebookButton.click();
 
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption('R Notebook');

@@ -17,7 +17,7 @@ const VERBOSE = process.env.VERBOSE === 'true';
  * @returns Logger instance
  */
 export function createLogger(logsRootPath: string): Logger {
-	const logsFileName = `smoke-test-runner.log`;
+	const logsFileName = `e2e-test-runner.log`;
 	const loggers: Logger[] = [];
 
 	if (VERBOSE) {
@@ -64,7 +64,7 @@ function logToFile(logFilePath: string, message: string): void {
  * @param err error
  */
 export function logErrorToFile(test: any, err: Error): void {
-	const LOGS_ROOT_PATH = process.env.LOGS_ROOT_PATH || 'LOGS_ROOT_PATH not set';
+	const LOGS_ROOT_PATH = process.env.LOGS_ROOT_PATH || 'LOGS_ROOT_PATH not set logger';
 
 	const fileName = path.basename(test.file);
 	const testLogPath = path.join(LOGS_ROOT_PATH, fileName, 'retry.log');

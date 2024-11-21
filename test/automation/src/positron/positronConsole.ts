@@ -36,7 +36,7 @@ export class PositronConsole {
 	consoleRestartButton: PositronBaseElement;
 
 	get activeConsole() {
-		return this.code.driver.getLocator(ACTIVE_CONSOLE_INSTANCE);
+		return this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 	}
 
 	get emptyConsole() {
@@ -67,16 +67,15 @@ export class PositronConsole {
 		}
 
 		await this.quickaccess.runCommand(command, { keepOpen: true });
-
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(desiredInterpreterString);
 
 		// Wait until the desired interpreter string appears in the list and select it.
 		// We need to click instead of using 'enter' because the Python select interpreter command
 		// may include additional items above the desired interpreter string.
-		const interpreterElem = await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
+		await this.quickinput.selectQuickInputElementContaining(desiredInterpreterString);
 		await this.quickinput.waitForQuickInputClosed();
-		return interpreterElem;
+		return;
 	}
 
 	async selectAndGetInterpreter(
@@ -160,37 +159,29 @@ export class PositronConsole {
 
 	/**
 	 * Check if the console is ready with Python or R, or if no interpreter is running.
-	 * @param retryCount The number of times to retry waiting for the console to be ready.
 	 * @throws An error if the console is not ready after the retry count.
 	 */
-	async waitForReadyOrNoInterpreter(retryCount: number = 800) {
-		for (let i = 0; i < retryCount; i++) {
-			// Check if the console is ready with Python.
-			try {
-				await this.waitForReady('>>>', 5);
-				// The console is ready with Python.
-				return;
-			} catch (error) {
-				// Python is not ready. Try the next interpreter.
-			}
+	async waitForReadyOrNoInterpreter() {
+		const page = this.code.driver.page;
 
-			// Check if the console is ready with R.
-			try {
-				await this.waitForReady('>', 5);
-				// The console is ready with R.
-				return;
-			} catch (error) {
-				// R is not ready. Try the next interpreter.
-			}
+		// ensure interpreter(s) containing starting/discovering do not exist in DOM
+		await expect(page.locator('text=/^Starting up|^Starting|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 30000 });
 
-			// Check if there is no interpreter running.
-			try {
-				await this.waitForNoInterpretersRunning(5);
-				// The console is ready with no interpreter running.
-				return;
-			} catch (error) {
-				// Text indicating no interpreter is running is not present. Try again.
-			}
+		// ensure we are on Console tab
+		await page.getByRole('tab', { name: 'Console', exact: true }).locator('a').click();
+
+		// wait for the dropdown to contain R, Python, or No Interpreter.
+		const currentInterpreter = await page.locator('.top-action-bar-interpreters-manager').textContent() || '';
+
+		if (currentInterpreter.includes('Python')) {
+			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
+			return;
+		} else if (currentInterpreter.includes('R')) {
+			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
+			return;
+		} else if (currentInterpreter.includes('Start Interpreter')) {
+			await expect(page.getByText('There is no interpreter')).toBeVisible();
+			return;
 		}
 
 		// If we reach here, the console is not ready.

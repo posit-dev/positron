@@ -511,63 +511,9 @@
 				"hidden": true
 			}
 		},
-		{
-			"type": "node",
-			"request": "launch",
-			"name": "Launch Smoke Test",
-			// --- Start Positron
-			"program": "${workspaceFolder}/test/smoke/run-tests.js",
-			// --- End Positron
-			"cwd": "${workspaceFolder}/test/smoke",
-			"timeout": 240000,
-			"args": [
-				"--tracing"
-			],
-			"outFiles": [
-				"${cwd}/out/**/*.js"
-			],
-			// --- Start Positron
-			"sourceMaps": true,
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**",
-				"!**/node_modules/**"
-			],
-			// --- End Positron
-			"env": {
-				"NODE_ENV": "development",
-				"VSCODE_DEV": "1",
-				"VSCODE_CLI": "1"
-			}
-		},
-		{
-			"type": "node",
-			"request": "launch",
-			"name": "Launch Web Smoke Test",
-			// --- Start Positron
-			"program": "${workspaceFolder}/test/smoke/run-tests.js",
-			// --- End Positron
-			"cwd": "${workspaceFolder}/test/smoke",
-			"timeout": 240000,
-			"args": [
-				"--tracing",
-				"--web"
-			],
-			"outFiles": [
-				"${cwd}/out/**/*.js"
-			],
-			// --- Start Positron
-			"sourceMaps": true,
-			"resolveSourceMapLocations": [
-				"${workspaceFolder}/**",
-				"!**/node_modules/**"
-			],
-			// --- End Positron
-			"env": {
-				"NODE_ENV": "development",
-				"VSCODE_DEV": "1",
-				"VSCODE_CLI": "1"
-			}
-		},
+		// --- Start Positron
+		// Removed `Launch Smoke Test` and `Launch Web Smoke Test` in favor of Playwright runner
+		// --- End Positron
 		{
 			"name": "Launch Built-in Extension",
 			"type": "extensionHost",

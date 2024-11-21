@@ -3,19 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { test, expect } from '../_test.setup';
 
-import { expect } from '@playwright/test';
-import { Application } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
+test.use({
+	suiteId: __filename
+});
 
-describe('Layouts #web', () => {
-	setupAndStartApp();
+test.describe('Layouts', { tag: ['@web'] }, () => {
 
-	describe('Stacked Layout', () => {
+	test.describe('Stacked Layout', () => {
 
-		it('Verify stacked layout puts stuff in appropriate places [C656294]', async function () {
-
-			const app = this.app as Application;
+		test('Verify stacked layout puts stuff in appropriate places [C656294]', async function ({ app }) {
 			const layouts = app.workbench.positronLayouts;
 
 			await app.code.driver.setViewportSize({ width: 1400, height: 1000 });
@@ -58,11 +56,10 @@ describe('Layouts #web', () => {
 		});
 	});
 
-	describe('Side-by-side Layout', () => {
+	test.describe('Side-by-side Layout', () => {
 
-		it('Verify Side-by-side layout puts stuff in appropriate places [C656295]', async function () {
+		test('Verify Side-by-side layout puts stuff in appropriate places [C656295]', async function ({ app }) {
 
-			const app = this.app as Application;
 			const layouts = app.workbench.positronLayouts;
 
 			// Enter layout with help pane docked in session panel
@@ -101,11 +98,10 @@ describe('Layouts #web', () => {
 		});
 	});
 
-	describe('Notebook Layout', () => {
+	test.describe('Notebook Layout', () => {
 
-		it('Verify notebook layout puts stuff in appropriate places [C656296]', async function () {
+		test('Verify notebook layout puts stuff in appropriate places [C656296]', async function ({ app }) {
 
-			const app = this.app as Application;
 			const layouts = app.workbench.positronLayouts;
 
 			// Enter layout with help pane docked in session panel

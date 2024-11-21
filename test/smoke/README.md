@@ -169,7 +169,7 @@ Make sure that you have followed the [Machine Setup](https://connect.posit.it/po
 
 ### Test Dependencies
 
-Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects.  A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
+Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-content). You will need to install the dependencies for those projects. A few current tests also use additional packages. You can look in the [positron-full-test.yml](https://github.com/posit-dev/positron/blob/39a01b71064e2ef3ef5822c95691a034b7e0194f/.github/workflows/positron-full-test.yml) Github action for the full list.
 
 ## Running Tests
 
@@ -237,9 +237,9 @@ yarn smoketest-pr --build /Applications/Positron.app --parallel --jobs 3
 
 ## Test Project
 
-Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts.  If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
+Before any of the tests start executing the test framework clones down the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. This repo contains R and Python files that are run by the automated tests and also includes data files (such as Excel, SQLite, & parquet) that support the test scripts. If you make additions to QA Content Examples for a test, please be sure that the data files are free to use in a public repository.
 
-For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.  We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise.  If this becomes a problem, we can revisit this mechanism.
+For Python, add any package requirements to the `requirements.txt` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo. We generally do NOT pin them to a specific version, as test can be run against different versions of python and conflicts could arise. If this becomes a problem, we can revisit this mechanism.
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
 
@@ -264,26 +264,26 @@ await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');`
 
 ### Playwright Traces
 
-Note that in launch.json for `Launch Smoke Test` we are passing the `--tracing` argument for you.  This will result in Playwright traces being generated locally for you when tests fail at `.build/logs/smoke-tests-electron/{testCase}`.  Note that for command line runs you will need to pass this arg yourself to get the trace file(s).
+Note that in launch.json for `Launch Smoke Test` we are passing the `--tracing` argument for you. This will result in Playwright traces being generated locally for you when tests fail at `.build/logs/smoke-tests-electron/{testCase}`. Note that for command line runs you will need to pass this arg yourself to get the trace file(s).
 
 ## Running Tests in Github Actions
 
-New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml).  In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system.  Also, you can easily run your new tests against a branch to verify them before merge.  Simply pick the branch after you click on "Run Workflow".  Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly.  To do this, skip the runs of the unit and integration tests.
+New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
 
 ### Github Actions Test Artifacts
 
-When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts.  The artifacts are available as a ZIP file from inside the workflow run.  Each artifact zip contains: a folder for each test file and an overall run log.  Inside the folder corresponding to each test file, you will find zip files that are Playwright traces.  Note that the trace files are only present for failed cases.
+When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts. The artifacts are available as a ZIP file from inside the workflow run. Each artifact zip contains: a folder for each test file and an overall run log. Inside the folder corresponding to each test file, you will find zip files that are Playwright traces. Note that the trace files are only present for failed cases.
 
-Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/).  The trace will usually give you a good visualization of the failed test, but they can be sparse on details.  More details are available from the run log (smoke-test-runner.log).  It has a start and end marker for each test case.
+Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/). The trace will usually give you a good visualization of the failed test, but they can be sparse on details. More details are available from the run log (e2e-test-runner.log). It has a start and end marker for each test case.
 
 ## Notes About Updating Specific Tests
 
 ### Plot Tests That Use Resemblejs
 
-In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case.  We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold.  You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
+In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case. We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold. You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
 
 ## Tests run on PRs
 
-If you think your test should be run when PRs are created, add the string `#pr` to its name.  The existing #pr cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less.  If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the #pr set.
+If you think your test should be run when PRs are created, add the string `#pr` to its name. The existing #pr cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the #pr set.
 
 <!-- End Positron -->
