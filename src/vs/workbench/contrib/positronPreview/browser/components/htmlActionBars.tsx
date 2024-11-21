@@ -19,6 +19,7 @@ import { DisposableStore } from 'vs/base/common/lifecycle';
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
 const openInBrowser = localize('positron.preview.html.openInBrowser', "Open the content in the default browser");
+const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.");
 
 /**
  * HtmlActionBarsProps interface.
@@ -31,7 +32,7 @@ export interface HtmlActionBarsProps extends PreviewActionBarsProps {
 
 export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) => {
 
-	const [title, setTitle] = useState(props.preview.html.title);
+	const [title, setTitle] = useState(props.preview.html?.title);
 
 	// Handler for the reload button.
 	const reloadHandler = () => {
@@ -50,6 +51,11 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 	const openInBrowserHandler = () => {
 		props.openerService.open(props.preview.uri,
 			{ openExternal: true, fromUserGesture: true });
+	};
+
+	// Handler for open in editor button
+	const openInEditorHandler = () => {
+		props.positronPreviewService.openEditor(props.preview.uri, title);
 	};
 
 	// Main use effect.
@@ -88,6 +94,13 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 							tooltip={openInBrowser}
 							ariaLabel={openInBrowser}
 							onPressed={openInBrowserHandler} />
+						<ActionBarSeparator />
+						<ActionBarButton
+							iconId='go-to-file'
+							align='right'
+							tooltip={openInEditor}
+							ariaLabel={openInEditor}
+							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							iconId='clear-all'
