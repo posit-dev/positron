@@ -567,6 +567,15 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
+	 * Fixes the scroll event override that VS Code drops to prevent gesture navigation.
+	 * @param e A WheelEvent<HTMLDivElement>
+	 */
+	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
+		consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
+		e.preventDefault();
+	};
+
+	/**
 	 * onWheel event handler.
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
@@ -608,7 +617,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onMouseDown={mouseDownHandler}
 			onWheel={wheelHandler}
 			onScroll={scrollHandler}>
-			<div ref={consoleInstanceContainerRef} className='console-instance-container'>
+			<div
+				ref={consoleInstanceContainerRef}
+				className='console-instance-container'
+				onWheel={scrollOverrideHandler}
+			>
 				<ConsoleInstanceItems
 					positronConsoleInstance={props.positronConsoleInstance}
 					editorFontInfo={editorFontInfo}
