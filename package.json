@@ -49,6 +49,7 @@
     "e2e-browser": "npx playwright test --project e2e-browser --workers 1",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @pr",
     "e2e-win": "npx playwright test --project e2e-electron --grep @win",
+    "e2e-failed": "npx playwright test --last-failed",
     "download-builtin-extensions": "node build/lib/builtInExtensions.js",
     "download-builtin-extensions-cg": "node build/lib/builtInExtensionsCG.js",
     "download-quarto": "node build/lib/quarto.js",
@@ -128,7 +129,7 @@
   },
   "devDependencies": {
     "@midleman/github-actions-reporter": "^1.9.5",
-    "@playwright/test": "^1.48.0",
+    "@playwright/test": "^1.49.0",
     "@swc/core": "1.3.62",
     "@types/cookie": "^0.3.3",
     "@types/debug": "^4.1.5",
