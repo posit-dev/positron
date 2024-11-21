@@ -2091,9 +2091,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
 
-		// If the code exection mode is silent, prevent the code input
-		// from being exposed in the console UI
-		if (runtimeCodeExecutionMode !== RuntimeCodeExecutionMode.Silent) {
+		// Fallback to an interactive exection mode if one is not provided
+		const codeExecutionMode = runtimeCodeExecutionMode || RuntimeCodeExecutionMode.Interactive;
+
+		// If the code exection mode is silent, skip creating a runtimeItem
+		// to prevent the code input from being exposed in the console UI
+		if (codeExecutionMode !== RuntimeCodeExecutionMode.Silent) {
 			// Create the provisional ActivityItemInput.
 			const activityItemInput = new ActivityItemInput(
 				ActivityItemInputState.Provisional,
@@ -2111,9 +2114,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 		}
 
-		// Fallback to an interactive exection mode if one is not provided
-		const codeExecutionMode = runtimeCodeExecutionMode || RuntimeCodeExecutionMode.Interactive;
-
 		// Execute the code.
 		this.session.execute(
 			code,
@@ -2121,8 +2121,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			codeExecutionMode,
 			RuntimeErrorBehavior.Continue);
 
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire(code);
+		// Code that is not executed interactively should not show up in the console history
+		if (codeExecutionMode === RuntimeCodeExecutionMode.Interactive) {
+			// Fire the onDidExecuteCode event.
+			this._onDidExecuteCodeEmitter.fire(code);
+		}
 	}
 
 	/**
