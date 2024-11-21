@@ -258,7 +258,8 @@ export const VerticalSplitter = ({
 	 */
 	const sashPointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		// Ignore events we don't process.
-		if (e.pointerType === 'mouse' && e.buttons !== 1) {
+		const isNonLeftMouseClick = e.pointerType === 'mouse' && e.buttons !== 1;
+		if (isNonLeftMouseClick) {
 			return;
 		}
 
