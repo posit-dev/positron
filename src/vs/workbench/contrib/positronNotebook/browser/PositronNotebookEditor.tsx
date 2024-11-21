@@ -50,7 +50,7 @@ import {
 	IEditorGroup,
 	IEditorGroupsService
 } from '../../../services/editor/common/editorGroupsService.js';
-import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
+import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
