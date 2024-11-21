@@ -14,7 +14,7 @@ import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEf
 import * as nls from 'vs/nls';
 import * as DOM from 'vs/base/browser/dom';
 import { generateUuid } from 'vs/base/common/uuid';
-import { isMacintosh } from 'vs/base/common/platform';
+import { isMacintosh, isWeb } from 'vs/base/common/platform';
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
 import { disposableTimeout } from 'vs/base/common/async';
 import { DisposableStore } from 'vs/base/common/lifecycle';
@@ -571,8 +571,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	 * @param e A WheelEvent<HTMLDivElement>
 	 */
 	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
-		consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
-		e.preventDefault();
+		if (isWeb) {
+			consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
+		}
 	};
 
 	/**
