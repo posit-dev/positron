@@ -508,7 +508,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._editors.set(previewId, {
 			uri: uri,
 			webview: this.createPreviewUrl(previewId, undefined, uri),
-			title: title
+			title: title || uri.authority || uri.path
 		});
 
 		await this._editorService.openEditor({
