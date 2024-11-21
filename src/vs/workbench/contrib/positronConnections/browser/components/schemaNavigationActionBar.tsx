@@ -20,12 +20,14 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 
 import 'vs/css!./actionBar';
 import { localize } from 'vs/nls';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
 export const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps {
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

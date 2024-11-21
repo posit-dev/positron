@@ -5,6 +5,7 @@
 
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -18,6 +19,7 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 export interface PositronConnectionsServices {
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

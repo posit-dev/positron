@@ -1627,7 +1627,7 @@ var AMDLoader;
 					} else {
 						// Unit tests load client.js from 'http://localhost'. For example:
 						// http://localhost:51262/e9416c1769b269baf1f33978a0695be1/node_modules/react-dom/umd/react-dom.production.min.js/client.js
-						const reactDomClientLocalhost = /(http:\/\/localhost:[0-9]+\/[0-9A-Fa-f]+)(\/node_modules\/react-dom\/umd\/react-dom.production.min.js\/client.js)/;
+						const reactDomClientLocalhost = /^(http:\/\/localhost:[0-9]+\/[0-9A-Fa-f]+)(\/node_modules\/react-dom\/umd\/react-dom.production.min.js\/client.js)$/;
 						const result = paths[0].match(reactDomClientLocalhost);
 						if (result && result.length === 3) {
 							paths[0] = `${result[1]}/out/react-dom/client.js`;

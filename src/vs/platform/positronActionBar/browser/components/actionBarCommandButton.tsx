@@ -1,22 +1,27 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import 'vs/css!./actionBarCommandButton';
+
+// React.
 import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// Other dependencies.
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
+import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
 import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
 
 /**
  * ActionBarCommandButtonProps interface.
  */
 interface ActionBarCommandButtonProps extends ActionBarButtonProps {
-	commandId: string;
+	readonly commandId: string;
 }
 
 /**
@@ -27,7 +32,9 @@ interface ActionBarCommandButtonProps extends ActionBarButtonProps {
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const [disabled, setDisabled] = useState(!positronActionBarContext.isCommandEnabled(props.commandId));
+	const [commandDisabled, setCommandDisabled] = useState(
+		!positronActionBarContext.isCommandEnabled(props.commandId)
+	);
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Add our event handlers.
@@ -45,20 +52,17 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			disposableStore.add(positronActionBarContext.contextKeyService.onDidChangeContext(e => {
 				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
-					setDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+					setCommandDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
 			}));
 		}
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [positronActionBarContext.contextKeyService, props.commandId]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
-
-	// Handlers.
-	const executeHandler = () => positronActionBarContext.commandService.executeCommand(props.commandId);
 
 	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
@@ -81,5 +85,15 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} ref={buttonRef} tooltip={tooltip} disabled={disabled} onPressed={executeHandler} />;
+	return (
+		<ActionBarButton
+			ref={buttonRef}
+			{...props}
+			tooltip={tooltip}
+			disabled={props.disabled || commandDisabled}
+			onPressed={() =>
+				positronActionBarContext.commandService.executeCommand(props.commandId)
+			}
+		/>
+	);
 };

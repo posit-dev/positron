@@ -8,6 +8,7 @@ import * as DOM from 'vs/base/browser/dom';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
 import { CancellationToken } from 'vs/base/common/cancellation';
 import { Emitter, Event } from 'vs/base/common/event';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
@@ -92,6 +93,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	constructor(
 		readonly _group: IEditorGroup,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -124,6 +126,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 		this._reactRenderer.render(
 			<PositronPlotsContextProvider
+				accessibilityService={this._accessibilityService}
 				commandService={this._commandService}
 				configurationService={this._configurationService}
 				contextKeyService={this._contextKeyService}

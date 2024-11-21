@@ -8,139 +8,25 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { unmnemonicLabel } from 'vs/base/common/labels';
+import { DisposableStore } from 'vs/base/common/lifecycle';
 import { IHoverService } from 'vs/platform/hover/browser/hover';
 import { Action, IAction, Separator } from 'vs/base/common/actions';
-import { HoverPosition } from 'vs/base/browser/ui/hover/hoverWidget';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-import { IHoverOptions, IHoverWidget } from 'vs/base/browser/ui/hover/hover';
+import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { CommandCenter } from 'vs/platform/commandCenter/common/commandCenter';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { Disposable, DisposableStore, toDisposable } from 'vs/base/common/lifecycle';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { ContextKeyExpression, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-
-/**
- * IHoverManager interface.
- */
-export interface IHoverManager {
-	/**
-	 * Shows a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
-	 */
-	showHover(options: IHoverOptions, focus?: boolean): void;
-
-	/**
-	 * Hides a hover.
-	 */
-	hideHover(): void;
-}
-
-/**
- * HoverManager class.
- */
-class HoverManager extends Disposable {
-	/**
-	 * Gets or sets the hover leave time.
-	 */
-	private static _hoverLeaveTime: number = 0;
-
-	/**
-	 * The hover delay.
-	 */
-	private _hoverDelay: number;
-
-	/**
-	 * Gets or sets the timeout.
-	 */
-	private _timeout?: NodeJS.Timeout;
-
-	/**
-	 * Gets or sets the last hover widget.
-	 */
-	private _lastHoverWidget?: IHoverWidget;
-
-	/**
-	 * Constructor.
-	 * @param configurationService The configuration service.
-	 * @param _hoverService The hover service.
-	 */
-	constructor(
-		configurationService: IConfigurationService,
-		private readonly _hoverService: IHoverService
-	) {
-		// Call the base class's method.
-		super();
-
-		// Initialize and track changes to the hover delay.
-		this._hoverDelay = configurationService.getValue<number>('workbench.hover.delay');
-		this._register(configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('workbench.hover.delay')) {
-				this._hoverDelay = configurationService.getValue<number>('workbench.hover.delay');
-			}
-		}));
-
-		// Hide the hover when the hover manager is disposed.
-		this._register(toDisposable(() => this.hideHover()));
-	}
-
-	/**
-	 * Shows a hover.
-	 * @param options A IHoverOptions that contains the hover options.
-	 * @param focus A value which indicates whether to focus the hover when it is shown.
-	 */
-	public showHover(options: IHoverOptions, focus?: boolean) {
-		// Hide the hover.
-		this.hideHover();
-
-		/**
-		 * Shows the hover.
-		 * @param skipFadeInAnimation A value which indicates whether to skip fade in animation.
-		 */
-		const showHover = (skipFadeInAnimation: boolean) => {
-			// Update the position and appearance options.
-			options.position = { ...options.position, hoverPosition: HoverPosition.BELOW };
-			options.appearance = { ...options.appearance, skipFadeInAnimation };
-
-			// Show the hover and set the last hover widget.
-			this._lastHoverWidget = this._hoverService.showHover(options, focus);
-		};
-
-		// If a hover was recently shown, show the hover immediately and skip the fade in animation.
-		// If not, schedule the hover for display with fade in animation.
-		if (Date.now() - HoverManager._hoverLeaveTime < 200) {
-			showHover(true);
-		} else {
-			// Set the timeout to show the hover.
-			this._timeout = setTimeout(() => showHover(false), this._hoverDelay);
-		}
-	}
-
-	/**
-	 * Hides a hover.
-	 */
-	public hideHover() {
-		// Clear pending timeout.
-		if (this._timeout) {
-			clearTimeout(this._timeout);
-			this._timeout = undefined;
-		}
-
-		// If there is a last hover widget, dispose of it and set the hover leave time.
-		if (this._lastHoverWidget) {
-			this._lastHoverWidget.dispose();
-			this._lastHoverWidget = undefined;
-			HoverManager._hoverLeaveTime = Date.now();
-		}
-	}
-}
+import { PositronActionBarHoverManager } from 'vs/platform/positronActionBar/browser/positronActionBarHoverManager';
 
 /**
  * PositronActionBarServices interface. Defines the set of services that are required by a Positron
  * action bar.
  */
 export interface PositronActionBarServices {
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;
@@ -179,10 +65,9 @@ export interface PositronActionBarState extends PositronActionBarServices {
 export const usePositronActionBarState = (
 	services: PositronActionBarServices
 ): PositronActionBarState => {
-	// State hooks.
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
-	const [hoverManager, setHoverManager] = useState<HoverManager>(undefined!);
+	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
 
 	// Main use effect.
 	useEffect(() => {
@@ -190,14 +75,15 @@ export const usePositronActionBarState = (
 		const disposableStore = new DisposableStore();
 
 		// Create the hover manager.
-		setHoverManager(disposableStore.add(new HoverManager(
+		setHoverManager(disposableStore.add(new PositronActionBarHoverManager(
+			true,
 			services.configurationService,
 			services.hoverService
 		)));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [services.configurationService, services.hoverService]);
+	}, [services.accessibilityService, services.configurationService, services.hoverService]);
 
 	/**
 	 * Appends a command action.
