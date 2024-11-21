@@ -46,7 +46,6 @@ import { NotebookInstanceProvider } from 'vs/workbench/contrib/positronNotebook/
 import { PositronNotebookComponent } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookComponent';
 import { ServicesProvider } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
 import {
-	GroupsOrder,
 	IEditorGroup,
 	IEditorGroupsService
 } from 'vs/workbench/services/editor/common/editorGroupsService';
@@ -161,31 +160,31 @@ export class PositronNotebookEditor extends EditorPane {
 		}
 	}
 
-	private _loadNotebookEditorViewState(
-		input: PositronNotebookEditorInput
-	): INotebookEditorViewState | undefined {
-		let result: INotebookEditorViewState | undefined;
-		if (this.group) {
-			result = this._editorMemento.loadEditorState(this.group, input.resource);
-		}
-		if (result) {
-			return result;
-		}
-		// when we don't have a view state for the group/input-tuple then we try to use an existing
-		// editor for the same resource. (Comment copied from vs-notebooks implementation)
-		for (const group of this._editorGroupService.getGroups(
-			GroupsOrder.MOST_RECENTLY_ACTIVE
-		)) {
-			if (
-				group.activeEditorPane !== this &&
-				group.activeEditorPane instanceof PositronNotebookEditor &&
-				group.activeEditor?.matches(input)
-			) {
-				return group.activeEditorPane.notebookInstance?.getEditorViewState();
-			}
-		}
-		return;
-	}
+	// private _loadNotebookEditorViewState(
+	// 	input: PositronNotebookEditorInput
+	// ): INotebookEditorViewState | undefined {
+	// 	let result: INotebookEditorViewState | undefined;
+	// 	if (this.group) {
+	// 		result = this._editorMemento.loadEditorState(this.group, input.resource);
+	// 	}
+	// 	if (result) {
+	// 		return result;
+	// 	}
+	// 	// when we don't have a view state for the group/input-tuple then we try to use an existing
+	// 	// editor for the same resource. (Comment copied from vs-notebooks implementation)
+	// 	for (const group of this._editorGroupService.getGroups(
+	// 		GroupsOrder.MOST_RECENTLY_ACTIVE
+	// 	)) {
+	// 		if (
+	// 			group.activeEditorPane !== this &&
+	// 			group.activeEditorPane instanceof PositronNotebookEditor &&
+	// 			group.activeEditor?.matches(input)
+	// 		) {
+	// 			return group.activeEditorPane.notebookInstance?.getEditorViewState();
+	// 		}
+	// 	}
+	// 	return;
+	// }
 
 	protected override saveState(): void {
 		this._saveEditorViewState();
@@ -303,10 +302,6 @@ export class PositronNotebookEditor extends EditorPane {
 			)
 		);
 
-		const viewState =
-			options?.viewState ?? this._loadNotebookEditorViewState(input);
-
-
 		if (input.notebookInstance === undefined) {
 			throw new Error(
 				'Notebook instance is undefined. This should have been created in the constructor.'
@@ -315,9 +310,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 		this._renderReact();
 
-		const viewModel = this.getViewModel(model.notebook);
-
-		input.notebookInstance.attachView(viewModel, this._parentDiv, viewState);
+		input.notebookInstance.attachView(this._parentDiv);
 	}
 
 	override clearInput(): void {

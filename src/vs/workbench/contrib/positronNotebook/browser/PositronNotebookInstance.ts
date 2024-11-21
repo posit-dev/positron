@@ -11,12 +11,10 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
 import { ILogService } from 'vs/platform/log/common/log';
-import { insertCellAtIndex } from 'vs/workbench/contrib/notebook/browser/controller/cellOperations';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
-import { NotebookViewModel } from 'vs/workbench/contrib/notebook/browser/viewModel/notebookViewModelImpl';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { CellEditType, CellKind, ICellReplaceEdit, SelectionStateType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellEditType, CellKind, ICellReplaceEdit, ISelectionState, SelectionStateType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell';
@@ -37,9 +35,6 @@ import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/se
 import { isEqual } from 'vs/base/common/resources';
 import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
 
-interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
-	viewModel: NotebookViewModel;
-}
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
 }
@@ -123,11 +118,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-
 	/**
 	 * View model for the notebook.
 	 */
-	private _viewModel: NotebookViewModel | undefined = undefined;
+	// private _viewModel: NotebookViewModel | undefined = undefined;
 
 	/**
 	 * Model for the notebook contents.
@@ -186,6 +180,10 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
 
+	/**
+	 * Language for the notebook.
+	 */
+	private _language: string | undefined;
 
 	// #endregion
 
@@ -202,13 +200,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get uri(): URI {
 		return this._input.resource;
-	}
-
-	/**
-	 * Returns view model. Type of unknown is used to deal with type import rules. Should be type-cast to NotebookViewModel.
-	 */
-	get viewModel(): NotebookViewModel | undefined {
-		return this._viewModel;
 	}
 
 	/**
@@ -245,6 +236,27 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get isDisposed(): boolean {
 		return this._isDisposed;
+	}
+
+	/**
+	 * Gets the language for the notebook.
+	 */
+	get language(): string {
+		if (this._language) {
+			return this._language;
+		}
+
+		// Try to get language from kernel
+		if (this._textModel) {
+			const kernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this._textModel);
+			if (kernel) {
+				this._language = kernel.supportedLanguages[0];
+				return this._language;
+			}
+		}
+
+		// Fallback to a default language
+		return 'plaintext';
 	}
 
 	// #endregion
@@ -352,23 +364,44 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	addCell(type: CellKind, index: number): void {
-		this._assertViewModel();
+		this._assertTextModel();
 
-		const language = this._getDefaultLanguage();
-
+		if (!this.language) {
+			throw new Error(localize('noLanguage', "No language for notebook"));
+		}
 		const synchronous = true;
 		const pushUndoStop = true;
-		insertCellAtIndex(
-			this.viewModel,
-			index,
-			'',
-			language,
-			type,
-			undefined,
-			[],
+		const endSelections: ISelectionState = { kind: SelectionStateType.Index, focus: { start: index, end: index + 1 }, selections: [{ start: index, end: index + 1 }] };
+		const focusAfterInsertion = {
+			start: index,
+			end: index + 1
+		};
+		this.textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index,
+				count: 0,
+				cells: [
+					{
+						cellKind: type,
+						language: this.language,
+						mime: undefined,
+						outputs: [],
+						metadata: undefined,
+						source: ''
+					}
+				]
+			}
+		],
 			synchronous,
-			pushUndoStop
+			{
+				kind: SelectionStateType.Index,
+				focus: focusAfterInsertion,
+				selections: [focusAfterInsertion]
+			},
+			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
 		);
+
 	}
 
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void {
@@ -430,36 +463,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	}
 
-	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {
-		// Make sure we're detethered from existing views. (Useful when we're swapping to a new
-		// window and the old window still exists)
-
+	async attachView(container: HTMLElement) {
 		this.detachView();
-
 		this._container = container;
-
 		this.contextManager.setContainer(container);
-
-		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
-		if (alreadyHasModel) {
-			// No need to do anything if the model is already set.
-			return;
-		}
 
 		const notifyOfModelChange = true;
 
-		this._viewModel = viewModel;
-
 		if (notifyOfModelChange) {
-			// Fire on did change with new model
-			this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
+			this._onDidChangeModel.fire(this._textModel);
 		}
 
-		// Bring the view model back to the state it was in when the view state was saved.
-		this._viewModel?.restoreEditorViewState(viewState);
-
 		this._setupKeyboardNavigation(container);
-
 		this._logService.info(this.id, 'attachView');
 	}
 
@@ -477,7 +492,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const options = new BaseCellEditorOptions({
 			onDidChangeModel: this._onDidChangeModel.event,
-			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this._viewModel)),
+			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this._textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
 		}, this.notebookOptions, this.configurationService, language);
@@ -520,11 +535,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	// =============================================================================================
 	// #region Private Methods
 
-	private _assertViewModel(): asserts this is IPositronNotebookInstanceRequiredViewModel {
-		if (this._viewModel === undefined) {
-			throw new Error('No view model for notebook');
-		}
-	}
 
 
 	private _assertTextModel(): asserts this is IPositronNotebookInstanceRequiredTextModel {
@@ -699,27 +709,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _detachModel() {
 		this._logService.info(this.id, 'detachModel');
-		// Clear store of disposables
 		this._modelStore.clear();
-		this._viewModel?.dispose();
-		this._viewModel = undefined;
-	}
-
-	/**
-	 * Gets the default language for new cells based on the notebook's current state
-	 * @returns The language to use for new cells
-	 */
-	private _getDefaultLanguage(): string {
-		this._assertTextModel();
-
-		// If we have a text model with cells, use the language of the first cell
-		if (this.textModel.cells.length > 0) {
-			return this.textModel.cells[0].language;
-		}
-
-		// Default to python if we don't have any cells yet
-		// TODO: Make this configurable or based on notebook metadata
-		return 'python';
 	}
 
 	// #endregion

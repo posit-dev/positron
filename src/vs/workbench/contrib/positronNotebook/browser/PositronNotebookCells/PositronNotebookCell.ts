@@ -39,21 +39,7 @@ export abstract class PositronNotebookCellGeneral extends Disposable implements 
 	}
 
 	get handleId(): number {
-
-		const notebookViewModel = this._instance.viewModel;
-		if (!notebookViewModel) {
-			throw new Error('Notebook view model not found');
-		}
-
-		const viewCells = notebookViewModel.viewCells;
-
-		const cell = viewCells.find(cell => cell.uri.toString() === this.cellModel.uri.toString());
-
-		if (cell) {
-			return cell.handle;
-		}
-
-		throw new Error('Cell view model not found');
+		return this.cellModel.handle;
 	}
 
 	getContent(): string {
