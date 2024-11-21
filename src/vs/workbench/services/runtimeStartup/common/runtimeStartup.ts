@@ -10,6 +10,7 @@ import { IConfigurationService } from 'vs/platform/configuration/common/configur
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
@@ -18,7 +19,7 @@ import { Event } from 'vs/base/common/event';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
-import { ILifecycleService, ShutdownReason, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
+import { ILifecycleService, ShutdownReason } from 'vs/workbench/services/lifecycle/common/lifecycle';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { ICommandService } from 'vs/platform/commands/common/commands';
@@ -40,10 +41,14 @@ interface SerializedSessionMetadata {
 }
 
 /**
- * Key for storing the set of persistent workspace session list; bump version at
- * end when changing storage format.
+ * Key for storing the set of persistent workspace session list. The session
+ * list is stored in ephemeral storage; it persists across browser
+ * reloads/reconnects, but not across Positron sessions.
+ *
+ * Amended with the workspace ID to allow for multiple workspaces to store their
+ * sessions separately.
  */
-const PERSISTENT_WORKSPACE_SESSIONS_KEY = 'positron.workspaceSessionList.v1';
+const PERSISTENT_WORKSPACE_SESSIONS_PREFIX = 'positron.workspaceSessionList';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
@@ -82,6 +87,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	// The current startup phase; an observeable value.
 	private _startupPhase: ISettableObservable<RuntimeStartupPhase>;
 
+	// Whether we are shutting down
+	private _shuttingDown = false;
+
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	constructor(
@@ -97,7 +105,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
-		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService) {
+		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService) {
 
 		super();
 
@@ -139,6 +148,12 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			this.saveWorkspaceSessions();
 
 			this._register(session.onDidEndSession(exit => {
+				// Ignore if shutting down; sessions 'exit' during shutdown as
+				// they disconnect from the extension host.
+				if (this._shuttingDown) {
+					return;
+				}
+
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions();
 
@@ -261,20 +276,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		});
-		// Register a shutdown event handler to clear the workspace sessions to
-		// prepare for a clean start of Positron next time.
-		this._lifecycleService.onBeforeShutdown((e) => {
-			if (e.reason === ShutdownReason.QUIT) {
-				// We're quitting; clear the workspace sessions.
-				e.veto(this.clearWorkspaceSessions(),
-					'positron.runtimeStartup.clearWorkspaceSessions');
-			} else if (e.reason === ShutdownReason.RELOAD) {
+
+		// Register a shutdown event handler so that we have a chance to save
+		// state before a reload.
+		this._register(this._lifecycleService.onBeforeShutdown((e) => {
+			// Mark that we are shutting down
+			this._shuttingDown = true;
+			if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
-				// before reloading.
+				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
 			}
-		});
+		}));
 	}
 
 	/**
@@ -306,23 +320,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Then, discover all language runtimes.
 		await this.discoverAllRuntimes();
-	}
-
-	/**
-	 * Clears all known workspace sessions from the workspace storage.
-	 *
-	 * This is done for hygiene reasons; it's not strictly necessary, because
-	 * new windows don't load the workspace storage from the previous window.
-	 *
-	 * @returns False, always, so that it can be called during the shutdown
-	 */
-	private clearWorkspaceSessions(): boolean {
-
-		// Remove the storage key.
-		this._storageService.remove(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			StorageScope.WORKSPACE);
-
-		return false;
 	}
 
 	/**
@@ -691,44 +688,47 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Restores the set of active workspace sessions from the workspace storage.
+	 * Restores the set of active workspace sessions from ephemeral storage.
 	 */
 	private async restoreSessions() {
 
-		// Don't attempt to restore sessions if we're not reloading
-		if (this._lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
-			// Clear any sessions that may have been saved from a previous
-			// window.
-			this.clearWorkspaceSessions();
-			return;
-		}
+		this._logService.debug(`[Runtime startup] Session restore; workspace: ${this._workspaceContextService.getWorkspace().id}, workbench state: ${this._workspaceContextService.getWorkbenchState()}, startupKind: ${this._lifecycleService.startupKind}`);
 
 		// Get the set of sessions that were active when the workspace was last
 		// open, and attempt to reconnect to them.
-		const storedSessions = this._storageService.get(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			StorageScope.WORKSPACE);
-		if (storedSessions) {
-			try {
-				const serializedSessions = JSON.parse(storedSessions) as SerializedSessionMetadata[];
-
-				// Revive the URIs in the session metadata.
-				const sessions: SerializedSessionMetadata[] = serializedSessions.map(session => ({
-					...session,
-					metadata: {
-						...session.metadata,
-						notebookUri: URI.revive(session.metadata.notebookUri),
-					},
-				}));
-
-				if (sessions.length > 0) {
-					// If this workspace has sessions, attempt to reconnect to
-					// them.
-					await this.restoreWorkspaceSessions(sessions);
-				}
-			} catch (err) {
-				this._logService.error(`Could not restore workspace sessions: ${err} ` +
-					`(data: ${storedSessions})`);
+		let storedSessions: Array<SerializedSessionMetadata> = new Array();
+		try {
+			const sessions = await this._ephemeralStateService.getItem<Array<SerializedSessionMetadata>>(this.getPersistentWorkspaceSessionsKey());
+			if (sessions) {
+				storedSessions = sessions;
 			}
+		} catch (err) {
+			this._logService.warn(`Can't read workspace sessions from ${this.getPersistentWorkspaceSessionsKey()}: ${err}. No sessions will be restored.`);
+		}
+
+		if (!storedSessions) {
+			this._logService.debug(`[Runtime startup] No sessions to resume found in ephemeral storage.`);
+			return;
+		}
+
+		try {
+			// Revive the URIs in the session metadata.
+			const sessions: SerializedSessionMetadata[] = storedSessions.map(session => ({
+				...session,
+				metadata: {
+					...session.metadata,
+					notebookUri: URI.revive(session.metadata.notebookUri),
+				},
+			}));
+
+			if (sessions.length > 0) {
+				// If this workspace has sessions, attempt to reconnect to
+				// them.
+				await this.restoreWorkspaceSessions(sessions);
+			}
+		} catch (err) {
+			this._logService.error(`Could not restore workspace sessions: ${err} ` +
+				`(data: ${storedSessions})`);
 		}
 	}
 
@@ -769,8 +769,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * @returns False, always, so that it can be called during the shutdown
 	 * process.
 	 */
-	private saveWorkspaceSessions(): boolean {
-
+	private async saveWorkspaceSessions(): Promise<boolean> {
 		// Derive the set of sessions that are currently active and workspace scoped.
 		const workspaceSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
@@ -793,10 +792,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			`${session.metadata.sessionName} (${session.metadata.sessionId})`).join(', ')}`);
 
 		// Save the sessions to the workspace storage.
-		this._storageService.store(PERSISTENT_WORKSPACE_SESSIONS_KEY,
-			JSON.stringify(workspaceSessions),
-			StorageScope.WORKSPACE,
-			StorageTarget.MACHINE);
+		this._logService.debug(`[Runtime startup] Saving workspace sessions (${workspaceSessions.length})`);
+		this._ephemeralStateService.setItem(this.getPersistentWorkspaceSessionsKey(),
+			workspaceSessions);
 		return false;
 	}
 
@@ -855,11 +853,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			{
 				label: nls.localize('openOutputLogs', 'Open Logs'),
 				run: () => {
-					session.showOutput()
+					session.showOutput();
 				}
 			},
 		]);
 
+	}
+
+	private getPersistentWorkspaceSessionsKey(): string {
+		return `${PERSISTENT_WORKSPACE_SESSIONS_PREFIX}.${this._workspaceContextService.getWorkspace().id}`;
 	}
 }
 
