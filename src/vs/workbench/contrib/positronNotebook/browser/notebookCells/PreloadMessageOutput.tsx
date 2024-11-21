@@ -7,7 +7,7 @@ import * as React from 'react';
 import { localize } from 'vs/nls';
 import { useWebviewMount } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/hooks/useWebviewMount';
 import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
+import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
 
 type PreloadMessageOutputProps = {
 	preloadMessageResult?: NotebookPreloadOutputResults;
