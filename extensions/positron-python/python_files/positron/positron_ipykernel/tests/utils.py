@@ -94,12 +94,12 @@ def json_rpc_error(code: int, message: str) -> JsonRecord:
     )
 
 
-def json_rpc_notification(method: str, params: JsonRecord) -> JsonRecord:
+def json_rpc_notification(method: str, params: Optional[JsonRecord] = None) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",
             "method": method,
-            "params": params,
+            "params": {} if params is None else params,
         }
     )
 
@@ -135,3 +135,7 @@ def json_rpc_response(result: JsonData) -> JsonRecord:
 # remove "<class '...'>" from value
 def get_type_as_str(value: Any) -> str:
     return repr(type(value))[8:-2]
+
+
+def percent_difference(actual: float, expected: float) -> float:
+    return abs(actual - expected) / actual
