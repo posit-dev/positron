@@ -73,8 +73,8 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
-		label: 'kallichore-adapter',
-		workspaceFolder: path.join(os.tmpdir(), `kallichore-adapter-${Math.floor(Math.random() * 100000)}`),
+		label: 'positron-supervisor',
+		workspaceFolder: path.join(os.tmpdir(), `positron-supervisor-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }
 	},
 	// --- End Positron ---

@@ -71,3 +71,4 @@ export function withTimeout<T>(promise: Promise<T>,
 		new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), timeout))
 	]);
 }
+

@@ -1427,6 +1427,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this._runtimeState === RuntimeState.Uninitialized) && this.runtimeAttached) {
 				this.detachRuntime();
 			}
+
+			// Mark the console as exited so it can be reused
+			this.setState(PositronConsoleState.Exited);
 		}));
 
 		// Add the onDidReceiveRuntimeMessageInput event handler.

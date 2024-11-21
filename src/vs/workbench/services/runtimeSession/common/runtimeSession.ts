@@ -6,7 +6,7 @@
 import * as nls from 'vs/nls';
 import { DeferredPromise } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
-import { Disposable, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ILogService } from 'vs/platform/log/common/log';
@@ -112,6 +112,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// from ID to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
+
+	// A map of disposables associated with each session, keyed by the session ID.
+	private readonly _sessionDisposables = new Map<string, DisposableStore>;
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -291,6 +294,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *  no notebook session with the given notebook URI exists.
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
+		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
 		return this._notebookSessionsByNotebookUri.get(notebookUri);
 	}
 
@@ -864,6 +869,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 				if (session.metadata.notebookUri) {
 					this._startingNotebooksByNotebookUri.delete(session.metadata.notebookUri);
+					this._logService.info(`Notebook session for ${session.metadata.notebookUri} started: ${session.metadata.sessionId}`);
 					this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
 				} else {
 					this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
@@ -923,9 +929,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private attachToSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager): void {
 
-		// Ignore if already attached.
-		if (this._activeSessionsBySessionId.has(session.sessionId)) {
-			return;
+		// Remove any previous event registrations for this session.
+		let disposables = this._sessionDisposables.get(session.sessionId);
+		if (disposables) {
+			// There's already a disposable store for this session; dispose its
+			// contents (but don't mark it disposed; we can reuse it)
+			disposables.clear();
+		} else {
+			// There is no disposable store for this session; create one and register it.
+			disposables = new DisposableStore();
+			this._register(disposables);
+			this._sessionDisposables.set(session.sessionId, disposables);
 		}
 
 		// Save the session info.
@@ -933,7 +947,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			new LanguageRuntimeSessionInfo(session, manager));
 
 		// Add the onDidChangeRuntimeState event handler.
-		this._register(session.onDidChangeRuntimeState(state => {
+		disposables.add(session.onDidChangeRuntimeState(state => {
 			// Process the state change.
 			switch (state) {
 				case RuntimeState.Ready:
@@ -981,18 +995,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					break;
 
 				case RuntimeState.Exited:
-					// Remove the runtime from the set of starting or running runtimes.
-					this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
-					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
-					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-						if (session.metadata.notebookUri) {
-							this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
-						} else {
-							this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
-								`does not have a notebook URI.`);
-						}
-					}
+					this.updateSessionMapsAfterExit(session);
 					break;
 			}
 
@@ -1012,15 +1015,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}));
 
-		this._register(session.onDidEndSession(async exit => {
-			// The session is no longer running, so if it's the active console
-			// session, clear it.
-			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
-				if (consoleSession?.sessionId === session.sessionId) {
-					this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
-				}
-			}
+		disposables.add(session.onDidEndSession(async exit => {
+			this.updateSessionMapsAfterExit(session);
 
 			// Note that we need to do the following on the next tick since we
 			// need to ensure all the event handlers for the state change we are
@@ -1044,6 +1040,31 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 			}, 0);
 		}));
+	}
+
+	/**
+	 * Updates the session maps (for active consoles, notebooks, etc.), after a
+	 * session exits.
+	 *
+	 * @param session The session to update.
+	 */
+	private updateSessionMapsAfterExit(session: ILanguageRuntimeSession) {
+		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+			// The session is no longer running, so if it's the active console
+			// session, clear it.
+			const consoleSession = this._consoleSessionsByLanguageId.get(session.runtimeMetadata.languageId);
+			if (consoleSession?.sessionId === session.sessionId) {
+				this._consoleSessionsByLanguageId.delete(session.runtimeMetadata.languageId);
+			}
+		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			if (session.metadata.notebookUri) {
+				this._logService.info(`Notebook session for ${session.metadata.notebookUri} exited.`);
+				this._notebookSessionsByNotebookUri.delete(session.metadata.notebookUri);
+			} else {
+				this._logService.error(`Notebook session ${formatLanguageRuntimeSession(session)} ` +
+					`does not have a notebook URI.`);
+			}
+		}
 	}
 
 	/**
@@ -1146,7 +1167,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		seconds: number,
 		warning: string) {
 
-		let disposable: IDisposable | undefined = undefined;
+		const disposables = new DisposableStore();
 		let prompt: IModalDialogPromptInstance | undefined = undefined;
 
 		return new Promise<void>((resolve, reject) => {
@@ -1168,27 +1189,41 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						session.forceQuit();
 					}
 					// Regardless of their choice, we are done waiting for a state change.
-					if (disposable) {
-						disposable.dispose();
-					}
+					disposables.dispose();
 				});
 			}, seconds * 1000);
 
-			// Listen for state changes.
-			disposable = session.onDidChangeRuntimeState(state => {
-				if (targetStates.includes(state)) {
-					clearTimeout(timer);
-					resolve();
+			// Runs when the requested state change was completed.
+			const completeStateChange = () => {
+				clearTimeout(timer);
+				resolve();
 
-					// If we were prompting the user to force quit the runtime,
-					// close the prompt ourselves since the runtime is now
-					// responding.
-					if (prompt) {
-						prompt.close();
-					}
-					disposable?.dispose();
+				// If we were prompting the user to force quit the runtime,
+				// close the prompt ourselves since the runtime is now
+				// responding.
+				if (prompt) {
+					prompt.close();
 				}
-			});
+				disposables.dispose();
+			};
+
+			// Listen for state changes.
+			disposables.add(session.onDidChangeRuntimeState(state => {
+				if (targetStates.includes(state)) {
+					completeStateChange();
+				}
+			}));
+
+			// Listen for the session to end. This should be treated as an exit
+			// for the purposes of waiting for the session to exit.
+			disposables.add(session.onDidEndSession(() => {
+				if (targetStates.includes(RuntimeState.Exited)) {
+					completeStateChange();
+				}
+			}));
+
+			// Ensure the timer's cleared.
+			disposables.add(toDisposable(() => clearTimeout(timer)));
 		});
 	}
 

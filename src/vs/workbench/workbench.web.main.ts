@@ -67,6 +67,10 @@ import 'vs/workbench/services/configurationResolver/browser/configurationResolve
 import 'vs/platform/extensionResourceLoader/browser/extensionResourceLoaderService';
 import 'vs/workbench/services/auxiliaryWindow/browser/auxiliaryWindowService';
 
+// --- Start Positron ---
+import 'vs/workbench/services/ephemeralState/browser/ephemeralStateService';
+// --- End Positron ---
+
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';

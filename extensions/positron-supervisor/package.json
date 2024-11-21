@@ -1,5 +1,5 @@
 {
-  "name": "kallichore-adapter",
+  "name": "positron-supervisor",
   "displayName": "%displayName%",
   "description": "%description%",
   "publisher": "vscode",
@@ -15,31 +15,31 @@
   ],
   "main": "./out/extension.js",
   "scripts": {
-    "compile": "gulp compile-extension:kallichore-adapter",
+    "compile": "gulp compile-extension:positron-supervisor",
     "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
     "lint": "eslint src --ext ts",
     "pretest": "yarn run compile && yarn run lint",
     "postinstall": "ts-node scripts/post-install.ts",
     "test": "node ./out/test/runTest.js",
     "vscode:prepublish": "yarn run compile",
-    "watch": "gulp watch-extension:kallichore-adapter"
+    "watch": "gulp watch-extension:positron-supervisor"
   },
   "contributes": {
     "configuration": {
       "type": "object",
-      "title": "Kallichore Configuration",
+      "title": "Positron Kernel Supervisor Configuration",
       "properties": {
-        "kallichoreSupervisor.enable": {
+        "positronKernelSupervisor.enable": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%configuration.enable.description%"
         },
-        "kallichoreSupervisor.showTerminal": {
+        "positronKernelSupervisor.showTerminal": {
           "type": "boolean",
           "default": false,
           "description": "%configuration.showTerminal.description%"
         },
-        "kallichoreSupervisor.logLevel": {
+        "positronKernelSupervisor.logLevel": {
           "scope": "window",
           "type": "string",
           "enum": [
@@ -59,19 +59,27 @@
           "default": "debug",
           "description": "%configuration.logLevel.description%"
         },
-        "kallichoreSupervisor.attachOnStartup": {
+        "positronKernelSupervisor.attachOnStartup": {
           "scope": "window",
           "type": "boolean",
           "default": false,
           "description": "%configuration.attachOnStartup.description%"
         },
-        "kallichoreSupervisor.sleepOnStartup": {
+        "positronKernelSupervisor.sleepOnStartup": {
           "scope": "window",
           "type": "number",
           "description": "%configuration.sleepOnStartup.description%"
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "positron.supervisor.showKernelSupervisorLog",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showKernelSupervisorLog.title%",
+        "shortTitle": "%command.showKernelSupervisorLog.title%"
+      }
+    ]
   },
   "repository": {
     "type": "git",
@@ -89,7 +97,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.15"
+      "kallichore": "0.1.19"
     }
   },
   "dependencies": {
