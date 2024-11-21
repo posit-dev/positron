@@ -2091,21 +2091,25 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
 
-		// Create the provisional ActivityItemInput.
-		const activityItemInput = new ActivityItemInput(
-			ActivityItemInputState.Provisional,
-			id,
-			id,
-			new Date(),
-			this._session.dynState.inputPrompt,
-			this._session.dynState.continuationPrompt,
-			code
-		);
+		// If the code exection mode is silent, prevent the code input
+		// from being exposed in the console UI
+		if (runtimeCodeExecutionMode !== RuntimeCodeExecutionMode.Silent) {
+			// Create the provisional ActivityItemInput.
+			const activityItemInput = new ActivityItemInput(
+				ActivityItemInputState.Provisional,
+				id,
+				id,
+				new Date(),
+				this._session.dynState.inputPrompt,
+				this._session.dynState.continuationPrompt,
+				code
+			);
 
-		// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
-		// replaced with the real ActivityItemInput when the runtime sends it (which can take a
-		// moment or two to happen).
-		this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+			// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
+			// replaced with the real ActivityItemInput when the runtime sends it (which can take a
+			// moment or two to happen).
+			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+		}
 
 		// Fallback to an interactive exection mode if one is not provided
 		const codeExecutionMode = runtimeCodeExecutionMode || RuntimeCodeExecutionMode.Interactive;
