@@ -8,13 +8,16 @@ import { test, expect } from '../_test.setup';
 const path = require('path');
 const fs = require('fs-extra');
 
+let isWeb = false;
+
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Quarto', { tag: ['@web'] }, () => {
-	test.beforeAll(async function ({ app }) {
+	test.beforeAll(async function ({ app, browserName }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		isWeb = browserName === 'chromium';
 	});
 
 	test.afterEach(async function ({ app }) {
@@ -59,8 +62,12 @@ const renderQuartoDocument = async (app: Application, fileExtension: string) => 
 };
 
 const verifyDocumentExists = async (app: Application, fileExtension: string) => {
-	await expect(app.code.driver.page.getByText(`Output created: quarto_basic.${fileExtension}`)).toBeVisible({ timeout: 30000 });
-	expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
+	// there is a known issue with canvas interactions in webview
+	if (!isWeb) { await expect(app.code.driver.page.getByText(`Output created: quarto_basic.${fileExtension}`)).toBeVisible({ timeout: 30000 }); }
+
+	await expect(async () => {
+		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
+	}).toPass({ timeout: 15000 });
 };
 
 const deleteGeneratedFiles = async (app: Application) => {
