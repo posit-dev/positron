@@ -30,7 +30,7 @@ permissions:
 jobs:
   e2e-electron:
     timeout-minutes: 45
-    runs-on: ubuntu-latest-8x
+    runs-on: ubuntu-latest-4x
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -39,6 +39,10 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
       AWS_S3_BUCKET: positron-test-reports
       REPORT_DIR: playwright-report-${{ github.run_id }}
+    strategy:
+        fail-fast: false
+        matrix:
+          shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
 
@@ -59,22 +63,33 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+      # - name: Send HTML report URL to GitHub Summary
+      #   if: ${{ !cancelled() }}
+      #   run: |
+      #     REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+      #     echo "Report URL: $REPORT_URL"
+      #     echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
       - name: Run Playwright Tests (Electron)
+        continue-on-error: false
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove test blobs
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
+        run: DISPLAY=:10 npx pwc-p --pwc-debug=remote -- --project e2e-electron --workers 2 --grep="@pr" # --reporter blob
+        # run: DISPLAY=:10 npx pwc --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }} --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+      - name: Generate HTML report from blob
+        run: |
+          npx playwright merge-reports --reporter=html ./blob-report
 
       - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
+        if: ${{ !cancelled() }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
@@ -123,6 +138,21 @@ jobs:
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+
+  e2e-report:
+    name: "Generate E2E Report"
+    runs-on: ubuntu-latest
+    needs: [e2e-electron]
+    if: ${{ always() }}
+    env:
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+    steps:
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
+          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
   slack-notification:
     name: "Send Slack notification"
