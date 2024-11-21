@@ -327,6 +327,8 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._logService.info(this.id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
+		// Remove from the instance map
+		PositronNotebookInstance._instanceMap.delete(this.uri.toString());
 
 		super.dispose();
 		this.detachView();

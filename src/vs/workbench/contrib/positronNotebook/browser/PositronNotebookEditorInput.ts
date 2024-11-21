@@ -114,6 +114,8 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
+
+		this.notebookInstance?.dispose();
 		// Call the base class's dispose method.
 		this.notebookInstance?.close();
 		super.dispose();
