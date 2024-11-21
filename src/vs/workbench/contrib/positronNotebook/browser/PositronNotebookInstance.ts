@@ -152,6 +152,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _isDisposed: boolean = false;
 	// #endregion
 
+	/**
+	 * Event emitter for when the text model changes.
+	 */
+	private readonly _onDidChangeContent = this._register(new Emitter<void>());
+	readonly onDidChangeContent = this._onDidChangeContent.event;
 
 	// =============================================================================================
 	// #region Public Properties
@@ -333,6 +338,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._webviewPreloadService.attachNotebookInstance(this);
 
 		this._logService.info(this.id, 'constructor');
+
+		// Add listener for content changes to sync cells
+		this._register(this.onDidChangeContent(() => {
+			this._syncCells();
+		}));
 	}
 
 	override dispose() {
@@ -402,6 +412,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
 		);
 
+		this._onDidChangeContent.fire();
 	}
 
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void {
@@ -453,6 +464,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}, undefined, computeUndoRedo);
 
+		this._onDidChangeContent.fire();
 	}
 
 
@@ -573,8 +585,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._textModel = model.notebook;
 
-		this._syncCells();
-
 		this._modelStore.add(
 			this._textModel.onDidChangeContent((e) => {
 				// Check if cells are in the same order by comparing references
@@ -591,9 +601,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 					return;
 				}
 
-				this._syncCells();
+				this._onDidChangeContent.fire();
 			})
 		);
+
+		this._onDidChangeContent.fire();
 	}
 
 	/**
