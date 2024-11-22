@@ -69,7 +69,12 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		const editor = services.instantiationService.createInstance(
 			CodeEditorWidget,
 			editorContainerRef.current,
-			{ ...getSimpleEditorOptions(services.configurationService), readOnly: true },
+			{
+				...getSimpleEditorOptions(services.configurationService),
+				readOnly: true,
+				domReadOnly: true,
+				cursorBlinking: 'solid',
+			},
 			getSimpleCodeEditorWidgetOptions()
 		);
 
@@ -127,7 +132,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		}
 
 		editor.focus();
-		editor.updateOptions({ readOnly: false });
+		editor.updateOptions({ readOnly: false, domReadOnly: false, cursorBlinking: 'blink' });
 		editor.setScrollTop(0);
 	};
 
