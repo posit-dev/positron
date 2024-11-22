@@ -5,22 +5,16 @@
 
 import path = require('path');
 import { test, expect } from '../_test.setup';
-import { PositronUserSettingsFixtures } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename
 });
 
-
 test.describe('R Package Development', { tag: ['@web'] }, () => {
-	let userSettings: PositronUserSettingsFixtures;
-
-	test.beforeAll(async function ({ app, r }) {
+	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
-			userSettings = new PositronUserSettingsFixtures(app);
-
 			// don't use native file picker
-			await userSettings.setUserSetting(['files.simpleDialog.enable', 'true']);
+			await userSettings.set([['files.simpleDialog.enable', 'true']]);
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.barClearButton.click();
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -28,11 +22,6 @@ test.describe('R Package Development', { tag: ['@web'] }, () => {
 			app.code.driver.takeScreenshot('rPackageSetup');
 			throw e;
 		}
-	});
-
-	test.afterAll(async function () {
-		// unset the use of the VSCode file picker
-		await userSettings.unsetUserSettings();
 	});
 
 	test('R Package Development Tasks [C809821]', async function ({ app, logger }) {

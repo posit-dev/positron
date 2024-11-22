@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '../_test.setup';
-import { PositronUserSettingsFixtures, UserSetting } from '../../../../../automation';
+import { UserSetting } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -13,22 +13,19 @@ test.use({
 // In order to run this test on Windows, I think we need to set the env var:
 // RETICULATE_PYTHON
 // to the installed python path
-let userSettings: PositronUserSettingsFixtures;
 
 test.describe('Reticulate', {
 	tag: ['@web'],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5226' }]
 }, () => {
-	test.beforeAll(async function ({ app }) {
+	test.beforeAll(async function ({ app, userSettings }) {
 		try {
-			userSettings = new PositronUserSettingsFixtures(app);
-
 			// remove this once https://github.com/posit-dev/positron/issues/5226
 			// is resolved
 			const kernelSupervisorSetting: UserSetting = ['positronKernelSupervisor.enable', 'false'];
 			const reticulateSetting: UserSetting = ['positron.reticulate.enabled', 'true'];
 
-			await userSettings.setUserSettings([
+			await userSettings.set([
 				kernelSupervisorSetting,
 				reticulateSetting
 			]);
@@ -37,11 +34,6 @@ test.describe('Reticulate', {
 			app.code.driver.takeScreenshot('reticulateSetup');
 			throw e;
 		}
-	});
-
-	test.afterAll(async function () {
-		await userSettings.unsetUserSettings();
-
 	});
 
 	test('R - Verify Basic Reticulate Functionality [C...]', async function ({ app, r, interpreter }) {
