@@ -4,18 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 import { PositronBaseElement } from './positronBaseElement';
 
 const REMOVE_CONNECTION_BUTTON = 'a[aria-label="Remove connection from history"]';
-const DISCONNECT_BUTON = '.codicon-debug-disconnect';
 
 const PYTHON_CONNECTION_OPEN_STATE = 'div[aria-label="SQLite Connection"]';
 const R_CONNECTION_OPEN_STATE = 'div[aria-label="SQLiteConnection"]:first-child';
 const RECONNECT_BUTTON = 'a[aria-label="Execute connection code in the console"]';
 
 const CONNECTIONS_TAB_LINK = 'a[aria-label="Connections"]';
+const CONNECTION_ITEM = '.connections-items-container';
 
 /*
  *  Reuseable Positron connections tab functionality for tests to leverage
@@ -23,7 +24,7 @@ const CONNECTIONS_TAB_LINK = 'a[aria-label="Connections"]';
 export class PositronConnections {
 
 	removeConnectionButton: PositronBaseElement;
-	disconnectButton: PositronBaseElement;
+	disconnectButton: Locator;
 	rConnectionOpenState: PositronBaseElement;
 	pythonConnectionOpenState: PositronBaseElement;
 	reconnectButton: PositronBaseElement;
@@ -32,7 +33,7 @@ export class PositronConnections {
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 
 		this.removeConnectionButton = new PositronBaseElement(REMOVE_CONNECTION_BUTTON, this.code);
-		this.disconnectButton = new PositronBaseElement(DISCONNECT_BUTON, this.code);
+		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
 		this.rConnectionOpenState = new PositronBaseElement(R_CONNECTION_OPEN_STATE, this.code);
 		this.pythonConnectionOpenState = new PositronBaseElement(PYTHON_CONNECTION_OPEN_STATE, this.code);
 		this.reconnectButton = new PositronBaseElement(RECONNECT_BUTTON, this.code);
@@ -41,30 +42,32 @@ export class PositronConnections {
 
 	async openConnectionsNodes(nodes: string[]) {
 		for (const node of nodes) {
-			await this.code.waitAndClick(`div[aria-label="${node}"]`);
+			await this.code.driver.page.locator('.connections-item').filter({ hasText: node }).locator('.codicon-chevron-right').click();
+			await expect(this.code.driver.page.locator('.connections-item').filter({ hasText: node }).locator('.codicon-chevron-down')).toBeVisible();
 		}
 	}
 
-	async hasConnectionNodes(nodes: string[]) {
+	async assertConnectionNodes(nodes: string[]): Promise<void> {
 		const waits = nodes.map(async node => {
-			return await this.code.waitForElement(`div[aria-label="${node}"]`);
+			this.assertConnectionNode(node);
 		});
 		await Promise.all(waits);
 	}
 
-	async hasConnectionNode(node: string) {
-		const x = await this.code.getElement(`div[aria-label="${node}"]`);
-		return x !== undefined;
+	async assertConnectionNode(node: string) {
+		await expect(
+			this.code.driver.page.locator(CONNECTION_ITEM).getByText(node)
+		).toBeVisible();
 	}
 
 	async openConnectionPane() {
 		await this.quickaccess.runCommand('connections.focus');
-		await this.connectionPaneIsOpen(); // waiting for the pane to open
+		// await this.connectionPaneIsOpen(); // waiting for the pane to open
 	}
 
-	async connectionPaneIsOpen() {
-		await this.code.wait(500);
-	}
+	// async connectionPaneIsOpen() {
+	// 	await this.code.wait(500);
+	// }
 
 	async openTree() {
 		await this.quickaccess.runCommand('positron.connections.expandAll');
