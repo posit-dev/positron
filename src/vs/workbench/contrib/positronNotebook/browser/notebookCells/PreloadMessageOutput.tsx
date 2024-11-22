@@ -36,7 +36,9 @@ export function PreloadMessageOutput({ preloadMessageResult }: PreloadMessageOut
 		return null;
 	}
 
-	return <DisplayedPreloadMessage webview={preloadMessageResult.webview} />;
+	// We assert types here due to not being able to import the full INotebookOutputWebview type
+	// from positronOutputWebview.ts into the webview preload service.
+	return <DisplayedPreloadMessage webview={preloadMessageResult.webview as Promise<INotebookOutputWebview>} />;
 }
 
 function DisplayedPreloadMessage({ webview }: DisplayedPreloadMessageProps) {
