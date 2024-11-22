@@ -18,6 +18,8 @@ import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
 import { ISecretStorageService } from 'vs/platform/secrets/common/secrets';
+import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { generateUuid } from 'vs/base/common/uuid';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -34,6 +36,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	constructor(
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
+		@IStorageService private readonly storageService: IStorageService,
 		@ISecretStorageService private readonly secretStorageService: ISecretStorageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -79,9 +82,24 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	initialize(): void { }
 
+	private getPrivateStorageId(): string {
+		let id = this.storageService.get('positron-connections-secret-id', StorageScope.WORKSPACE);
+		if (!id) {
+			id = generateUuid();
+			this.storageService.store(
+				'positron-connections-secret-id',
+				id,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE
+			);
+		}
+		return id;
+	}
+
 	private async addStoredConnections() {
+		const id = this.getPrivateStorageId();
 		const storedConnections: ConnectionMetadata[] = JSON.parse(
-			await this.secretStorageService.get('positron-connections') || '[]'
+			await this.secretStorageService.get(id) || '[]'
 		);
 
 		storedConnections.forEach((metadata) => {
@@ -228,7 +246,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	private saveConnectionsState() {
 		this.secretStorageService.set(
-			'positron-connections',
+			this.getPrivateStorageId(),
 			JSON.stringify(this.connections.map((con) => {
 				return con.metadata;
 			}))
