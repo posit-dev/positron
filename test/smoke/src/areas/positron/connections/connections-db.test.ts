@@ -13,7 +13,7 @@ test.use({
 	suiteId: __filename,
 });
 
-test.describe('SQLite DB Connection', { tag: ['@web', '@win'] }, () => {
+test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([connectionSetting], true);
 	});
