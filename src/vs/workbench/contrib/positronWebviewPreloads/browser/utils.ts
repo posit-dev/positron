@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILanguageRuntimeMessageOutput } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { MIME_TYPE_HOLOVIEWS_LOAD, MIME_TYPE_HOLOVIEWS_EXEC, MIME_TYPE_BOKEH_EXEC, MIME_TYPE_BOKEH_LOAD, MIME_TYPE_POSITRON_WEBVIEW_FLAG } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
-
+import { MIME_TYPES } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
 
 const webviewReplayMimeTypes = new Set([
-	MIME_TYPE_HOLOVIEWS_LOAD,
-	MIME_TYPE_HOLOVIEWS_EXEC,
-	MIME_TYPE_BOKEH_EXEC,
-	MIME_TYPE_BOKEH_LOAD,
-	MIME_TYPE_POSITRON_WEBVIEW_FLAG
+	MIME_TYPES.HOLOVIEWS_LOAD,
+	MIME_TYPES.HOLOVIEWS_EXEC,
+	MIME_TYPES.BOKEH_EXEC,
+	MIME_TYPES.BOKEH_LOAD,
+	MIME_TYPES.POSITRON_WEBVIEW_FLAG
 ]);
 
 /**
@@ -26,14 +25,17 @@ export function isWebviewReplayMessage(mimeTypesOrMsg: ILanguageRuntimeMessageOu
 }
 
 
-const MIME_TYPE_HTML = 'text/html';
-const MIME_TYPE_PLAIN = 'text/plain';
+/**
+ * Checks if the given mime types represent a holoviews display message bundle.
+ * @param mimeTypes Array of mime types to check
+ * @returns True if the mime types contain all required holoviews display bundle types
+ */
+function isHoloviewsDisplayBundle(mimeTypes: Set<string>): boolean {
 
-const displayMimeTypes = [
-	MIME_TYPE_HOLOVIEWS_EXEC,
-	MIME_TYPE_HTML,
-	MIME_TYPE_PLAIN,
-];
+	return mimeTypes.has(MIME_TYPES.HOLOVIEWS_EXEC) &&
+		mimeTypes.has(MIME_TYPES.HTML) &&
+		mimeTypes.has(MIME_TYPES.PLAIN);
+}
 
 /**
  * Check if a message represents a webview display message.
@@ -42,9 +44,10 @@ const displayMimeTypes = [
  */
 export function isWebviewDisplayMessage(mimeTypesOrMsg: string[] | ILanguageRuntimeMessageOutput): boolean {
 	// Convert ILanguageRuntimeMessageOutput to string array of mime types if needed
-	const mimeTypeArray = Array.isArray(mimeTypesOrMsg) ? mimeTypesOrMsg : Object.keys(mimeTypesOrMsg.data);
+	const mimeTypeSet = new Set(Array.isArray(mimeTypesOrMsg) ? mimeTypesOrMsg : Object.keys(mimeTypesOrMsg.data));
 
 	// First check if it's a holoviews display message, then check if it's a bokeh display message.
-	return displayMimeTypes.every(mime => mimeTypeArray.includes(mime)) ||
-		mimeTypeArray.includes(MIME_TYPE_BOKEH_EXEC);
+	return isHoloviewsDisplayBundle(mimeTypeSet) ||
+		mimeTypeSet.has(MIME_TYPES.BOKEH_EXEC) ||
+		mimeTypeSet.has(MIME_TYPES.PLOTLY);
 }
