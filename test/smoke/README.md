@@ -1,94 +1,22 @@
-# VS Code Smoke Test
-
-Make sure you are on **Node v12.x**.
-
-## Quick Overview
-
-```bash
-# Build extensions in the VS Code repo (if needed)
-yarn && yarn compile
-
-# Dev (Electron)
-yarn smoketest
-
-# Dev (Web - Must be run on distro)
-yarn smoketest --web --browser [chromium|webkit]
-
-# Build (Electron)
-yarn smoketest --build <path to latest version>
-example: yarn smoketest --build /Applications/Visual\ Studio\ Code\ -\ Insiders.app
-
-# Build (Web - read instructions below)
-yarn smoketest --build <path to server web build (ends in -web)> --web --browser [chromium|webkit]
-
-# Remote (Electron)
-yarn smoketest --build <path to latest version> --remote
-```
-
-\* This step is necessary only when running without `--build` and OSS doesn't already exist in the `.build/electron` directory.
-
-### Running for a release (Endgame)
-
-You must always run the smoketest version that matches the release you are testing. So, if you want to run the smoketest for a release build (e.g. `release/1.22`), you need to check out that version of the smoke tests too:
-
-```bash
-git fetch
-git checkout release/1.22
-yarn && yarn compile
-yarn --cwd test/smoke
-```
-
-#### Web
-
-There is no support for testing an old version to a new one yet.
-Instead, simply configure the `--build` command line argument to point to the absolute path of the extracted server web build folder (e.g. `<rest of path here>/vscode-server-darwin-x64-web` for macOS). The server web build is available from the builds page (see previous subsection).
-
-**macOS**: if you have downloaded the server with web bits, make sure to run the following command before unzipping it to avoid security issues on startup:
-
-```bash
-xattr -d com.apple.quarantine <path to server with web folder zip>
-```
-
-**Note**: make sure to point to the server that includes the client bits!
-
-### Debug
-
-- `--verbose` logs all the low level driver calls made to Code;
-- `-f PATTERN` (alias `-g PATTERN`) filters the tests to be run. You can also use pretty much any mocha argument;
-- `--headless` will run playwright in headless mode when `--web` is used.
-
-**Note**: you can enable verbose logging of playwright library by setting a `DEBUG` environment variable before running the tests (<https://playwright.dev/docs/debug#verbose-api-logs>), for example to `pw:browser`.
-
-### Develop
-
-```bash
-cd test/smoke
-yarn watch
-```
-
-## Troubleshooting
-
-### Error: Could not get a unique tmp filename, max tries reached
-
-On Windows, check for the folder `C:\Users\<username>\AppData\Local\Temp\t`. If this folder exists, the `tmp` module can't run properly, resulting in the error above. In this case, delete the `t` folder.
-
-## Pitfalls
-
-- Beware of workbench **state**. The tests within a single suite will share the same state.
-
-- Beware of **singletons**. This evil can, and will, manifest itself under the form of FS paths, TCP ports, IPC handles. Whenever writing a test, or setting up more smoke test architecture, make sure it can run simultaneously with any other tests and even itself. All test suites should be able to run many times in parallel.
-
-- Beware of **focus**. **Never** depend on DOM elements having focus using `.focused` classes or `:focus` pseudo-classes, since they will lose that state as soon as another window appears on top of the running VS Code window. A safe approach which avoids this problem is to use the `waitForActiveElement` API. Many tests use this whenever they need to wait for a specific element to _have focus_.
-
-- Beware of **timing**. You need to read from or write to the DOM... but is it the right time to do that? Can you 100% guarantee that `input` box will be visible at that point in time? Or are you just hoping that it will be so? Hope is your worst enemy in UI tests. Example: just because you triggered Quick Access with `F1`, it doesn't mean that it's open and you can just start typing; you must first wait for the input element to be in the DOM as well as be the current active element.
-
-- Beware of **waiting**. **Never** wait longer than a couple of seconds for anything, unless it's justified. Think of it as a human using Code. Would a human take 10 minutes to run through the Search viewlet smoke test? Then, the computer should even be faster. **Don't** use `setTimeout` just because. Think about what you should wait for in the DOM to be ready and wait for that instead.
 
 <!-- Start Positron -->
+<!-- If you are seeking the original Vscode README go here: https://github.com/microsoft/vscode/tree/main/test/smoke -->
 
-# Positron Smoke Tests Guide
+# Positron E2E Test Guide
 
-This section contains guidelines and setup instructions for running smoke tests in the Positron project.
+This document provides clear guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
+
+## Table of Contents
+
+1. [Test Structure Overview](#test-structure-overview)
+2. [Setup](#setup)
+3. [Dependencies](#dependencies)
+4. [Running Tests](#running-tests)
+5. [Test Project](#test-project)
+6. [Local Debugging](#local-debugging)
+7. [Running Tests in Github Actions](#running-tests-in-github-actions)
+8. [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
+9. [Tests Run on PRs](#tests-run-on-prs)
 
 ## Test Structure Overview
 
@@ -173,6 +101,10 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ## Running Tests
 
+### Playwright Test Extension
+
+We use [Playwright](https://playwright.dev/docs/getting-started-vscode) as the test framework for end-to-end tests in Positron. Make sure to install the [Playwright Test](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright) extension for VS Code to explore and debug tests effectively.
+
 ### Install
 
 Before compiling the tests, make sure to install dependencies in the following directories:
@@ -194,43 +126,66 @@ _You may see errors in test files before you run this builder step once, as it's
 
 ### Launch Tests
 
-#### Debug Mode
+ Before beginning be sure to install the
 
-You can start the smoke tests using the `Launch Smoke Test` action from the debug dropdown (it’s near the bottom of the list). In debug mode, **tests run serially - parallel execution is not supported** — so running the entire suite can take a long time.
+#### Test Explorer
 
-To speed things up, you can focus on specific tests by adding the `.only()` function to your test. If the runner detects any `it.only()` blocks, it will limit execution to just those tests.
+1. Open the **Testing** extension.
+2. Ensure the correct project (`e2e-electron` or `e2e-browser`) is selected; otherwise, no tests will populate in the Test Explorer.
+3. Expand the file tree to locate the desired test.
+4. Use the action buttons next to each test to:
+   - **Run Test**: Executes the selected test.
+   - **Debug Test**: Launches the test in debug mode.
+   - **Go to Test**: Opens the test in the editor.
+   - **Watch Test**: Monitors the test for changes and reruns it.
 
-_Note: Don't forget to remove the `.only()`s when you're done!_
+#### Running Specific Tests
+
+- Navigate to the relevant spec file in the editor.
+- Ensure the correct project is selected in the Test Explorer (you can run both `web` and `electron` tests simultaneously, but tests not tagged with `@web` won't run in a browser).
+- Use the green play button next to each test to:
+  - Left-click: Run the test.
+  - Right-click: Access additional options (Run/Debug).
 
 #### Command Line
 
-The command line is a faster way to run tests since it **allows for parallel execution**. However, note that `.only()` does **not** work when running tests in parallel mode. To overcome this limitation and run a subset of tests in parallel locally, we introduced a workaround:
+Run tests directly from the CLI with these scripts:
 
-1. Add `#only` to the test descriptions you want to run.
-2. Execute the following command to trigger the subset of tests:
+```shell
+# run entire electron test suite
+yarn e2e
 
-```bash
-yarn smoketest-only
+# run entire web test suite
+yarn e2e-browser
+
+# run entire pr test suite
+yarn e2e-pr
+
+# re-run only failed tests from last run
+yarn e2e-failed
+
+# craft your own custom command
+npx playwright test <testName> --project e2e-electron --grep <someTag> --workers 3
 ```
 
-Remember to remove any `#only` from test titles before committing!
+#### UI Mode
 
-#### Smoke Test Scripts
+Launch Playwright’s UI mode for a graphical view of test traces, making debugging easier for complex interactions:
 
-The following smoke test scripts are available:
-
-- `smoketest-all`: Runs all smoke tests
-- `smoketest-web`: Runs tests tagged with `#web`
-- `smoketest-win`: Runs tests tagged with `#win` (Windows)
-- `smoketest-pr`: Runs tests tagged with `#pr`
-- `smoketest-only`: Runs tests tagged with `#only`
+```shell
+yarn e2e-ui
+```
 
 #### Target a Positron Build
 
-You can specify a custom build of Positron to run your tests against using the `--build` option. This allows you to point to a local installation or a specific build of the application.
+To test against a specific build, set the BUILD environment variable:
 
 ```bash
-yarn smoketest-pr --build /Applications/Positron.app --parallel --jobs 3
+# Run all tests
+BUILD=/Applications/Positron.app yarn e2e
+
+# Run PR-tagged tests
+BUILD=/Applications/Positron.app yarn e2e-pr
 ```
 
 **Note:** During the setup phase, the script will automatically detect and display the version of Positron being tested. This helps verify that the correct build is being used.
@@ -245,36 +200,13 @@ For R, add any package requirements to the "imports" section of the `DESCRIPTION
 
 ## Local debugging
 
-### Devtools
-
-The controlled instance of Positron doesn't allow you to manually open the developer tools like you typically might with the command `workbench.action.toggleDevTools`.
-
-The way around this is to invoke the command from your test script itself.
-
-```ts
-// This line will most likely be at the top of your test function already
-const app = this.app as Application
-
-...
-
-await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');`
-```
-
-(Again, don't forget to remove this line after you've finished debugging!)
-
-### Playwright Traces
-
-Note that in launch.json for `Launch Smoke Test` we are passing the `--tracing` argument for you. This will result in Playwright traces being generated locally for you when tests fail at `.build/logs/smoke-tests-electron/{testCase}`. Note that for command line runs you will need to pass this arg yourself to get the trace file(s).
-
 ## Running Tests in Github Actions
 
 New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
 
 ### Github Actions Test Artifacts
 
-When a run is complete, you can debug any test failures that occurred using the uploaded run artifacts. The artifacts are available as a ZIP file from inside the workflow run. Each artifact zip contains: a folder for each test file and an overall run log. Inside the folder corresponding to each test file, you will find zip files that are Playwright traces. Note that the trace files are only present for failed cases.
-
-Playwright traces can be drag and dropped to the [Trace Viewer](https://trace.playwright.dev/). The trace will usually give you a good visualization of the failed test, but they can be sparse on details. More details are available from the run log (e2e-test-runner.log). It has a start and end marker for each test case.
+When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: Error information, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
 
 ## Notes About Updating Specific Tests
 
