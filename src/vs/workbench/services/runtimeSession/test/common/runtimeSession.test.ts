@@ -105,19 +105,24 @@ suite('Positron - RuntimeSessionService', () => {
 	interface IServiceState {
 		hasStartingOrRunningConsole?: boolean;
 		consoleSession?: ILanguageRuntimeSession;
+		consoleSessionForLanguage?: ILanguageRuntimeSession;
+		consoleSessionForRuntime?: ILanguageRuntimeSession;
 		notebookSession?: ILanguageRuntimeSession;
 		notebookSessionForNotebookUri?: ILanguageRuntimeSession;
 		activeSessions?: ILanguageRuntimeSession[];
 	}
 
+	function assertActiveSessions(expectedSessions: ILanguageRuntimeSession[]) {
+		assert.deepEqual(
+			runtimeSessionService.activeSessions.map(session => session.sessionId),
+			expectedSessions.map(session => session.sessionId),
+		);
+	}
+
 	function assertServiceState(expectedState?: IServiceState, runtimeMetadata = runtime): void {
 		// Check the active sessions.
-		assert.deepEqual(
-			runtimeSessionService.activeSessions?.map(session => session.sessionId),
-			expectedState?.activeSessions?.map(session => session?.sessionId) ??
-			[expectedState?.consoleSession?.sessionId, expectedState?.notebookSession?.sessionId].filter(session => Boolean(session)),
-			'Unexpected activeSessions',
-		);
+		assertActiveSessions(expectedState?.activeSessions ??
+			[expectedState?.consoleSession, expectedState?.notebookSession].filter(session => !!session));
 
 		// Check the console session state.
 		assert.equal(
@@ -129,11 +134,11 @@ suite('Positron - RuntimeSessionService', () => {
 		);
 		assert.equal(
 			runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId)?.sessionId,
-			expectedState?.consoleSession?.sessionId,
+			expectedState?.consoleSessionForLanguage?.sessionId,
 		);
 		assert.equal(
 			runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId)?.sessionId,
-			expectedState?.consoleSession?.sessionId,
+			expectedState?.consoleSessionForRuntime?.sessionId,
 		);
 		assert.equal(
 			runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? '')?.sessionId,
@@ -159,26 +164,34 @@ suite('Positron - RuntimeSessionService', () => {
 		}
 	}
 
-	function assertSingleSession(session: ILanguageRuntimeSession) {
+	function assertHasSingleSession(session: ILanguageRuntimeSession) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-			assertServiceState({ hasStartingOrRunningConsole: true, consoleSession: session }, session.runtimeMetadata);
+			assertServiceState({
+				hasStartingOrRunningConsole: true,
+				consoleSession: session,
+				consoleSessionForLanguage: session,
+				consoleSessionForRuntime: session,
+			}, session.runtimeMetadata);
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			assertServiceState({ notebookSession: session, notebookSessionForNotebookUri: session }, session.runtimeMetadata);
+			assertServiceState({
+				notebookSession: session,
+				notebookSessionForNotebookUri: session,
+			}, session.runtimeMetadata);
 		}
 	}
 
 	function assertSingleSessionIsStarting(session: ILanguageRuntimeSession) {
-		assertSingleSession(session);
+		assertHasSingleSession(session);
 		assert.equal(session.getRuntimeState(), RuntimeState.Starting);
 	}
 
 	function assertSingleSessionIsRestarting(session: ILanguageRuntimeSession) {
-		assertSingleSession(session);
+		assertHasSingleSession(session);
 		assert.equal(session.getRuntimeState(), RuntimeState.Restarting);
 	}
 
-	function assertSingleSessionIsStarted(session: ILanguageRuntimeSession) {
-		assertSingleSession(session);
+	function assertSingleSessionIsReady(session: ILanguageRuntimeSession) {
+		assertHasSingleSession(session);
 		assert.equal(session.getRuntimeState(), RuntimeState.Ready);
 	}
 
@@ -480,6 +493,8 @@ suite('Positron - RuntimeSessionService', () => {
 				assertServiceState({
 					hasStartingOrRunningConsole: true,
 					consoleSession,
+					consoleSessionForLanguage: consoleSession,
+					consoleSessionForRuntime: consoleSession,
 					notebookSession,
 					notebookSessionForNotebookUri: notebookSession,
 					activeSessions: [consoleSession, notebookSession],
@@ -593,6 +608,8 @@ suite('Positron - RuntimeSessionService', () => {
 		assertServiceState({
 			hasStartingOrRunningConsole: true,
 			consoleSession: session2,
+			consoleSessionForLanguage: session2,
+			consoleSessionForRuntime: session2,
 			activeSessions: [session1, session2],
 		});
 	});
@@ -649,7 +666,7 @@ suite('Positron - RuntimeSessionService', () => {
 				assertSingleSessionIsRestarting(session);
 
 				await waitForRuntimeState(session, RuntimeState.Ready);
-				assertSingleSessionIsStarted(session);
+				assertSingleSessionIsReady(session);
 			});
 		}
 
@@ -686,6 +703,8 @@ suite('Positron - RuntimeSessionService', () => {
 					assertServiceState({
 						hasStartingOrRunningConsole: true,
 						consoleSession: newSession,
+						consoleSessionForLanguage: newSession,
+						consoleSessionForRuntime: newSession,
 						activeSessions: [session, newSession],
 					});
 				} else {
