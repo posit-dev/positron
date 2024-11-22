@@ -264,7 +264,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *  no console session with the given runtime identifier exists.
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined {
-		const session = Array.from(this._activeSessionsBySessionId.values()).find(session =>
+		// It's possible that there are multiple consoles for the same runtime,
+		// for example, if one failed to start and is uninitialized. In that case,
+		// we return the last.
+		const session = Array.from(this._activeSessionsBySessionId.values()).reverse().find(session =>
 			session.session.runtimeMetadata.runtimeId === runtimeId &&
 			session.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
 			session.state !== RuntimeState.Exited);
