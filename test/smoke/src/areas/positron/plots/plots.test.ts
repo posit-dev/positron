@@ -16,7 +16,12 @@ test.use({
 });
 
 // web bugs 4800 & 4804
-test.describe('Plots', () => {
+test.describe.skip('Plots', {
+	annotation: [
+		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4800' },
+		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4804' }
+	]
+}, () => {
 	test.describe('Python Plots', () => {
 		test.beforeAll(async function ({ app, interpreter }) {
 			await interpreter.set('Python');
