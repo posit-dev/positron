@@ -230,6 +230,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	async setWorkingDirectory(dir: string): Promise<void> {
+		return Promise.reject(new Error('Not implemented.'));
+	}
+
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		if (!this._kernel) {
 			this._kernel = await this.createKernel();

@@ -141,7 +141,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	setWorkingDirectory(_dir: string): void {
+	setWorkingDirectory(_dir: string): Promise<void> {
 		throw new Error('Not implemented.');
 	}
 

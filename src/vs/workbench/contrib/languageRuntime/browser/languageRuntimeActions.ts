@@ -7,7 +7,7 @@ import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from 'vs/platform/quickinput/common/quickInput';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
@@ -21,6 +21,10 @@ import { groupBy } from 'vs/base/common/collections';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { dispose } from 'vs/base/common/lifecycle';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { ExplorerFolderContext, FilesExplorerFocusCondition } from 'vs/workbench/contrib/files/common/files';
+import { URI } from 'vs/base/common/uri';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -666,3 +670,56 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 }
+
+registerAction2(class SetWorkingDirectoryCommand extends Action2 {
+	// from explorer
+	constructor() {
+		super({
+			id: 'workbench.action.setWorkingDirectory',
+			title: nls.localize2('setWorkingDirectory', "Set as Working Directory"),
+			category,
+			keybinding: {
+				weight: KeybindingWeight.WorkbenchContrib,
+				when: ContextKeyExpr.and(FilesExplorerFocusCondition, ExplorerFolderContext),
+				primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyD,
+			},
+			menu: [
+				{
+					id: MenuId.ExplorerContext,
+					group: '4_search',
+					order: 10,
+					when: ContextKeyExpr.and(ExplorerFolderContext)
+				}
+			]
+		});
+	}
+
+	async run(accessor: ServicesAccessor, resource?: URI) {
+		const sessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+		const session = sessionService.foregroundSession;
+		// If there's no active session, do nothing.
+		if (!session) {
+			notificationService.info(
+				nls.localize('positron.setWorkingDirectory.noSession',
+					"No active interpreter session; open the Console and select an interpreter before setting the working directory."));
+			return;
+		}
+		// If no resource was provided, ask the user to select a folder.
+		if (!resource) {
+			const fileDialogService = accessor.get(IFileDialogService);
+			const selection = await fileDialogService.showOpenDialog({
+				canSelectFolders: true,
+				canSelectFiles: false,
+				canSelectMany: false,
+				openLabel: nls.localize('positron.setWorkingDirectory.setDirectory',
+					'Set Directory')
+			});
+			if (!selection) {
+				return;
+			}
+			resource = selection[0];
+		}
+		sessionService.foregroundSession?.setWorkingDirectory(resource?.fsPath);
+	}
+});

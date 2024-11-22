@@ -165,6 +165,11 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	replyToPrompt(id: string, value: string): void;
 
+	/**
+	 * Set the runtime's working directory.
+	 */
+	setWorkingDirectory(directory: string): Thenable<void>;
+
 	start(): Thenable<ILanguageRuntimeInfo>;
 
 	/** Interrupt the runtime */
