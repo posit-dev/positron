@@ -222,10 +222,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 	async function selectRuntime(runtimeMetadata = runtime) {
 		await runtimeSessionService.selectRuntime(runtimeMetadata.runtimeId, startReason);
-		// Get the last active session matching the runtime.
-		const session = runtimeSessionService.activeSessions.reverse()
-			.find(session => session.runtimeMetadata.runtimeId === runtimeMetadata.runtimeId &&
-				session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
+		const session = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
 		assert.ok(session instanceof TestLanguageRuntimeSession);
 		disposables.add(session);
 		return session;
