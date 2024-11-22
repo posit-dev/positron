@@ -54,17 +54,13 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 	const { services, activeInstaceId } = props;
 	const activeInstance = services.connectionsService.getConnections().find(item => item.id === activeInstaceId);
 
-	const editorContainerRef = useRef<HTMLDivElement>(null);
-	const editorRef = useRef<CodeEditorWidget | null>(null);
+	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+	const editorRef = useRef<CodeEditorWidget>(undefined!);
 
 	const code = activeInstance?.metadata.code;
 	const language_id = activeInstance?.metadata.language_id;
 
 	useEffect(() => {
-		if (!editorContainerRef.current) {
-			return () => { };
-		}
-
 		const disposableStore = new DisposableStore();
 		const editor = disposableStore.add(services.instantiationService.createInstance(
 			CodeEditorWidget,
@@ -91,7 +87,6 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 
 		return () => {
 			disposableStore.dispose();
-			editorRef.current = null;
 		};
 	},
 		[
