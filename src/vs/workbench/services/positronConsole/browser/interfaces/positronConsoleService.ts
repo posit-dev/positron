@@ -89,10 +89,10 @@ export interface IPositronConsoleService {
 	 * @param focus A value which indicates whether to focus Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime
+	 * @param mode Possible code execution modes for a language runtime
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode): Promise<boolean>;
+	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<boolean>;
 }
 
 /**
@@ -298,16 +298,16 @@ export interface IPositronConsoleInstance {
 	 * @param code The code to enqueue.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime.
+	 * @param mode Possible code execution modes for a language runtime.
 	 */
-	enqueueCode(code: string, allowIncomplete?: boolean, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode): Promise<void>;
+	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<void>;
 
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime.
+	 * @param mode Possible code execution modes for a language runtime.
 	 */
-	executeCode(code: string, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode): void;
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode): void;
 
 	/**
 	 * Replies to a prompt.

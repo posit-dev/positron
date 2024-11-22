@@ -355,10 +355,10 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 	 * @param focus A value which indicates whether to focus the Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime
+	 * @param mode Possible code execution modes for a language runtime
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode) {
+	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode) {
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
@@ -409,7 +409,7 @@ class PositronConsoleService extends Disposable implements IPositronConsoleServi
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, allowIncomplete, runtimeCodeExecutionMode);
+		await positronConsoleInstance.enqueueCode(code, allowIncomplete, mode);
 
 		// Success.
 		return Promise.resolve(true);
@@ -1019,9 +1019,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param code The code to enqueue.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime
+	 * @param mode Possible code execution modes for a language runtime
 	 */
-	async enqueueCode(code: string, allowIncomplete?: boolean, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode) {
+	async enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode) {
 		// If there is a pending input runtime item, all the code in it was enqueued before this
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
@@ -1055,7 +1055,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const pendingCode = this._pendingCode + '\n' + code;
 			if (await shouldExecuteCode(pendingCode)) {
 				this.setPendingCode(undefined);
-				this.doExecuteCode(pendingCode, runtimeCodeExecutionMode);
+				this.doExecuteCode(pendingCode, mode);
 				return;
 			}
 
@@ -1066,7 +1066,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Figure out whether this code can be executed. If it can be, execute it immediately.
 		if (await shouldExecuteCode(code)) {
-			this.doExecuteCode(code, runtimeCodeExecutionMode);
+			this.doExecuteCode(code, mode);
 			return;
 		}
 
@@ -1077,11 +1077,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime.
+	 * @param mode Possible code execution modes for a language runtime.
 	 */
-	executeCode(code: string, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode) {
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode) {
 		this.setPendingCode(undefined);
-		this.doExecuteCode(code, runtimeCodeExecutionMode);
+		this.doExecuteCode(code, mode);
 	}
 
 	/**
@@ -2084,19 +2084,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
-	 * @param runtimeCodeExecutionMode Possible code execution modes for a language runtime
-	 * runtimeCodeExecutionMode
+	 * @param mode Possible code execution modes for a language runtime
 	 */
-	private doExecuteCode(code: string, runtimeCodeExecutionMode?: RuntimeCodeExecutionMode) {
+	private doExecuteCode(code: string, mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive) {
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
 
-		// Fallback to an interactive exection mode if one is not provided
-		const codeExecutionMode = runtimeCodeExecutionMode || RuntimeCodeExecutionMode.Interactive;
-
 		// If the code exection mode is silent, skip creating a runtimeItem
 		// to prevent the code input from being exposed in the console UI
-		if (codeExecutionMode !== RuntimeCodeExecutionMode.Silent) {
+		if (mode !== RuntimeCodeExecutionMode.Silent) {
 			// Create the provisional ActivityItemInput.
 			const activityItemInput = new ActivityItemInput(
 				ActivityItemInputState.Provisional,
@@ -2118,11 +2114,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this.session.execute(
 			code,
 			id,
-			codeExecutionMode,
+			mode,
 			RuntimeErrorBehavior.Continue);
 
 		// Code that is not executed interactively should not show up in the console history
-		if (codeExecutionMode === RuntimeCodeExecutionMode.Interactive) {
+		if (mode === RuntimeCodeExecutionMode.Interactive) {
 			// Fire the onDidExecuteCode event.
 			this._onDidExecuteCodeEmitter.fire(code);
 		}

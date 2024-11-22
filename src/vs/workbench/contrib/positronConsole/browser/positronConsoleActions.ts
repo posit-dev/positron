@@ -270,7 +270,7 @@ export function registerPositronConsoleActions() {
 		 *   - allowIncomplete: Optionally, should incomplete statements be accepted? If `undefined`, treated as `false`.
 		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
 		 *   - advance: Optionally, if the cursor should be advanced to the next statement. If `undefined`, fallbacks to `true`.
-		 *   - runtimeCodeExecutionMode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
+		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
 		 */
 		async run(
 			accessor: ServicesAccessor,
@@ -278,7 +278,7 @@ export function registerPositronConsoleActions() {
 				allowIncomplete?: boolean;
 				languageId?: string;
 				advance?: boolean;
-				runtimeCodeExecutionMode?: RuntimeCodeExecutionMode;
+				mode?: RuntimeCodeExecutionMode;
 			} = {}
 		) {
 			// Access services.
@@ -430,7 +430,7 @@ export function registerPositronConsoleActions() {
 
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.runtimeCodeExecutionMode)) {
+			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.mode)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,
