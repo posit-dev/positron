@@ -128,22 +128,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	},
 	{ scope: 'test' }],
 
-	userSettings: [async ({ app }, use) => {
-		const userSettings = new PositronUserSettingsFixtures(app);
+	userSettings: [
+		async ({ app }, use) => {
+			const userSettings = new PositronUserSettingsFixtures(app);
 
-		// define the set method
-		const setUserSetting = async (settings: UserSetting[], restartApp = false) => {
-			await userSettings.setUserSettings(settings, restartApp);
-		};
+			const setUserSetting = async (
+				settings: [string, string][],
+				restartApp = false
+			) => {
+				await userSettings.setUserSettings(settings, restartApp);
+			};
 
-		// use the fixture
-		await use({
-			set: setUserSetting
-		});
+			await use({
+				set: setUserSetting,
+			});
 
-		// cleanup after worker
-		await userSettings.unsetUserSettings();
-	}, { scope: 'worker' }],
+			await userSettings.unsetUserSettings();
+		},
+		{ scope: 'worker' },
+	],
+
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
