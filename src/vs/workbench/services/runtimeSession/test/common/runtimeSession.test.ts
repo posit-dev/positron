@@ -121,8 +121,7 @@ suite('Positron - RuntimeSessionService', () => {
 
 	function assertServiceState(expectedState?: IServiceState, runtimeMetadata = runtime): void {
 		// Check the active sessions.
-		assertActiveSessions(expectedState?.activeSessions ??
-			[expectedState?.consoleSession, expectedState?.notebookSession].filter(session => !!session));
+		assertActiveSessions(expectedState?.activeSessions ?? []);
 
 		// Check the console session state.
 		assert.equal(
@@ -171,11 +170,13 @@ suite('Positron - RuntimeSessionService', () => {
 				consoleSession: session,
 				consoleSessionForLanguage: session,
 				consoleSessionForRuntime: session,
+				activeSessions: [session],
 			}, session.runtimeMetadata);
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			assertServiceState({
 				notebookSession: session,
 				notebookSessionForNotebookUri: session,
+				activeSessions: [session],
 			}, session.runtimeMetadata);
 		}
 	}
