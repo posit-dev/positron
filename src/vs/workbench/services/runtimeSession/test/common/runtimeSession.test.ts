@@ -272,18 +272,13 @@ suite('Positron - RuntimeSessionService', () => {
 				assertSingleSessionIsStarting(session);
 			});
 
+			// TODO: Should onWillStartSession only fire once?
+			//       It currently fires twice. Before the session is started and when the session
+			//       enters the ready state.
 			test(`${action} ${mode} fires onWillStartSession`, async () => {
-				if (action === 'restore') {
-					// TODO: I'm not sure if we should be emitting a 'starting' runtime state event
-					//       when reconnecting to a TestLanguageRuntimeSession. That's firing another
-					//       event with isNew = true.
-					return;
-				}
-
 				let error: Error | undefined;
 				const target = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
 					try {
-						// TODO: Should onWillStartSession only fire once?
 						if (target.callCount > 1) {
 							return;
 						}
@@ -297,10 +292,10 @@ suite('Positron - RuntimeSessionService', () => {
 				disposables.add(runtimeSessionService.onWillStartSession(target));
 				const session = await start();
 
-				// TODO: Should onWillStartSession only fire once?
 				sinon.assert.calledTwice(target);
-				const isNew = action !== 'restore';
-				sinon.assert.alwaysCalledWithExactly(target, { isNew, session });
+				// When restoring a session, the first event is fired with isNew: false.
+				sinon.assert.calledWith(target.getCall(0), { isNew: action !== 'restore', session });
+				sinon.assert.calledWith(target.getCall(1), { isNew: true, session });
 				assert.ifError(error);
 			});
 
@@ -804,58 +799,4 @@ suite('Positron - RuntimeSessionService', () => {
 			sinon.assert.calledThrice(target);
 		});
 	}
-
-	suite('queueing', () => {
-		// test(`start console -> select console`, async () => {
-		// 	const [session,] = await Promise.all([
-		// 		startConsole(),
-		// 		// Selecting the same runtime should do nothing.
-		// 		selectRuntime(),
-		// 	]);
-
-		// 	assertSessionIsStarting(session);
-		// });
-
-		// test(`select console -> start console`, async () => {
-		// 	const [session,] = await Promise.all([
-		// 		selectRuntime(),
-		// 		// Starting the same runtime should do nothing.
-		// 		startConsole(),
-		// 	]);
-
-		// 	assertSessionIsStarting(session);
-		// });
-
-		// test(`select another runtime for console -> start console`, async () => {
-		// 	const session = await startConsole();
-
-		// 	const [session2,] = await Promise.all([
-		// 		selectRuntime(anotherRuntime),
-		// 		// Starting the same runtime should do nothing.
-		// 		startConsole(anotherRuntime),
-		// 	]);
-
-		// 	assertSessionIsStarting(session2);
-		// });
-
-		test.skip(`restart console -> start console when exited`, async () => {
-			const session = await startConsole();
-			await waitForRuntimeState(session, RuntimeState.Ready);
-
-			// Send another start request once the session exits.
-			const startPromise = new Promise<ILanguageRuntimeSession>(resolve => {
-				disposables.add(session.onDidChangeRuntimeState(state => {
-					if (state === RuntimeState.Exited) {
-						resolve(startConsole());
-					}
-				}));
-			});
-
-			restartSession(session.sessionId);
-
-			await startPromise;
-
-			assertSingleSessionIsStarting(session);
-		});
-	});
 });
