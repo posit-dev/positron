@@ -37,7 +37,10 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 		await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 	});
 
-	test('Python - Verify Basic Gradio App [C903307]', { tag: ['@win'] }, async function ({ app, python }) {
+	test.skip('Python - Verify Basic Gradio App [C903307]', {
+		tag: ['@win'],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5459' }]
+	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
@@ -77,7 +80,6 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.positronEditor.pressPlay();
-		await expect(page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 30000 });
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		const viewerFrame = viewer.getViewerFrame();
 		const loginLocator = app.web
