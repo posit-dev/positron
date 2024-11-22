@@ -380,17 +380,23 @@ suite('Positron - RuntimeSessionService', () => {
 			const createOrRestoreMethod = action === 'restore' ? 'restoreSession' : 'createSession';
 			test(`${action} ${mode} encounters ${createOrRestoreMethod}() error`, async () => {
 				const error = new Error('Failed to create session');
-				sinon.stub(manager, createOrRestoreMethod).rejects(error);
+				const stub = sinon.stub(manager, createOrRestoreMethod).rejects(error);
 
 				await assert.rejects(start(), error);
+
+				// If we start now, without createOrRestoreMethod rejecting, it should work.
+				stub.restore();
+				const session = await start();
+
+				assertSingleSessionIsStarting(session);
 			});
 
-			test(`${action} ${mode} fires onDidFailStartRuntime if session.start() errors`, async () => {
+			test(`${action} ${mode} encounters session.start() error`, async () => {
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
 				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
 					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
 				});
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+				const willStartSessionDisposable = runtimeSessionService.onWillStartSession(willStartSession);
 
 				const didFailStartRuntime = sinon.spy();
 				disposables.add(runtimeSessionService.onDidFailStartRuntime(didFailStartRuntime));
@@ -398,25 +404,54 @@ suite('Positron - RuntimeSessionService', () => {
 				const didStartRuntime = sinon.spy();
 				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
 
-				const session = await start();
+				const session1 = await start();
 
-				assert.equal(session.getRuntimeState(), RuntimeState.Uninitialized);
+				assert.equal(session1.getRuntimeState(), RuntimeState.Uninitialized);
 
 				if (mode === LanguageRuntimeSessionMode.Console) {
-					// TODO: Seems unexpected that some of these are defined and others not.
-					assert.equal(runtimeSessionService.hasStartingOrRunningConsole(runtime.languageId), false);
-					assert.equal(runtimeSessionService.getConsoleSessionForLanguage(runtime.languageId), undefined);
-					assert.equal(runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId), session);
-					assert.equal(runtimeSessionService.getSession(session.sessionId), session);
-					assert.deepEqual(runtimeSessionService.activeSessions, [session]);
+					assertServiceState({
+						hasStartingOrRunningConsole: false,
+						// Note that getConsoleSessionForRuntime includes uninitialized sessions
+						// but getConsoleSessionForLanguage does not.
+						consoleSessionForLanguage: undefined,
+						consoleSessionForRuntime: session1,
+						activeSessions: [session1],
+					});
 				} else {
-					// TODO: Should failed sessions be included in activeSessions?
-					assertServiceState({ activeSessions: [session] });
+					assertServiceState({ activeSessions: [session1] });
 				}
 
-				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session);
+				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session1);
 				sinon.assert.callOrder(willStartSession, didFailStartRuntime);
 				sinon.assert.notCalled(didStartRuntime);
+
+				// If we start now, without session.start() rejecting, it should work.
+				willStartSessionDisposable.dispose();
+				const session2 = await start();
+
+				assert.equal(session2.getRuntimeState(), RuntimeState.Starting);
+
+				const expectedActiveSessions = action === 'restore' ?
+					// Restoring a session twice overwrites the previous session in activeSessions.
+					[session2] :
+					// Other actions create a new session in activeSessions.
+					[session1, session2];
+
+				if (mode === LanguageRuntimeSessionMode.Console) {
+					assertServiceState({
+						hasStartingOrRunningConsole: true,
+						consoleSession: session2,
+						consoleSessionForLanguage: session2,
+						consoleSessionForRuntime: session2,
+						activeSessions: expectedActiveSessions,
+					});
+				} else {
+					assertServiceState({
+						notebookSession: session2,
+						notebookSessionForNotebookUri: session2,
+						activeSessions: expectedActiveSessions,
+					});
+				}
 			});
 
 			test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
