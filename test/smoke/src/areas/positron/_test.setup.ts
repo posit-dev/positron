@@ -140,7 +140,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		};
 
 		await use({
-			set: setUserSetting,
+			set: setUserSetting
 		});
 
 		await userSettings.unsetUserSettings();
