@@ -149,8 +149,13 @@ test.describe('Plots', () => {
 			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
 			await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
 
+			// bug workaround
+			await app.code.wait(1000);
+
 			// save the plot
 			await app.workbench.positronPopups.clickOkOnModalDialogBox();
+
+			await app.workbench.positronPopups.waitForModalDialogBoxToDisappear();
 
 			// verify the plot is in the file explorer with the new file name and format
 			await app.workbench.positronLayouts.enterLayout('stacked');
