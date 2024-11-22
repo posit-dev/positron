@@ -23,6 +23,9 @@ export default defineConfig<CustomTestOptions>({
 		max: 10,
 		threshold: 60 * 1000, // 1 minute
 	},
+	expect: {
+		timeout: 15000,
+	},
 	reporter: process.env.CI
 		? [
 			['@midleman/github-actions-reporter', <GitHubActionOptions>{
@@ -45,6 +48,8 @@ export default defineConfig<CustomTestOptions>({
 	use: {
 		headless: false,
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
+		actionTimeout: 15000,
+		navigationTimeout: 15000,
 	},
 
 	projects: [

@@ -23,7 +23,7 @@ import archiver from 'archiver';
 
 // Local imports
 import { createLogger } from '../../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../automation';
 import { createApp } from '../../utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -128,6 +128,22 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 	},
 	{ scope: 'test' }],
 
+	userSettings: [async ({ app }, use) => {
+		const userSettings = new PositronUserSettingsFixtures(app);
+
+		// define the set method
+		const setUserSetting = async (settings: UserSetting[], restartApp = false) => {
+			await userSettings.setUserSettings(settings, restartApp);
+		};
+
+		// use the fixture
+		await use({
+			set: setUserSetting
+		});
+
+		// cleanup after worker
+		await userSettings.unsetUserSettings();
+	}, { scope: 'worker' }],
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
@@ -303,6 +319,9 @@ interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: Logger;
+	userSettings: {
+		set: (settings: UserSetting[], restartApp?: boolean) => Promise<void>;
+	};
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {
