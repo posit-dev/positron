@@ -4,19 +4,19 @@
 
 # Positron E2E Test Guide
 
-This document provides clear guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
+This document provides guidelines and setup instructions for effectively running and managing end-to-end tests in the Positron project.
 
 ## Table of Contents
 
-1. [Test Structure Overview](#test-structure-overview)
-2. [Setup](#setup)
-3. [Dependencies](#dependencies)
-4. [Running Tests](#running-tests)
-5. [Test Project](#test-project)
-6. [Local Debugging](#local-debugging)
-7. [Running Tests in Github Actions](#running-tests-in-github-actions)
-8. [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
-9. [Tests Run on PRs](#tests-run-on-prs)
+- [Test Structure Overview](#test-structure-overview)
+- [Setup](#setup)
+- [Dependencies](#dependencies)
+- [Running Tests](#running-tests)
+- [Test Project](#test-project)
+- [Local Debugging](#local-debugging)
+- [Running Tests in Github Actions](#running-tests-in-github-actions)
+- [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
+- [Tests Run on PRs](#tests-run-on-prs)
 
 ## Test Structure Overview
 
@@ -25,14 +25,14 @@ This document provides clear guidelines and setup instructions for effectively r
 - General test dir: `test/smoke/src/areas`
 - Positron test dir: `test/smoke/src/areas/positron`
 
-For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For instance, the e2e tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
 ### Test Helpers Location
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the smoke tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
 
 ### Test Template
 
@@ -101,10 +101,6 @@ Several tests use [QA Content Examples](https://github.com/posit-dev/qa-example-
 
 ## Running Tests
 
-### Playwright Test Extension
-
-We use [Playwright](https://playwright.dev/docs/getting-started-vscode) as the test framework for end-to-end tests in Positron. Make sure to install the [Playwright Test](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright) extension for VS Code to explore and debug tests effectively.
-
 ### Install
 
 Before compiling the tests, make sure to install dependencies in the following directories:
@@ -126,7 +122,9 @@ _You may see errors in test files before you run this builder step once, as it's
 
 ### Launch Tests
 
- Before beginning be sure to install the
+#### Playwright Test Extension
+
+We use Playwright as the test framework for end-to-end tests in Positron. Make sure to install the [Playwright Test](https://marketplace.visualstudio.com/items?itemName=ms-playwright.playwright) extension for VS Code to explore and debug tests effectively. Also, don't be afraid to use their [Help Docs](https://playwright.dev/docs/writing-tests) - they are a great source of information!
 
 #### Test Explorer
 
@@ -198,15 +196,13 @@ For Python, add any package requirements to the `requirements.txt` file in the r
 
 For R, add any package requirements to the "imports" section of the `DESCRIPTION` file in the root of the [QA Content Examples](https://github.com/posit-dev/qa-example-content) repo.
 
-## Local debugging
-
 ## Running Tests in Github Actions
 
 New tests are not complete until they run successfully across operating systems (Mac, Windows, & Ubuntu) and in [Github Actions](https://github.com/posit-dev/positron/actions/workflows/positron-full-test.yml). In Github Actions we use an Ubuntu instance to run the tests, so if you are developing your tests using a Mac or on Windows, this is an opportunity to test a different operating system. Also, you can easily run your new tests against a branch to verify them before merge. Simply pick the branch after you click on "Run Workflow". Note that you can also temporarily modify the workflow itself to get your new tests executed more quickly. To do this, skip the runs of the unit and integration tests.
 
 ### Github Actions Test Artifacts
 
-When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: Error information, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
+When a run is complete, you can debug any test failures that occurred using the HTML report. This report will contain everything you need: error info, test steps, screenshot(s), trace, and logs. Note that the trace files are only present for failed cases.
 
 ## Notes About Updating Specific Tests
 
@@ -216,6 +212,6 @@ In order to get the "golden screenshots" used for plot comparison is CI, you wil
 
 ## Tests run on PRs
 
-If you think your test should be run when PRs are created, add the string `#pr` to its name. The existing #pr cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the #pr set.
+If you think your test should be run when PRs are created, [tag the test with @pr](https://playwright.dev/docs/test-annotations#tag-tests). The existing @pr cases were selected to give good overall coverage while keeping the overall execution time down to ten minutes or less. If your new test functionality covers a part of the application that no other tests cover, it is probably a good idea to include it in the @pr set.
 
 <!-- End Positron -->
