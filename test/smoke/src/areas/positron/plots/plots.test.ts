@@ -53,26 +53,13 @@ test.describe('Plots', () => {
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
 
-			await app.code.driver.page.locator('.codicon-copy').click();
+			await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
 			// wait for clipboard to be populated
-			await app.code.wait(1000);
+			await app.code.wait(500);
 
-			await app.code.driver.context.grantPermissions(['clipboard-read']);
-
-			const clipboardImageBuffer = await app.code.driver.page.evaluate(async () => {
-				const clipboardItems = await navigator.clipboard.read();
-				for (const item of clipboardItems) {
-					if (item.types.includes("image/png")) {
-						const blob = await item.getType("image/png");
-						return await blob.arrayBuffer();
-					}
-				}
-				return null;
-			});
-
-
-			console.log(clipboardImageBuffer);
+			const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+			expect(clipboardImageBuffer).not.toBeNull();
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
@@ -316,6 +303,14 @@ test.describe('Plots', () => {
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
+
+			await app.workbench.positronPlots.copyCurrentPlotToClipboard();
+
+			// wait for clipboard to be populated
+			await app.code.wait(500);
+
+			const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+			expect(clipboardImageBuffer).not.toBeNull();
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();

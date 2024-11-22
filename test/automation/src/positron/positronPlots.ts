@@ -91,4 +91,8 @@ export class PositronPlots {
 	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
 		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
 	}
+
+	async copyCurrentPlotToClipboard() {
+		await this.code.driver.page.locator('.codicon-copy').click();
+	}
 }
