@@ -8,13 +8,14 @@ import 'vs/css!./verticalSplitter';
 
 // React.
 import * as React from 'react';
-import { PointerEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
 import * as DOM from 'vs/base/browser/dom';
 import { Delayer } from 'vs/base/common/async';
 import { isMacintosh } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
+import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { positronClassNames } from 'vs/base/common/positronUtilities';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { Button, KeyboardModifiers, MouseTrigger } from 'vs/base/browser/ui/positronComponents/button/button';
@@ -53,25 +54,12 @@ type VerticalSplitterCollapseProps = | {
 type VerticalSplitterProps = VerticalSplitterBaseProps & VerticalSplitterCollapseProps;
 
 /**
- * VerticalSplitterResizeParams interface. This defines the parameters of a resize operation. When
- * invert is true, the mouse delta is subtracted from the starting width instead of being added to
- * it, which inverts the resize operation.
+ * VerticalSplitterResizeParams interface. This defines the parameters of a resize operation.
  */
 export interface VerticalSplitterResizeParams {
 	readonly minimumWidth: number;
 	readonly maximumWidth: number;
 	readonly columnsWidth: number;
-}
-
-/**
- * ResizeParams interface. Represents a resize that's in progress.
- */
-interface ResizeParams {
-	readonly minimumWidth: number;
-	readonly maximumWidth: number;
-	readonly startingWidth: number;
-	readonly clientX: number;
-	readonly styleSheet: HTMLStyleElement;
 }
 
 /**
@@ -166,8 +154,8 @@ export const VerticalSplitter = ({
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
-	const [collapsed, setCollapsed] = useState(false);
-	const [resizeParams, setResizeParams] = useState<ResizeParams | undefined>(undefined);
+	const [collapsed, setCollapsed, collapsedRef] = useStateRef(false);
+	const [resizing, setResizing] = useState(false);
 
 	// Main useEffect.
 	useEffect(() => {
@@ -205,7 +193,7 @@ export const VerticalSplitter = ({
 	 * Sash onPointerEnter handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const sashPointerEnterHandler = (e: PointerEvent<HTMLDivElement>) => {
+	const sashPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		hoveringDelayer.trigger(() => {
 			setHovering(true);
 			const rect = sashRef.current.getBoundingClientRect();
@@ -220,122 +208,10 @@ export const VerticalSplitter = ({
 	 * Sash onPointerLeave handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const sashPointerLeaveHandler = (e: PointerEvent<HTMLDivElement>) => {
+	const sashPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		// When not resizing, trigger the delayer.
-		if (!resizeParams) {
+		if (!resizing) {
 			hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
-		}
-	};
-
-	/**
-	 * Sash onPointerDown handler.
-	 * @param e A PointerEvent that describes a user interaction with the pointer.
-	 */
-	const sashPointerDownHandler = (e: PointerEvent<HTMLDivElement>) => {
-		// Ignore events we don't process.
-		if (e.pointerType === 'mouse' && e.buttons !== 1) {
-			return;
-		}
-
-		// Determine whether the event occurred inside the expand / collapse button. If it did,
-		// don't process the event.
-		if (isPointInsideElement(e.clientX, e.clientY, expandCollapseButtonRef.current)) {
-			return;
-		}
-
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Begin resize to obtain the resize parameters.
-		const { minimumWidth, maximumWidth, columnsWidth } = onBeginResize();
-
-		// Set the resize params.
-		setResizeParams({
-			minimumWidth,
-			maximumWidth,
-			startingWidth: collapsed ? sashWidth : columnsWidth,
-			clientX: e.clientX,
-			styleSheet: DOM.createStyleSheet(sashRef.current)
-		});
-
-		// Set pointer capture.
-		sashRef.current.setPointerCapture(e.pointerId);
-	};
-
-	/**
-	 * Sash onPointerDown handler.
-	 * @param e A PointerEvent that describes a user interaction with the pointer.
-	 */
-	const sashPointerEventHandler = (e: PointerEvent<HTMLDivElement>) => {
-		// Ignore events we do not process.
-		if (!resizeParams) {
-			return;
-		}
-
-		// Consume the event.
-		e.preventDefault();
-		e.stopPropagation();
-
-		// Determine whether to end the resize operation.
-		const endResize = e.type === 'lostpointercapture';
-
-		// Calculate the delta.
-		const delta = Math.trunc(e.clientX - resizeParams.clientX);
-
-		// Calculate the new width.
-		let newWidth = !invert ?
-			resizeParams.startingWidth + delta :
-			resizeParams.startingWidth - delta;
-
-		// Setup event processing state.
-		let newCollapsed;
-		let newCursor: string | undefined = undefined;
-		if (newWidth < resizeParams.minimumWidth / 2) {
-			newWidth = resizeParams.minimumWidth;
-			newCollapsed = true;
-			if (!endResize) {
-				newCursor = isMacintosh ? 'col-resize' : 'ew-resize';
-			}
-		} else if (newWidth < resizeParams!.minimumWidth) {
-			newWidth = resizeParams.minimumWidth;
-			newCollapsed = false;
-			if (!endResize) {
-				newCursor = !invert ? 'e-resize' : 'w-resize';
-			}
-		} else if (newWidth > resizeParams!.maximumWidth) {
-			newWidth = resizeParams.maximumWidth;
-			newCollapsed = false;
-			if (!endResize) {
-				newCursor = !invert ? 'w-resize' : 'e-resize';
-			}
-		} else {
-			newCollapsed = false;
-			if (!endResize) {
-				newCursor = isMacintosh ? 'col-resize' : 'ew-resize';
-			}
-		}
-
-		// Set the cursor.
-		if (newCursor) {
-			resizeParams!.styleSheet.textContent = `* { cursor: ${newCursor} !important; }`;
-		}
-
-		// Perform the resize.
-		onResize(newWidth);
-
-		// Set the collapsed state.
-		if (newCollapsed !== collapsed) {
-			setCollapsed(newCollapsed);
-			onCollapsedChanged?.(newCollapsed);
-		}
-
-		// End the resize.
-		if (endResize) {
-			sashRef.current.removeChild(resizeParams.styleSheet);
-			hoveringDelayer.cancel();
-			setResizeParams(undefined);
-			setHovering(isPointInsideElement(e.clientX, e.clientY, sashRef.current));
 		}
 	};
 
@@ -343,7 +219,7 @@ export const VerticalSplitter = ({
 	 * Expand / collapse button onPointerEnter handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const expandCollapseButtonPointerEnterHandler = (e: PointerEvent<HTMLDivElement>) => {
+	const expandCollapseButtonPointerEnterHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		hoveringDelayer.cancel();
 		setHovering(true);
 		setHighlightExpandCollapse(true);
@@ -353,7 +229,7 @@ export const VerticalSplitter = ({
 	 * Expand / collapse button onPointerLeave handler.
 	 * @param e A PointerEvent that describes a user interaction with the pointer.
 	 */
-	const expandCollapseButtonPointerLeaveHandler = (e: PointerEvent<HTMLDivElement>) => {
+	const expandCollapseButtonPointerLeaveHandler = (e: React.PointerEvent<HTMLDivElement>) => {
 		hoveringDelayer.trigger(() => setHovering(false), hoverDelay);
 		setHighlightExpandCollapse(false);
 	};
@@ -374,6 +250,117 @@ export const VerticalSplitter = ({
 		hoveringDelayer.cancel();
 		setHovering(false);
 		setHighlightExpandCollapse(false);
+	};
+
+	/**
+	 * pointerDown handler.
+	 * @param e A PointerEvent that describes a user interaction with the pointer.
+	 */
+	const sashPointerDownHandler = (e: React.PointerEvent<HTMLDivElement>) => {
+		// Ignore events we don't process.
+		const isNonLeftMouseClick = e.pointerType === 'mouse' && e.buttons !== 1;
+		if (isNonLeftMouseClick) {
+			return;
+		}
+
+		// Determine whether the event occurred inside the expand / collapse button. If it did,
+		// don't process the event.
+		if (isPointInsideElement(e.clientX, e.clientY, expandCollapseButtonRef.current)) {
+			return;
+		}
+
+		// Consume the event.
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Setup the resize state.
+		const resizeParams = onBeginResize();
+		const startingWidth = collapsed ? sashWidth : resizeParams.columnsWidth;
+		const target = DOM.getWindow(e.currentTarget).document.body;
+		const clientX = e.clientX;
+		const styleSheet = DOM.createStyleSheet(target);
+
+		/**
+		 * pointermove event handler.
+		 * @param e A PointerEvent that describes a user interaction with the pointer.
+		 */
+		const pointerMoveHandler = (e: PointerEvent) => {
+			// Consume the event.
+			e.preventDefault();
+			e.stopPropagation();
+
+			// Calculate the delta.
+			const delta = Math.trunc(e.clientX - clientX);
+
+			// Calculate the new width.
+			let newWidth = !invert ?
+				startingWidth + delta :
+				startingWidth - delta;
+
+			// Adjust the new width to be within limits and set cursor and collapsed state accordingly
+			let newCollapsed = false;
+			let cursor: string | undefined = undefined;
+			if (newWidth < resizeParams.minimumWidth / 2) {
+				newWidth = resizeParams.minimumWidth;
+				newCollapsed = true;
+				cursor = isMacintosh ? 'col-resize' : 'ew-resize';
+			} else if (newWidth < resizeParams.minimumWidth) {
+				newWidth = resizeParams.minimumWidth;
+				newCollapsed = false;
+				cursor = !invert ? 'e-resize' : 'w-resize';
+			} else if (newWidth > resizeParams.maximumWidth) {
+				newWidth = resizeParams.maximumWidth;
+				newCollapsed = false;
+				cursor = !invert ? 'w-resize' : 'e-resize';
+			} else {
+				newCollapsed = false;
+				cursor = isMacintosh ? 'col-resize' : 'ew-resize';
+			}
+
+			// Set the cursor.
+			if (cursor) {
+				styleSheet.textContent = `* { cursor: ${cursor} !important; }`;
+			}
+
+			// Perform the resize
+			onResize(newWidth);
+
+			// Set the collapsed state.
+			if (newCollapsed !== collapsedRef.current) {
+				setCollapsed(newCollapsed);
+				onCollapsedChanged?.(newCollapsed);
+			}
+		};
+
+		/**
+		 * lostpointercapture event handler
+		 * @param e A PointerEvent that describes a user interaction with the pointer.
+		 */
+		const lostPointerCaptureHandler = (e: PointerEvent) => {
+			// Handle the last possible move change.
+			pointerMoveHandler(e);
+
+			// Remove our pointer event handlers.
+			target.removeEventListener('pointermove', pointerMoveHandler);
+			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
+
+			// Remove the style sheet.
+			target.removeChild(styleSheet);
+
+			// Clear the resizing flag.
+			setResizing(false);
+			hoveringDelayer.cancel();
+			setHovering(isPointInsideElement(e.clientX, e.clientY, sashRef.current));
+		};
+
+		// Set the dragging flag
+		setResizing(true);
+
+		// Set the capture target of future pointer events to be the current target and add our
+		// pointer event handlers.
+		target.setPointerCapture(e.pointerId);
+		target.addEventListener('pointermove', pointerMoveHandler);
+		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 
 	// Render.
@@ -397,15 +384,13 @@ export const VerticalSplitter = ({
 				onPointerEnter={sashPointerEnterHandler}
 				onPointerLeave={sashPointerLeaveHandler}
 				onPointerDown={sashPointerDownHandler}
-				onPointerMove={sashPointerEventHandler}
-				onLostPointerCapture={sashPointerEventHandler}
 			>
-				{showSash && (hovering || resizeParams) &&
+				{showSash && (hovering || resizing) &&
 					<div
 						className={positronClassNames(
 							'sash-indicator',
 							{ 'hovering': showSash && hovering },
-							{ 'resizing': showSash && resizeParams },
+							{ 'resizing': showSash && resizing },
 						)}
 						style={{
 							width: sashIndicatorWidth,
@@ -413,7 +398,7 @@ export const VerticalSplitter = ({
 					/>
 				}
 			</div>
-			{collapsible && (hovering || resizeParams || collapsed) &&
+			{collapsible && (hovering || resizing || collapsed) &&
 				<Button
 					ref={expandCollapseButtonRef}
 					className='expand-collapse-button'
