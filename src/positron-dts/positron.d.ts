@@ -819,6 +819,11 @@ declare module 'positron' {
 		replyToPrompt(id: string, reply: string): void;
 
 		/**
+		 * Set the current working directory of the session.
+		 */
+		setWorkingDirectory(dir: string): Thenable<void>;
+
+		/**
 		 * Start the session; returns a Thenable that resolves with information about the runtime.
 		 * If the runtime fails to start for any reason, the Thenable should reject with an error
 		 * object containing a `message` field with a human-readable error message and an optional

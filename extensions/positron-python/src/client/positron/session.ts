@@ -203,6 +203,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    setWorkingDirectory(_dir: string): Thenable<void> {
+        return Promise.resolve();
+    }
+
     private async _installIpykernel(): Promise<void> {
         // Get the installer service
         const installer = this.serviceContainer.get<IInstaller>(IInstaller);

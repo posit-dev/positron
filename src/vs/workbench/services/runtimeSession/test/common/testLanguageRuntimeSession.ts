@@ -141,6 +141,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
+	setWorkingDirectory(_dir: string): void {
+		throw new Error('Not implemented.');
+	}
+
 	async start(): Promise<ILanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
 

@@ -56,6 +56,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		throw new Error('Not implemented.');
 	}
 
+	setWorkingDirectory(_dir: string): Promise<void> {
+		throw new Error('Not implemented.');
+	}
+
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		throw new Error('Not implemented.');
 	}

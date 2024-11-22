@@ -664,6 +664,19 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Set the working directory for the kernel. This is a stub implementation since Jupyter
+	 * doesn't have a concept of a working directory.
+	 *
+	 * @param workingDirectory The working directory to set
+	 * @returns Nothing
+	 * @throws An error message indicating that this method is not implemented
+	 */
+	setWorkingDirectory(workingDirectory: string): Promise<void> {
+		return Promise.reject(
+			`Cannot change working directory to ${workingDirectory} (not implemented)`);
+	}
+
+	/**
 	 * Restores an existing session from the server.
 	 *
 	 * @param session The session to restore

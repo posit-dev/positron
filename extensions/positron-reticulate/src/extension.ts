@@ -471,6 +471,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.replyToPrompt(id, reply);
 	}
 
+	public setWorkingDirectory(dir: string): Thenable<void> {
+		return this.pythonSession.setWorkingDirectory(dir);
+	}
+
 	public start() {
 		return this.pythonSession.start();
 	}
