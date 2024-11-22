@@ -8,7 +8,7 @@ import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 
-const CONNECTION_CONTAINER = '.connections-items-container';
+const CONNECTIONS_CONTAINER = '.connections-items-container';
 const CONNECTION_ITEM = '.connections-list-item';
 const CONNECTION_ICON = '.codicon-arrow-circle-right';
 
@@ -37,7 +37,7 @@ export class PositronConnections {
 	async assertConnectionNodes(nodes: string[]): Promise<void> {
 		const waits = nodes.map(async node => {
 			await expect(
-				this.code.driver.page.locator(CONNECTION_CONTAINER).getByText(node)
+				this.code.driver.page.locator(CONNECTIONS_CONTAINER).getByText(node)
 			).toBeVisible();
 		});
 		await Promise.all(waits);
