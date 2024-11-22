@@ -19,8 +19,8 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 	});
 
 	test.afterEach(async function ({ app, page }) {
-		// await app.workbench.positronConnections.removeConnectionButton.click();
-		await page.getByLabel('Delete Connection').click();
+		await expect(page.getByLabel('Delete Connection')).toBeVisible();
+		await app.workbench.positronConnections.deleteConnectionButton.click();
 	});
 
 	test('Python - SQLite DB Connection [C628636]', async function ({ app, page, logger, python }) {
@@ -38,7 +38,7 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		// disconnect
 		await app.workbench.positronConnections.disconnectButton.click();
 		await page.getByText('SQLite Connection').click();
-		await expect(page.getByLabel('Delete Connection')).toBeVisible();
+
 	});
 
 
@@ -61,7 +61,6 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		// await app.workbench.positronConnections.reconnectButton.waitforVisible();
 		await app.workbench.positronConnections.disconnectButton.click();
 		await page.getByText('SQLiteConnection').click();
-		await expect(page.getByLabel('Delete Connection')).toBeVisible();
 	});
 
 	test('R - Connections are update after adding a database,[C663724]', async function ({ app, page, logger, r }) {
@@ -102,7 +101,6 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 
 		await app.workbench.positronConnections.disconnectButton.click();
 		await page.getByText('SQLiteConnection').click();
-		await expect(page.getByLabel('Delete Connection')).toBeVisible();
 		// disconnect icon appearance requires hover
 		// await app.workbench.positronConnections.rConnectionOpenState.hover();
 		// await app.workbench.positronConnections.disconnectButton.click();

@@ -23,7 +23,7 @@ const CONNECTION_ITEM = '.connections-items-container';
  */
 export class PositronConnections {
 
-	removeConnectionButton: PositronBaseElement;
+	deleteConnectionButton: Locator;
 	disconnectButton: Locator;
 	rConnectionOpenState: PositronBaseElement;
 	pythonConnectionOpenState: PositronBaseElement;
@@ -32,7 +32,7 @@ export class PositronConnections {
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 
-		this.removeConnectionButton = new PositronBaseElement(REMOVE_CONNECTION_BUTTON, this.code);
+		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
 		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
 		this.rConnectionOpenState = new PositronBaseElement(R_CONNECTION_OPEN_STATE, this.code);
 		this.pythonConnectionOpenState = new PositronBaseElement(PYTHON_CONNECTION_OPEN_STATE, this.code);
