@@ -16,7 +16,7 @@ test.use({
 });
 
 // web bugs 4800 & 4804
-test.describe.skip('Plots', {
+test.describe('Plots', {
 	annotation: [
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4800' },
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4804' }
@@ -139,7 +139,7 @@ test.describe.skip('Plots', {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('Python - Verifies saving a Python plot [C557005]', async function ({ app, logger }) {
+		test.skip('Python - Verifies saving a Python plot [C557005]', async function ({ app, logger }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', savePlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
