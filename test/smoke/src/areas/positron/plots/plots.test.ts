@@ -15,7 +15,6 @@ test.use({
 	suiteId: __filename
 });
 
-// web bugs 4800 & 4804
 test.describe('Plots', {
 	annotation: [
 		{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/4800' },
