@@ -66,7 +66,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		}
 
 		const disposableStore = new DisposableStore();
-		const editor = services.instantiationService.createInstance(
+		const editor = disposableStore.add(services.instantiationService.createInstance(
 			CodeEditorWidget,
 			editorContainerRef.current,
 			{
@@ -76,21 +76,17 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 				cursorBlinking: 'solid',
 			},
 			getSimpleCodeEditorWidgetOptions()
-		);
+		));
 
-		const emitter = new Emitter<string>;
-		const inputModel = services.modelService.createModel(
+		const emitter = disposableStore.add(new Emitter<string>);
+		const inputModel = disposableStore.add(services.modelService.createModel(
 			code || '',
 			{ languageId: language_id || '', onDidChange: emitter.event },
 			undefined,
 			true
-		);
+		));
 
 		editor.setModel(inputModel);
-		disposableStore.add(editor);
-		disposableStore.add(inputModel);
-		disposableStore.add(emitter);
-
 		editorRef.current = editor;
 
 		return () => {
@@ -141,6 +137,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 			return;
 		}
 
+		// Acquire code before disposing of the renderer
 		const code = editorRef.current?.getValue();
 
 		props.renderer.dispose();
