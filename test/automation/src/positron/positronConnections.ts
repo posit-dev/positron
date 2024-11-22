@@ -54,4 +54,10 @@ export class PositronConnections {
 	async openTree() {
 		await this.quickaccess.runCommand('positron.connections.expandAll');
 	}
+
+	async deleteConnection() {
+		await expect(this.code.driver.page.getByLabel('Delete Connection')).toBeVisible();
+		this.deleteConnectionButton.click();
+	}
+
 }

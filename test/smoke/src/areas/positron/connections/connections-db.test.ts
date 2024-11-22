@@ -20,9 +20,8 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 
 	test.afterEach(async function ({ app, page }) {
 		await app.workbench.positronConnections.disconnectButton.click();
-		await page.locator('.connections-list-item').click();
-		await expect(page.getByLabel('Delete Connection')).toBeVisible();
-		await app.workbench.positronConnections.deleteConnectionButton.click();
+		await app.workbench.positronConnections.connectionItems.first().click();
+		await app.workbench.positronConnections.deleteConnection();
 	});
 
 	test('Python - SQLite DB Connection [C628636]', async function ({ app, page, logger, python }) {
