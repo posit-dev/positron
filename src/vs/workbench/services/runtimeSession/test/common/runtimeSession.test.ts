@@ -211,7 +211,6 @@ suite('Positron - RuntimeSessionService', () => {
 	}
 
 	async function autoStartSession(runtimeMetadata = runtime) {
-		// TODO: Maybe all of these functions can return a sessionId?
 		const sessionId = await runtimeSessionService.autoStartRuntime(runtimeMetadata, startReason);
 		assert.ok(sessionId);
 		const session = runtimeSessionService.getSession(sessionId);
