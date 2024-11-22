@@ -5,9 +5,6 @@
 
 import { join } from 'path';
 import { test, expect } from '../_test.setup';
-import { UserSetting } from '../../../../../automation';
-
-const connectionSetting: UserSetting = ['positron.connections.showConnectionPane', 'true'];
 
 test.use({
 	suiteId: __filename
@@ -15,7 +12,7 @@ test.use({
 
 test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([connectionSetting], true);
+		await userSettings.set([['positron.connections.showConnectionPane', 'true']], true);
 	});
 
 	test.afterEach(async function ({ app }) {

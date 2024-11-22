@@ -126,24 +126,26 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	},
+
 	{ scope: 'test' }],
 
 	userSettings: [async ({ app }, use) => {
 		const userSettings = new PositronUserSettingsFixtures(app);
 
-		// define the set method
-		const setUserSetting = async (settings: UserSetting[], restartApp = false) => {
+		const setUserSetting = async (
+			settings: [string, string][],
+			restartApp = false
+		) => {
 			await userSettings.setUserSettings(settings, restartApp);
 		};
 
-		// use the fixture
 		await use({
 			set: setUserSetting
 		});
 
-		// cleanup after worker
 		await userSettings.unsetUserSettings();
 	}, { scope: 'worker' }],
+
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
@@ -166,7 +168,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		for (const screenshotPath of screenshots) {
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
-
 	}, { auto: true }],
 
 	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
