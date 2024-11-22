@@ -163,7 +163,14 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async restart(): Promise<void> {
 		await this.shutdown(RuntimeExitReason.Restart);
-		waitForRuntimeState(this, RuntimeState.Exited).then(() => this.start());
+
+		// Wait for the session to exit, then start it again.
+		const disposable = this._register(this.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exited) {
+				disposable.dispose();
+				this.start();
+			}
+		}));
 	}
 
 	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
@@ -202,10 +209,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async showProfile(): Promise<void> {
 		throw new Error('Not implemented.');
-	}
-
-	override dispose() {
-		super.dispose();
 	}
 
 	// Test helpers
