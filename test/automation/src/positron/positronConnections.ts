@@ -9,8 +9,6 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';
-const CONNECTION_ITEM = '.connections-list-item';
-const CONNECTION_ICON = '.codicon-arrow-circle-right';
 
 /*
  *  Reuseable Positron connections tab functionality for tests to leverage
@@ -19,12 +17,14 @@ export class PositronConnections {
 
 	deleteConnectionButton: Locator;
 	disconnectButton: Locator;
-	connectionIcon: Locator;
+	connectIcon: Locator;
+	connectionItems: Locator;
 
 	constructor(private code: Code, private quickaccess: QuickAccess) {
 		this.deleteConnectionButton = code.driver.page.getByLabel('Delete Connection');
 		this.disconnectButton = code.driver.page.getByLabel('Disconnect');
-		this.connectionIcon = code.driver.page.locator(CONNECTION_ICON);
+		this.connectIcon = code.driver.page.locator('.codicon-arrow-circle-right');
+		this.connectionItems = code.driver.page.locator('.connections-list-item');
 	}
 
 	async openConnectionsNodes(nodes: string[]) {
@@ -48,7 +48,7 @@ export class PositronConnections {
 	}
 
 	async viewConnection(name: string) {
-		await this.code.driver.page.locator(CONNECTION_ITEM).filter({ hasText: name }).locator(CONNECTION_ICON).click();
+		await this.connectionItems.filter({ hasText: name }).locator(this.connectIcon).click();
 	}
 
 	async openTree() {

@@ -10,7 +10,7 @@ import { UserSetting } from '../../../../../automation';
 const connectionSetting: UserSetting = ['positron.connections.showConnectionPane', 'true'];
 
 test.use({
-	suiteId: __filename,
+	suiteId: __filename
 });
 
 test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
@@ -33,7 +33,7 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 
 		await test.step('Open connections pane', async () => {
 			await app.workbench.positronVariables.clickDatabaseIconForVariableRow('conn');
-			await app.workbench.positronConnections.connectionIcon.click();
+			await app.workbench.positronConnections.connectIcon.click();
 		});
 
 		await test.step('Verify connection nodes', async () => {
