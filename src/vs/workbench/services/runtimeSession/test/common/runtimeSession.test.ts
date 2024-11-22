@@ -112,16 +112,9 @@ suite('Positron - RuntimeSessionService', () => {
 		activeSessions?: ILanguageRuntimeSession[];
 	}
 
-	function assertActiveSessions(expectedSessions: ILanguageRuntimeSession[]) {
-		assert.deepEqual(
-			runtimeSessionService.activeSessions.map(session => session.sessionId),
-			expectedSessions.map(session => session.sessionId),
-		);
-	}
-
 	function assertServiceState(expectedState?: IServiceState, runtimeMetadata = runtime): void {
 		// Check the active sessions.
-		assertActiveSessions(expectedState?.activeSessions ?? []);
+		assert.deepEqual(runtimeSessionService.activeSessions, expectedState?.activeSessions ?? []);
 
 		// Check the console session state.
 		assert.equal(
@@ -132,26 +125,26 @@ suite('Positron - RuntimeSessionService', () => {
 				'Expected no starting or running console session',
 		);
 		assert.equal(
-			runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId)?.sessionId,
-			expectedState?.consoleSessionForLanguage?.sessionId,
+			runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId),
+			expectedState?.consoleSessionForLanguage,
 		);
 		assert.equal(
-			runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId)?.sessionId,
-			expectedState?.consoleSessionForRuntime?.sessionId,
+			runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId),
+			expectedState?.consoleSessionForRuntime,
 		);
 		assert.equal(
-			runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? '')?.sessionId,
-			expectedState?.consoleSession?.sessionId,
+			runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? ''),
+			expectedState?.consoleSession,
 		);
 
 		// Check the notebook session state.
 		assert.equal(
-			runtimeSessionService.getSession(expectedState?.notebookSession?.sessionId ?? '')?.sessionId,
-			expectedState?.notebookSession?.sessionId,
+			runtimeSessionService.getSession(expectedState?.notebookSession?.sessionId ?? ''),
+			expectedState?.notebookSession,
 		);
 		assert.equal(
-			runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri)?.sessionId,
-			expectedState?.notebookSessionForNotebookUri?.sessionId,
+			runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri),
+			expectedState?.notebookSessionForNotebookUri,
 		);
 	}
 
