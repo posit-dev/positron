@@ -6,7 +6,7 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
-import { ConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
@@ -52,7 +52,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.attachRuntime(runtime);
 		}));
 
-		const storedConnections: ConnectionMetadata[] = JSON.parse(
+		const storedConnections: IConnectionMetadata[] = JSON.parse(
 			this.storageService.get('positron-connections', StorageScope.WORKSPACE, '[]')
 		);
 		storedConnections.forEach((metadata) => {
@@ -61,7 +61,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			}
 
 			const instance = new DisconnectedPositronConnectionsInstance(
-				metadata,
+				new ConnectionMetadata(metadata),
 				this.runtimeSessionService,
 				this
 			);
@@ -103,7 +103,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			}
 
 			const instance = await PositronConnectionsInstance.init(
-				message.data as ConnectionMetadata,
+				new ConnectionMetadata(message.data as IConnectionMetadata),
 				new ConnectionsClientInstance(client),
 				this
 			);
@@ -121,7 +121,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 				const metadata = await connectionsClient.getMetadata();
 
 				const instance = await PositronConnectionsInstance.init(
-					metadata,
+					new ConnectionMetadata(metadata),
 					connectionsClient,
 					this
 				);

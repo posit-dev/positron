@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useEffect, useRef } from 'react';
 import { localize } from 'vs/nls';
 import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
 import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
@@ -12,6 +12,10 @@ import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnec
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import 'vs/css!./resumeConnectionModalDialog';
 import Severity from 'vs/base/common/severity';
+import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { DisposableStore } from 'vs/base/common/lifecycle';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
+import { Emitter } from 'vs/base/common/event';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
@@ -25,7 +29,7 @@ export const showResumeConnectionModalDialog = (
 	const renderer = new PositronModalReactRenderer({
 		keybindingService: services.keybindingService,
 		layoutService: services.layoutService,
-		container: services.layoutService.activeContainer
+		container: services.layoutService.activeContainer,
 	});
 
 	renderer.render(
@@ -48,20 +52,62 @@ interface ResumeConnectionModalDialogProps {
 const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionModalDialogProps>) => {
 
 	const { services, activeInstaceId } = props;
-	const activeInstace = services.connectionsService.getConnections().find(item => item.id === activeInstaceId);
+	const activeInstance = services.connectionsService.getConnections().find(item => item.id === activeInstaceId);
 
-	if (!activeInstace) {
+	const editorContainerRef = useRef<HTMLDivElement>(null);
+	const editorRef = useRef<CodeEditorWidget | null>(null);
+
+	const code = activeInstance?.metadata.code;
+	const language_id = activeInstance?.metadata.language_id;
+
+	useEffect(() => {
+		if (!editorContainerRef.current) {
+			return () => { };
+		}
+
+		const disposableStore = new DisposableStore();
+		const editor = services.instantiationService.createInstance(
+			CodeEditorWidget,
+			editorContainerRef.current,
+			{ ...getSimpleEditorOptions(services.configurationService), readOnly: true },
+			getSimpleCodeEditorWidgetOptions()
+		);
+
+		const emitter = new Emitter<string>;
+		const inputModel = services.modelService.createModel(
+			code || '',
+			{ languageId: language_id || '', onDidChange: emitter.event },
+			undefined,
+			true
+		);
+
+		editor.setModel(inputModel);
+		disposableStore.add(editor);
+		disposableStore.add(inputModel);
+		disposableStore.add(emitter);
+
+		editorRef.current = editor;
+
+		return () => {
+			disposableStore.dispose();
+			editorRef.current = null;
+		};
+	},
+		[
+			code, language_id,
+			services.instantiationService,
+			services.configurationService,
+			editorContainerRef,
+			services.modelService,
+		]);
+
+	if (!activeInstance) {
 		// This should never happen.
 		return null;
 	}
 
-	const code = activeInstace.metadata.code;
-
 	const copyHandler = async () => {
-		if (!code) {
-			// The button is disabled when no code is available.
-			return;
-		}
+		const code = editorRef.current?.getValue() || '';
 		await services.clipboardService.writeText(code);
 		props.renderer.dispose();
 
@@ -74,36 +120,39 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 	};
 
 	const editHandler = async () => {
-		if (!code) {
+		const editor = editorRef.current;
+
+		if (!editor) {
 			return;
 		}
 
-		props.renderer.dispose();
-		await services.editorService.openEditor({
-			resource: undefined,
-			contents: code,
-			languageId: activeInstace.metadata.language_id
-		});
+		editor.focus();
+		editor.updateOptions({ readOnly: false });
+		editor.setScrollTop(0);
 	};
 
 	const resumeHandler = async () => {
-		if (!activeInstace.connect) {
+		if (!activeInstance.connect) {
 			return;
 		}
+
+		const code = editorRef.current?.getValue();
 
 		props.renderer.dispose();
 		const handle = services.notificationService.notify({
 			message: localize(
 				'positron.resumeConnectionModalDialog.connecting',
 				"Connecting to data source ({0})...",
-				activeInstace.metadata.name
+				activeInstance.metadata.name
 			),
 			severity: Severity.Info
 		});
 
 		try {
-			await activeInstace.connect();
-			props.setActiveInstanceId(activeInstace.id);
+			// Set instance code to the latest value.
+			activeInstance.metadata.update({ code: code });
+			await activeInstance.connect();
+			props.setActiveInstanceId(activeInstance.id);
 		} catch (err) {
 			services.notificationService.error(err);
 		}
@@ -128,7 +177,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 					<div className='content'>
 						<div className='title'>{localize('positron.resumeConnectionModalDialog.code', "Connection Code")}</div>
 						<div className='code'>
-							<code>{code}</code>
+							<div style={{ height: '100%' }} ref={editorContainerRef}></div>
 						</div>
 						<div className='buttons'>
 							<div className='top'>
@@ -160,7 +209,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 							<PositronButton
 								className='button action-bar-button default'
 								onPressed={resumeHandler}
-								disabled={!activeInstace.connect}
+								disabled={!activeInstance.connect}
 							>
 								{(() => localize('positron.resumeConnectionModalDialog.resume', "Resume Connection"))()}
 							</PositronButton>

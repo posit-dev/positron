@@ -31,6 +31,7 @@ import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { IModelService } from 'vs/editor/common/services/model';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -89,7 +90,8 @@ export class PositronConnectionsView
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@IEditorService private readonly editorService: IEditorService
+		@IEditorService private readonly editorService: IEditorService,
+		@IModelService private readonly modelService: IModelService
 	) {
 		super(
 			options,
@@ -148,6 +150,8 @@ export class PositronConnectionsView
 				clipboardService={this.clipboardService}
 				notificationService={this.notificationService}
 				editorService={this.editorService}
+				instantiationService={this.instantiationService}
+				modelService={this.modelService}
 			/>
 		);
 	}
