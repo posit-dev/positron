@@ -54,7 +54,7 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			runtime: this._session,
 			output: this._message,
 			viewType: 'jupyter-notebook',
-			webviewType: WebviewType.Standard,
+			webviewType: WebviewType.Overlay,
 		});
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');
