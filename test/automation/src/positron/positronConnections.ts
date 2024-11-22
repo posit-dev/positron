@@ -8,7 +8,8 @@ import { expect, Locator } from '@playwright/test';
 import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 
-const CONNECTION_ITEM = '.connections-items-container';
+const CONNECTION_CONTAINER = '.connections-items-container';
+const CONNECTION_ITEM = '.connections-list-item';
 const CONNECTION_ICON = '.codicon-arrow-circle-right';
 
 /*
@@ -36,7 +37,7 @@ export class PositronConnections {
 	async assertConnectionNodes(nodes: string[]): Promise<void> {
 		const waits = nodes.map(async node => {
 			await expect(
-				this.code.driver.page.locator(CONNECTION_ITEM).getByText(node)
+				this.code.driver.page.locator(CONNECTION_CONTAINER).getByText(node)
 			).toBeVisible();
 		});
 		await Promise.all(waits);
@@ -47,7 +48,7 @@ export class PositronConnections {
 	}
 
 	async viewConnection(name: string) {
-		await this.code.driver.page.locator('.connections-list-item').filter({ hasText: name }).locator('.col-action > .codicon').click();
+		await this.code.driver.page.locator(CONNECTION_ITEM).filter({ hasText: name }).locator(CONNECTION_ICON).click();
 	}
 
 	async openTree() {
