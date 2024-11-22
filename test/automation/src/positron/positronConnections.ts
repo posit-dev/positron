@@ -9,6 +9,7 @@ import { Code } from '../code';
 import { QuickAccess } from '../quickaccess';
 
 const CONNECTIONS_CONTAINER = '.connections-items-container';
+const CONNECTIONS_ITEM = '.connections-item';
 
 /*
  *  Reuseable Positron connections tab functionality for tests to leverage
@@ -29,8 +30,8 @@ export class PositronConnections {
 
 	async openConnectionsNodes(nodes: string[]) {
 		for (const node of nodes) {
-			await this.code.driver.page.locator('.connections-item').filter({ hasText: node }).locator('.codicon-chevron-right').click();
-			await expect(this.code.driver.page.locator('.connections-item').filter({ hasText: node }).locator('.codicon-chevron-down')).toBeVisible();
+			await this.code.driver.page.locator(CONNECTIONS_ITEM).filter({ hasText: node }).locator('.codicon-chevron-right').click();
+			await expect(this.code.driver.page.locator(CONNECTIONS_ITEM).filter({ hasText: node }).locator('.codicon-chevron-down')).toBeVisible();
 		}
 	}
 
