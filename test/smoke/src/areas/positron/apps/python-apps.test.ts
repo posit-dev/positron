@@ -37,10 +37,10 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 		await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 	});
 
-	// gradio test skipped because we seem to need
-	// share=True
-	// and this will cause Crowdstrike to fire and security will have to respond
-	test.skip('Python - Verify Basic Gradio App [C903307]', { tag: ['@win'] }, async function ({ app, python }) {
+	test.skip('Python - Verify Basic Gradio App [C903307]', {
+		tag: ['@win'],
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5459' }]
+	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'python_apps', 'gradio_example', 'gradio_example.py'));
