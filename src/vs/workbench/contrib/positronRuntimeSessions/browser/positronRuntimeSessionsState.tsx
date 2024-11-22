@@ -42,12 +42,17 @@ export const usePositronRuntimeSessionsState = (services: PositronSessionsServic
 
 		// Add the onDidStartPositronSessionsInstance event handler.
 		disposableStore.add(services.runtimeSessionService.onDidStartRuntime(session => {
-			setPositronSessions(positronSessions => [...positronSessions, session]);
+			setPositronSessions(positronSessions => {
+				if (positronSessions.some(existingSession => existingSession.sessionId === session.sessionId)) {
+					return positronSessions;
+				}
+				return [...positronSessions, session];
+			});
 		}));
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.runtimeSessionService]);
 
 	// Return the Positron variables state.
 	return {
