@@ -231,7 +231,18 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	async setWorkingDirectory(dir: string): Promise<void> {
-		return Promise.reject(new Error('Not implemented.'));
+		if (this._kernel) {
+			// Escape any quotes in the directory path
+			dir = dir.replace(/"/g, '\\"');
+
+			// Tell the kernel to change the working directory
+			this._kernel.execute(`setwd("${dir}")`,
+				randomUUID(),
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Continue);
+		} else {
+			throw new Error(`Cannot change to ${dir}; kernel not started`);
+		}
 	}
 
 	async start(): Promise<positron.LanguageRuntimeInfo> {

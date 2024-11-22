@@ -720,6 +720,13 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 			}
 			resource = selection[0];
 		}
-		sessionService.foregroundSession?.setWorkingDirectory(resource?.fsPath);
+		if (!resource) {
+			return;
+		}
+		try {
+			session.setWorkingDirectory(resource.fsPath);
+		} catch (e) {
+			notificationService.error(e);
+		}
 	}
 });
