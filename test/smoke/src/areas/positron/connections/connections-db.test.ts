@@ -18,13 +18,13 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		await userSettings.set([connectionSetting], true);
 	});
 
-	test.afterEach(async function ({ app, page }) {
+	test.afterEach(async function ({ app }) {
 		await app.workbench.positronConnections.disconnectButton.click();
 		await app.workbench.positronConnections.connectionItems.first().click();
 		await app.workbench.positronConnections.deleteConnection();
 	});
 
-	test('Python - SQLite DB Connection [C628636]', async function ({ app, page, logger, python }) {
+	test('Python - SQLite DB Connection [C628636]', async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -41,7 +41,7 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		});
 	});
 
-	test('R - SQLite DB Connection [C628637]', async function ({ app, page, logger, r }) {
+	test('R - SQLite DB Connection [C628637]', async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
@@ -58,7 +58,7 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		});
 	});
 
-	test('R - Connections are update after adding a database,[C663724]', async function ({ app, page, logger, r }) {
+	test('R - Connections are update after adding a database,[C663724]', async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {
 			await app.workbench.positronConsole.executeCode(
 				'R',
