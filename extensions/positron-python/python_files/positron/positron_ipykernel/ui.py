@@ -54,7 +54,7 @@ class _InvalidParamsError(Exception):
     pass
 
 
-def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
+def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bool:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
         raise _InvalidParamsError(f"Expected a module name, got: {params}")
     # Consider: this is not a perfect check for a couple of reasons:
