@@ -91,7 +91,7 @@ def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> N
         torch_.set_printoptions(linewidth=width)
 
 
-_RPC_METHODS: Dict[str, Callable[[List[JsonData]], JsonData]] = {
+_RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
 }
