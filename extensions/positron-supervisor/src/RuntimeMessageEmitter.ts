@@ -46,6 +46,7 @@ export class RuntimeMessageEmitter {
 				break;
 			case 'comm_open':
 				this.onCommOpen(msg, msg.content as JupyterCommOpen);
+				break;
 			case 'display_data':
 				this.onDisplayData(msg, msg.content as JupyterDisplayData);
 				break;
@@ -66,6 +67,7 @@ export class RuntimeMessageEmitter {
 				break;
 			case 'stream':
 				this.onStreamOutput(msg, msg.content as JupyterStreamOutput);
+				break;
 		}
 	}
 
