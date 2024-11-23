@@ -58,7 +58,7 @@ import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
-const DEBUG_LOG = true;
+const DEBUG_LOG = false;
 
 class DuckDBInstance {
 	runningQuery: Promise<any> = Promise.resolve();
