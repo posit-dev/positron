@@ -40,15 +40,10 @@ import {
 	OpenDatasetParams,
 	OpenDatasetResult,
 	ReturnColumnProfilesEvent,
-	ReturnColumnProfilesParams,
 	RowFilter,
 	RowFilterType,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
-	SummaryStatsDate,
-	SummaryStatsDatetime,
-	SummaryStatsNumber,
-	SummaryStatsString,
 	SupportStatus,
 	TableData,
 	TableRowLabels,
@@ -59,11 +54,11 @@ import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
 import * as fs from 'fs';
 import Worker from 'web-worker';
-import { Int32, Int64, List, Struct, StructRowProxy, Table, Utf8, Vector } from 'apache-arrow';
+import { Table, Vector } from 'apache-arrow';
 import { pathToFileURL } from 'url';
 
 // Set to true when doing development for better console logging
-const DEBUG_LOG = false;
+const DEBUG_LOG = true;
 
 class DuckDBInstance {
 	runningQuery: Promise<any> = Promise.resolve();
@@ -114,6 +109,7 @@ class DuckDBInstance {
 			if (DEBUG_LOG) {
 				console.log(`Failed to execute:\n${query}`);
 			}
+			this.runningQuery = Promise.resolve();
 			return Promise.reject(error);
 		}
 	}
@@ -164,9 +160,13 @@ function uriToFilePath(uri: string) {
 // - JSON
 const SCHEMA_TYPE_MAPPING = new Map<string, ColumnDisplayType>([
 	['BOOLEAN', ColumnDisplayType.Boolean],
+	['UTINYINT', ColumnDisplayType.Number],
 	['TINYINT', ColumnDisplayType.Number],
+	['USMALLINT', ColumnDisplayType.Number],
 	['SMALLINT', ColumnDisplayType.Number],
+	['UINTEGER', ColumnDisplayType.Number],
 	['INTEGER', ColumnDisplayType.Number],
+	['UBIGINT', ColumnDisplayType.Number],
 	['BIGINT', ColumnDisplayType.Number],
 	['FLOAT', ColumnDisplayType.Number],
 	['DOUBLE', ColumnDisplayType.Number],
@@ -301,14 +301,18 @@ class ColumnProfileEvaluator {
 					this.addNullCount(fieldName);
 					break;
 				case ColumnProfileType.LargeHistogram:
-				case ColumnProfileType.SmallHistogram: {
+				case ColumnProfileType.SmallHistogram:
 					this.addHistogramStats(fieldName, spec.params as ColumnHistogramParams);
-				}
+					break;
+				case ColumnProfileType.LargeFrequencyTable:
+				case ColumnProfileType.SmallFrequencyTable:
+					// Need the null count to compute the size of the "other" group
+					this.addNullCount(fieldName);
+					break;
 				case ColumnProfileType.SummaryStats:
 					this.addSummaryStats(columnSchema);
 					break;
 				default:
-					// Frequency tables do not need any summary stats
 					break;
 			}
 		}
@@ -334,7 +338,7 @@ class ColumnProfileEvaluator {
 
 	private addIqr(fieldName: string) {
 		this.statsExprs.add(
-			`APPROX_QUANTILE("${fieldName}", 0.75) - APPROX_QUANTILE("${fieldName}", 0.25)
+			`APPROX_QUANTILE("${fieldName}", 0.75)::DOUBLE - APPROX_QUANTILE("${fieldName}", 0.25)::DOUBLE
 			AS "iqr_${fieldName}"`
 		);
 	}
@@ -379,7 +383,8 @@ class ColumnProfileEvaluator {
 	}
 
 	private async computeFreqTable(columnSchema: SchemaEntry,
-		params: ColumnFrequencyTableParams): Promise<ColumnFrequencyTable> {
+		params: ColumnFrequencyTableParams,
+		stats: Map<string, any>): Promise<ColumnFrequencyTable> {
 		const field = columnSchema.column_name;
 
 		const predicate = `"${field}" IS NOT NULL`;
@@ -397,27 +402,37 @@ class ColumnProfileEvaluator {
 		FROM freq_table
 		ORDER BY freq DESC;`) as Table<any>;
 
-		// TODO: compute the OTHER group
-
 		const values: string[] = [];
 		const counts: number[] = [];
 
+		let total = 0;
 		for (const row of result.toArray()) {
 			values.push(row.value);
-			counts.push(Number(row.freq));
+
+			const valueCount = Number(row.freq);
+			counts.push(valueCount);
+			total += valueCount;
 		}
 
-		return { values, counts };
+		const numRows = Number(stats.get('num_rows'));
+		const nullCount = Number(stats.get(`null_count_${field}`));
+
+		return {
+			values,
+			counts,
+			other_count: numRows - total - nullCount
+		};
 	}
 
 	private async computeHistogram(columnSchema: SchemaEntry, params: ColumnHistogramParams,
 		stats: Map<string, any>): Promise<ColumnHistogram> {
 		const field = columnSchema.column_name;
-		// TODO: Computing histograms on large int64 number
 
 		// After everything works, we can work on computing all histograms as a one-shot for
 		// potentially better performance
 		const numRows = Number(stats.get('num_rows'));
+
+		// This may be lossy for very large INT64 values
 		const minValue = Number(stats.get(`min_${field}`));
 		const maxValue = Number(stats.get(`max_${field}`));
 
@@ -621,7 +636,7 @@ class ColumnProfileEvaluator {
 					case ColumnProfileType.LargeFrequencyTable:
 					case ColumnProfileType.SmallFrequencyTable:
 						result[spec.profile_type] = await this.computeFreqTable(
-							columnSchema, spec.params as ColumnFrequencyTableParams
+							columnSchema, spec.params as ColumnFrequencyTableParams, stats
 						);
 						break;
 					case ColumnProfileType.SummaryStats:
