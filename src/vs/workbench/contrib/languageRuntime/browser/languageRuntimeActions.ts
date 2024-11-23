@@ -683,6 +683,7 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 				when: ContextKeyExpr.and(FilesExplorerFocusCondition, ExplorerFolderContext),
 				primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyD,
 			},
+			f1: true,
 			menu: [
 				{
 					id: MenuId.ExplorerContext,
