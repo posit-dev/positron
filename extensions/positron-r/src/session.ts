@@ -237,6 +237,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 */
 	async setWorkingDirectory(dir: string): Promise<void> {
 		if (this._kernel) {
+			// Escape any backslashes in the directory path
+			dir = dir.replace(/\\/g, '\\\\');
+
 			// Escape any quotes in the directory path
 			dir = dir.replace(/"/g, '\\"');
 

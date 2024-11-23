@@ -686,7 +686,7 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 			menu: [
 				{
 					id: MenuId.ExplorerContext,
-					group: '4_search',
+					group: '2_workspace',
 					order: 10,
 					when: ContextKeyExpr.and(ExplorerFolderContext)
 				}
@@ -694,6 +694,13 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 		});
 	}
 
+	/**
+	 * Invoke the command
+	 *
+	 * @param accessor The services accessor
+	 * @param resource The resource to set as the working directory, from the explorer. If not provided, the user will be prompted to select a folder.
+	 * @returns
+	 */
 	async run(accessor: ServicesAccessor, resource?: URI) {
 		const sessionService = accessor.get(IRuntimeSessionService);
 		const notificationService = accessor.get(INotificationService);
@@ -716,13 +723,20 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 					'Set Directory')
 			});
 			if (!selection) {
+				// No folder was selected.
 				return;
 			}
+
+			// Use the first selected folder (there should only ever be one selected since we specified `canSelectMany: false`).
 			resource = selection[0];
 		}
+
+		// At this point we should have a resource.
 		if (!resource) {
 			return;
 		}
+
+		// Attempt to set the working directory to the selected folder.
 		try {
 			session.setWorkingDirectory(resource.fsPath);
 		} catch (e) {
