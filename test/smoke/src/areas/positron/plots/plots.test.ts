@@ -287,7 +287,7 @@ test.describe('Plots', () => {
 
 		test('R - Verifies saving an R plot [C557006]', async function ({ app, logger }) {
 			logger.log('Sending code to console');
-			// create a plot
+
 			await app.workbench.positronConsole.executeCode('R', rSavePlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
