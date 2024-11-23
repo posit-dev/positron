@@ -453,7 +453,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 					resolve();
 				},
 				(err) => {
-					reject(err)
+					reject(err);
 				});
 		});
 	}

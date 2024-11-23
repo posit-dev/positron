@@ -230,6 +230,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	/**
+	 * Sets the working directory for the runtime.
+	 *
+	 * @param dir The working directory to set.
+	 */
 	async setWorkingDirectory(dir: string): Promise<void> {
 		if (this._kernel) {
 			// Escape any quotes in the directory path
