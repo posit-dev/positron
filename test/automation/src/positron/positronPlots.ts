@@ -91,4 +91,34 @@ export class PositronPlots {
 	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
 		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
 	}
+
+	async savePlot({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
+		// wait for modal dialog box
+		await this.savePlotButton.click();
+		await expect(this.code.driver.page.getByText('Save Plot')).toBeVisible();
+
+		// enter new name and select format
+		await this.code.driver.page.getByLabel('Name', { exact: true }).fill(name);
+		await this.code.driver.page.getByLabel('Format').click();
+		await this.code.driver.page.getByRole('button', { name: format }).click();
+
+		// ensure dropdown value has updated
+		await expect(this.code.driver.page.getByLabel(`Format${format}`)).toBeVisible();
+
+		// save plot
+		await this.code.driver.page.getByText('Save', { exact: true }).click();
+
+		// handle overwrite dialog
+		const fileExists = this.code.driver.page.getByText('The file already exists', { exact: true });
+		if (await fileExists.isVisible()) {
+			if (overwrite) {
+				await this.code.driver.page.getByRole('button', { name: 'Overwrite' }).click();
+				await expect(this.code.driver.page.getByText('Save Plot')).not.toBeVisible();
+			} else {
+				await this.code.driver.page.getByText('Cancel').click();
+			}
+		} else {
+			await expect(this.code.driver.page.getByText('Save Plot')).not.toBeVisible();
+		}
+	}
 }

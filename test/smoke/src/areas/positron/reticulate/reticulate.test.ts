@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect } from '../_test.setup';
-import { UserSetting } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -22,12 +21,9 @@ test.describe('Reticulate', {
 		try {
 			// remove this once https://github.com/posit-dev/positron/issues/5226
 			// is resolved
-			const kernelSupervisorSetting: UserSetting = ['positronKernelSupervisor.enable', 'false'];
-			const reticulateSetting: UserSetting = ['positron.reticulate.enabled', 'true'];
-
 			await userSettings.set([
-				kernelSupervisorSetting,
-				reticulateSetting
+				['positronKernelSupervisor.enable', 'false'],
+				['positron.reticulate.enabled', 'true']
 			]);
 
 		} catch (e) {

@@ -15,7 +15,6 @@ test.use({
 	suiteId: __filename
 });
 
-// web bugs 4800 & 4804
 test.describe('Plots', () => {
 	test.describe('Python Plots', () => {
 		test.beforeAll(async function ({ app, interpreter }) {
@@ -140,26 +139,10 @@ test.describe('Plots', () => {
 			await app.workbench.positronPlots.waitForCurrentPlot();
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
-			// save again with a different name and file format
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// fill in the file name and change file format to JPEG
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('Python-scatter');
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-			await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
-
-			// bug workaround
-			await app.code.wait(1000);
-
-			// save the plot
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			await app.workbench.positronPopups.waitForModalDialogBoxToDisappear();
-
-			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronPlots.savePlot({ name: 'Python-scatter', format: 'JPEG' });
 			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
+
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronLayouts.enterLayout('stacked');
@@ -308,30 +291,12 @@ test.describe('Plots', () => {
 			await app.workbench.positronConsole.executeCode('R', rSavePlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
-			// click save to bring up the modal save dialog
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// save with defaults
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			// verify a plot is in the file explorer with the default file name
+			await app.workbench.positronPlots.savePlot({ name: 'plot', format: 'PNG' });
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('plot.png');
 
-			// save again with a different name and file format
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// fill in the file name and change file format to SVG
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('R-cars');
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-			await app.workbench.positronPopups.clickOnModalDialogPopupOption('SVG');
-
-			// save the plot
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronPlots.savePlot({ name: 'R-cars', format: 'SVG' });
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
+
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
 			await app.workbench.positronLayouts.enterLayout('stacked');
