@@ -40,7 +40,7 @@ import { ParameterHintsController } from 'vs/editor/contrib/parameterHints/brows
 import { IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
 import { SelectionClipboardContributionID } from 'vs/workbench/contrib/codeEditor/browser/selectionClipboard';
 import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { HistoryBrowserPopup } from 'vs/workbench/contrib/positronConsole/browser/components/historyBrowserPopup';
 import { HistoryInfixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyInfixMatchStrategy';
 import { HistoryPrefixMatchStrategy } from 'vs/workbench/contrib/positronConsole/common/historyPrefixMatchStrategy';
@@ -866,11 +866,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(code => {
-			// Trim the code. If it isn't empty, or a duplicate of the last history entry, add it to
-			// the history.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(({ code, mode }) => {
+			// Trim the code
 			const trimmedCode = code.trim();
-			if (trimmedCode.length) {
+
+			// If the code isn't empty and run interactively, add it to the history.
+			if (trimmedCode.length && mode === RuntimeCodeExecutionMode.Interactive) {
 				// Creates an IInputHistoryEntry.
 				const createInputHistoryEntry = (): IInputHistoryEntry => ({
 					when: new Date().getTime(),

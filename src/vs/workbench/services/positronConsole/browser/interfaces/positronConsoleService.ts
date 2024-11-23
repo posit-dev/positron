@@ -113,6 +113,17 @@ export enum SessionAttachMode {
 }
 
 /**
+ * An event that fires after code has been executed in a language runtime session
+ */
+export interface ILanguageRuntimeCodeExecutedEvent {
+	/* The code that was executed in the language runtime session */
+	code: string;
+
+	/* The mode used to execute the code in the language runtime session */
+	mode: RuntimeCodeExecutionMode;
+}
+
+/**
  * IPositronConsoleInstance interface.
  */
 export interface IPositronConsoleInstance {
@@ -214,7 +225,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<string>;
+	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
 
 	/**
 	 * The onDidSelectPlot event.

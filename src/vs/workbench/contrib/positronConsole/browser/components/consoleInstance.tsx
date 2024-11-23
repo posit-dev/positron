@@ -276,7 +276,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(_code => {
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(() => {
 			scrollToBottom();
 		}));
 

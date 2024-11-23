@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from 'vs/workbench/services/positronConsole
 import { ActivityItem, RuntimeItemActivity } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemActivity';
 import { ActivityItemInput, ActivityItemInputState } from 'vs/workbench/services/positronConsole/browser/classes/activityItemInput';
 import { ActivityItemErrorStream, ActivityItemOutputStream } from 'vs/workbench/services/positronConsole/browser/classes/activityItemStream';
-import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 import { ILanguageRuntimeExit, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
@@ -649,7 +649,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidExecuteCode event emitter.
 	 */
-	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<string>);
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>);
 
 	/**
 	 * The onDidSelectPlot event emitter.
@@ -2070,15 +2070,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._onDidChangeRuntimeItemsEmitter.fire();
 
 		// Execute the code fragment.
+		const mode = RuntimeCodeExecutionMode.Interactive;
 		this.session.execute(
 			code,
 			id,
-			RuntimeCodeExecutionMode.Interactive,
+			mode,
 			RuntimeErrorBehavior.Continue
 		);
 
 		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire(code);
+		this._onDidExecuteCodeEmitter.fire({ code, mode });
 	}
 
 	/**
@@ -2117,11 +2118,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			mode,
 			RuntimeErrorBehavior.Continue);
 
-		// Code that is not executed interactively should not show up in the console history
-		if (mode === RuntimeCodeExecutionMode.Interactive) {
-			// Fire the onDidExecuteCode event.
-			this._onDidExecuteCodeEmitter.fire(code);
-		}
+
+		// Fire the onDidExecuteCode event.
+		this._onDidExecuteCodeEmitter.fire({ code, mode });
 	}
 
 	/**
