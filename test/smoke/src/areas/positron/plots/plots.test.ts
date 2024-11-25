@@ -30,7 +30,7 @@ test.describe('Plots', () => {
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
 			tag: ['@pr', '@web']
-		}, async function ({ app, logger }) {
+		}, async function ({ app, logger, headless }) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonDynamicPlot, '>>>');
@@ -51,6 +51,13 @@ test.describe('Plots', () => {
 				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			}
+
+			if (!headless) {
+				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
+
+				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
 			}
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
@@ -276,7 +283,7 @@ test.describe('Plots', () => {
 			await interpreter.set('R');
 		});
 
-		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger }) {
+		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger, headless }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -294,6 +301,13 @@ test.describe('Plots', () => {
 				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
+			}
+
+			if (!headless) {
+				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
+
+				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
 			}
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
