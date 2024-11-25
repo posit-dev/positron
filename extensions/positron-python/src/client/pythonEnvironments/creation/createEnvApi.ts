@@ -26,7 +26,7 @@ import { CreateEnvironmentOptionsInternal } from './types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
-import { createEnvironmentAndRegister, getCreateEnvironmentProviders } from '../../positron/createEnvApi';
+import { createEnvironmentAndRegister, getCreateEnvironmentProviders, isGlobalPython } from '../../positron/createEnvApi';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
@@ -109,6 +109,7 @@ export function registerCreateEnvironmentFeatures(
             },
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
+        registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),

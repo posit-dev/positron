@@ -80,6 +80,7 @@ export namespace Commands {
     export const Get_Create_Environment_Providers = 'python.getCreateEnvironmentProviders';
     export const Is_Conda_Installed = 'python.isCondaInstalled';
     export const Get_Conda_Python_Versions = 'python.getCondaPythonVersions';
+    export const Is_Global_Python = 'python.isGlobalPython';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';
