@@ -350,6 +350,16 @@ export class NotebookSessionService implements vscode.Disposable {
 			}
 		}
 
+		// Create a promise that resolves when the session is ready.
+		const promise = new Promise<void>((resolve) => {
+			const disposable = session.onDidChangeRuntimeState((state) => {
+				if (state === positron.RuntimeState.Ready) {
+					disposable.dispose();
+					resolve();
+				}
+			});
+		});
+
 		// Start the restart sequence.
 		try {
 			log.info(`Restarting session ${session.metadata.sessionId} for notebook ${notebookUri.path}`);
@@ -362,14 +372,6 @@ export class NotebookSessionService implements vscode.Disposable {
 		// Wait for the session to be ready, or for a timeout.
 		const timeout = new Promise<void>((_, reject) =>
 			setTimeout(() => reject(new Error('Timeout waiting for runtime to restart')), 5000));
-		const promise = new Promise<void>((resolve) => {
-			const disposable = session.onDidChangeRuntimeState((state) => {
-				if (state === positron.RuntimeState.Ready) {
-					disposable.dispose();
-					resolve();
-				}
-			});
-		});
 		try {
 			await Promise.race([promise, timeout]);
 		} catch (err) {
