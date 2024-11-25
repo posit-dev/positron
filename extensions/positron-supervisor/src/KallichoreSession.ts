@@ -711,7 +711,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		try {
 			// Attempt to start the session
-			return this.tryStart();
+			const info = await this.tryStart();
+			return info;
 		} catch (err) {
 			if (err instanceof HttpError && err.statusCode === 500) {
 				// When the server returns a 500 error, it means the startup
