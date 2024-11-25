@@ -15,17 +15,22 @@ test.use({
 	suiteId: __filename
 });
 
-// web bugs 4800 & 4804
 test.describe('Plots', () => {
 	test.describe('Python Plots', () => {
-		test.beforeAll(async function ({ app, interpreter }) {
-			await interpreter.set('Python');
-
+		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
 			if (process.platform === 'linux') {
 				await app.code.driver.setViewportSize({ width: 1280, height: 800 });
 			}
+
+			await interpreter.set('Python');
 			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
+
+		test.afterEach(async function ({ app }) {
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
@@ -37,7 +42,6 @@ test.describe('Plots', () => {
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
 			const buffer = await app.workbench.positronPlots.getCurrentPlotAsBuffer();
-			// const temp = path.join('plots', 'pythonScatterplot.png');
 			const data = await compareImages(fs.readFileSync(path.join(__dirname, 'pythonScatterplot.png')), buffer, options);
 
 			if (githubActions && !app.web && data.rawMisMatchPercentage > 2.0) {
@@ -85,60 +89,53 @@ test.describe('Plots', () => {
 				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
-
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('Python - Verifies the plots pane action bar - Plot actions [C656297]', { tag: ['@web', '@win'] }, async function ({ app }) {
+			const plots = app.workbench.positronPlots;
+
 			// default plot pane state for action bar
-			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
-			await expect(app.workbench.positronPlots.savePlotButton).not.toBeVisible();
-			await expect(app.workbench.positronPlots.copyPlotButton).not.toBeVisible();
-			await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeVisible();
+			await expect(plots.plotSizeButton).not.toBeVisible();
+			await expect(plots.savePlotButton).not.toBeVisible();
+			await expect(plots.copyPlotButton).not.toBeVisible();
+			await expect(plots.zoomPlotButton).not.toBeVisible();
 
 			// create plots separately so that the order is known
 			await app.workbench.positronConsole.executeCode('Python', pythonPlotActions1, '>>>');
-			await app.workbench.positronPlots.waitForCurrentStaticPlot();
+			await plots.waitForCurrentStaticPlot();
 			await app.workbench.positronConsole.executeCode('Python', pythonPlotActions2, '>>>');
-			await app.workbench.positronPlots.waitForCurrentPlot();
+			await plots.waitForCurrentPlot();
 
 			// expand the plot pane to show the action bar
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.savePlotButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.copyPlotButton).not.toBeDisabled();
+			await expect(plots.clearPlotsButton).not.toBeDisabled();
+			await expect(plots.nextPlotButton).toBeDisabled();
+			await expect(plots.previousPlotButton).not.toBeDisabled();
+			await expect(plots.plotSizeButton).not.toBeDisabled();
+			await expect(plots.savePlotButton).not.toBeDisabled();
+			await expect(plots.copyPlotButton).not.toBeDisabled();
 
 			// switch to fixed size plot
-			await app.workbench.positronPlots.previousPlotButton.click();
-			await app.workbench.positronPlots.waitForCurrentStaticPlot();
+			await plots.previousPlotButton.click();
+			await plots.waitForCurrentStaticPlot();
 
-			// switching to fized size plot changes action bar
-			await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
-			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeVisible();
-			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.nextPlotButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.previousPlotButton).toBeDisabled();
-			await expect(app.workbench.positronPlots.zoomPlotButton).not.toBeDisabled();
+			// switching to fixed size plot changes action bar
+			await expect(plots.zoomPlotButton).toBeVisible();
+			await expect(plots.plotSizeButton).not.toBeVisible();
+			await expect(plots.clearPlotsButton).not.toBeDisabled();
+			await expect(plots.nextPlotButton).not.toBeDisabled();
+			await expect(plots.previousPlotButton).toBeDisabled();
+			await expect(plots.zoomPlotButton).not.toBeDisabled();
 
 			// switch back to dynamic plot
-			await app.workbench.positronPlots.nextPlotButton.click();
-			await app.workbench.positronPlots.waitForCurrentPlot();
-			await expect(app.workbench.positronPlots.zoomPlotButton).toBeVisible();
-			await expect(app.workbench.positronPlots.plotSizeButton).toBeVisible();
-			await expect(app.workbench.positronPlots.clearPlotsButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.nextPlotButton).toBeDisabled();
-			await expect(app.workbench.positronPlots.previousPlotButton).not.toBeDisabled();
-			await expect(app.workbench.positronPlots.plotSizeButton).not.toBeDisabled();
-
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
+			await plots.nextPlotButton.click();
+			await plots.waitForCurrentPlot();
+			await expect(plots.zoomPlotButton).toBeVisible();
+			await expect(plots.plotSizeButton).toBeVisible();
+			await expect(plots.clearPlotsButton).not.toBeDisabled();
+			await expect(plots.nextPlotButton).toBeDisabled();
+			await expect(plots.previousPlotButton).not.toBeDisabled();
+			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
 		test('Python - Verifies saving a Python plot [C557005]', async function ({ app, logger }) {
@@ -147,50 +144,29 @@ test.describe('Plots', () => {
 			await app.workbench.positronPlots.waitForCurrentPlot();
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 
-			// save again with a different name and file format
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// fill in the file name and change file format to JPEG
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('Python-scatter');
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-			await app.workbench.positronPopups.clickOnModalDialogPopupOption('JPEG');
-
-			// bug workaround
-			await app.code.wait(1000);
-
-			// save the plot
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			await app.workbench.positronPopups.waitForModalDialogBoxToDisappear();
-
-			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronPlots.savePlot({ name: 'Python-scatter', format: 'JPEG' });
 			await app.workbench.positronLayouts.enterLayout('stacked');
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('Python - Verifies bqplot Python widget [C720869]', { tag: ['@web'] }, async function ({ app }) {
-			await simplePlotTest(app, bgplot, '.svg-figure');
+			await runScriptAndValidatePlot(app, bgplot, '.svg-figure');
 		});
 
 		test('Python - Verifies ipydatagrid Python widget [C720870]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, ipydatagrid, 'canvas:nth-child(1)');
+			await runScriptAndValidatePlot(app, ipydatagrid, 'canvas:nth-child(1)');
 		});
 
 		test('Python - Verifies ipyleaflet Python widget [C720871]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, ipyleaflet, '.leaflet-container');
+			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
 		test('Python - Verifies hvplot can load with plotly extension [C766660]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, plotly, '.plotly');
+			await runScriptAndValidatePlot(app, plotly, '.plotly');
 		});
 
 		test('Python - Verifies ipytree Python widget [C720872]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, ipytree, '.jstree-container-ul');
+			await runScriptAndValidatePlot(app, ipytree, '.jstree-container-ul');
 
 			// fullauxbar layout needed for some smaller windows
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
@@ -202,9 +178,6 @@ test.describe('Plots', () => {
 			// collapse the tree, only parent nodes should be visible
 			await treeNodes.first().click({ position: { x: 0, y: 0 } }); // target the + icon
 			await expect(treeNodes).toHaveCount(3);
-
-			// return to stacked layout
-			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 
 		test('Python - Verifies ipywidget.Output Python widget', { tag: ['@web', '@win'] }, async function ({ app }) {
@@ -222,13 +195,6 @@ test.describe('Plots', () => {
 			// The printed statement should not be shown in the console.
 			const lines = await app.workbench.positronConsole.waitForConsoleContents();
 			expect(lines).not.toContain('Hello, world!');
-
-			// Clear the plots pane.
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronPlots.waitForNoPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-
 		});
 
 		test('Python - Verifies bokeh Python widget [C730343]', { tag: ['@web'] }, async function ({ app }) {
@@ -269,18 +235,19 @@ test.describe('Plots', () => {
 			// two plot captures should be different
 			const data = await compareImages(bufferAfterZoom, bufferBeforeZoom, options);
 			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
-
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
 		});
 	});
 
 	test.describe('R Plots', () => {
-		test.beforeEach(async function ({ interpreter }) {
+		test.beforeEach(async function ({ app, interpreter }) {
 			await interpreter.set('R');
+			await app.workbench.positronLayouts.enterLayout('stacked');
+		});
+
+		test.afterEach(async function ({ app }) {
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger, headless }) {
@@ -318,60 +285,33 @@ test.describe('Plots', () => {
 
 		test('R - Verifies saving an R plot [C557006]', async function ({ app, logger }) {
 			logger.log('Sending code to console');
-			// create a plot
+
 			await app.workbench.positronConsole.executeCode('R', rSavePlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
 
-			// click save to bring up the modal save dialog
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// save with defaults
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			// verify a plot is in the file explorer with the default file name
+			await app.workbench.positronPlots.savePlot({ name: 'plot', format: 'PNG' });
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('plot.png');
 
-			// save again with a different name and file format
-			await app.workbench.positronPlots.savePlotButton.click();
-			await app.workbench.positronPopups.waitForModalDialogBox();
-
-			// fill in the file name and change file format to SVG
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .text-input').fill('R-cars');
-			await app.code.driver.getLocator('.positron-modal-dialog-box .file .positron-button.drop-down-list-box').click();
-			await app.workbench.positronPopups.clickOnModalDialogPopupOption('SVG');
-
-			// save the plot
-			await app.workbench.positronPopups.clickOkOnModalDialogBox();
-
-			// verify the plot is in the file explorer with the new file name and format
+			await app.workbench.positronPlots.savePlot({ name: 'R-cars', format: 'SVG' });
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('R - Verifies rplot plot [C720873]', { tag: ['@web', '@win'] }, async function ({ app }) {
 			await app.workbench.positronConsole.pasteCodeToConsole(rplot);
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronPlots.waitForCurrentPlot();
-			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.positronPlots.clearPlots();
-			await app.workbench.positronLayouts.enterLayout('stacked');
-			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('R - Verifies highcharter plot [C720874]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, highcharter, 'svg', app.web);
+			await runScriptAndValidatePlot(app, highcharter, 'svg', app.web);
 		});
 
 		test('R - Verifies leaflet plot [C720875]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, leaflet, '.leaflet', app.web);
+			await runScriptAndValidatePlot(app, leaflet, '.leaflet', app.web);
 		});
 
 		test('R - Verifies plotly plot [C720876]', { tag: ['@web', '@win'] }, async function ({ app }) {
-			await simplePlotTest(app, rPlotly, '.plot-container', app.web);
+			await runScriptAndValidatePlot(app, rPlotly, '.plot-container', app.web);
 		});
 	});
 });
@@ -394,17 +334,11 @@ const options: ComparisonOptions = {
 };
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-async function simplePlotTest(app: Application, script: string, locator: string, RWeb = false) {
-	await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
-	await app.workbench.positronPlots.clearPlots();
-	await app.workbench.positronPlots.waitForNoPlots();
-	await app.workbench.positronLayouts.enterLayout('stacked');
-
+async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
 	await app.workbench.positronConsole.pasteCodeToConsole(script);
 	await app.workbench.positronConsole.sendEnterKey();
 	await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.positronPlots.waitForWebviewPlot(locator, 'visible', RWeb);
-	await app.workbench.positronLayouts.enterLayout('stacked');
 }
 
 const pythonDynamicPlot = `import pandas as pd
