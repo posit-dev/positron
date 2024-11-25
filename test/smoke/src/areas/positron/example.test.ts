@@ -7,7 +7,7 @@
 // remove this line of code from playwright.config.ts: `testIgnore: '**/example.test.ts`
 
 // we must import test from _test.setup to ensure we have the correct test
-// context with our custom fixtures
+// context which enables our custom fixtures
 import { test, expect } from './_test.setup';
 
 // we need this to ensure each spec gets a fresh app instance read more here:
@@ -45,7 +45,7 @@ test.describe('Examples of Concepts', () => {
 		logger.log("This will show up in the log files");
 	});
 
-	test('How to set Python/R interpreter at beginning of test', async function ({ page, r }) {
+	test('How to set Python/R interpreter at start of test', async function ({ page, r }) {
 		// we can invoke the "r" interpreter fixture, which will set the interpreter to R
 		// before any of the test steps execute
 		await expect(page.getByText(/R.*started/)).toBeVisible();
@@ -59,15 +59,16 @@ test.describe('Examples of Concepts', () => {
 		await expect(page.getByText(/Python.*started/)).toBeVisible();
 	});
 
-	test('How to restart app instance - Option 1', async function ({ restartApp: app }) {
+	test('How to restart app instance at start of test', async function ({ restartApp: app }) {
 		// in some cases you may want to restart the app instance within a spec file
-		// option 1: use the "restartApp" fixture which restarts the app instance at beginning of test
-		// before any test steps execute
+		// this example uses the "restartApp" fixture which restarts the app instance
+		// before any of test steps execute
 		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
-	test('How to restart app instance - Option 2', async function ({ app }) {
-		// option 2: call the restart method on the app instance from anywhere within the test
+	test('How to restart app instance anywhere in test', async function ({ app }) {
+		// this example call the restart method on the app instance, which can be used
+		// from anywhere within the test
 		await app.restart();
 		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
 	});
