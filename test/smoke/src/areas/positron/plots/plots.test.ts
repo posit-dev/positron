@@ -55,9 +55,6 @@ test.describe('Plots', () => {
 
 			await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
-			// wait for clipboard to be populated
-			await app.code.wait(500);
-
 			const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 			expect(clipboardImageBuffer).not.toBeNull();
 
@@ -305,9 +302,6 @@ test.describe('Plots', () => {
 			}
 
 			await app.workbench.positronPlots.copyCurrentPlotToClipboard();
-
-			// wait for clipboard to be populated
-			await app.code.wait(500);
 
 			const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 			expect(clipboardImageBuffer).not.toBeNull();
