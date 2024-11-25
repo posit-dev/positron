@@ -14,7 +14,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
 import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { CellEditType, CellKind, ICellReplaceEdit, ISelectionState, SelectionStateType } from 'vs/workbench/contrib/notebook/common/notebookCommon';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
 import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { createNotebookCell } from './PositronNotebookCells/createNotebookCell';
@@ -34,6 +34,7 @@ import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/not
 import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { isEqual } from 'vs/base/common/resources';
 import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
+
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -722,6 +723,90 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	private _detachModel() {
 		this._logService.info(this.id, 'detachModel');
 		this._modelStore.clear();
+	}
+
+	/**
+	 * Clears the output of a specific cell in the notebook.
+	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
+	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
+	 */
+	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
+		this._assertTextModel();
+
+		const targetCell = cell ?? this.selectionStateMachine.getSelectedCell();
+		if (!targetCell) {
+			return;
+		}
+
+		const cellIndex = this.textModel.cells.indexOf(targetCell.cellModel as NotebookCellTextModel);
+		if (cellIndex === -1) {
+			return;
+		}
+
+		const computeUndoRedo = !this.isReadOnly;
+		this.textModel.applyEdits([{
+			editType: CellEditType.Output,
+			index: cellIndex,
+			outputs: [],
+			append: false
+		}], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+		if (!skipContentEvent) {
+			this._onDidChangeContent.fire();
+		}
+	}
+
+	/**
+	 * Clears the outputs of all cells in the notebook.
+	 */
+	clearAllCellOutputs(): void {
+		this._assertTextModel();
+
+		try {
+			const computeUndoRedo = !this.isReadOnly;
+
+			// Clear outputs from all cells
+			this.textModel.cells.forEach((cell, index) => {
+				this.clearCellOutput(this._cells[index], true);
+			});
+
+			// Clear execution metadata for non-executing cells
+			const clearExecutionMetadataEdits = this.textModel.cells.map((cell, index) => {
+				const runState = this.notebookExecutionStateService.getCellExecution(cell.uri)?.state;
+				if (runState !== NotebookCellExecutionState.Executing) {
+					return {
+						editType: CellEditType.PartialInternalMetadata,
+						index,
+						internalMetadata: {
+							runStartTime: null,
+							runStartTimeAdjustment: null,
+							runEndTime: null,
+							executionOrder: null,
+							lastRunSuccess: null
+						}
+					};
+				}
+				return undefined;
+			}).filter((edit): edit is ICellEditOperation & {
+				editType: CellEditType.PartialInternalMetadata;
+				index: number;
+				internalMetadata: {
+					runStartTime: null;
+					runStartTimeAdjustment: null;
+					runEndTime: null;
+					executionOrder: null;
+					lastRunSuccess: null;
+				};
+			} => !!edit);
+
+			if (clearExecutionMetadataEdits.length) {
+				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
+			}
+
+		} finally {
+			// Fire a single content change event
+			this._onDidChangeContent.fire();
+		}
 	}
 
 	// #endregion
