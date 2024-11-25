@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// TO RUN THIS TEST:
+// remove this line of code from playwright.config.ts: `testIgnore: '**/example.test.ts`
+
 // we must import test from _test.setup to ensure we have the correct test
 // context with our custom fixtures
 import { test, expect } from './_test.setup';
