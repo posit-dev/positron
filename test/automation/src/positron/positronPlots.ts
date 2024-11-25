@@ -108,6 +108,8 @@ export class PositronPlots {
 
 		// ensure dropdown value has updated
 		await expect(this.savePlotModal.getByLabel(`Format${format}`)).toBeVisible();
+		// bug workaround related to RPC timeout
+		await this.code.driver.page.waitForTimeout(1000);
 
 		// save plot
 		await this.savePlotModal.getByRole('button', { name: 'Save' }).click();

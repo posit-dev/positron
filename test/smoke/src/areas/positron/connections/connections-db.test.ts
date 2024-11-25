@@ -28,6 +28,7 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 		});
 
 		await test.step('Open connections pane', async () => {
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronVariables.clickDatabaseIconForVariableRow('conn');
 			await app.workbench.positronConnections.connectIcon.click();
 		});
