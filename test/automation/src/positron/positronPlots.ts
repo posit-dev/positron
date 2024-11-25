@@ -96,6 +96,13 @@ export class PositronPlots {
 		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
 	}
 
+	async copyCurrentPlotToClipboard() {
+		await this.code.driver.page.locator('.codicon-copy').click();
+
+		// wait for clipboard to be populated
+		await this.code.wait(500);
+	}
+
 	async savePlot({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
 		// click save and wait for save plot modal
 		await this.savePlotButton.click();

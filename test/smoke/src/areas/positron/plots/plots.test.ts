@@ -35,7 +35,7 @@ test.describe('Plots', () => {
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
 			tag: ['@pr', '@web']
-		}, async function ({ app, logger }) {
+		}, async function ({ app, logger, headless }) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonDynamicPlot, '>>>');
@@ -56,6 +56,18 @@ test.describe('Plots', () => {
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
+
+			if (!headless) {
+				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
+
+				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
+			}
+
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('Python - Verifies basic plot functionality - Static Plot [C654401]', { tag: ['@pr', '@web'] }, async function ({ app, logger }) {
@@ -238,7 +250,7 @@ test.describe('Plots', () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger }) {
+		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger, headless }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -257,6 +269,18 @@ test.describe('Plots', () => {
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
+
+			if (!headless) {
+				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
+
+				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).not.toBeNull();
+			}
+
+			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			await app.workbench.positronPlots.clearPlots();
+			await app.workbench.positronLayouts.enterLayout('stacked');
+			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
 		test('R - Verifies saving an R plot [C557006]', async function ({ app, logger }) {
