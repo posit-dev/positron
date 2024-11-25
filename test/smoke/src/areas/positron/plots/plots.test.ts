@@ -15,7 +15,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Plots', { tag: ['@pr'] }, () => {
+test.describe('Plots', () => {
 	test.describe('Python Plots', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
