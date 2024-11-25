@@ -276,7 +276,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			interruptMode
 		};
 		await this._api.newSession(session);
-		this.log(`Session created: ${JSON.stringify(session)}`, vscode.LogLevel.Info);
+		this.log(`${kernelSpec.display_name} session '${this.metadata.sessionId}' created in ${workingDir} with command:`, vscode.LogLevel.Info);
+		this.log(args.join(' '), vscode.LogLevel.Info);
 		this._established.open();
 	}
 
@@ -711,7 +712,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		try {
 			// Attempt to start the session
-			return this.tryStart();
+			const info = await this.tryStart();
+			return info;
 		} catch (err) {
 			if (err instanceof HttpError && err.statusCode === 500) {
 				// When the server returns a 500 error, it means the startup
