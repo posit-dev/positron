@@ -35,11 +35,3 @@ export enum PythonEnvironmentProvider {
 	Venv = 'Venv',
 	Conda = 'Conda'
 }
-
-/**
- * PythonRuntimeFilter enum.
- */
-export enum PythonRuntimeFilter {
-	Global = 'Global',
-	Pyenv = 'Pyenv'
-}
