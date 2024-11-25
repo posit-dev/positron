@@ -26,7 +26,11 @@ import { CreateEnvironmentOptionsInternal } from './types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
-import { createEnvironmentAndRegister, getCreateEnvironmentProviders, isGlobalPython } from '../../positron/createEnvApi';
+import {
+    createEnvironmentAndRegister,
+    getCreateEnvironmentProviders,
+    isGlobalPython,
+} from '../../positron/createEnvApi';
 // --- End Positron ---
 
 class CreateEnvironmentProviders {
