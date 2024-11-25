@@ -98,7 +98,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	private async addStoredConnections() {
 		const id = this.getPrivateStorageId();
-		const storedConnections: ConnectionMetadata[] = JSON.parse(
+		const storedConnections: IConnectionMetadata[] = JSON.parse(
 			await this.secretStorageService.get(id) || '[]'
 		);
 
@@ -108,7 +108,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			}
 
 			const instance = new DisconnectedPositronConnectionsInstance(
-				metadata,
+				new ConnectionMetadata(metadata),
 				this.runtimeSessionService,
 				this
 			);
