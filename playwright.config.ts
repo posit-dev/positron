@@ -13,6 +13,7 @@ import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 export default defineConfig<CustomTestOptions>({
 	globalSetup: require.resolve('./test/smoke/src/areas/positron/_global.setup.ts'),
 	testDir: './test/smoke/src/areas/positron',
+	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,

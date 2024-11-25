@@ -8,6 +8,7 @@ import * as os from 'os';
 import { RSessionManager } from './session-manager';
 import { getPandocPath } from './pandoc';
 import { getEnvVars } from './session';
+import { prepCliEnvVars } from './uri-handler';
 
 export class RPackageTaskProvider implements vscode.TaskProvider {
 
@@ -39,7 +40,7 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Check R package' }),
 			rcode: 'devtools::check()',
 			package: 'devtools',
-			envVars: null
+			envVars: { ... await prepCliEnvVars() }
 		},
 		{
 			task: 'r.task.packageInstall',
@@ -53,7 +54,10 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 			message: vscode.l10n.t('{taskName}', { taskName: 'Test R package' }),
 			rcode: 'devtools::test()',
 			package: 'devtools',
-			envVars: await getEnvVars(['TESTTHAT_MAX_FAILS'])
+			envVars: {
+				... await getEnvVars(['TESTTHAT_MAX_FAILS']),
+				... await prepCliEnvVars()
+			}
 		},
 		{
 			task: 'r.task.rmarkdownRender',

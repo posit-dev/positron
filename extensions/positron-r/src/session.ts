@@ -27,7 +27,7 @@ interface RPackageInstallation {
 	compatible: boolean;
 }
 
-interface EnvVar {
+export interface EnvVar {
 	[key: string]: string;
 }
 
