@@ -119,7 +119,7 @@ class Plot:
                 request.params.pixel_ratio,
                 request.params.format,
             )
-        if isinstance(request, GetIntrinsicSizeRequest):
+        elif isinstance(request, GetIntrinsicSizeRequest):
             self._handle_get_intrinsic_size()
         else:
             logger.warning(f"Unhandled request: {request}")
