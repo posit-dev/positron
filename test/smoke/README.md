@@ -13,7 +13,6 @@ This document provides guidelines and setup instructions for effectively running
 - [Dependencies](#dependencies)
 - [Running Tests](#running-tests)
 - [Test Project](#test-project)
-- [Local Debugging](#local-debugging)
 - [Running Tests in Github Actions](#running-tests-in-github-actions)
 - [Notes About Updating Specific Tests](#notes-about-updating-specific-tests)
 - [Tests Run on PRs](#tests-run-on-prs)
