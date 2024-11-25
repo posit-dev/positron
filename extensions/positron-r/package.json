@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.2",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -281,6 +281,12 @@
             },
             "default": [],
             "description": "%r.configuration.extraArguments.description%"
+          },
+          "positron.r.taskHyperlinks": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.taskHyperlinks.description%"
           }
         }
       }
