@@ -76,9 +76,10 @@ export async function createEnvironmentAndRegister(
 
 /**
  * Checks if the given interpreter is a global python installation.
- * @param {string} interpreterPath : Interpreter path to check.
- * @returns {Promise<boolean>} : True if the interpreter is a global python installation, false if
- * it is not, and undefined if the check could not be performed.
+ * @param interpreterPath The interpreter path to check.
+ * @returns True if the interpreter is a global python installation, false if it is not, and
+ * undefined if the check could not be performed.
+ * Implementation is based on isGlobalPythonSelected in extensions/positron-python/src/client/pythonEnvironments/creation/common/createEnvTriggerUtils.ts
  */
 export async function isGlobalPython(interpreterPath: string): Promise<boolean | undefined> {
     const extension = getExtension<PythonExtension>(PVSC_EXTENSION_ID);

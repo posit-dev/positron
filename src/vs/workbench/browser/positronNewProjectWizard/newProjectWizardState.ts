@@ -732,7 +732,7 @@ export class NewProjectWizardStateManager
 		this._condaPythonVersionInfo = EMPTY_CONDA_PYTHON_VERSION_INFO;
 
 		if (!this._pythonEnvProviders?.length) {
-			this._services.logService.error('No Python environment providers found.');
+			this._services.logService.error('[Project Wizard] No Python environment providers found.');
 			return;
 		}
 
@@ -741,7 +741,7 @@ export class NewProjectWizardStateManager
 			(provider) => provider.name === PythonEnvironmentProvider.Conda
 		);
 		if (!providersIncludeConda) {
-			this._services.logService.info('Conda is not available as an environment provider.');
+			this._services.logService.info('[Project Wizard] Conda is not available as an environment provider.');
 			return;
 		}
 
@@ -751,7 +751,7 @@ export class NewProjectWizardStateManager
 		);
 		if (!this._isCondaInstalled) {
 			this._services.logService.warn(
-				'Conda is available as an environment provider, but it is not installed.'
+				'[Project Wizard] Conda is available as an environment provider, but it is not installed.'
 			);
 			return;
 		}
@@ -760,7 +760,7 @@ export class NewProjectWizardStateManager
 		const pythonVersionInfo: CondaPythonVersionInfo | undefined =
 			await this._services.commandService.executeCommand('python.getCondaPythonVersions');
 		if (!pythonVersionInfo) {
-			this._services.logService.warn('No Conda Python versions found.');
+			this._services.logService.warn('[Project Wizard] No Conda Python versions found.');
 			return;
 		}
 
@@ -800,12 +800,14 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
-	 * Retrieves the interpreters that match the current language ID.
-	 * Sorts the interpreters by runtime source.
-	 * @returns The filtered interpreters.
+	 * Retrieves the interpreters that match the current language ID and environment setup type if
+	 * applicable.
+	 * @returns The filtered interpreters sorted by runtime source, or undefined if runtime startup is
+	 * not complete or a Conda environment is being used.
 	 */
 	private async _getFilteredInterpreters(): Promise<ILanguageRuntimeMetadata[] | undefined> {
 		if (this._usesCondaEnv()) {
+			this._services.logService.trace(`[Project Wizard] Conda environments do not have registered runtimes`);
 			// Conda environments do not have registered runtimes. Instead, we have a list of Python
 			// versions available for Conda environments, which is stored in condaPythonVersionInfo.
 			return undefined;
@@ -814,6 +816,7 @@ export class NewProjectWizardStateManager
 		// We don't want to return a partial list of interpreters if the runtime startup is not
 		// complete, so we return undefined in that case.
 		if (!this._runtimeStartupComplete) {
+			this._services.logService.warn('[Project Wizard] Requested filtered interpreters before runtime startup is complete. Please come by later!');
 			return undefined;
 		}
 
@@ -833,10 +836,20 @@ export class NewProjectWizardStateManager
 					'python.isGlobalPython',
 					interpreterPath
 				) satisfies boolean | undefined;
+				if (isGlobal === undefined) {
+					this._services.logService.error(
+						`[Project Wizard] Unable to determine if Python interpreter '${interpreterPath}' is global`
+					);
+					continue;
+				}
 				if (isGlobal) {
 					globalRuntimes.push(runtime);
+				} else {
+					this._services.logService.trace(`[Project Wizard] Skipping non-global Python interpreter '${interpreterPath}'`);
 				}
 			}
+			// If the global runtimes list is a different length than the original runtimes list,
+			// then we only want to show the global runtimes.
 			if (runtimesForLang.length !== globalRuntimes.length) {
 				runtimesForLang = globalRuntimes;
 			}
