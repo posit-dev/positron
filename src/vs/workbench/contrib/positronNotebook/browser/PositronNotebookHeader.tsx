@@ -19,7 +19,7 @@ export function PositronNotebookHeader({ notebookInstance }: { notebookInstance:
 			fullLabel={(() => localize('runAllCellsLong', 'Run All Cells'))()}
 			onClick={() => { notebookInstance.runAllCells(); }} />
 		<IconedButton
-			codicon='clear-all'
+			codicon='positron-clean'
 			label={(() => localize('clearAllCellOutputsShort', 'Clear Outputs'))()}
 			fullLabel={(() => localize('clearAllCellOutputsLong', 'Clear All Cell Outputs'))()}
 			onClick={() => { notebookInstance.clearAllCellOutputs(); }} />

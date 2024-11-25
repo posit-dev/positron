@@ -578,6 +578,9 @@ export const codiconsLibrary = {
 	goToSearch: register('go-to-search', 0xec32),
 	percentage: register('percentage', 0xec33),
 	attach: register('attach', 0xec34),
+	goToEditingSession: register('go-to-editing-session', 0xec35),
+	editSession: register('edit-session', 0xec36),
+	codeReview: register('code-review', 0xec37),
 	sortPercentage: register('sort-percentage', 0xec33),
 	positronNew: register('positron-new', 0xf230),
 	positronOpen: register('positron-open', 0xf231),
@@ -670,4 +673,5 @@ export const codiconsLibrary = {
 	positronTableConnection: register('positron-table-connection', 0xf288),
 	positronCatalogConnection: register('positron-catalog-connection', 0xf289),
 	positronViewConnection: register('positron-view-connection', 0xf28a),
+	positronClean: register('positron-clean', 0xf28b),
 } as const;
