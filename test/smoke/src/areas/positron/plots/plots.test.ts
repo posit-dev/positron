@@ -16,6 +16,7 @@ test.use({
 });
 
 test.describe('Plots', () => {
+	// Some tests are not tagged @win because they woould require a new master image.
 	test.describe('Python Plots', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
