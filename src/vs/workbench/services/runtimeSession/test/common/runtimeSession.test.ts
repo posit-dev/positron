@@ -35,8 +35,6 @@ suite('Positron - RuntimeSessionService', () => {
 	let anotherRuntime: ILanguageRuntimeMetadata;
 	let sessionName: string;
 	let unregisteredRuntime: ILanguageRuntimeMetadata;
-	let consoleSessionMetadata: IRuntimeSessionMetadata;
-	let notebookSessionMetadata: IRuntimeSessionMetadata;
 
 	setup(() => {
 		instantiationService = disposables.add(new TestInstantiationService());
@@ -49,25 +47,8 @@ suite('Positron - RuntimeSessionService', () => {
 
 		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
-
 		sessionName = runtime.runtimeName;
-		consoleSessionMetadata = {
-			sessionId: 'test-console-session-id',
-			sessionName,
-			sessionMode: LanguageRuntimeSessionMode.Console,
-			createdTimestamp: Date.now(),
-			notebookUri: undefined,
-			startReason,
-		};
-		notebookSessionMetadata = {
-			sessionId: 'test-notebook-session-id',
-			sessionName,
-			sessionMode: LanguageRuntimeSessionMode.Notebook,
-			createdTimestamp: Date.now(),
-			notebookUri,
-			startReason,
-		};
+		unregisteredRuntime = { runtimeId: 'unregistered-runtime-id' } as ILanguageRuntimeMetadata;
 
 		// Enable automatic startup.
 		configService.setUserConfiguration('positron.interpreters.automaticStartup', true);
@@ -202,12 +183,28 @@ suite('Positron - RuntimeSessionService', () => {
 		return session;
 	}
 
-	function restoreConsole(runtimeMetadata?: ILanguageRuntimeMetadata) {
-		return restoreSession(consoleSessionMetadata, runtimeMetadata);
+	function restoreConsole(runtimeMetadata = runtime) {
+		const sessionMetadata: IRuntimeSessionMetadata = {
+			sessionId: 'test-console-session-id',
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Console,
+			createdTimestamp: Date.now(),
+			notebookUri: undefined,
+			startReason,
+		};
+		return restoreSession(sessionMetadata, runtimeMetadata);
 	}
 
-	function restoreNotebook(runtimeMetadata?: ILanguageRuntimeMetadata) {
-		return restoreSession(notebookSessionMetadata, runtimeMetadata);
+	function restoreNotebook(runtimeMetadata = runtime) {
+		const sessionMetadata: IRuntimeSessionMetadata = {
+			sessionId: 'test-notebook-session-id',
+			sessionName,
+			sessionMode: LanguageRuntimeSessionMode.Notebook,
+			createdTimestamp: Date.now(),
+			notebookUri,
+			startReason,
+		};
+		return restoreSession(sessionMetadata, runtimeMetadata);
 	}
 
 	async function autoStartSession(runtimeMetadata = runtime) {

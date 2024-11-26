@@ -267,17 +267,17 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// It's possible that there are multiple consoles for the same runtime,
 		// for example, if one failed to start and is uninitialized. In that case,
 		// we return the most recently created.
-		const session = Array.from(this._activeSessionsBySessionId.values())
-			.sort((a, b) => b.session.metadata.createdTimestamp - a.session.metadata.createdTimestamp)
-			.find(session =>
-				session.session.runtimeMetadata.runtimeId === runtimeId &&
-				session.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				session.state !== RuntimeState.Exited);
-		if (session) {
-			return session.session;
-		} else {
-			return undefined;
-		}
+		return Array.from(this._activeSessionsBySessionId.values())
+			.map((info, index) => ({ info, index }))
+			.sort((a, b) =>
+				b.info.session.metadata.createdTimestamp - a.info.session.metadata.createdTimestamp
+				// If the timestamps are the same, prefer the session that was inserted last.
+				|| b.index - a.index)
+			.find(({ info }) =>
+				info.session.runtimeMetadata.runtimeId === runtimeId &&
+				info.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
+				info.state !== RuntimeState.Exited)
+			?.info.session;
 	}
 
 	/**
@@ -1004,16 +1004,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						session.metadata.notebookUri &&
 						!this._notebookSessionsByNotebookUri.has(session.metadata.notebookUri)) {
 						this._notebookSessionsByNotebookUri.set(session.metadata.notebookUri, session);
-					}
-
-					// Remove the session from the starting runtimes.
-					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-						this._startingConsolesByLanguageId.get(session.runtimeMetadata.languageId) === session.runtimeMetadata) {
-						this._startingConsolesByLanguageId.delete(session.runtimeMetadata.languageId);
-					} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook &&
-						session.metadata.notebookUri &&
-						this._startingNotebooksByNotebookUri.get(session.metadata.notebookUri) === session.runtimeMetadata) {
-						this._startingNotebooksByNotebookUri.delete(session.metadata.notebookUri);
 					}
 
 					// Start the UI client instance once the runtime is fully online.
