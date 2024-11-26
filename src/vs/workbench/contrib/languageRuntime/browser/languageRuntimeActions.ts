@@ -22,7 +22,7 @@ import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/com
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { dispose } from 'vs/base/common/lifecycle';
 import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
-import { ExplorerFolderContext, FilesExplorerFocusCondition } from 'vs/workbench/contrib/files/common/files';
+import { ExplorerFolderContext } from 'vs/workbench/contrib/files/common/files';
 import { URI } from 'vs/base/common/uri';
 import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 
@@ -678,11 +678,6 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 			id: 'workbench.action.setWorkingDirectory',
 			title: nls.localize2('setWorkingDirectory', "Set as Working Directory"),
 			category,
-			keybinding: {
-				weight: KeybindingWeight.WorkbenchContrib,
-				when: ContextKeyExpr.and(FilesExplorerFocusCondition, ExplorerFolderContext),
-				primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyD,
-			},
 			f1: true,
 			menu: [
 				{
