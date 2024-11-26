@@ -137,7 +137,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-tests
-        run: DISPLAY=:10 npx pwc --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
@@ -198,8 +198,13 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+          PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
         id: browser-tests
-        run: DISPLAY=:10 npx pwc --project e2e-browser --workers 1
+        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
 
       - name: Upload blob report
         if: ${{ !cancelled() }}

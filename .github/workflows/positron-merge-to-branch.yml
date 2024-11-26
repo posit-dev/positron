@@ -46,18 +46,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - uses: actions/checkout@v4
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
-      - name: Get latest commit message
-        run: |
-          echo "Latest commit message: ${{ github.event.pull_request.head.commit.message }}"
-
-      - name: Get Commit Message using git
-        run: |
-            COMMIT_INFO_MESSAGE=$(git log -1 --pretty=%B)
-            echo "Commit message: $COMMIT_MESSAGE"
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
@@ -83,10 +71,9 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
-          # CURRENTS_PROJECT_ID: ZOs5z2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
-          # COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove test blobs
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
