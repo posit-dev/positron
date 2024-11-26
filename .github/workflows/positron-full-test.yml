@@ -204,7 +204,7 @@ jobs:
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
         id: browser-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
+        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 2
 
       - name: Upload blob report
         if: ${{ !cancelled() }}

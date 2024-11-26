@@ -46,7 +46,7 @@
     "update-localization-extension": "node build/npm/update-localization-extension.js",
     "e2e": "yarn e2e-electron",
     "e2e-electron": "npx playwright test --project e2e-electron",
-    "e2e-browser": "npx playwright test --project e2e-browser --workers 1",
+    "e2e-browser": "npx playwright test --project e2e-browser",
     "e2e-pr": "npx playwright test --project e2e-electron --grep @pr",
     "e2e-win": "npx playwright test --project e2e-electron --grep @win",
     "e2e-failed": "npx playwright test --last-failed",

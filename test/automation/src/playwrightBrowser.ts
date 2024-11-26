@@ -19,7 +19,9 @@ let port = 9000;
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
 
 	// Launch server
-	const { serverProcess, endpoint } = await launchServer(options);
+	// --- Start Positron ---
+	const { serverProcess, endpoint } = await launchServerWithUniquePort(options);
+	// --- End Positron ---
 
 	// Launch browser
 	const { browser, context, page, pageLoadedPromise } = await launchBrowser(options, endpoint);
@@ -30,6 +32,7 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
+// @ts-expect-error
 async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
@@ -90,6 +93,103 @@ async function launchServer(options: LaunchOptions) {
 		endpoint: await measureAndLog(() => waitForEndpoint(serverProcess, logger), 'waitForEndpoint(serverProcess)', logger)
 	};
 }
+
+// --- Start Positron ---
+async function launchServerWithUniquePort(options: LaunchOptions) {
+	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
+	const serverLogsPath = join(logsPath, 'server');
+	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
+	const agentFolder = userDataDir;
+	await measureAndLog(() => mkdirp(agentFolder), `mkdirp(${agentFolder})`, logger);
+
+	const env = {
+		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
+		...process.env
+	};
+
+	// Added support for multiple ports to enable parallel test execution
+	let serverProcess: ChildProcess | null = null;
+	let endpoint: string | undefined;
+
+	const maxRetries = 10; // Number of ports to try before giving up
+	for (let attempts = 0; attempts < maxRetries; attempts++) {
+		const currentPort = port++; // Increment the port on each retry
+		const args = [
+			'--disable-telemetry',
+			'--disable-workspace-trust',
+			`--port=${currentPort}`,
+			'--enable-smoke-test-driver',
+			`--extensions-dir=${extensionsPath}`,
+			`--server-data-dir=${agentFolder}`,
+			'--accept-server-license-terms',
+			`--logsPath=${serverLogsPath}`,
+			// --- Start Positron ---
+			'--connection-token',
+			'dev-token'
+			// --- End Positron ---
+		];
+
+		if (options.verbose) {
+			args.push('--log=trace');
+		}
+
+		let serverLocation: string | undefined;
+		if (codeServerPath) {
+			const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
+			serverLocation = join(
+				codeServerPath,
+				'bin',
+				`${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`
+			);
+			logger.log(`Starting built server from '${serverLocation}'`);
+		} else {
+			serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
+
+			logger.log(`Starting server out of sources from '${serverLocation}'`);
+		}
+
+		logger.log(`Storing log files into '${serverLogsPath}'`);
+
+		logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
+
+		const shell: boolean = process.platform === 'win32';
+
+		try {
+			serverProcess = spawn(
+				serverLocation,
+				args,
+				{ env, shell }
+			);
+
+			logger.log(`Started server on port ${currentPort} (pid: ${serverProcess.pid})`);
+
+			endpoint = await measureAndLog(
+				() => waitForEndpoint(serverProcess!, logger),
+				'waitForEndpoint(serverProcess)',
+				logger
+			);
+
+			// If we reach here, the server started successfully
+			break;
+		} catch (error) {
+			if ((error as Error).message.includes('EADDRINUSE')) {
+				logger.log(`Port ${currentPort} is already in use. Retrying with the next port...`);
+				if (serverProcess) {
+					serverProcess.kill();
+				}
+			} else {
+				throw error; // Rethrow non-EADDRINUSE errors
+			}
+		}
+	}
+
+	if (!serverProcess || !endpoint) {
+		throw new Error('Failed to launch the server after multiple attempts.');
+	}
+
+	return { serverProcess, endpoint };
+}
+// --- End Positron ---
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, headless } = options;
