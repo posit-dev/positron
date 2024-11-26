@@ -795,5 +795,17 @@ suite('Positron - RuntimeSessionService', () => {
 
 			sinon.assert.calledThrice(target);
 		});
+
+		test(`restart ${mode} while ready -> start`, async () => {
+			const session = await start();
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			await restartSession(session.sessionId);
+			await waitForRuntimeState(session, RuntimeState.Ready);
+
+			const newSession = await start();
+
+			assertSingleSessionIsReady(newSession);
+		});
 	}
 });

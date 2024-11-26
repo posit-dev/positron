@@ -1240,8 +1240,19 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			state === RuntimeState.Ready) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
+
+			// Mark the session as starting until the restart sequence completes.
 			this.setStartingSessionMaps(
 				session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+			const disposable = this._register(session.onDidChangeRuntimeState((state) => {
+				if (state === RuntimeState.Ready) {
+					disposable.dispose();
+					this.clearStartingSessionMaps(
+						session.metadata.sessionMode, session.runtimeMetadata, session.metadata.notebookUri);
+				}
+			}));
+
+			// Restart the session.
 			return session.restart();
 		} else if (state === RuntimeState.Uninitialized ||
 			state === RuntimeState.Exited) {
