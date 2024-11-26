@@ -103,6 +103,11 @@ export interface IPositronNotebookInstance {
 	runAllCells(): Promise<void>;
 
 	/**
+	 * Clears all output from all cells in the notebook.
+	 */
+	clearAllCellOutputs(): void;
+
+	/**
 	 * Creates and inserts a new cell into the notebook.
 	 *
 	 * @param type The kind of cell to create (e.g., code, markdown)
