@@ -72,7 +72,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove test blobs
         id: e2e-playwright-tests

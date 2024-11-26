@@ -109,7 +109,7 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
       CURRENTS_PROJECT_ID: ZOs5z2
       CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+      CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
       PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
     steps:
@@ -165,7 +165,7 @@ jobs:
       _R_CHECK_SYSTEM_CLOCK_: false
       CURRENTS_PROJECT_ID: ZOs5z2
       CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+      CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
       PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
     steps:
@@ -200,7 +200,7 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
           CURRENTS_PROJECT_ID: ZOs5z2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.repository }}-${{ github.run_id }}-${{ github.run_attempt }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
         id: browser-tests
