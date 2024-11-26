@@ -46,7 +46,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -67,15 +66,6 @@ jobs:
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
-      - name: Set COMMIT_INFO_MESSAGE
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "COMMIT_INFO_MESSAGE=PR: ${{ github.event.pull_request.title || github.event.head_commit.message }}" >> $GITHUB_ENV
-          else
-            echo "COMMIT_INFO_MESSAGE=${{ github.event.head_commit.message }}" >> $GITHUB_ENV
-          fi
-          echo $COMMIT_INFO_MESSAGE
-
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
@@ -88,7 +78,7 @@ jobs:
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
 
       - name: Upload Playwright Report to S3
-        if: ${{ !cancelled() }}
+        if: ${{ success() || failure() }}
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}

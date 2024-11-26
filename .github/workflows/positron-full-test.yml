@@ -138,13 +138,13 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 3 # --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 3
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-electron-${{ matrix.shardIndex }}
+          name: blob-report-electron
           path: blob-report
           retention-days: 14
 
@@ -152,7 +152,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: junit-report-electron-${{ matrix.shardIndex }}
+          name: junit-report-electron
           path: test-results/junit.xml
 
   e2e-browser-tests:

@@ -20,7 +20,7 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 
 	// Launch server
 	// --- Start Positron ---
-	const { serverProcess, endpoint } = await launchServerWithUniquePort(options);
+	const { serverProcess, endpoint } = await launchServer(options);
 	// --- End Positron ---
 
 	// Launch browser
@@ -32,70 +32,8 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
-// @ts-expect-error
-async function launchServer(options: LaunchOptions) {
-	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
-	const serverLogsPath = join(logsPath, 'server');
-	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
-	const agentFolder = userDataDir;
-	await measureAndLog(() => mkdirp(agentFolder), `mkdirp(${agentFolder})`, logger);
-
-	const env = {
-		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
-		...process.env
-	};
-
-	const args = [
-		'--disable-telemetry',
-		'--disable-workspace-trust',
-		`--port=${port++}`,
-		'--enable-smoke-test-driver',
-		`--extensions-dir=${extensionsPath}`,
-		`--server-data-dir=${agentFolder}`,
-		'--accept-server-license-terms',
-		`--logsPath=${serverLogsPath}`,
-		// --- Start Positron ---
-		`--connection-token`,
-		`dev-token`
-		// --- End Positron ---
-	];
-
-	if (options.verbose) {
-		args.push('--log=trace');
-	}
-
-	let serverLocation: string | undefined;
-	if (codeServerPath) {
-		const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
-		serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
-
-		logger.log(`Starting built server from '${serverLocation}'`);
-	} else {
-		serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
-
-		logger.log(`Starting server out of sources from '${serverLocation}'`);
-	}
-
-	logger.log(`Storing log files into '${serverLogsPath}'`);
-
-	logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
-	const shell: boolean = (process.platform === 'win32');
-	const serverProcess = spawn(
-		serverLocation,
-		args,
-		{ env, shell }
-	);
-
-	logger.log(`Started server for browser smoke tests (pid: ${serverProcess.pid})`);
-
-	return {
-		serverProcess,
-		endpoint: await measureAndLog(() => waitForEndpoint(serverProcess, logger), 'waitForEndpoint(serverProcess)', logger)
-	};
-}
-
 // --- Start Positron ---
-async function launchServerWithUniquePort(options: LaunchOptions) {
+async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
 	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
