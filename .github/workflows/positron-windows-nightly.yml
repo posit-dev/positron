@@ -116,7 +116,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-electron-${{ matrix.shardIndex }}
+          name: blob-report-electron
           path: blob-report
           retention-days: 14
 
@@ -124,7 +124,7 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: junit-report-electron-${{ matrix.shardIndex }}
+          name: junit-report-electron
           path: test-results/junit.xml
 
   e2e-report:

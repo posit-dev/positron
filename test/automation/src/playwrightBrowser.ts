@@ -19,9 +19,7 @@ let port = 9000;
 export async function launch(options: LaunchOptions): Promise<{ serverProcess: ChildProcess; driver: PlaywrightDriver }> {
 
 	// Launch server
-	// --- Start Positron ---
 	const { serverProcess, endpoint } = await launchServer(options);
-	// --- End Positron ---
 
 	// Launch browser
 	const { browser, context, page, pageLoadedPromise } = await launchBrowser(options, endpoint);
