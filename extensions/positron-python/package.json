@@ -837,6 +837,12 @@
                     "description": "%python.venvPath.description%",
                     "scope": "machine",
                     "type": "string"
+                },
+                "python.installModulesInTerminal": {
+                    "default": false,
+                    "description": "%python.installModulesInTerminal.description%",
+                    "scope": "resource",
+                    "type": "boolean"
                 }
             },
             "title": "Python",

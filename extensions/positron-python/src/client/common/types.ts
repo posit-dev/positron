@@ -190,6 +190,7 @@ export interface IPythonSettings {
     readonly languageServerDebug: boolean;
     readonly languageServerLogLevel: string;
     readonly quietMode: boolean;
+    readonly installModulesInTerminal: boolean;
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
     readonly tensorBoard: ITensorBoardSettings | undefined;

@@ -133,6 +133,8 @@ export class PythonSettings implements IPythonSettings {
     public languageServerLogLevel = 'error';
 
     public quietMode = false;
+
+    public installModulesInTerminal = false;
     // --- End Positron ---
 
     protected readonly changed = new EventEmitter<ConfigurationChangeEvent | undefined>();

@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable max-classes-per-file, import/no-duplicates */
+import { CancellationTokenSource } from 'vscode';
+// --- End Positron ---
+
 import { injectable } from 'inversify';
 import * as path from 'path';
 import { CancellationToken, l10n, ProgressLocation, ProgressOptions } from 'vscode';
@@ -22,6 +27,8 @@ import { ProductNames } from './productNames';
 import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } from './types';
 
 // --- Start Positron ---
+// eslint-disable-next-line import/newline-after-import
+import { IWorkspaceService } from '../application/types';
 class ExternallyManagedEnvironmentError extends Error {}
 // --- End Positron ---
 
@@ -44,7 +51,16 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         flags?: ModuleInstallFlags,
         options?: InstallOptions,
     ): Promise<void> {
-        const shouldExecuteInTerminal = !options?.installAsProcess;
+        // --- Start Positron ---
+        // python.installModulesInTerminal is a setting that allows the user to force modules to be
+        // installed in the Terminal. Usually, such installations occur in the background. However,
+        // for debugging, it can be helpful to see the Terminal output of the installation process.
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        const installModulesInTerminal = workspaceService
+            .getConfiguration('python')
+            .get<boolean>('installModulesInTerminal');
+        const shouldExecuteInTerminal = installModulesInTerminal || !options?.installAsProcess;
+        // --- End Positron ---
         const name =
             typeof productOrModuleName === 'string'
                 ? productOrModuleName
@@ -248,8 +264,12 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             const terminalService = this.serviceContainer
                 .get<ITerminalServiceFactory>(ITerminalServiceFactory)
                 .getTerminalService(options);
-
-            terminalService.sendCommand(command, args, token);
+            // --- Start Positron ---
+            // Ensure we pass a cancellation token so that we await the full terminal command
+            // execution before returning.
+            const cancelToken = token ?? new CancellationTokenSource().token;
+            await terminalService.sendCommand(command, args, token ?? cancelToken);
+            // --- End Positron ---
         } else {
             const processServiceFactory = this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
             const processService = await processServiceFactory.create(options.resource);
