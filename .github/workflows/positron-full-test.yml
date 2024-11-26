@@ -112,7 +112,7 @@ jobs:
       CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
       PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
-      CURRENTS_TAG: os-ubuntu
+      CURRENTS_TAG: "electron"
     steps:
       - uses: actions/checkout@v4
 
@@ -204,6 +204,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
+          CURRENTS_TAG: "chromium"
         id: browser-tests
         run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 2
 
