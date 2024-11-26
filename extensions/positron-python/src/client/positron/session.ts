@@ -203,6 +203,34 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    async setWorkingDirectory(dir: string): Promise<void> {
+        if (this._kernel) {
+            // Check to see if the 'os' module is available in the kernel
+            const loaded = await this._kernel.callMethod('isModuleLoaded', 'os');
+            let code = '';
+            if (!loaded) {
+                code = 'import os; ';
+            }
+            // Escape backslashes in the directory path
+            dir = dir.replace(/\\/g, '\\\\');
+
+            // Escape single quotes in the directory path
+            dir = dir.replace(/'/g, "\\'");
+
+            // Set the working directory
+            code += `os.chdir('${dir}')`;
+
+            this._kernel.execute(
+                code,
+                createUniqueId(),
+                positron.RuntimeCodeExecutionMode.Interactive,
+                positron.RuntimeErrorBehavior.Continue,
+            );
+        } else {
+            throw new Error(`Cannot set working directory to ${dir}; kernel not started`);
+        }
+    }
+
     private async _installIpykernel(): Promise<void> {
         // Get the installer service
         const installer = this.serviceContainer.get<IInstaller>(IInstaller);
@@ -603,6 +631,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
         }
     }
+}
+
+export function createUniqueId(): string {
+    return Math.floor(Math.random() * 0x100000000).toString(16);
 }
 
 export function createJupyterKernelExtra(): undefined {

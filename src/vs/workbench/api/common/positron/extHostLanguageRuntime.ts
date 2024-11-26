@@ -443,6 +443,21 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		this._runtimeSessions[handle].replyToPrompt(id, response);
 	}
 
+	$setWorkingDirectory(handle: number, dir: string): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot set working directory: session handle '${handle}' not found or no longer valid.`);
+		}
+		return new Promise((resolve, reject) => {
+			this._runtimeSessions[handle].setWorkingDirectory(dir).then(
+				() => {
+					resolve();
+				},
+				(err) => {
+					reject(err);
+				});
+		});
+	}
+
 	/**
 	 * Discovers language runtimes and registers them with the main thread.
 	 */

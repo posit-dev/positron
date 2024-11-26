@@ -498,6 +498,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		this._proxy.$replyToPrompt(this.handle, id, value);
 	}
 
+	setWorkingDirectory(dir: string): Promise<void> {
+		return this._proxy.$setWorkingDirectory(this.handle, dir);
+	}
+
 	async interrupt(): Promise<void> {
 		this._stateEmitter.fire(RuntimeState.Interrupting);
 		return this._proxy.$interruptLanguageRuntime(this.handle);

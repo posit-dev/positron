@@ -1073,6 +1073,16 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	}
 
 	/**
+	 * Set the working directory for the kernel.
+	 *
+	 * @param workingDirectory The working directory to set
+	 */
+	public setWorkingDirectory(workingDirectory: string): Promise<void> {
+		this._ui?.changeDirectory(workingDirectory);
+		return Promise.resolve();
+	}
+
+	/**
 	 * Starts the runtime; returns a Thenable that resolves with information about the runtime.
 	 * @returns A Thenable that resolves with information about the runtime
 	 */

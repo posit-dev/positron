@@ -7,7 +7,7 @@ import * as nls from 'vs/nls';
 import { generateUuid } from 'vs/base/common/uuid';
 import { KeyCode, KeyMod } from 'vs/base/common/keyCodes';
 import { ILocalizedString } from 'vs/platform/action/common/action';
-import { Action2, registerAction2 } from 'vs/platform/actions/common/actions';
+import { Action2, MenuId, registerAction2 } from 'vs/platform/actions/common/actions';
 import { ServicesAccessor } from 'vs/platform/instantiation/common/instantiation';
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator } from 'vs/platform/quickinput/common/quickInput';
 import { IKeybindingRule, KeybindingWeight } from 'vs/platform/keybinding/common/keybindingsRegistry';
@@ -21,6 +21,10 @@ import { groupBy } from 'vs/base/common/collections';
 import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { dispose } from 'vs/base/common/lifecycle';
+import { ContextKeyExpr } from 'vs/platform/contextkey/common/contextkey';
+import { ExplorerFolderContext } from 'vs/workbench/contrib/files/common/files';
+import { URI } from 'vs/base/common/uri';
+import { IFileDialogService } from 'vs/platform/dialogs/common/dialogs';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -666,3 +670,73 @@ export function registerLanguageRuntimeActions() {
 		}
 	});
 }
+
+registerAction2(class SetWorkingDirectoryCommand extends Action2 {
+	// from explorer
+	constructor() {
+		super({
+			id: 'workbench.action.setWorkingDirectory',
+			title: nls.localize2('setWorkingDirectory', "Set as Working Directory in Active Console"),
+			category,
+			f1: true,
+			menu: [
+				{
+					id: MenuId.ExplorerContext,
+					group: '2_workspace',
+					order: 10,
+					when: ContextKeyExpr.and(ExplorerFolderContext)
+				}
+			]
+		});
+	}
+
+	/**
+	 * Invoke the command
+	 *
+	 * @param accessor The services accessor
+	 * @param resource The resource to set as the working directory, from the explorer. If not provided, the user will be prompted to select a folder.
+	 * @returns
+	 */
+	async run(accessor: ServicesAccessor, resource?: URI) {
+		const sessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+		const session = sessionService.foregroundSession;
+		// If there's no active session, do nothing.
+		if (!session) {
+			notificationService.info(
+				nls.localize('positron.setWorkingDirectory.noSession',
+					"No active interpreter session; open the Console and select an interpreter before setting the working directory."));
+			return;
+		}
+		// If no resource was provided, ask the user to select a folder.
+		if (!resource) {
+			const fileDialogService = accessor.get(IFileDialogService);
+			const selection = await fileDialogService.showOpenDialog({
+				canSelectFolders: true,
+				canSelectFiles: false,
+				canSelectMany: false,
+				openLabel: nls.localize('positron.setWorkingDirectory.setDirectory',
+					'Set Directory')
+			});
+			if (!selection) {
+				// No folder was selected.
+				return;
+			}
+
+			// Use the first selected folder (there should only ever be one selected since we specified `canSelectMany: false`).
+			resource = selection[0];
+		}
+
+		// At this point we should have a resource.
+		if (!resource) {
+			return;
+		}
+
+		// Attempt to set the working directory to the selected folder.
+		try {
+			session.setWorkingDirectory(resource.fsPath);
+		} catch (e) {
+			notificationService.error(e);
+		}
+	}
+});

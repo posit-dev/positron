@@ -266,6 +266,19 @@ export class LanguageRuntimeSessionAdapter
 	}
 
 	/**
+	 * Set the working directory for the kernel. This is a stub implementation since Jupyter
+	 * doesn't have a concept of a working directory.
+	 *
+	 * @param workingDirectory The working directory to set
+	 * @returns Nothing
+	 * @throws An error message indicating that this method is not implemented
+	 */
+	public setWorkingDirectory(workingDirectory: string): Promise<void> {
+		return Promise.reject(
+			`Cannot change working directory to ${workingDirectory} (not implemented)`);
+	}
+
+	/**
 	 * Interrupts the kernel.
 	 */
 	public async interrupt(): Promise<void> {

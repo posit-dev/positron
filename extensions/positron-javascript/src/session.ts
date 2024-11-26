@@ -148,6 +148,10 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		throw new Error('Method not implemented.');
 	}
 
+	setWorkingDirectory(dir: string): Thenable<void> {
+		throw new Error('Method not implemented.');
+	}
+
 	async start(): Promise<positron.LanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);

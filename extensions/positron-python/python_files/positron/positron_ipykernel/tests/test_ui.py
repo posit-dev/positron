@@ -123,6 +123,25 @@ def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
     ]
 
 
+def test_is_module_loaded(ui_comm: DummyComm) -> None:
+    """
+    Test the `isModuleLoaded` RPC method called from Positron.
+    """
+    module = "fallingStars"
+    msg = json_rpc_request(
+        "call_method",
+        {
+            "method": "isModuleLoaded",
+            "params": [module],
+        },
+        comm_id="dummy_comm_id",
+    )
+    ui_comm.handle_msg(msg)
+
+    # Check that the response is sent, with a result of False.
+    assert ui_comm.messages == [json_rpc_response(False)]
+
+
 def test_clear_console(ui_service: UiService, ui_comm: DummyComm) -> None:
     ui_service.clear_console()
 
