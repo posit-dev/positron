@@ -19,6 +19,11 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       AWS_S3_BUCKET: positron-test-reports
+      CURRENTS_PROJECT_ID: ZOs5z2
+      CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+      CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+      PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
 
     steps:
       - uses: actions/checkout@v4
@@ -104,7 +109,7 @@ jobs:
           POSITRON_R_VER_SEL: 4.4.0
         if: ${{ !cancelled() }}
         id: e2e-win-electron-tests
-        run: npx playwright test --project e2e-electron --grep "@win" --workers 1
+        run: npx playwright test --project e2e-electron --grep "@win" --workers 2
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
