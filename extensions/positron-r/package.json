@@ -373,7 +373,7 @@
         "command": "r.insertPipe",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "editorLangId == r || quartoLangId == r"
+        "when": "editorLangId == r || quarto.document.languageId == r"
       },
       {
         "command": "r.insertPipeConsole",
@@ -385,7 +385,7 @@
         "command": "r.insertLeftAssignment",
         "key": "alt+-",
         "mac": "alt+-",
-        "when": "editorLangId == r || quartoLangId == r"
+        "when": "editorLangId == r || quarto.document.languageId == r"
       },
       {
         "command": "r.insertLeftAssignmentConsole",
@@ -469,7 +469,7 @@
         {
           "category": "R",
           "command": "r.insertPipe",
-          "when": "editorLangId == r || quartoLangId == r"
+          "when": "editorLangId == r || quarto.document.languageId == r"
         },
         {
           "category": "R",
@@ -479,7 +479,7 @@
         {
           "category": "R",
           "command": "r.insertLeftAssignment",
-          "when": "editorLangId == r || quartoLangId == r"
+          "when": "editorLangId == r || quarto.document.languageId == r"
         },
         {
           "category": "R",
