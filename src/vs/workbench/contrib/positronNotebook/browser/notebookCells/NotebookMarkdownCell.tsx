@@ -12,7 +12,7 @@ import { Markdown } from './Markdown';
 import { localize } from 'vs/nls';
 import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
 import { NotebookCellWrapper } from 'vs/workbench/contrib/positronNotebook/browser/notebookCells/NotebookCellWrapper';
-import { PositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { PositronNotebookMarkdownCell } from '../PositronNotebookCells/PositronNotebookMarkdownCell';
 
 export function NotebookMarkdownCell({ cell }: { cell: PositronNotebookMarkdownCell }) {
 

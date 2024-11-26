@@ -12,14 +12,13 @@
 		visibility: hidden;
 	}
 
-	&.selected {
+	&[data-is-running='true'] {
 		outline: 1px solid var(--vscode-focusBorder);
+		animation: running-cell-pulse 2s ease-in-out infinite;
 	}
 
-	&:has(.action-button:focus) {
-		/* De-emphasize the outline of the main cell when the user has tabbed onto the action
-		buttons */
-		outline-style: dotted !important;
+	&.selected {
+		outline: 1px solid var(--vscode-focusBorder);
 	}
 
 	&.editing,
@@ -40,5 +39,22 @@
 		.positron-notebooks-cell-action-bar {
 			visibility: visible;
 		}
+	}
+}
+
+@keyframes running-cell-pulse {
+	0% {
+		outline-width: 1px;
+		outline-offset: 0px;
+	}
+
+	50% {
+		outline-width: 3px;
+		outline-offset: 1.5px;
+	}
+
+	100% {
+		outline-width: 1px;
+		outline-offset: 0px;
 	}
 }

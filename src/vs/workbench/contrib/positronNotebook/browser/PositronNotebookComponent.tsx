@@ -19,7 +19,7 @@ import { IEditorOptions } from 'vs/editor/common/config/editorOptions';
 import { FontMeasurements } from 'vs/editor/browser/config/fontMeasurements';
 import { BareFontInfo } from 'vs/editor/common/config/fontInfo';
 import { PixelRatio } from 'vs/base/browser/pixelRatio';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCell';
+import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell';
 
 
 export function PositronNotebookComponent() {

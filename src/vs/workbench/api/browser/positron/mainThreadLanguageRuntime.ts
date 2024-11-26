@@ -39,7 +39,7 @@ import { ISettableObservable, observableValue } from 'vs/base/common/observableI
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { SerializableObjectWithBuffers } from 'vs/workbench/services/extensions/common/proxyIdentifier';
 import { isWebviewReplayMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/utils';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/common/positronWebviewPreloadService';
+import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 
 /**

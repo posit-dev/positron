@@ -8,6 +8,7 @@ import { Disposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable } from 'vs/base/common/observableInternal/base';
 import { URI } from 'vs/base/common/uri';
 import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
+import { NotebookPreloadOutputResults } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -37,6 +38,11 @@ export interface IPositronNotebookCell extends Disposable {
 	 * URI for the notebook that contains this cell
 	 */
 	get notebookUri(): URI;
+
+	/**
+	 * Current execution status for this cell
+	 */
+	executionStatus: ISettableObservable<ExecutionStatus, void>;
 
 	/**
 	 * The content of the cell. This is the raw text of the cell.
@@ -118,10 +124,6 @@ export interface IPositronNotebookCell extends Disposable {
 export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	kind: CellKind.Code;
 
-	/**
-	 * Current execution status for this cell
-	 */
-	executionStatus: ISettableObservable<ExecutionStatus, void>;
 
 	/**
 	 * Current cell outputs as an observable
@@ -166,9 +168,38 @@ export type NotebookCellOutputItem = Readonly<{
 	data: VSBuffer;
 }>;
 
+/**
+ * Text output types that can be parsed for display. These come across differently than other output
+ * types (need to be parsed as json), hence the distinction.
+ */
+export type ParsedTextOutput = {
+	type: 'stdout' | 'text' | 'stderr' | 'error';
+	content: string;
+};
+
+/**
+ * Contents from cell outputs parsed for React components to display
+ */
+export type ParsedOutput = ParsedTextOutput |
+{
+	type: 'image';
+	dataUrl: string;
+} |
+{
+	type: 'interupt';
+	trace: string;
+} |
+{
+	type: 'unknown';
+	contents: string;
+};
+
+
 export interface NotebookCellOutputs {
 	outputId: string;
 	outputs: NotebookCellOutputItem[];
+	parsed: ParsedOutput;
+	preloadMessageResult?: NotebookPreloadOutputResults | undefined;
 }
 
 /**
@@ -179,5 +210,5 @@ interface PositronNotebookCellTextModel {
 	handle: number;
 	language: string;
 	cellKind: CellKind;
-	outputs: NotebookCellOutputs[];
+	outputs: Pick<NotebookCellOutputs, 'outputId' | 'outputs'>[];
 }
