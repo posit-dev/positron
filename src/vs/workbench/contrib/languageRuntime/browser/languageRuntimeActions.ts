@@ -676,7 +676,7 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	constructor() {
 		super({
 			id: 'workbench.action.setWorkingDirectory',
-			title: nls.localize2('setWorkingDirectory', "Set as Working Directory"),
+			title: nls.localize2('setWorkingDirectory', "Set as Working Directory in Active Console"),
 			category,
 			f1: true,
 			menu: [
