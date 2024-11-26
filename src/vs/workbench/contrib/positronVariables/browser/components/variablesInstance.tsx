@@ -448,6 +448,15 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
+	// workaround for web disabling scrolling on the window to prevent URL navigation
+	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
+		if (!isWeb) {
+			return;
+		}
+
+		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
+	};
+
 	/**
 	 * VariableEntry component.
 	 * @param index The index of the variable entry.
@@ -513,17 +522,6 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		}
 	};
 
-	// workaround for web disabling scrolling on the window to prevent URL navigation
-	useEffect(() => {
-		if (!isWeb) {
-			return;
-		}
-
-		outerRef.current?.addEventListener('wheel', (e: WheelEvent) => {
-			innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
-		});
-	}, [innerRef]);
-
 	// Render.
 	return (
 		<div
@@ -534,6 +532,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onFocus={focusHandler}
 			onBlur={blurHandler}
+			onWheel={wheelHandler}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :
