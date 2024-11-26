@@ -155,15 +155,6 @@
             "default": false,
             "description": "%r.configuration.restoreWorkspace.description%"
           },
-          "positron.r.extraArguments": {
-            "scope": "window",
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "description": "%r.configuration.extraArguments.description%"
-          },
           "positron.r.quietMode": {
             "scope": "window",
             "type": "boolean",
