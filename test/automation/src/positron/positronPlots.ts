@@ -34,16 +34,20 @@ export class PositronPlots {
 	copyPlotButton: Locator;
 	zoomPlotButton: Locator;
 	currentPlot: Locator;
+	savePlotModal: Locator;
+	overwriteModal: Locator;
 
 	constructor(private code: Code) {
-		this.nextPlotButton = this.code.driver.getLocator(NEXT_PLOT_BUTTON);
-		this.previousPlotButton = this.code.driver.getLocator(PREVIOUS_PLOT_BUTTON);
-		this.clearPlotsButton = this.code.driver.getLocator(CLEAR_PLOTS_BUTTON);
-		this.plotSizeButton = this.code.driver.getLocator(PLOT_SIZE_BUTTON);
-		this.savePlotButton = this.code.driver.getLocator(SAVE_PLOT_BUTTON);
-		this.copyPlotButton = this.code.driver.getLocator(COPY_PLOT_BUTTON);
-		this.zoomPlotButton = this.code.driver.getLocator(ZOOM_PLOT_BUTTON);
-		this.currentPlot = this.code.driver.getLocator(CURRENT_PLOT);
+		this.nextPlotButton = this.code.driver.page.locator(NEXT_PLOT_BUTTON);
+		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
+		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
+		this.plotSizeButton = this.code.driver.page.locator(PLOT_SIZE_BUTTON);
+		this.savePlotButton = this.code.driver.page.locator(SAVE_PLOT_BUTTON);
+		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
+		this.zoomPlotButton = this.code.driver.page.locator(ZOOM_PLOT_BUTTON);
+		this.currentPlot = this.code.driver.page.locator(CURRENT_PLOT);
+		this.savePlotModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'Save Plot' });
+		this.overwriteModal = this.code.driver.page.locator('.positron-modal-dialog-box').filter({ hasText: 'The file already exists' });
 	}
 
 	async waitForCurrentPlot() {
@@ -90,5 +94,43 @@ export class PositronPlots {
 
 	async getCurrentStaticPlotAsBuffer(): Promise<Buffer> {
 		return this.code.driver.getLocator(CURRENT_STATIC_PLOT).screenshot();
+	}
+
+	async copyCurrentPlotToClipboard() {
+		await this.code.driver.page.locator('.codicon-copy').click();
+
+		// wait for clipboard to be populated
+		await this.code.wait(500);
+	}
+
+	async savePlot({ name, format, overwrite = true }: { name: string; format: 'JPEG' | 'PNG' | 'SVG' | 'PDF' | 'TIFF'; overwrite?: boolean }) {
+		// click save and wait for save plot modal
+		await this.savePlotButton.click();
+		await expect(this.savePlotModal).toBeVisible();
+
+		// enter new name and select format
+		await this.savePlotModal.getByLabel('Name', { exact: true }).fill(name);
+		await this.savePlotModal.getByLabel('Format').click();
+		await this.code.driver.page.getByRole('button', { name: format }).click();
+
+		// ensure dropdown value has updated
+		await expect(this.savePlotModal.getByLabel(`Format${format}`)).toBeVisible();
+		// bug workaround related to RPC timeout
+		await this.code.driver.page.waitForTimeout(1000);
+
+		// save plot
+		await this.savePlotModal.getByRole('button', { name: 'Save' }).click();
+
+		// handle overwrite dialog
+		if (await this.overwriteModal.isVisible()) {
+			if (overwrite) {
+				await this.overwriteModal.getByRole('button', { name: 'Overwrite' }).click();
+				await expect(this.savePlotModal).not.toBeVisible();
+			} else {
+				await this.overwriteModal.getByRole('button', { name: 'Cancel' }).click();
+			}
+		} else {
+			await expect(this.savePlotModal).not.toBeVisible();
+		}
 	}
 }

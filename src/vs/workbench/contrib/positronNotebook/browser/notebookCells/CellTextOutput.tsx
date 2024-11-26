@@ -8,7 +8,7 @@ import * as React from 'react';
 import { ANSIOutput } from 'vs/base/common/ansiOutput';
 import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLines';
 import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { ParsedTextOutput } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
+import { ParsedTextOutput } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
 import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { NotebookDisplayOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';

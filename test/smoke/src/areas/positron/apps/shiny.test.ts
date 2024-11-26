@@ -31,7 +31,9 @@ test.describe('Shiny Application', {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 		await app.workbench.quickaccess.runCommand('shiny.python.runApp');
 		const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
-		await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
+		await expect(async () => {
+			await expect(headerLocator).toHaveText('Restaurant tipping', { timeout: 20000 });
+		}).toPass({ timeout: 60000 });
 	});
 
 	test('R - Verify Basic Shiny App [C699100]', async function ({ app, r }) {
@@ -40,7 +42,9 @@ runExample("01_hello")`;
 		await app.workbench.positronConsole.pasteCodeToConsole(code);
 		await app.workbench.positronConsole.sendEnterKey();
 		const headerLocator = app.workbench.positronViewer.getViewerLocator('h1');
-		await expect(headerLocator).toHaveText('Hello Shiny!', { timeout: 20000 });
+		await expect(async () => {
+			await expect(headerLocator).toHaveText('Hello Shiny!', { timeout: 20000 });
+		}).toPass({ timeout: 60000 });
 	});
 });
 

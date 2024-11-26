@@ -36,6 +36,7 @@ const reload = localize('positron.preview.reload', "Reload the current URL");
 const clear = localize('positron.preview.clear', "Clear the current URL");
 const openInBrowser = localize('positron.preview.openInBrowser', "Open the current URL in the default browser");
 const currentUrl = localize('positron.preview.currentUrl', "The current URL");
+const openInEditor = localize('positron.preview.html.openInEditor', "Open the content in an editor tab.");
 
 /**
  * UrlActionBars component.
@@ -70,6 +71,10 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 			channel: 'execCommand',
 			data: 'reload-window'
 		});
+	};
+
+	const openInEditorHandler = () => {
+		props.positronPreviewService.openEditor(currentUri);
 	};
 
 	// Handler for the clear button.
@@ -191,6 +196,13 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 							tooltip={openInBrowser}
 							ariaLabel={openInBrowser}
 							onPressed={openInBrowserHandler} />
+						<ActionBarSeparator />
+						<ActionBarButton
+							iconId='go-to-file'
+							align='right'
+							tooltip={openInEditor}
+							ariaLabel={openInEditor}
+							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							iconId='clear-all'

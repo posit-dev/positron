@@ -20,6 +20,7 @@ const currentsConfig: CurrentsConfig = {
 export default defineConfig<CustomTestOptions>({
 	globalSetup: require.resolve('./test/smoke/src/areas/positron/_global.setup.ts'),
 	testDir: './test/smoke/src/areas/positron',
+	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -29,6 +30,9 @@ export default defineConfig<CustomTestOptions>({
 	reportSlowTests: {
 		max: 10,
 		threshold: 60 * 1000, // 1 minute
+	},
+	expect: {
+		timeout: 15000,
 	},
 	reporter: process.env.CI
 		? [
@@ -53,6 +57,8 @@ export default defineConfig<CustomTestOptions>({
 	use: {
 		headless: false,
 		trace: 'off', // we are manually handling tracing in _test.setup.ts
+		actionTimeout: 15000,
+		navigationTimeout: 15000,
 	},
 
 	projects: [

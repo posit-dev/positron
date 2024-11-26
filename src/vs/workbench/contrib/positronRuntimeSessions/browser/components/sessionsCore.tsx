@@ -32,7 +32,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 	// Context hooks.
 	const positronSessionsContext = usePositronRuntimeSessionsContext();
 
-	if (!positronSessionsContext.positronSessions.length) {
+	if (!positronSessionsContext.positronSessions.size) {
 		return null;
 	}
 
@@ -41,7 +41,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 
 	// Sort sessions by created time, so that most recent sessions are at the
 	// top.
-	const allSessions = positronSessionsContext.positronSessions.sort((a, b) => {
+	const allSessions = Array.from(positronSessionsContext.positronSessions.values()).sort((a, b) => {
 		return b.metadata.createdTimestamp - a.metadata.createdTimestamp;
 	});
 

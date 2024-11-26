@@ -6,18 +6,20 @@
 import { Disposable } from 'vs/base/common/lifecycle';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { ConnectionsClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeConnectionsClient';
-import { ConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
+import { ConnectionMetadata, IConnectionMetadata, IPositronConnectionInstance } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsInstance';
 import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from 'vs/workbench/services/positronConnections/browser/positronConnectionsInstance';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { Event, Emitter } from 'vs/base/common/event';
-import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
 import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
 import { IContextKey, IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { IConfigurationChangeEvent, IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { ILogService } from 'vs/platform/log/common/log';
 import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
+import { ISecretStorageService } from 'vs/platform/secrets/common/secrets';
+import { IStorageService, StorageScope, StorageTarget } from 'vs/platform/storage/common/storage';
+import { generateUuid } from 'vs/base/common/uuid';
 
 class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
@@ -35,6 +37,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	constructor(
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly storageService: IStorageService,
+		@ISecretStorageService private readonly secretStorageService: ISecretStorageService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IViewsService private readonly viewsService: IViewsService,
@@ -52,21 +55,9 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.attachRuntime(runtime);
 		}));
 
-		const storedConnections: ConnectionMetadata[] = JSON.parse(
-			this.storageService.get('positron-connections', StorageScope.WORKSPACE, '[]')
-		);
-		storedConnections.forEach((metadata) => {
-			if (metadata === null) {
-				return;
-			}
-
-			const instance = new DisconnectedPositronConnectionsInstance(
-				metadata,
-				this.runtimeSessionService,
-				this
-			);
-
-			this.addConnection(instance);
+		this.addStoredConnections().catch((e) => {
+			this.logService.error('Error while adding stored connections', e);
+			this.notificationService.error('Error while loading stored connections');
 		});
 
 		this._register(this.configurationService.onDidChangeConfiguration((e) => {
@@ -91,6 +82,41 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	initialize(): void { }
 
+	private getPrivateStorageId(): string {
+		let id = this.storageService.get('positron-connections-secret-id', StorageScope.WORKSPACE);
+		if (!id) {
+			id = generateUuid();
+			this.storageService.store(
+				'positron-connections-secret-id',
+				id,
+				StorageScope.WORKSPACE,
+				StorageTarget.MACHINE
+			);
+		}
+		return id;
+	}
+
+	private async addStoredConnections() {
+		const id = this.getPrivateStorageId();
+		const storedConnections: IConnectionMetadata[] = JSON.parse(
+			await this.secretStorageService.get(id) || '[]'
+		);
+
+		storedConnections.forEach((metadata) => {
+			if (metadata === null) {
+				return;
+			}
+
+			const instance = new DisconnectedPositronConnectionsInstance(
+				new ConnectionMetadata(metadata),
+				this.runtimeSessionService,
+				this
+			);
+
+			this.addConnection(instance);
+		});
+	}
+
 	attachRuntime(session: ILanguageRuntimeSession) {
 		this._register(session.onDidCreateClientInstance(async ({ message, client }) => {
 			if (client.getClientType() !== RuntimeClientType.Connection) {
@@ -103,7 +129,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			}
 
 			const instance = await PositronConnectionsInstance.init(
-				message.data as ConnectionMetadata,
+				new ConnectionMetadata(message.data as IConnectionMetadata),
 				new ConnectionsClientInstance(client),
 				this
 			);
@@ -121,7 +147,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 				const metadata = await connectionsClient.getMetadata();
 
 				const instance = await PositronConnectionsInstance.init(
-					metadata,
+					new ConnectionMetadata(metadata),
 					connectionsClient,
 					this
 				);
@@ -219,13 +245,11 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 	}
 
 	private saveConnectionsState() {
-		this.storageService.store(
-			'positron-connections',
-			this.connections.map((con) => {
+		this.secretStorageService.set(
+			this.getPrivateStorageId(),
+			JSON.stringify(this.connections.map((con) => {
 				return con.metadata;
-			}),
-			StorageScope.WORKSPACE,
-			StorageTarget.USER
+			}))
 		);
 	}
 }

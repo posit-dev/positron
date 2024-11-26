@@ -14,7 +14,7 @@ import { INotebookEditorService } from 'vs/workbench/contrib/notebook/browser/se
 import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
 import { INotebookService } from 'vs/workbench/contrib/notebook/common/notebookService';
 import { IPyWidgetsInstance, PositronIPyWidgetsService } from 'vs/workbench/contrib/positronIPyWidgets/browser/positronIPyWidgetsService';
-import { WebviewPlotClient } from 'vs/workbench/contrib/positronPlots/browser/webviewPlotClient';
+import { NotebookOutputPlotClient } from 'vs/workbench/contrib/positronPlots/browser/notebookOutputPlotClient';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageStream, LanguageRuntimeMessageType, LanguageRuntimeSessionMode, RuntimeOutputKind } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ToWebviewMessage } from 'vs/workbench/services/languageRuntime/common/positronIPyWidgetsWebviewMessages';
@@ -63,7 +63,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 
 	async function createConsoleInstance() {
 		// Listen for the plot client to be created.
-		let plotClient: WebviewPlotClient | undefined;
+		let plotClient: NotebookOutputPlotClient | undefined;
 		disposables.add(positronIpywidgetsService.onDidCreatePlot(client => plotClient = client));
 
 		// Start a console session.

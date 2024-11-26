@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Run Slack Skipped Tests Script
         run: node scripts/slack-skipped-tests.js ${{ secrets.SLACK_E2E_TEST_WEBHOOK }}

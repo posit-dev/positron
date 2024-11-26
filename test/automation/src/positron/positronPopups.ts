@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
+import { expect } from '@playwright/test';
 import { Code } from '../code';
 
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
@@ -88,15 +89,19 @@ export class PositronPopups {
 	}
 
 	async waitForModalDialogBox() {
-		await this.code.waitForElement(POSITRON_MODAL_DIALOG_BOX);
+		await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible({ timeout: 30000 });
+	}
+
+	async waitForModalDialogBoxToDisappear() {
+		await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async clickOkOnModalDialogBox() {
-		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_OK);
+		await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
 	}
 
 	async clickCancelOnModalDialogBox() {
-		await this.code.waitAndClick(POSITRON_MODAL_DIALOG_BOX_CANCEL);
+		await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_CANCEL).click();
 	}
 
 	/**

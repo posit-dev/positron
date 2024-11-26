@@ -23,7 +23,7 @@ import archiver from 'archiver';
 
 // Local imports
 import { createLogger } from '../../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures } from '../../../../automation';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../automation';
 import { createApp } from '../../utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -126,7 +126,25 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	},
+
 	{ scope: 'test' }],
+
+	userSettings: [async ({ app }, use) => {
+		const userSettings = new PositronUserSettingsFixtures(app);
+
+		const setUserSetting = async (
+			settings: [string, string][],
+			restartApp = false
+		) => {
+			await userSettings.setUserSettings(settings, restartApp);
+		};
+
+		await use({
+			set: setUserSetting
+		});
+
+		await userSettings.unsetUserSettings();
+	}, { scope: 'worker' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -150,7 +168,6 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		for (const screenshotPath of screenshots) {
 			testInfo.attachments.push({ name: path.basename(screenshotPath), path: screenshotPath, contentType: 'image/png' });
 		}
-
 	}, { auto: true }],
 
 	attachLogsToReport: [async ({ suiteId, logsPath }, use, testInfo) => {
@@ -303,6 +320,9 @@ interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: Logger;
+	userSettings: {
+		set: (settings: UserSetting[], restartApp?: boolean) => Promise<void>;
+	};
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

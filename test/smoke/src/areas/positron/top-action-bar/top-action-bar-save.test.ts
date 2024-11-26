@@ -5,7 +5,6 @@
 
 import { join } from 'path';
 import { test, expect } from '../_test.setup';
-import { PositronUserSettingsFixtures } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -15,12 +14,9 @@ test.describe('Top Action Bar - Save Actions', {
 	tag: ['@web']
 }, () => {
 
-	let userSettings: PositronUserSettingsFixtures;
-
-	test.beforeAll(async function ({ app }) {
+	test.beforeAll(async function ({ app, userSettings }) {
 		if (app.web) {
-			userSettings = new PositronUserSettingsFixtures(app);
-			await userSettings.setUserSetting(['files.autoSave', 'false']);
+			await userSettings.set([['files.autoSave', 'false']]);
 		}
 	});
 

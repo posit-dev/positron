@@ -5,24 +5,19 @@
 
 import path = require('path');
 import { test, expect } from '../_test.setup';
-import { PositronUserSettingsFixtures } from '../../../../../automation';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Test Explorer', () => {
-	let userSettings: PositronUserSettingsFixtures;
-
-	test.beforeAll(async function ({ app, r }) {
+	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
-			userSettings = new PositronUserSettingsFixtures(app);
-
 			// don't use native file picker
-			await userSettings.setUserSetting([
+			await userSettings.set([[
 				'files.simpleDialog.enable',
 				'true',
-			]);
+			]]);
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.positronConsole.barClearButton.click();
@@ -31,11 +26,6 @@ test.describe('Test Explorer', () => {
 			app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
 		}
-	});
-
-	test.afterEach(async function () {
-		// unset the use of the VSCode file picker
-		await userSettings.unsetUserSettings();
 	});
 
 	test('R - Verify Basic Test Explorer Functionality [C749378]', async function ({ app }) {

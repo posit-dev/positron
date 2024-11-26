@@ -116,4 +116,12 @@ export interface IPositronPreviewService {
 	get activePreviewWebviewId(): string;
 
 	set activePreviewWebviewId(id: string);
+
+	openEditor(uri: URI, title?: string): Promise<void>;
+
+	editorWebview(editorId: string): PreviewWebview | undefined;
+
+	editorTitle(previewId: string): string | undefined;
+
+	disposeEditor(previewId: string): void;
 }

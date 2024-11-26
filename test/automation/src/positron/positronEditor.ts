@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Code } from '../code';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
@@ -17,6 +18,10 @@ export class PositronEditor {
 
 	async pressPlay(): Promise<void> {
 		await this.code.driver.getLocator(PLAY_BUTTON).click();
+
+		// await appearance and disappearance of the toast
+		await expect(this.code.driver.page.locator('.notifications-toasts')).toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {

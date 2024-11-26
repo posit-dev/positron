@@ -169,7 +169,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
 	) {
-		// Call the disposable constrcutor.
+		// Call the disposable constructor.
 		super();
 
 		// Bind the PositronDataExplorerFocused context key.
@@ -178,13 +178,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		);
 
 		// Add a data explorer runtime for each running runtime.
-		this._runtimeSessionService.activeSessions.forEach(session => {
-			this.addDataExplorerSession(session);
+		this._runtimeSessionService.activeSessions.forEach(async session => {
+			await this.addDataExplorerSession(session);
 		});
 
 		// Register the onWillStartSession event handler.
-		this._register(this._runtimeSessionService.onWillStartSession(e => {
-			this.addDataExplorerSession(e.session);
+		this._register(this._runtimeSessionService.onWillStartSession(async e => {
+			await this.addDataExplorerSession(e.session);
 		}));
 
 		// Register the onDidStartRuntime event handler.
@@ -338,9 +338,22 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 *
 	 * @param session The runtime session.
 	 */
-	private addDataExplorerSession(session: ILanguageRuntimeSession) {
-		// If the runtime has already been added, return.
+	private async addDataExplorerSession(session: ILanguageRuntimeSession) {
+		// If the runtime has already been added, check if we need to open a Data Explorer client.
 		if (this._dataExplorerRuntimes.has(session.sessionId)) {
+			// Get the Data Explorer clients for the session.
+			const sessionClients = await session.listClients(RuntimeClientType.DataExplorer);
+
+			// For each client, check if we already have a Data Explorer client instance.
+			for (const client of sessionClients) {
+				const existingInstance = this.getInstance(client.getClientId());
+				// If we don't have a Data Explorer client instance, create one and open the editor.
+				if (!existingInstance) {
+					const commInstance = new PositronDataExplorerComm(client);
+					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
+					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
+				}
+			}
 			return;
 		}
 
