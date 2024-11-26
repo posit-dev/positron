@@ -7,7 +7,7 @@ import 'vs/css!./variablesInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from 'vs/base/browser/dom';
-import { isMacintosh } from 'vs/base/common/platform';
+import { isMacintosh, isWeb } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -512,6 +512,17 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			return null;
 		}
 	};
+
+	// workaround for web disabling scrolling on the window to prevent URL navigation
+	useEffect(() => {
+		if (!isWeb) {
+			return;
+		}
+
+		outerRef.current?.addEventListener('wheel', (e: WheelEvent) => {
+			innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
+		});
+	}, [innerRef]);
 
 	// Render.
 	return (
