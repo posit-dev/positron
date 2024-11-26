@@ -7,7 +7,7 @@ import 'vs/css!./variablesInstance';
 import * as React from 'react';
 import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from 'vs/base/browser/dom';
-import { isMacintosh } from 'vs/base/common/platform';
+import { isMacintosh, isWeb } from 'vs/base/common/platform';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -448,6 +448,15 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
+	// workaround for web disabling scrolling on the window to prevent URL navigation
+	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
+		if (!isWeb) {
+			return;
+		}
+
+		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
+	};
+
 	/**
 	 * VariableEntry component.
 	 * @param index The index of the variable entry.
@@ -523,6 +532,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onFocus={focusHandler}
 			onBlur={blurHandler}
+			onWheel={wheelHandler}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :
