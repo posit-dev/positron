@@ -67,6 +67,15 @@ jobs:
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
+      - name: Set COMMIT_INFO_MESSAGE
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "COMMIT_INFO_MESSAGE=PR: ${{ github.event.pull_request.title || github.event.head_commit.message }}" >> $GITHUB_ENV
+          else
+            echo "COMMIT_INFO_MESSAGE=${{ github.event.head_commit.message }}" >> $GITHUB_ENV
+          fi
+          echo $COMMIT_INFO_MESSAGE
+
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
