@@ -96,11 +96,11 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        shardIndex: [1, 2]
-        shardTotal: [2]
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     shardIndex: [1, 2]
+    #     shardTotal: [2]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -137,7 +137,7 @@ jobs:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
         id: electron-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 3 # --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
 
       - name: Upload blob report
         if: ${{ !cancelled() }}

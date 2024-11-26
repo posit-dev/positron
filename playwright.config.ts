@@ -6,13 +6,7 @@
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/smoke/src/areas/positron/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
-import { CurrentsConfig, currentsReporter } from '@currents/playwright';
-
-const currentsConfig: CurrentsConfig = {
-	ciBuildId: 'ci-build-id',
-	recordKey: 'secret record key',
-	projectId: 'ZOs5z2'
-};
+import { currentsReporter } from '@currents/playwright';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -45,7 +39,11 @@ export default defineConfig<CustomTestOptions>({
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['list'], ['html'], ['blob'],
-			currentsReporter(currentsConfig),
+			currentsReporter({
+				ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+				recordKey: process.env.CURRENTS_RECORD_KEY || '',
+				projectId: 'ZOs5z2'
+			}),
 		]
 		: [
 			['list'],
