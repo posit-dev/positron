@@ -107,7 +107,7 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
-          CURRENTS_TAG: e2e-windows
+          CURRENTS_TAG: os-windows
         if: ${{ !cancelled() }}
         id: e2e-win-electron-tests
         run: npx playwright test --project e2e-electron --grep "@win" --workers 2
