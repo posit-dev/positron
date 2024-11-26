@@ -46,6 +46,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - uses: actions/checkout@v4
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Get latest commit message
         run: |
           echo "Latest commit message: ${{ github.event.pull_request.head.commit.message }}"
