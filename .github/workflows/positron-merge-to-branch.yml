@@ -46,6 +46,15 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Get latest commit message
+        run: |
+          echo "Latest commit message: ${{ github.event.pull_request.head.commit.message }}"
+
+      - name: Get Commit Message using git
+        run: |
+            COMMIT_INFO_MESSAGE=$(git log -1 --pretty=%B)
+            echo "Commit message: $COMMIT_MESSAGE"
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -58,11 +67,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get Commit Message using git
-        run: |
-            COMMIT_INFO_MESSAGE=$(git log -1 --pretty=%B)
-            echo "Commit message: $COMMIT_MESSAGE"
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
