@@ -42,7 +42,8 @@ export default defineConfig<CustomTestOptions>({
 			currentsReporter({
 				ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
 				recordKey: process.env.CURRENTS_RECORD_KEY || '',
-				projectId: 'ZOs5z2'
+				projectId: 'ZOs5z2',
+				disableTitleTags: true,
 			}),
 		]
 		: [
