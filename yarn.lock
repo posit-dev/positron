@@ -514,10 +514,10 @@
     lazy-ass "1.6.0"
     ramda "0.26.1"
 
-"@currents/playwright@^1.7.1":
-  version "1.7.1"
-  resolved "https://registry.yarnpkg.com/@currents/playwright/-/playwright-1.7.1.tgz#798cf8d2295d78aad857b4dc932ad5da46fc8d44"
-  integrity sha512-3NPt2KfwQJse67cFvbvp3WMTST8f9XDLeJIZeKaL1ssI/RKMkZzuIm/McINBTN1DDCceYegTXEW5cukjWAPbxQ==
+"@currents/playwright@^1.8.0":
+  version "1.8.0"
+  resolved "https://registry.yarnpkg.com/@currents/playwright/-/playwright-1.8.0.tgz#4a7ff7f400e3ede3555317d1b8584d77b5a30e42"
+  integrity sha512-BM9prNzVf39TlM13ZCRRIHDY9r83wjbEgLra1tjA/40vUR6zXx48OSW3pTSapzk+26O9pFC1MKTn/kqK6MU0rQ==
   dependencies:
     "@babel/code-frame" "^7.18.6"
     "@commander-js/extra-typings" "^11.1.0"

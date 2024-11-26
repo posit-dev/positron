@@ -41,7 +41,7 @@ export default defineConfig<CustomTestOptions>({
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
 			['list'], ['html'], ['blob'],
-			['currents', currentsReporter(currentsConfig)],
+			currentsReporter(currentsConfig),
 		]
 		: [
 			['list'],
