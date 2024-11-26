@@ -1594,6 +1594,10 @@ class ReturnColumnProfilesParams(BaseModel):
         description="Array of individual column profile results",
     )
 
+    error_message: Optional[StrictStr] = Field(
+        description="Optional error message if something failed to compute",
+    )
+
 
 OpenDatasetResult.update_forward_refs()
 

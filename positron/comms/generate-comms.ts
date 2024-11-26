@@ -1058,10 +1058,17 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 				yield `    """\n`;
 				yield `\n`;
 				for (const param of method.params) {
+					yield `    ${param.name}: `;
+					if (isOptional(param)) {
+						yield `Optional[`;
+					}
 					if (param.schema.enum) {
-						yield `    ${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
+						yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 					} else {
-						yield `    ${param.name}: ${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+						yield `${deriveType(contracts, PythonTypeMap, [param.name], param.schema)}`;
+					}
+					if (isOptional(param)) {
+						yield `]`;
 					}
 					yield ' = Field(\n';
 					yield `        description="${param.description}",\n`;
@@ -1315,7 +1322,11 @@ import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/co
 				yield '\t/**\n';
 				yield formatComment('\t * ', `${param.description}`);
 				yield '\t */\n';
-				yield `\t${param.name}: `;
+				yield `\t${param.name}`;
+				if (isOptional(param)) {
+					yield '?';
+				}
+				yield ': ';
 				if (param.schema.type === 'string' && param.schema.enum) {
 					yield `${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)}`;
 				} else {
