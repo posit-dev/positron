@@ -25,6 +25,64 @@ export interface RMetadataExtra {
 	 * https://github.com/posit-dev/positron/issues/2659
 	 */
 	readonly current: boolean;
+
+	/**
+	 * How did we discover this R binary?
+	 */
+	readonly reasonDiscovered: ReasonDiscovered[] | null;
+}
+
+/**
+ * Enum represents how we discovered an R binary.
+ */
+export enum ReasonDiscovered {
+	affiliated,
+	registry,
+	/* eslint-disable @typescript-eslint/naming-convention */
+	PATH,
+	HQ,
+	/* eslint-enable @typescript-eslint/naming-convention */
+	adHoc,
+	user
+}
+
+/**
+ * Enum represents why we rejected an R binary.
+ */
+export enum ReasonRejected {
+	invalid,
+	unsupported,
+	nonOrthogonal
+}
+
+export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
+	if (Object.values(ReasonDiscovered).includes(reason as ReasonDiscovered)) {
+		switch (reason) {
+			case ReasonDiscovered.affiliated:
+				return 'Runtime previously affiliated with this workspace';
+			case ReasonDiscovered.registry:
+				return 'Found in Windows registry';
+			case ReasonDiscovered.PATH:
+				return 'Found in PATH, via the `which` command';
+			case ReasonDiscovered.HQ:
+				return 'Found in the primary location for R versions on this operating system';
+			case ReasonDiscovered.adHoc:
+				return 'Found in a conventional location for symlinked R binaries';
+			case ReasonDiscovered.user:
+				return 'User-specified location';
+		}
+	} else if (Object.values(ReasonRejected).includes(reason as ReasonRejected)) {
+		switch (reason) {
+			case ReasonRejected.invalid:
+				return 'Invalid installation';
+			case ReasonRejected.unsupported:
+				return `Unsupported version, i.e. version is less than ${MINIMUM_R_VERSION}`;
+			case ReasonRejected.nonOrthogonal:
+				return 'Non-orthogonal installation that is also not the current version';
+		}
+	}
+
+	return 'Unknown reason';
 }
 
 /**
@@ -32,12 +90,16 @@ export interface RMetadataExtra {
  */
 export class RInstallation {
 	// there are many reasons that we might deem a putative R installation to be unusable
-	// downstream users of RInstallation should filter for `valid` is `true`
-	public readonly valid: boolean = false;
+	// downstream users of RInstallation should filter for `usable` is `true`
+	public readonly usable: boolean = false;
 
-	// we have a minimum version of R
-	// downstream users of RInstallation should filter for `supported` is `true`
+	// is the version >= positron's minimum version?
 	public readonly supported: boolean = false;
+
+	// we are gradually increasing user visibility into how the list of available R installations
+	// is determined; these fields are part of that plan
+	public readonly reasonDiscovered: ReasonDiscovered[] | null = null;
+	public readonly reasonRejected: ReasonRejected | null = null;
 
 	public readonly binpath: string = '';
 	public readonly homepath: string = '';
@@ -56,15 +118,24 @@ export class RInstallation {
 	 *
 	 * @param pth Filepath for an R "binary" (on macOS and linux, this is actually a shell script)
 	 * @param current Whether this installation is known to be the current version of R
+	 * @param reasonDiscovered How we discovered this R binary (and there could be more than one
+	 *   reason)
 	 */
-	constructor(pth: string, current: boolean = false) {
+	constructor(
+		pth: string,
+		current: boolean = false,
+		reasonDiscovered: ReasonDiscovered[] | null = null
+	) {
 		LOGGER.info(`Candidate R binary at ${pth}`);
 
 		this.binpath = pth;
 		this.current = current;
+		this.reasonDiscovered = reasonDiscovered;
 
 		const rHomePath = getRHomePath(pth);
 		if (!rHomePath) {
+			this.reasonRejected = ReasonRejected.invalid;
+			this.usable = false;
 			return;
 		}
 		this.homepath = rHomePath;
@@ -84,12 +155,16 @@ export class RInstallation {
 		// https://github.com/posit-dev/positron/issues/1314
 		if (!fs.existsSync(descPath)) {
 			LOGGER.info(`Can\'t find DESCRIPTION for the utils package at ${descPath}`);
+			this.reasonRejected = ReasonRejected.invalid;
+			this.usable = false;
 			return;
 		}
 		const descLines = readLines(descPath);
 		const targetLine2 = descLines.filter(line => line.match('Built'))[0];
 		if (!targetLine2) {
 			LOGGER.info(`Can't find 'Built' field for the utils package in its DESCRIPTION: ${descPath}`);
+			this.reasonRejected = ReasonRejected.invalid;
+			this.usable = false;
 			return;
 		}
 		// macOS arm64: Built: R 4.3.1; aarch64-apple-darwin20; 2023-06-16 21:52:54 UTC; unix
@@ -105,6 +180,16 @@ export class RInstallation {
 
 		const minimumSupportedVersion = semver.coerce(MINIMUM_R_VERSION)!;
 		this.supported = semver.gte(this.semVersion, minimumSupportedVersion);
+
+		if (this.supported) {
+			this.usable = this.current || this.orthogonal;
+			if (!this.usable) {
+				this.reasonRejected = ReasonRejected.nonOrthogonal;
+			}
+		} else {
+			this.reasonRejected = ReasonRejected.unsupported;
+			this.usable = false;
+		}
 
 		const platformPart = builtParts[1];
 		const architecture = platformPart.match('^(aarch64|x86_64)');
@@ -128,9 +213,15 @@ export class RInstallation {
 			this.arch = '';
 		}
 
-		this.valid = true;
-
 		LOGGER.info(`R installation discovered: ${JSON.stringify(this, null, 2)}`);
+	}
+
+	toJSON() {
+		return {
+			...this,
+			reasonDiscovered: this.reasonDiscovered?.map(friendlyReason) ?? null,
+			reasonRejected: this.reasonRejected ? friendlyReason(this.reasonRejected) : null
+		};
 	}
 }
 
