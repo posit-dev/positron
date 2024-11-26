@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dropdownEntry';
+import './dropdownEntry.css';
 
 // React.
 import * as React from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./customFolderModalPopup';
+import './customFolderModalPopup.css';
 
 // React.
 import * as React from 'react';

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarFilter';
+import './actionBarFilter.css';
 import * as React from 'react';
 import { ChangeEvent, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from '../../../../nls.js';

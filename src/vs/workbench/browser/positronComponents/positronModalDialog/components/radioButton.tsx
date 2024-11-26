@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./radioButton';
+import './radioButton.css';
 
 // React.
 import * as React from 'react';

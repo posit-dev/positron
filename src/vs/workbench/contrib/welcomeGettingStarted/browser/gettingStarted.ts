@@ -74,7 +74,7 @@ import { AccessibleViewAction } from '../../accessibility/browser/accessibleView
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
 
 // --- Start Positron ---
-import 'vs/css!./media/positronGettingStarted';
+import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleInstanceMenuButton';
+import './consoleInstanceMenuButton.css';
 import * as React from 'react';
 import { IAction } from '../../../../../base/common/actions.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';

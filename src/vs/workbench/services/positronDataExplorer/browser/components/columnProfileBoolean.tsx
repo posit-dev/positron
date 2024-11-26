@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileBoolean';
+import './columnProfileBoolean.css';
 
 // React.
 import * as React from 'react';

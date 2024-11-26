@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridScrollbarCorner';
+import './dataGridScrollbarCorner.css';
 
 // React.
 import * as React from 'react';

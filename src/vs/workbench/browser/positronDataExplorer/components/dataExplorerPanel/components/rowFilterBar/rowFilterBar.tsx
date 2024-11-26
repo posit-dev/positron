@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rowFilterBar';
+import './rowFilterBar.css';
 
 // React.
 import * as React from 'react';

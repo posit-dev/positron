@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridWaffle';
+import './dataGridWaffle.css';
 
 // React.
 import * as React from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./deleteAllVariablesModalDialog';
+import './deleteAllVariablesModalDialog.css';
 
 // React.
 import * as React from 'react';

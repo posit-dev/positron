@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./verticalSplitter';
+import './verticalSplitter.css';
 
 // React.
 import * as React from 'react';

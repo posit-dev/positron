@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarMenuButton';
+import './actionBarMenuButton.css';
 import * as React from 'react';
 import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IAction } from '../../../../base/common/actions.js';

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarSeparator';
+import './actionBarSeparator.css';
 import * as React from 'react';
 import { optionalBoolean, positronClassNames } from '../../../../base/common/positronUtilities.js';
 

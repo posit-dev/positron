@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./historyBrowserPopup';
+import './historyBrowserPopup.css';
 import * as nls from '../../../../../nls.js';
 import * as React from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';

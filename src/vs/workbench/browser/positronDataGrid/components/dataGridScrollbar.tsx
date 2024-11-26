@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridScrollbar';
+import './dataGridScrollbar.css';
 
 // React.
 import * as React from 'react';

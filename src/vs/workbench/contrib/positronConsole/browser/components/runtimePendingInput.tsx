@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimePendingInput';
+import './runtimePendingInput.css';
 import * as React from 'react';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';

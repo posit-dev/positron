@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./consoleInstance';
+import './consoleInstance.css';
 
 // React.
 import * as React from 'react';

@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./DeferredImage';
+import './DeferredImage.css';
 
 import * as React from 'react';
 import { useServices } from '../ServicesProvider.js';

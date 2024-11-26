@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./vectorFrequencyTable';
+import './vectorFrequencyTable.css';
 
 // React.
 import * as React from 'react';

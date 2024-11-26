@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./media/positronGettingStarted';
+import './media/positronGettingStarted.css';
 
 // React.
 import * as React from 'react';

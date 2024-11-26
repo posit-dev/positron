@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSummaryCell';
+import './columnSummaryCell.css';
 
 // React.
 import * as React from 'react';

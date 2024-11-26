@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./consoleInstanceItems';
+import './consoleInstanceItems.css';
 
 // React.
 import * as React from 'react';
@@ -105,7 +105,7 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 						onCodeExecuted={() =>
 							// Update the component to eliminate flickering.
 							flushSync(() => this.forceUpdate()
-						)}
+							)}
 					/>
 				}
 			</>

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./variableOverflow';
+import './variableOverflow.css';
 
 // React.
 import * as React from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./addEditRowFilterModalPopup';
+import './addEditRowFilterModalPopup.css';
 
 // React.
 import * as React from 'react';

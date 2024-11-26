@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./labeledTextInput';
+import './labeledTextInput.css';
 
 // React.
 import * as React from 'react';

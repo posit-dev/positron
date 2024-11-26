@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimeReconnected';
+import './runtimeReconnected.css';
 import * as React from 'react';
 import { OutputLines } from './outputLines.js';
 import { RuntimeItemReconnected } from '../../../../services/positronConsole/browser/classes/runtimeItemReconnected.js';

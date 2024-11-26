@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronTopActionBarPart';
+import './positronTopActionBarPart.css';
 
 // React.
 import * as React from 'react';

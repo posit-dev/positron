@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./contentArea';
+import './contentArea.css';
 
 // React.
 import * as React from 'react';

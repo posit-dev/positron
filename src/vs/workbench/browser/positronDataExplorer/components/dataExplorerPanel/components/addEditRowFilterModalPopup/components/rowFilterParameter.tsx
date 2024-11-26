@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rowFilterParameter';
+import './rowFilterParameter.css';
 
 // React.
 import * as React from 'react';

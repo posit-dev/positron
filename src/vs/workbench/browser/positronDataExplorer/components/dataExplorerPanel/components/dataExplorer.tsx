@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataExplorer';
+import './dataExplorer.css';
 
 // React.
 import * as React from 'react';

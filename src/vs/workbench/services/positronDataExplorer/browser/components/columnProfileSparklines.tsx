@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileSparklines';
+import './columnProfileSparklines.css';
 
 // React.
 import * as React from 'react';

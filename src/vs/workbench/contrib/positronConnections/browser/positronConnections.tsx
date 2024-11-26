@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import React, { useEffect, useState } from 'react';
-import 'vs/css!./positronConnections';
+import './positronConnections.css';
 import { SchemaNavigation } from './components/schemaNavigation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronConnectionsContextProvider, PositronConnectionsServices } from './positronConnectionsContext.js';

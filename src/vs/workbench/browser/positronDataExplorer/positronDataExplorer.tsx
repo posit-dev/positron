@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronDataExplorer';
+import './positronDataExplorer.css';
 
 // React.
 import * as React from 'react';

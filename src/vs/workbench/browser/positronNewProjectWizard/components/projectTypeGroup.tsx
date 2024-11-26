@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./projectTypeGroup';
+import './projectTypeGroup.css';
 
 // React.
 import * as React from 'react';

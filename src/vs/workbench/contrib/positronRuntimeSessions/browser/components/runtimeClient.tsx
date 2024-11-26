@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimeClient';
+import './runtimeClient.css';
 import * as React from 'react';
 import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import { IRuntimeClientInstance, RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';

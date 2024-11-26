@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./positronPlotsView';
+import './positronPlotsView.css';
 import * as React from 'react';
 import * as DOM from '../../../../base/browser/dom.js';
 import { Event, Emitter } from '../../../../base/common/event.js';

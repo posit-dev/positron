@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarCommandCenter';
+import './topActionBarCommandCenter.css';
 import * as React from 'react';
 import { localize } from '../../../../../nls.js';
 import { MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports

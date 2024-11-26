@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalDialog';
+import './positronModalDialog.css';
 
 // React.
 import * as React from 'react';

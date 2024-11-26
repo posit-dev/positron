@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileNullCountValue';
+import './columnProfileNullCountValue.css';
 
 // React.
 import * as React from 'react';

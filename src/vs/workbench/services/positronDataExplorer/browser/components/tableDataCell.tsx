@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./tableDataCell';
+import './tableDataCell.css';
 
 // React.
 import * as React from 'react';

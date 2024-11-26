@@ -12,7 +12,7 @@ import { IPositronConnectionEntry } from '../../../../services/positronConnectio
 import { ActionBar, ACTION_BAR_HEIGHT } from './schemaNavigationActionBar.js';
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import 'vs/css!./schemaNavigation';
+import './schemaNavigation.css';
 import { ViewsProps } from '../positronConnections.js';
 import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';

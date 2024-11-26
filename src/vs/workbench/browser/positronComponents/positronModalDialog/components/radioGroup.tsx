@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./radioGroup';
+import './radioGroup.css';
 
 // React.
 import * as React from 'react';

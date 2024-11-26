@@ -10,7 +10,7 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import 'vs/css!./resumeConnectionModalDialog';
+import './resumeConnectionModalDialog.css';
 import Severity from '../../../../../base/common/severity.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;

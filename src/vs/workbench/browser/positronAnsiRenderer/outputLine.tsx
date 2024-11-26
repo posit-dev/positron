@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./outputLine';
+import './outputLine.css';
 import * as React from 'react';
 import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { OutputRun } from './outputRun.js';

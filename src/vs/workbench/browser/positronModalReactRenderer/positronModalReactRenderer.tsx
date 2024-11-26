@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalReactRenderer';
+import './positronModalReactRenderer.css';
 
 // React.
 import type { ReactElement } from 'react';

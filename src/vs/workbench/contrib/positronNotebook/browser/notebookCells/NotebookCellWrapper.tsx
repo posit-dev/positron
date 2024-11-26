@@ -2,7 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./NotebookCellWrapper';
+import './NotebookCellWrapper.css';
 
 import * as React from 'react';
 import { CellKind } from '../../../notebook/common/notebookCommon.js';

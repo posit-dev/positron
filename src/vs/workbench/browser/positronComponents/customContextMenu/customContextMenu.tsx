@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./customContextMenu';
+import './customContextMenu.css';
 
 // React.
 import * as React from 'react';

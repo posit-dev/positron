@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // // CSS.
-import 'vs/css!./chooseNewProjectWindowModalDialog';
+import './chooseNewProjectWindowModalDialog.css';
 
 // React.
 import * as React from 'react';

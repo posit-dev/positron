@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./setPlotSizeModalDialog';
+import './setPlotSizeModalDialog.css';
 
 // React.
 import * as React from 'react';

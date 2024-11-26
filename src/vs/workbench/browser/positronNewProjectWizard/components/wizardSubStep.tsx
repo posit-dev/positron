@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./wizardSubStep';
+import './wizardSubStep.css';
 
 // React.
 import * as React from 'react';

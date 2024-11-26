@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./topActionBarCustomFolderMenu';
+import './topActionBarCustomFolderMenu.css';
 
 // React.
 import * as React from 'react';

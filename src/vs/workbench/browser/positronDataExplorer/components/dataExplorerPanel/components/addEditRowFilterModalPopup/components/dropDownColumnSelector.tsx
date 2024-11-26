@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dropDownColumnSelector';
+import './dropDownColumnSelector.css';
 
 // React.
 import * as React from 'react';

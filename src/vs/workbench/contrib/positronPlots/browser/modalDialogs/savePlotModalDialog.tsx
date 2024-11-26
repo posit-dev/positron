@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./savePlotModalDialog';
+import './savePlotModalDialog.css';
 import * as React from 'react';
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';

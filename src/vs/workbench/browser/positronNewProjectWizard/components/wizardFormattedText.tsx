@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./wizardFormattedText';
+import './wizardFormattedText.css';
 
 // React.
 import * as React from 'react';

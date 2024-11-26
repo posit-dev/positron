@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./projectType';
+import './projectType.css';
 
 // React.
 import * as React from 'react';

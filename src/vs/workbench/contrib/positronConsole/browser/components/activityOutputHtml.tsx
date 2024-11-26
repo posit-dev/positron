@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./activityOutputHtml';
+import './activityOutputHtml.css';
 import * as React from 'react';
 import { ActivityItemOutputHtml } from '../../../../services/positronConsole/browser/classes/activityItemOutputHtml.js';
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';

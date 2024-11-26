@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarNewMenu';
+import './topActionBarNewMenu.css';
 import * as React from 'react';
 import { localize } from '../../../../../nls.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';

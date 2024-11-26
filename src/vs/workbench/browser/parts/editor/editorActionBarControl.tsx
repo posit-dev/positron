@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./editorActionBarControl';
+import './editorActionBarControl.css';
 
 // React.
 import * as React from 'react';

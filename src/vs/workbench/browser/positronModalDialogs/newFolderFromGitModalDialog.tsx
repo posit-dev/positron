@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./newFolderFromGitModalDialog';
+import './newFolderFromGitModalDialog.css';
 
 // React.
 import * as React from 'react';

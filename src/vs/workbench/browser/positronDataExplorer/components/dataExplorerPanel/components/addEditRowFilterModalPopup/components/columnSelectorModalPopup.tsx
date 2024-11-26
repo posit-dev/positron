@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSelectorModalPopup';
+import './columnSelectorModalPopup.css';
 
 // React.
 import * as React from 'react';

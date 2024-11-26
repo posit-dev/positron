@@ -18,7 +18,7 @@ import { IContextMenuService } from '../../../../../platform/contextview/browser
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 
-import 'vs/css!./actionBar';
+import './actionBar.css';
 import { localize } from '../../../../../nls.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;

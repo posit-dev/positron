@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dataGridColumnHeader';
+import './dataGridColumnHeader.css';
 
 // React.
 import * as React from 'react';

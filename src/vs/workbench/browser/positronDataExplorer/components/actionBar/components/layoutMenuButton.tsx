@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./layoutMenuButton';
+import './layoutMenuButton.css';
 
 // React.
 import * as React from 'react';

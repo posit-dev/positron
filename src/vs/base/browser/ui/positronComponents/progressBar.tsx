@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import 'vs/css!./progressBar';
+import './progressBar.css';
 
 export interface ProgressBarProps {
 	value?: number;

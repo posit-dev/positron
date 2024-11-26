@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnSearch';
+import './columnSearch.css';
 
 // React.
 import * as React from 'react';

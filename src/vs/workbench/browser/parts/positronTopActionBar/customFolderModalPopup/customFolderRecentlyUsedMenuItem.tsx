@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./customFolderRecentlyUsedMenuItem';
+import './customFolderRecentlyUsedMenuItem.css';
 import * as React from 'react';
 import { KeyboardModifiers, Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./statusBar';
+import './statusBar.css';
 
 // React.
 import * as React from 'react';

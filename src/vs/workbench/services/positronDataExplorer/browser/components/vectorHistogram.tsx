@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./vectorHistogram';
+import './vectorHistogram.css';
 
 // React.
 import * as React from 'react';

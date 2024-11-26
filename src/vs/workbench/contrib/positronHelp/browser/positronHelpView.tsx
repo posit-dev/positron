@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronHelpView';
+import './positronHelpView.css';
 
 // React.
 import * as React from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./verticalSpacer';
+import './verticalSpacer.css';
 
 // React.
 import * as React from 'react';

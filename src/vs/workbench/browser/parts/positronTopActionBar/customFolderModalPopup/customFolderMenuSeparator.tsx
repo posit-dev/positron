@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./customFolderMenuSeparator';
+import './customFolderMenuSeparator.css';
 import * as React from 'react';
 
 /**

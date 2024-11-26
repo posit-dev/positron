@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./topActionBarInterpretersManager';
+import './topActionBarInterpretersManager.css';
 
 // React.
 import * as React from 'react';

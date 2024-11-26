@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./actionBars';
+import './actionBars.css';
 
 // React.
 import * as React from 'react';

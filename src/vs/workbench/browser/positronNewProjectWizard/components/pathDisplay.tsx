@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./pathDisplay';
+import './pathDisplay.css';
 
 import * as React from 'react';
 import { useState } from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./horizontalSplitter';
+import './horizontalSplitter.css';
 
 // React.
 import * as React from 'react';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileDatetime';
+import './columnProfileDatetime.css';
 
 // React.
 import * as React from 'react';

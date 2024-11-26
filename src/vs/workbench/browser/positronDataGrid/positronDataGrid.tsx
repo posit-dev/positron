@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronDataGrid';
+import './positronDataGrid.css';
 
 // React.
 import * as React from 'react';

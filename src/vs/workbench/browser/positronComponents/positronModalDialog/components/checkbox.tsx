@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./checkbox';
+import './checkbox.css';
 
 // React.
 import * as React from 'react';

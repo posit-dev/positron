@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./statusBarActivityIndicator';
+import './statusBarActivityIndicator.css';
 
 // React.
 import * as React from 'react';

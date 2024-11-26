@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./labeledFolderInput';
+import './labeledFolderInput.css';
 
 // React.
 import * as React from 'react';

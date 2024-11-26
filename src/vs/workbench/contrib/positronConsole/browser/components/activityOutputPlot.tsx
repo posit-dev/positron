@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./activityOutputPlot';
+import './activityOutputPlot.css';
 import * as React from 'react';
 import * as nls from '../../../../../nls.js';
 import { OutputLines } from './outputLines.js';

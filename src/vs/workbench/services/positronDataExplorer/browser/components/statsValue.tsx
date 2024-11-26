@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./statsValue';
+import './statsValue.css';
 
 // React.
 import * as React from 'react';

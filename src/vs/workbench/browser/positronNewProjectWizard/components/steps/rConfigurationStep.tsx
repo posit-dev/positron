@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rConfigurationStep';
+import './rConfigurationStep.css';
 
 // React.
 import * as React from 'react';

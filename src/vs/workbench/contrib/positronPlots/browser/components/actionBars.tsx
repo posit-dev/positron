@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBars';
+import './actionBars.css';
 import * as React from 'react';
 import { PropsWithChildren, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from '../../../../../nls.js';

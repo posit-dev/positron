@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalDialog';
-import 'vs/css!./confirmationModalDialog';
+import './positronModalDialog.css';
+import './confirmationModalDialog.css';
 
 // React.
 import * as React from 'react';

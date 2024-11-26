@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./columnProfileNumber';
+import './columnProfileNumber.css';
 
 // React.
 import * as React from 'react';

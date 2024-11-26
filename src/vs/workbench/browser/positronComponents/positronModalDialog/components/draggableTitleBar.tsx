@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./draggableTitleBar';
+import './draggableTitleBar.css';
 
 // React.
 import * as React from 'react';

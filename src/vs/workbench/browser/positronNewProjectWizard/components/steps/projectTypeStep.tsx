@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./projectTypeStep';
+import './projectTypeStep.css';
 
 // React.
 import * as React from 'react';

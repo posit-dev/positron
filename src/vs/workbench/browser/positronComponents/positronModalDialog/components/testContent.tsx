@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./testContent';
+import './testContent.css';
 
 // React.
 import * as React from 'react';

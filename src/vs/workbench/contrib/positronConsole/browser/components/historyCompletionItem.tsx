@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./historyCompletionItem';
+import './historyCompletionItem.css';
 import * as React from 'react';
 import { HistoryMatch } from '../../common/historyMatchStrategy.js';
 

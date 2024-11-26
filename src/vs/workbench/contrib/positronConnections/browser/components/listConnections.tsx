@@ -13,7 +13,7 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { ViewsProps } from '../positronConnections.js';
 import { PositronConnectionsServices, usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { FixedSizeList as List } from 'react-window';
-import 'vs/css!./listConnections';
+import './listConnections.css';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { languageIdToName } from './schemaNavigation.js';
 import { IPositronConnectionInstance } from '../../../../services/positronConnections/browser/interfaces/positronConnectionsInstance.js';
