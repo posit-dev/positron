@@ -80,8 +80,9 @@ suite('NotebookController', () => {
 
 		// Create a test session.
 		session = new TestLanguageRuntimeSession();
+		session.setRuntimeState(positron.RuntimeState.Idle);
 		disposables.push(session);
-		notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(session as any);
+		sinon.stub(positron.runtime, 'getNotebookSession').withArgs(notebook.uri).resolves(session as any);
 
 		// Stub the notebook controller to return a test cell execution.
 		executions = [];
@@ -244,8 +245,8 @@ suite('NotebookController', () => {
 			const executionEndedPromise = executeNotebook([0]);
 			await executionStartedPromise;
 
-			// Simulate the session exiting.
-			notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(undefined);
+			// Exit the session.
+			session.setRuntimeState(positron.RuntimeState.Exited);
 
 			// Interrupt and wait for the execution to end.
 			await interruptNotebook();

@@ -8,6 +8,7 @@ import { NotebookSessionService } from './notebookSessionService';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { log } from './extension';
 import { ResourceMap } from './map';
+import { getRunningNotebookSession } from './utils';
 
 /** The type of a Jupyter notebook cell output. */
 enum NotebookCellOutputType {
@@ -166,7 +167,7 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async interruptRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
 		// If the notebook has a session, interrupt it.
-		const session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		const session = await getRunningNotebookSession(notebook.uri);
 		if (session) {
 			await session.interrupt();
 			return;
@@ -264,7 +265,7 @@ export class NotebookController implements vscode.Disposable {
 		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
 
 		// Get the notebook's session.
-		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		let session = await getRunningNotebookSession(notebook.uri);
 
 		// No session has been started for this notebook, start one.
 		if (!session) {
