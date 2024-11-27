@@ -97,16 +97,6 @@ export class NotebookSessionService implements vscode.Disposable {
 	}
 
 	/**
-	 * Get the running notebook session for the given notebook URI, if one exists.
-	 *
-	 * @param notebookUri The notebook URI of the session to retrieve.
-	 * @returns The running notebook session for the given notebook URI, if one exists.
-	 */
-	getNotebookSession(notebookUri: vscode.Uri): positron.LanguageRuntimeSession | undefined {
-		return this._notebookSessionsByNotebookUri.get(notebookUri);
-	}
-
-	/**
 	 * Set a notebook session for a notebook URI.
 	 *
 	 * @param notebookUri The notebook URI of the session to set.

@@ -10,6 +10,7 @@ import { NotebookSessionService } from './notebookSessionService';
 import { registerCommands } from './commands';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { registerExecutionInfoStatusBar } from './statusBar';
+import { getRunningNotebookSession } from './utils';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
@@ -53,9 +54,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	// Set the hasRunningNotebookSession context when the active notebook editor changes.
-	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor((editor) => {
-		const value = notebookSessionService.hasRunningNotebookSession(editor?.notebook.uri);
-		setHasRunningNotebookSessionContext(value);
+	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
+		const session = editor && await getRunningNotebookSession(editor?.notebook.uri);
+		setHasRunningNotebookSessionContext(!!session);
 	}));
 
 	// Set the hasRunningNotebookSession context when a session is started/shutdown for the active notebook.
