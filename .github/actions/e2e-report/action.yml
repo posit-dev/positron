@@ -108,10 +108,10 @@ runs:
         echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
         trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
 
-    # - name: Send Slack Notification
-    #   uses: testlabauto/action-test-results-to-slack@v0.0.6
-    #   with:
-    #     github_token: ${{ inputs.github-token }}
-    #     slack_token: ${{ inputs.slack-token }}
-    #     slack_channel: ${{ inputs.slack-channel }}
-    #     suite_name: ${{ inputs.slack-title }}
+    - name: Send Slack Notification
+      uses: testlabauto/action-test-results-to-slack@v0.0.6
+      with:
+        github_token: ${{ inputs.github-token }}
+        slack_token: ${{ inputs.slack-token }}
+        slack_channel: ${{ inputs.slack-channel }}
+        suite_name: ${{ inputs.slack-title }}
