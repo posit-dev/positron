@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './positronRuntimeSessions.css';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { PropsWithChildren, useEffect, useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronSessionsServices } from './positronRuntimeSessionsState.js';

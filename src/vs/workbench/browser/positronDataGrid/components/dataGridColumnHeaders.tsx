@@ -7,11 +7,11 @@
 import './dataGridColumnHeaders.css';
 
 // React.
-import * as React from 'react';
+import React, { JSX } from 'react';
 
 // Other dependencies.
-import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { DataGridColumnHeader } from './dataGridColumnHeader.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 // Other dependencies.
 

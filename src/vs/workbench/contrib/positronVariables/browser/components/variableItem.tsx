@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './variableItem.css';
-import * as React from 'react';
-import { CSSProperties, MouseEvent, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { CSSProperties, MouseEvent, useEffect, useState } from 'react';
+
+// Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { isNumber } from '../../../../../base/common/types.js';
 import * as platform from '../../../../../base/common/platform.js';

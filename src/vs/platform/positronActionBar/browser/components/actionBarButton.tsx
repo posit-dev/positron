@@ -7,8 +7,7 @@
 import './actionBarButton.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef, PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, forwardRef } from 'react';
 
 // Other dependencies.
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';

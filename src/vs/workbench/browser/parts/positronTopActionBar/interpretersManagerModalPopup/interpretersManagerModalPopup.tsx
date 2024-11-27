@@ -7,7 +7,7 @@
 import './interpretersManagerModalPopup.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';

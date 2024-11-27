@@ -8,11 +8,11 @@ import './positronModalReactRenderer.css';
 
 // React.
 import type { ReactElement } from 'react';
+import { createRoot, Root } from 'react-dom/client';
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
 import { Emitter } from '../../../base/common/event.js';
-import { createRoot, Root } from 'react-dom/client';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { StandardKeyboardEvent } from '../../../base/browser/keyboardEvent.js';
 import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';

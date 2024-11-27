@@ -3,8 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './positronRuntimeSessionsView.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';

@@ -3,9 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HtmlNode, parseHtml } from '../../common/htmlParser.js';
-import * as React from 'react';
+// React.
+import React from 'react';
 
+// Other dependencies.
+import { HtmlNode, parseHtml } from '../../common/htmlParser.js';
 
 /**
  * Options for rendering HTML to React elements.

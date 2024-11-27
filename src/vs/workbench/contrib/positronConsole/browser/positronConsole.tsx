@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './positronConsole.css';
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { PropsWithChildren, useEffect, useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { ConsoleCore } from './components/consoleCore.js';

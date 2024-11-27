@@ -7,8 +7,7 @@
 import './dataExplorer.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../../base/browser/dom.js';

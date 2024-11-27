@@ -7,7 +7,7 @@
 import './tableDataCell.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';

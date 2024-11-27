@@ -7,8 +7,7 @@
 import './columnSelectorModalPopup.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../../../../base/common/lifecycle.js';

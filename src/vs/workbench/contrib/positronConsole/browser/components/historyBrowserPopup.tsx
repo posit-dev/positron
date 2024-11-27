@@ -3,14 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './historyBrowserPopup.css';
+
+// React.
+import React, { useEffect } from 'react';
+
+// Other dependencies.
 import * as nls from '../../../../../nls.js';
-import * as React from 'react';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { HistoryCompletionItem } from './historyCompletionItem.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { useEffect } from 'react';
 import { HistoryMatch } from '../../common/historyMatchStrategy.js';
 
 export interface HistoryBrowserPopupProps {

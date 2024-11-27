@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
 import { ZoomLevel } from '../../positronPlots/browser/components/zoomPlotMenuButton.js';

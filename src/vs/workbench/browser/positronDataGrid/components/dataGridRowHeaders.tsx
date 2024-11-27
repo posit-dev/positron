@@ -7,7 +7,7 @@
 import './dataGridRowHeaders.css';
 
 // React.
-import * as React from 'react';
+import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridRowHeader } from './dataGridRowHeader.js';

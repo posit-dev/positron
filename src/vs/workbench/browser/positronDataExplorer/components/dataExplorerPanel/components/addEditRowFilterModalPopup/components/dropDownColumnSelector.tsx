@@ -7,8 +7,7 @@
 import './dropDownColumnSelector.css';
 
 // React.
-import * as React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../../../nls.js';

@@ -1,10 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './variablesCore.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { ActionBars } from './actionBars.js';
 import { PositronVariablesProps } from '../positronVariables.js';

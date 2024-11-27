@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './wizardStep.css';
-import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { PropsWithChildren } from 'react';
+
+// Other dependencies.
 import { OKCancelBackNextActionBar, OKCancelBackNextActionBarProps } from '../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
 import { VerticalStack } from '../../positronComponents/positronModalDialog/components/verticalStack.js';
 

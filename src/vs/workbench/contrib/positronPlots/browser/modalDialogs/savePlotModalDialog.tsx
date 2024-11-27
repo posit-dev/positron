@@ -3,8 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './savePlotModalDialog.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
@@ -128,7 +133,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [dpi, setDpi] = React.useState({ value: 100, valid: true });
 	const [uri, setUri] = React.useState('');
 	const [rendering, setRendering] = React.useState(false);
-	const inputRef = React.useRef<HTMLInputElement>(null);
+	const inputRef = React.useRef<HTMLInputElement>(null!);
 
 	const filterEntries: FileFilter[] = [];
 	for (const filter in RenderFormat) {

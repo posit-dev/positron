@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './actionBarCommandButton.css';
-import * as React from 'react';
-import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { useEffect, useRef, useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { CommandCenter } from '../../../commandCenter/common/commandCenter.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';

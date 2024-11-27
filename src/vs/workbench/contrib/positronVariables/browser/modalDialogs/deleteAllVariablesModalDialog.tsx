@@ -7,7 +7,7 @@
 import './deleteAllVariablesModalDialog.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';

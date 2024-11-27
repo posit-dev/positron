@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './interpreterGroups.css';
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { InterpreterGroup } from './interpreterGroup.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../../services/languageRuntime/common/languageRuntimeService.js';

@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { ISize } from '../../../../base/browser/positronReactRenderer.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
@@ -16,8 +19,6 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
-
-
 
 /**
  * Bundle of services that are passed to React-Land in the form of context.

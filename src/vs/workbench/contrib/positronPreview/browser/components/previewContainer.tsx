@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './previewContainer.css';
-import * as React from 'react';
-import { useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { useEffect } from 'react';
+
+// Other dependencies.
 import { PreviewWebview } from '../previewWebview.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 

@@ -7,7 +7,7 @@
 import './positronModalDialogs.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';

@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+// React.
+import React, { PropsWithChildren, useState } from 'react';
+
+// Other dependencies.
 import { useNewProjectWizardContext } from './newProjectWizardContext.js';
 import { NewProjectWizardStep } from './interfaces/newProjectWizardEnums.js';
 import { NewProjectWizardStepLookup } from './interfaces/newProjectWizardStepLookup.js';

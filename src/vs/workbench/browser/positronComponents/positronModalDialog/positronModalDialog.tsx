@@ -7,8 +7,7 @@
 import './positronModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';

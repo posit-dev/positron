@@ -7,8 +7,7 @@
 import './wizardSubStep.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { JSX, PropsWithChildren } from 'react';
 
 /**
  * PositronWizardModalDialog interface.

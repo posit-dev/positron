@@ -7,8 +7,7 @@
 import './statusBar.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';

@@ -7,8 +7,7 @@
 import './positronDataGrid.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { forwardRef } from 'react';
 
 // Other dependencies.
 import { DataGridWaffle } from './components/dataGridWaffle.js';

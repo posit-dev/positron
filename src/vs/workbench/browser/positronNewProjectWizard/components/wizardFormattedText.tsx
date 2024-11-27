@@ -7,8 +7,7 @@
 import './wizardFormattedText.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
 /**
  * WizardFormattedTextType enum.

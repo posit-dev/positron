@@ -7,7 +7,7 @@
 import './columnProfileBoolean.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { StatsValue } from './statsValue.js';

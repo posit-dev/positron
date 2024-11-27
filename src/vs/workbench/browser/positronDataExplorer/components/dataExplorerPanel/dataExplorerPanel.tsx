@@ -7,7 +7,7 @@
 import './dataExplorerPanel.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { StatusBar } from './components/statusBar.js';

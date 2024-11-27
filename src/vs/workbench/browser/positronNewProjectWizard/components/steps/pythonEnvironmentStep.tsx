@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { useNewProjectWizardContext } from '../../newProjectWizardContext.js';

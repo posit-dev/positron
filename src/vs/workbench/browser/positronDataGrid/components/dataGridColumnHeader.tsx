@@ -7,8 +7,7 @@
 import './dataGridColumnHeader.css';
 
 // React.
-import * as React from 'react';
-import { MouseEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';

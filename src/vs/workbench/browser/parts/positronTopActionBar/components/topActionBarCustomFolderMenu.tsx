@@ -7,8 +7,7 @@
 import './topActionBarCustomFolderMenu.css';
 
 // React.
-import * as React from 'react';
-import { KeyboardEvent, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { KeyboardEvent, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';

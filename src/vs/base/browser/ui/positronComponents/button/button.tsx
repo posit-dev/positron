@@ -6,10 +6,8 @@
 // CSS.
 import './button.css';
 
-
 // React.
-import * as React from 'react';
-import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../common/positronUtilities.js';

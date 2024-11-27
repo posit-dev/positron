@@ -3,8 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './outputLines.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { OutputLine } from './outputLine.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';

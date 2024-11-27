@@ -3,9 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './actionBars.css';
-import * as React from 'react';
-import { PropsWithChildren, } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { PropsWithChildren } from 'react';
+
+// Other dependencies.
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';

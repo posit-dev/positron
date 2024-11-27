@@ -7,9 +7,9 @@
 import './media/positronGettingStarted.css';
 
 // React.
-import * as React from 'react';
+import React, { PropsWithChildren } from 'react';
 
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+// Other dependencies.
 import { localize } from '../../../../nls.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';

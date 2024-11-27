@@ -2,16 +2,20 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './NotebookCodeCell.css';
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { getWindow } from '../../../../../base/browser/dom.js';
 import { useServices } from '../ServicesProvider.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { WebviewType } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { useObservedValue } from '../useObservedValue.js';
 import { IWebviewElement } from '../../../webview/browser/webview.js';
-
 
 // Styles that get added to the HTML content of the webview for things like cleaning
 // up tables etc..

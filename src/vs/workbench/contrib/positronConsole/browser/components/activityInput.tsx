@@ -1,11 +1,15 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './activityInput.css';
-import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+
+// React.
+import React, { useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';

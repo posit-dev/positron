@@ -7,7 +7,7 @@
 import './statsValue.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { positronNA } from '../../common/constants.js';

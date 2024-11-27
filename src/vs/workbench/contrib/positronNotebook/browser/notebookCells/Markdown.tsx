@@ -2,11 +2,16 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './Markdown.css';
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
-import { DeferredImage } from './DeferredImage';
+import { DeferredImage } from './DeferredImage.js';
 import { useServices } from '../ServicesProvider.js';
 import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { localize } from '../../../../../nls.js';

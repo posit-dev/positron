@@ -6,11 +6,12 @@
 // CSS.
 import './pathDisplay.css';
 
-import * as React from 'react';
-import { useState } from 'react';
+// React.
+import React, { useState } from 'react';
+
+// Other dependencies.
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { truncateMiddle } from '../../../../base/common/strings.js';
-
 
 interface NewEnvironmentLocationDisplayProps {
 	pathService: IPathService;

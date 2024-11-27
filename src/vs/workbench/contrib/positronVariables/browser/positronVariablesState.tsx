@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+// React.
+import { useEffect, useState } from 'react';
+
+// Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';

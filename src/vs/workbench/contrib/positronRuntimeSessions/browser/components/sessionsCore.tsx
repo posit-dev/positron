@@ -3,8 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './sessionsCore.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { ActionBars } from './actionBars.js';
 import { PositronSessionsProps } from '../positronRuntimeSessions.js';

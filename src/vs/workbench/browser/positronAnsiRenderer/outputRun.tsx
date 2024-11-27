@@ -3,10 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './outputRun.css';
-import * as React from 'react';
+
+// React.
+import React, { CSSProperties, MouseEvent } from 'react';
+
+// Other dependencies.
 import * as platform from '../../../base/common/platform.js';
-import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
 import { localize } from '../../../nls.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { Schemas } from '../../../base/common/network.js';

@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React from 'react';
+
+// Other dependencies.
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
@@ -12,7 +14,6 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { InterpreterGroups } from '../../../browser/parts/positronTopActionBar/interpretersManagerModalPopup/interpreterGroups.js';
 import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-
 import { ActionButton } from '../../positronNotebook/browser/utilityComponents/ActionButton.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';

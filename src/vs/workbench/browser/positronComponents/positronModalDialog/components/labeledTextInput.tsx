@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,12 +7,11 @@
 import './labeledTextInput.css';
 
 // React.
-import * as React from 'react';
-import { ChangeEventHandler, forwardRef } from 'react'; // eslint-disable-line no-duplicate-imports
-import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import React, { ChangeEventHandler, forwardRef } from 'react';
 
 // Other dependencies.
 import { useDebouncedValidator, ValidatorFn } from './useDebouncedValidator.js';
+import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 /**
  * LabeledTextInputProps interface.
@@ -72,7 +71,7 @@ export const LabeledTextInput = forwardRef<HTMLInputElement, LabeledTextInputPro
 
 // Set the display name.
 LabeledTextInput.displayName = 'LabeledTextInput';
-LabeledTextInput.defaultProps = {
-	type: 'text'
-};
+// LabeledTextInput.defaultProps = {
+// 	type: 'text'
+// };
 

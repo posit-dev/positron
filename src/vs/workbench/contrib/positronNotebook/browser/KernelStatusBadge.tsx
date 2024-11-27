@@ -2,11 +2,16 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './KernelStatusBadge.css';
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
-import { useObservedValue } from './useObservedValue';
+import { useObservedValue } from './useObservedValue.js';
 import { ActionButton } from './utilityComponents/ActionButton.js';
 import { useServices } from './ServicesProvider.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';

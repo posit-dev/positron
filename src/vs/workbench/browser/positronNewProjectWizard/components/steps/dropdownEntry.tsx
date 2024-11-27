@@ -7,7 +7,7 @@
 import './dropdownEntry.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 /**
  * DropdownEntryProps interface.

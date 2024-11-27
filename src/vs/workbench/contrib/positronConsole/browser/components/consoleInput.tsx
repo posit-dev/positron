@@ -7,8 +7,7 @@
 import './consoleInput.css';
 
 // React.
-import * as React from 'react';
-import { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { FocusEvent, useEffect, useLayoutEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';

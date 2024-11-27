@@ -7,8 +7,7 @@
 import './dataGridScrollbar.css';
 
 // React.
-import * as React from 'react';
-import { CSSProperties, MouseEvent, useLayoutEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, MouseEvent, useLayoutEffect, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';

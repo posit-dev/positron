@@ -3,15 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './PositronNotebookComponent.css';
 
+// React.
+import React from 'react';
+
+// Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import * as React from 'react';
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
-import { AddCellButtons } from './AddCellButtons';
-import { useObservedValue } from './useObservedValue';
+import { AddCellButtons } from './AddCellButtons.js';
+import { useObservedValue } from './useObservedValue.js';
 import { localize } from '../../../../nls.js';
-import { PositronNotebookHeader } from './PositronNotebookHeader';
+import { PositronNotebookHeader } from './PositronNotebookHeader.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { useServices } from './ServicesProvider.js';

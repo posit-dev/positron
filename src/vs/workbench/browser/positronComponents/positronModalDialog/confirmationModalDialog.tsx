@@ -8,8 +8,7 @@ import './positronModalDialog.css';
 import './confirmationModalDialog.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';

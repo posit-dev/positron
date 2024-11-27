@@ -7,8 +7,7 @@
 import './projectTypeGroup.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useState } from 'react';
 
 // Other dependencies.
 import { ProjectType } from './projectType.js';

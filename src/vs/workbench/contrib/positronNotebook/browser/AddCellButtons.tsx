@@ -2,14 +2,19 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './AddCellButtons.css';
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { localize } from '../../../../nls.js';
 import { CellKind } from '../../notebook/common/notebookCommon.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
-import { IconedButton } from './utilityComponents/IconedButton';
+import { IconedButton } from './utilityComponents/IconedButton.js';
 
 export function AddCellButtons({ index }: { index: number }) {
 	const notebookInstance = useNotebookInstance();

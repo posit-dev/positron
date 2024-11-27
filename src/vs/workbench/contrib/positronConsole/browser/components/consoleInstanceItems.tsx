@@ -7,9 +7,8 @@
 import './consoleInstanceItems.css';
 
 // React.
-import * as React from 'react';
 import { flushSync } from 'react-dom';
-import { Component } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { Component } from 'react';
 
 // Other dependencies.
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';

@@ -3,7 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
+// React.
+import { useEffect, useState } from 'react';
+
+// Other dependencies.
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IModelService } from '../../../../editor/common/services/model.js';

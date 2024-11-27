@@ -7,8 +7,7 @@
 import './columnSummaryCell.css';
 
 // React.
-import * as React from 'react';
-import { useRef } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useRef } from 'react';
 
 // Other dependencies.
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';

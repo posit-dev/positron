@@ -7,8 +7,7 @@
 import './verticalSplitter.css';
 
 // React.
-import * as React from 'react';
-import { PointerEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PointerEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../dom.js';

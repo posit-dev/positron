@@ -7,7 +7,7 @@
 import './radioButton.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 /**
  * RadioButtonItemOptions interface.

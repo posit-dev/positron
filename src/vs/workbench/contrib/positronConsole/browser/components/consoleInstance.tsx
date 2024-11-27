@@ -7,8 +7,7 @@
 import './consoleInstance.css';
 
 // React.
-import * as React from 'react';
-import { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import * as nls from '../../../../../nls.js';

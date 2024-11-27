@@ -7,8 +7,7 @@
 import './dataGridWaffle.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React, { JSX } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';

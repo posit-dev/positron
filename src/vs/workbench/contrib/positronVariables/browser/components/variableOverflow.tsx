@@ -7,8 +7,7 @@
 import './variableOverflow.css';
 
 // React.
-import * as React from 'react';
-import { CSSProperties, MouseEvent } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, MouseEvent } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';

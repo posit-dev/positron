@@ -7,8 +7,9 @@
 import './media/positronGettingStarted.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
+
+// Other dependencies.
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
 import { PositronWelcomePageHelp } from './positronWelcomePageHelp.js';

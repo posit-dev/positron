@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext, useEffect } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, createContext, useContext, useEffect } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../base/common/lifecycle.js';

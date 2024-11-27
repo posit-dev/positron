@@ -7,8 +7,7 @@
 import './topActionBarInterpretersManager.css';
 
 // React.
-import * as React from 'react';
-import { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';

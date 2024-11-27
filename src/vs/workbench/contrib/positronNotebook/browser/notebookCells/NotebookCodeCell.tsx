@@ -2,18 +2,23 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './NotebookCodeCell.css';
 
-import * as React from 'react';
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { isParsedTextOutput, parseOutputData } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
-import { CellTextOutput } from './CellTextOutput';
+import { CellTextOutput } from './CellTextOutput.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
-import { NotebookCellWrapper } from './NotebookCellWrapper';
+import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { pickPreferredOutputItem, PositronNotebookCodeCell } from '../PositronNotebookCell.js';
 import { NotebookHTMLContent } from './NotebookHTMLOutput.js';
 import { useServices } from '../ServicesProvider.js';

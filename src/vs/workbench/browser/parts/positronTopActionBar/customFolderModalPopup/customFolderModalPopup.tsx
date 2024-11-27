@@ -7,7 +7,7 @@
 import './customFolderModalPopup.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { ILabelService } from '../../../../../platform/label/common/label.js';

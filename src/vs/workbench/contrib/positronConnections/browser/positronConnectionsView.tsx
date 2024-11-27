@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import {
-	IReactComponentContainer,
-	ISize,
-	PositronReactRenderer,
-} from '../../../../base/browser/positronReactRenderer.js';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -23,7 +23,6 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IViewDescriptorService } from '../../../common/views.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronConnections } from './positronConnections.js';
-import * as React from 'react';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';

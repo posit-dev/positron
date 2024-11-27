@@ -3,8 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren } from 'react';
+// React.
+import React, { PropsWithChildren } from 'react';
+
+// Other dependencies.
 import { DomScrollableElement } from '../../scrollbar/scrollableElement.js';
 import { ScrollableElementChangeOptions } from '../../scrollbar/scrollableElementOptions.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';

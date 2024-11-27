@@ -1,19 +1,21 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './consoleCore.css';
-import * as React from 'react';
+
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { ActionBar } from './actionBar.js';
 import { EmptyConsole } from './emptyConsole.js';
 import { ConsoleInstance } from './consoleInstance.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { StartupStatus } from './startupStatus.js';
-
-// eslint-disable-next-line no-duplicate-imports
-import { useEffect, useState } from 'react';
 import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 // ConsoleCoreProps interface.

@@ -3,8 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
 import './consoleInstanceMenuButton.css';
-import * as React from 'react';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';

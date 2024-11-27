@@ -2,15 +2,18 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+// CSS.
 import './CellEditorMonacoWidget.css';
 
+// React.
+import React from 'react';
 
-import * as React from 'react';
+// Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { Event } from '../../../../../base/common/event.js';
-
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
@@ -19,7 +22,6 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useServices } from '../ServicesProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCell.js';
-
 
 /**
  *

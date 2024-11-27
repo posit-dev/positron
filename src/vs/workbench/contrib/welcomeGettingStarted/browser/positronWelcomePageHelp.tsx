@@ -7,9 +7,9 @@
 import './media/positronGettingStarted.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren } from 'react';
 
+// Other dependencies.
 import { ExternalLink } from '../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { localize } from '../../../../nls.js';

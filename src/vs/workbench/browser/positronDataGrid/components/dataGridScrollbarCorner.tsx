@@ -7,7 +7,9 @@
 import './dataGridScrollbarCorner.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
+
+// Other dependencies.
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**

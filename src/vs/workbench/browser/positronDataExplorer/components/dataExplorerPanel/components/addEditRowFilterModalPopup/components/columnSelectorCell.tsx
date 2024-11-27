@@ -7,7 +7,7 @@
 import './columnSelectorCell.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
