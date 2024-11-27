@@ -840,7 +840,7 @@
                 },
                 "python.installModulesInTerminal": {
                     "default": false,
-                    "description": "%python.installModulesInTerminal.description%",
+                    "markdownDescription": "%python.installModulesInTerminal.description%",
                     "scope": "resource",
                     "type": "boolean"
                 }
