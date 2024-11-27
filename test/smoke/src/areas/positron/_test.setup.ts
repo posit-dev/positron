@@ -79,7 +79,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
+	app: [async ({ options, logsPath }, use, workerInfo) => {
 		const app = createApp(options);
 
 		try {
@@ -100,9 +100,9 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 
 			throw error; // re-throw the error to ensure test failure
 		} finally {
-			await app.stop(); // Ensure the app stops even on failure
+			await app.stop();
 
-			// Rename logs directory to include spec name (if available)
+			// rename the temp logs dir to the spec name (if available)
 			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
 			await moveAndOverwrite(logsPath, specLogsPath);
 		}
@@ -290,9 +290,11 @@ test.afterAll(async function ({ logger }, testInfo) {
 		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
 		logger.log('');
 	} catch (error) {
-		if (fixtureScreenshot) {
-			await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
-		}
+		// ignore
+	}
+
+	if (fixtureScreenshot) {
+		await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
 	}
 });
 
