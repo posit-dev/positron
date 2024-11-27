@@ -102,12 +102,6 @@ jobs:
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
-      CURRENTS_PROJECT_ID: ZOs5z2
-      CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-      COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
-      PWTEST_BLOB_DO_NOT_REMOVE: 1
-      CURRENTS_TAG: "electron"
     steps:
       - uses: actions/checkout@v4
 
@@ -132,6 +126,12 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: "electron"
         id: electron-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 3
 
@@ -159,11 +159,6 @@ jobs:
       _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
-      CURRENTS_PROJECT_ID: ZOs5z2
-      CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-      CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-      COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
-      PWTEST_BLOB_DO_NOT_REMOVE: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -197,7 +192,7 @@ jobs:
           CURRENTS_PROJECT_ID: ZOs5z2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "chromium"
         id: browser-tests
