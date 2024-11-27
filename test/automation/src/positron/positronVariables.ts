@@ -57,7 +57,6 @@ export class PositronVariables {
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-
 		const desiredRow = await this.waitForVariableRow(variableName);
 		await desiredRow.dblclick();
 	}
@@ -142,6 +141,9 @@ export class PositronVariables {
 
 	async clickDatabaseIconForVariableRow(rowName: string) {
 		const DATABASE_ICON = '.codicon-database';
+		// there is a flake of the db connection not displaying in the connections pane after
+		// clicking the db icon i want to see if waiting for a second will help
+		await this.code.driver.wait(1000);
 		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
 }
