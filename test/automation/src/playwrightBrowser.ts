@@ -91,6 +91,7 @@ async function launchServer(options: LaunchOptions) {
 		logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
 		const shell: boolean = (process.platform === 'win32');
 
+		// --- Start Positron ---
 		try {
 			serverProcess = spawn(
 				serverLocation,
