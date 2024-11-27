@@ -6,6 +6,7 @@
 import { defineConfig } from '@playwright/test';
 import { CustomTestOptions } from './test/smoke/src/areas/positron/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
+import { currentsReporter } from '@currents/playwright';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
@@ -37,7 +38,13 @@ export default defineConfig<CustomTestOptions>({
 				includeResults: ['fail', 'flaky']
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
-			['list'], ['html'], ['blob']
+			['list'], ['html'], ['blob'],
+			currentsReporter({
+				ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+				recordKey: process.env.CURRENTS_RECORD_KEY || '',
+				projectId: 'ZOs5z2',
+				disableTitleTags: true,
+			}),
 		]
 		: [
 			['list'],

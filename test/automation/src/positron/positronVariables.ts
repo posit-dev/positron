@@ -57,7 +57,6 @@ export class PositronVariables {
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-
 		const desiredRow = await this.waitForVariableRow(variableName);
 		await desiredRow.dblclick();
 	}

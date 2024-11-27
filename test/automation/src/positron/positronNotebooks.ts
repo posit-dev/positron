@@ -82,7 +82,7 @@ export class PositronNotebooks {
 	}
 
 	async assertCellOutput(text: string): Promise<void> {
-		await expect(this.frameLocator.getByText(text)).toBeVisible();
+		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
 	}
 
 	async closeNotebookWithoutSaving() {

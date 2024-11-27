@@ -58,7 +58,7 @@ function logToFile(logFilePath: string, message: string): void {
 }
 
 /**
- * Logs the error to the test log file: logs/smoke-tests-electron/<test-file-name>/retry.log
+ * Logs the error to the test log file: logs/e2e-tests-electron/<test-file-name>/retry.log
  *
  * @param test mocha test
  * @param err error
