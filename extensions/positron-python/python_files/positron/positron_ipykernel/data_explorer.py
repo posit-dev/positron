@@ -23,6 +23,7 @@ from typing import (
 )
 
 import comm
+from IPython.core.error import UsageError
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
@@ -96,7 +97,14 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import np_, pd_, pl_
+from .third_party import (
+    RestartRequiredError,
+    import_pandas,
+    import_polars,
+    np_,
+    pd_,
+    pl_,
+)
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
@@ -312,6 +320,7 @@ class DataExplorerTableView(abc.ABC):
 
                 def matches(x):
                     return term in x.lower()
+
             else:
 
                 def matches(x):
@@ -2581,11 +2590,31 @@ class PyArrowView(DataExplorerTableView):
 
 
 def _is_pandas(table):
-    return pd_ is not None and isinstance(table, (pd_.DataFrame, pd_.Series))
+    pandas = import_pandas()
+    if pandas is not None and isinstance(table, (pandas.DataFrame, pandas.Series)):
+        # If pandas was installed after the kernel was started, pd_ will still be None.
+        # Raise an error to inform the user to restart the kernel.
+        if pd_ is None:
+            raise RestartRequiredError(
+                "Pandas was installed after the session started. Please restart the session to "
+                + "view the table in the Data Explorer."
+            )
+        return True
+    return False
 
 
 def _is_polars(table):
-    return pl_ is not None and isinstance(table, (pl_.DataFrame, pl_.Series))
+    polars = import_polars()
+    if polars is not None and isinstance(table, (polars.DataFrame, polars.Series)):
+        # If polars was installed after the kernel was started, pl_ will still be None.
+        # Raise an error to inform the user to restart the kernel.
+        if pl_ is None:
+            raise RestartRequiredError(
+                "Polars was installed after the session started. Please restart the session to "
+                + "view the table."
+            )
+        return True
+    return False
 
 
 def _get_table_view(
