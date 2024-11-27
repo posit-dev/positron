@@ -31,7 +31,9 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 }
 
 // --- Start Positron ---
-// Modified `launchServer` function to add support for multiple ports to enable parallel test execution of browser tests
+// Modified `launchServer` function to add support for multiple ports to enable parallel test
+// execution of browser tests. Also added helper functions: `getServerArgs`, `resolveServerLocation`,
+// and `startServer` to make this code easier to read.
 async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
