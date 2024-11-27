@@ -87,6 +87,16 @@ export class NotebookSessionService implements vscode.Disposable {
 	}
 
 	/**
+	 * Wait for a notebook session to complete a shutdown sequence.
+	 *
+	 * @param notebookUri The notebook URI to wait for.
+	 * @returns A promise that resolves when the session has completed the shutdown sequence.
+	 */
+	async waitForNotebookSessionToShutdown(notebookUri: vscode.Uri): Promise<void> {
+		await this._shuttingDownSessionsByNotebookUri.get(notebookUri);
+	}
+
+	/**
 	 * Wait for a notebook session to complete a restart sequence.
 	 *
 	 * @param notebookUri The notebook URI to wait for.

@@ -208,7 +208,7 @@ export class NotebookController implements vscode.Disposable {
 		try {
 			await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook, tokenSource.token)));
 		} catch (err) {
-			log.debug(`Error executing cells: ${err}`);
+			log.debug(`Error executing cells: ${err.stack ?? err}`);
 		} finally {
 			// Clean up the cancellation token source for this execution.
 			if (this._executionTokenSourceByNotebookUri.get(notebook.uri) === tokenSource) {
@@ -260,6 +260,9 @@ export class NotebookController implements vscode.Disposable {
 			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 			return;
 		}
+
+		// If a session is shutting down for this notebook, wait for it to finish.
+		await this._notebookSessionService.waitForNotebookSessionToShutdown(notebook.uri);
 
 		// If a session is restarting for this notebook, wait for it to finish.
 		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
