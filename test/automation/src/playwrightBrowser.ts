@@ -37,73 +37,42 @@ async function launchServer(options: LaunchOptions) {
 	const serverLogsPath = join(logsPath, 'server');
 	const codeServerPath = codePath ?? process.env.VSCODE_REMOTE_SERVER_PATH;
 	const agentFolder = userDataDir;
+
 	await measureAndLog(() => mkdirp(agentFolder), `mkdirp(${agentFolder})`, logger);
 
 	const env = {
 		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
-		...process.env
+		...process.env,
 	};
 
+	const maxRetries = 10;
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
-	const maxRetries = 10; // number of ports to try before giving up
 	for (let attempts = 0; attempts < maxRetries; attempts++) {
-		const currentPort = port++; // increment the port on each retry
+		const currentPort = port++;
+		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
+		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
-		const args = [
-			'--disable-telemetry',
-			'--disable-workspace-trust',
-			`--port=${currentPort}`,
-			'--enable-smoke-test-driver',
-			`--extensions-dir=${extensionsPath}`,
-			`--server-data-dir=${agentFolder}`,
-			'--accept-server-license-terms',
-			`--logsPath=${serverLogsPath}`,
-			// --- Start Positron ---
-			`--connection-token`,
-			`dev-token`
-			// --- End Positron ---
-		];
-
-		if (options.verbose) {
-			args.push('--log=trace');
-		}
-
-		const serverLocation = codeServerPath
-			? (() => {
-				const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
-				logger.log(`Starting built server from '${join(codeServerPath, 'bin', serverApplicationName)}'`);
-				return join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
-			})()
-			: (() => {
-				const scriptPath = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
-				logger.log(`Starting server out of sources from '${scriptPath}'`);
-				return scriptPath;
-			})();
-
-		logger.log(`Storing log files into '${serverLogsPath}'`);
-		logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
+		logger.log(`Attempting to start server on port ${currentPort}`);
+		logger.log(`Command: '${serverLocation}' ${args.join(' ')}`);
 
 		try {
-			// start the server process
-			serverProcess = spawn(serverLocation, args, { env, shell: process.platform === 'win32' });
-			logger.log(`Started server on port ${currentPort} (pid: ${serverProcess.pid})`);
-
-			// wait for the server to be ready
+			serverProcess = await startServer(serverLocation, args, env, logger);
 			endpoint = await measureAndLog(
 				() => waitForEndpoint(serverProcess!, logger),
 				'waitForEndpoint(serverProcess)',
 				logger
 			);
 
-			break; // exit loop on successful start
+			logger.log(`Server started successfully on port ${currentPort}`);
+			break; // Exit loop on success
 		} catch (error) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
-				logger.log(`Port ${currentPort} is already in use. Retrying with the next port...`);
+				logger.log(`Port ${currentPort} is already in use. Retrying...`);
 				serverProcess?.kill();
 			} else {
-				throw error; // Rethrow non-EADDRINUSE errors
+				throw error; // Rethrow non-port-related errors
 			}
 		}
 	}
@@ -113,6 +82,58 @@ async function launchServer(options: LaunchOptions) {
 	}
 
 	return { serverProcess, endpoint };
+}
+
+function getServerArgs(
+	port: number,
+	extensionsPath: string,
+	agentFolder: string,
+	logsPath: string,
+	verbose?: boolean
+): string[] {
+	const args = [
+		'--disable-telemetry',
+		'--disable-workspace-trust',
+		`--port=${port}`,
+		'--enable-smoke-test-driver',
+		`--extensions-dir=${extensionsPath}`,
+		`--server-data-dir=${agentFolder}`,
+		'--accept-server-license-terms',
+		`--logsPath=${logsPath}`,
+		'--connection-token',
+		'dev-token',
+	];
+
+	if (verbose) {
+		args.push('--log=trace');
+	}
+
+	return args;
+}
+
+function resolveServerLocation(codeServerPath: string | undefined, logger: Logger): string {
+	if (codeServerPath) {
+		const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
+		const serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
+		logger.log(`Using built server from '${serverLocation}'`);
+		return serverLocation;
+	}
+
+	const scriptPath = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
+	logger.log(`Using source server from '${scriptPath}'`);
+	return scriptPath;
+}
+
+async function startServer(
+	serverLocation: string,
+	args: string[],
+	env: NodeJS.ProcessEnv,
+	logger: Logger
+): Promise<ChildProcess> {
+	logger.log(`Starting server: ${serverLocation}`);
+	const serverProcess = spawn(serverLocation, args, { env, shell: process.platform === 'win32' });
+	logger.log(`Server started (pid: ${serverProcess.pid})`);
+	return serverProcess;
 }
 // --- End Positron ---
 
