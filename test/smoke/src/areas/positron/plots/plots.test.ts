@@ -16,6 +16,7 @@ test.use({
 });
 
 test.describe('Plots', () => {
+	// Some tests are not tagged @win because they woould require a new master image.
 	test.describe('Python Plots', () => {
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
@@ -138,7 +139,7 @@ test.describe('Plots', () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verifies saving a Python plot [C557005]', async function ({ app, logger }) {
+		test('Python - Verifies saving a Python plot [C557005]', { tag: ['@win'] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', savePlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -149,7 +150,7 @@ test.describe('Plots', () => {
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 		});
 
-		test('Python - Verifies bqplot Python widget [C720869]', { tag: ['@web'] }, async function ({ app }) {
+		test('Python - Verifies bqplot Python widget [C720869]', { tag: ['@web', '@win'] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, bgplot, '.svg-figure');
 		});
 
@@ -197,7 +198,7 @@ test.describe('Plots', () => {
 			expect(lines).not.toContain('Hello, world!');
 		});
 
-		test('Python - Verifies bokeh Python widget [C730343]', { tag: ['@web'] }, async function ({ app }) {
+		test('Python - Verifies bokeh Python widget [C730343]', { tag: ['@web', '@win'] }, async function ({ app }) {
 			await app.workbench.positronConsole.pasteCodeToConsole(bokeh);
 			await app.workbench.positronConsole.sendEnterKey();
 
@@ -283,7 +284,7 @@ test.describe('Plots', () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('R - Verifies saving an R plot [C557006]', async function ({ app, logger }) {
+		test('R - Verifies saving an R plot [C557006]', { tag: ['@win'] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 
 			await app.workbench.positronConsole.executeCode('R', rSavePlot, '>');
