@@ -30,6 +30,8 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
+// --- Start Positron ---
+// Modified `launchServer` function to add support for multiple ports to enable parallel test execution of browser tests
 async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
@@ -42,23 +44,17 @@ async function launchServer(options: LaunchOptions) {
 		...process.env
 	};
 
-	// --- Start Positron ---
-	// Adding support for multiple ports to enable parallel test execution
-
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
-	const maxRetries = 10; // Number of ports to try before giving up
+	const maxRetries = 10; // number of ports to try before giving up
 	for (let attempts = 0; attempts < maxRetries; attempts++) {
-		const currentPort = port++; // Increment the port on each retry
-		// --- End Positron ---
+		const currentPort = port++; // increment the port on each retry
 
 		const args = [
 			'--disable-telemetry',
 			'--disable-workspace-trust',
-			// --- Start Positron ---
 			`--port=${currentPort}`,
-			// --- End Positron ---
 			'--enable-smoke-test-driver',
 			`--extensions-dir=${extensionsPath}`,
 			`--server-data-dir=${agentFolder}`,
@@ -74,47 +70,38 @@ async function launchServer(options: LaunchOptions) {
 			args.push('--log=trace');
 		}
 
-		let serverLocation: string | undefined;
-		if (codeServerPath) {
-			const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
-			serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
-
-			logger.log(`Starting built server from '${serverLocation}'`);
-		} else {
-			serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
-
-			logger.log(`Starting server out of sources from '${serverLocation}'`);
-		}
+		const serverLocation = codeServerPath
+			? (() => {
+				const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
+				logger.log(`Starting built server from '${join(codeServerPath, 'bin', serverApplicationName)}'`);
+				return join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
+			})()
+			: (() => {
+				const scriptPath = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
+				logger.log(`Starting server out of sources from '${scriptPath}'`);
+				return scriptPath;
+			})();
 
 		logger.log(`Storing log files into '${serverLogsPath}'`);
-
 		logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
-		const shell: boolean = (process.platform === 'win32');
 
-		// --- Start Positron ---
 		try {
-			serverProcess = spawn(
-				serverLocation,
-				args,
-				{ env, shell }
-			);
-
+			// start the server process
+			serverProcess = spawn(serverLocation, args, { env, shell: process.platform === 'win32' });
 			logger.log(`Started server on port ${currentPort} (pid: ${serverProcess.pid})`);
 
+			// wait for the server to be ready
 			endpoint = await measureAndLog(
 				() => waitForEndpoint(serverProcess!, logger),
 				'waitForEndpoint(serverProcess)',
 				logger
 			);
 
-			// If we reach here, the server started successfully
-			break;
+			break; // exit loop on successful start
 		} catch (error) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
 				logger.log(`Port ${currentPort} is already in use. Retrying with the next port...`);
-				if (serverProcess) {
-					serverProcess.kill();
-				}
+				serverProcess?.kill();
 			} else {
 				throw error; // Rethrow non-EADDRINUSE errors
 			}
@@ -126,8 +113,8 @@ async function launchServer(options: LaunchOptions) {
 	}
 
 	return { serverProcess, endpoint };
-	// --- End Positron ---
 }
+// --- End Positron ---
 
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
