@@ -19,13 +19,13 @@ export function formatCount(count: number, unit: string): string {
 
 export async function getRunningNotebookSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
 	// TODO: Use getSessions()?
-	const session = await positron.runtime.getNotebookSession(notebookUri);
-	// TODO: Check that it's the expected runtime.
-	const state = session?.state;
-	if (state === positron.RuntimeState.Uninitialized
-		|| state === positron.RuntimeState.Exiting
-		|| state === positron.RuntimeState.Exited) {
-		return undefined;
-	}
-	return session;
+	// TODO: Check that it's the expected runtime?
+	return positron.runtime.getNotebookSession(notebookUri);
+	// const state = session?.state;
+	// if (state === positron.RuntimeState.Uninitialized
+	// 	|| state === positron.RuntimeState.Exiting
+	// 	|| state === positron.RuntimeState.Exited) {
+	// 	return undefined;
+	// }
+	// return session;
 }
