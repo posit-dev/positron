@@ -51,6 +51,7 @@ async function launchServer(options: LaunchOptions) {
 	const maxRetries = 10; // Number of ports to try before giving up
 	for (let attempts = 0; attempts < maxRetries; attempts++) {
 		const currentPort = port++; // Increment the port on each retry
+		// --- End Positron ---
 
 		const args = [
 			'--disable-telemetry',
@@ -77,6 +78,7 @@ async function launchServer(options: LaunchOptions) {
 		if (codeServerPath) {
 			const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
 			serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
+
 			logger.log(`Starting built server from '${serverLocation}'`);
 		} else {
 			serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);

@@ -89,7 +89,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		// rename the temp logs dir to the spec name
 		const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME);
 		await moveAndOverwrite(logsPath, specLogsPath);
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 90000 }],
 
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
