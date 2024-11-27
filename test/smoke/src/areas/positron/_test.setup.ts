@@ -30,6 +30,7 @@ const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 let SPEC_NAME = '';
+let fixtureScreenshot: Buffer;
 
 export const test = base.extend<TestFixtures, WorkerFixtures>({
 	suiteId: ['', { scope: 'worker', option: true }],
@@ -78,18 +79,34 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath, logger }, use) => {
+	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
 		const app = createApp(options);
-		await app.start();
 
-		await use(app);
+		try {
+			await app.start();
 
-		await app.stop();
+			await use(app);
+		} catch (error) {
+			// capture a screenshot on failure
+			const screenshotPath = path.join(logsPath, 'app-start-failure.png');
+			try {
+				const page = app.code?.driver?.page;
+				if (page) {
+					fixtureScreenshot = await page.screenshot({ path: screenshotPath });
+				}
+			} catch {
+				// ignore
+			}
 
-		// rename the temp logs dir to the spec name
-		const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME);
-		await moveAndOverwrite(logsPath, specLogsPath);
-	}, { scope: 'worker', auto: true, timeout: 90000 }],
+			throw error; // re-throw the error to ensure test failure
+		} finally {
+			await app.stop(); // Ensure the app stops even on failure
+
+			// Rename logs directory to include spec name (if available)
+			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
+			await moveAndOverwrite(logsPath, specLogsPath);
+		}
+	}, { scope: 'worker', auto: true, timeout: 60000 }],
 
 	interpreter: [async ({ app, page }, use) => {
 		const setInterpreter = async (interpreterName: 'Python' | 'R') => {
@@ -268,9 +285,15 @@ test.beforeAll(async ({ logger }, testInfo) => {
 });
 
 test.afterAll(async function ({ logger }, testInfo) {
-	logger.log('');
-	logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
-	logger.log('');
+	try {
+		logger.log('');
+		logger.log(`>>> Suite end: '${testInfo.titlePath[0] ?? 'unknown'}' <<<`);
+		logger.log('');
+	} catch (error) {
+		if (fixtureScreenshot) {
+			await testInfo.attach('on-fixture-fail', { body: fixtureScreenshot, contentType: 'image/png' });
+		}
+	}
 });
 
 export { playwrightExpect as expect };
