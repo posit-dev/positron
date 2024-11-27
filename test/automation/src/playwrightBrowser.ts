@@ -30,7 +30,6 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
-// --- Start Positron ---
 async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
@@ -43,25 +42,30 @@ async function launchServer(options: LaunchOptions) {
 		...process.env
 	};
 
-	// Added support for multiple ports to enable parallel test execution
+	// --- Start Positron ---
+	// Adding support for multiple ports to enable parallel test execution
+
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
 
 	const maxRetries = 10; // Number of ports to try before giving up
 	for (let attempts = 0; attempts < maxRetries; attempts++) {
 		const currentPort = port++; // Increment the port on each retry
+
 		const args = [
 			'--disable-telemetry',
 			'--disable-workspace-trust',
+			// --- Start Positron ---
 			`--port=${currentPort}`,
+			// --- End Positron ---
 			'--enable-smoke-test-driver',
 			`--extensions-dir=${extensionsPath}`,
 			`--server-data-dir=${agentFolder}`,
 			'--accept-server-license-terms',
 			`--logsPath=${serverLogsPath}`,
 			// --- Start Positron ---
-			'--connection-token',
-			'dev-token'
+			`--connection-token`,
+			`dev-token`
 			// --- End Positron ---
 		];
 
@@ -72,11 +76,7 @@ async function launchServer(options: LaunchOptions) {
 		let serverLocation: string | undefined;
 		if (codeServerPath) {
 			const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
-			serverLocation = join(
-				codeServerPath,
-				'bin',
-				`${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`
-			);
+			serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
 			logger.log(`Starting built server from '${serverLocation}'`);
 		} else {
 			serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
@@ -87,8 +87,7 @@ async function launchServer(options: LaunchOptions) {
 		logger.log(`Storing log files into '${serverLogsPath}'`);
 
 		logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
-
-		const shell: boolean = process.platform === 'win32';
+		const shell: boolean = (process.platform === 'win32');
 
 		try {
 			serverProcess = spawn(
@@ -124,8 +123,9 @@ async function launchServer(options: LaunchOptions) {
 	}
 
 	return { serverProcess, endpoint };
+	// --- End Positron ---
 }
-// --- End Positron ---
+
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, headless } = options;

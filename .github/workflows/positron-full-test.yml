@@ -96,11 +96,6 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 60
-    # strategy:
-    #   fail-fast: false
-    #   matrix:
-    #     shardIndex: [1, 2]
-    #     shardTotal: [2]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -111,7 +106,7 @@ jobs:
       CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
       CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
-      PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
+      PWTEST_BLOB_DO_NOT_REMOVE: 1
       CURRENTS_TAG: "electron"
     steps:
       - uses: actions/checkout@v4
@@ -168,7 +163,7 @@ jobs:
       CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
       CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
       COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
-      PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
+      PWTEST_BLOB_DO_NOT_REMOVE: 1
     steps:
       - uses: actions/checkout@v4
 
@@ -203,7 +198,7 @@ jobs:
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
-          PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "chromium"
         id: browser-tests
         run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 2

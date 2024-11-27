@@ -73,7 +73,7 @@ jobs:
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-          PWTEST_BLOB_DO_NOT_REMOVE: 1 # Add the env variable to not remove test blobs
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "electron,${{ inputs.e2e_grep }}"
         id: e2e-playwright-tests
         run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
