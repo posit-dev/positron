@@ -120,7 +120,7 @@ export class NotebookController implements vscode.Disposable {
 			const retry = vscode.l10n.t('Retry');
 			const selection = await vscode.window.showErrorMessage(
 				vscode.l10n.t(
-					'Starting {0} interpreter for "{1}" failed. Reason: {2}',
+					"Starting {0} interpreter for '{1}' failed. Reason: {2}",
 					this.label,
 					notebook.uri.path,
 					err
