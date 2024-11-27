@@ -278,6 +278,24 @@
             "type": "boolean",
             "default": false,
             "description": "%r.configuration.taskHyperlinks.description%"
+          },
+          "positron.r.defaultRepositories": {
+            "scope": "window",
+            "type": "string",
+            "enum": [
+              "auto",
+              "rstudio",
+              "posit-ppm",
+              "none"
+            ],
+            "enumDescriptions": [
+              "%r.configuration.defaultRepositories.auto.description%",
+              "%r.configuration.defaultRepositories.rstudio.description%",
+              "%r.configuration.defaultRepositories.posit-ppm.description%",
+              "%r.configuration.defaultRepositories.none.description%"
+            ],
+            "default": "auto",
+            "markdownDescription": "%r.configuration.defaultRepositories.description%"
           }
         }
       }
