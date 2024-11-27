@@ -264,6 +264,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             const terminalService = this.serviceContainer
                 .get<ITerminalServiceFactory>(ITerminalServiceFactory)
                 .getTerminalService(options);
+
             // --- Start Positron ---
             // When running with the `python.installModulesInTerminal` setting enabled, we want to
             // ensure that the terminal command is fully executed before returning. Otherwise, the
