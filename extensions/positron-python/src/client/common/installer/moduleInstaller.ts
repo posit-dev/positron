@@ -265,11 +265,22 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 .get<ITerminalServiceFactory>(ITerminalServiceFactory)
                 .getTerminalService(options);
             // --- Start Positron ---
-            // Ensure we pass a cancellation token so that we await the full terminal command
-            // execution before returning.
-            const cancelToken = token ?? new CancellationTokenSource().token;
-            await terminalService.sendCommand(command, args, token ?? cancelToken);
+            // When running with the `python.installModulesInTerminal` setting enabled, we want to
+            // ensure that the terminal command is fully executed before returning. Otherwise, the
+            // calling code of the install will not be able to tell when the installation is complete.
+            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+            const installModulesInTerminal = workspaceService
+                .getConfiguration('python')
+                .get<boolean>('installModulesInTerminal');
+            if (installModulesInTerminal) {
+                // Ensure we pass a cancellation token so that we await the full terminal command
+                // execution before returning.
+                const cancelToken = token ?? new CancellationTokenSource().token;
+                await terminalService.sendCommand(command, args, token ?? cancelToken);
+                return;
+            }
             // --- End Positron ---
+            terminalService.sendCommand(command, args, token);
         } else {
             const processServiceFactory = this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
             const processService = await processServiceFactory.create(options.resource);

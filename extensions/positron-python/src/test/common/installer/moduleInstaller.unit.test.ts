@@ -282,6 +282,13 @@ suite('Module Installer', () => {
                             workspaceService
                                 .setup((w) => w.getConfiguration(TypeMoq.It.isValue('http')))
                                 .returns(() => http.object);
+                            // --- Start Positron ---
+                            const pythonConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+                            pythonConfig.setup((p) => p.get(TypeMoq.It.isValue('installModulesInTerminal'), TypeMoq.It.isAny())).returns(() => false);
+                            workspaceService
+                                .setup((w) => w.getConfiguration(TypeMoq.It.isValue('python')))
+                                .returns(() => pythonConfig.object);
+                            // --- End Positron ---
                             installer = new InstallerClass(serviceContainer.object);
                         });
                         teardown(() => {
