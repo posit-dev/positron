@@ -6,10 +6,12 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 
 import { JupyterKernelSpec } from './jupyter-adapter';
 import { getArkKernelPath } from './kernel';
 import { getPandocPath } from './pandoc';
+import { EXTENSION_ROOT_DIR } from './constants';
 
 /**
  * Create a new Jupyter kernel spec.
@@ -91,6 +93,28 @@ export function createJupyterKernelSpec(
 		]);
 	}
 
+	// Set the default repositories
+	const defaultRepos = config.get<string>('defaultRepositories') ?? 'auto';
+	if (defaultRepos === 'auto') {
+		const reposConf = findReposConf();
+		if (reposConf) {
+			// If there's a `repos.conf` file in a well-known directory, use
+			// that.
+			argv.push(...['--default-repos', reposConf]);
+		} else if (vscode.env.uiKind === vscode.UIKind.Web) {
+			// No repos.conf; if we're web mode use Posit's Public Package
+			// Manager
+			argv.push(...['--default-repos', 'posit-ppm']);
+		}
+		// In all other cases when `auto` is set, we don't specify
+		// `--default-repos` at all, and let Ark choose an appropriate
+		// repository (usually `cran.rstudio.com)
+	} else {
+		// The remaining options map directly to Ark's `--default-repos`
+		// command line option
+		argv.push(...['--default-repos', defaultRepos]);
+	}
+
 	argv.push(...[
 		// The arguments after `--` are passed verbatim to R
 		'--',
@@ -122,4 +146,24 @@ export function createJupyterKernelSpec(
 	}
 
 	return kernelSpec;
+}
+
+/**
+ * Attempt to find a `repos.conf` file in Positron or RStudio XDG
+ * configuration directories.
+ *
+ * Returns the path to the file if found, or `undefined` if no
+ */
+function findReposConf(): string | undefined {
+	const xdg = require('xdg-portable/cjs');
+	const configDirs: Array<string> = xdg.configDirs();
+	for (const product of ['rstudio', 'positron']) {
+		for (const configDir of configDirs) {
+			const reposConf = path.join(configDir, product, 'repos.conf');
+			if (fs.existsSync(reposConf)) {
+				return reposConf;
+			}
+		}
+	}
+	return;
 }
