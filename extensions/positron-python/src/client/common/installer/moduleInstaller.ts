@@ -52,14 +52,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         options?: InstallOptions,
     ): Promise<void> {
         // --- Start Positron ---
-        // python.installModulesInTerminal is a setting that allows the user to force modules to be
-        // installed in the Terminal. Usually, such installations occur in the background. However,
-        // for debugging, it can be helpful to see the Terminal output of the installation process.
-        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-        const installModulesInTerminal = workspaceService
-            .getConfiguration('python')
-            .get<boolean>('installModulesInTerminal');
-        const shouldExecuteInTerminal = installModulesInTerminal || !options?.installAsProcess;
+        const shouldExecuteInTerminal = this.installModulesInTerminal() || !options?.installAsProcess;
         // --- End Positron ---
         const name =
             typeof productOrModuleName === 'string'
@@ -269,11 +262,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             // When running with the `python.installModulesInTerminal` setting enabled, we want to
             // ensure that the terminal command is fully executed before returning. Otherwise, the
             // calling code of the install will not be able to tell when the installation is complete.
-            const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
-            const installModulesInTerminal = workspaceService
-                .getConfiguration('python')
-                .get<boolean>('installModulesInTerminal');
-            if (installModulesInTerminal) {
+            if (this.installModulesInTerminal()) {
                 // Ensure we pass a cancellation token so that we await the full terminal command
                 // execution before returning.
                 const cancelToken = token ?? new CancellationTokenSource().token;
@@ -310,6 +299,22 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             // --- End Positron ---
         }
     }
+
+    // --- Start Positron ---
+    /**
+     * Check if the user has enabled the setting to install modules in the terminal.
+     *
+     * `python.installModulesInTerminal` is a setting that allows the user to force modules to be
+     * installed in the Terminal. Usually, such installations occur in the background. However,
+     * for debugging, it can be helpful to see the Terminal output of the installation process.
+     * @returns `true` if the user has enabled the setting to install modules in the Terminal,
+     * `false` if the user has disabled the setting, and `undefined` if the setting is not found.
+     */
+    private installModulesInTerminal(): boolean | undefined {
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        return workspaceService.getConfiguration('python').get<boolean>('installModulesInTerminal');
+    }
+    // --- End Positron ---
 }
 
 export function translateProductToModule(product: Product): string {
