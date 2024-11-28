@@ -158,11 +158,11 @@ jobs:
             github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
             license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-        # one unit test needs this: Can list tables and fields from R connections
-        # - name: Setup R
-        #   uses: ./.github/actions/install-r
-        #   with:
-        #     version: "4.4.0"
+        # one integration test needs this: Connections pane works for R
+        - name: Setup R
+          uses: ./.github/actions/install-r
+          with:
+            version: "4.4.0"
 
         - name: Compile Integration Tests
           run: yarn --cwd test/integration/browser compile
