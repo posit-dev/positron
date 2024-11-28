@@ -100,6 +100,7 @@ _COMMENT_PREFIX = r"#"
 _LINE_MAGIC_PREFIX = r"%"
 _CELL_MAGIC_PREFIX = r"%%"
 _SHELL_PREFIX = "!"
+_HELP_PREFIX_OR_SUFFIX = "?"
 _HELP_TOPIC = "positron/textDocument/helpTopic"
 
 
@@ -664,7 +665,7 @@ def positron_did_close_diagnostics(
 
 
 @jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
-def _publish_diagnostics_debounced(server: JediLanguageServer, uri: str) -> None:
+def _publish_diagnostics_debounced(server: PositronJediLanguageServer, uri: str) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'
     # exception handler.
@@ -675,7 +676,7 @@ def _publish_diagnostics_debounced(server: JediLanguageServer, uri: str) -> None
 
 
 # Adapted from jedi_language_server/server.py::_publish_diagnostics.
-def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
+def _publish_diagnostics(server: PositronJediLanguageServer, uri: str) -> None:
     """Helper function to publish diagnostics for a file."""
     # The debounce decorator delays the execution by 1 second
     # canceling notifications that happen in that interval.
@@ -686,9 +687,14 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
     doc = server.workspace.get_document(uri)
 
-    # Comment out magic/shell command lines so that they don't appear as syntax errors.
+    # Comment out magic/shell/help command lines so that they don't appear as syntax errors.
     source = "\n".join(
-        (f"#{line}" if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX)) else line)
+        (
+            f"#{line}"
+            if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX, _HELP_PREFIX_OR_SUFFIX))
+            or line.rstrip().endswith(_HELP_PREFIX_OR_SUFFIX)
+            else line
+        )
         for line in doc.lines
     )
 

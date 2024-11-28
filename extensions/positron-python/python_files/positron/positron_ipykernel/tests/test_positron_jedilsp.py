@@ -282,6 +282,10 @@ def test_positron_completion_item_resolve(
         (r"%%bash", []),
         # No errors for shell commands.
         ("!ls", []),
+        ("?str", []),
+        ("??str.join", []),
+        ("2?", []),
+        ("object??  ", []),
     ],
 )
 def test_publish_diagnostics(source: str, messages: List[str]):
