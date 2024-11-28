@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as nls from 'vs/nls';
-import { DeferredPromise } from 'vs/base/common/async';
+import { DeferredPromise, disposableTimeout } from 'vs/base/common/async';
 import { Emitter } from 'vs/base/common/event';
 import { Disposable, DisposableStore, IDisposable, toDisposable } from 'vs/base/common/lifecycle';
 import { URI } from 'vs/base/common/uri';
@@ -377,33 +377,30 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
-		let disposable: IDisposable | undefined;
-		const promise = new Promise<void>(resolve => {
-			disposable = sessionDisposables.add(session.onDidEndSession((exit) => {
+		const disposables = sessionDisposables.add(new DisposableStore());
+		const promise = new Promise<void>((resolve, reject) => {
+			disposables.add(session.onDidEndSession((exit) => {
+				disposables.dispose();
 				resolve();
-				disposable?.dispose();
 			}));
-		});
-
-		const timeout = new Promise<void>((_, reject) => {
-			setTimeout(() => {
-				disposable?.dispose();
+			disposables.add(disposableTimeout(() => {
+				disposables.dispose();
 				reject(new Error(`Timed out waiting for runtime ` +
 					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
-			}, 5000);
+			}, 5000));
 		});
 
 		// Ask the runtime to shut down.
 		try {
 			await session.shutdown(exitReason);
-		} catch (err) {
-			disposable?.dispose();
-			throw err;
+		} catch (error) {
+			disposables.dispose();
+			throw error;
 		}
 
 		// Wait for the runtime onDidEndSession to resolve, or for the timeout to expire
 		// (whichever comes first)
-		await Promise.race([promise, timeout]);
+		await promise;
 	}
 
 	/**
