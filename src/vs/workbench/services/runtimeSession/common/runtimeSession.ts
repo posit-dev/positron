@@ -369,14 +369,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	private async doShutdownRuntimeSession(
 		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
+
+		const sessionDisposables = this._sessionDisposables.get(session.sessionId);
+		if (!sessionDisposables) {
+			throw new Error(`No disposables found for session ${session.sessionId}`);
+		}
+
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
 		let disposable: IDisposable | undefined;
 		const promise = new Promise<void>(resolve => {
-			disposable = session.onDidEndSession((exit) => {
+			disposable = sessionDisposables.add(session.onDidEndSession((exit) => {
 				resolve();
 				disposable?.dispose();
-			});
+			}));
 		});
 
 		const timeout = new Promise<void>((_, reject) => {
