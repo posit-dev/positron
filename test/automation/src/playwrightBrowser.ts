@@ -11,9 +11,6 @@ import { URI } from 'vscode-uri';
 import { Logger, measureAndLog } from './logger';
 import type { LaunchOptions } from './code';
 import { PlaywrightDriver } from './playwrightDriver';
-// --- Start Positron ---
-import * as fs from 'fs';
-// --- End Positron ---
 
 const root = join(__dirname, '..', '..', '..');
 
@@ -50,7 +47,6 @@ async function launchServer(options: LaunchOptions) {
 		...process.env,
 	};
 
-	const lockFilePath = join(agentFolder, 'node.lock');
 	const maxRetries = 10;
 	let serverProcess: ChildProcess | null = null;
 	let endpoint: string | undefined;
@@ -63,13 +59,7 @@ async function launchServer(options: LaunchOptions) {
 		logger.log(`Attempting to start server on port ${currentPort}`);
 		logger.log(`Command: '${serverLocation}' ${args.join(' ')}`);
 
-		let lockFile: fs.promises.FileHandle | null = null;
-
 		try {
-			// create and acquire the lock
-			lockFile = await fs.promises.open(lockFilePath, 'w'); // open lock file
-			await lockFile.write('locked'); // write to lock file to signal lock acquisition
-
 			serverProcess = await startServer(serverLocation, args, env, logger);
 			endpoint = await measureAndLog(
 				() => waitForEndpoint(serverProcess!, logger),
@@ -83,20 +73,9 @@ async function launchServer(options: LaunchOptions) {
 			if ((error as Error).message.includes('EADDRINUSE')) {
 				logger.log(`Port ${currentPort} is already in use. Retrying...`);
 				serverProcess?.kill();
-			} else if ((error as Error).message.includes('EBUSY')) {
-				logger.log('Node.js binary is busy. Waiting for lock...');
-				await new Promise(resolve => setTimeout(resolve, 500));
 			} else {
-				throw error;
+				throw error; // Rethrow non-port-related errors
 			}
-		} finally {
-			// ensure the lock file is properly closed and cleaned up
-			if (lockFile) {
-				await lockFile.close();
-			}
-			await fs.promises.unlink(lockFilePath).catch(() => {
-				logger.log(`Failed to remove lock file: ${lockFilePath}`);
-			});
 		}
 	}
 
