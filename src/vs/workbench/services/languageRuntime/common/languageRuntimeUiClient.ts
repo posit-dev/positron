@@ -13,8 +13,8 @@ import { URI } from 'vs/base/common/uri';
 import { ICommandService } from 'vs/platform/commands/common/commands';
 import { ILogService } from 'vs/platform/log/common/log';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from 'vs/workbench/contrib/positronPreview/browser/positronPreview.contribution';
 
+export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
 /**
  * The types of messages that can be sent to the backend.

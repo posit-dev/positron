@@ -76,7 +76,7 @@ export function createTestLanguageRuntimeMetadata(
 	disposables.add(languageRuntimeService.registerRuntime(runtime));
 
 	// Register the test runtime manager.
-	const manager = new TestRuntimeSessionManager();
+	const manager = TestRuntimeSessionManager.instance;
 	disposables.add(runtimeSessionService.registerSessionManager(manager));
 
 	return runtime;
