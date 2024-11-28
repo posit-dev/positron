@@ -224,10 +224,9 @@ export class NotebookSessionService implements vscode.Disposable {
 		// Construct a wrapping promise that resolves/rejects after the session maps have been updated.
 		const shutdownPromise = (async () => {
 			try {
-				const session = await this.doShutdownRuntimeSession(notebookUri);
+				await this.doShutdownRuntimeSession(notebookUri);
 				this._shuttingDownSessionsByNotebookUri.delete(notebookUri);
 				this.setNotebookSession(notebookUri, undefined);
-				log.info(`Session ${session.metadata.sessionId} is shutdown`);
 			} catch (err) {
 				this._startingSessionsByNotebookUri.delete(notebookUri);
 				throw err;
@@ -239,7 +238,7 @@ export class NotebookSessionService implements vscode.Disposable {
 		return shutdownPromise;
 	}
 
-	async doShutdownRuntimeSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession> {
+	async doShutdownRuntimeSession(notebookUri: vscode.Uri): Promise<void> {
 		// Get the notebook's session.
 		let session = this._notebookSessionsByNotebookUri.get(notebookUri);
 
@@ -252,14 +251,14 @@ export class NotebookSessionService implements vscode.Disposable {
 					session = await startingSessionPromise;
 				} catch (err) {
 					log.error(`Waiting for notebook runtime to start before shutting down failed. Reason ${err}`);
-					throw err;
-				}
-			}
-		}
 
-		// Ensure that we have a session.
-		if (!session) {
-			throw new Error(`Tried to shutdown runtime for notebook without a running runtime: ${notebookUri.path}`);
+					// If the session failed to start, we don't need to do anything.
+					return;
+				}
+			} else {
+				// If there's no session and no starting session, we don't need to do anything.
+				return;
+			}
 		}
 
 		// Start the shutdown sequence.
@@ -291,7 +290,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			throw err;
 		}
 
-		return session;
+		log.info(`Session ${session.metadata.sessionId} is shutdown`);
 	}
 
 	/**
