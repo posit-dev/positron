@@ -94,7 +94,7 @@ export class NotebookController implements vscode.Disposable {
 
 				await Promise.all([
 					updateNotebookLanguage(e.notebook, _runtimeMetadata.languageId),
-					this.startRuntimeSession(e.notebook),
+					this.selectRuntimeSession(e.notebook),
 				]);
 			} else {
 				await this._notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
@@ -105,6 +105,16 @@ export class NotebookController implements vscode.Disposable {
 	/** The human-readable label of the controller. */
 	public get label(): string {
 		return this._runtimeMetadata.runtimeName;
+	}
+
+	private async selectRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
+		// If there's an existing session from another runtime, shut it down.
+		if (this._notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
+			await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
+		}
+
+		// Start the new session.
+		await this.startRuntimeSession(notebook);
 	}
 
 	/**
