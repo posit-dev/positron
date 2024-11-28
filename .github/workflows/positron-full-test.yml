@@ -185,6 +185,9 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Preload Node.js Binary
+        run: yarn gulp node
+
       - name: Run Tests (Browser)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
