@@ -192,6 +192,8 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
         run: yarn gulp node
 
