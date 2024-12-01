@@ -22,23 +22,21 @@ on:
 
 env:
   E2E_GREP: ${{ inputs.e2e_grep || '' }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+  _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+  _R_CHECK_CRAN_INCOMING_: false
+  _R_CHECK_SYSTEM_CLOCK_: false
+  AWS_S3_BUCKET: positron-test-reports
+  REPORT_DIR: playwright-report-${{ github.run_id }}
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  e2e-electron:
-    timeout-minutes: 45
-    runs-on: ubuntu-latest-8x
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
-      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
-      _R_CHECK_CRAN_INCOMING_: false
-      _R_CHECK_SYSTEM_CLOCK_: false
-      AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
+  build:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -51,6 +49,56 @@ jobs:
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
+
+      - name: Persist Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: |
+            out
+            build
+            extensions
+            node_modules
+            remote
+            resources
+            test
+            .vscode-test
+            .build
+
+  e2e-electron:
+    timeout-minutes: 45
+    runs-on: ubuntu-latest-8x
+    needs: build
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+    steps:
+      # - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+
+      # - name: Cache node_modules, build, extensions, and remote
+      #   uses: ./.github/actions/cache-multi-paths
+
+      # - name: Setup Build and Compile
+      #   uses: ./.github/actions/setup-build-env
+
+      - name: Configure xvfb Service
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
@@ -87,6 +135,7 @@ jobs:
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    needs: build
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -94,17 +143,27 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
-      - uses: actions/checkout@v4
+      # - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
 
-      - name: Setup Build and Compile
-        uses: ./.github/actions/setup-build-env
+      # - name: Cache node_modules, build, extensions, and remote
+      #   uses: ./.github/actions/cache-multi-paths
+
+      # - name: Setup Build and Compile
+      #   uses: ./.github/actions/setup-build-env
+      - name: Configure xvfb Service
+        shell: bash
+        run: |
+          sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+          sudo chmod +x /etc/init.d/xvfb
+          sudo update-rc.d xvfb defaults
+          sudo service xvfb start
 
       - name: Install Positron License
         uses: ./.github/actions/install-license
@@ -133,6 +192,7 @@ jobs:
   integration-tests:
       runs-on: ubuntu-latest-4x
       timeout-minutes: 20
+      needs: build
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -146,11 +206,21 @@ jobs:
           with:
             node-version-file: .nvmrc
 
-        - name: Cache node_modules, build, extensions, and remote
-          uses: ./.github/actions/cache-multi-paths
+        - name: Download build artifacts
+          uses: actions/download-artifact@v4
 
-        - name: Setup Build and Compile
-          uses: ./.github/actions/setup-build-env
+        # - name: Cache node_modules, build, extensions, and remote
+        #   uses: ./.github/actions/cache-multi-paths
+
+        # - name: Setup Build and Compile
+        #   uses: ./.github/actions/setup-build-env
+        - name: Configure xvfb Service
+          shell: bash
+          run: |
+            sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+            sudo chmod +x /etc/init.d/xvfb
+            sudo update-rc.d xvfb defaults
+            sudo service xvfb start
 
         - name: Install Positron License
           uses: ./.github/actions/install-license
