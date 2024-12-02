@@ -84,6 +84,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
+      - name: Upload JSON report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: json-report
+          path: test-results/results.json
+
   unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
