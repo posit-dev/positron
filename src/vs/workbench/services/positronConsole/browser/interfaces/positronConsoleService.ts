@@ -113,7 +113,7 @@ export enum SessionAttachMode {
 }
 
 /**
- * An event that fires after code has been executed in a language runtime session
+ * Represents a code fragment and its execution options sent to a language runtime.
  */
 export interface ILanguageRuntimeCodeExecutedEvent {
 	/* The code that was executed in the language runtime session */

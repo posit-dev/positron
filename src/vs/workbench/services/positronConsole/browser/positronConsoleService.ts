@@ -2091,8 +2091,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Create the ID for the code that will be executed.
 		const id = `fragment-${generateUuid()}`;
 
-		// If the code exection mode is silent, skip creating a runtimeItem
-		// to prevent the code input from being exposed in the console UI
+		/**
+		 * If the code execution mode is silent, an ActivityItem for the code fragment
+		 * should not be added to avoid UI side effects from the code execution.
+		 */
 		if (mode !== RuntimeCodeExecutionMode.Silent) {
 			// Create the provisional ActivityItemInput.
 			const activityItemInput = new ActivityItemInput(
@@ -2111,7 +2113,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 		}
 
-		// Execute the code.
+		/**
+		 * Execute the code.
+		 *
+		 * The jupyter protocol advises kernels to rebroadcast execution inputs.
+		 * The kernels don't rebroadcast silent input and thus will not be
+		 * added back into the runtimeItemActivities list which powers the UI.
+		 */
 		this.session.execute(
 			code,
 			id,
