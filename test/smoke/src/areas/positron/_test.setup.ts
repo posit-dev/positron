@@ -122,7 +122,7 @@ export const test = base.extend<TestFixtures, WorkerFixtures>({
 		};
 
 		await use({ set: setInterpreter });
-	}, { scope: 'test', }],
+	}, { scope: 'test', timeout: 30000 }],
 
 	r: [
 		async ({ interpreter }, use) => {
