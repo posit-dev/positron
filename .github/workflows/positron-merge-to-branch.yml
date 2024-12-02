@@ -194,6 +194,11 @@ jobs:
     needs: [unit-tests, integration-tests, e2e-electron]
     # if: ${{ failure() && inputs.e2e_grep == '' }}
     steps:
+      - name: Download JSON report
+        uses: actions/download-artifact@v4
+        with:
+          name: json-report
+
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
         with:
