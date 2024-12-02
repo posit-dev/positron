@@ -15,6 +15,7 @@ export default defineConfig<CustomTestOptions>({
 	globalSetup: require.resolve('./test/smoke/src/areas/positron/_global.setup.ts'),
 	testDir: './test/smoke/src/areas/positron',
 	testIgnore: '**/example.test.ts',
+	outputDir: 'test-results/results',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -38,13 +39,13 @@ export default defineConfig<CustomTestOptions>({
 				includeResults: ['fail', 'flaky']
 			}],
 			['junit', { outputFile: 'test-results/junit.xml' }],
-			['list'], ['html'], ['blob'],
-			currentsReporter({
-				ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
-				recordKey: process.env.CURRENTS_RECORD_KEY || '',
-				projectId: 'ZOs5z2',
-				disableTitleTags: true,
-			}),
+			['list'], ['html'], ['blob'], ['json', { outputFile: 'test-results/results.json' }],
+			// currentsReporter({
+			// 	ciBuildId: process.env.CURRENTS_CI_BUILD_ID || Date.now().toString(),
+			// 	recordKey: process.env.CURRENTS_RECORD_KEY || '',
+			// 	projectId: 'ZOs5z2',
+			// 	disableTitleTags: true,
+			// }),
 		]
 		: [
 			['list'],
