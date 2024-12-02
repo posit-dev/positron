@@ -105,7 +105,7 @@ suite('Python Runtime Session', () => {
             onDidReceiveRuntimeMessage: () => ({ dispose() {} }),
             onDidEndSession: () => ({ dispose() {} }),
             start() {
-                return Promise.resolve();
+                return Promise.resolve({} as positron.LanguageRuntimeInfo);
             },
         } as Partial<JupyterLanguageRuntimeSession>) as JupyterLanguageRuntimeSession;
 
