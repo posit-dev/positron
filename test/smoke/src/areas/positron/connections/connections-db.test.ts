@@ -29,6 +29,9 @@ test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr'] }, () => {
 
 		await test.step('Open connections pane', async () => {
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
+			// there is a flake of the db connection not displaying in the connections pane after
+			// clicking the db icon. i want to see if waiting for a second will help
+			await app.code.driver.page.waitForTimeout(1000);
 			await app.workbench.positronVariables.clickDatabaseIconForVariableRow('conn');
 			await app.workbench.positronConnections.connectIcon.click();
 		});

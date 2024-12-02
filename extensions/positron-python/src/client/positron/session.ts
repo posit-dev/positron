@@ -107,7 +107,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         const interpreter = interpreterService.getInterpreters().find((i) => i.id === extraData.pythonEnvironmentId);
         if (!interpreter) {
-            throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
+            const interpreterIds = interpreterService.getInterpreters().map((i) => `\n- ${i.id}`);
+            throw new Error(
+                `Interpreter ${extraData.pythonEnvironmentId} (path: ${extraData.pythonPath}) not found in available Python interpreters: ${interpreterIds}`,
+            );
         }
         this.interpreter = interpreter;
 

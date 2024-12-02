@@ -70,8 +70,13 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: "electron,${{ inputs.e2e_grep }}"
         id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep="${{ env.E2E_GREP }}"
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -79,7 +84,7 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
-  unit-integration:
+  unit-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -113,21 +118,73 @@ jobs:
         with:
           version: "4.4.0"
 
-      - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
+      - name: Run Unit Tests (Electron)
+        id: electron-unit-tests
+        run: DISPLAY=:10 ./scripts/test.sh
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: yarn test-node
 
-      - name: Run Integration Tests (Electron)
-        id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+      - name: Run Unit Tests (Browser, Chromium)
+        id: browser-unit-tests
+        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+
+  integration-tests:
+      runs-on: ubuntu-latest-4x
+      timeout-minutes: 20
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+        _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+        _R_CHECK_CRAN_INCOMING_: false
+        _R_CHECK_SYSTEM_CLOCK_: false
+      steps:
+        - uses: actions/checkout@v4
+
+        - uses: actions/setup-node@v4
+          with:
+            node-version-file: .nvmrc
+
+        - name: Cache node_modules, build, extensions, and remote
+          uses: ./.github/actions/cache-multi-paths
+
+        - name: Setup Build and Compile
+          uses: ./.github/actions/setup-build-env
+
+        - name: Install Positron License
+          uses: ./.github/actions/install-license
+          with:
+            github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+            license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+
+        # one integration test needs this: Connections pane works for R
+        - name: Setup R
+          uses: ./.github/actions/install-r
+          with:
+            version: "4.4.0"
+
+        - name: Compile Integration Tests
+          run: yarn --cwd test/integration/browser compile
+
+        - name: Run Integration Tests (Electron)
+          id: electron-integration-tests
+          run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+
+        - name: Run Integration Tests (Remote)
+          if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+          id: electron-remote-integration-tests
+          run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+
+        - name: Run Integration Tests (Browser, Chromium)
+          if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+          id: browser-integration-tests
+          run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   slack-notification:
     name: "Send Slack notification"
     runs-on: ubuntu-latest
-    needs: [unit-integration, e2e-electron]
+    needs: [unit-tests, integration-tests, e2e-electron]
     if: ${{ failure() && inputs.e2e_grep == '' }}
     steps:
       - name: "Send Slack notification"

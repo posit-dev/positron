@@ -107,6 +107,10 @@ export class TestPositronModalDialogService implements IPositronModalDialogsServ
 	}
 }
 export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager {
+	public static readonly instance = new TestRuntimeSessionManager();
+
+	private _validateMetadata?: (metadata: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>;
+
 	async managesRuntime(runtime: ILanguageRuntimeMetadata): Promise<boolean> {
 		return true;
 	}
@@ -119,7 +123,14 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 		return new TestLanguageRuntimeSession(sessionMetadata, runtimeMetadata);
 	}
 
-	validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
-		throw new Error('Method not implemented');
+	async validateMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata> {
+		if (this._validateMetadata) {
+			return this._validateMetadata(metadata);
+		}
+		return metadata;
+	}
+
+	setValidateMetadata(handler: (metadata: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>): void {
+		this._validateMetadata = handler;
 	}
 }

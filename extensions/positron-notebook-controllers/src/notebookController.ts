@@ -331,10 +331,19 @@ function executeCode(
 					}
 				}
 			}).catch(error => {
+				// Stop listening for replies.
 				handler.dispose();
+
+				// Reject the outer execution promise since we've encountered an error.
 				reject(error);
+
+				// Rethrow the error to stop any replies that are chained to this promise.
 				throw error;
 			});
+
+			// Avoid unhandled rejections being logged to the console.
+			// The actual error-handling is in the catch block above.
+			currentMessagePromise.catch(() => { });
 		});
 
 		// Execute the cell.

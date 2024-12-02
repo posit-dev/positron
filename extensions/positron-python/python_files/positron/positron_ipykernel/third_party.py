@@ -9,7 +9,13 @@
 # checking.
 
 
-def _get_numpy():
+class RestartRequiredError(Exception):
+    """Raised when a restart is required to load a third party package."""
+
+    pass
+
+
+def import_numpy():
     try:
         import numpy
     except ImportError:
@@ -17,7 +23,7 @@ def _get_numpy():
     return numpy
 
 
-def _get_pandas():
+def import_pandas():
     try:
         import pandas
     except ImportError:
@@ -25,7 +31,7 @@ def _get_pandas():
     return pandas
 
 
-def _get_polars():
+def import_polars():
     try:
         import polars
     except ImportError:
@@ -33,7 +39,7 @@ def _get_polars():
     return polars
 
 
-def _get_torch():
+def import_torch():
     try:
         import torch  # type: ignore [reportMissingImports] for 3.12
     except ImportError:
@@ -41,7 +47,7 @@ def _get_torch():
     return torch
 
 
-def _get_pyarrow():
+def import_pyarrow():
     try:
         import pyarrow  # type: ignore [reportMissingImports] for 3.12
     except ImportError:
@@ -49,7 +55,7 @@ def _get_pyarrow():
     return pyarrow
 
 
-def _get_sqlalchemy():
+def import_sqlalchemy():
     try:
         import sqlalchemy
     except ImportError:
@@ -59,11 +65,12 @@ def _get_sqlalchemy():
 
 # Currently, pyright only correctly infers the types below as `Optional` if we set their values
 # using function calls.
-np_ = _get_numpy()
-pa_ = _get_pyarrow()
-pd_ = _get_pandas()
-pl_ = _get_polars()
-torch_ = _get_torch()
-sqlalchemy_ = _get_sqlalchemy()
+np_ = import_numpy()
+pa_ = import_pyarrow()
+pd_ = import_pandas()
+pl_ = import_polars()
+torch_ = import_torch()
+sqlalchemy_ = import_sqlalchemy()
+
 
 __all__ = ["np_", "pa_", "pd_", "pl_", "torch_", "sqlalchemy_"]

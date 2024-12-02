@@ -96,11 +96,6 @@ jobs:
   e2e-electron-tests:
     runs-on: ubuntu-latest-8x
     timeout-minutes: 60
-    strategy:
-      fail-fast: false
-      matrix:
-        shardIndex: [1, 2]
-        shardTotal: [2]
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -131,14 +126,20 @@ jobs:
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: "electron"
         id: electron-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 1 --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: blob-report-electron-${{ matrix.shardIndex }}
+          name: blob-report-electron
           path: blob-report
           retention-days: 14
 
@@ -146,11 +147,18 @@ jobs:
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: junit-report-electron-${{ matrix.shardIndex }}
+          name: junit-report-electron
           path: test-results/junit.xml
 
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-electron
+          path: test-logs
+
   e2e-browser-tests:
-    runs-on: ubuntu-latest-4x
+    runs-on: ubuntu-latest-8x
     timeout-minutes: 50
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -184,12 +192,23 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        run: yarn gulp node
+
       - name: Run Tests (Browser)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_PROJECT_ID: ZOs5z2
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: "chromium"
         id: browser-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 1
+        run: DISPLAY=:10 npx playwright test --project e2e-browser --workers 2
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
@@ -198,6 +217,13 @@ jobs:
           name: blob-report-browser
           path: blob-report
           retention-days: 14
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-browser
+          path: test-logs
 
       - name: Clean up license files
         if: always()

@@ -12,6 +12,7 @@ test.use({
 
 test.beforeEach(async function ({ app }) {
 	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
+	await app.workbench.positronLayouts.enterLayout("stacked");
 });
 
 test.describe('R - New Project Wizard', () => {
@@ -28,6 +29,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.NEXT);
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.
@@ -45,6 +47,7 @@ test.describe('R - New Project Wizard', () => {
 		await pw.rConfigurationStep.renvCheckbox.click();
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
+		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// Interact with the modal to install renv
 		await app.workbench.positronPopups.installRenv();
@@ -144,6 +147,7 @@ test.describe('Jupyter - New Project Wizard', () => {
 		await pw.navigate(ProjectWizardNavigateAction.CREATE);
 		await pw.currentOrNewWindowSelectionModal.currentWindowButton.click();
 		await app.code.driver.wait(10000);
+		await app.workbench.positronLayouts.enterLayout("fullSizedSidebar");
 		await expect(app.code.driver.page.getByRole('button', { name: `Explorer Section: ${defaultProjectName + projSuffix}` })).toBeVisible({ timeout: 15000 });
 		// NOTE: For completeness, we probably want to await app.workbench.positronConsole.waitForReady('>>>', 10000);
 		// here, but it's timing out in CI, so it is not included for now.

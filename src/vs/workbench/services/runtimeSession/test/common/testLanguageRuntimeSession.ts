@@ -11,6 +11,7 @@ import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadat
 import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeClientEvent } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
 import { TestRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/test/common/testRuntimeClientInstance';
+import { CancellationError } from 'vs/base/common/errors';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -166,10 +167,24 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async restart(): Promise<void> {
 		await this.shutdown(RuntimeExitReason.Restart);
-		await this.start();
+
+		// Wait for the session to exit, then start it again.
+		const disposable = this._register(this.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exited) {
+				disposable.dispose();
+				this.start();
+			}
+		}));
 	}
 
 	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
+		if (this._currentState !== RuntimeState.Idle &&
+			this._currentState !== RuntimeState.Busy &&
+			this._currentState !== RuntimeState.Ready) {
+			throw new Error('Cannot shut down kernel; it is not (yet) running.' +
+				` (state = ${this._currentState})`);
+		}
+
 		if (exitReason === RuntimeExitReason.Restart) {
 			this._onDidChangeRuntimeState.fire(RuntimeState.Restarting);
 		} else {
@@ -198,10 +213,6 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 
 	async showProfile(): Promise<void> {
 		throw new Error('Not implemented.');
-	}
-
-	override dispose() {
-		super.dispose();
 	}
 
 	// Test helpers
@@ -365,4 +376,25 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			runtime_name: this.runtimeMetadata.runtimeName,
 		});
 	}
+}
+
+export async function waitForRuntimeState(
+	session: ILanguageRuntimeSession,
+	state: RuntimeState,
+	timeout = 10_000,
+) {
+	return new Promise<void>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			disposable.dispose();
+			reject(new CancellationError());
+		}, timeout);
+
+		const disposable = session.onDidChangeRuntimeState(newState => {
+			if (newState === state) {
+				clearTimeout(timer);
+				disposable.dispose();
+				resolve();
+			}
+		});
+	});
 }
