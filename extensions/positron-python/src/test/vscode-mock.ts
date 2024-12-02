@@ -147,7 +147,7 @@ mockedVSCode.ViewColumn = vscodeMocks.vscMockExtHostedTypes.ViewColumn;
 mockedVSCode.TextEditorRevealType = vscodeMocks.vscMockExtHostedTypes.TextEditorRevealType;
 mockedVSCode.TreeItem = vscodeMocks.vscMockExtHostedTypes.TreeItem;
 mockedVSCode.TreeItemCollapsibleState = vscodeMocks.vscMockExtHostedTypes.TreeItemCollapsibleState;
-mockedVSCode.CodeActionKind = vscodeMocks.CodeActionKind;
+(mockedVSCode as any).CodeActionKind = vscodeMocks.CodeActionKind;
 mockedVSCode.CompletionItemKind = vscodeMocks.CompletionItemKind;
 mockedVSCode.CompletionTriggerKind = vscodeMocks.CompletionTriggerKind;
 mockedVSCode.DebugAdapterExecutable = vscodeMocks.DebugAdapterExecutable;
@@ -167,6 +167,7 @@ mockedVSCode.LogLevel = vscodeMocks.LogLevel;
 (mockedVSCode as any).ProtocolTypeHierarchyItem = vscodeMocks.vscMockExtHostedTypes.ProtocolTypeHierarchyItem;
 (mockedVSCode as any).CancellationError = vscodeMocks.vscMockExtHostedTypes.CancellationError;
 (mockedVSCode as any).LSPCancellationError = vscodeMocks.vscMockExtHostedTypes.LSPCancellationError;
+mockedVSCode.TestRunProfileKind = vscodeMocks.TestRunProfileKind;
 // --- Start Positron ---
 mockedPositron.LanguageRuntimeSessionMode = positronMocks.LanguageRuntimeSessionMode;
 // --- End Positron ---

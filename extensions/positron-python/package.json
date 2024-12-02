@@ -25,7 +25,9 @@
         "quickPickItemTooltip",
         "terminalDataWriteEvent",
         "terminalExecuteCommandEvent",
-        "contribIssueReporter"
+        "codeActionAI",
+        "notebookReplDocument",
+        "notebookVariableProvider"
     ],
     "author": {
         "name": "Posit Software, PBC",
@@ -52,7 +54,7 @@
         "theme": "dark"
     },
     "engines": {
-        "vscode": "^1.91.0"
+        "vscode": "^1.94.0-20240918"
     },
     "enableTelemetry": false,
     "keywords": [
@@ -73,6 +75,7 @@
         "onDebugInitialConfigurations",
         "onLanguage:python",
         "onDebugResolve:python",
+        "onCommand:python.copilotSetupTests",
         "workspaceContains:mspythonconfig.json",
         "workspaceContains:pyproject.toml",
         "workspaceContains:Pipfile",
@@ -87,6 +90,28 @@
     "browser": "./dist/extension.browser.js",
     "l10n": "./l10n",
     "contributes": {
+        "problemMatchers": [
+            {
+                "name": "python",
+                "owner": "python",
+                "source": "python",
+                "fileLocation": "autoDetect",
+                "pattern": [
+                    {
+                        "regexp": "^.*File \\\"([^\\\"]|.*)\\\", line (\\d+).*",
+                        "file": 1,
+                        "line": 2
+                    },
+                    {
+                        "regexp": "^\\s*(.*)\\s*$"
+                    },
+                    {
+                        "regexp": "^\\s*(.*Error.*)$",
+                        "message": 1
+                    }
+                ]
+            }
+        ],
         "walkthroughs": [
             {
                 "id": "pythonWelcome",
@@ -661,10 +686,7 @@
                         "Warning"
                     ],
                     "scope": "resource",
-                    "type": "string",
-                    "tags": [
-                        "experimental"
-                    ]
+                    "type": "string"
                 },
                 "python.locator": {
                     "default": "js",
@@ -674,7 +696,8 @@
                         "native"
                     ],
                     "tags": [
-                        "experimental"
+                        "onExP",
+                        "preview"
                     ],
                     "scope": "machine",
                     "type": "string"
@@ -741,6 +764,15 @@
                     "scope": "resource",
                     "type": "array"
                 },
+                "python.terminal.shellIntegration.enabled": {
+                    "default": false,
+                    "markdownDescription": "%python.terminal.shellIntegration.enabled.description%",
+                    "scope": "resource",
+                    "type": "boolean",
+                    "tags": [
+                        "preview"
+                    ]
+                },
                 "python.REPL.enableREPLSmartSend": {
                     "default": true,
                     "description": "%python.EnableREPLSmartSend.description%",
@@ -753,8 +785,15 @@
                     "scope": "resource",
                     "type": "boolean",
                     "tags": [
-                        "experimental"
+                        "onExP",
+                        "preview"
                     ]
+                },
+                "python.REPL.provideVariables": {
+                    "default": true,
+                    "description": "%python.REPL.provideVariables.description%",
+                    "scope": "resource",
+                    "type": "boolean"
                 },
                 "python.testing.autoTestDiscoverOnSaveEnabled": {
                     "default": true,
@@ -1261,6 +1300,11 @@
                 "when": "false"
             },
             {
+                "command": "python.execInInteractiveWindowEnter",
+                "key": "enter",
+                "when": "false"
+            },
+            {
                 "command": "python.refreshTensorBoard",
                 "key": "ctrl+r",
                 "mac": "cmd+r",
@@ -1327,7 +1371,8 @@
             {
                 "filenames": [
                     "Pipfile",
-                    "poetry.lock"
+                    "poetry.lock",
+                    "uv.lock"
                 ],
                 "id": "toml"
             },
@@ -1771,6 +1816,11 @@
             }
         ]
     },
+    "copilot": {
+        "tests": {
+            "getSetupConfirmation": "python.copilotSetupTests"
+        }
+    },
     "scripts": {
         "package": "gulp clean && gulp prePublishBundle && vsce package -o ms-python-insiders.vsix",
         "prePublish": "gulp clean && gulp prePublishNonBundle",
@@ -1864,7 +1914,7 @@
         "@types/sinon": "^17.0.3",
         "@types/stack-trace": "0.0.29",
         "@types/tmp": "^0.0.33",
-        "@types/vscode": "^1.81.0",
+        "@types/vscode": "^1.93.0",
         "@types/which": "^2.0.1",
         "@types/winreg": "^1.2.30",
         "@types/xml2js": "0.4.9",
@@ -1886,6 +1936,7 @@
         "eslint-config-prettier": "^8.3.0",
         "eslint-plugin-import": "^2.29.1",
         "eslint-plugin-jsx-a11y": "^6.3.1",
+        "eslint-plugin-no-only-tests": "^3.3.0",
         "eslint-plugin-react": "^7.20.3",
         "eslint-plugin-react-hooks": "^4.0.0",
         "expose-loader": "^3.1.0",

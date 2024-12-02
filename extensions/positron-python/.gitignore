@@ -55,3 +55,8 @@ python_files/positron/positron_ipykernel/tests/images
 python_files/positron/positron_ipykernel/_vendor/**
 # --- End Positron ---
 python-env-tools/**
+# coverage files produced as test output
+python_files/tests/*/.data/.coverage*
+python_files/tests/*/.data/*/.coverage*
+src/testTestingRootWkspc/coverageWorkspace/.coverage
+

@@ -24,7 +24,6 @@ export interface ICodeExecutionHelper {
 export const ICodeExecutionManager = Symbol('ICodeExecutionManager');
 
 export interface ICodeExecutionManager {
-    onExecutedCode: Event<string>;
     registerCommands(): void;
 }
 
@@ -42,8 +41,8 @@ export interface ITerminalEnvVarCollectionService {
     isTerminalPromptSetCorrectly(resource?: Resource): boolean;
 }
 
-export const IShellIntegrationService = Symbol('IShellIntegrationService');
-export interface IShellIntegrationService {
+export const IShellIntegrationDetectionService = Symbol('IShellIntegrationDetectionService');
+export interface IShellIntegrationDetectionService {
     onDidChangeStatus: Event<void>;
     isWorking(): Promise<boolean>;
 }
@@ -52,4 +51,9 @@ export const ITerminalDeactivateService = Symbol('ITerminalDeactivateService');
 export interface ITerminalDeactivateService {
     initializeScriptParams(shell: string): Promise<void>;
     getScriptLocation(shell: string, resource: Resource): Promise<string | undefined>;
+}
+
+export const IPythonStartupEnvVarService = Symbol('IPythonStartupEnvVarService');
+export interface IPythonStartupEnvVarService {
+    register(): void;
 }

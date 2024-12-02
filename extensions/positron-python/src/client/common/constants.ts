@@ -70,6 +70,7 @@ export namespace Commands {
     export const Exec_In_REPL = 'python.execInREPL';
     export const Exec_Selection_In_Django_Shell = 'python.execSelectionInDjangoShell';
     export const Exec_In_REPL_Enter = 'python.execInREPLEnter';
+    export const Exec_In_IW_Enter = 'python.execInInteractiveWindowEnter';
     export const Exec_Selection_In_Terminal = 'python.execSelectionInTerminal';
     // --- Start Positron ---
     export const Focus_Positron_Console = 'workbench.panel.positronConsole.focus';
@@ -95,6 +96,7 @@ export namespace Commands {
     export const Start_REPL = 'python.startREPL';
     export const Start_Native_REPL = 'python.startNativeREPL';
     export const Tests_Configure = 'python.configureTests';
+    export const Tests_CopilotSetup = 'python.copilotSetupTests';
     export const TriggerEnvironmentSelection = 'python.triggerEnvSelection';
     export const ViewOutput = 'python.viewOutput';
 }
@@ -140,8 +142,6 @@ export function isTestExecution(): boolean {
 /**
  * Whether we're running unit tests (*.unit.test.ts).
  * These tests have a special meaning, they run fast.
- * @export
- * @returns {boolean}
  */
 export function isUnitTestExecution(): boolean {
     return process.env.VSC_PYTHON_UNIT_TEST === '1';

@@ -10,9 +10,14 @@ import {
     Location,
     TestRun,
     MarkdownString,
+    TestCoverageCount,
+    FileCoverage,
+    FileCoverageDetail,
+    StatementCoverage,
+    Range,
 } from 'vscode';
 import * as util from 'util';
-import { DiscoveredTestPayload, EOTTestPayload, ExecutionTestPayload, ITestResultResolver } from './types';
+import { CoveragePayload, DiscoveredTestPayload, ExecutionTestPayload, ITestResultResolver } from './types';
 import { TestProvider } from '../../types';
 import { traceError, traceVerbose } from '../../../logging';
 import { Testing } from '../../../common/utils/localize';
@@ -21,7 +26,6 @@ import { sendTelemetryEvent } from '../../../telemetry';
 import { EventName } from '../../../telemetry/constants';
 import { splitLines } from '../../../common/stringUtils';
 import { buildErrorNodeOptions, populateTestTree, splitTestNameWithRegex } from './utils';
-import { Deferred } from '../../../common/utils/async';
 
 export class PythonResultResolver implements ITestResultResolver {
     testController: TestController;
@@ -36,6 +40,8 @@ export class PythonResultResolver implements ITestResultResolver {
 
     public subTestStats: Map<string, { passed: number; failed: number }> = new Map();
 
+    public detailedCoverageMap = new Map<string, FileCoverageDetail[]>();
+
     constructor(testController: TestController, testProvider: TestProvider, private workspaceUri: Uri) {
         this.testController = testController;
         this.testProvider = testProvider;
@@ -45,14 +51,8 @@ export class PythonResultResolver implements ITestResultResolver {
         this.vsIdToRunId = new Map<string, string>();
     }
 
-    public resolveDiscovery(
-        payload: DiscoveredTestPayload | EOTTestPayload,
-        deferredTillEOT: Deferred<void>,
-        token?: CancellationToken,
-    ): void {
-        if ('eot' in payload && payload.eot === true) {
-            deferredTillEOT.resolve();
-        } else if (!payload) {
+    public resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void {
+        if (!payload) {
             // No test data is available
         } else {
             this._resolveDiscovery(payload as DiscoveredTestPayload, token);
@@ -104,17 +104,57 @@ export class PythonResultResolver implements ITestResultResolver {
         });
     }
 
-    public resolveExecution(
-        payload: ExecutionTestPayload | EOTTestPayload,
-        runInstance: TestRun,
-        deferredTillEOT: Deferred<void>,
-    ): void {
-        if ('eot' in payload && payload.eot === true) {
-            // eot sent once per connection
-            traceVerbose('EOT received, resolving deferredTillServerClose');
-            deferredTillEOT.resolve();
+    public resolveExecution(payload: ExecutionTestPayload | CoveragePayload, runInstance: TestRun): void {
+        if ('coverage' in payload) {
+            // coverage data is sent once per connection
+            traceVerbose('Coverage data received.');
+            this._resolveCoverage(payload as CoveragePayload, runInstance);
         } else {
             this._resolveExecution(payload as ExecutionTestPayload, runInstance);
+        }
+    }
+
+    public _resolveCoverage(payload: CoveragePayload, runInstance: TestRun): void {
+        if (payload.result === undefined) {
+            return;
+        }
+        for (const [key, value] of Object.entries(payload.result)) {
+            const fileNameStr = key;
+            const fileCoverageMetrics = value;
+            const linesCovered = fileCoverageMetrics.lines_covered ? fileCoverageMetrics.lines_covered : []; // undefined if no lines covered
+            const linesMissed = fileCoverageMetrics.lines_missed ? fileCoverageMetrics.lines_missed : []; // undefined if no lines missed
+
+            const lineCoverageCount = new TestCoverageCount(
+                linesCovered.length,
+                linesCovered.length + linesMissed.length,
+            );
+            const uri = Uri.file(fileNameStr);
+            const fileCoverage = new FileCoverage(uri, lineCoverageCount);
+            runInstance.addCoverage(fileCoverage);
+
+            // create detailed coverage array for each file (only line coverage on detailed, not branch)
+            const detailedCoverageArray: FileCoverageDetail[] = [];
+            // go through all covered lines, create new StatementCoverage, and add to detailedCoverageArray
+            for (const line of linesCovered) {
+                // line is 1-indexed, so we need to subtract 1 to get the 0-indexed line number
+                // true value means line is covered
+                const statementCoverage = new StatementCoverage(
+                    true,
+                    new Range(line - 1, 0, line - 1, Number.MAX_SAFE_INTEGER),
+                );
+                detailedCoverageArray.push(statementCoverage);
+            }
+            for (const line of linesMissed) {
+                // line is 1-indexed, so we need to subtract 1 to get the 0-indexed line number
+                // false value means line is NOT covered
+                const statementCoverage = new StatementCoverage(
+                    false,
+                    new Range(line - 1, 0, line - 1, Number.MAX_SAFE_INTEGER),
+                );
+                detailedCoverageArray.push(statementCoverage);
+            }
+
+            this.detailedCoverageMap.set(uri.fsPath, detailedCoverageArray);
         }
     }
 
