@@ -59,5 +59,10 @@
 	"r.configuration.pipe.native.description": "Native pipe available in R >= 4.1",
 	"r.configuration.pipe.magrittr.description": "Pipe operator from the magrittr package, re-exported by many other packages",
 	"r.configuration.diagnostics.enable.description": "Enable R diagnostics globally",
-	"r.configuration.taskHyperlinks.description": "Turn on experimental support for hyperlinks in package development tasks"
+	"r.configuration.taskHyperlinks.description": "Turn on experimental support for hyperlinks in package development tasks",
+	"r.configuration.defaultRepositories.description": "The default repositories to use for R package installation, if no repository is otherwise specified in R startup scripts (restart Positron to apply).\n\nThe default repositories will be set as the `repos` option in R.",
+	"r.configuration.defaultRepositories.auto.description": "Automatically choose a default repository, or use a repos.conf file if it exists.",
+	"r.configuration.defaultRepositories.rstudio.description": "Use the RStudio CRAN mirror (cran.rstudio.com)",
+	"r.configuration.defaultRepositories.posit-ppm.description": "Use the Posit public package manager (packagemanager.posit.co)",
+	"r.configuration.defaultRepositories.none.description": "Do not set a default repository or change the value of the 'repos' option"
 }
