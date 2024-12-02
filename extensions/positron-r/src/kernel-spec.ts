@@ -100,7 +100,7 @@ export function createJupyterKernelSpec(
 		if (reposConf) {
 			// If there's a `repos.conf` file in a well-known directory, use
 			// that.
-			argv.push(...['--default-repos', reposConf]);
+			argv.push(...['--repos-conf', reposConf]);
 		} else if (vscode.env.uiKind === vscode.UIKind.Web) {
 			// No repos.conf; if we're web mode use Posit's Public Package
 			// Manager
