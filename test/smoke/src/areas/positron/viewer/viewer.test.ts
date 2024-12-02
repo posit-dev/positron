@@ -15,7 +15,9 @@ test.describe('Viewer', () => {
 		await app.workbench.positronViewer.clearViewer();
 	});
 
-	test('Python - Verify Viewer functionality with vetiver [C784887]', async function ({ app, logger, python }) {
+	test.skip('Python - Verify Viewer functionality with vetiver [C784887]', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5569' }]
+	}, async function ({ app, logger, python }) {
 		logger.log('Sending code to console');
 		await app.workbench.positronConsole.pasteCodeToConsole(pythonScript);
 		await app.workbench.positronConsole.sendEnterKey();
