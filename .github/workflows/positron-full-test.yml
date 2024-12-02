@@ -133,7 +133,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "electron"
         id: electron-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 3
+        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2
 
       - name: Upload blob report
         if: ${{ !cancelled() }}
@@ -149,6 +149,13 @@ jobs:
         with:
           name: junit-report-electron
           path: test-results/junit.xml
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-electron
+          path: test-logs
 
   e2e-browser-tests:
     runs-on: ubuntu-latest-8x
@@ -185,6 +192,11 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        run: yarn gulp node
+
       - name: Run Tests (Browser)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
@@ -205,6 +217,13 @@ jobs:
           name: blob-report-browser
           path: blob-report
           retention-days: 14
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-browser
+          path: test-logs
 
       - name: Clean up license files
         if: always()
