@@ -53,7 +53,7 @@ jobs:
       - name: Persist Build Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: build-artifacts
+          name: build
           path: |
             out
             build
@@ -80,9 +80,9 @@ jobs:
     steps:
       # - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version-file: .nvmrc
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -145,9 +145,9 @@ jobs:
     steps:
       # - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
+      # - uses: actions/setup-node@v4
+      #   with:
+      #     node-version-file: .nvmrc
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
@@ -208,6 +208,9 @@ jobs:
 
         - name: Download build artifacts
           uses: actions/download-artifact@v4
+          with:
+            name: build
+            path: positron/
 
         # - name: Cache node_modules, build, extensions, and remote
         #   uses: ./.github/actions/cache-multi-paths
