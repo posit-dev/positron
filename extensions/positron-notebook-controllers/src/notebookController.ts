@@ -41,8 +41,19 @@ export class NotebookController implements vscode.Disposable {
 
 	private readonly _disposables: vscode.Disposable[] = [];
 
-	/** A map of pending cell executions, keyed by notebook URI. */
+	/**
+	 * A map of the last queued cell execution promise for each notebook, keyed by notebook URI.
+	 * Each queued cell execution promise is chained to the previous one for the notebook,
+	 * so that cells are executed in order.
+	 */
 	private readonly _pendingCellExecutionsByNotebookUri = new ResourceMap<Promise<void>>();
+
+	/**
+	 * A map of cancellation token sources for each notebook execution, keyed by notebook URI.
+	 * These allow execution promises to be cancelled when interrupting the session fails or is not
+	 * possible.
+	 */
+	private readonly _executionTokenSourceByNotebookUri = new ResourceMap<vscode.CancellationTokenSource>();
 
 	/** The wrapped VSCode notebook controller. */
 	public readonly controller: vscode.NotebookController;
@@ -79,6 +90,7 @@ export class NotebookController implements vscode.Disposable {
 		);
 		this.controller.description = _runtimeMetadata.runtimePath;
 		this.controller.supportsExecutionOrder = true;
+		this.controller.interruptHandler = this.interruptRuntimeSession.bind(this);
 		this.controller.executeHandler = this.executeCells.bind(this);
 		this.controller.supportedLanguages = [this._runtimeMetadata.languageId, 'raw'];
 
@@ -136,6 +148,35 @@ export class NotebookController implements vscode.Disposable {
 	}
 
 	/**
+	 * Interrupt a runtime session for a notebook.
+	 *
+	 * @param notebook The notebook to interrupt the runtime for.
+	 * @returns Promise that resolves when the runtime has been interrupted, or if that is not
+	 *  possible, resolves when the execution promise has been cancelled.
+	 */
+	private async interruptRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
+		// If the notebook has a session, interrupt it.
+		const session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		if (session) {
+			await session.interrupt();
+			return;
+		}
+
+		const tokenSource = this._executionTokenSourceByNotebookUri.get(notebook.uri);
+		if (!tokenSource) {
+			// It shouldn't be possible to interrupt an execution without having set a token source.
+			// Log a warning and do nothing.
+			log.warn(`Tried to interrupt notebook ${notebook.uri.toString()} with no executing cell.`);
+			return;
+		}
+
+		// It's possible that the session exited after the execution started.
+		// Log a warning and cancel the execution promise.
+		log.warn(`Tried to interrupt notebook ${notebook.uri.toString()} with no running session. Cancelling execution.`);
+		tokenSource.cancel();
+	}
+
+	/**
 	 * Notebook controller execute handler.
 	 *
 	 * @param cells Cells to execute.
@@ -148,11 +189,20 @@ export class NotebookController implements vscode.Disposable {
 
 		this._onDidStartExecution.fire({ cells });
 
+		// Create a cancellation token source for this execution.
+		const tokenSource = new vscode.CancellationTokenSource();
+		this._executionTokenSourceByNotebookUri.set(notebook.uri, tokenSource);
+
 		// Queue all cells for execution; catch and log any execution errors.
 		try {
-			await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook)));
+			await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook, tokenSource.token)));
 		} catch (err) {
 			log.debug(`Error executing cells: ${err}`);
+		} finally {
+			// Clean up the cancellation token source for this execution.
+			if (this._executionTokenSourceByNotebookUri.get(notebook.uri) === tokenSource) {
+				this._executionTokenSourceByNotebookUri.delete(notebook.uri);
+			}
 		}
 
 		const duration = Date.now() - startTime;
@@ -165,13 +215,17 @@ export class NotebookController implements vscode.Disposable {
 	 * @param cell Cell to execute.
 	 * @returns Promise that resolves when the runtime has finished executing the cell.
 	 */
-	private queueCellExecution(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+	private queueCellExecution(
+		cell: vscode.NotebookCell,
+		notebook: vscode.NotebookDocument,
+		token: vscode.CancellationToken,
+	): Promise<void> {
 		// Get the pending execution for this notebook, if one exists.
 		const pendingExecution = this._pendingCellExecutionsByNotebookUri.get(cell.notebook.uri);
 
 		// Chain this execution after the pending one.
 		const currentExecution = Promise.resolve(pendingExecution)
-			.then(() => this.executeCell(cell, notebook))
+			.then(() => this.executeCell(cell, notebook, token))
 			.finally(() => {
 				// If this was the last execution in the chain, remove it from the map,
 				// starting a new chain.
@@ -186,7 +240,11 @@ export class NotebookController implements vscode.Disposable {
 		return currentExecution;
 	}
 
-	private async executeCell(cell: vscode.NotebookCell, notebook: vscode.NotebookDocument): Promise<void> {
+	private async executeCell(
+		cell: vscode.NotebookCell,
+		notebook: vscode.NotebookDocument,
+		token: vscode.CancellationToken,
+	): Promise<void> {
 		if (cell.document.languageId === 'raw') {
 			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 			return;
@@ -222,6 +280,7 @@ export class NotebookController implements vscode.Disposable {
 				mode: positron.RuntimeCodeExecutionMode.Interactive,
 				errorBehavior: positron.RuntimeErrorBehavior.Stop,
 				callback: message => this.handleMessageForCellExecution(message, currentExecution, session),
+				token,
 			});
 			currentExecution.end(true, Date.now());
 		} catch (error) {
@@ -300,9 +359,17 @@ function executeCode(
 		mode: positron.RuntimeCodeExecutionMode;
 		errorBehavior: positron.RuntimeErrorBehavior;
 		callback: (message: positron.LanguageRuntimeMessage) => Promise<unknown>;
+		token?: vscode.CancellationToken;
 	}
 ) {
 	return new Promise<void>((resolve, reject) => {
+		// If the token is cancelled, reject the promise.
+		// This should only be used if calling session.interrupt() fails or is not possible.
+		options.token?.onCancellationRequested(() => {
+			handler.dispose();
+			reject(new vscode.CancellationError());
+		});
+
 		// Create a promise tracking the current message for the cell. Each execution may
 		// receive multiple messages, which we want to handle in sequence.
 		let currentMessagePromise = Promise.resolve();
