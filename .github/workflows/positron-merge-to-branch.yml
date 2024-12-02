@@ -198,6 +198,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: json-report
+          path: test-results
 
       - name: "Send Slack notification"
         uses: testlabauto/action-test-results-to-slack@v0.0.6
