@@ -181,16 +181,38 @@ jobs:
           id: browser-integration-tests
           run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-  slack-notification:
-    name: "Send Slack notification"
+  slack-workflow-status:
+    if: always()
+    needs:
+      - unit-tests
+      - integration-tests
+      - e2e-electron
     runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, e2e-electron]
-    if: ${{ failure() && inputs.e2e_grep == '' }}
+    permissions:
+      actions: 'read'
     steps:
-      - name: "Send Slack notification"
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
+      - name: Slack Workflow Notification
+        uses: Gamesight/slack-workflow-status@master
         with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Merge to Main Test Suite
+          # Required Input
+          repo_token: ${{ secrets.secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          # Optional Input
+          # channel: '#anthony-test-channel'
+          name: 'Test Status Bot'
+          icon_emoji: ':poop:'
+          icon_url: 'https://avatars0.githubusercontent.com/u/1701160?s=96&v=4'
+
+  # slack-notification:
+  #   name: "Send Slack notification"
+  #   runs-on: ubuntu-latest
+  #   needs: [unit-tests, integration-tests, e2e-electron]
+  #   if: ${{ failure() && inputs.e2e_grep == '' }}
+  #   steps:
+  #     - name: "Send Slack notification"
+  #       uses: testlabauto/action-test-results-to-slack@v0.0.6
+  #       with:
+  #         github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+  #         slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
+  #         slack_channel: C07FR1JNZNJ #positron-test-results channel
+  #         suite_name: Positron Merge to Main Test Suite
