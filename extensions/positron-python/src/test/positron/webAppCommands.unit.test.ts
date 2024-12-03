@@ -220,7 +220,6 @@ suite('Web app commands', () => {
             Commands.Exec_Gradio_In_Terminal,
             {
                 commandLine: `${runtimePath} ${documentPath}`,
-                env: { GRADIO_ROOT_PATH: urlPrefix },
             },
             { urlPrefix },
         );
@@ -339,7 +338,7 @@ suite('Web app commands', () => {
                 jinja: true,
                 stopOnEntry: false,
                 program: documentPath,
-                env: { GRADIO_ROOT_PATH: urlPrefix },
+                env: {},
             },
             { urlPrefix },
         );
