@@ -5,7 +5,7 @@
 
 import { Disposable } from 'vs/base/common/lifecycle';
 import { Emitter, Event } from 'vs/base/common/event';
-import { IRuntimeClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
+import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, ClearWebviewPreloadsEvent } from './positronUiComm';
 import { PositronUiCommInstance } from 'vs/workbench/services/languageRuntime/common/positronUiCommInstance';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
@@ -242,5 +242,19 @@ export class UiClientInstance extends Disposable {
 		}
 
 		return uri;
+	}
+
+	/**
+	 * Get the ID of the underlying runtime client
+	 */
+	public getClientId(): string {
+		return this._client.getClientId();
+	}
+
+	/**
+	 * Get the state of the underlying runtime client
+	 */
+	public getClientState(): RuntimeClientState {
+		return this._client.clientState.get();
 	}
 }

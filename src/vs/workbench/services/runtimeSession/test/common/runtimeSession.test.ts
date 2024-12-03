@@ -5,6 +5,7 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
+import { timeout } from 'vs/base/common/async';
 import { Event } from 'vs/base/common/event';
 import { URI } from 'vs/base/common/uri';
 import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
@@ -13,7 +14,7 @@ import { TestConfigurationService } from 'vs/platform/configuration/test/common/
 import { TestInstantiationService } from 'vs/platform/instantiation/test/common/instantiationServiceMock';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { formatLanguageRuntimeMetadata, formatLanguageRuntimeSession, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeExitReason, RuntimeState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from 'vs/workbench/services/runtimeSession/test/common/testLanguageRuntimeSession';
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from 'vs/workbench/services/runtimeSession/test/common/testRuntimeSessionService';
 import { TestRuntimeSessionManager } from 'vs/workbench/test/common/positronWorkbenchTestServices';
@@ -837,4 +838,28 @@ suite('Positron - RuntimeSessionService', () => {
 			assertSingleSessionIsReady(newSession);
 		});
 	}
+
+	test(`only one UI comm is created`, async () => {
+		// Create the session
+		const session = await startConsole();
+
+		// Wait for a tick to yield the thread (since comm creation is async)
+		await timeout(0);
+
+		// At this point, it should have exactly one UI comm
+		const uiCommsBefore = await session.listClients(RuntimeClientType.Ui);
+		assert.strictEqual(uiCommsBefore.length, 1);
+
+		// Put the session back into the Ready state. This typically triggers
+		// the creation of the UI comm as a side effect, but since the UI comm
+		// is already open, we shouldn't create another one.
+		session.setRuntimeState(RuntimeState.Ready);
+
+		// Wait for a tick to yield the thread (since comm creation is async)
+		await timeout(0);
+
+		// We should still have exactly one UI comm
+		const uiCommsAfter = await session.listClients(RuntimeClientType.Ui);
+		assert.strictEqual(uiCommsAfter.length, 1);
+	});
 });
