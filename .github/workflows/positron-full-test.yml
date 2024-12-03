@@ -235,8 +235,8 @@ jobs:
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
     needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
-    permissions:
-      actions: 'read'
+    # permissions:
+    #   actions: 'read'
     env:
       REPORT_DIR: playwright-report-${{ github.run_id }}
       UPSTREAM_FAILED: ${{
@@ -256,19 +256,21 @@ jobs:
       - name: Debug Upstream Status
         shell: bash
         run: echo "UPSTREAM_FAILED=$UPSTREAM_FAILED"
-
-      - name: Slack Workflow Notification
-        uses: Gamesight/slack-workflow-status@master
-        with:
-          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
-          include_commit_message: true
-
       - name: Run E2E Report
         uses: ./.github/actions/e2e-report
+        if: always()
         with:
           aws-s3-bucket: positron-test-reports
           aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
           testrail-title: "E2E Electron Test Run"
+
+      - name: Slack Workflow Notification
+        # if: ${{ env.UPSTREAM_FAILED == 'true' }}
+        if: always()
+        uses: Gamesight/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          include_commit_message: true
 
