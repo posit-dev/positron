@@ -75,8 +75,7 @@ export class ActiveRuntimeSession extends Disposable {
 		// If we already know the client ID, just return it.
 		if (this._uiClient) {
 			const clientState = this._uiClient.getClientState();
-			if (clientState === RuntimeClientState.Connected ||
-				clientState === RuntimeClientState.Opening) {
+			if (clientState !== RuntimeClientState.Closed) {
 				// This is an active client; we can use it
 				return this._uiClient.getClientId();
 			} else {
