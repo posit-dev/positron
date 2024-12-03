@@ -20,6 +20,8 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
 
+		await app.workbench.positronLayouts.enterLayout('notebook');
+
 		await test.step('Verify some column missing percentages', async () => {
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(1)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(2)).toBe('0%');
@@ -27,8 +29,6 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(4)).toBe('0%');
 			expect(await app.workbench.positronDataExplorer.getColumnMissingPercent(5)).toBe('0%');
 		});
-
-		await app.workbench.positronLayouts.enterLayout('notebook');
 
 		await test.step('Verify some column profile info', async () => {
 			const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
