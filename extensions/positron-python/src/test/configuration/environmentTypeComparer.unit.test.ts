@@ -35,10 +35,10 @@ suite('Environment sorting', () => {
         getActiveWorkspaceUriStub = sinon.stub().returns({ folderUri: { fsPath: workspacePath } });
         getInterpreterTypeDisplayNameStub = sinon.stub();
 
-        interpreterHelper = ({
+        interpreterHelper = {
             getActiveWorkspaceUri: getActiveWorkspaceUriStub,
             getInterpreterTypeDisplayName: getInterpreterTypeDisplayNameStub,
-        } as unknown) as IInterpreterHelper;
+        } as unknown as IInterpreterHelper;
         const getActivePyenvForDirectory = sinon.stub(pyenv, 'getActivePyenvForDirectory');
         getActivePyenvForDirectory.resolves(preferredPyenv);
     });
@@ -231,8 +231,7 @@ suite('Environment sorting', () => {
             expected: 1,
         },
         {
-            title:
-                'Microsoft Store interpreter should not come first when there are global interpreters with higher version',
+            title: 'Microsoft Store interpreter should not come first when there are global interpreters with higher version',
             envA: {
                 envType: EnvironmentType.MicrosoftStore,
                 version: { major: 3, minor: 10, patch: 2, raw: '3.10.2' },
@@ -274,8 +273,7 @@ suite('Environment sorting', () => {
             expected: 1,
         },
         {
-            title:
-                "If 2 global environments have the same Python version and there's a Conda one, the Conda env should not come first",
+            title: "If 2 global environments have the same Python version and there's a Conda one, the Conda env should not come first",
             envA: {
                 envType: EnvironmentType.Conda,
                 type: PythonEnvType.Conda,
@@ -291,8 +289,7 @@ suite('Environment sorting', () => {
             expected: 1,
         },
         {
-            title:
-                'If 2 global environments are of the same type and have the same Python version, they should be sorted by name',
+            title: 'If 2 global environments are of the same type and have the same Python version, they should be sorted by name',
             envA: {
                 envType: EnvironmentType.Conda,
                 type: PythonEnvType.Conda,
@@ -367,14 +364,14 @@ suite('getPyenvVersion tests', () => {
         getActiveWorkspaceNoWorkspaceUriStub = sinon.stub().returns(undefined);
         getInterpreterTypeDisplayNameStub = sinon.stub();
 
-        interpreterHelper = ({
+        interpreterHelper = {
             getActiveWorkspaceUri: getActiveWorkspaceUriStub,
             getInterpreterTypeDisplayName: getInterpreterTypeDisplayNameStub,
-        } as unknown) as IInterpreterHelper;
-        interpreterHelperNoWorkspace = ({
+        } as unknown as IInterpreterHelper;
+        interpreterHelperNoWorkspace = {
             getActiveWorkspaceUri: getActiveWorkspaceNoWorkspaceUriStub,
             getInterpreterTypeDisplayName: getInterpreterTypeDisplayNameStub,
-        } as unknown) as IInterpreterHelper;
+        } as unknown as IInterpreterHelper;
 
         pathExistsSyncStub = sinon.stub(externalDependencies, 'pathExistsSync');
         pathExistsSyncStub.withArgs('').returns(false);

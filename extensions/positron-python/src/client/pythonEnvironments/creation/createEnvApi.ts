@@ -86,13 +86,10 @@ export function registerCreateEnvironmentFeatures(
                 return handleCreateEnvironmentCommand(providers, options);
             },
         ),
-        registerCommand(
-            Commands.Create_Environment_Button,
-            async (): Promise<void> => {
-                sendTelemetryEvent(EventName.ENVIRONMENT_BUTTON, undefined, undefined);
-                await executeCommand(Commands.Create_Environment);
-            },
-        ),
+        registerCommand(Commands.Create_Environment_Button, async (): Promise<void> => {
+            sendTelemetryEvent(EventName.ENVIRONMENT_BUTTON, undefined, undefined);
+            await executeCommand(Commands.Create_Environment);
+        }),
         // --- Start Positron ---
         registerCommand(Commands.Get_Create_Environment_Providers, () => {
             const providers = _createEnvironmentProviders.getAll();
@@ -105,13 +102,10 @@ export function registerCreateEnvironmentFeatures(
                 return createEnvironmentAndRegister(providers, pythonRuntimeManager, options);
             },
         ),
-        registerCommand(
-            Commands.Is_Conda_Installed,
-            async (): Promise<boolean> => {
-                const conda = await Conda.getConda();
-                return conda !== undefined;
-            },
-        ),
+        registerCommand(Commands.Is_Conda_Installed, async (): Promise<boolean> => {
+            const conda = await Conda.getConda();
+            return conda !== undefined;
+        }),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
         // --- End Positron ---
