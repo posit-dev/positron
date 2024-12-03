@@ -191,7 +191,7 @@ jobs:
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          slack_webhook_url: ${{ secrets.SLACK_QA_WEBHOOK_URL }}
           channel: C06DNFJSHPD
           # channel: C07FR1JNZNJ # positron-test-results channel
           include_commit_message: true
