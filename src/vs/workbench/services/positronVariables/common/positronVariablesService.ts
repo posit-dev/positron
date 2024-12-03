@@ -18,6 +18,7 @@ import { isEqual } from 'vs/base/common/resources';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
+import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 
 /**
  * PositronVariablesService class.
@@ -65,13 +66,15 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	 * @param _notificationService The notification service.
 	 * @param _accessibilityService The accessibility service.
 	 * @param _editorService The editor service.
+	 * @param _configurationService The configuration service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IEditorService private readonly _editorService: IEditorService
+		@IEditorService private readonly _editorService: IEditorService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -109,8 +112,10 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		}));
 
 		this._register(this._editorService.onDidActiveEditorChange(() => {
-
 			// Check for feature flag for session following editor being on before proceeding
+			if (!this._configurationService.getValue('positron.variables.followsEditor')) {
+				return;
+			}
 
 			const editorInput = this._editorService.activeEditor;
 			if (editorInput instanceof NotebookEditorInput) {
