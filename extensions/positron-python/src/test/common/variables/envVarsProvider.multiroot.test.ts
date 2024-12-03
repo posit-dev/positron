@@ -1,5 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
+// --- Start Positron ---
+// Disable eslint rules for our import block below. This appears at the top of the file to stop
+// auto-formatting tools from reordering the imports.
+/* eslint-disable import/no-duplicates */
+/* eslint-disable import/order */
+// --- End Positron ---
 
 import { expect, use } from 'chai';
 import * as chaiAsPromised from 'chai-as-promised';
@@ -23,7 +29,6 @@ import { MockProcess } from '../../mocks/process';
 import { UnitTestIocContainer } from '../../testing/serviceRegistry';
 import { createTypeMoq } from '../../mocks/helper';
 // --- Start Positron ---
-/* eslint-disable import/no-duplicates */
 import { instance, mock } from 'ts-mockito';
 import { IExtensionContext } from '../../../client/common/types';
 // --- End Positron ---
