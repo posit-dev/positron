@@ -952,6 +952,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const activeSession = new ActiveRuntimeSession(session, manager,
 			this._commandService, this._logService, this._openerService, this._configurationService);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
+		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
 		}));
