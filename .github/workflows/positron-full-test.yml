@@ -1,4 +1,4 @@
-name: "Positron: Full Test Suite"
+name: "Test: Full Suite (Ubuntu)"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
@@ -243,7 +243,8 @@ jobs:
         needs.unit-tests.result == 'failure' ||
         needs.integration-tests.result == 'failure' }}
     permissions:
-      contents: read
+        contents: write # required for S3 upload
+        actions: read   # required for Slack notifications
 
     steps:
       - uses: actions/checkout@v4

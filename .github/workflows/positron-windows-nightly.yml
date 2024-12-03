@@ -1,4 +1,4 @@
-name: "Positron: Windows Full Test Suite"
+name: "Test: E2E Tests (Windows)"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
