@@ -16,7 +16,7 @@
             "description": "Only Partial IntelliSense supported."
         }
     },
-    "publisher": "ms-python",
+    "publisher": "positron",
     "enabledApiProposals": [
         "positronResolveSymlinks",
         "contribEditorContentMenu",

@@ -2,7 +2,7 @@
   "name": "positron-supervisor",
   "displayName": "%displayName%",
   "description": "%description%",
-  "publisher": "vscode",
+  "publisher": "positron",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.61.0"
