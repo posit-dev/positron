@@ -189,8 +189,8 @@ jobs:
       - integration-tests
       - e2e-electron
     runs-on: ubuntu-latest
-    permissions:
-      actions: 'read'
+    # permissions:
+    #   actions: 'read'
     steps:
       - name: Slack Workflow Notification
         uses: Gamesight/slack-workflow-status@master
