@@ -146,6 +146,8 @@ jobs:
           with:
             node-version-file: .nvmrc
 
+        - run: exit 1
+
         # - name: Cache node_modules, build, extensions, and remote
         #   uses: ./.github/actions/cache-multi-paths
 
