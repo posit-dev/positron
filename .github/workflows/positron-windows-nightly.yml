@@ -158,8 +158,6 @@ jobs:
         if: always()
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
-          # channel: C07FR1JNZNJ # positron-test-results channel
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
           include_commit_message: true
-          # notify_on: "fail-only"
-          notify_on: "always"
+          notify_on: "failure-only"

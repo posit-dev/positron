@@ -183,6 +183,7 @@ jobs:
 
   slack-notify:
     # if: ${{ failure() && inputs.e2e_grep == '' }}
+    if: always()
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
@@ -190,9 +191,7 @@ jobs:
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_QA_WEBHOOK_URL }}
-          channel: C06DNFJSHPD
-          # channel: C07FR1JNZNJ # positron-test-results channel
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
           include_commit_message: true
           notify_on: 'on-failure'
 
