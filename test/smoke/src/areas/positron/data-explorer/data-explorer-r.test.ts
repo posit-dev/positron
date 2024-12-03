@@ -57,16 +57,16 @@ test.describe('Data Explorer - R ', {
 		await app.workbench.positronLayouts.enterLayout('notebook');
 
 		const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
-		expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
+		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
 
 		const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
-		expect(col2ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
+		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
 
 		const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
-		expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
+		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
 
 		const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
-		expect(col4ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
+		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
 
 		await app.workbench.positronLayouts.enterLayout('stacked');
 		await app.workbench.positronSideBar.closeSecondarySideBar();
