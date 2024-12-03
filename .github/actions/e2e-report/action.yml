@@ -13,12 +13,6 @@ inputs:
   blob-pattern:
     description: "Pattern to match blob reports"
     default: "blob-report-*"
-  repo-token:
-    description: "GitHub token for API calls"
-    required: true
-  slack-webhook:
-    description: "Slack webhook for notifications"
-    required: true
   testrail-api-key:
     description: "TestRail API Key"
     required: true
@@ -31,9 +25,6 @@ inputs:
   testrail-title:
     description: "Title for TestRail runs"
     default: "E2E Test Run"
-  upstream-failed:
-    description: "Status of upstream jobs (true if any failed)"
-    required: true
 
 runs:
   using: "composite"
@@ -107,12 +98,3 @@ runs:
         TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
         echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
         trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-    - name: Send Slack Notification
-      uses: Gamesight/slack-workflow-status@master
-      if: inputs.upstream-failed == 'true'
-      with:
-        repo_token: ${{ inputs.repo-token }}
-        slack_webhook_url: ${{ inputs.slack-webhook }}
-        include_commit_message: true
-
