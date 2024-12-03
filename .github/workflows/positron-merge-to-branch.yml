@@ -182,12 +182,11 @@ jobs:
         #   run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   slack-notify:
-    # if: ${{ failure() && inputs.e2e_grep == '' }}
-    if: always()
+    if: ${{ failure() && inputs.e2e_grep == '' }}
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
-      - name: Slack Workflow Notification
+      - name: Slack Slack Notification
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}

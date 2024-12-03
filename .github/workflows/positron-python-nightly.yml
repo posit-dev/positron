@@ -126,15 +126,12 @@ jobs:
     needs: [vscode-python-tests, positron-ipykernel-tests-latest]
 
     steps:
-      - name: Download test artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: test-artifacts
-
-      - name: 'Send Slack notification'
-        uses: automattic/action-test-results-to-slack@v0.3.1
-        with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
+    - name: Send Slack Notification
+      uses: midleman/slack-workflow-status@master
+      with:
+        repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+        slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+        # channel: C07FR1JNZNJ # positron-test-results channel
+        include_commit_message: true
+        notify_on: "fail-only"
 
