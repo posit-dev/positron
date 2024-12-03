@@ -19,6 +19,7 @@ import { IAccessibilityService } from 'vs/platform/accessibility/common/accessib
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
+import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
 
 /**
  * PositronVariablesService class.
@@ -74,7 +75,8 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -111,9 +113,20 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			this._setActivePositronVariablesBySession(session)
 		}));
 
+		// Listen for console instances executing code
+		this._register(this._positronConsoleService.onDidStartPositronConsoleInstance((instance) => {
+			this._register(instance.onDidExecuteCode(() => {
+				// Check for feature flag for session following editor being on before proceeding
+				if (!this._configurationService.getValue('positron.variables.followMode')) {
+					return;
+				}
+				this._setActivePositronVariablesBySession(instance.session);
+			}));
+		}));
+
 		this._register(this._editorService.onDidActiveEditorChange(() => {
 			// Check for feature flag for session following editor being on before proceeding
-			if (!this._configurationService.getValue('positron.variables.followsEditor')) {
+			if (!this._configurationService.getValue('positron.variables.followMode')) {
 				return;
 			}
 
