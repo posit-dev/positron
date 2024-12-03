@@ -12,39 +12,16 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { ILogService } from 'vs/platform/log/common/log';
 import { IOpener, IOpenerService, OpenExternalOptions, OpenInternalOptions } from 'vs/platform/opener/common/opener';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, ILanguageRuntimeSessionStateEvent, IRuntimeSessionMetadata, IRuntimeSessionService, IRuntimeSessionWillStartEvent } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IModalDialogPromptInstance, IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
-import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeUiClient';
-import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/positronUiComm';
 import { ILanguageService } from 'vs/editor/common/languages/language';
 import { ResourceMap } from 'vs/base/common/map';
 import { IExtensionService } from 'vs/workbench/services/extensions/common/extensions';
 import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
 import { ICommandService } from 'vs/platform/commands/common/commands';
-
-/**
- * Utility class for tracking state changes in a language runtime session.
- *
- * We keep our own copy of the state so we can fire an event with both the old
- * and new state values when the state changes.
- */
-class LanguageRuntimeSessionInfo {
-	public state: RuntimeState;
-
-	/**
-	 * Create a new LanguageRuntimeSessionInfo.
-	 *
-	 * @param session The session
-	 * @param manager The session's manager
-	 */
-	constructor(
-		public session: ILanguageRuntimeSession,
-		public manager: ILanguageRuntimeSessionManager) {
-		this.state = session.getRuntimeState();
-	}
-}
+import { ActiveRuntimeSession } from 'vs/workbench/services/runtimeSession/common/activeRuntimeSession';
 
 /**
  * Get a map key corresponding to a session.
@@ -80,7 +57,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private _foregroundSession?: ILanguageRuntimeSession;
 
 	// A map of the currently active sessions. This is keyed by the session ID.
-	private readonly _activeSessionsBySessionId = new Map<string, LanguageRuntimeSessionInfo>();
+	private readonly _activeSessionsBySessionId = new Map<string, ActiveRuntimeSession>();
 
 	// A map of the starting consoles. This is keyed by the languageId
 	// (metadata.languageId) of the runtime owning the session.
@@ -112,9 +89,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// from ID to session. We keep these around so we can reconnect them when
 	// the extension host comes back online.
 	private readonly _disconnectedSessions = new Map<string, ILanguageRuntimeSession>();
-
-	// A map of disposables associated with each session, keyed by the session ID.
-	private readonly _sessionDisposables = new Map<string, DisposableStore>;
 
 	// The event emitter for the onWillStartRuntime event.
 	private readonly _onWillStartRuntimeEmitter =
@@ -370,14 +344,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async doShutdownRuntimeSession(
 		session: ILanguageRuntimeSession, exitReason: RuntimeExitReason): Promise<void> {
 
-		const sessionDisposables = this._sessionDisposables.get(session.sessionId);
-		if (!sessionDisposables) {
-			throw new Error(`No disposables found for session ${session.sessionId}`);
+		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
+		if (!activeSession) {
+			throw new Error(`No active session '${session.sessionId}'`);
 		}
 
 		// We wait for `onDidEndSession()` rather than `RuntimeState.Exited`, because the former
 		// generates some Console output that must finish before starting up a new runtime:
-		const disposables = sessionDisposables.add(new DisposableStore());
+		const disposables = new DisposableStore();
+		activeSession.register(disposables);
 		const promise = new Promise<void>((resolve, reject) => {
 			disposables.add(session.onDidEndSession((exit) => {
 				disposables.dispose();
@@ -967,25 +942,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private attachToSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager): void {
 
-		// Remove any previous event registrations for this session.
-		let disposables = this._sessionDisposables.get(session.sessionId);
-		if (disposables) {
-			// There's already a disposable store for this session; dispose its
-			// contents (but don't mark it disposed; we can reuse it)
-			disposables.clear();
-		} else {
-			// There is no disposable store for this session; create one and register it.
-			disposables = new DisposableStore();
-			this._register(disposables);
-			this._sessionDisposables.set(session.sessionId, disposables);
+		// Clean up any previous active session info for this session.
+		const oldSession = this._activeSessionsBySessionId.get(session.sessionId);
+		if (oldSession) {
+			oldSession.dispose();
 		}
 
-		// Save the session info.
-		this._activeSessionsBySessionId.set(session.sessionId,
-			new LanguageRuntimeSessionInfo(session, manager));
+		// Save the new active session info.
+		const activeSession = new ActiveRuntimeSession(session, manager,
+			this._commandService, this._logService, this._openerService, this._configurationService);
+		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
+		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
+			this._onDidReceiveRuntimeEventEmitter.fire(evt);
+		}));
 
 		// Add the onDidChangeRuntimeState event handler.
-		disposables.add(session.onDidChangeRuntimeState(state => {
+		activeSession.register(session.onDidChangeRuntimeState(state => {
 			// Process the state change.
 			switch (state) {
 				case RuntimeState.Ready:
@@ -1010,7 +982,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					}
 
 					// Start the UI client instance once the runtime is fully online.
-					this.startUiClient(session);
+					activeSession.startUiClient().then((clientId) => {
+						this._logService.debug(`UI client ${clientId} bound to session ${session.sessionId}`);
+					});
 					break;
 
 				case RuntimeState.Interrupting:
@@ -1053,7 +1027,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}));
 
-		disposables.add(session.onDidEndSession(async exit => {
+		activeSession.register(session.onDidEndSession(async exit => {
 			this.updateSessionMapsAfterExit(session);
 
 			// Note that we need to do the following on the next tick since we
@@ -1416,127 +1390,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return id;
 	}
 
-	/**
-	 * Starts a UI client instance for the specified runtime session. The
-	 * UI client instance is used for two-way communication of
-	 * global state and events between the frontend and the backend.
-	 *
-	 * @param session The runtime session for which to start the UI client.
-	 */
-	private startUiClient(session: ILanguageRuntimeSession): void {
-		// Create the frontend client. The second argument is empty for now; we
-		// could use this to pass in any initial state we want to pass to the
-		// frontend client (such as information on window geometry, etc.)
-		session.createClient<IUiClientMessageInput, IUiClientMessageOutput>
-			(RuntimeClientType.Ui, {}).then(client => {
-				// Create the UI client instance wrapping the client instance.
-				const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService);
-				this._register(uiClient);
-
-				// When the UI client instance emits an event, broadcast
-				// it to Positron with the corresponding runtime ID.
-				this._register(uiClient.onDidBusy(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.Busy,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidClearConsole(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ClearConsole,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidSetEditorSelections(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.SetEditorSelections,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidOpenEditor(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.OpenEditor,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidOpenWorkspace(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.OpenWorkspace,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidShowMessage(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ShowMessage,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidPromptState(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.PromptState,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidWorkingDirectory(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.WorkingDirectory,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidShowUrl(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ShowUrl,
-							data: event
-						}
-					});
-				}));
-				this._register(uiClient.onDidShowHtmlFile(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ShowHtmlFile,
-							data: event
-						}
-					});
-				}));
-
-				this._register(uiClient.onDidClearWebviewPreloads(event => {
-					this._onDidReceiveRuntimeEventEmitter.fire({
-						session_id: session.sessionId,
-						event: {
-							name: UiFrontendEvent.ClearWebviewPreloads,
-							data: event
-						}
-					});
-				}));
-			});
-	}
 
 }
 registerSingleton(IRuntimeSessionService, RuntimeSessionService, InstantiationType.Eager);
