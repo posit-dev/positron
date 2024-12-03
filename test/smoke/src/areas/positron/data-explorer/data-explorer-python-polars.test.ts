@@ -55,22 +55,22 @@ test.describe('Data Explorer - Python Polars', {
 
 
 		const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
-		expect(col1ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
+		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
 
 		const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
-		expect(col2ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '6.00', 'Median': '7.00', 'Mean': '7.00', 'Max': '8.00', 'SD': '1.00' });
+		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '6.00', 'Median': '7.00', 'Mean': '7.00', 'Max': '8.00', 'SD': '1.00' });
 
 		const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
-		expect(col3ProfileInfo).toStrictEqual({ 'Missing': '0', 'Min': '2020-01-02', 'Median': '2021-03-04', 'Max': '2022-05-06' });
+		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '2020-01-02', 'Median': '2021-03-04', 'Max': '2022-05-06' });
 
 		const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
-		expect(col4ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '2.00', 'Median': '2.50', 'Mean': '2.50', 'Max': '3.00', 'SD': '0.7071' });
+		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '2.00', 'Median': '2.50', 'Mean': '2.50', 'Max': '3.00', 'SD': '0.7071' });
 
 		const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
-		expect(col5ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' });
+		expect(col5ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' });
 
 		const col6ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(6);
-		expect(col6ProfileInfo).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
+		expect(col6ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'True': '1', 'False': '1' });
 
 		await app.workbench.positronDataExplorer.collapseSummary();
 

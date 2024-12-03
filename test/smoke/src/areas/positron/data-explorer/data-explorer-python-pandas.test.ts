@@ -100,19 +100,19 @@ df2 = pd.DataFrame(data)`;
 		await app.workbench.positronLayouts.enterLayout('notebook');
 
 		const col1ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(1);
-		expect(col1ProfileInfo).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
+		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
 
 		const col2ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(2);
-		expect(col2ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
 
 		const col3ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(3);
-		expect(col3ProfileInfo).toStrictEqual({ 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' });
+		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' });
 
 		const col4ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(4);
-		expect(col4ProfileInfo).toStrictEqual({ 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' });
+		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' });
 
 		const col5ProfileInfo = await app.workbench.positronDataExplorer.getColumnProfileInfo(5);
-		expect(col5ProfileInfo).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
+		expect(col5ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
 
 		await app.workbench.positronLayouts.enterLayout('stacked');
 		await app.workbench.positronSideBar.closeSecondarySideBar();

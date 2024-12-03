@@ -14,7 +14,7 @@ test.use({
 test.describe('Headless Data Explorer - Large Data Frame', {
 	tag: ['@web']
 }, () => {
-	test.beforeEach(async function ({ app, python }) {
+	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});
 
@@ -33,6 +33,9 @@ test.describe('Headless Data Explorer - Large Data Frame', {
 
 async function testBody(app: Application, logger: Logger, fileName: string) {
 	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
+
+	// if you immediately open the data file, the data explorer will be blank
+	await app.code.wait(5000);
 
 	await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', 'flights', fileName));
 
