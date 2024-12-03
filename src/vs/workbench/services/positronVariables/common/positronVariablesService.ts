@@ -87,7 +87,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 				this._runtimeSessionService.foregroundSession.sessionId
 			);
 			if (positronVariablesInstance) {
-				this.setActivePositronVariablesInstance(positronVariablesInstance);
+				this._setActivePositronVariablesInstance(positronVariablesInstance);
 			}
 		}
 
@@ -106,7 +106,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {
-				this.setActivePositronVariablesInstance()
+				this._setActivePositronVariablesInstance()
 				return;
 			}
 
@@ -130,7 +130,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 				// Revert to the most recent console session if we're not in a notebook editor
 				this._setActivePositronVariablesBySession(this._previousConsoleSession);
 			} else {
-				this.setActivePositronVariablesInstance()
+				this._setActivePositronVariablesInstance()
 			}
 		}));
 	}
@@ -171,7 +171,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			this._positronVariablesInstancesBySessionId.get(sessionId);
 		if (positronVariablesInstance) {
 			// Found it; make it active.
-			this.setActivePositronVariablesInstance(positronVariablesInstance);
+			this._setActivePositronVariablesInstance(positronVariablesInstance);
 		} else {
 			// Did not find it; log a warning.
 			this._logService.warn(
@@ -285,7 +285,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	 * Sets the active Positron variables instance.
 	 * @param positronVariablesInstance The Positron variables instance.
 	 */
-	private setActivePositronVariablesInstance(
+	private _setActivePositronVariablesInstance(
 		positronVariablesInstance?: IPositronVariablesInstance
 	) {
 		// Set the active instance and fire the onDidChangeActivePositronVariablesInstance event.
@@ -308,7 +308,7 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		);
 
 		if (positronVariablesInstance) {
-			this.setActivePositronVariablesInstance(positronVariablesInstance);
+			this._setActivePositronVariablesInstance(positronVariablesInstance);
 			return
 		}
 
