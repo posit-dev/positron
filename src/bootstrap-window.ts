@@ -203,6 +203,26 @@
 			};
 
 			const importMap: { imports: Record<string, string> } = { imports: {} };
+
+			const addModule = (packageName: string) => {
+				const packageNamePath = packageName.split('/');
+				const module = `esm-package-dependencies/${packageNamePath[packageNamePath.length - 1]}.js`;
+				const url = new URL(module, baseUrl).href;
+				importMap.imports[packageName] = url;
+			};
+
+			addModule('he');
+			addModule('react');
+			addModule('react-dom');
+			addModule('react-dom/client');
+			addModule('react-window');
+
+			// importMap.imports['he'] = new URL('https://esm.sh/he').href;
+			// importMap.imports['react'] = new URL('https://esm.sh/react').href;
+			// importMap.imports['react-dom'] = new URL('https://esm.sh/react-dom').href;
+			// importMap.imports['react-dom/client'] = new URL('https://esm.sh/react-dom/client').href;
+			// importMap.imports['react-window'] = new URL('https://esm.sh/react-window').href;
+
 			for (const cssModule of configuration.cssModules) {
 				const cssUrl = new URL(cssModule, baseUrl).href;
 				const jsSrc = `globalThis._VSCODE_CSS_LOAD('${cssUrl}');\n`;
