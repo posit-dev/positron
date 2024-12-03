@@ -278,6 +278,24 @@
             "type": "boolean",
             "default": false,
             "description": "%r.configuration.taskHyperlinks.description%"
+          },
+          "positron.r.defaultRepositories": {
+            "scope": "window",
+            "type": "string",
+            "enum": [
+              "auto",
+              "rstudio",
+              "posit-ppm",
+              "none"
+            ],
+            "enumDescriptions": [
+              "%r.configuration.defaultRepositories.auto.description%",
+              "%r.configuration.defaultRepositories.rstudio.description%",
+              "%r.configuration.defaultRepositories.posit-ppm.description%",
+              "%r.configuration.defaultRepositories.none.description%"
+            ],
+            "default": "auto",
+            "markdownDescription": "%r.configuration.defaultRepositories.description%"
           }
         }
       }
@@ -656,7 +674,8 @@
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
     "web-tree-sitter": "^0.20.8",
-    "which": "^3.0.0"
+    "which": "^3.0.0",
+    "xdg-portable": "^10.6.0"
   },
   "peerDependencies": {
     "@vscode/windows-registry": "^1.0.0"
@@ -667,7 +686,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.156"
+      "ark": "0.1.157"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
