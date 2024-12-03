@@ -267,4 +267,5 @@ jobs:
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
           # channel: C07FR1JNZNJ # positron-test-results channel
           include_commit_message: true
-          notify_on: "fail-only"
+          # notify_on: "fail-only"
+          notify_on: "always"
