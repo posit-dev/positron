@@ -16,6 +16,8 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
 import { isEqual } from 'vs/base/common/resources';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
+import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 
 /**
  * PositronVariablesService class.
@@ -46,6 +48,12 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	private readonly _onDidChangeActivePositronVariablesInstanceEmitter =
 		this._register(new Emitter<IPositronVariablesInstance | undefined>);
 
+	/**
+	 * The previous console session. Used to restore variables pane to active session
+	 * when a notebook is hidden.
+	 */
+	private _previousConsoleSession?: ILanguageRuntimeSession;
+
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
@@ -56,12 +64,14 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 	 * @param _logService The log service.
 	 * @param _notificationService The notification service.
 	 * @param _accessibilityService The accessibility service.
+	 * @param _editorService The editor service.
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
 		// Call the disposable constrcutor.
 		super();
@@ -85,23 +95,42 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		// instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this.createOrAssignPositronVariablesInstance(e.session);
+
+			// If this is a console session, set it as the main console session that is
+			// used when the notebook is hidden.
+			if (e.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				this._previousConsoleSession = e.session;
+			}
 		}));
 
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			if (!session) {
-				this.setActivePositronVariablesInstance();
-			} else {
-				const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
-					session.sessionId
+				this.setActivePositronVariablesInstance()
+				return;
+			}
+
+			this._setActivePositronVariablesBySession(session)
+		}));
+
+		this._register(this._editorService.onDidActiveEditorChange(() => {
+
+			// Check for feature flag for session following editor being on before proceeding
+
+			const editorInput = this._editorService.activeEditor;
+			// If this is a notebook editor. we should check to see if we have a
+			// variable session setup for it.
+			if (editorInput instanceof NotebookEditorInput) {
+				const session = this._runtimeSessionService.activeSessions.find(
+					s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
 				);
-				if (positronVariablesInstance) {
-					this.setActivePositronVariablesInstance(positronVariablesInstance);
-				} else {
-					this._logService.error(
-						`Cannot show Variables: ${formatLanguageRuntimeSession(session)} became active, ` +
-						`but a Variables instance for it is not running.`);
-				}
+				if (!session) { return }
+				this._setActivePositronVariablesBySession(session);
+			} else if (this._previousConsoleSession) {
+				// Revert to the most recent console session if we're not in a notebook editor
+				this._setActivePositronVariablesBySession(this._previousConsoleSession);
+			} else {
+				this.setActivePositronVariablesInstance()
 			}
 		}));
 	}
@@ -263,6 +292,27 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 		this._activePositronVariablesInstance = positronVariablesInstance;
 		this._activePositronVariablesInstance?.requestRefresh();
 		this._onDidChangeActivePositronVariablesInstanceEmitter.fire(positronVariablesInstance);
+	}
+
+	/**
+	 * Set the active Positron variables instance based on a session.
+	 * @param session The session to set the active Positron variables instance for.
+	 * @returns A boolean of if the setting was successful or not.
+	 */
+	private _setActivePositronVariablesBySession(session: ILanguageRuntimeSession) {
+
+		const { sessionId } = session;
+
+		const positronVariablesInstance = this._positronVariablesInstancesBySessionId.get(
+			sessionId
+		);
+
+		if (positronVariablesInstance) {
+			this.setActivePositronVariablesInstance(positronVariablesInstance);
+			return
+		}
+
+		this._logService.error(`Cannot show Variables: ${formatLanguageRuntimeSession(session)} became active, but a Variables instance for it is not running.`);
 	}
 
 	//#endregion Private Methods
