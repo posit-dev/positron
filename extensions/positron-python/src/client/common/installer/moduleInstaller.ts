@@ -1,6 +1,11 @@
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
+// --- Start Positron ---
+/* eslint-disable max-classes-per-file, import/no-duplicates */
+import { CancellationTokenSource } from 'vscode';
+// --- End Positron ---
+
 import { injectable } from 'inversify';
 import * as path from 'path';
 import { CancellationToken, l10n, ProgressLocation, ProgressOptions } from 'vscode';
@@ -22,6 +27,8 @@ import { ProductNames } from './productNames';
 import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } from './types';
 
 // --- Start Positron ---
+// eslint-disable-next-line import/newline-after-import
+import { IWorkspaceService } from '../application/types';
 class ExternallyManagedEnvironmentError extends Error {}
 // --- End Positron ---
 
@@ -44,7 +51,9 @@ export abstract class ModuleInstaller implements IModuleInstaller {
         flags?: ModuleInstallFlags,
         options?: InstallOptions,
     ): Promise<void> {
-        const shouldExecuteInTerminal = !options?.installAsProcess;
+        // --- Start Positron ---
+        const shouldExecuteInTerminal = this.installModulesInTerminal() || !options?.installAsProcess;
+        // --- End Positron ---
         const name =
             typeof productOrModuleName === 'string'
                 ? productOrModuleName
@@ -249,6 +258,18 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 .get<ITerminalServiceFactory>(ITerminalServiceFactory)
                 .getTerminalService(options);
 
+            // --- Start Positron ---
+            // When running with the `python.installModulesInTerminal` setting enabled, we want to
+            // ensure that the terminal command is fully executed before returning. Otherwise, the
+            // calling code of the install will not be able to tell when the installation is complete.
+            if (this.installModulesInTerminal()) {
+                // Ensure we pass a cancellation token so that we await the full terminal command
+                // execution before returning.
+                const cancelToken = token ?? new CancellationTokenSource().token;
+                await terminalService.sendCommand(command, args, token ?? cancelToken);
+                return;
+            }
+            // --- End Positron ---
             terminalService.sendCommand(command, args, token);
         } else {
             const processServiceFactory = this.serviceContainer.get<IProcessServiceFactory>(IProcessServiceFactory);
@@ -278,6 +299,22 @@ export abstract class ModuleInstaller implements IModuleInstaller {
             // --- End Positron ---
         }
     }
+
+    // --- Start Positron ---
+    /**
+     * Check if the user has enabled the setting to install modules in the terminal.
+     *
+     * `python.installModulesInTerminal` is a setting that allows the user to force modules to be
+     * installed in the Terminal. Usually, such installations occur in the background. However,
+     * for debugging, it can be helpful to see the Terminal output of the installation process.
+     * @returns `true` if the user has enabled the setting to install modules in the Terminal,
+     * `false` if the user has disabled the setting, and `undefined` if the setting is not found.
+     */
+    private installModulesInTerminal(): boolean | undefined {
+        const workspaceService = this.serviceContainer.get<IWorkspaceService>(IWorkspaceService);
+        return workspaceService.getConfiguration('python').get<boolean>('installModulesInTerminal');
+    }
+    // --- End Positron ---
 }
 
 export function translateProductToModule(product: Product): string {
