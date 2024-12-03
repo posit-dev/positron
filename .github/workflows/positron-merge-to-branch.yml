@@ -182,7 +182,8 @@ jobs:
         #   run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
   slack-notify:
-    if: ${{ failure() && inputs.e2e_grep == '' }}
+    # if: ${{ failure() && inputs.e2e_grep == '' }}
+    if: always()
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
@@ -193,6 +194,6 @@ jobs:
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
           # channel: C07FR1JNZNJ # positron-test-results channel
           include_commit_message: true
-          notify_on: 'fail-only'
+          notify_on: 'always'
 
 
