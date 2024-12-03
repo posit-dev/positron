@@ -1256,8 +1256,8 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
-		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete);
+	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<boolean> {
+		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode);
 	}
 
 	public dispose(): void {

@@ -4,6 +4,7 @@ name: 'Nightly: Python CI'
 on:
   schedule:
     - cron: "0 2 * * 1-5"
+  workflow_dispatch:
 
 defaults:
  run:
