@@ -105,11 +105,6 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
-			if (!session) {
-				this._setActivePositronVariablesInstance()
-				return;
-			}
-
 			this._setActivePositronVariablesBySession(session)
 		}));
 
@@ -118,18 +113,17 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			// Check for feature flag for session following editor being on before proceeding
 
 			const editorInput = this._editorService.activeEditor;
-			// If this is a notebook editor. we should check to see if we have a
-			// variable session setup for it.
 			if (editorInput instanceof NotebookEditorInput) {
-				const session = this._runtimeSessionService.activeSessions.find(
+				// If this is a notebook editor. we should check to see if we have a
+				// variable session setup for it.
+				this._setActivePositronVariablesBySession(this._runtimeSessionService.activeSessions.find(
 					s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-				);
-				if (!session) { return }
-				this._setActivePositronVariablesBySession(session);
+				));
 			} else if (this._previousConsoleSession) {
 				// Revert to the most recent console session if we're not in a notebook editor
 				this._setActivePositronVariablesBySession(this._previousConsoleSession);
 			} else {
+				// All else fails, just reset to the default
 				this._setActivePositronVariablesInstance()
 			}
 		}));
@@ -296,10 +290,14 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 
 	/**
 	 * Set the active Positron variables instance based on a session.
-	 * @param session The session to set the active Positron variables instance for.
-	 * @returns A boolean of if the setting was successful or not.
+	 * @param session The session to set the active Positron variables instance for. If not provided, the active Positron variables instance will be set to undefined.
 	 */
-	private _setActivePositronVariablesBySession(session: ILanguageRuntimeSession) {
+	private _setActivePositronVariablesBySession(session?: ILanguageRuntimeSession) {
+
+		if (!session) {
+			this._setActivePositronVariablesInstance();
+			return;
+		}
 
 		const { sessionId } = session;
 
