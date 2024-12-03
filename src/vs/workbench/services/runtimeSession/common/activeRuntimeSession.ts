@@ -17,10 +17,8 @@ import { UiFrontendEvent } from 'vs/workbench/services/languageRuntime/common/po
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, RuntimeClientType } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
 
 /**
- * Utility class for tracking state changes in a language runtime session.
- *
- * We keep our own copy of the state so we can fire an event with both the old
- * and new state values when the state changes.
+ * Utility class for tracking the state and disposables associated with an
+ * active language runtime session.
  */
 export class ActiveRuntimeSession extends Disposable {
 	public state: RuntimeState;
@@ -32,10 +30,11 @@ export class ActiveRuntimeSession extends Disposable {
 	/// The UI client instance, if it exists
 	private _uiClient: UiClientInstance | undefined;
 
+	/// The promise that resolves when the UI client is started.
 	private _startingUiClient: DeferredPromise<string> | undefined;
 
 	/**
-	 * Create a new LanguageRuntimeSessionInfo.
+	 * Create a new ActiveRuntimeSession.
 	 *
 	 * @param session The session
 	 * @param manager The session's manager
@@ -49,6 +48,8 @@ export class ActiveRuntimeSession extends Disposable {
 		private readonly _configurationService: IConfigurationService
 	) {
 		super();
+
+		// Get the initial state from the session.
 		this.state = session.getRuntimeState();
 	}
 
@@ -64,9 +65,9 @@ export class ActiveRuntimeSession extends Disposable {
 	}
 
 	/**
-	 * Starts a UI client instance for the specified runtime session. The
-	 * UI client instance is used for two-way communication of
-	 * global state and events between the frontend and the backend.
+	 * Starts a UI client instance for the runtime session. The UI client
+	 * instance is used for two-way communication of global state and events
+	 * between the frontend and the backend.
 	 *
 	 * Resolves when the UI client instance is created, with the ID of the
 	 * newly created comm.
