@@ -200,9 +200,9 @@ jobs:
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
           # Optional Input
           # channel: C07FR1JNZNJ # positron-test-results channel
-          name: 'Test Status Bot'
-          icon_emoji: ':poop:'
-          icon_url: 'https://avatars0.githubusercontent.com/u/1701160?s=96&v=4'
+          # name: 'Test Status Bot'
+          # icon_emoji: ':poop:'
+          # icon_url: 'https://avatars0.githubusercontent.com/u/1701160?s=96&v=4'
           include_commit_message: true
 
 
