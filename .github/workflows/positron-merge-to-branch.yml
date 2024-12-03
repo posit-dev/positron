@@ -183,7 +183,6 @@ jobs:
 
   slack-notify:
     # if: ${{ failure() && inputs.e2e_grep == '' }}
-    if: always()
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
@@ -195,6 +194,6 @@ jobs:
           channel: C06DNFJSHPD
           # channel: C07FR1JNZNJ # positron-test-results channel
           include_commit_message: true
-          notify_on: 'always'
+          notify_on: 'on-failure'
 
 
