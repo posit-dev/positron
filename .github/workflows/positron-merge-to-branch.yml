@@ -46,43 +46,43 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      # - name: Cache node_modules, build, extensions, and remote
+      #   uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build and Compile
-        uses: ./.github/actions/setup-build-env
+      # - name: Setup Build and Compile
+      #   uses: ./.github/actions/setup-build-env
 
-      - name: Setup E2E Test Environment
-        uses: ./.github/actions/setup-test-env
-        with:
-          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
-          aws-region: ${{ secrets.QA_AWS_REGION }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+      # - name: Setup E2E Test Environment
+      #   uses: ./.github/actions/setup-test-env
+      #   with:
+      #     aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+      #     aws-region: ${{ secrets.QA_AWS_REGION }}
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+      # - name: Send HTML report URL to GitHub Summary
+      #   if: ${{ !cancelled() }}
+      #   run: |
+      #     REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+      #     echo "Report URL: $REPORT_URL"
+      #     echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
-      - name: Run Playwright Tests (Electron)
-        env:
-          POSITRON_PY_VER_SEL: 3.10.12
-          POSITRON_R_VER_SEL: 4.4.0
-          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
-          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
-          PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,${{ inputs.e2e_grep }}"
-        id: e2e-playwright-tests
-        run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
+      # - name: Run Playwright Tests (Electron)
+      #   env:
+      #     POSITRON_PY_VER_SEL: 3.10.12
+      #     POSITRON_R_VER_SEL: 4.4.0
+      #     CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+      #     CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+      #     COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+      #     PWTEST_BLOB_DO_NOT_REMOVE: 1
+      #     CURRENTS_TAG: "electron,${{ inputs.e2e_grep }}"
+      #   id: e2e-playwright-tests
+      #   run: DISPLAY=:10 npx playwright test --project e2e-electron --workers 2 --grep=${{ env.E2E_GREP }}
 
-      - name: Upload Playwright Report to S3
-        if: ${{ success() || failure() }}
-        uses: ./.github/actions/upload-report-to-s3
-        with:
-          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+      # - name: Upload Playwright Report to S3
+      #   if: ${{ success() || failure() }}
+      #   uses: ./.github/actions/upload-report-to-s3
+      #   with:
+      #     role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
 
   unit-tests:
     runs-on: ubuntu-latest
@@ -100,35 +100,35 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      # - name: Cache node_modules, build, extensions, and remote
+      #   uses: ./.github/actions/cache-multi-paths
 
-      - name: Setup Build and Compile
-        uses: ./.github/actions/setup-build-env
+      # - name: Setup Build and Compile
+      #   uses: ./.github/actions/setup-build-env
 
-      - name: Install Positron License
-        uses: ./.github/actions/install-license
-        with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+      # - name: Install Positron License
+      #   uses: ./.github/actions/install-license
+      #   with:
+      #     github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+      #     license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # one unit test needs this: Can list tables and fields from R connections
-      - name: Setup R
-        uses: ./.github/actions/install-r
-        with:
-          version: "4.4.0"
+      # # one unit test needs this: Can list tables and fields from R connections
+      # - name: Setup R
+      #   uses: ./.github/actions/install-r
+      #   with:
+      #     version: "4.4.0"
 
-      - name: Run Unit Tests (Electron)
-        id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
+      # - name: Run Unit Tests (Electron)
+      #   id: electron-unit-tests
+      #   run: DISPLAY=:10 ./scripts/test.sh
 
-      - name: Run Unit Tests (node.js)
-        id: nodejs-unit-tests
-        run: yarn test-node
+      # - name: Run Unit Tests (node.js)
+      #   id: nodejs-unit-tests
+      #   run: yarn test-node
 
-      - name: Run Unit Tests (Browser, Chromium)
-        id: browser-unit-tests
-        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+      # - name: Run Unit Tests (Browser, Chromium)
+      #   id: browser-unit-tests
+      #   run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
 
   integration-tests:
       runs-on: ubuntu-latest-4x
@@ -146,63 +146,53 @@ jobs:
           with:
             node-version-file: .nvmrc
 
-        - name: Cache node_modules, build, extensions, and remote
-          uses: ./.github/actions/cache-multi-paths
+        # - name: Cache node_modules, build, extensions, and remote
+        #   uses: ./.github/actions/cache-multi-paths
 
-        - name: Setup Build and Compile
-          uses: ./.github/actions/setup-build-env
+        # - name: Setup Build and Compile
+        #   uses: ./.github/actions/setup-build-env
 
-        - name: Install Positron License
-          uses: ./.github/actions/install-license
-          with:
-            github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-            license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+        # - name: Install Positron License
+        #   uses: ./.github/actions/install-license
+        #   with:
+        #     github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+        #     license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-        # one integration test needs this: Connections pane works for R
-        - name: Setup R
-          uses: ./.github/actions/install-r
-          with:
-            version: "4.4.0"
+        # # one integration test needs this: Connections pane works for R
+        # - name: Setup R
+        #   uses: ./.github/actions/install-r
+        #   with:
+        #     version: "4.4.0"
 
-        - name: Compile Integration Tests
-          run: yarn --cwd test/integration/browser compile
+        # - name: Compile Integration Tests
+        #   run: yarn --cwd test/integration/browser compile
 
-        - name: Run Integration Tests (Electron)
-          id: electron-integration-tests
-          run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+        # - name: Run Integration Tests (Electron)
+        #   id: electron-integration-tests
+        #   run: DISPLAY=:10 ./scripts/test-integration-pr.sh
 
-        - name: Run Integration Tests (Remote)
-          if: ${{ job.status != 'cancelled' && (success() || failure()) }}
-          id: electron-remote-integration-tests
-          run: DISPLAY=:10 ./scripts/test-remote-integration.sh
+        # - name: Run Integration Tests (Remote)
+        #   if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        #   id: electron-remote-integration-tests
+        #   run: DISPLAY=:10 ./scripts/test-remote-integration.sh
 
-        - name: Run Integration Tests (Browser, Chromium)
-          if: ${{ job.status != 'cancelled' && (success() || failure()) }}
-          id: browser-integration-tests
-          run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
+        # - name: Run Integration Tests (Browser, Chromium)
+        #   if: ${{ job.status != 'cancelled' && (success() || failure()) }}
+        #   id: browser-integration-tests
+        #   run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-  slack-workflow-status:
+  slack-notify:
     # if: ${{ failure() && inputs.e2e_grep == '' }}
     if: always()
-    needs:
-      - unit-tests
-      - integration-tests
-      - e2e-electron
+    needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
-    # permissions:
-    #   actions: 'read'
     steps:
       - name: Slack Workflow Notification
-        uses: Gamesight/slack-workflow-status@master
+        uses: midleman/slack-workflow-status@master
         with:
-          # Required Input
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
-          # Optional Input
           # channel: C07FR1JNZNJ # positron-test-results channel
-          # name: 'Test Status Bot'
-          # icon_emoji: ':poop:'
-          # icon_url: 'https://avatars0.githubusercontent.com/u/1701160?s=96&v=4'
           include_commit_message: true
 
 
