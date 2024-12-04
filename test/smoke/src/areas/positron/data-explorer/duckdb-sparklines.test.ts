@@ -13,10 +13,9 @@ test.use({
 test.describe('Data Explorer - DuckDB Column Summary', {
 	tag: ['@web', '@win', '@pr']
 }, () => {
-	test('Verifies basic duckdb column summary functionality [C1053635]', async function ({ app }) {
-
-		// if you immediately open the data file, the data explorer will be blank
-		await app.code.wait(5000);
+	// python fixture not actually needed but serves as a long wait so that we can be sure
+	// headless/duckdb open will work
+	test('Verifies basic duckdb column summary functionality [C1053635]', async function ({ app, python }) {
 
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'data-files', '100x100', '100x100.parquet'));
 
