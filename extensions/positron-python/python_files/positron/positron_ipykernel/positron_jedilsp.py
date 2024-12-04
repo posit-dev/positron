@@ -344,9 +344,7 @@ def positron_completion(
         )
         markup_kind = _choose_markup(server)
         is_import_context = jedi_utils.is_import(
-            script_=jedi_script,
-            line=jedi_lines[0],
-            column=jedi_lines[1],
+            script_=jedi_script, line=jedi_lines[0], column=jedi_lines[1]
         )
         enable_snippets = snippet_support and not snippet_disable and not is_import_context
         char_before_cursor = pygls_utils.char_before_cursor(
@@ -433,10 +431,7 @@ def positron_completion(
 
 
 def _magic_completion_item(
-    name: str,
-    magic_type: _MagicType,
-    chars_before_cursor: str,
-    func: Callable,
+    name: str, magic_type: _MagicType, chars_before_cursor: str, func: Callable
 ) -> CompletionItem:
     """
     Create a completion item for a magic command.
@@ -514,10 +509,7 @@ def positron_completion_item_resolve(
     return completion_item_resolve(server, params)
 
 
-@POSITRON.feature(
-    TEXT_DOCUMENT_SIGNATURE_HELP,
-    SignatureHelpOptions(trigger_characters=["(", ","]),
-)
+@POSITRON.feature(TEXT_DOCUMENT_SIGNATURE_HELP, SignatureHelpOptions(trigger_characters=["(", ","]))
 def positron_signature_help(
     server: PositronJediLanguageServer, params: TextDocumentPositionParams
 ) -> Optional[SignatureHelp]:
@@ -611,10 +603,7 @@ def positron_help_topic_request(
 @POSITRON.feature(
     TEXT_DOCUMENT_CODE_ACTION,
     CodeActionOptions(
-        code_action_kinds=[
-            CodeActionKind.RefactorInline,
-            CodeActionKind.RefactorExtract,
-        ],
+        code_action_kinds=[CodeActionKind.RefactorInline, CodeActionKind.RefactorExtract]
     ),
 )
 def positron_code_action(

@@ -189,10 +189,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # Render the canvas.
         with io.BytesIO() as figure_buffer:
             self.print_figure(
-                figure_buffer,
-                format=format,
-                dpi=self.figure.dpi,
-                bbox_inches=bbox_inches,
+                figure_buffer, format=format, dpi=self.figure.dpi, bbox_inches=bbox_inches
             )
             rendered = figure_buffer.getvalue()
 

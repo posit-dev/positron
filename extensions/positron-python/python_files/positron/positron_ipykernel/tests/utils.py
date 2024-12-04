@@ -49,17 +49,10 @@ def assert_register_table_called(
         assert passed_variable_path[0] == variable_path[0]
 
 
-def comm_message(
-    data: Optional[JsonRecord] = None,
-) -> JsonRecord:
+def comm_message(data: Optional[JsonRecord] = None) -> JsonRecord:
     if data is None:
         data = {}
-    return {
-        "data": data,
-        "metadata": None,
-        "buffers": None,
-        "msg_type": "comm_msg",
-    }
+    return {"data": data, "metadata": None, "buffers": None, "msg_type": "comm_msg"}
 
 
 def comm_request(data: JsonRecord, **kwargs) -> JsonRecord:
@@ -76,60 +69,31 @@ def comm_open_message(target_name: str, data: Optional[JsonRecord] = None) -> Js
 
 
 def comm_close_message() -> JsonRecord:
-    return {
-        **comm_message(),
-        "msg_type": "comm_close",
-    }
+    return {**comm_message(), "msg_type": "comm_close"}
 
 
 def json_rpc_error(code: int, message: str) -> JsonRecord:
-    return comm_message(
-        {
-            "jsonrpc": "2.0",
-            "error": {
-                "code": code,
-                "message": message,
-            },
-        }
-    )
+    return comm_message({"jsonrpc": "2.0", "error": {"code": code, "message": message}})
 
 
 def json_rpc_notification(method: str, params: Optional[JsonRecord] = None) -> JsonRecord:
     return comm_message(
-        {
-            "jsonrpc": "2.0",
-            "method": method,
-            "params": {} if params is None else params,
-        }
+        {"jsonrpc": "2.0", "method": method, "params": {} if params is None else params}
     )
 
 
 def json_rpc_request(
-    method: str,
-    params: Optional[JsonRecord] = None,
-    **content: JsonData,
+    method: str, params: Optional[JsonRecord] = None, **content: JsonData
 ) -> JsonRecord:
     data = {"params": params} if params else {}
     return {
-        "content": {
-            "data": {
-                "jsonrpc": "2.0",
-                "method": method,
-                **data,
-            },
-            **content,
-        },
+        "content": {"data": {"jsonrpc": "2.0", "method": method, **data}, **content},
         "header": {},
     }
 
 
 def json_rpc_response(result: JsonData) -> JsonRecord:
-    return comm_message(
-        {
-            "jsonrpc": "2.0",
-            "result": result,
-        }
-    )
+    return comm_message({"jsonrpc": "2.0", "result": result})
 
 
 # remove "<class '...'>" from value

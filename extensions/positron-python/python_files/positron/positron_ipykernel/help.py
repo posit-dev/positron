@@ -67,10 +67,7 @@ class HelpService:
 
     # Not sure why, but some qualified names cause errors in pydoc. Manually replace these with
     # names that are known to work.
-    _QUALNAME_OVERRIDES = {
-        "pandas.core.frame": "pandas",
-        "pandas.core.series": "pandas",
-    }
+    _QUALNAME_OVERRIDES = {"pandas.core.frame": "pandas", "pandas.core.series": "pandas"}
 
     def __init__(self):
         self._comm: Optional[PositronComm] = None

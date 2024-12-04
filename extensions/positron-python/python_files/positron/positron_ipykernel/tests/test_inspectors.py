@@ -19,11 +19,7 @@ import pytest
 from fastcore.foundation import L
 from shapely.geometry import Polygon
 
-from positron_ipykernel.inspectors import (
-    PRINT_WIDTH,
-    TRUNCATE_AT,
-    get_inspector,
-)
+from positron_ipykernel.inspectors import PRINT_WIDTH, TRUNCATE_AT, get_inspector
 from positron_ipykernel.utils import get_qualname
 from positron_ipykernel.variables_comm import VariableKind
 
@@ -276,12 +272,7 @@ def test_inspect_bytes(value: bytes) -> None:
     )
 
 
-BYTEARRAY_CASES = [
-    bytearray(),
-    bytearray(0),
-    bytearray(1),
-    bytearray(b"\x41\x42\x43"),
-]
+BYTEARRAY_CASES = [bytearray(), bytearray(0), bytearray(1), bytearray(b"\x41\x42\x43")]
 
 
 @pytest.mark.parametrize("value", BYTEARRAY_CASES)
@@ -650,12 +641,7 @@ def test_inspect_numpy_array(value: np.ndarray) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "value",
-    [
-        np.array(1, dtype=np.int64),
-    ],
-)
+@pytest.mark.parametrize("value", [np.array(1, dtype=np.int64)])
 def test_inspect_numpy_array_0d(value: np.ndarray) -> None:
     verify_inspector(
         value=value,
@@ -866,10 +852,7 @@ def test_inspect_polars_series() -> None:
         (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), range(2)),
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pd.Index([0, 1]), range(0, 2)),
-        (
-            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
-            range(0, 2),
-        ),
+        (pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]), range(0, 2)),
         (np.array([0, 1]), range(0, 2)),  # 1D
         (np.array([[0, 1], [2, 3]]), range(0, 2)),  # 2D
     ],
@@ -889,16 +872,8 @@ def test_get_children(data: Any, expected: Iterable) -> None:
         (helper, "fn_no_args", helper.fn_no_args),
         (pd.Series({"a": 0, "b": 1}), 0, 0),
         (pl.Series([0, 1]), 0, 0),
-        (
-            pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-            0,
-            pd.Series([1, 2], name="a"),
-        ),
-        (
-            pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}),
-            "a",
-            pl.Series(values=[1, 2], name="a"),
-        ),
+        (pd.DataFrame({"a": [1, 2], "b": ["3", "4"]}), 0, pd.Series([1, 2], name="a")),
+        (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), "a", pl.Series(values=[1, 2], name="a")),
         (pd.Index([0, 1]), 0, 0),
         (
             pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),

@@ -327,9 +327,7 @@ def test_tabulate_attrs(attrs: List[_Attr], expected: List[str]) -> None:
 
 @pytest.mark.parametrize(
     ("obj", "expected"),
-    [
-        (pd.DataFrame, "Two-dimensional, size-mutable, potentially heterogeneous tabular data."),
-    ],
+    [(pd.DataFrame, "Two-dimensional, size-mutable, potentially heterogeneous tabular data.")],
 )
 def test_get_summary(obj: Any, expected: str) -> None:
     result = _get_summary(obj)
@@ -480,25 +478,13 @@ def test_resolve(target: str, from_obj: Any, expected: Any) -> None:
     ("object", "expected"),
     [
         # Does not link item names/types in Arguments section, but does link descriptions.
-        (
-            _test_getdoc_links_arguments_section,
-            _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT,
-        ),
+        (_test_getdoc_links_arguments_section, _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT),
         # Same as previous but using markdown link format.
-        (
-            _test_getdoc_md_links_arguments_section,
-            _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT,
-        ),
+        (_test_getdoc_md_links_arguments_section, _TEST_GETDOC_LINKS_ARGS_SECTION_OUTPUT),
         # Links items in the list under the See Also section.
-        (
-            _test_getdoc_links_see_also_section,
-            _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT,
-        ),
+        (_test_getdoc_links_see_also_section, _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT),
         # Same as previous but using markdown link format.
-        (
-            _test_getdoc_md_links_see_also_section,
-            _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT,
-        ),
+        (_test_getdoc_md_links_see_also_section, _TEST_GETDOC_LINKS_SEE_ALSO_SECTION_OUTPUT),
         # Highlights code blocks.
         # Inputs and outputs are split into separate html elements.
         (

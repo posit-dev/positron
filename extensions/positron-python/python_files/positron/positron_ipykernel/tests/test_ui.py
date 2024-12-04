@@ -93,12 +93,7 @@ def test_set_console_width(ui_comm: DummyComm) -> None:
     """
     width = 118
     msg = json_rpc_request(
-        "call_method",
-        {
-            "method": "setConsoleWidth",
-            "params": [width],
-        },
-        comm_id="dummy_comm_id",
+        "call_method", {"method": "setConsoleWidth", "params": [width]}, comm_id="dummy_comm_id"
     )
     ui_comm.handle_msg(msg)
 
@@ -129,12 +124,7 @@ def test_is_module_loaded(ui_comm: DummyComm) -> None:
     """
     module = "fallingStars"
     msg = json_rpc_request(
-        "call_method",
-        {
-            "method": "isModuleLoaded",
-            "params": [module],
-        },
-        comm_id="dummy_comm_id",
+        "call_method", {"method": "isModuleLoaded", "params": [module]}, comm_id="dummy_comm_id"
     )
     ui_comm.handle_msg(msg)
 
@@ -216,10 +206,7 @@ webbrowser.open({repr(url)})
     assert ui_comm.messages == expected
 
 
-def test_bokeh_show_sends_events(
-    shell: PositronShell,
-    ui_comm: DummyComm,
-) -> None:
+def test_bokeh_show_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
     """
     Test that showing a Bokeh plot sends the expected UI events.
     """
@@ -263,9 +250,7 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
 
 
 def test_plotly_show_sends_events(
-    shell: PositronShell,
-    ui_comm: DummyComm,
-    mock_handle_request: Mock,
+    shell: PositronShell, ui_comm: DummyComm, mock_handle_request: Mock
 ) -> None:
     """
     Test that showing a Plotly plot sends the expected UI events when using `fig.show()` and `fig`.
@@ -299,10 +284,7 @@ fig
     assert params["height"] == 0
 
 
-def test_is_not_plot_url_events(
-    shell: PositronShell,
-    ui_comm: DummyComm,
-) -> None:
+def test_is_not_plot_url_events(shell: PositronShell, ui_comm: DummyComm) -> None:
     """
     Test that opening a URL that is not a plot sends the expected UI events.
     Checks that the `is_plot` parameter is not sent or is `False`.

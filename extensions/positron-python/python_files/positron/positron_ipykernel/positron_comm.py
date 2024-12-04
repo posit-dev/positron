@@ -12,14 +12,7 @@ from typing import Callable, Generic, Optional, Type, TypeVar
 
 import comm
 
-from . import (
-    connections_comm,
-    data_explorer_comm,
-    help_comm,
-    plot_comm,
-    ui_comm,
-    variables_comm,
-)
+from . import connections_comm, data_explorer_comm, help_comm, plot_comm, ui_comm, variables_comm
 from ._vendor.pydantic import ValidationError
 from ._vendor.pydantic.generics import GenericModel
 from .utils import JsonData, JsonRecord
@@ -145,9 +138,7 @@ class PositronComm:
             The Pydantic model to parse the message with.
         """
 
-        def _handle_msg(
-            raw_msg: JsonRecord,
-        ) -> None:
+        def _handle_msg(raw_msg: JsonRecord) -> None:
             try:
                 comm_msg = CommMessage[content_cls].parse_obj(raw_msg)
             except ValidationError as exception:
@@ -163,8 +154,7 @@ class PositronComm:
                     ):
                         method = error["ctx"]["discriminator_value"]
                         self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND,
-                            f"Unknown method '{method}'",
+                            JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'"
                         )
                         return
 
@@ -175,15 +165,11 @@ class PositronComm:
                     ):
                         method = error["ctx"]["given"]
                         self.send_error(
-                            JsonRpcErrorCode.METHOD_NOT_FOUND,
-                            f"Unknown method '{method}'",
+                            JsonRpcErrorCode.METHOD_NOT_FOUND, f"Unknown method '{method}'"
                         )
                         return
 
-                self.send_error(
-                    JsonRpcErrorCode.INVALID_REQUEST,
-                    f"Invalid request: {exception}",
-                )
+                self.send_error(JsonRpcErrorCode.INVALID_REQUEST, f"Invalid request: {exception}")
                 return
 
             callback(comm_msg, raw_msg)
@@ -223,15 +209,8 @@ class PositronComm:
         metadata
             The metadata to send with the result.
         """
-        result = dict(
-            jsonrpc="2.0",
-            result=data,
-        )
-        self.comm.send(
-            data=result,
-            metadata=metadata,
-            buffers=None,
-        )
+        result = dict(jsonrpc="2.0", result=data)
+        self.comm.send(data=result, metadata=metadata, buffers=None)
 
     def send_event(self, name: str, payload: JsonRecord) -> None:
         """
@@ -244,11 +223,7 @@ class PositronComm:
         payload
             The payload of the event.
         """
-        event = dict(
-            jsonrpc="2.0",
-            method=name,
-            params=payload,
-        )
+        event = dict(jsonrpc="2.0", method=name, params=payload)
         with self.send_lock:
             self.comm.send(data=event)
 
@@ -263,18 +238,8 @@ class PositronComm:
         message
             The error message to send.
         """
-        error = dict(
-            jsonrpc="2.0",
-            error=dict(
-                code=code.value,
-                message=message,
-            ),
-        )
-        self.comm.send(
-            data=error,
-            metadata=None,
-            buffers=None,
-        )
+        error = dict(jsonrpc="2.0", error=dict(code=code.value, message=message))
+        self.comm.send(data=error, metadata=None, buffers=None)
 
     def close(self) -> None:
         """

@@ -80,13 +80,7 @@ def test_encode_access_key_not_hashable_error(case: Any) -> None:
         encode_access_key(case)
 
 
-@pytest.mark.parametrize(
-    "case",
-    [
-        torch.tensor([]) if torch else None,
-        lambda x: x,
-    ],
-)
+@pytest.mark.parametrize("case", [torch.tensor([]) if torch else None, lambda x: x])
 def test_encode_access_key_not_implemented_error(case: Any) -> None:
     """
     Encoding an access key of an unsupported type raises an error.

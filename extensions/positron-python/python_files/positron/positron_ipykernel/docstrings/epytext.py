@@ -10,7 +10,7 @@ from typing import List
 # from markdown_to_docstring.google.ESCAPE_RULES
 ESCAPE_RULES = {
     # Avoid Markdown in magic methods or filenames like __init__.py
-    r"__(?P<text>\S+)__": r"\_\_\g<text>\_\_",
+    r"__(?P<text>\S+)__": r"\_\_\g<text>\_\_"
 }
 
 EPYTEXT_FIELDS: List[str] = [

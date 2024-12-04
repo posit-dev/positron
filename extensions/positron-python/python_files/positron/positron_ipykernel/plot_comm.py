@@ -51,21 +51,13 @@ class IntrinsicSize(BaseModel):
     The intrinsic size of a plot, if known
     """
 
-    width: Union[StrictInt, StrictFloat] = Field(
-        description="The width of the plot",
-    )
+    width: Union[StrictInt, StrictFloat] = Field(description="The width of the plot")
 
-    height: Union[StrictInt, StrictFloat] = Field(
-        description="The height of the plot",
-    )
+    height: Union[StrictInt, StrictFloat] = Field(description="The height of the plot")
 
-    unit: PlotUnit = Field(
-        description="The unit of measurement of the plot's dimensions",
-    )
+    unit: PlotUnit = Field(description="The unit of measurement of the plot's dimensions")
 
-    source: StrictStr = Field(
-        description="The source of the intrinsic size e.g. 'Matplotlib'",
-    )
+    source: StrictStr = Field(description="The source of the intrinsic size e.g. 'Matplotlib'")
 
 
 class PlotResult(BaseModel):
@@ -73,13 +65,9 @@ class PlotResult(BaseModel):
     A rendered plot
     """
 
-    data: StrictStr = Field(
-        description="The plot data, as a base64-encoded string",
-    )
+    data: StrictStr = Field(description="The plot data, as a base64-encoded string")
 
-    mime_type: StrictStr = Field(
-        description="The MIME type of the plot data",
-    )
+    mime_type: StrictStr = Field(description="The MIME type of the plot data")
 
 
 class PlotSize(BaseModel):
@@ -87,13 +75,9 @@ class PlotSize(BaseModel):
     The size of a plot
     """
 
-    height: StrictInt = Field(
-        description="The plot's height, in pixels",
-    )
+    height: StrictInt = Field(description="The plot's height, in pixels")
 
-    width: StrictInt = Field(
-        description="The plot's width, in pixels",
-    )
+    width: StrictInt = Field(description="The plot's width, in pixels")
 
 
 @enum.unique
@@ -116,13 +100,10 @@ class GetIntrinsicSizeRequest(BaseModel):
     """
 
     method: Literal[PlotBackendRequest.GetIntrinsicSize] = Field(
-        description="The JSON-RPC method name (get_intrinsic_size)",
+        description="The JSON-RPC method name (get_intrinsic_size)"
     )
 
-    jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
-    )
+    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
 
 
 class RenderParams(BaseModel):
@@ -137,12 +118,10 @@ class RenderParams(BaseModel):
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(
-        description="The pixel ratio of the display device",
+        description="The pixel ratio of the display device"
     )
 
-    format: RenderFormat = Field(
-        description="The requested plot format",
-    )
+    format: RenderFormat = Field(description="The requested plot format")
 
 
 class RenderRequest(BaseModel):
@@ -151,26 +130,18 @@ class RenderRequest(BaseModel):
     base64-encoded string.
     """
 
-    params: RenderParams = Field(
-        description="Parameters to the Render method",
-    )
+    params: RenderParams = Field(description="Parameters to the Render method")
 
     method: Literal[PlotBackendRequest.Render] = Field(
-        description="The JSON-RPC method name (render)",
+        description="The JSON-RPC method name (render)"
     )
 
-    jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
-    )
+    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
 
 
 class PlotBackendMessageContent(BaseModel):
     comm_id: str
-    data: Union[
-        GetIntrinsicSizeRequest,
-        RenderRequest,
-    ] = Field(..., discriminator="method")
+    data: Union[GetIntrinsicSizeRequest, RenderRequest] = Field(..., discriminator="method")
 
 
 @enum.unique

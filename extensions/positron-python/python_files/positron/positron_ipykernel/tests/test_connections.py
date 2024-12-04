@@ -65,11 +65,7 @@ class TestSQLiteConnectionsService:
         assert comm_id in connections_service.comms
 
     @pytest.mark.parametrize(
-        "path,expected",
-        [
-            ([], False),
-            ([{"kind": "schema", "name": "main"}], True),
-        ],
+        "path,expected", [([], False), ([{"kind": "schema", "name": "main"}], True)]
     )
     def test_contains_data(
         self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected
@@ -83,11 +79,7 @@ class TestSQLiteConnectionsService:
         assert result is False
 
     @pytest.mark.parametrize(
-        "path,expected",
-        [
-            ([], ""),
-            ([{"kind": "schema", "name": "main"}], ""),
-        ],
+        "path,expected", [([], ""), ([{"kind": "schema", "name": "main"}], "")]
     )
     def test_get_icon(self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected):
         _, comm = connections_comm
