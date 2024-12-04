@@ -25,7 +25,9 @@ def set_holoviews_extension(ui_service: UiService) -> None:
     else:
         if holoviews.extension == holoviews.ipython.notebook_extension:
 
-            class positron_notebook_extension(holoviews.ipython.notebook_extension):
+            class positron_notebook_extension(
+                holoviews.ipython.notebook_extension
+            ):
                 """
                 Custom notebook extension for HoloViews that notifies the frontend
                 of new extension loads.

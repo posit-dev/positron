@@ -13,7 +13,9 @@ MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
 
 def test_bokeh_mime_tagging(
-    shell: PositronShell, mock_display_pub: Mock, enable_bokeh_output_notebook: None
+    shell: PositronShell,
+    mock_display_pub: Mock,
+    enable_bokeh_output_notebook: None,
 ):
     """
     Test to make sure that the send message function in bokeh is patched to append a mime-type
@@ -56,4 +58,7 @@ p
     )
 
     # Assert that none of the messages have a text/html mime type
-    assert not any("text/html" in message["content"]["data"] for message in session.messages)
+    assert not any(
+        "text/html" in message["content"]["data"]
+        for message in session.messages
+    )

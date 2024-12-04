@@ -21,7 +21,9 @@ from positron_ipykernel._vendor.lsprotocol.types import (
     Position,
     TextDocumentIdentifier,
 )
-from positron_ipykernel._vendor.pygls.workspace.text_document import TextDocument
+from positron_ipykernel._vendor.pygls.workspace.text_document import (
+    TextDocument,
+)
 from positron_ipykernel.help_comm import ShowHelpTopicParams
 from positron_ipykernel.jedi import PositronInterpreter
 from positron_ipykernel.positron_jedilsp import (
@@ -71,7 +73,9 @@ def test_positron_help_topic_request(
     namespace: Dict[str, Any],
     expected_topic: Optional[str],
 ) -> None:
-    params = HelpTopicParams(TextDocumentIdentifier("file:///foo.py"), Position(0, 0))
+    params = HelpTopicParams(
+        TextDocumentIdentifier("file:///foo.py"), Position(0, 0)
+    )
     server = mock_server(params.text_document.uri, source, namespace)
 
     topic = positron_help_topic_request(server, params)
@@ -98,7 +102,9 @@ def _completions(
     lines = source.splitlines()
     line = len(lines) - 1
     character = len(lines[line])
-    params = CompletionParams(TextDocumentIdentifier("file:///foo.py"), Position(line, character))
+    params = CompletionParams(
+        TextDocumentIdentifier("file:///foo.py"), Position(line, character)
+    )
     server = mock_server(params.text_document.uri, source, namespace)
 
     completion_list = positron_completion(server, params)
@@ -167,28 +173,36 @@ _pl_df = pl.DataFrame({"a": [0]})
             'x["',
             {"x": {"a": _object_with_property.prop}},
             "instance str(object='', /) -> str",
-            jedi_utils.convert_docstring(cast(str, str.__doc__), MarkupKind.Markdown),
+            jedi_utils.convert_docstring(
+                cast(str, str.__doc__), MarkupKind.Markdown
+            ),
         ),
         # Dict key mapping to an int.
         (
             'x["',
             {"x": {"a": 0}},
             "instance int(x=None, /) -> int",
-            jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            jedi_utils.convert_docstring(
+                cast(str, int.__doc__), MarkupKind.Markdown
+            ),
         ),
         # Integer, to sanity check for a basic value.
         (
             "x",
             {"x": 0},
             "instance int(x=None, /) -> int",
-            jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            jedi_utils.convert_docstring(
+                cast(str, int.__doc__), MarkupKind.Markdown
+            ),
         ),
         # Dict literal key mapping to an int.
         (
             '{"a": 0}["',
             {},
             "instance int(x=None, /) -> int",
-            jedi_utils.convert_docstring(cast(str, int.__doc__), MarkupKind.Markdown),
+            jedi_utils.convert_docstring(
+                cast(str, int.__doc__), MarkupKind.Markdown
+            ),
         ),
         # Pandas dataframe.
         (
@@ -246,10 +260,14 @@ def test_positron_completion_item_resolve(
     lines = source.splitlines()
     line = len(lines)
     character = len(lines[line - 1])
-    completions = PositronInterpreter(source, namespaces=[namespace]).complete(line, character)
+    completions = PositronInterpreter(source, namespaces=[namespace]).complete(
+        line, character
+    )
     assert len(completions) == 1, "Test cases must have exactly one completion"
     [completion] = completions
-    monkeypatch.setattr(jedi_utils, "_MOST_RECENT_COMPLETIONS", {"label": completion})
+    monkeypatch.setattr(
+        jedi_utils, "_MOST_RECENT_COMPLETIONS", {"label": completion}
+    )
 
     server = mock_server("", source, namespace)
     params = CompletionItem("label")

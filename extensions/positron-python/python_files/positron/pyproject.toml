@@ -1,5 +1,10 @@
 [tool.ruff]
+line-length = 80
+target-version = "py38"
 exclude = [
     # Ignore vendored dependencies
     'positron_ipykernel/_vendor/',
 ]
+
+[tool.ruff.format]
+docstring-code-format = true

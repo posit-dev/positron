@@ -29,7 +29,9 @@ from typing import (
 )
 from urllib.parse import unquote, urlparse
 
-JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
+JsonData = Union[
+    Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None
+]
 JsonRecord = Dict[str, JsonData]
 
 
@@ -219,7 +221,9 @@ def json_clean(obj):
     raise ValueError("Can't clean for JSON: %r" % obj)
 
 
-def create_task(coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs) -> asyncio.Task:
+def create_task(
+    coro: Coroutine, pending_tasks: Set[asyncio.Task], **kwargs
+) -> asyncio.Task:
     """
     Create a strongly referenced task to avoid it being garbage collected.
 
@@ -252,7 +256,9 @@ class BackgroundJobQueue:
     def __init__(self, max_workers=None):
         # Initialize the ThreadPoolExecutor with the specified number
         # of workers
-        self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=max_workers
+        )
         self.pending_futures = set()
         self.lock = threading.Lock()
 
@@ -285,7 +291,9 @@ class BackgroundJobQueue:
         self.executor.shutdown(wait=wait)
 
 
-def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool:
+def safe_isinstance(
+    obj: Any, module: str, class_name: str, *attrs: str
+) -> bool:
     """
     Check if `obj` is an instance of module.class_name if loaded.
 
@@ -296,7 +304,9 @@ def safe_isinstance(obj: Any, module: str, class_name: str, *attrs: str) -> bool
         for attr in [class_name, *attrs]:
             m = getattr(m, attr)
         if not isinstance(m, type):
-            raise ValueError(f"{module}.{class_name}.{'.'.join(attrs)} is not a type")
+            raise ValueError(
+                f"{module}.{class_name}.{'.'.join(attrs)} is not a type"
+            )
         return isinstance(obj, m)
     return False
 

@@ -6,7 +6,17 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import comm
 
@@ -114,7 +124,9 @@ class Connection:
         """
         raise NotImplementedError()
 
-    def list_fields(self, path: List[ObjectSchema]) -> List[ConnectionObjectFields]:
+    def list_fields(
+        self, path: List[ObjectSchema]
+    ) -> List[ConnectionObjectFields]:
         """
         Returns the list of fields for the given object.
 
@@ -215,7 +227,9 @@ class ConnectionsService:
                 self._register_variable_path(variable_path, comm_id)
 
                 if display_pane:
-                    self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+                    self.comms[comm_id].send_event(
+                        ConnectionsFrontendEvent.Focus.value, {}
+                    )
 
                 return comm_id
 
@@ -237,7 +251,9 @@ class ConnectionsService:
         self.on_comm_open(base_comm)
 
         if display_pane:
-            self.comms[comm_id].send_event(ConnectionsFrontendEvent.Focus.value, {})
+            self.comms[comm_id].send_event(
+                ConnectionsFrontendEvent.Focus.value, {}
+            )
 
         return comm_id
 
@@ -284,7 +300,9 @@ class ConnectionsService:
         comm_id = comm.comm_id
         comm.on_close(lambda msg: self._on_comm_close(comm_id))
         connections_comm = PositronComm(comm)
-        connections_comm.on_msg(self.handle_msg, ConnectionsBackendMessageContent)
+        connections_comm.on_msg(
+            self.handle_msg, ConnectionsBackendMessageContent
+        )
         self.comms[comm_id] = connections_comm
 
     def _wrap_connection(self, obj: Any) -> Connection:
@@ -293,7 +311,9 @@ class ConnectionsService:
         # support in the connections pane.
         if not self.object_is_supported(obj):
             type_name = type(obj).__name__
-            raise UnsupportedConnectionError(f"Unsupported connection type {type_name}")
+            raise UnsupportedConnectionError(
+                f"Unsupported connection type {type_name}"
+            )
 
         if safe_isinstance(obj, "sqlite3", "Connection"):
             return SQLite3Connection(obj)
@@ -301,7 +321,9 @@ class ConnectionsService:
             return SQLAlchemyConnection(obj)
         else:
             type_name = type(obj).__name__
-            raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
+            raise UnsupportedConnectionError(
+                f"Unsupported connection type {type(obj)}"
+            )
 
     def object_is_supported(self, obj: Any) -> bool:
         """
@@ -310,9 +332,9 @@ class ConnectionsService:
         try:
             # This block might fail if for some reason 'Connection' or 'Engine' are
             # not available in their modules.
-            return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
-                obj, "sqlalchemy", "Engine"
-            )
+            return safe_isinstance(
+                obj, "sqlite3", "Connection"
+            ) or safe_isinstance(obj, "sqlalchemy", "Engine")
         except Exception as err:
             logger.error(f"Error checking supported {err}")
             return False
@@ -321,7 +343,10 @@ class ConnectionsService:
         """
         Checks if the given variable path has an active connection.
         """
-        return any(decode_access_key(path[0]) == variable_name for path in self.path_to_comm_ids)
+        return any(
+            decode_access_key(path[0]) == variable_name
+            for path in self.path_to_comm_ids
+        )
 
     def handle_variable_updated(self, variable_name: str, value: Any) -> None:
         """
@@ -338,7 +363,9 @@ class ConnectionsService:
             # registering a new connection with the same variable path is going to close the
             # variable path if the connections are different.
             # when handling a variable update we don't want to go and display the pane in the IDE
-            self.register_connection(value, variable_path=variable_path, display_pane=False)
+            self.register_connection(
+                value, variable_path=variable_path, display_pane=False
+            )
         except UnsupportedConnectionError:
             # if an unsupported connection error, then it means the variable
             # is no longer a connection, thus we unregister that variable path,
@@ -411,7 +438,9 @@ class ConnectionsService:
         self.comm_id_to_connection = {}
 
     def handle_msg(
-        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[ConnectionsBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         """
         Handles messages from the frontend.
@@ -438,7 +467,9 @@ class ConnectionsService:
             )
 
     def _handle_msg(
-        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[ConnectionsBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         comm_id = msg.content.comm_id
         request = msg.content.data
@@ -467,7 +498,9 @@ class ConnectionsService:
 
         comm.send_result(result)
 
-    def handle_contains_data_request(self, conn: Connection, request: ContainsDataRequest) -> bool:
+    def handle_contains_data_request(
+        self, conn: Connection, request: ContainsDataRequest
+    ) -> bool:
         path = request.params.path
         if len(path) == 0:
             return False
@@ -479,7 +512,9 @@ class ConnectionsService:
             contains = "not_data"
         return isinstance(contains, str) and contains == "data"
 
-    def handle_get_icon_request(self, conn: Connection, request: GetIconRequest) -> str:
+    def handle_get_icon_request(
+        self, conn: Connection, request: GetIconRequest
+    ) -> str:
         path = request.params.path
 
         icon = None
@@ -531,7 +566,9 @@ class SQLite3Connection(Connection):
         self.host = self._find_path(conn)
         self.type = "SQLite"
         self.code = (
-            "import sqlite3\n" f'conn = sqlite3.connect("{self.host}")\n' "%connection_show conn\n"
+            "import sqlite3\n"
+            f'conn = sqlite3.connect("{self.host}")\n'
+            "%connection_show conn\n"
         )
 
     def _find_path(self, conn: sqlite3.Connection):
@@ -554,7 +591,9 @@ class SQLite3Connection(Connection):
             res = self.conn.cursor().execute("PRAGMA database_list;")
             schemas: List[ConnectionObject] = []
             for _, name, _ in res.fetchall():
-                schemas.append(ConnectionObject({"name": name, "kind": "schema"}))
+                schemas.append(
+                    ConnectionObject({"name": name, "kind": "schema"})
+                )
             return schemas
 
         if len(path) == 1:
@@ -587,23 +626,32 @@ class SQLite3Connection(Connection):
 
         # there is no additional hierarchies in SQLite databases. If we get to this point
         # it means the path is invalid.
-        raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
+        raise ValueError(
+            f"Path length must be at most 1, but got {len(path)}. Path: {path}"
+        )
 
     def list_fields(self, path: List[ObjectSchema]):
         if len(path) != 2:
-            raise ValueError(f"Path length must be 2, but got {len(path)}. Path: {path}")
+            raise ValueError(
+                f"Path length must be 2, but got {len(path)}. Path: {path}"
+            )
 
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                "Path must include a schema and a table/view in this order.",
+                f"Path: {path}",
             )
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
-        res = self.conn.cursor().execute(f"PRAGMA {schema.name}.table_info({table.name});")
+        res = self.conn.cursor().execute(
+            f"PRAGMA {schema.name}.table_info({table.name});"
+        )
         fields: List[ConnectionObjectFields] = []
         for _, name, dtype, _, _, _ in res.fetchall():
-            fields.append(ConnectionObjectFields({"name": name, "dtype": dtype}))
+            fields.append(
+                ConnectionObjectFields({"name": name, "dtype": dtype})
+            )
 
         return fields
 
@@ -612,15 +660,20 @@ class SQLite3Connection(Connection):
 
     def preview_object(self, path: List[ObjectSchema]):
         if pd_ is None:
-            raise ModuleNotFoundError("Pandas is required for previewing SQLite tables.")
+            raise ModuleNotFoundError(
+                "Pandas is required for previewing SQLite tables."
+            )
 
         if len(path) != 2:
-            raise ValueError(f"Path length must be 2, but got {len(path)}. Path: {path}")
+            raise ValueError(
+                f"Path length must be 2, but got {len(path)}. Path: {path}"
+            )
 
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                "Path must include a schema and a table/view in this order.",
+                f"Path: {path}",
             )
 
         return pd_.read_sql(
@@ -662,7 +715,10 @@ class SQLAlchemyConnection(Connection):
         if len(path) == 0:
             # we at the root of the database so we return the list of schemas
             schemas = sqlalchemy_.inspect(self.conn).get_schema_names()
-            return [ConnectionObject({"name": name, "kind": "schema"}) for name in schemas]
+            return [
+                ConnectionObject({"name": name, "kind": "schema"})
+                for name in schemas
+            ]
 
         if len(path) == 1:
             # we must have a schema on the path. and we return the list of tables and views
@@ -676,11 +732,17 @@ class SQLAlchemyConnection(Connection):
 
             tables = sqlalchemy_.inspect(self.conn).get_table_names(schema.name)
             views = sqlalchemy_.inspect(self.conn).get_view_names(schema.name)
-            return [ConnectionObject({"name": name, "kind": "table"}) for name in tables] + [
-                ConnectionObject({"name": name, "kind": "view"}) for name in views
+            return [
+                ConnectionObject({"name": name, "kind": "table"})
+                for name in tables
+            ] + [
+                ConnectionObject({"name": name, "kind": "view"})
+                for name in views
             ]
 
-        raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
+        raise ValueError(
+            f"Path length must be at most 1, but got {len(path)}. Path: {path}"
+        )
 
     def list_fields(self, path: List[ObjectSchema]):
         if sqlalchemy_ is None:
@@ -695,7 +757,9 @@ class SQLAlchemyConnection(Connection):
             schema_name=schema.name, table_name=table.name
         )
         return [
-            ConnectionObjectFields({"name": field["name"], "dtype": str(field["type"])})
+            ConnectionObjectFields(
+                {"name": field["name"], "dtype": str(field["type"])}
+            )
             for field in fields
         ]
 
@@ -714,13 +778,18 @@ class SQLAlchemyConnection(Connection):
             )
 
         if pd_ is None:
-            raise ModuleNotFoundError("Pandas is required for previewing SQLAlchemy tables.")
+            raise ModuleNotFoundError(
+                "Pandas is required for previewing SQLAlchemy tables."
+            )
 
         self._check_table_path(path)
         schema, table = path
 
         table = sqlalchemy_.Table(
-            table.name, sqlalchemy_.MetaData(), autoload_with=self.conn, schema=schema.name
+            table.name,
+            sqlalchemy_.MetaData(),
+            autoload_with=self.conn,
+            schema=schema.name,
         )
         stmt = sqlalchemy_.sql.select(table).limit(1000)
         # using conn.connect() is safer then using the conn directly and is also supported
@@ -733,7 +802,8 @@ class SQLAlchemyConnection(Connection):
     def _check_table_path(self, path: List[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"
+                f"Invalid path. Length path ({len(path)}) expected to be 2.",
+                f"Path: {path}",
             )
 
         schema, table = path

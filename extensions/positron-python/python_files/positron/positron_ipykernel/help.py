@@ -57,7 +57,9 @@ def help(topic="help"):
         kernel = PositronIPyKernel.instance()
         kernel.help_service.show_help(topic)
     else:
-        raise Exception("Unexpected error. No PositronIPyKernel has been initialized.")
+        raise Exception(
+            "Unexpected error. No PositronIPyKernel has been initialized."
+        )
 
 
 class HelpService:
@@ -80,7 +82,9 @@ class HelpService:
         self._comm = PositronComm(comm)
         self._comm.on_msg(self.handle_msg, HelpBackendMessageContent)
 
-    def handle_msg(self, msg: CommMessage[HelpBackendMessageContent], raw_msg: JsonRecord) -> None:
+    def handle_msg(
+        self, msg: CommMessage[HelpBackendMessageContent], raw_msg: JsonRecord
+    ) -> None:
         """
         Handle messages received from the client via the positron.help comm.
         """
@@ -112,7 +116,9 @@ class HelpService:
 
     def show_help(self, request: Optional[Union[str, Any]]) -> None:
         if self._pydoc_thread is None or not self._pydoc_thread.serving:
-            logger.warning("Ignoring help request, the pydoc server is not serving")
+            logger.warning(
+                "Ignoring help request, the pydoc server is not serving"
+            )
             return
 
         # Map from the object to the URL for the pydoc server.
@@ -143,4 +149,6 @@ class HelpService:
         # Submit the event to the frontend service
         event = ShowHelpParams(content=url, kind=ShowHelpKind.Url, focus=True)
         if self._comm is not None:
-            self._comm.send_event(name=HelpFrontendEvent.ShowHelp.value, payload=event.dict())
+            self._comm.send_event(
+                name=HelpFrontendEvent.ShowHelp.value, payload=event.dict()
+            )

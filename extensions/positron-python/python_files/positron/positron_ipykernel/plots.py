@@ -111,7 +111,9 @@ class Plot:
         else:
             self._comm.send_event(PlotFrontendEvent.Update, {})
 
-    def _handle_msg(self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord) -> None:
+    def _handle_msg(
+        self, msg: CommMessage[PlotBackendMessageContent], raw_msg: JsonRecord
+    ) -> None:
         request = msg.content.data
         if isinstance(request, RenderRequest):
             self._handle_render(
@@ -156,7 +158,9 @@ class Renderer(Protocol):
     A callable that renders a plot. See `plot_comm.RenderRequest` for parameter details.
     """
 
-    def __call__(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> bytes: ...
+    def __call__(
+        self, size: Optional[PlotSize], pixel_ratio: float, format: str
+    ) -> bytes: ...
 
 
 class PlotsService:
@@ -177,7 +181,9 @@ class PlotsService:
 
         self._plots: List[Plot] = []
 
-    def create_plot(self, render: Renderer, intrinsic_size: Tuple[int, int]) -> Plot:
+    def create_plot(
+        self, render: Renderer, intrinsic_size: Tuple[int, int]
+    ) -> Plot:
         """
         Create a plot.
 

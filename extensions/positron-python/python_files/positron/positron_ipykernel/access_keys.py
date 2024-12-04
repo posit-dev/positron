@@ -51,14 +51,18 @@ def decode_access_key(access_key: str) -> Any:
     if (
         not isinstance(json_data, dict)
         or not isinstance(json_data["type"], str)
-        or not isinstance(json_data["data"], (dict, list, str, int, float, bool, type(None)))
+        or not isinstance(
+            json_data["data"], (dict, list, str, int, float, bool, type(None))
+        )
     ):
         raise ValueError(f"Unexpected json data structure: {json_data}")
 
     # Get the inspector for this type.
     # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
     type_name = cast(str, json_data["type"])
-    inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(type_name, type_name)
+    inspector_key = _ACCESS_KEY_QUALNAME_TO_INSPECTOR_KEY.get(
+        type_name, type_name
+    )
     inspector_cls = INSPECTOR_CLASSES.get(inspector_key, PositronInspector)
 
     # Reconstruct the access key's original object using the deserialized JSON data.

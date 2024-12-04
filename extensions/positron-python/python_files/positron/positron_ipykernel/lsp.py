@@ -45,11 +45,15 @@ class LSPService:
 
         host, port = self._split_address(client_address)
         if host is None or port is None:
-            logger.warning(f"Could not parse host and port from client address: {client_address}")
+            logger.warning(
+                f"Could not parse host and port from client address: {client_address}"
+            )
             return
 
         # Start the language server thread
-        POSITRON.start(lsp_host=host, lsp_port=port, shell=self._kernel.shell, comm=comm)
+        POSITRON.start(
+            lsp_host=host, lsp_port=port, shell=self._kernel.shell, comm=comm
+        )
 
     def _receive_message(self, msg: Dict[str, Any]) -> None:
         """
@@ -67,7 +71,9 @@ class LSPService:
             except Exception:
                 pass
 
-    def _split_address(self, client_address: str) -> Tuple[Optional[str], Optional[int]]:
+    def _split_address(
+        self, client_address: str
+    ) -> Tuple[Optional[str], Optional[int]]:
         """
         Split an address of the form "host:port" into a tuple of (host, port).
         """

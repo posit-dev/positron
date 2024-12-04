@@ -54,8 +54,14 @@ class _InvalidParamsError(Exception):
     pass
 
 
-def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bool:
-    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+def _is_module_loaded(
+    kernel: "PositronIPyKernel", params: List[JsonData]
+) -> bool:
+    if not (
+        isinstance(params, list)
+        and len(params) == 1
+        and isinstance(params[0], str)
+    ):
         raise _InvalidParamsError(f"Expected a module name, got: {params}")
     # Consider: this is not a perfect check for a couple of reasons:
     # 1. The module could be loaded under a different name
@@ -63,8 +69,14 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     return params[0] in kernel.shell.user_ns.keys()
 
 
-def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
-    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
+def _set_console_width(
+    kernel: "PositronIPyKernel", params: List[JsonData]
+) -> None:
+    if not (
+        isinstance(params, list)
+        and len(params) == 1
+        and isinstance(params[0], int)
+    ):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
     width = params[0]
@@ -91,7 +103,9 @@ def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> N
         torch_.set_printoptions(linewidth=width)
 
 
-_RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
+_RPC_METHODS: Dict[
+    str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]
+] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
 }
@@ -143,8 +157,12 @@ class UiService:
             self._working_directory = current_dir
             # Deliver event to client
             if self._comm is not None:
-                event = WorkingDirectoryParams(directory=str(alias_home(current_dir)))
-                self._send_event(name=UiFrontendEvent.WorkingDirectory, payload=event)
+                event = WorkingDirectoryParams(
+                    directory=str(alias_home(current_dir))
+                )
+                self._send_event(
+                    name=UiFrontendEvent.WorkingDirectory, payload=event
+                )
 
     def open_editor(self, file: str, line: int, column: int) -> None:
         event = OpenEditorParams(file=file, line=line, column=column)
@@ -156,7 +174,9 @@ class UiService:
     def clear_webview_preloads(self) -> None:
         self._send_event(name=UiFrontendEvent.ClearWebviewPreloads, payload={})
 
-    def handle_msg(self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord) -> None:
+    def handle_msg(
+        self, msg: CommMessage[UiBackendMessageContent], raw_msg: JsonRecord
+    ) -> None:
         request = msg.content.data
 
         if isinstance(request, CallMethodRequest):
@@ -169,7 +189,9 @@ class UiService:
     def _call_method(self, rpc_request: CallMethodParams) -> None:
         func = _RPC_METHODS.get(rpc_request.method, None)
         if func is None:
-            return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
+            return logger.warning(
+                f"Invalid frontend RPC request method: {rpc_request.method}"
+            )
 
         try:
             result = func(self.kernel, rpc_request.params)
@@ -188,7 +210,9 @@ class UiService:
             except Exception:
                 pass
 
-    def _send_event(self, name: str, payload: Union[BaseModel, JsonRecord]) -> None:
+    def _send_event(
+        self, name: str, payload: Union[BaseModel, JsonRecord]
+    ) -> None:
         if self._comm is not None:
             if isinstance(payload, BaseModel):
                 payload = payload.dict()
@@ -227,20 +251,25 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
                     return self._send_show_html_event(url, is_plot)
                 else:
                     event = ShowUrlParams(url=url)
-                    self._comm.send_event(name=UiFrontendEvent.ShowUrl, payload=event.dict())
+                    self._comm.send_event(
+                        name=UiFrontendEvent.ShowUrl, payload=event.dict()
+                    )
 
                 return True
         # pass back to webbrowser's list of browsers to open up the link
         return False
 
     @staticmethod
-    def _is_module_function(module_name: str, function_name: Union[str, None] = None) -> bool:
+    def _is_module_function(
+        module_name: str, function_name: Union[str, None] = None
+    ) -> bool:
         module = sys.modules.get(module_name)
         if module:
             for frame_info in inspect.stack():
                 if function_name:
                     if (
-                        inspect.getmodule(frame_info.frame, frame_info.filename) == module
+                        inspect.getmodule(frame_info.frame, frame_info.filename)
+                        == module
                         and frame_info.function == function_name
                     ):
                         return True

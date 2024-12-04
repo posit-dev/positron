@@ -50,7 +50,9 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
     # Check that the comm_open and empty refresh messages were sent
     assert variables_comm.messages == [
         comm_open_message(TARGET_NAME),
-        json_rpc_notification("refresh", {"variables": [], "length": 0, "version": 0}),
+        json_rpc_notification(
+            "refresh", {"variables": [], "length": 0, "version": 0}
+        ),
     ]
 
 
@@ -113,7 +115,9 @@ def test_change_detection(
         _assert_assigned(shell, value_code, variables_comm)
 
 
-def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: DummyComm):
+def _assert_assigned(
+    shell: PositronShell, value_code: str, variables_comm: DummyComm
+):
     # Test that the expected `update` message was sent with the
     # expected `assigned` value.
     with patch("positron_ipykernel.variables.timestamp", return_value=0):
@@ -166,12 +170,16 @@ def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: Dumm
 def _import_library(shell: PositronShell, import_code: str):
     # Import the necessary library.
     if import_code:
-        if import_code.endswith("torch"):  # temporary workaround for python 3.12
+        if import_code.endswith(
+            "torch"
+        ):  # temporary workaround for python 3.12
             pytest.skip()
         shell.run_cell(import_code)
 
 
-def test_change_detection_over_limit(shell: PositronShell, variables_comm: DummyComm):
+def test_change_detection_over_limit(
+    shell: PositronShell, variables_comm: DummyComm
+):
     _import_library(shell, "import numpy as np")
 
     big_array = f"x = np.arange({BIG_ARRAY_LENGTH})"
@@ -200,7 +208,9 @@ def _do_list(variables_comm: DummyComm):
     ]
 
     result = variables_comm.messages[0]["data"]["result"]
-    result["variables"] = [Variable.parse_obj(variable) for variable in result["variables"]]
+    result["variables"] = [
+        Variable.parse_obj(variable) for variable in result["variables"]
+    ]
 
     variables_comm.messages.clear()
 
@@ -296,7 +306,9 @@ def test_update_max_items_plus_one(
 
     # Spot check the first and last variables display values
     assert variables[0].get("display_value") == str(add_value)
-    assert variables[variables_len - 1].get("display_value") == str(variables_len - 1 + add_value)
+    assert variables[variables_len - 1].get("display_value") == str(
+        variables_len - 1 + add_value
+    )
 
 
 def create_and_update_n_vars(
@@ -332,7 +344,9 @@ async def test_clear(
 ) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
-    msg = json_rpc_request("clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id")
+    msg = json_rpc_request(
+        "clear", {"include_hidden_objects": False}, comm_id="dummy_comm_id"
+    )
     variables_comm.handle_msg(msg)
 
     # Wait until all resulting kernel tasks are processed
@@ -350,7 +364,9 @@ async def test_clear(
                 "version": 0,
             },
         ),
-        json_rpc_notification("refresh", {"length": 0, "variables": [], "version": 0}),
+        json_rpc_notification(
+            "refresh", {"length": 0, "variables": [], "version": 0}
+        ),
     ]
 
     # All user variables are removed
@@ -382,7 +398,9 @@ def test_delete_error(variables_comm: DummyComm) -> None:
 
 
 # TODO(seem): encoded_path should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
-def _do_inspect(encoded_path: List[JsonData], variables_comm: DummyComm) -> List[Variable]:
+def _do_inspect(
+    encoded_path: List[JsonData], variables_comm: DummyComm
+) -> List[Variable]:
     msg = json_rpc_request(
         "inspect",
         {"path": encoded_path},
@@ -423,7 +441,9 @@ class TestClass:
 _test_obj = TestClass()
 
 
-def variable(display_name: str, display_value: str, children: List[Dict[str, Any]] = []):
+def variable(
+    display_name: str, display_value: str, children: List[Dict[str, Any]] = []
+):
     return {
         "display_name": display_name,
         "display_value": display_value,
@@ -542,10 +562,18 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 "root",
                 "[1 rows x 4 columns] pandas.DataFrame",
                 children=[
-                    variable("a", "pandas.Series [0]", children=[variable("0", "0")]),
-                    variable("b", "pandas.Series [1]", children=[variable("0", "1")]),
-                    variable("a", "pandas.Series [2]", children=[variable("0", "2")]),
-                    variable("b", "pandas.Series [3]", children=[variable("0", "3")]),
+                    variable(
+                        "a", "pandas.Series [0]", children=[variable("0", "0")]
+                    ),
+                    variable(
+                        "b", "pandas.Series [1]", children=[variable("0", "1")]
+                    ),
+                    variable(
+                        "a", "pandas.Series [2]", children=[variable("0", "2")]
+                    ),
+                    variable(
+                        "b", "pandas.Series [3]", children=[variable("0", "3")]
+                    ),
                 ],
             ),
         ),
@@ -629,10 +657,17 @@ def _verify_inspect(
             # the UI.
             child_path = encoded_path + [child.access_key]
             child_children = _do_inspect(child_path, variables_comm)
-            _verify_inspect(child_path, child_children, expected_child_children, variables_comm)
+            _verify_inspect(
+                child_path,
+                child_children,
+                expected_child_children,
+                variables_comm,
+            )
 
 
-def test_inspect_large_object(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_inspect_large_object(
+    shell: PositronShell, variables_comm: DummyComm
+) -> None:
     # Inspecting large objects should not trigger update messages: https://github.com/posit-dev/positron/issues/2308.
     shell.user_ns["x"] = np.arange(BIG_ARRAY_LENGTH)
 
@@ -655,7 +690,9 @@ def test_inspect_error(variables_comm: DummyComm) -> None:
     ]
 
 
-def test_clipboard_format(shell: PositronShell, variables_comm: DummyComm) -> None:
+def test_clipboard_format(
+    shell: PositronShell, variables_comm: DummyComm
+) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
     msg = json_rpc_request(
@@ -753,7 +790,9 @@ def test_view_error(variables_comm: DummyComm) -> None:
 
 
 def test_view_error_when_pandas_not_loaded(
-    shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
 ) -> None:
     # regression test for https://github.com/posit-dev/positron/issues/3653
     shell.user_ns["x"] = pd.DataFrame({"a": [0]})
@@ -805,7 +844,9 @@ def test_unknown_method(variables_comm: DummyComm) -> None:
 
 
 @pytest.mark.asyncio
-async def test_shutdown(variables_service: VariablesService, variables_comm: DummyComm) -> None:
+async def test_shutdown(
+    variables_service: VariablesService, variables_comm: DummyComm
+) -> None:
     # Double-check that the comm is not yet closed
     assert not variables_comm._closed
 

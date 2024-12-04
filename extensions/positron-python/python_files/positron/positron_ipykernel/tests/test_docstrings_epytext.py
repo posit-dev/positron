@@ -5,7 +5,10 @@
 
 import pytest
 
-from positron_ipykernel.docstrings import epytext_to_markdown, looks_like_epytext
+from positron_ipykernel.docstrings import (
+    epytext_to_markdown,
+    looks_like_epytext,
+)
 
 BASIC_EXAMPLE = """Example of epytext docstring.
 

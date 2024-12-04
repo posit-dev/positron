@@ -168,7 +168,9 @@ class PositronMagics(Magics):
                 obj, title, variable_path=[encode_access_key(args.object)]
             )
         except TypeError:
-            raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
+            raise UsageError(
+                f"cannot view object of type '{get_qualname(obj)}'"
+            )
         except RestartRequiredError as error:
             raise UsageError(*error.args)
 
@@ -192,7 +194,9 @@ class PositronMagics(Magics):
                 info.obj, variable_path=args.object
             )
         except TypeError:
-            raise UsageError(f"cannot show object of type '{get_qualname(info.obj)}'")
+            raise UsageError(
+                f"cannot show object of type '{get_qualname(info.obj)}'"
+            )
 
 
 _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
@@ -312,7 +316,9 @@ class PositronShell(ZMQInteractiveShell):
 
     def show_usage(self):
         """Show a usage message"""
-        self.kernel.help_service.show_help("positron_ipykernel.utils.positron_ipykernel_usage")
+        self.kernel.help_service.show_help(
+            "positron_ipykernel.utils.positron_ipykernel_usage"
+        )
 
     @traitlets.observe("exit_now")
     def _update_exit_now(self, change):
@@ -412,18 +418,28 @@ class PositronIPyKernel(IPythonKernel):
         self.job_queue = BackgroundJobQueue()
 
         # Create Positron services
-        self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer, self.job_queue)
+        self.data_explorer_service = DataExplorerService(
+            _CommTarget.DataExplorer, self.job_queue
+        )
         self.plots_service = PlotsService(_CommTarget.Plot, self.session_mode)
         self.ui_service = UiService(self)
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)
-        self.connections_service = ConnectionsService(self, _CommTarget.Connections)
+        self.connections_service = ConnectionsService(
+            self, _CommTarget.Connections
+        )
 
         # Register comm targets
-        self.comm_manager.register_target(_CommTarget.Lsp, self.lsp_service.on_comm_open)
-        self.comm_manager.register_target(_CommTarget.Ui, self.ui_service.on_comm_open)
-        self.comm_manager.register_target(_CommTarget.Help, self.help_service.on_comm_open)
+        self.comm_manager.register_target(
+            _CommTarget.Lsp, self.lsp_service.on_comm_open
+        )
+        self.comm_manager.register_target(
+            _CommTarget.Ui, self.ui_service.on_comm_open
+        )
+        self.comm_manager.register_target(
+            _CommTarget.Help, self.help_service.on_comm_open
+        )
         self.comm_manager.register_target(
             _CommTarget.Variables, self.variables_service.on_comm_open
         )
@@ -510,7 +526,9 @@ class PositronIPyKernel(IPythonKernel):
 
     # monkey patching warning.showwarning is recommended by the official documentation
     # https://docs.python.org/3/library/warnings.html#warnings.showwarning
-    def _showwarning(self, message, category, filename, lineno, file=None, line=None):
+    def _showwarning(
+        self, message, category, filename, lineno, file=None, line=None
+    ):
         # if coming from one of our files, log and don't send to user
         positron_files_path = Path(__file__).parent
 
@@ -530,9 +548,13 @@ class PositronIPyKernel(IPythonKernel):
             logger.warning(msg)
             return
 
-        msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+        msg = warnings.WarningMessage(
+            message, category, filename, lineno, file, line
+        )
 
-        return original_showwarning(message, category, filename, lineno, file, line)  # type: ignore reportAttributeAccessIssue
+        return original_showwarning(
+            message, category, filename, lineno, file, line
+        )  # type: ignore reportAttributeAccessIssue
 
 
 class PositronIPKernelApp(IPKernelApp):
@@ -551,7 +573,9 @@ class PositronIPKernelApp(IPKernelApp):
             # Matplotlib uses the MPLBACKEND environment variable to determine the backend to use.
             # It imports the backend module when it's first needed.
             if not os.environ.get("MPLBACKEND"):
-                os.environ["MPLBACKEND"] = "module://positron_ipykernel.matplotlib_backend"
+                os.environ["MPLBACKEND"] = (
+                    "module://positron_ipykernel.matplotlib_backend"
+                )
 
         return super().init_gui_pylab()
 

@@ -206,7 +206,9 @@ class VariablesService:
         # Filter out hidden removed variables and encode access keys
         hidden = self._get_user_ns_hidden()
         filtered_removed = [
-            encode_access_key(name) for name in sorted(removed) if name not in hidden
+            encode_access_key(name)
+            for name in sorted(removed)
+            if name not in hidden
         ]
 
         if filtered_assigned or filtered_unevaluated or filtered_removed:
@@ -367,7 +369,9 @@ class VariablesService:
             inspector1 = get_inspector(v1)
             inspector2 = get_inspector(v2)
 
-            return type(inspector1) is not type(inspector2) or not inspector1.equals(v2)
+            return type(inspector1) is not type(
+                inspector2
+            ) or not inspector1.equals(v2)
 
         def _compare_always_different(v1, v2):
             return True
@@ -398,7 +402,9 @@ class VariablesService:
 
         _check_ns_subset(snapshot["immutable"], True, _compare_immutable)
         _check_ns_subset(snapshot["mutable_copied"], True, _compare_mutable)
-        _check_ns_subset(snapshot["mutable_excluded"], False, _compare_always_different)
+        _check_ns_subset(
+            snapshot["mutable_excluded"], False, _compare_always_different
+        )
 
         for key, value in after.items():
             if key in hidden:
@@ -420,7 +426,9 @@ class VariablesService:
 
     # -- Private Methods --
 
-    def _get_filtered_vars(self, variables: Optional[Mapping[str, Any]] = None) -> Dict[str, Any]:
+    def _get_filtered_vars(
+        self, variables: Optional[Mapping[str, Any]] = None
+    ) -> Dict[str, Any]:
         """
         Returns
         -------
@@ -502,7 +510,9 @@ class VariablesService:
         # Refresh the client state
         self.send_refresh_event()
 
-    def _delete_vars(self, names: Iterable[str], parent: Dict[str, Any]) -> None:
+    def _delete_vars(
+        self, names: Iterable[str], parent: Dict[str, Any]
+    ) -> None:
         """
         Deletes the requested variables by name from the current user session.
 
@@ -601,14 +611,18 @@ class VariablesService:
         access_key = path[-1]
 
         title = str(decode_access_key(access_key))
-        comm_id = self.kernel.data_explorer_service.register_table(value, title, variable_path=path)
+        comm_id = self.kernel.data_explorer_service.register_table(
+            value, title, variable_path=path
+        )
         self._send_result(comm_id)
 
     def _open_connections_pane(self, path: List[str], value: Any) -> None:
         """Opens a Connections comm for the variable at the requested
         path in the current user session.
         """
-        self.kernel.connections_service.register_connection(value, variable_path=path)
+        self.kernel.connections_service.register_connection(
+            value, variable_path=path
+        )
         self._send_result({})
 
     def _send_event(self, name: str, payload: JsonRecord) -> None:
@@ -627,7 +641,9 @@ class VariablesService:
         if self._comm is not None:
             self._comm.send_error(code, message)
         else:
-            logger.warning(f"Cannot send error {message} (code {code}): comm is not open)")
+            logger.warning(
+                f"Cannot send error {message} (code {code}): comm is not open)"
+            )
 
     def _send_result(self, data: JsonData = None) -> None:
         """
@@ -796,7 +812,9 @@ def _summarize_variable(
         )
 
 
-def _summarize_children(parent: Any, limit: int = MAX_CHILDREN) -> List[Variable]:
+def _summarize_children(
+    parent: Any, limit: int = MAX_CHILDREN
+) -> List[Variable]:
     inspector = get_inspector(parent)
     children = inspector.get_children()
     summaries = []

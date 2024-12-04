@@ -158,7 +158,8 @@ class PositronComm:
                     if (
                         # Comms with multiple backend request methods will have a discriminated_union error
                         error["loc"] == ("content", "data")
-                        and error["type"] == "value_error.discriminated_union.invalid_discriminator"
+                        and error["type"]
+                        == "value_error.discriminated_union.invalid_discriminator"
                         and error["ctx"]["discriminator_key"] == "method"
                     ):
                         method = error["ctx"]["discriminator_value"]
@@ -212,7 +213,9 @@ class PositronComm:
         """
         return getattr(self.comm, "messages")
 
-    def send_result(self, data: JsonData = None, metadata: Optional[JsonRecord] = None) -> None:
+    def send_result(
+        self, data: JsonData = None, metadata: Optional[JsonRecord] = None
+    ) -> None:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 
@@ -252,7 +255,9 @@ class PositronComm:
         with self.send_lock:
             self.comm.send(data=event)
 
-    def send_error(self, code: JsonRpcErrorCode, message: Optional[str] = None) -> None:
+    def send_error(
+        self, code: JsonRpcErrorCode, message: Optional[str] = None
+    ) -> None:
         """
         Send a JSON-RPC result to the frontend-side version of this comm.
 

@@ -141,10 +141,14 @@ class PositronInspector(Generic[T]):
         return False
 
     def get_child(self, key: Any) -> Any:
-        raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
+        raise TypeError(
+            f"get_child() is not implemented for type: {type(self.value)}"
+        )
 
     def get_children(self) -> Iterable[Any]:
-        raise TypeError(f"get_children() is not implemented for type: {type(self.value)}")
+        raise TypeError(
+            f"get_children() is not implemented for type: {type(self.value)}"
+        )
 
     def has_viewer(self) -> bool:
         return False
@@ -173,7 +177,9 @@ class PositronInspector(Generic[T]):
         deepcopying, sub-classes must override `deepcopy`.
         """
         if self.is_mutable():
-            raise copy.Error(f"Deepcopying is not supported for type: {type(self.value)}")
+            raise copy.Error(
+                f"Deepcopying is not supported for type: {type(self.value)}"
+            )
         # If the value is immutable, the deepcopy may reference the same value.
         return self.value
 
@@ -200,10 +206,14 @@ class PositronInspector(Generic[T]):
             raise ValueError(f"Expected json_data to be dict, got {json_data}")
 
         if not isinstance(json_data["type"], str):
-            raise ValueError(f"Expected json_data['type'] to be str, got {json_data['type']}")
+            raise ValueError(
+                f"Expected json_data['type'] to be str, got {json_data['type']}"
+            )
 
         # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-        return cls.value_from_json(cast(str, json_data["type"]), json_data["data"])
+        return cls.value_from_json(
+            cast(str, json_data["type"]), json_data["data"]
+        )
 
     @classmethod
     def value_from_json(cls, type_name: str, data: JsonData) -> T:
@@ -392,7 +402,9 @@ class NumberInspector(PositronInspector[NT], ABC):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> Union[NT, numbers.Number]:
+    def value_from_json(
+        cls, type_name: str, data: JsonData
+    ) -> Union[NT, numbers.Number]:
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
@@ -434,7 +446,9 @@ class StringInspector(PositronInspector[str]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Ignore print_width for strings
-        display_value, is_truncated = super().get_display_value(None, truncate_at)
+        display_value, is_truncated = super().get_display_value(
+            None, truncate_at
+        )
 
         # Use repr() to show quotes around strings
         return repr(display_value), is_truncated
@@ -527,7 +541,9 @@ class _BaseCollectionInspector(PositronInspector[CT], ABC):
     def get_child(self, key: int) -> Any:
         # Don't allow indexing into ranges or sets.
         if isinstance(self.value, (range, Set, FrozenSet)):
-            raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
+            raise TypeError(
+                f"get_child() is not implemented for type: {type(self.value)}"
+            )
 
         # TODO(pyright): type should be narrowed to exclude frozen set, retry in a future version of pyright
         return self.value[key]  # type: ignore
@@ -583,13 +599,19 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 raise ValueError(f"Expected data to be dict, got {data}")
 
             if not isinstance(data["start"], int):
-                raise ValueError(f"Expected data['start'] to be int, got {data['start']}")
+                raise ValueError(
+                    f"Expected data['start'] to be int, got {data['start']}"
+                )
 
             if not isinstance(data["stop"], int):
-                raise ValueError(f"Expected data['stop'] to be int, got {data['stop']}")
+                raise ValueError(
+                    f"Expected data['stop'] to be int, got {data['stop']}"
+                )
 
             if not isinstance(data["step"], int):
-                raise ValueError(f"Expected data['step'] to be int, got {data['step']}")
+                raise ValueError(
+                    f"Expected data['step'] to be int, got {data['step']}"
+                )
 
             # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
             return range(
@@ -908,7 +930,9 @@ class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
     def equals(self, value: pl.Series) -> bool:
         try:
             return self.value.equals(value)
-        except AttributeError:  # polars.Series.equals was introduced in v0.19.16
+        except (
+            AttributeError
+        ):  # polars.Series.equals was introduced in v0.19.16
             return self.value.series_equal(value)  # type: ignore
 
     def deepcopy(self) -> pl.Series:
@@ -959,7 +983,9 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         display_value = _get_class_display(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
-            display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
+            display_value = (
+                f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
+            )
 
         return (display_value, True)
 
@@ -1021,7 +1047,9 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
     def equals(self, value: pl.DataFrame) -> bool:
         try:
             return self.value.equals(value)
-        except AttributeError:  # polars.DataFrame.equals was introduced in v0.19.16
+        except (
+            AttributeError
+        ):  # polars.DataFrame.equals was introduced in v0.19.16
             return self.value.frame_equal(value)  # type: ignore
 
     def deepcopy(self) -> pl.DataFrame:
@@ -1080,18 +1108,26 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
 
 
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
-    **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
+    **dict.fromkeys(
+        PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector
+    ),
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
     **dict.fromkeys(PandasIndexInspector.CLASS_QNAME, PandasIndexInspector),
     PandasTimestampInspector.CLASS_QNAME: PandasTimestampInspector,
     **dict.fromkeys(NumpyNumberInspector.CLASS_QNAME, NumpyNumberInspector),
     NumpyNdarrayInspector.CLASS_QNAME: NumpyNdarrayInspector,
     TorchTensorInspector.CLASS_QNAME: TorchTensorInspector,
-    **dict.fromkeys(PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector),
+    **dict.fromkeys(
+        PolarsDataFrameInspector.CLASS_QNAME, PolarsDataFrameInspector
+    ),
     **dict.fromkeys(PolarsSeriesInspector.CLASS_QNAME, PolarsSeriesInspector),
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
-    **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
-    **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
+    **dict.fromkeys(
+        SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector
+    ),
+    **dict.fromkeys(
+        SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector
+    ),
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
     "class": ClassInspector,

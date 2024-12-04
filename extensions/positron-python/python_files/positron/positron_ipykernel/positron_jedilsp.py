@@ -10,7 +10,17 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Type,
+    Union,
+    cast,
+)
 
 from comm.base_comm import BaseComm
 
@@ -155,7 +165,9 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Enable asyncio debug mode in the event loop
         self._debug = False
 
-    def feature(self, feature_name: str, options: Optional[Any] = None) -> Callable:
+    def feature(
+        self, feature_name: str, options: Optional[Any] = None
+    ) -> Callable:
         def decorator(f):
             # Unfortunately Jedi doesn't handle subclassing of the LSP, so we
             # need to detect and reject features we did not register.
@@ -188,11 +200,15 @@ class PositronJediLanguageServer(JediLanguageServer):
         asyncio.set_event_loop(self.loop)
 
         self._stop_event = threading.Event()
-        self._server = self.loop.run_until_complete(self.loop.create_server(self.lsp, host, port))
+        self._server = self.loop.run_until_complete(
+            self.loop.create_server(self.lsp, host, port)
+        )
 
         # Notify the frontend that the LSP server is ready
         if self._comm is None:
-            logger.warning("LSP comm was not set, could not send server_started message")
+            logger.warning(
+                "LSP comm was not set, could not send server_started message"
+            )
         else:
             logger.info("LSP server is ready, sending server_started message")
             self._comm.send({"msg_type": "server_started", "content": {}})
@@ -206,7 +222,13 @@ class PositronJediLanguageServer(JediLanguageServer):
         finally:
             self.shutdown()
 
-    def start(self, lsp_host: str, lsp_port: int, shell: "PositronShell", comm: BaseComm) -> None:
+    def start(
+        self,
+        lsp_host: str,
+        lsp_port: int,
+        shell: "PositronShell",
+        comm: BaseComm,
+    ) -> None:
         """
         Start the LSP with a reference to Positron's IPyKernel to enhance
         completions with awareness of live variables from user's namespace.
@@ -229,7 +251,9 @@ class PositronJediLanguageServer(JediLanguageServer):
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")
         self._server_thread = threading.Thread(
-            target=self.start_tcp, args=(lsp_host, lsp_port), name="LSPServerThread"
+            target=self.start_tcp,
+            args=(lsp_host, lsp_port),
+            name="LSPServerThread",
         )
         self._server_thread.start()
 
@@ -264,7 +288,9 @@ class PositronJediLanguageServer(JediLanguageServer):
     def stop(self) -> None:
         """Notify the LSP server thread to stop from another thread."""
         if self._stop_event is None:
-            logger.warning("Cannot stop the LSP server thread, it was not started")
+            logger.warning(
+                "Cannot stop the LSP server thread, it was not started"
+            )
             return
 
         self._stop_event.set()
@@ -297,7 +323,8 @@ _MAGIC_COMPLETIONS: Dict[str, Any] = {}
 @POSITRON.feature(
     TEXT_DOCUMENT_COMPLETION,
     CompletionOptions(
-        trigger_characters=[".", "'", '"', _LINE_MAGIC_PREFIX], resolve_provider=True
+        trigger_characters=[".", "'", '"', _LINE_MAGIC_PREFIX],
+        resolve_provider=True,
     ),
 )
 def positron_completion(
@@ -348,13 +375,19 @@ def positron_completion(
             line=jedi_lines[0],
             column=jedi_lines[1],
         )
-        enable_snippets = snippet_support and not snippet_disable and not is_import_context
+        enable_snippets = (
+            snippet_support and not snippet_disable and not is_import_context
+        )
         char_before_cursor = pygls_utils.char_before_cursor(
-            document=server.workspace.get_text_document(params.text_document.uri),
+            document=server.workspace.get_text_document(
+                params.text_document.uri
+            ),
             position=params.position,
         )
         char_after_cursor = pygls_utils.char_after_cursor(
-            document=server.workspace.get_text_document(params.text_document.uri),
+            document=server.workspace.get_text_document(
+                params.text_document.uri
+            ),
             position=params.position,
         )
         jedi_utils.clear_completions_cache()
@@ -390,7 +423,8 @@ def positron_completion(
         exclude_magics = is_completing_attribute or has_whitespace or has_string
         if server.shell is not None and not exclude_magics:
             magic_commands = cast(
-                Dict[str, Dict[str, Callable]], server.shell.magics_manager.lsmagic()
+                Dict[str, Dict[str, Callable]],
+                server.shell.magics_manager.lsmagic(),
             )
 
             chars_before_cursor = trimmed_line[: params.position.character]
@@ -429,7 +463,11 @@ def positron_completion(
         logger.info("LSP completion error", exc_info=True)
         completion_items = []
 
-    return CompletionList(is_incomplete=False, items=completion_items) if completion_items else None
+    return (
+        CompletionList(is_incomplete=False, items=completion_items)
+        if completion_items
+        else None
+    )
 
 
 def _magic_completion_item(
@@ -455,7 +493,9 @@ def _magic_completion_item(
 
     # 1. Find the last group of non-whitespace characters before the cursor
     m1 = re.search(r"\s*([^\s]*)$", chars_before_cursor)
-    assert m1, f"Regex should always match. chars_before_cursor: {chars_before_cursor}"
+    assert (
+        m1
+    ), f"Regex should always match. chars_before_cursor: {chars_before_cursor}"
     text = m1.group(1)
 
     # 2. Get the leading '%'s
@@ -470,7 +510,10 @@ def _magic_completion_item(
 
     label = prefix + name
 
-    _MAGIC_COMPLETIONS[label] = (f"{magic_type.value} magic {name}", func.__doc__)
+    _MAGIC_COMPLETIONS[label] = (
+        f"{magic_type.value} magic {name}",
+        func.__doc__,
+    )
 
     return CompletionItem(
         label=label,
@@ -670,14 +713,18 @@ def positron_did_close_diagnostics(
 
 
 @jedi_utils.debounce(1, keyed_by="uri")  # type: ignore - pyright bug
-def _publish_diagnostics_debounced(server: JediLanguageServer, uri: str) -> None:
+def _publish_diagnostics_debounced(
+    server: JediLanguageServer, uri: str
+) -> None:
     # Catch and log any exceptions. Exceptions should be handled by pygls, but the debounce
     # decorator causes the function to run in a separate thread thus a separate stack from pygls'
     # exception handler.
     try:
         _publish_diagnostics(server, uri)
     except Exception:
-        logger.exception(f"Failed to publish diagnostics for uri {uri}", exc_info=True)
+        logger.exception(
+            f"Failed to publish diagnostics for uri {uri}", exc_info=True
+        )
 
 
 # Adapted from jedi_language_server/server.py::_publish_diagnostics.
@@ -694,7 +741,11 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
 
     # Comment out magic/shell command lines so that they don't appear as syntax errors.
     source = "\n".join(
-        (f"#{line}" if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX)) else line)
+        (
+            f"#{line}"
+            if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX))
+            else line
+        )
         for line in doc.lines
     )
 
@@ -708,28 +759,38 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
     server.publish_diagnostics(uri, diagnostics)
 
 
-def did_save_diagnostics(server: JediLanguageServer, params: DidSaveTextDocumentParams) -> None:
+def did_save_diagnostics(
+    server: JediLanguageServer, params: DidSaveTextDocumentParams
+) -> None:
     """Actions run on textDocument/didSave: diagnostics."""
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
-def did_change_diagnostics(server: JediLanguageServer, params: DidChangeTextDocumentParams) -> None:
+def did_change_diagnostics(
+    server: JediLanguageServer, params: DidChangeTextDocumentParams
+) -> None:
     """Actions run on textDocument/didChange: diagnostics."""
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
-def did_open_diagnostics(server: JediLanguageServer, params: DidOpenTextDocumentParams) -> None:
+def did_open_diagnostics(
+    server: JediLanguageServer, params: DidOpenTextDocumentParams
+) -> None:
     """Actions run on textDocument/didOpen: diagnostics."""
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
-def did_close_diagnostics(server: JediLanguageServer, params: DidCloseTextDocumentParams) -> None:
+def did_close_diagnostics(
+    server: JediLanguageServer, params: DidCloseTextDocumentParams
+) -> None:
     """Actions run on textDocument/didClose: diagnostics."""
     _publish_diagnostics_debounced(server, params.text_document.uri)  # type: ignore - pyright bug
 
 
 def interpreter(
-    project: Optional[Project], document: TextDocument, shell: Optional["PositronShell"]
+    project: Optional[Project],
+    document: TextDocument,
+    shell: Optional["PositronShell"],
 ) -> Interpreter:
     """
     Return a `jedi.Interpreter` with a reference to the shell's user namespace.
@@ -738,4 +799,6 @@ def interpreter(
     if shell is not None:
         namespaces.append(shell.user_ns)
 
-    return PositronInterpreter(document.source, namespaces, path=document.path, project=project)
+    return PositronInterpreter(
+        document.source, namespaces, path=document.path, project=project
+    )

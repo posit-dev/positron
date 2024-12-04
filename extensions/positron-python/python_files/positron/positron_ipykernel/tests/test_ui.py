@@ -14,7 +14,10 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron_ipykernel.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron_ipykernel.positron_ipkernel import (
+    PositronIPyKernel,
+    PositronShell,
+)
 from positron_ipykernel.ui import UiService
 from positron_ipykernel.utils import alias_home
 
@@ -62,7 +65,9 @@ def ui_comm(ui_service: UiService) -> DummyComm:
 
 
 def working_directory_event() -> Dict[str, Any]:
-    return json_rpc_notification("working_directory", {"directory": str(alias_home(Path.cwd()))})
+    return json_rpc_notification(
+        "working_directory", {"directory": str(alias_home(Path.cwd()))}
+    )
 
 
 def show_url_event(url: str) -> Dict[str, Any]:
@@ -71,7 +76,8 @@ def show_url_event(url: str) -> Dict[str, Any]:
 
 def show_html_file_event(path: str, is_plot: bool) -> Dict[str, Any]:
     return json_rpc_notification(
-        "show_html_file", {"path": path, "is_plot": is_plot, "height": 0, "title": ""}
+        "show_html_file",
+        {"path": path, "is_plot": is_plot, "height": 0, "title": ""},
     )
 
 
@@ -84,7 +90,10 @@ def test_comm_open(ui_service: UiService) -> None:
     ui_service.on_comm_open(ui_comm, {})
 
     # Check that the comm_open and initial working_directory messages are sent
-    assert ui_comm.messages == [comm_open_message(TARGET_NAME), working_directory_event()]
+    assert ui_comm.messages == [
+        comm_open_message(TARGET_NAME),
+        working_directory_event(),
+    ]
 
 
 def test_set_console_width(ui_comm: DummyComm) -> None:
@@ -119,7 +128,9 @@ def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
     ui_service.open_editor(file, line, column)
 
     assert ui_comm.messages == [
-        json_rpc_notification("open_editor", {"file": file, "line": line, "column": column})
+        json_rpc_notification(
+            "open_editor", {"file": file, "line": line, "column": column}
+        )
     ]
 
 
@@ -148,7 +159,9 @@ def test_clear_console(ui_service: UiService, ui_comm: DummyComm) -> None:
     assert ui_comm.messages == [json_rpc_notification("clear_console", {})]
 
 
-def test_poll_working_directory(shell: PositronShell, ui_comm: DummyComm) -> None:
+def test_poll_working_directory(
+    shell: PositronShell, ui_comm: DummyComm
+) -> None:
     # If a cell execution does not change the working directory, no comm messages should be sent.
     shell.run_cell("print()")
 
@@ -188,7 +201,11 @@ def test_shutdown(ui_service: UiService, ui_comm: DummyComm) -> None:
         # Windows path
         (
             "file:///C:/Users/username/Documents/index.htm",
-            [show_html_file_event("file:///C:/Users/username/Documents/index.htm", False)],
+            [
+                show_html_file_event(
+                    "file:///C:/Users/username/Documents/index.htm", False
+                )
+            ],
         ),
         # Not a local html file
         ("http://example.com/page.html", []),
@@ -249,8 +266,12 @@ show(p)
     assert tempfile.gettempdir() in params["path"]
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9 or higher")
-def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyComm) -> None:
+@pytest.mark.skipif(
+    sys.version_info < (3, 9), reason="requires Python 3.9 or higher"
+)
+def test_holoview_extension_sends_events(
+    shell: PositronShell, ui_comm: DummyComm
+) -> None:
     """
     Running holoviews/holoviz code that sets an extension will trigger an event on the ui comm that
     can be used on the front end to react appropriately.
@@ -259,7 +280,9 @@ def test_holoview_extension_sends_events(shell: PositronShell, ui_comm: DummyCom
     shell.run_cell("import holoviews as hv; hv.extension('plotly')")
 
     assert len(ui_comm.messages) == 1
-    assert ui_comm.messages[0] == json_rpc_notification("clear_webview_preloads", {})
+    assert ui_comm.messages[0] == json_rpc_notification(
+        "clear_webview_preloads", {}
+    )
 
 
 def test_plotly_show_sends_events(
@@ -323,5 +346,9 @@ webbrowser.open("file://file.html")
     assert "is_plot" not in params
 
     params = ui_comm.messages[1]["data"]["params"]
-    assert params["path"] == "file.html" if sys.platform == "win32" else "file://file.html"
+    assert (
+        params["path"] == "file.html"
+        if sys.platform == "win32"
+        else "file://file.html"
+    )
     assert params["is_plot"] is False

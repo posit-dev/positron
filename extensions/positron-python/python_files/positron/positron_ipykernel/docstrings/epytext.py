@@ -59,7 +59,11 @@ class Section:
         # in either case, we can split on the first " "
         split = name[1:].split(" ", 1)
 
-        self.name = split[0].capitalize() if split[0].endswith(":") else split[0].capitalize() + ":"
+        self.name = (
+            split[0].capitalize()
+            if split[0].endswith(":")
+            else split[0].capitalize() + ":"
+        )
         self.content = ""
 
         # epytext should only ever have 1 arg name per section
@@ -119,7 +123,9 @@ class Section:
                     # --- Start Positron ---
                     # arg and description are on the same line
                     # for epytext docstrings
-                    self.content += "- `{}`: {}".format(arg, description).rstrip()
+                    self.content += "- `{}`: {}".format(
+                        arg, description
+                    ).rstrip()
                     skip_first = True
                 else:
                     self.content += " {}\n".format(arg)
@@ -201,20 +207,22 @@ class EpytextDocstring:
             content = section.content
 
             if name == "Type:":
-                type_sections[section.arg_name] = content.split(f"`{section.arg_name}`: ", 1)[1]
+                type_sections[section.arg_name] = content.split(
+                    f"`{section.arg_name}`: ", 1
+                )[1]
             elif name == "Rtype:":
                 unique_sections[
                     "Return:"
-                ].content = f"({content.rstrip()}) {unique_sections['Return:'].content}"
+                ].content = (
+                    f"({content.rstrip()}) {unique_sections['Return:'].content}"
+                )
             else:
                 matching_type = type_sections.get(str(section.arg_name))
 
                 if matching_type:
                     content_split = content.split(":", 1)
                     # replace the : we split on, add type name, then content
-                    section.content = (
-                        f"- `{section.arg_name}` ({matching_type.rstrip()}):{content_split[1]}"
-                    )
+                    section.content = f"- `{section.arg_name}` ({matching_type.rstrip()}):{content_split[1]}"
                 if name in unique_sections:
                     # Append the description if the section heading is already present
                     unique_sections[name].content += "\n" + section.content

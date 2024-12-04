@@ -143,7 +143,9 @@ def _untyped_signature(obj: Any) -> Optional[str]:
         for name, param in signature.parameters.items()
         if name != "self"
     ]
-    signature = signature.replace(parameters=untyped_params, return_annotation=signature.empty)
+    signature = signature.replace(
+        parameters=untyped_params, return_annotation=signature.empty
+    )
     result = str(signature)
     return result
 
@@ -156,7 +158,9 @@ def _get_summary(object: Any) -> Optional[str]:
     return doc.split("\n\n", 1)[0]
 
 
-def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[str]:
+def _tabulate_attrs(
+    attrs: List[_Attr], cls_name: Optional[str] = None
+) -> List[str]:
     """
     Create an HTML table of attribute signatures and summaries.
     """
@@ -246,7 +250,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # update path for positron file system
         css_path = "_pydoc.css"
 
-        css_link = '<link rel="stylesheet" type="text/css" href="%s">' % css_path
+        css_link = (
+            '<link rel="stylesheet" type="text/css" href="%s">' % css_path
+        )
 
         # removed html_navbar() for aesthetics
         return """\
@@ -374,7 +380,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
         if funcs:
             contents = _tabulate_attrs(funcs, obj_name)
-            result += self.bigsection("Functions", "functions", "\n".join(contents))
+            result += self.bigsection(
+                "Functions", "functions", "\n".join(contents)
+            )
 
         if data:
             contents = _tabulate_attrs(data, obj_name)
@@ -426,11 +434,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         # Add the object's members to the page
         if attributes:
             contents = _tabulate_attrs(attributes, obj_name)
-            result += self.bigsection("Attributes", "attributes", "\n".join(contents))
+            result += self.bigsection(
+                "Attributes", "attributes", "\n".join(contents)
+            )
 
         if methods:
             contents = _tabulate_attrs(methods, obj_name)
-            result += self.bigsection("Methods", "functions", "\n".join(contents))
+            result += self.bigsection(
+                "Methods", "functions", "\n".join(contents)
+            )
 
         return result
 
@@ -458,11 +470,15 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
                     note = " from " + self.classlink(imclass, mod)  # type: ignore
             else:
                 if object.__self__ is not None:
-                    note = " method of %s instance" % self.classlink(object.__self__.__class__, mod)  # type: ignore
+                    note = " method of %s instance" % self.classlink(
+                        object.__self__.__class__, mod
+                    )  # type: ignore
                 else:
                     note = " unbound %s method" % self.classlink(imclass, mod)  # type: ignore
 
-        if inspect.iscoroutinefunction(object) or inspect.isasyncgenfunction(object):
+        if inspect.iscoroutinefunction(object) or inspect.isasyncgenfunction(
+            object
+        ):
             asyncqualifier = "async "
         else:
             asyncqualifier = ""
@@ -471,11 +487,18 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             title = '<a name="%s"><strong>%s</strong></a>' % (anchor, realname)
         else:
             if cl and inspect.getattr_static(cl, realname, []) is object:
-                reallink = '<a href="#%s">%s</a>' % (cl.__name__ + "-" + realname, realname)
+                reallink = '<a href="#%s">%s</a>' % (
+                    cl.__name__ + "-" + realname,
+                    realname,
+                )
                 skipdocs = 1
             else:
                 reallink = realname
-            title = '<a name="%s"><strong>%s</strong></a> = %s' % (anchor, name, reallink)
+            title = '<a name="%s"><strong>%s</strong></a> = %s' % (
+                anchor,
+                name,
+                reallink,
+            )
         argspec = None
         if inspect.isroutine(object):
             try:
@@ -497,13 +520,18 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             asyncqualifier
             + title
             + self.escape(argspec)
-            + (note and self.grey('<span class="heading-text">%s</span>' % note))
+            + (
+                note
+                and self.grey('<span class="heading-text">%s</span>' % note)
+            )
         )
 
         if skipdocs:
             return "<dl><dt>%s</dt></dl>\n" % decl
         else:
-            doc = self.markup(_getdoc(object), self.preformat, funcs, classes, methods)
+            doc = self.markup(
+                _getdoc(object), self.preformat, funcs, classes, methods
+            )
             # --- Start Positron ---
             # Remove <span class="code">
             # doc = doc and '<dd><span class="code">%s</span></dd>' % doc
@@ -565,10 +593,17 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         def bltinlink(name):
             return '<a href="%s.html">%s</a>' % (name, name)
 
-        heading = self.heading('<strong class="title">Index of Modules</strong>')
-        names = [name for name in sys.builtin_module_names if name != "__main__"]
+        heading = self.heading(
+            '<strong class="title">Index of Modules</strong>'
+        )
+        names = [
+            name for name in sys.builtin_module_names if name != "__main__"
+        ]
         contents = self.multicolumn(names, bltinlink)
-        contents = [heading, "<p>" + self.bigsection("Built-in Modules", "index", contents)]
+        contents = [
+            heading,
+            "<p>" + self.bigsection("Built-in Modules", "index", contents),
+        ]
 
         seen = {}
         for dir in sys.path:
@@ -609,7 +644,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         )
         for name, desc in search_result:
             results.append(bltinlink(name) + desc)
-        contents = heading + self.bigsection("key = %s" % key, "index", "<br>".join(results))
+        contents = heading + self.bigsection(
+            "key = %s" % key, "index", "<br>".join(results)
+        )
         return "Search Results", contents
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
@@ -692,7 +729,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         heading = self.heading(
             '<strong class="title">Not found</strong>',
         )
-        contents = "<br>".join(self.escape(line) for line in format_exception_only(type(exc), exc))
+        contents = "<br>".join(
+            self.escape(line) for line in format_exception_only(type(exc), exc)
+        )
         # --- Start Positron ---
         contents = heading + self.bigsection("", "error", contents)
         return "Error", contents
@@ -951,7 +990,9 @@ def _rst_to_html(docstring: str, object: Any) -> str:
 
     markdown = _linkify(markdown, object)
 
-    md = MarkdownIt("commonmark", {"html": True, "highlight": _highlight}).enable(["table"])
+    md = MarkdownIt(
+        "commonmark", {"html": True, "highlight": _highlight}
+    ).enable(["table"])
 
     html = md.render(markdown)
 
@@ -995,7 +1036,9 @@ def start_server(port: int = 0):
     thread = pydoc._start_server(_url_handler, hostname="localhost", port=port)  # type: ignore
 
     if thread.error:
-        logger.error(f"Could not start the pydoc help server. Error: {thread.error}")
+        logger.error(
+            f"Could not start the pydoc help server. Error: {thread.error}"
+        )
         return
     elif thread.serving:
         logger.info(f"Pydoc server ready at: {thread.url}")

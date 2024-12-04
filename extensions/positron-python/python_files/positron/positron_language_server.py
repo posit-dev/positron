@@ -138,7 +138,9 @@ if __name__ == "__main__":
 
     # IPyKernel uses Tornado which (as of version 5.0) shares the same event
     # loop as asyncio.
-    loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop_policy().get_event_loop()
+    loop: asyncio.events.AbstractEventLoop = (
+        asyncio.get_event_loop_policy().get_event_loop()
+    )
 
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":

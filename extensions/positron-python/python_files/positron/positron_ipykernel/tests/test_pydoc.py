@@ -189,7 +189,9 @@ _html = _PositronHTMLDoc()
         (_html.html_topics, ()),
     ],
 )
-def test_pydoc_py311_breaking_changes(func: Callable, args: Tuple[Any, ...]) -> None:
+def test_pydoc_py311_breaking_changes(
+    func: Callable, args: Tuple[Any, ...]
+) -> None:
     """
     Python 3.11 introduced a breaking change into pydoc.HTMLDoc methods: heading, section, and
     bigsection. Ensure that we've patched these to work in all versions from 3.8+.
@@ -221,11 +223,15 @@ def _only_optional_args(index=None, name=None):
     pass
 
 
-def _keyword_only_required_and_optional_args(*, columns, index=None, values=None):
+def _keyword_only_required_and_optional_args(
+    *, columns, index=None, values=None
+):
     pass
 
 
-def _keyword_only_optional_args(*, axis=None, inplace=None, limit=None, downcast=None):
+def _keyword_only_optional_args(
+    *, axis=None, inplace=None, limit=None, downcast=None
+):
     pass
 
 
@@ -245,11 +251,15 @@ def _variadic_positional_and_optional_keyword_args(*args, copy=None):
     pass
 
 
-def _truncated_1(other, join=None, overwrite=None, filter_func=None, errors=None):
+def _truncated_1(
+    other, join=None, overwrite=None, filter_func=None, errors=None
+):
     pass
 
 
-def _truncated_2(subset=None, normalize=None, sort=None, ascending=None, dropna=None):
+def _truncated_2(
+    subset=None, normalize=None, sort=None, ascending=None, dropna=None
+):
     pass
 
 
@@ -265,7 +275,10 @@ def _truncated_3(subset=None, *, keep, inplace, ignore_index):
         (_two_args, "(loc, value)"),
         (_required_and_optional_args, "(other[, axis, level])"),
         (_only_optional_args, "([index, name])"),
-        (_keyword_only_required_and_optional_args, "(*, columns[, index, values])"),
+        (
+            _keyword_only_required_and_optional_args,
+            "(*, columns[, index, values])",
+        ),
         (_keyword_only_optional_args, "(*[, axis, inplace, limit, downcast])"),
         (_required_and_keyword_only_optional_args, "(labels, *[, axis, copy])"),
         (_variadic_positional_and_keyword_args, "(func, *args, **kwargs)"),
@@ -286,7 +299,10 @@ def test_compact_signature(func: Callable, expected: str) -> None:
 @pytest.mark.parametrize(
     ("func", "expected"),
     [
-        (pd.DataFrame, "(data=None, index=None, columns=None, dtype=None, copy=None)"),
+        (
+            pd.DataFrame,
+            "(data=None, index=None, columns=None, dtype=None, copy=None)",
+        ),
         (_test_func, "(a, b, c=1, *args, **kwargs)"),
     ],
 )
@@ -299,7 +315,10 @@ def test_untyped_signature(func: Callable, expected: str) -> None:
     ("attrs", "expected"),
     [
         # Empty
-        ([], ['<table class="autosummary">', "<tbody>", "</tbody>", "</table>"]),
+        (
+            [],
+            ['<table class="autosummary">', "<tbody>", "</tbody>", "</table>"],
+        ),
         # One attr
         (
             [_Attr(name="attr", cls=_A, value=_DummyAttribute)],
@@ -328,7 +347,10 @@ def test_tabulate_attrs(attrs: List[_Attr], expected: List[str]) -> None:
 @pytest.mark.parametrize(
     ("obj", "expected"),
     [
-        (pd.DataFrame, "Two-dimensional, size-mutable, potentially heterogeneous tabular data."),
+        (
+            pd.DataFrame,
+            "Two-dimensional, size-mutable, potentially heterogeneous tabular data.",
+        ),
     ],
 )
 def test_get_summary(obj: Any, expected: str) -> None:

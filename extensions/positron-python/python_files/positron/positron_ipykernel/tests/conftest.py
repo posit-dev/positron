@@ -155,42 +155,54 @@ def session(kernel) -> TestSession:
 
 
 @pytest.fixture
-def mock_connections_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_connections_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "connections_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_dataexplorer_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_dataexplorer_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "data_explorer_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_ui_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_ui_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "ui_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_help_service(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_help_service(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell.kernel, "help_service", mock)
     return mock
 
 
 @pytest.fixture
-def mock_displayhook(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_displayhook(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell, "displayhook", mock)
     return mock
 
 
 @pytest.fixture
-def mock_display_pub(shell: PositronShell, monkeypatch: pytest.MonkeyPatch) -> Mock:
+def mock_display_pub(
+    shell: PositronShell, monkeypatch: pytest.MonkeyPatch
+) -> Mock:
     mock = Mock()
     monkeypatch.setattr(shell, "display_pub", mock)
     return mock

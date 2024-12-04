@@ -13,7 +13,9 @@ from positron_ipykernel._vendor.pydantic import BaseModel
 from positron_ipykernel.utils import JsonData, JsonRecord
 
 
-def assert_pydantic_model_equal(actual: BaseModel, expected: BaseModel, exclude: Set[str]) -> None:
+def assert_pydantic_model_equal(
+    actual: BaseModel, expected: BaseModel, exclude: Set[str]
+) -> None:
     actual_dict = actual.dict(exclude=exclude)
     expected_dict = expected.dict(exclude=exclude)
     assert actual_dict == expected_dict
@@ -32,7 +34,10 @@ def preserve_working_directory():
 
 
 def assert_register_table_called(
-    mock_dataexplorer_service: Mock, obj: Any, title: str, variable_path: Optional[List[str]] = None
+    mock_dataexplorer_service: Mock,
+    obj: Any,
+    title: str,
+    variable_path: Optional[List[str]] = None,
 ) -> None:
     call_args_list = mock_dataexplorer_service.register_table.call_args_list
     assert len(call_args_list) == 1
@@ -66,7 +71,9 @@ def comm_request(data: JsonRecord, **kwargs) -> JsonRecord:
     return {"content": {"data": data, **kwargs.pop("content", {})}, **kwargs}
 
 
-def comm_open_message(target_name: str, data: Optional[JsonRecord] = None) -> JsonRecord:
+def comm_open_message(
+    target_name: str, data: Optional[JsonRecord] = None
+) -> JsonRecord:
     return {
         **comm_message(data),
         "target_name": target_name,
@@ -94,7 +101,9 @@ def json_rpc_error(code: int, message: str) -> JsonRecord:
     )
 
 
-def json_rpc_notification(method: str, params: Optional[JsonRecord] = None) -> JsonRecord:
+def json_rpc_notification(
+    method: str, params: Optional[JsonRecord] = None
+) -> JsonRecord:
     return comm_message(
         {
             "jsonrpc": "2.0",

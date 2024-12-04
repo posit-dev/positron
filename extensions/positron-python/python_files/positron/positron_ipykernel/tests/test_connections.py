@@ -60,7 +60,9 @@ def connections_comm(
 
 @pytest.mark.parametrize("con", get_sqlite_connections())
 class TestSQLiteConnectionsService:
-    def test_register_connection(self, connections_service: ConnectionsService, con):
+    def test_register_connection(
+        self, connections_service: ConnectionsService, con
+    ):
         comm_id = connections_service.register_connection(con)
         assert comm_id in connections_service.comms
 
@@ -72,11 +74,16 @@ class TestSQLiteConnectionsService:
         ],
     )
     def test_contains_data(
-        self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected
+        self,
+        connections_comm: Tuple[ConnectionsService, DummyComm],
+        path,
+        expected,
     ):
         _, comm = connections_comm
 
-        msg = _make_msg(params={"path": path}, method="contains_data", comm_id=comm.comm_id)
+        msg = _make_msg(
+            params={"path": path}, method="contains_data", comm_id=comm.comm_id
+        )
         comm.handle_msg(msg)
 
         result = comm.messages[0]["data"]["result"]
@@ -89,10 +96,17 @@ class TestSQLiteConnectionsService:
             ([{"kind": "schema", "name": "main"}], ""),
         ],
     )
-    def test_get_icon(self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected):
+    def test_get_icon(
+        self,
+        connections_comm: Tuple[ConnectionsService, DummyComm],
+        path,
+        expected,
+    ):
         _, comm = connections_comm
 
-        msg = _make_msg(params={"path": path}, method="get_icon", comm_id=comm.comm_id)
+        msg = _make_msg(
+            params={"path": path}, method="get_icon", comm_id=comm.comm_id
+        )
         comm.handle_msg(msg)
         result = comm.messages[0]["data"]["result"]
         assert result == expected
@@ -101,27 +115,40 @@ class TestSQLiteConnectionsService:
         "path,expected",
         [
             ([], [{"kind": "schema", "name": "main"}]),
-            ([{"kind": "schema", "name": "main"}], [{"kind": "table", "name": "movie"}]),
+            (
+                [{"kind": "schema", "name": "main"}],
+                [{"kind": "table", "name": "movie"}],
+            ),
         ],
     )
     def test_list_objects(
-        self, connections_comm: Tuple[ConnectionsService, DummyComm], path, expected
+        self,
+        connections_comm: Tuple[ConnectionsService, DummyComm],
+        path,
+        expected,
     ):
         _, comm = connections_comm
 
-        msg = _make_msg(params={"path": path}, method="list_objects", comm_id=comm.comm_id)
+        msg = _make_msg(
+            params={"path": path}, method="list_objects", comm_id=comm.comm_id
+        )
 
         comm.handle_msg(msg)
         result = comm.messages[0]["data"]["result"]
         assert len(result) == 1
         assert result == expected
 
-    def test_list_fields(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
+    def test_list_fields(
+        self, connections_comm: Tuple[ConnectionsService, DummyComm]
+    ):
         _, comm = connections_comm
 
         msg = _make_msg(
             params={
-                "path": [{"kind": "schema", "name": "main"}, {"kind": "table", "name": "movie"}]
+                "path": [
+                    {"kind": "schema", "name": "main"},
+                    {"kind": "table", "name": "movie"},
+                ]
             },
             method="list_fields",
             comm_id=comm.comm_id,
@@ -133,12 +160,17 @@ class TestSQLiteConnectionsService:
         assert result[1] == {"name": "year", "dtype": "INTEGER"}
         assert result[2] == {"name": "score", "dtype": "NUMERIC"}
 
-    def test_preview_object(self, connections_comm: Tuple[ConnectionsService, DummyComm]):
+    def test_preview_object(
+        self, connections_comm: Tuple[ConnectionsService, DummyComm]
+    ):
         service, comm = connections_comm
 
         msg = _make_msg(
             params={
-                "path": [{"kind": "schema", "name": "main"}, {"kind": "table", "name": "movie"}]
+                "path": [
+                    {"kind": "schema", "name": "main"},
+                    {"kind": "table", "name": "movie"},
+                ]
             },
             method="preview_object",
             comm_id=comm.comm_id,
@@ -218,7 +250,9 @@ class TestVariablePaneIntegration:
         assert connections_service.path_to_comm_ids.get(path) is None
 
     # TODO: reuse code from test_data_explorer.py
-    def _assign_variables(self, shell: PositronShell, variables_comm: DummyComm, **variables):
+    def _assign_variables(
+        self, shell: PositronShell, variables_comm: DummyComm, **variables
+    ):
         # A hack to make sure that change events are fired when we
         # manipulate user_ns
         shell.kernel.variables_service.snapshot_user_ns()
@@ -226,7 +260,9 @@ class TestVariablePaneIntegration:
         shell.kernel.variables_service.poll_variables()
         variables_comm.messages.clear()
 
-    def _delete_variables(self, shell: PositronShell, variables_comm: DummyComm, names):
+    def _delete_variables(
+        self, shell: PositronShell, variables_comm: DummyComm, names
+    ):
         for nm in names:
             shell.run_cell(f"del {nm}")
 
@@ -235,7 +271,9 @@ class TestVariablePaneIntegration:
 
     def _view_in_connections_pane(self, variables_comm: DummyComm, path):
         encoded_paths = [encode_access_key(p) for p in path]
-        msg = _make_msg("view", {"path": encoded_paths}, comm_id="dummy_comm_id")
+        msg = _make_msg(
+            "view", {"path": encoded_paths}, comm_id="dummy_comm_id"
+        )
         variables_comm.handle_msg(msg)
         assert variables_comm.messages == [json_rpc_response({})]
         variables_comm.messages.clear()

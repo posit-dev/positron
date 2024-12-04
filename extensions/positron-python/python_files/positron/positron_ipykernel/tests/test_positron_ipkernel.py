@@ -33,7 +33,11 @@ logger = logging.getLogger(__name__)
 
 @pytest.fixture
 def warning_kwargs():
-    return {"message": "this is a warning", "category": UserWarning, "lineno": 3}
+    return {
+        "message": "this is a warning",
+        "category": UserWarning,
+        "lineno": 3,
+    }
 
 
 def test_override_help(shell: PositronShell) -> None:
@@ -47,26 +51,38 @@ def test_override_help(shell: PositronShell) -> None:
 def test_view(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
     name = "x"
     shell.run_cell(f"{name} = object()\n%view {name}")
-    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name)
+    assert_register_table_called(
+        mock_dataexplorer_service, shell.user_ns[name], name
+    )
 
 
-def test_view_with_title(shell: PositronShell, mock_dataexplorer_service: Mock) -> None:
+def test_view_with_title(
+    shell: PositronShell, mock_dataexplorer_service: Mock
+) -> None:
     name = "xt"
     title = "A custom title"
     path = [encode_access_key(name)]
 
     shell.run_cell(f'{name} = object()\n%view {name} "{title}"')
-    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], title, path)
+    assert_register_table_called(
+        mock_dataexplorer_service, shell.user_ns[name], title, path
+    )
 
 
-def test_view_undefined(shell: PositronShell, mock_dataexplorer_service: Mock, capsys) -> None:
+def test_view_undefined(
+    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
+) -> None:
     name = "x"
     shell.run_cell(f"%view {name}")
     mock_dataexplorer_service.register_table.assert_not_called()
-    assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+    assert (
+        capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+    )
 
 
-def test_view_title_unquoted(shell: PositronShell, mock_dataexplorer_service: Mock, capsys) -> None:
+def test_view_title_unquoted(
+    shell: PositronShell, mock_dataexplorer_service: Mock, capsys
+) -> None:
     shell.run_cell("%view x A custom title")
     mock_dataexplorer_service.register_table.assert_not_called()
     assert (
@@ -83,11 +99,18 @@ def test_view_unsupported_type(
 
     shell.run_cell(f"{name} = object()\n%view {name}")
 
-    assert_register_table_called(mock_dataexplorer_service, shell.user_ns[name], name)
-    assert capsys.readouterr().err == "UsageError: cannot view object of type 'object'\n"
+    assert_register_table_called(
+        mock_dataexplorer_service, shell.user_ns[name], name
+    )
+    assert (
+        capsys.readouterr().err
+        == "UsageError: cannot view object of type 'object'\n"
+    )
 
 
-def assert_register_connection_called(mock_connections_service: Mock, obj: Any) -> None:
+def assert_register_connection_called(
+    mock_connections_service: Mock, obj: Any
+) -> None:
     call_args_list = mock_connections_service.register_connection.call_args_list
     assert len(call_args_list) == 1
 
@@ -95,10 +118,14 @@ def assert_register_connection_called(mock_connections_service: Mock, obj: Any) 
     assert passed_connection is obj
 
 
-def test_connection_show(shell: PositronShell, mock_connections_service: Mock) -> None:
+def test_connection_show(
+    shell: PositronShell, mock_connections_service: Mock
+) -> None:
     name = "x"
     shell.run_cell(f"{name} = object()\n%connection_show {name}")
-    assert_register_connection_called(mock_connections_service, shell.user_ns[name])
+    assert_register_connection_called(
+        mock_connections_service, shell.user_ns[name]
+    )
 
 
 def test_connection_show_undefined(
@@ -107,7 +134,9 @@ def test_connection_show_undefined(
     name = "x"
     shell.run_cell(f"%connection_show {name}")
     mock_connections_service.register_connection.assert_not_called()
-    assert capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+    assert (
+        capsys.readouterr().err == f"UsageError: name '{name}' is not defined\n"
+    )
 
 
 def test_connection_show_unsupported_type(
@@ -118,8 +147,13 @@ def test_connection_show_unsupported_type(
 
     shell.run_cell(f"{name} = object()\n%connection_show {name}")
 
-    assert_register_connection_called(mock_connections_service, shell.user_ns[name])
-    assert capsys.readouterr().err == "UsageError: cannot show object of type 'object'\n"
+    assert_register_connection_called(
+        mock_connections_service, shell.user_ns[name]
+    )
+    assert (
+        capsys.readouterr().err
+        == "UsageError: cannot show object of type 'object'\n"
+    )
 
 
 code = """def f():
@@ -209,8 +243,12 @@ def test_console_traceback(
     assert len(traceback) == 2
 
     # Check the beginning of each frame.
-    assert_ansi_string_startswith(traceback[0], traceback_frame_header.format(line=5, func="g"))
-    assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
+    assert_ansi_string_startswith(
+        traceback[0], traceback_frame_header.format(line=5, func="g")
+    )
+    assert_ansi_string_startswith(
+        traceback[1], traceback_frame_header.format(line=2, func="f")
+    )
 
     # Check the exception name.
     assert exc_content["ename"] == "Exception"
@@ -282,7 +320,9 @@ def test_pinfo(shell: PositronShell, mock_help_service: Mock) -> None:
     mock_help_service.show_help.assert_called_once_with(object)
 
 
-def test_pinfo_2(shell: PositronShell, tmp_path: Path, mock_ui_service: Mock) -> None:
+def test_pinfo_2(
+    shell: PositronShell, tmp_path: Path, mock_ui_service: Mock
+) -> None:
     """
     Redirect `object??` to the Positron UI service's `open_editor` method.
     """
@@ -310,7 +350,9 @@ def test_clear(shell: PositronShell, mock_ui_service: Mock) -> None:
     mock_ui_service.clear_console.assert_called_once_with()
 
 
-def test_question_mark_help(shell: PositronShell, mock_help_service: Mock) -> None:
+def test_question_mark_help(
+    shell: PositronShell, mock_help_service: Mock
+) -> None:
     """
     Redirect `?` to the Positron Help service.
     """

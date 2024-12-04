@@ -122,7 +122,9 @@ class PositronCompletion(CompletionAPI):
         leaf = self._module_node.get_leaf_for_position(
             self._original_position, include_prefixes=True
         )
-        string, start_leaf, quote = _extract_string_while_in_string(leaf, self._original_position)
+        string, start_leaf, quote = _extract_string_while_in_string(
+            leaf, self._original_position
+        )
 
         prefixed_completions = complete_dict(
             self._module_context,
@@ -151,13 +153,18 @@ class PositronCompletion(CompletionAPI):
         if string is not None:
             if not prefixed_completions and "\n" in string:
                 # Complete only multi line strings
-                prefixed_completions = self._complete_in_string(start_leaf, string)
+                prefixed_completions = self._complete_in_string(
+                    start_leaf, string
+                )
             return prefixed_completions
 
         cached_name, completion_names = self._complete_python(leaf)
 
         imported_names = []
-        if leaf.parent is not None and leaf.parent.type in ["import_as_names", "dotted_as_names"]:
+        if leaf.parent is not None and leaf.parent.type in [
+            "import_as_names",
+            "dotted_as_names",
+        ]:
             imported_names.extend(extract_imported_names(leaf.parent))  # type: ignore
 
         completions = list(
@@ -255,7 +262,9 @@ def complete_dict(module_context, code_lines, leaf, position, string, fuzzy):
 
     cut_end_quote = ""
     if string:
-        cut_end_quote = get_quote_ending(string, code_lines, position, invert_result=True)
+        cut_end_quote = get_quote_ending(
+            string, code_lines, position, invert_result=True
+        )
 
     if bracket_leaf == "[":
         if string is None and leaf is not bracket_leaf:
@@ -281,11 +290,16 @@ def complete_dict(module_context, code_lines, leaf, position, string, fuzzy):
 
 
 # Adapted from jedi.api.strings._completions_for_dicts.
-def _completions_for_dicts(inference_state, dicts, literal_string, cut_end_quote, fuzzy):
+def _completions_for_dicts(
+    inference_state, dicts, literal_string, cut_end_quote, fuzzy
+):
     # --- Start Positron ---
     # Since we've modified _get_python_keys to return Names, sort by yielded value's string_name
     # instead of the yielded value itself.
-    for name in sorted(_get_python_keys(inference_state, dicts), key=lambda x: repr(x.string_name)):
+    for name in sorted(
+        _get_python_keys(inference_state, dicts),
+        key=lambda x: repr(x.string_name),
+    ):
         # --- End Positron ---
         yield Completion(
             inference_state,

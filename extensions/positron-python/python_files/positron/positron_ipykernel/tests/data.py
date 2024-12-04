@@ -87,11 +87,21 @@ RANGE_CASES = [
     range(1),  # Range with positive start, 1 element
     range(-1, 0),  # Range with negative start, 1 element
     range(-2, 3),  # Range with negative start, positive stop
-    range(10, 21, 2),  # Range with positive start, positive stop, and positive step
-    range(20, 9, -2),  # Range with positive start, positive stop, and negative step
-    range(2, -10, -2),  # Range with positive start, negative stop, and negative step
-    range(-20, -9, 2),  # Range with negative start, negative stop, and positive step
-    range(-10, 3, 2),  # Range with negative start, positive stop, and positive step
+    range(
+        10, 21, 2
+    ),  # Range with positive start, positive stop, and positive step
+    range(
+        20, 9, -2
+    ),  # Range with positive start, positive stop, and negative step
+    range(
+        2, -10, -2
+    ),  # Range with positive start, negative stop, and negative step
+    range(
+        -20, -9, 2
+    ),  # Range with negative start, negative stop, and positive step
+    range(
+        -10, 3, 2
+    ),  # Range with negative start, positive stop, and positive step
     range(1, 5000),  # Large Range (compact display, does not show elements)
 ]
 

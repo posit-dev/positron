@@ -406,7 +406,9 @@ def test_inspect_set_truncated() -> None:
     length = len(value)
     verify_inspector(
         value=value,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[
+            :TRUNCATE_AT
+        ],
         kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
@@ -453,7 +455,9 @@ def test_inspect_list_truncated() -> None:
     length = len(value)
     verify_inspector(
         value=value,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
+        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[
+            :TRUNCATE_AT
+        ],
         kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
@@ -568,7 +572,9 @@ FUNCTION_CASES = [
 
 @pytest.mark.parametrize("value", FUNCTION_CASES)
 def test_inspect_function(value: Callable) -> None:
-    expected_type = "method" if isinstance(value, types.MethodType) else "function"
+    expected_type = (
+        "method" if isinstance(value, types.MethodType) else "function"
+    )
     verify_inspector(
         value=value,
         length=0,
@@ -703,7 +709,9 @@ def test_inspect_geopandas_dataframe() -> None:
     p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
     p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
 
-    value = geopandas.GeoDataFrame({"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]})
+    value = geopandas.GeoDataFrame(
+        {"g": geopandas.GeoSeries([p1, p2, p3]), "data": [0, 1, 2]}
+    )
 
     rows, cols = value.shape
 
@@ -867,7 +875,9 @@ def test_inspect_polars_series() -> None:
         (pl.DataFrame({"a": [1, 2], "b": ["3", "4"]}), ["a", "b"]),
         (pd.Index([0, 1]), range(0, 2)),
         (
-            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+            pd.Index(
+                [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]
+            ),
             range(0, 2),
         ),
         (np.array([0, 1]), range(0, 2)),  # 1D
@@ -901,7 +911,9 @@ def test_get_children(data: Any, expected: Iterable) -> None:
         ),
         (pd.Index([0, 1]), 0, 0),
         (
-            pd.Index([datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]),
+            pd.Index(
+                [datetime.datetime(2021, 1, 1), datetime.datetime(2021, 1, 2)]
+            ),
             0,
             datetime.datetime(2021, 1, 1),
         ),

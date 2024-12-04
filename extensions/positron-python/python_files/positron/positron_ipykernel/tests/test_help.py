@@ -12,7 +12,11 @@ import pandas as pd
 import pytest
 
 from positron_ipykernel.help import HelpService, help
-from positron_ipykernel.help_comm import HelpBackendRequest, HelpFrontendEvent, ShowHelpKind
+from positron_ipykernel.help_comm import (
+    HelpBackendRequest,
+    HelpFrontendEvent,
+    ShowHelpKind,
+)
 
 from .conftest import DummyComm
 from .utils import json_rpc_notification, json_rpc_request, json_rpc_response
@@ -92,7 +96,8 @@ def test_pydoc_server_styling(running_help_service: HelpService):
 
 def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
     return json_rpc_notification(
-        HelpFrontendEvent.ShowHelp.value, {"kind": kind, "focus": focus, "content": content}
+        HelpFrontendEvent.ShowHelp.value,
+        {"kind": kind, "focus": focus, "content": content},
     )
 
 
@@ -124,7 +129,11 @@ def show_help_event(content: str, kind=ShowHelpKind.Url, focus=True):
     ],
 )
 def test_show_help(
-    obj: Any, expected_path: str, help_service: HelpService, help_comm, mock_pydoc_thread
+    obj: Any,
+    expected_path: str,
+    help_service: HelpService,
+    help_comm,
+    mock_pydoc_thread,
 ):
     """
     Calling `show_help` should resolve an object to a url and send a `ShowHelp` event over the comm.
@@ -138,7 +147,9 @@ def test_show_help(
 
 def test_handle_show_help_topic(help_comm, mock_pydoc_thread) -> None:
     msg = json_rpc_request(
-        HelpBackendRequest.ShowHelpTopic, {"topic": "logging"}, comm_id="dummy_comm_id"
+        HelpBackendRequest.ShowHelpTopic,
+        {"topic": "logging"},
+        comm_id="dummy_comm_id",
     )
     help_comm.handle_msg(msg)
 
