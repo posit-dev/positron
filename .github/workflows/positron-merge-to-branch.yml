@@ -72,6 +72,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - run: cd test/e2e && yarn install && yarn compile
       - name: Rebuild Canvas
         run: npm rebuild canvas # i don't understand why i have to do this?
 
