@@ -40,17 +40,13 @@ interface NewConnectionModalDialogProps {
 	readonly services: PositronConnectionsServices;
 }
 
-enum NewConnectionModalDialogState {
-	ListDrivers,
-}
-
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
 	};
 
-	const [modalState, _] = useState<NewConnectionModalDialogState>(NewConnectionModalDialogState.ListDrivers);
+	const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>();
 
 	return <PositronModalDialog
 		renderer={props.renderer}
@@ -61,11 +57,17 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	>
 		<div className='connections-new-connection-modal'>
 			<ContentArea>
-				{modalState === NewConnectionModalDialogState.ListDrivers &&
-					<ListDrivers
-						services={props.services}
-						onCancel={cancelHandler}
-					/>}
+				{
+					selectedDriver ?
+						<CreateConnection
+							services={props.services}
+							onCancel={cancelHandler}
+							selectedDriver={selectedDriver} /> :
+						<ListDrivers
+							services={props.services}
+							onCancel={cancelHandler}
+							onSelection={(driver) => setSelectedDriver(driver)}
+						/>}
 			</ContentArea>
 		</div>
 	</PositronModalDialog>;
@@ -74,12 +76,18 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
 	readonly onCancel: () => void;
+	readonly onSelection: (driver: Driver) => void;
 }
 
 const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 
 	const onSelectionChangedHandler = ({ }) => {
+		// TODO: it should matter what language is selected.
+		// But for now we just select the first driver.
+	};
 
+	const onDriverSelectedHandler = (driver: Driver) => {
+		props.onSelection(driver);
 	};
 
 	const entries = getRegisteredLanguages(props.services);
@@ -135,7 +143,7 @@ const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 
 					return <div key={driver.driverId} className='driver-list-item'>
 						{icon}
-						<div className='driver-info'>
+						<div className='driver-info' onMouseDown={() => onDriverSelectedHandler(driver)}>
 							<div className='driver-name'>
 								{driver.name}
 							</div>
@@ -157,6 +165,49 @@ const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	</div>;
 };
 
+interface CreateConnectionProps {
+	readonly services: PositronConnectionsServices;
+	readonly onCancel: () => void;
+	readonly selectedDriver: Driver;
+}
+
+const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
+
+	const { name } = props.selectedDriver;
+
+	return <div className='connections-new-connection-create-connection'>
+		<div className='create-connection-title'>
+			<h1>
+				{`${name} ${localize('positron.newConnectionModalDialog.createConnection.title', "Connection")}`}
+			</h1>
+		</div>
+		<div className='create-connection-inputs'>
+
+		</div>
+		<div className='create-connection-code-area'>
+			<h3>{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}</h3>
+			<div className='create-connection-code-editor'>
+			</div>
+			<div className='create-connection-buttons'>
+				<PositronButton
+					className='button action-bar-button'
+					onPressed={props.onCancel}
+				>
+					{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
+				</PositronButton>
+			</div>
+		</div>
+		<div className='footer'>
+			<PositronButton
+				className='button action-bar-button'
+				onPressed={props.onCancel}
+			>
+				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
+			</PositronButton>
+		</div>
+	</div>;
+};
+
 const getRegisteredLanguages = (services: PositronConnectionsServices) => {
 	const languages = new Map<string, LanguageRuntimeMetadata>();
 	for (const runtime of services.languageRuntimeService.registeredRuntimes) {
@@ -169,20 +220,34 @@ const getRegisteredLanguages = (services: PositronConnectionsServices) => {
 	return Array.from(languages.values());
 };
 
+enum InputType {
+	String = 'string',
+	Number = 'number',
+	Boolean = 'boolean',
+}
+
+interface Input {
+	id: string;
+	label: string;
+	type: InputType;
+}
+
 interface Driver {
 	driverId: string;
+	languageId: string;
 	name: string;
 	base64EncodedIconSvg?: string;
+	inputs?: Array<Input>;
+	generateCode?: (inputs: Map<string, string>) => string;
 }
 
 const getRegisteredDrivers = (languageId: string): Array<Driver> => {
-	if (languageId === 'r') {
-		// TODO currently we always return the same list of drivers.
-		// but we we'll have a mechanism for extensions to register drivers
-		// for a given language.
-	}
+	// TODO currently we always return the same list of drivers.
+	// but we we'll have a mechanism for extensions to register drivers
+	// for a given language.
 	return [
 		{
+			languageId: languageId,
 			driverId: 'postgres',
 			name: 'PostgresSQL',
 		},
