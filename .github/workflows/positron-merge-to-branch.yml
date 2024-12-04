@@ -46,6 +46,13 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Debug Node.js version
+        run: |
+          echo "Node.js version:"
+          node -v
+          echo "Node.js MODULE_VERSION:"
+          node -p "process.versions.modules"
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 

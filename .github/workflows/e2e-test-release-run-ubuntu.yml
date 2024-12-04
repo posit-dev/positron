@@ -45,9 +45,9 @@ jobs:
           yarn global add node-gyp
           yarn install
           yarn --cwd test/automation install
-          yarn --cwd test/smoke install
+          yarn --cwd test/e2e install
           yarn --cwd test/automation compile
-          yarn --cwd test/smoke compile
+          yarn --cwd test/e2e compile
 
       - name: Get & install latest release
         id: get_latest_release
