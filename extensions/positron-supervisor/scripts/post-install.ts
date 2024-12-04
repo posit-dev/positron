@@ -6,6 +6,6 @@
 import { execSync } from 'child_process';
 
 // Install or update the Kallichore server binary
-execSync('yarn run install-kallichore', {
+execSync('npm run install-kallichore', {
 	stdio: 'inherit'
 });
