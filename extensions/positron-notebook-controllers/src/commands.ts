@@ -24,12 +24,12 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 		try {
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
-				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.languageName, notebook.uri.path),
+				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.runtimeName, notebook.uri.path),
 			}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
 		} catch (error) {
 			vscode.window.showErrorMessage(
 				vscode.l10n.t("Restarting {0} interpreter for '{1}' failed. Reason: {2}",
-					session.runtimeMetadata.languageName, notebook.uri.path, error.message));
+					session.runtimeMetadata.runtimeName, notebook.uri.path, error.message));
 		}
 	}), vscode.commands.registerCommand('positron.notebooks.selectPythonEnvironment', async () => {
 		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick', 'python');

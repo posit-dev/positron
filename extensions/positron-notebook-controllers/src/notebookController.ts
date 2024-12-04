@@ -130,7 +130,7 @@ export class NotebookController implements vscode.Disposable {
 			const retry = vscode.l10n.t('Retry');
 			const selection = await vscode.window.showErrorMessage(
 				vscode.l10n.t(
-					'Starting {0} interpreter for "{1}" failed. Reason: {2}',
+					"Starting {0} interpreter for '{1}' failed. Reason: {2}",
 					this.label,
 					notebook.uri.path,
 					err
@@ -201,6 +201,9 @@ export class NotebookController implements vscode.Disposable {
 			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 			return;
 		}
+
+		// If a session is restarting for this notebook, wait for it to finish.
+		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
 
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
