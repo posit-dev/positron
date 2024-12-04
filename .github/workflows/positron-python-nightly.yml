@@ -23,6 +23,7 @@ env:
 jobs:
   # Run full suite of upstream tests
   vscode-python-tests:
+    name: 'vscode-python'
     # The value of runs-on is the OS of the current job (specified in the strategy matrix below) instead of being hardcoded.
     runs-on: ${{ matrix.os }}
     defaults:
@@ -85,6 +86,7 @@ jobs:
 
   # Install the latest releases of test dependencies
   ipykernel-tests-latest:
+    name: 'ipykernel'
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
