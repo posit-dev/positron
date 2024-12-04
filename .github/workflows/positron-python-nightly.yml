@@ -121,10 +121,10 @@ jobs:
           path: extensions/positron-python/python-test-results.xml
 
   slack-notification:
-    if: always()
     name: 'Send Slack notification'
     runs-on: ubuntu-latest
     needs: [vscode-python-tests, ipykernel-tests-latest]
+    if: always()
 
     steps:
     - name: Send Slack Notification
@@ -132,6 +132,6 @@ jobs:
       with:
         repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
         slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
-        include_jobs_time: 'false'
+        include_jobs_time: "false"
         notify_on: "failure"
 
