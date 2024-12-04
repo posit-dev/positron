@@ -125,6 +125,13 @@
 	"[diff]": {
 		"files.trimTrailingWhitespace": false
 	},
+	"[python]": {
+		"editor.defaultFormatter": "charliermarsh.ruff",
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "explicit"
+		}
+	},
 	"rust-analyzer.linkedProjects": [
 		"cli/Cargo.toml"
 	],

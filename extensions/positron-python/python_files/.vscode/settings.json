@@ -3,11 +3,13 @@
         "**/__pycache__/**": true,
         "**/**/*.pyc": true
     },
-    "[python]": {
-        "editor.defaultFormatter": "ms-python.black-formatter",
-        "editor.formatOnSave": true,
-        "editor.rulers": [100],
-    },
+	"[python]": {
+		"editor.defaultFormatter": "charliermarsh.ruff",
+		"editor.formatOnSave": true,
+		"editor.codeActionsOnSave": {
+			"source.organizeImports": "explicit"
+		}
+	},
     "python.testing.pytestArgs": [
         "tests",
         "positron/positron_ipykernel/tests"
