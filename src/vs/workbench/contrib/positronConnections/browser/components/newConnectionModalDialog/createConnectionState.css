@@ -1,0 +1,61 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.connections-new-connection-create-connection {
+	display: grid;
+	gap: 10px;
+	grid-template-rows: 36px 2fr 15px 1fr 28px;
+	grid-template-columns: 1fr 90px;
+	grid-template-areas:
+		"title-1  title-1"
+		"inputs   inputs"
+		"title-2  title-2"
+		"editor   buttons"
+		"footer   buttons";
+	height: 100%;
+}
+
+.connections-new-connection-create-connection .action-bar-button {
+	padding: 0 15px;
+}
+
+.connections-new-connection-create-connection > .create-connection-title {
+	grid-area: title-1;
+	display: flex;
+	align-items: center;
+}
+
+.connections-new-connection-create-connection > .create-connection-inputs {
+	grid-area: inputs;
+	padding: 2px;
+	border: solid 1px var(--vscode-positronVariables-border);
+	border-radius: 4px;
+	overflow: auto;
+}
+
+.connections-new-connection-create-connection > .create-connection-code-editor {
+	grid-area: editor;
+	border: solid 1px var(--vscode-positronVariables-border);
+	border-radius: 4px;
+	padding: 2px;
+}
+
+.connections-new-connection-create-connection > .create-connection-buttons {
+	grid-area: buttons;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+}
+
+.connections-new-connection-create-connection > .create-connection-footer {
+	grid-area: footer;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+}
+
+.create-connection-footer > .default {
+	margin-left: auto;
+}

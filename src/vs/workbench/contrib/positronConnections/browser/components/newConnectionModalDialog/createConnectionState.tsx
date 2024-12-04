@@ -8,6 +8,7 @@ import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/pos
 import { localize } from 'vs/nls';
 import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
+import 'vs/css!./createConnectionState';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;
@@ -25,28 +26,44 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{`${name} ${localize('positron.newConnectionModalDialog.createConnection.title', "Connection")}`}
 			</h1>
 		</div>
-		<div className='create-connection-inputs'>
 
+		<div className='create-connection-inputs'>
 		</div>
-		<div className='create-connection-code-area'>
-			<h3>{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}</h3>
-			<div className='create-connection-code-editor'>
-			</div>
-			<div className='create-connection-buttons'>
-				<PositronButton
-					className='button action-bar-button'
-					onPressed={props.onCancel}
-				>
-					{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
-				</PositronButton>
-			</div>
+
+		<div className='create-connection-code-title'>
+			{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}
 		</div>
-		<div className='footer'>
+
+		<div className='create-connection-code-editor'>
+		</div>
+
+		<div className='create-connection-buttons'>
+			<PositronButton
+				className='button action-bar-button'
+				onPressed={props.onCancel}
+			>
+				{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
+			</PositronButton>
 			<PositronButton
 				className='button action-bar-button'
 				onPressed={props.onCancel}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
+			</PositronButton>
+		</div>
+
+		<div className='create-connection-footer'>
+			<PositronButton
+				className='button action-bar-button'
+				onPressed={props.onCancel}
+			>
+				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
+			</PositronButton>
+			<PositronButton
+				className='button action-bar-button default'
+				onPressed={props.onCancel}
+			>
+				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
 			</PositronButton>
 		</div>
 	</div>;
