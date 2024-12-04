@@ -41,7 +41,6 @@ from typing import (
     cast,
 )
 
-from .third_party import np_, pd_, torch_
 from .utils import (
     JsonData,
     get_qualname,
@@ -125,6 +124,27 @@ def _get_simplified_qualname(value):
         return PACKAGE_REMAPPERS[top_path](value)
 
     return display_value
+
+
+# Lazy imports for expensive third party packages
+
+
+def _numpy():
+    import numpy as np
+
+    return np
+
+
+def _pandas():
+    import pandas as pd
+
+    return pd
+
+
+def _torch():
+    import torch
+
+    return torch
 
 
 class PositronInspector(Generic[T]):
@@ -528,7 +548,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 
     @classmethod
     def value_from_isoformat(cls, string: str) -> pd.Timestamp:
-        return not_none(pd_).Timestamp.fromisoformat(string)
+        return _pandas().Timestamp.fromisoformat(string)
 
 
 #
@@ -700,7 +720,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         return (
-            not_none(np_).array2string(
+            _numpy().array2string(
                 self.value,
                 max_line_width=print_width,
                 threshold=ARRAY_THRESHOLD,
@@ -711,7 +731,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         )
 
     def equals(self, value: np.ndarray) -> bool:
-        return not_none(np_).array_equal(self.value, value)
+        return _numpy().array_equal(self.value, value)
 
     def deepcopy(self) -> np.ndarray:
         # TODO: ndarray.copy() is actually a shallow copy which could cause unexpected behavior for
@@ -730,7 +750,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
         # is in a stable version we can use it to temporarily set print options
-        torch = not_none(torch_)
+        torch = _torch()
 
         new_options = {
             "threshold": ARRAY_THRESHOLD,
@@ -751,13 +771,15 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         return display_value, True
 
     def equals(self, value: torch.Tensor) -> bool:
-        return not_none(torch_).equal(self.value, value)
+        return _torch().equal(self.value, value)
 
     def deepcopy(self) -> torch.Tensor:
-        # Detach the tensor from any existing computation graphs to avoid gradients propagating
-        # through them.
-        # TODO: This creates a completely new tensor using new memory. Is there a more
-        #       memory-efficient way to do this?
+        # Detach the tensor from any existing computation graphs to
+        # avoid gradients propagating through them.
+
+        # TODO: This creates a completely new tensor using new
+        #       memory. Is there a more memory-efficient way to do
+        #       this?
         return self.value.detach().clone()
 
     def get_size(self) -> int:
@@ -907,7 +929,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
-        if isinstance(self.value, not_none(pd_).RangeIndex):
+        if isinstance(self.value, _pandas().RangeIndex):
             return str(self.value), False
 
         display_value = str(self.value[:100].to_list())
@@ -916,7 +938,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     def has_children(self) -> bool:
         # For ranges, we don't visualize the children as they're
         # implied as a contiguous set of integers in a range.
-        if isinstance(self.value, not_none(pd_).RangeIndex):
+        if isinstance(self.value, _pandas().RangeIndex):
             return False
 
         return super().has_children()

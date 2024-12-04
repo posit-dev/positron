@@ -6,7 +6,17 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypedDict,
+    Union,
+)
 
 import comm
 
@@ -24,7 +34,6 @@ from .connections_comm import (
     GetMetadataRequest,
 )
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .third_party import pd_, sqlalchemy_
 from .utils import JsonData, JsonRecord, safe_isinstance
 
 if TYPE_CHECKING:
@@ -411,7 +420,9 @@ class ConnectionsService:
         self.comm_id_to_connection = {}
 
     def handle_msg(
-        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[ConnectionsBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         """
         Handles messages from the frontend.
@@ -438,7 +449,9 @@ class ConnectionsService:
             )
 
     def _handle_msg(
-        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[ConnectionsBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         comm_id = msg.content.comm_id
         request = msg.content.data
@@ -596,7 +609,8 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                "Path must include a schema and a table/view in this order.",
+                f"Path: {path}",
             )
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
@@ -611,7 +625,9 @@ class SQLite3Connection(Connection):
         self.conn.close()
 
     def preview_object(self, path: List[ObjectSchema]):
-        if pd_ is None:
+        try:
+            import pandas as pd
+        except ImportError:
             raise ModuleNotFoundError("Pandas is required for previewing SQLite tables.")
 
         if len(path) != 2:
@@ -620,10 +636,11 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                "Path must include a schema and a table/view in this order.",
+                f"Path: {path}",
             )
 
-        return pd_.read_sql(
+        return pd.read_sql(
             f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;",
             self.conn,
         )
@@ -654,14 +671,16 @@ class SQLAlchemyConnection(Connection):
         )
 
     def list_objects(self, path: List[ObjectSchema]):
-        if sqlalchemy_ is None:
+        try:
+            import sqlalchemy
+        except ImportError:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing objects in SQLAlchemy connections."
             )
 
         if len(path) == 0:
             # we at the root of the database so we return the list of schemas
-            schemas = sqlalchemy_.inspect(self.conn).get_schema_names()
+            schemas = sqlalchemy.inspect(self.conn).get_schema_names()
             return [ConnectionObject({"name": name, "kind": "schema"}) for name in schemas]
 
         if len(path) == 1:
@@ -674,8 +693,8 @@ class SQLAlchemyConnection(Connection):
                     f"Path: {path}",
                 )
 
-            tables = sqlalchemy_.inspect(self.conn).get_table_names(schema.name)
-            views = sqlalchemy_.inspect(self.conn).get_view_names(schema.name)
+            tables = sqlalchemy.inspect(self.conn).get_table_names(schema.name)
+            views = sqlalchemy.inspect(self.conn).get_view_names(schema.name)
             return [ConnectionObject({"name": name, "kind": "table"}) for name in tables] + [
                 ConnectionObject({"name": name, "kind": "view"}) for name in views
             ]
@@ -683,7 +702,9 @@ class SQLAlchemyConnection(Connection):
         raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
 
     def list_fields(self, path: List[ObjectSchema]):
-        if sqlalchemy_ is None:
+        try:
+            import sqlalchemy
+        except ImportError:
             raise ModuleNotFoundError(
                 "SQLAlchemy is required for listing fields in SQLAlchemy connections."
             )
@@ -691,7 +712,7 @@ class SQLAlchemyConnection(Connection):
         self._check_table_path(path)
 
         schema, table = path
-        fields = sqlalchemy_.inspect(self.conn).get_columns(
+        fields = sqlalchemy.inspect(self.conn).get_columns(
             schema_name=schema.name, table_name=table.name
         )
         return [
@@ -708,24 +729,31 @@ class SQLAlchemyConnection(Connection):
         }
 
     def preview_object(self, path: List[ObjectSchema]):
-        if sqlalchemy_ is None:
+        try:
+            import sqlalchemy
+        except ImportError:
             raise ModuleNotFoundError(
-                "SQLAlchemy is required for previewing objects in SQLAlchemy connections."
+                "SQLAlchemy is required for previewing objects in " "SQLAlchemy connections."
             )
 
-        if pd_ is None:
+        try:
+            import pandas as pd
+        except ImportError:
             raise ModuleNotFoundError("Pandas is required for previewing SQLAlchemy tables.")
 
         self._check_table_path(path)
         schema, table = path
 
-        table = sqlalchemy_.Table(
-            table.name, sqlalchemy_.MetaData(), autoload_with=self.conn, schema=schema.name
+        table = sqlalchemy.Table(
+            table.name,
+            sqlalchemy.MetaData(),
+            autoload_with=self.conn,
+            schema=schema.name,
         )
-        stmt = sqlalchemy_.sql.select(table).limit(1000)
+        stmt = sqlalchemy.sql.select(table).limit(1000)
         # using conn.connect() is safer then using the conn directly and is also supported
         # with older pandas versions such as 1.5
-        return pd_.read_sql(stmt, self.conn.connect())
+        return pd.read_sql(stmt, self.conn.connect())
 
     def disconnect(self):
         self.conn.dispose()
@@ -733,7 +761,8 @@ class SQLAlchemyConnection(Connection):
     def _check_table_path(self, path: List[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"
+                f"Invalid path. Length path ({len(path)}) expected to be 2.",
+                f"Path: {path}",
             )
 
         schema, table = path

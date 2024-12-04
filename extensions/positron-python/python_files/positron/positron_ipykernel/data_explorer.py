@@ -97,14 +97,6 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import (
-    RestartRequiredError,
-    import_pandas,
-    import_polars,
-    np_,
-    pd_,
-    pl_,
-)
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
@@ -885,23 +877,32 @@ _VALUE_INF = 10
 _VALUE_NEGINF = 11
 
 
-if np_ is not None:
+class NumPyMathHelper:
+    def __init__(self):
+        import numpy
 
-    def _is_float_scalar(x):
-        return isinstance(x, (float, np_.floating))
+        self.np = numpy
 
-    _isnan = np_.isnan  # type: ignore
-    _isinf = np_.isinf  # type: ignore
-else:
+    def is_float_scalar(self, value):
+        return isinstance(value, (float, self.np.floating))
 
-    def _is_float_scalar(x):
-        return isinstance(x, float)
+    def isnan(self, value):
+        return self.np.isnan(value)
 
-    def _isnan(x: float) -> bool:
-        return x != x
+    def isinf(self, value):
+        return self.np.isinf(value)
 
-    def _isinf(x: float) -> bool:
-        return math.isinf(x)
+
+def _builtin_is_float_scalar(value):
+    return isinstance(value, float)
+
+
+def _builtin_isnan(value):
+    return value != value
+
+
+def _builtin_isinf(value):
+    return math.isinf(value)
 
 
 def _get_float_formatter(options: FormatOptions) -> Callable:
@@ -970,15 +971,19 @@ def _pandas_datetimetz_mapper(type_name):
 
 
 def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
+    import numpy as np
+
+    math_helper = NumPyMathHelper()
+
     float_format = _get_float_formatter(options)
 
     min_val = max_val = median_val = mean_val = std_val = None
     if "complex" in str(col.dtype):
         values = col.to_numpy()
-        non_null_values = values[~np_.isnan(values)]
+        non_null_values = values[~np.isnan(values)]
         if len(non_null_values) > 0:
-            median_val = float_format(np_.median(non_null_values))
-            mean_val = float_format(np_.mean(non_null_values))
+            median_val = float_format(np.median(non_null_values))
+            mean_val = float_format(np.mean(non_null_values))
     else:
         non_null_values = col[col.notna()].to_numpy()  # type: ignore
 
@@ -986,11 +991,11 @@ def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
             min_val = non_null_values.min()
             max_val = non_null_values.max()
 
-            if not _isinf(min_val) and not _isinf(max_val):
+            if not math_helper.isinf(min_val) and not math_helper.isinf(max_val):
                 # These stats are not defined when there is an
                 # inf/-inf in the data
                 mean_val = float_format(non_null_values.mean())
-                median_val = float_format(np_.median(non_null_values))
+                median_val = float_format(np.median(non_null_values))
                 std_val = float_format(non_null_values.std(ddof=1))
 
             min_val = float_format(min_val)
@@ -1019,9 +1024,11 @@ def _pandas_summarize_boolean(col: "pd.Series", options: FormatOptions):
 
 
 def _pandas_summarize_date(col: "pd.Series", options: FormatOptions):
-    col_dttm = pd_.to_datetime(col)
+    import pandas as pd
+
+    col_dttm = pd.to_datetime(col)
     min_date = col.min()
-    mean_date = pd_.to_datetime(col_dttm.mean()).date()
+    mean_date = pd.to_datetime(col_dttm.mean()).date()
     median_date = _date_median(col_dttm)
     max_date = col.max()
     num_unique = col.nunique()
@@ -1095,6 +1102,9 @@ class PandasView(DataExplorerTableView):
     ):
         table = self._maybe_wrap(table)
 
+        # For lazy importing NumPy
+        self.math_helper = NumPyMathHelper()
+
         super().__init__(table, comm, state, job_queue)
 
     @property
@@ -1109,11 +1119,13 @@ class PandasView(DataExplorerTableView):
         return num_columns < SCHEMA_CACHE_THRESHOLD and num_cells < PANDAS_CACHE_CELLS_THRESHOLD
 
     def _maybe_wrap(self, value):
-        if isinstance(value, pd_.Series):
+        import pandas as pd
+
+        if isinstance(value, pd.Series):
             if value.name is None:
-                return pd_.DataFrame({"unnamed": value})
+                return pd.DataFrame({"unnamed": value})
             else:
-                return pd_.DataFrame(value)
+                return pd.DataFrame(value)
         else:
             return value
 
@@ -1414,6 +1426,8 @@ class PandasView(DataExplorerTableView):
         return {"columns": formatted_columns}
 
     def _get_row_labels(self, selection: ArraySelection, _: FormatOptions):
+        import pandas as pd
+
         if isinstance(selection, DataSelectionRange):
             if self.row_view_indices is not None:
                 view_slice = self.row_view_indices[selection.first_index : selection.last_index + 1]
@@ -1429,23 +1443,24 @@ class PandasView(DataExplorerTableView):
         # Currently, we format MultiIndex in its flat tuple
         # representation. In the future we will return multiple lists
         # of row labels to be formatted more nicely in the UI
-        if isinstance(self.table.index, pd_.MultiIndex):
+        if isinstance(self.table.index, pd.MultiIndex):
             indices = indices.to_flat_index()
         row_labels = [[str(x) for x in indices]]
         return {"row_labels": row_labels}
 
-    @classmethod
-    def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
-        NaT = pd_.NaT
-        NA = pd_.NA
+    def _format_values(self, values, options: FormatOptions) -> List[ColumnValue]:
+        import pandas as pd
+
+        NaT = pd.NaT
+        NA = pd.NA
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
         def _format_value(x):
-            if _is_float_scalar(x):
-                if _isnan(x):
+            if self.math_helper.is_float_scalar(x):
+                if self.math_helper.isnan(x):
                     return _VALUE_NAN
-                elif _isinf(x):
+                elif self.math_helper.isinf(x):
                     return _VALUE_INF if x > 0 else _VALUE_NEGINF
                 else:
                     return float_format(x)
@@ -1495,6 +1510,8 @@ class PandasView(DataExplorerTableView):
             return mask.nonzero()[0]
 
     def _eval_filter(self, filt: RowFilter):
+        import pandas as pd
+
         column_index = filt.column_schema.column_index
         col = self.table.iloc[:, column_index]
 
@@ -1540,7 +1557,7 @@ class PandasView(DataExplorerTableView):
             params = filt.params
             assert isinstance(params, FilterSetMembership)
 
-            boxed_values = pd_.Series(
+            boxed_values = pd.Series(
                 [self._coerce_value(val, dtype, inferred_type) for val in params.values]
             )
             # IN
@@ -1583,6 +1600,7 @@ class PandasView(DataExplorerTableView):
 
     @staticmethod
     def _coerce_value(value, dtype, inferred_type):
+        import pandas as pd
         import pandas.api.types as pat
 
         if pat.is_integer_dtype(dtype):
@@ -1592,7 +1610,7 @@ class PandasView(DataExplorerTableView):
                 return int(value)
             except ValueError as e1:
                 try:
-                    return pd_.Series([value], dtype="float64").iloc[0]
+                    return pd.Series([value], dtype="float64").iloc[0]
                 except ValueError:
                     raise e1
         elif pat.is_bool_dtype(dtype):
@@ -1607,7 +1625,7 @@ class PandasView(DataExplorerTableView):
             return _parse_iso8601_like(value, tz=getattr(dtype, "tz", None))
         else:
             # As a fallback, let Series.astype do the coercion
-            dummy = pd_.Series([value])
+            dummy = pd.Series([value])
             if dummy.dtype != dtype:
                 dummy = dummy.astype(dtype)
             return dummy.iloc[0]
@@ -1697,16 +1715,19 @@ class PandasView(DataExplorerTableView):
         params: ColumnHistogramParams,
         format_options: FormatOptions,
     ) -> ColumnHistogram:
+        import numpy as np
+        import pandas as pd
+
         col = self._get_column(column_index)
 
         # TODO: why does this type error?
         data = col[col.notna()].to_numpy()  # type: ignore
 
         dtype = data.dtype
-        is_datetime64 = np_.issubdtype(dtype, np_.datetime64)
+        is_datetime64 = np.issubdtype(dtype, np.datetime64)
 
         if is_datetime64:
-            data = data.view(np_.int64)
+            data = data.view(np.int64)
 
         method = _get_histogram_method(params.method)
 
@@ -1715,8 +1736,8 @@ class PandasView(DataExplorerTableView):
         if is_datetime64:
             # A bit hacky for now, but will replace this with
             # something better soon
-            bin_edges = np_.floor(bin_edges).astype(np_.int64).view(dtype)
-            bin_edges = pd_.Series(bin_edges)
+            bin_edges = np.floor(bin_edges).astype(np.int64).view(dtype)
+            bin_edges = pd.Series(bin_edges)
 
         formatted_edges = self._format_values(bin_edges, format_options)
 
@@ -1831,6 +1852,8 @@ def _get_histogram_method(method: ColumnHistogramParamsMethod):
 
 
 def _get_histogram_numpy(data, num_bins, method="fd"):
+    import numpy as np
+
     assert num_bins is not None
     if method == "fixed":
         hist_params = {"bins": num_bins}
@@ -1842,22 +1865,22 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     # finer-grained histogram than the maximum number of bins that we
     # want to render, as indicated by the num_bins argument
     try:
-        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+        bin_counts, bin_edges = np.histogram(data, **hist_params)
     except ValueError:
-        if issubclass(data.dtype.type, np_.integer):
+        if issubclass(data.dtype.type, np.integer):
             # Issue #5176. There is a class of error for integers where np.histogram
             # will fail on Windows (platform int issue), e.g. this array fails with Numpy 2.1.1
             # array([ -428566661,  1901704889,   957355142,  -401364305, -1978594834,
             #         519144975,  1384373326,  1974689646,   194821408, -1564699930],
             #         dtype=int32)
             # So we try again with the data converted to floating point as a fallback
-            return _get_histogram_numpy(data.astype(np_.float64), num_bins, method=method)
+            return _get_histogram_numpy(data.astype(np.float64), num_bins, method=method)
 
         # If there are inf/-inf values in the dataset, ValueError is
         # raised. We catch it and try again to avoid paying the
         # filtering cost every time
-        data = data[np_.isfinite(data)]
-        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+        data = data[np.isfinite(data)]
+        bin_counts, bin_edges = np.histogram(data, **hist_params)
 
     need_recompute = False
 
@@ -1871,14 +1894,14 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     # then than `data.max() - data.min()`, so we don't endup with more bins
     # then there's data to display.
     # hist_params = {"bins": bin_edges.tolist()}
-    if issubclass(data.dtype.type, np_.integer):
+    if issubclass(data.dtype.type, np.integer):
         width = (data.max() - data.min()).item()
         if len(bin_edges) > width and width > 0:
             hist_params = {"bins": width + 1}
             need_recompute = True
 
     if need_recompute:
-        bin_counts, bin_edges = np_.histogram(data, **hist_params)
+        bin_counts, bin_edges = np.histogram(data, **hist_params)
     return bin_counts, bin_edges
 
 
@@ -1889,9 +1912,12 @@ def _date_median(x):
     It converts to the integer representation of the datetime,
     then computes the median, and then converts back to a datetime
     """
-    # the np_.array calls are required to please pyright
-    median_date = np_.median(np_.array(pd_.to_numeric(x)))
-    out = pd_.to_datetime(np_.array(median_date), utc=True)
+    import numpy as np
+    import pandas as pd
+
+    # the np.array calls are required to please pyright
+    median_date = np.median(np.array(pd.to_numeric(x)))
+    out = pd.to_datetime(np.array(median_date), utc=True)
     return out.tz_convert(x[0].tz)
 
 
@@ -1946,7 +1972,7 @@ def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
         min_val = col.min()
         max_val = col.max()
 
-        if not _isinf(min_val) and not _isinf(max_val):  # type: ignore
+        if not _builtin_isinf(min_val) and not _builtin_isinf(max_val):
             # These stats are not defined when there is an
             # inf/-inf in the data
             mean_val = float_format(col.mean())
@@ -1979,11 +2005,13 @@ def _polars_summarize_boolean(col: "pl.Series", _):
 
 
 def _polars_summarize_date(col: "pl.Series", _):
+    import polars as pl
+
     min_date = col.min()
     max_date = col.max()
     num_unique = col.n_unique()
 
-    as_int32 = col.cast(pl_.Int32)
+    as_int32 = col.cast(pl.Int32)
     mean_date = _polars_box_value(
         int(as_int32.mean()),  # type: ignore
         col.dtype,
@@ -1996,11 +2024,15 @@ def _polars_summarize_date(col: "pl.Series", _):
 
 
 def _polars_box_value(val, dtype):
-    return pl_.Series([val], dtype=dtype)[0]
+    from polars import Series
+
+    return Series([val], dtype=dtype)[0]
 
 
 def _polars_summarize_datetime(col: "pl.Series", _):
-    as_int64 = col.cast(pl_.Int64)
+    import polars as pl
+
+    as_int64 = col.cast(pl.Int64)
     mean_date = _polars_box_value(
         int(as_int64.mean()),  # type: ignore
         col.dtype,
@@ -2219,12 +2251,14 @@ class PolarsView(DataExplorerTableView):
 
     @classmethod
     def _format_values(cls, values, options: FormatOptions) -> List[ColumnValue]:
+        import polars as pl
+
         float_format = _get_float_formatter(options)
         max_length = options.max_value_length
 
         def _format_scalar(x):
-            if _is_float_scalar(x):
-                if _isnan(x):
+            if _builtin_is_float_scalar(x):
+                if _builtin_isnan(x):
                     return _VALUE_NAN
                 else:
                     return float_format(x)
@@ -2234,7 +2268,7 @@ class PolarsView(DataExplorerTableView):
         def _format_series(s):
             result = []
             is_valid_mask = s.is_not_null()
-            if s.dtype.base_type() is pl_.List:
+            if s.dtype.base_type() is pl.List:
                 # Special recursive formatting for List types
                 for i, v in enumerate(s):
                     if is_valid_mask[i]:
@@ -2292,6 +2326,8 @@ class PolarsView(DataExplorerTableView):
             return mask.arg_true()
 
     def _eval_filter(self, filt: RowFilter):
+        import polars as pl
+
         column_index = filt.column_schema.column_index
         col = self.table[:, column_index]
 
@@ -2320,17 +2356,17 @@ class PolarsView(DataExplorerTableView):
             # pandas comparison filters return False for null values
             mask = op(col, self._coerce_value(params.value, dtype, display_type))
         elif filt.filter_type == RowFilterType.IsEmpty:
-            if col.dtype.is_(pl_.String):
+            if col.dtype.is_(pl.String):
                 mask = col.str.len_chars() == 0
-            elif col.dtype.is_(pl_.Binary):
+            elif col.dtype.is_(pl.Binary):
                 # col == b"" segfaults in polars
                 mask = col.bin.encode("hex").str.len_chars() == 0
             else:
                 raise TypeError(col.dtype)
         elif filt.filter_type == RowFilterType.NotEmpty:
-            if col.dtype.is_(pl_.String):
+            if col.dtype.is_(pl.String):
                 mask = col.str.len_chars() != 0
-            elif col.dtype.is_(pl_.Binary):
+            elif col.dtype.is_(pl.Binary):
                 # col == b"" segfaults in polars
                 mask = col.bin.encode("hex").str.len_chars() != 0
             else:
@@ -2352,9 +2388,9 @@ class PolarsView(DataExplorerTableView):
             # polars 1.x or 0.x
             coerced_values = [self._coerce_value(val, dtype, display_type) for val in params.values]
             try:
-                boxed_values = pl_.Series(coerced_values, dtype=col.dtype)
+                boxed_values = pl.Series(coerced_values, dtype=col.dtype)
             except TypeError:
-                boxed_values = pl_.Series(
+                boxed_values = pl.Series(
                     coerced_values,
                     dtype=_polars_dtype_from_display(display_type),
                 )
@@ -2366,7 +2402,7 @@ class PolarsView(DataExplorerTableView):
             params = filt.params
             assert isinstance(params, FilterTextSearch)
 
-            if not col.dtype.is_(pl_.String):
+            if not col.dtype.is_(pl.String):
                 col = col.cast(str)
 
             term = params.term
@@ -2396,6 +2432,8 @@ class PolarsView(DataExplorerTableView):
 
     @staticmethod
     def _coerce_value(value, dtype, display_type):
+        import polars as pl
+
         if dtype.is_integer():
             # For integer types, try to coerce to integer, but if this
             # fails, allow a looser conversion to float
@@ -2403,10 +2441,10 @@ class PolarsView(DataExplorerTableView):
                 return int(value)
             except ValueError as e:
                 try:
-                    return pl_.Series([value]).cast(pl_.Float64)[0]
+                    return pl.Series([value]).cast(pl.Float64)[0]
                 except ValueError:
                     raise e
-        elif dtype.is_(pl_.Boolean):
+        elif dtype.is_(pl.Boolean):
             lvalue = value.lower()
             if lvalue == "true":
                 return True
@@ -2418,12 +2456,14 @@ class PolarsView(DataExplorerTableView):
             return _parse_iso8601_like(value, tz=dtype.time_zone)
         else:
             # As a fallback, let polars.Series.cast do the coercion
-            dummy = pl_.Series([value])
+            dummy = pl.Series([value])
             if dummy.dtype != dtype:
                 dummy = dummy.cast(dtype)
             return dummy[0]
 
     def _sort_data(self) -> None:
+        import polars as pl
+
         if len(self.state.sort_keys) > 0:
             cols_to_sort = []
             directions = []
@@ -2440,11 +2480,11 @@ class PolarsView(DataExplorerTableView):
                 num_rows = len(self.table)
 
             # Do a stable sort of the indices using the columns as sort keys
-            to_sort = pl_.DataFrame([pl_.arange(num_rows, eager=True).alias(indexer_name)])
+            to_sort = pl.DataFrame([pl.arange(num_rows, eager=True).alias(indexer_name)])
 
             try:
                 to_sort = to_sort.select(
-                    pl_.all().sort_by(
+                    pl.all().sort_by(
                         cols_to_sort,
                         descending=directions,
                         maintain_order=True,
@@ -2452,7 +2492,7 @@ class PolarsView(DataExplorerTableView):
                 )
             except TypeError:
                 # Older versions of polars do not have maintain_order
-                to_sort = to_sort.select(pl_.all().sort_by(cols_to_sort, descending=directions))
+                to_sort = to_sort.select(pl.all().sort_by(cols_to_sort, descending=directions))
 
             sort_indexer = to_sort[indexer_name]
             if self.filtered_indices is not None:
@@ -2510,17 +2550,19 @@ class PolarsView(DataExplorerTableView):
         params: ColumnHistogramParams,
         format_options: FormatOptions,
     ) -> ColumnHistogram:
+        import polars as pl
+
         col = self._get_column(column_index)
 
         # remove nulls
         data = col.filter(col.is_not_null())
         dtype = data.dtype
 
-        if isinstance(dtype, (pl_.Datetime, pl_.Time)):
-            data = data.cast(pl_.Int64)
+        if isinstance(dtype, (pl.Datetime, pl.Time)):
+            data = data.cast(pl.Int64)
             cast_bin_edges = True
-        elif isinstance(dtype, pl_.Date):
-            data = data.cast(pl_.Int32)
+        elif isinstance(dtype, pl.Date):
+            data = data.cast(pl.Int32)
             cast_bin_edges = True
         else:
             cast_bin_edges = False
@@ -2530,7 +2572,7 @@ class PolarsView(DataExplorerTableView):
         bin_counts, bin_edges = _get_histogram_numpy(
             data.to_numpy(), params.num_bins, method=method
         )
-        bin_edges = pl_.Series(bin_edges)
+        bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:
             bin_edges = bin_edges.cast(dtype)
@@ -2582,7 +2624,9 @@ class PolarsView(DataExplorerTableView):
 
 
 def _polars_dtype_from_display(display_type):
-    return {ColumnDisplayType.Number: pl_.Float64}.get(display_type)
+    import polars as pl
+
+    return {ColumnDisplayType.Number: pl.Float64}.get(display_type)
 
 
 class PyArrowView(DataExplorerTableView):
@@ -2590,29 +2634,23 @@ class PyArrowView(DataExplorerTableView):
 
 
 def _is_pandas(table):
-    pandas = import_pandas()
-    if pandas is not None and isinstance(table, (pandas.DataFrame, pandas.Series)):
-        # If pandas was installed after the kernel was started, pd_ will still be None.
-        # Raise an error to inform the user to restart the kernel.
-        if pd_ is None:
-            raise RestartRequiredError(
-                "Pandas was installed after the session started. Please restart the session to "
-                + "view the table in the Data Explorer."
-            )
+    try:
+        import pandas as pd
+    except ImportError:
+        return False
+
+    if isinstance(table, (pd.DataFrame, pd.Series)):
         return True
     return False
 
 
 def _is_polars(table):
-    polars = import_polars()
-    if polars is not None and isinstance(table, (polars.DataFrame, polars.Series)):
-        # If polars was installed after the kernel was started, pl_ will still be None.
-        # Raise an error to inform the user to restart the kernel.
-        if pl_ is None:
-            raise RestartRequiredError(
-                "Polars was installed after the session started. Please restart the session to "
-                + "view the table."
-            )
+    try:
+        import polars as pl
+    except ImportError:
+        return False
+
+    if isinstance(table, (pl.DataFrame, pl.Series)):
         return True
     return False
 
