@@ -88,28 +88,13 @@ export class NotebookSessionService implements vscode.Disposable {
 	}
 
 	/**
-	 * Checks for a restarting notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a session is restarting for the given notebook URI.
-	 */
-	hasRestartingNotebookSession(notebookUri: vscode.Uri): boolean {
-		return this._restartingSessionsByNotebookUri.has(notebookUri);
-	}
-
-	/**
 	 * Wait for a notebook session to complete a restart sequence.
 	 *
 	 * @param notebookUri The notebook URI to wait for.
 	 * @returns A promise that resolves when the session has completed the restart sequence.
-	 * @throws If no session is restarting for the given notebook URI.
 	 */
-	async waitForNotebookSessionToRestart(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession> {
-		const restartingSessionPromise = this._restartingSessionsByNotebookUri.get(notebookUri);
-		if (!restartingSessionPromise) {
-			throw new Error(`No session is restarting for notebook ${notebookUri.path}`);
-		}
-		return restartingSessionPromise;
+	async waitForNotebookSessionToRestart(notebookUri: vscode.Uri): Promise<void> {
+		await this._restartingSessionsByNotebookUri.get(notebookUri);
 	}
 
 	/**

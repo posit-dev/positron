@@ -193,9 +193,7 @@ export class NotebookController implements vscode.Disposable {
 		}
 
 		// If a session is restarting for this notebook, wait for it to finish.
-		if (this._notebookSessionService.hasRestartingNotebookSession(notebook.uri)) {
-			await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
-		}
+		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
 
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
