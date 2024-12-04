@@ -1109,6 +1109,18 @@
 				"local/code-import-patterns": [
 					"warn",
 					{
+						"target": "test/e2e/**",
+						"restrictions": [
+							"test/automation",
+							"test/smoke/**",
+							"test/e2e/**",
+							"@vscode/*",
+							"@parcel/*",
+							"@playwright/*",
+							"*" // node modules
+						]
+					},
+					{
 						"target": "test/smoke/**",
 						"restrictions": [
 							"test/automation",

@@ -23,8 +23,8 @@ import archiver from 'archiver';
 
 // Local imports
 import { createLogger } from '../../test-runner/logger';
-import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../../../automation';
-import { createApp } from '../../utils';
+import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../automation';
+import { createApp } from '../../smoke/src/utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();

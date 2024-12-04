@@ -4,12 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import compareImages = require('resemblejs/compareImages');
+const compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
 import { test, expect } from '../_test.setup';
-import { Application } from '../../../../../automation';
+import { Application } from '../../../automation';
+
 
 test.use({
 	suiteId: __filename
