@@ -14,4 +14,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Slack Skipped Tests Script
-        run: node scripts/slack-skipped-tests.js ${{ secrets.SLACK_E2E_TEST_WEBHOOK }}
+        run: node scripts/slack-skipped-tests.js ${{ secrets.SLACK_QA_WEBHOOK_URL }}

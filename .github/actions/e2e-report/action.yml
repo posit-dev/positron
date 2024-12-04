@@ -13,15 +13,6 @@ inputs:
   blob-pattern:
     description: "Pattern to match blob reports"
     default: "blob-report-*"
-  slack-token:
-    description: "Slack token for notifications"
-    required: true
-  slack-channel:
-    description: "Slack channel for notifications"
-    required: true
-  slack-title:
-    description: "Slack title for the test suite"
-    default: "Test Suite Results"
   testrail-api-key:
     description: "TestRail API Key"
     required: true
@@ -107,11 +98,3 @@ runs:
         TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
         echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
         trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-
-    - name: Send Slack Notification
-      uses: testlabauto/action-test-results-to-slack@v0.0.6
-      with:
-        github_token: ${{ inputs.github-token }}
-        slack_token: ${{ inputs.slack-token }}
-        slack_channel: ${{ inputs.slack-channel }}
-        suite_name: ${{ inputs.slack-title }}
