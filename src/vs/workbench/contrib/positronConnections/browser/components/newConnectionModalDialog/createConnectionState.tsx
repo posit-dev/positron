@@ -1,0 +1,53 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import React, { PropsWithChildren } from 'react';
+import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
+import { localize } from 'vs/nls';
+import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
+import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
+
+interface CreateConnectionProps {
+	readonly services: PositronConnectionsServices;
+	readonly onCancel: () => void;
+	readonly selectedDriver: Driver;
+}
+
+export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
+
+	const { name } = props.selectedDriver;
+
+	return <div className='connections-new-connection-create-connection'>
+		<div className='create-connection-title'>
+			<h1>
+				{`${name} ${localize('positron.newConnectionModalDialog.createConnection.title', "Connection")}`}
+			</h1>
+		</div>
+		<div className='create-connection-inputs'>
+
+		</div>
+		<div className='create-connection-code-area'>
+			<h3>{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}</h3>
+			<div className='create-connection-code-editor'>
+			</div>
+			<div className='create-connection-buttons'>
+				<PositronButton
+					className='button action-bar-button'
+					onPressed={props.onCancel}
+				>
+					{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
+				</PositronButton>
+			</div>
+		</div>
+		<div className='footer'>
+			<PositronButton
+				className='button action-bar-button'
+				onPressed={props.onCancel}
+			>
+				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
+			</PositronButton>
+		</div>
+	</div>;
+};
