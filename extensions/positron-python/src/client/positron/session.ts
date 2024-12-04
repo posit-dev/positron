@@ -470,7 +470,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
         if (config.get<boolean>('enable', true) && this.runtimeMetadata.runtimeId !== 'reticulate') {
             // Use the Positron kernel supervisor if enabled
-            const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
+            const ext = vscode.extensions.getExtension('positron.positron-supervisor');
             if (!ext) {
                 throw new Error('Positron Supervisor extension not found');
             }
@@ -480,7 +480,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.adapterApi = ext?.exports as JupyterAdapterApi;
         } else {
             // Otherwise, connect to the Jupyter kernel directly
-            const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+            const ext = vscode.extensions.getExtension('positron.jupyter-adapter');
             if (!ext) {
                 throw new Error('Jupyter Adapter extension not found');
             }
@@ -491,15 +491,15 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
         const kernel = this.kernelSpec
             ? // We have a kernel spec, so we're creating a new session
-              await this.adapterApi.createSession(
-                  this.runtimeMetadata,
-                  this.metadata,
-                  this.kernelSpec,
-                  this.dynState,
-                  createJupyterKernelExtra(),
-              )
+            await this.adapterApi.createSession(
+                this.runtimeMetadata,
+                this.metadata,
+                this.kernelSpec,
+                this.dynState,
+                createJupyterKernelExtra(),
+            )
             : // We don't have a kernel spec, so we're restoring a session
-              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+            await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
@@ -622,10 +622,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             const regex = /^(\w*Error|Exception)\b/m;
             const errortext = regex.test(logFileContent)
                 ? vscode.l10n.t(
-                      '{0} exited unexpectedly with error: {1}',
-                      kernel.runtimeMetadata.runtimeName,
-                      logFileContent,
-                  )
+                    '{0} exited unexpectedly with error: {1}',
+                    kernel.runtimeMetadata.runtimeName,
+                    logFileContent,
+                )
                 : Console.consoleExitGeneric;
 
             const res = await showErrorMessage(errortext, vscode.l10n.t('Open Logs'));

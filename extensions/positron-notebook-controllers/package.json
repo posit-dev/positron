@@ -46,7 +46,7 @@
         {
           "command": "positron.restartKernel",
           "group": "navigation/execute@5",
-          "when": "notebookKernel =~ /^vscode.positron-notebook-controllers\\//"
+          "when": "notebookKernel =~ /^positron.positron-notebook-controllers\\//"
         }
       ]
     }

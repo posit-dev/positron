@@ -42,7 +42,7 @@ const DEFAULT_FORMAT_OPTIONS: FormatOptions = {
 // Not sure why it is not possible to use Mocha's 'before' for this
 async function activateExtension() {
 	// Ensure the extension is activated
-	await vscode.extensions.getExtension('vscode.positron-duckdb')?.activate();
+	await vscode.extensions.getExtension('positron.positron-duckdb')?.activate();
 }
 
 async function runQuery<Type>(query: string): Promise<Array<Type>> {

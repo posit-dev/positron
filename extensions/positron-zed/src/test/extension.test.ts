@@ -29,7 +29,7 @@ suite('Zed Interpreter Extension Test Suite', () => {
 });
 
 async function activateZedExtension() {
-	const extension = vscode.extensions.getExtension('vscode.positron-zed');
+	const extension = vscode.extensions.getExtension('positron.positron-zed');
 	assert.ok(extension, 'Zed extension not found');
 	await extension.activate();
 	assert.ok(extension.isActive, 'Zed extension failed to activate');

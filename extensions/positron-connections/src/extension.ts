@@ -131,7 +131,7 @@ export function activateImpl(context: vscode.ExtensionContext) {
 				connectionProvider.expandConnectionNodes(connectionTreeView);
 			}));
 
-	// this allows vscode.extensions.getExtension('vscode.positron-connections').exports
+	// this allows vscode.extensions.getExtension('positron.positron-connections').exports
 	// to acccess the ConnectionItemsProvider instance
 	return connectionProvider;
 }
