@@ -114,7 +114,7 @@ suite('Python Runtime Session', () => {
         } as Partial<JupyterAdapterApi>) as JupyterAdapterApi;
 
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'positron.positron-adapter' || extensionId === 'positron.jupyter-adapter') {
+            if (extensionId === 'positron.positron-supervisor' || extensionId === 'positron.jupyter-adapter') {
                 return {
                     id: '',
                     extensionPath: '',
