@@ -32,6 +32,8 @@ import { INotificationService } from 'vs/platform/notification/common/notificati
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
 import { IModelService } from 'vs/editor/common/services/model';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -91,7 +93,9 @@ export class PositronConnectionsView
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IEditorService private readonly editorService: IEditorService,
-		@IModelService private readonly modelService: IModelService
+		@IModelService private readonly modelService: IModelService,
+		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService
 	) {
 		super(
 			options,
@@ -152,6 +156,8 @@ export class PositronConnectionsView
 				editorService={this.editorService}
 				instantiationService={this.instantiationService}
 				modelService={this.modelService}
+				languageRuntimeService={this.languageRuntimeService}
+				runtimeAffiliationService={this.runtimeStartupService}
 			/>
 		);
 	}
