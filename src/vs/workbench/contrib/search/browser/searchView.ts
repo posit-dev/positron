@@ -519,7 +519,10 @@ export class SearchView extends ViewPane {
 
 		this.inputPatternIncludes = this._register(this.instantiationService.createInstance(IncludePatternInputWidget, folderIncludesList, this.contextViewService, {
 			ariaLabel: filesToIncludeTitle,
-			placeholder: nls.localize('placeholder.includes', "e.g. *.ts, src/**/include"),
+			// --- Start Positron ---
+			// placeholder: nls.localize('placeholder.includes', "e.g. *.ts, src/**/include"),
+			placeholder: nls.localize('placeholder.includes', "e.g. *.py, tests/testthat/*.R"),
+			// --- End Positron
 			showPlaceholderOnFocus: true,
 			history: patternIncludesHistory,
 			inputBoxStyles: defaultInputBoxStyles
