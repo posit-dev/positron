@@ -20,6 +20,7 @@ import { IEditorService } from 'vs/workbench/services/editor/common/editorServic
 import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebookEditorInput';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
+import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
 
 /**
  * PositronVariablesService class.
@@ -131,12 +132,15 @@ class PositronVariablesService extends Disposable implements IPositronVariablesS
 			}
 
 			const editorInput = this._editorService.activeEditor;
-			if (editorInput instanceof NotebookEditorInput) {
-				// If this is a notebook editor. we should check to see if we have a
-				// variable session setup for it.
-				this._setActivePositronVariablesBySession(this._runtimeSessionService.activeSessions.find(
+			if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
+				// If this is a notebook editor try and set the active variables session to the one
+				// that corresponds with it.
+				const notebookSession = this._runtimeSessionService.activeSessions.find(
 					s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource)
-				));
+				);
+				// If the editor is not for a jupyter notebook, just leave variables session as is.
+				if (!notebookSession) { return; }
+				this._setActivePositronVariablesBySession(notebookSession);
 			} else if (this._previousConsoleSession) {
 				// Revert to the most recent console session if we're not in a notebook editor
 				this._setActivePositronVariablesBySession(this._previousConsoleSession);
