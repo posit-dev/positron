@@ -37,9 +37,8 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 		await expect(viewer.getViewerFrame().getByText('FastAPI')).toBeVisible({ timeout: 30000 });
 	});
 
-	test.skip('Python - Verify Basic Gradio App [C903307]', {
+	test('Python - Verify Basic Gradio App [C903307]', {
 		tag: ['@win'],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5459' }]
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 
