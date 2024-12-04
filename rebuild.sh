@@ -31,13 +31,10 @@ case "${proceed}" in
 esac
 
 # Kill any running deemons.
-yarn run kill-watchd
-yarn run kill-watch-webd
-yarn run kill-watch-clientd
-yarn run kill-watch-extensionsd
-
-# Disabled for now because it hangs. This needs to be investigated, but it's not worth doing right at the moment.
-#yarn run kill-watch-build-toolsd
+npm run kill-watchd
+npm run kill-watch-webd
+npm run kill-watch-clientd
+npm run kill-watch-extensionsd
 
 # Remove any existing node_modules folders.
 git ls-files --directory -i -o -x node_modules | xargs rm -rf
@@ -49,7 +46,7 @@ rm -rf .build
 rm -rf extensions/positron-r/amalthea/target/debug
 rm -rf extensions/positron-r/amalthea/target/release
 
-# Run yarn to rebuild 'node_modules'.
-yarn
+# Run npm install to rebuild 'node_modules'.
+npm install
 
 echo "Done"
