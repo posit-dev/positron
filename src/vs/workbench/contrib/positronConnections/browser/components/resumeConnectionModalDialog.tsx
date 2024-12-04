@@ -3,14 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './resumeConnectionModalDialog.css';
+
+// React.
 import React, { PropsWithChildren, useEffect, useRef } from 'react';
+
+// Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import 'vs/css!./resumeConnectionModalDialog';
 import Severity from '../../../../../base/common/severity.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';

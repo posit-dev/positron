@@ -14,7 +14,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { CellSelectionStatus, IPositronNotebookCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { CellSelectionType } from '../../../../services/positronNotebook/browser/selectionMachine.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useSelectionStatus } from './useSelectionStatus';
+import { useSelectionStatus } from './useSelectionStatus.js';
 import { useObservedValue } from '../useObservedValue.js';
 
 export function NotebookCellWrapper({ cell, children }: { cell: IPositronNotebookCell; children: React.ReactNode }) {

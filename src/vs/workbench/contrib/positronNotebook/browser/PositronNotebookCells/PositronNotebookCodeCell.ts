@@ -13,7 +13,7 @@ import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 import { PositronWebviewPreloadService } from '../../../positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { pickPreferredOutputItem } from './notebookOutputUtils';
+import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;

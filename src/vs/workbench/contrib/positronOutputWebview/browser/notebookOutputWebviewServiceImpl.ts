@@ -22,7 +22,7 @@ import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common
 import { dirname } from '../../../../base/common/resources.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { handleWebviewLinkClicksInjection } from './downloadUtils';
+import { handleWebviewLinkClicksInjection } from './downloadUtils.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { OverlayWebview } from '../../webview/browser/overlayWebview.js';
 import { WebviewElement } from '../../webview/browser/webviewElement.js';

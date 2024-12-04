@@ -15,7 +15,7 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { localize } from '../../../../nls.js';
-import { PositronNotebookHeader } from './PositronNotebookHeader';
+import { PositronNotebookHeader } from './PositronNotebookHeader.js';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { useServices } from './ServicesProvider.js';

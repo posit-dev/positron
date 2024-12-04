@@ -13,7 +13,7 @@ import React from 'react';
 import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { Markdown } from './Markdown';
+import { Markdown } from './Markdown.js';
 import { localize } from '../../../../../nls.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';

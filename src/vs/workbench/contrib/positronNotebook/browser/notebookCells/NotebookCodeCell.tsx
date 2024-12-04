@@ -13,13 +13,13 @@ import React from 'react';
 import { NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { isParsedTextOutput } from '../getOutputContents.js';
 import { useObservedValue } from '../useObservedValue.js';
-import { CellEditorMonacoWidget } from './CellEditorMonacoWidget';
+import { CellEditorMonacoWidget } from './CellEditorMonacoWidget.js';
 import { localize } from '../../../../../nls.js';
 import { NotebookCellActionBar } from './NotebookCellActionBar.js';
-import { CellTextOutput } from './CellTextOutput';
+import { CellTextOutput } from './CellTextOutput.js';
 import { ActionButton } from '../utilityComponents/ActionButton.js';
-import { NotebookCellWrapper } from './NotebookCellWrapper';
-import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell';
+import { NotebookCellWrapper } from './NotebookCellWrapper.js';
+import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
 
 interface CellExecutionControlsProps {
