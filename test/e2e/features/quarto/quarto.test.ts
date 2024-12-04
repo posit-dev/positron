@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../automation';
-import { test, expect } from '../../_test.setup';
+import { test, expect } from '../_test.setup';
 const path = require('path');
 const fs = require('fs-extra');
 

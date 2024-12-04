@@ -8,7 +8,7 @@
 
 // we must import test from _test.setup to ensure we have the correct test
 // context which enables our custom fixtures
-import { test, expect } from '../_test.setup';
+import { test, expect } from './_test.setup';
 
 // we need this to ensure each spec gets a fresh app instance read more here:
 // https://positpbc.atlassian.net/wiki/spaces/POSITRON/pages/1224999131/Proof+of+Concept+Playwright#SuiteId

@@ -8,7 +8,7 @@ const compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { test, expect } from '../../_test.setup';
+import { test, expect } from '../_test.setup';
 import { Application } from '../../../automation';
 
 

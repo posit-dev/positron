@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import { test, expect } from '../../_test.setup';
+import { test, expect } from '../_test.setup';
 import { Application } from '../../../automation';
 
 test.use({

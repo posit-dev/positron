@@ -6,7 +6,7 @@
 import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { cloneTestRepo, prepareTestEnv } from './helpers';
+import { cloneTestRepo, prepareTestEnv } from '../helpers';
 
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');

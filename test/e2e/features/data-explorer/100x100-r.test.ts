@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../../_test.setup';
+import { test } from '../_test.setup';
 import { join } from 'path';
 import { parquetFilePath, testDataExplorer } from './helpers/100x100';
 

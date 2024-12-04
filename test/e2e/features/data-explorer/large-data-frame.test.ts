@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../../_test.setup';
+import { test, expect } from '../_test.setup';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 const FILTER_PARAMS = ['distance', 'is equal to', '2586'];

@@ -8,7 +8,7 @@ import {
 	PositronInterpreterDropdown,
 } from '../../../automation';
 
-import { test, expect } from '../../_test.setup';
+import { test, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename

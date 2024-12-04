@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test } from '../../_test.setup';
+import { test } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
