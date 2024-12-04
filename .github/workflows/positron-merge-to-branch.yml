@@ -1,4 +1,4 @@
-name: "Test: Merge to main"
+name: "Test: Merge to branch"
 
 on:
   push:
