@@ -72,9 +72,9 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: ls -l /usr/local/bin/node*
-
-      - run: node -p "require('canvas')._module.version"
+      - run: |
+          which node
+          node -v
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
