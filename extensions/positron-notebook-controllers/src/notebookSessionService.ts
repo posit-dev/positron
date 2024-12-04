@@ -8,7 +8,6 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { log } from './extension';
 import { ResourceMap } from './map';
-import { delay } from './utils';
 
 export interface INotebookSessionDidChangeEvent {
 	/** The URI of the notebook corresponding to the session. */
@@ -146,7 +145,7 @@ export class NotebookSessionService implements vscode.Disposable {
 		return startPromise;
 	}
 
-	async doStartRuntimeSession(notebookUri: vscode.Uri, runtimeId: string, retry = true): Promise<positron.LanguageRuntimeSession> {
+	async doStartRuntimeSession(notebookUri: vscode.Uri, runtimeId: string): Promise<positron.LanguageRuntimeSession> {
 		// If the session is still shutting down, wait for it to finish.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);
 		if (shuttingDownSessionPromise) {
@@ -156,18 +155,6 @@ export class NotebookSessionService implements vscode.Disposable {
 				log.error(`Waiting for notebook runtime to shutdown before starting failed. Reason ${err}`);
 				throw err;
 			}
-		}
-
-		// Ensure that we don't start a runtime for a notebook that already has one.
-		if (this._notebookSessionsByNotebookUri.has(notebookUri)) {
-			if (!retry) {
-				throw new Error(`Tried to start a runtime for a notebook that already has one: ${notebookUri.path}`);
-			}
-			// Notebook controllers may try to start a runtime immediately before shutting down the
-			// previous, due to out of order onDidChangeSelectedNotebooks events. Wait and retry once.
-			log.debug('Tried to start a runtime for a notebook that already has one. Waiting and retrying once...');
-			await delay(50);
-			return this.doStartRuntimeSession(notebookUri, runtimeId, false);
 		}
 
 		// If there's already a session for this runtime e.g. one restored after a window reload, use it.
