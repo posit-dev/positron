@@ -240,25 +240,10 @@ export class NotebookSessionService implements vscode.Disposable {
 
 	async doShutdownRuntimeSession(notebookUri: vscode.Uri): Promise<void> {
 		// Get the notebook's session.
-		let session = this._notebookSessionsByNotebookUri.get(notebookUri);
-
+		const session = await this.getExistingOrPendingSession(notebookUri);
 		if (!session) {
-			// If the notebook's session is still starting, wait for it to finish.
-			const startingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
-				this._restartingSessionsByNotebookUri.get(notebookUri);
-			if (startingSessionPromise) {
-				try {
-					session = await startingSessionPromise;
-				} catch (err) {
-					log.error(`Waiting for notebook runtime to start before shutting down failed. Reason ${err}`);
-
-					// If the session failed to start, we don't need to do anything.
-					return;
-				}
-			} else {
-				// If there's no session and no starting session, we don't need to do anything.
-				return;
-			}
+			log.debug(`Tried to shutdown runtime for notebook without a running or starting runtime: ${notebookUri.path}`);
+			return;
 		}
 
 		// Start the shutdown sequence.
@@ -291,6 +276,28 @@ export class NotebookSessionService implements vscode.Disposable {
 		}
 
 		log.info(`Session ${session.metadata.sessionId} is shutdown`);
+	}
+
+	private async getExistingOrPendingSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
+		// Check for an active session first.
+		const activeSession = this._notebookSessionsByNotebookUri.get(notebookUri);
+		if (activeSession) {
+			return activeSession;
+		}
+
+		// Check for a pending session.
+		const pendingSessionPromise = this._startingSessionsByNotebookUri.get(notebookUri) ||
+			this._restartingSessionsByNotebookUri.get(notebookUri);
+		if (pendingSessionPromise) {
+			try {
+				return await pendingSessionPromise;
+			} catch (err) {
+				// No need to log; the error will be handled elsewhere.
+			}
+		}
+
+		// There is no existing or pending session for the notebook.
+		return undefined;
 	}
 
 	/**
