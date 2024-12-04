@@ -7,7 +7,7 @@
 import './actionBarButton.css';
 
 // React.
-import React, { PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
+import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';

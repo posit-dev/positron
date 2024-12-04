@@ -23,7 +23,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
-import { PositronNotebookCellGeneral } from 'PositronNotebookCells/PositronNotebookCell.js';
+import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 
 
 export function PositronNotebookComponent() {

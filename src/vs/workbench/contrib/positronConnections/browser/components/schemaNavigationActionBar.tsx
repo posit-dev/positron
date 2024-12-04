@@ -17,6 +17,12 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 
 import { localize } from '../../../../../nls.js';
 import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration';
+import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey';
+import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView';
+import { IHoverService } from '../../../../../platform/hover/browser/hover';
+import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;

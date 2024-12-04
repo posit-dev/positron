@@ -10,7 +10,6 @@ import './variablesInstance.css';
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from '../../../../../base/browser/dom.js';
 import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';

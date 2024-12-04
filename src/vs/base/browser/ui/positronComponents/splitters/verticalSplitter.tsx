@@ -340,7 +340,9 @@ export const VerticalSplitter = ({
 			pointerMoveHandler(e);
 
 			// Remove our pointer event handlers.
+			// @ts-ignore
 			target.removeEventListener('pointermove', pointerMoveHandler);
+			// @ts-ignore
 			target.removeEventListener('lostpointercapture', lostPointerCaptureHandler);
 
 			// Remove the style sheet.
@@ -358,7 +360,9 @@ export const VerticalSplitter = ({
 		// Set the capture target of future pointer events to be the current target and add our
 		// pointer event handlers.
 		target.setPointerCapture(e.pointerId);
+		// @ts-ignore
 		target.addEventListener('pointermove', pointerMoveHandler);
+		// @ts-ignore
 		target.addEventListener('lostpointercapture', lostPointerCaptureHandler);
 	};
 

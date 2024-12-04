@@ -7,7 +7,7 @@
 import './button.css';
 
 // React.
-import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef } from 'react';
+import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { positronClassNames } from '../../../../common/positronUtilities.js';

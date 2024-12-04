@@ -19,6 +19,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 /**
  * Bundle of services that are passed to React-Land in the form of context.
