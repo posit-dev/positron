@@ -26,8 +26,8 @@ import { ExtHostWebviews } from '../extHostWebview.js';
 import { ExtHostLanguageFeatures } from '../extHostLanguageFeatures.js';
 import { ExtHostOutputService } from '../extHostOutput.js';
 import { ExtHostConsoleService } from './extHostConsoleService.js';
-import { ExtHostMethods } from './extHostMethods';
-import { ExtHostEditors } from '../extHostTextEditors';
+import { ExtHostMethods } from './extHostMethods.js';
+import { ExtHostEditors } from '../extHostTextEditors.js';
 import { UiFrontendRequest } from '../../../services/languageRuntime/common/positronUiComm.js';
 
 /**

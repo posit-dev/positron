@@ -3,18 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as extHostProtocol from './extHost.positron.protocol';
-import { ExtHostEditors } from '../extHostTextEditors';
-import { ExtHostDocuments } from '../extHostDocuments';
-import { ExtHostWorkspace } from '../extHostWorkspace';
-import { ExtHostCommands } from '..//extHostCommands';
-import { ExtHostModalDialogs } from '../positron/extHostModalDialogs';
-import { ExtHostContextKeyService } from '../positron/extHostContextKeyService';
-import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime';
+import * as extHostProtocol from './extHost.positron.protocol.js';
+import { ExtHostEditors } from '../extHostTextEditors.js';
+import { ExtHostDocuments } from '../extHostDocuments.js';
+import { ExtHostWorkspace } from '../extHostWorkspace.js';
+import { ExtHostCommands } from '..//extHostCommands.js';
+import { ExtHostModalDialogs } from '../positron/extHostModalDialogs.js';
+import { ExtHostContextKeyService } from '../positron/extHostContextKeyService.js';
+import { ExtHostLanguageRuntime } from '../positron/extHostLanguageRuntime.js';
 import { UiFrontendRequest, EditorContext, Range as UIRange } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { JsonRpcErrorCode } from '../../../services/languageRuntime/common/positronBaseComm.js';
 import { Range } from '../extHostTypes.js';
-import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters';
+import { EndOfLine, TextEditorOpenOptions } from '../extHostTypeConverters.js';
 
 type JsonRpcResponse = JsonRpcResult | JsonRpcError;
 

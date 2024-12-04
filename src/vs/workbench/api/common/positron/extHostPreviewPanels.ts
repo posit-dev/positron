@@ -12,7 +12,7 @@ import { serializeWebviewOptions, toExtensionData, ExtHostWebview, ExtHostWebvie
 import { IExtHostWorkspace } from '../extHostWorkspace.js';
 import type * as vscode from 'vscode';
 import type * as positron from 'positron';
-import * as extHostProtocol from './extHost.positron.protocol';
+import * as extHostProtocol from './extHost.positron.protocol.js';
 
 type IconPath = URI | { readonly light: URI; readonly dark: URI };
 

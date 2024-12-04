@@ -5,7 +5,7 @@
 
 import * as positron from 'positron';
 import { Emitter } from '../../../../base/common/event.js';
-import * as extHostProtocol from './extHost.positron.protocol';
+import * as extHostProtocol from './extHost.positron.protocol.js';
 import { ExtHostConsole } from './extHostConsole.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { dispose } from '../../../../base/common/lifecycle.js';
