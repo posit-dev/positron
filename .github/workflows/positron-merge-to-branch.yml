@@ -53,6 +53,12 @@ jobs:
           echo "Node.js MODULE_VERSION:"
           node -p "process.versions.modules"
 
+      - name: More debugging
+        run: |
+          which node
+          node -v
+          node -p "process.versions.modules"
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -65,6 +71,10 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - run: ls -l /usr/local/bin/node*
+
+      - run: node -p "require('canvas')._module.version"
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
