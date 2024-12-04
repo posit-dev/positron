@@ -471,8 +471,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             else:
                 if object.__self__ is not None:
                     note = " method of %s instance" % self.classlink(
-                        object.__self__.__class__, mod
-                    )  # type: ignore
+                        object.__self__.__class__,
+                        mod,  # type: ignore
+                    )
                 else:
                     note = " unbound %s method" % self.classlink(imclass, mod)  # type: ignore
 
