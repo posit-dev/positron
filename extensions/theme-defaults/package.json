@@ -6,7 +6,7 @@
     "Themes"
   ],
   "version": "1.0.0",
-  "publisher": "positron",
+  "publisher": "vscode",
   "license": "MIT",
   "engines": {
     "vscode": "*"
