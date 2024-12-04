@@ -3,7 +3,7 @@
   "displayName": "Zed",
   "description": "Positron Zed",
   "version": "1.0.0",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },

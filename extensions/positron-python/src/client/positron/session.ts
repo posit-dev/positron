@@ -469,7 +469,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
         if (config.get<boolean>('enable', true) && this.runtimeMetadata.runtimeId !== 'reticulate') {
             // Use the Positron kernel supervisor if enabled
-            const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
+            const ext = vscode.extensions.getExtension('positron.positron-supervisor');
             if (!ext) {
                 throw new Error('Positron Supervisor extension not found');
             }
@@ -479,7 +479,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.adapterApi = ext?.exports as JupyterAdapterApi;
         } else {
             // Otherwise, connect to the Jupyter kernel directly
-            const ext = vscode.extensions.getExtension('vscode.jupyter-adapter');
+            const ext = vscode.extensions.getExtension('positron.jupyter-adapter');
             if (!ext) {
                 throw new Error('Jupyter Adapter extension not found');
             }

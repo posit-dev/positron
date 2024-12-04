@@ -360,9 +360,9 @@ async function getAppName(document: vscode.TextDocument, className: string): Pro
 
 /** Get the Positron Run App extension's API. */
 async function getPositronRunAppApi(): Promise<PositronRunApp> {
-    const runAppExt = vscode.extensions.getExtension<PositronRunApp>('vscode.positron-run-app');
+    const runAppExt = vscode.extensions.getExtension<PositronRunApp>('positron.positron-run-app');
     if (!runAppExt) {
-        throw new Error('vscode.positron-run-app extension not found');
+        throw new Error('positron.positron-run-app extension not found');
     }
     const runAppApi = await runAppExt.activate();
     return runAppApi;

@@ -114,7 +114,7 @@ suite('Python Runtime Session', () => {
         } as Partial<JupyterAdapterApi> as JupyterAdapterApi;
 
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'vscode.kallichore-adapter' || extensionId === 'vscode.jupyter-adapter') {
+            if (extensionId === 'positron.positron-supervisor' || extensionId === 'positron.jupyter-adapter') {
                 return {
                     id: '',
                     extensionPath: '',
