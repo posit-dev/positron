@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { defineConfig } from '@playwright/test';
-import { CustomTestOptions } from './test/e2e/positron/_test.setup';
+import { CustomTestOptions } from './test/e2e/_test.setup';
 import type { GitHubActionOptions } from '@midleman/github-actions-reporter';
 import { currentsReporter } from '@currents/playwright';
 
@@ -12,8 +12,8 @@ import { currentsReporter } from '@currents/playwright';
  * See https://playwright.dev/docs/test-configuration.
  */
 export default defineConfig<CustomTestOptions>({
-	globalSetup: require.resolve('./test/e2e/positron/_global.setup.ts'),
-	testDir: './test/e2e/positron',
+	globalSetup: require.resolve('./test/e2e/_global.setup.ts'),
+	testDir: './test/e2e',
 	testIgnore: '**/example.test.ts',
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
