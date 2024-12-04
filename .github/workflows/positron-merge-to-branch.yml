@@ -1,4 +1,4 @@
-name: "Positron: CI - Merge to main"
+name: "Test: Merge to branch"
 
 on:
   push:
@@ -181,16 +181,16 @@ jobs:
           id: browser-integration-tests
           run: DISPLAY=:10 ./scripts/test-web-integration.sh --browser chromium
 
-  slack-notification:
-    name: "Send Slack notification"
-    runs-on: ubuntu-latest
-    needs: [unit-tests, integration-tests, e2e-electron]
+  slack-notify:
     if: ${{ failure() && inputs.e2e_grep == '' }}
+    needs: [unit-tests, integration-tests, e2e-electron]
+    runs-on: ubuntu-latest
     steps:
-      - name: "Send Slack notification"
-        uses: testlabauto/action-test-results-to-slack@v0.0.6
+      - name: Send Slack Notification
+        uses: midleman/slack-workflow-status@master
         with:
-          github_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack_channel: C07FR1JNZNJ #positron-test-results channel
-          suite_name: Positron Merge to Main Test Suite
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL}}
+          notify_on: "failure"
+
+

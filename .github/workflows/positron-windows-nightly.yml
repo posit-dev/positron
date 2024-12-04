@@ -1,4 +1,4 @@
-name: "Positron: Windows Full Test Suite"
+name: "Test: E2E Tests (Windows)"
 
 # Run tests daily at 4am UTC (11p EST) on weekdays for now, or manually
 on:
@@ -146,12 +146,17 @@ jobs:
 
       - name: Run E2E Report
         uses: ./.github/actions/e2e-report
+        if: always()
         with:
           aws-s3-bucket: positron-test-reports
           aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          slack-token: ${{ secrets.SMOKE_TESTS_SLACK_TOKEN }}
-          slack-channel: C07FR1JNZNJ
-          slack-title: "Full Test Suite (Windows)"
           testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
-          testrail-title: "E2E Windows Test Run"
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          testrail-title: "E2E Electron Test Run"
+
+      - name: Send Slack Notification
+        uses: midleman/slack-workflow-status@master
+        if: always()
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          notify_on: "failure"

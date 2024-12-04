@@ -20,11 +20,6 @@ import { EventName } from '../telemetry/constants';
 
 /**
  * Register Start Native REPL command in the command palette
- *
- * @param disposables
- * @param interpreterService
- * @param commandManager
- * @returns Promise<void>
  */
 export async function registerStartNativeReplCommand(
     disposables: Disposable[],
@@ -46,9 +41,6 @@ export async function registerStartNativeReplCommand(
 
 /**
  * Registers REPL command for shift+enter if sendToNativeREPL setting is enabled.
- * @param disposables
- * @param interpreterService
- * @returns Promise<void>
  */
 export async function registerReplCommands(
     disposables: Disposable[],
@@ -88,8 +80,6 @@ export async function registerReplCommands(
 
 /**
  * Command triggered for 'Enter': Conditionally call interactive.execute OR insert \n in text input box.
- * @param disposables
- * @param interpreterService
  */
 export async function registerReplExecuteOnEnter(
     disposables: Disposable[],
@@ -98,29 +88,43 @@ export async function registerReplExecuteOnEnter(
 ): Promise<void> {
     disposables.push(
         commandManager.registerCommand(Commands.Exec_In_REPL_Enter, async (uri: Uri) => {
-            const interpreter = await interpreterService.getActiveInterpreter(uri);
-            if (!interpreter) {
-                commands.executeCommand(Commands.TriggerEnvironmentSelection, uri).then(noop, noop);
-                return;
-            }
-
-            const nativeRepl = await getNativeRepl(interpreter, disposables);
-            const completeCode = await nativeRepl?.checkUserInputCompleteCode(window.activeTextEditor);
-            const editor = window.activeTextEditor;
-
-            if (editor) {
-                // Execute right away when complete code and Not multi-line
-                if (completeCode && !isMultiLineText(editor)) {
-                    await commands.executeCommand('interactive.execute');
-                } else {
-                    insertNewLineToREPLInput(editor);
-
-                    // Handle case when user enters on blank line, just trigger interactive.execute
-                    if (editor && editor.document.lineAt(editor.selection.active.line).text === '') {
-                        await commands.executeCommand('interactive.execute');
-                    }
-                }
-            }
+            await onInputEnter(uri, 'repl.execute', interpreterService, disposables);
         }),
     );
+    disposables.push(
+        commandManager.registerCommand(Commands.Exec_In_IW_Enter, async (uri: Uri) => {
+            await onInputEnter(uri, 'interactive.execute', interpreterService, disposables);
+        }),
+    );
+}
+
+async function onInputEnter(
+    uri: Uri,
+    commandName: string,
+    interpreterService: IInterpreterService,
+    disposables: Disposable[],
+): Promise<void> {
+    const interpreter = await interpreterService.getActiveInterpreter(uri);
+    if (!interpreter) {
+        commands.executeCommand(Commands.TriggerEnvironmentSelection, uri).then(noop, noop);
+        return;
+    }
+
+    const nativeRepl = await getNativeRepl(interpreter, disposables);
+    const completeCode = await nativeRepl?.checkUserInputCompleteCode(window.activeTextEditor);
+    const editor = window.activeTextEditor;
+
+    if (editor) {
+        // Execute right away when complete code and Not multi-line
+        if (completeCode && !isMultiLineText(editor)) {
+            await commands.executeCommand(commandName);
+        } else {
+            insertNewLineToREPLInput(editor);
+
+            // Handle case when user enters on blank line, just trigger interactive.execute
+            if (editor && editor.document.lineAt(editor.selection.active.line).text === '') {
+                await commands.executeCommand(commandName);
+            }
+        }
+    }
 }

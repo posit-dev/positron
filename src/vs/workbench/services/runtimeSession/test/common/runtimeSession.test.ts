@@ -498,6 +498,22 @@ suite('Positron - RuntimeSessionService', () => {
 
 				assertSingleSessionIsStarting(result1);
 			});
+
+			if (mode === LanguageRuntimeSessionMode.Console) {
+				test(`${action} concurrently with no session manager for runtime (#5615)`, async () => {
+					sinon.stub(manager, 'managesRuntime').resolves(false);
+
+					// Start twice concurrently.
+					const promise1 = start();
+					const promise2 = start();
+
+					// Both promises should reject.
+					// This was not previously the case since the second call returns a deferred
+					// promise that does not necessarily resolve/reject with the first call.
+					await assert.rejects(promise1);
+					await assert.rejects(promise2);
+				});
+			}
 		}
 
 		if (startNotebook) {

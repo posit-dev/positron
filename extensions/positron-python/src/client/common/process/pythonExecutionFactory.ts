@@ -25,7 +25,7 @@ import {
 import { IInterpreterAutoSelectionService } from '../../interpreter/autoSelection/types';
 import { sleep } from '../utils/async';
 import { traceError } from '../../logging';
-import { getPixiEnvironmentFromInterpreter } from '../../pythonEnvironments/common/environmentManagers/pixi';
+import { getPixi, getPixiEnvironmentFromInterpreter } from '../../pythonEnvironments/common/environmentManagers/pixi';
 
 @injectable()
 export class PythonExecutionFactory implements IPythonExecutionFactory {
@@ -53,9 +53,8 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
     public async create(options: ExecutionFactoryCreationOptions): Promise<IPythonExecutionService> {
         let { pythonPath } = options;
         if (!pythonPath || pythonPath === 'python') {
-            const activatedEnvLaunch = this.serviceContainer.get<IActivatedEnvironmentLaunch>(
-                IActivatedEnvironmentLaunch,
-            );
+            const activatedEnvLaunch =
+                this.serviceContainer.get<IActivatedEnvironmentLaunch>(IActivatedEnvironmentLaunch);
             await activatedEnvLaunch.selectIfLaunchedViaActivatedEnv();
             // If python path wasn't passed in, we need to auto select it and then read it
             // from the configuration.
@@ -80,9 +79,11 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
         }
         const processService: IProcessService = await this.processServiceFactory.create(options.resource);
 
-        const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
-        if (pixiExecutionService) {
-            return pixiExecutionService;
+        if (await getPixi()) {
+            const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
+            if (pixiExecutionService) {
+                return pixiExecutionService;
+            }
         }
 
         const condaExecutionService = await this.createCondaExecutionService(pythonPath, processService);
@@ -122,15 +123,18 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
         processService.on('exec', this.logger.logProcess.bind(this.logger));
         this.disposables.push(processService);
 
-        const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
-        if (pixiExecutionService) {
-            return pixiExecutionService;
+        if (await getPixi()) {
+            const pixiExecutionService = await this.createPixiExecutionService(pythonPath, processService);
+            if (pixiExecutionService) {
+                return pixiExecutionService;
+            }
         }
 
         const condaExecutionService = await this.createCondaExecutionService(pythonPath, processService);
         if (condaExecutionService) {
             return condaExecutionService;
         }
+
         const env = createPythonEnv(pythonPath, processService, this.fileSystem);
         return createPythonService(processService, env);
     }
@@ -161,11 +165,11 @@ export class PythonExecutionFactory implements IPythonExecutionFactory {
         }
 
         const env = await createPixiEnv(pixiEnvironment, processService, this.fileSystem);
-        if (!env) {
-            return undefined;
+        if (env) {
+            return createPythonService(processService, env);
         }
 
-        return createPythonService(processService, env);
+        return undefined;
     }
 }
 

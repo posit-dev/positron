@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 //  Copyright (c) Microsoft Corporation. All rights reserved.
 //  Licensed under the MIT License.
-import { CancellationTokenSource, TestRun, Uri } from 'vscode';
+import { CancellationTokenSource, TestRun, TestRunProfileKind, Uri } from 'vscode';
 import * as typeMoq from 'typemoq';
 import * as sinon from 'sinon';
 import * as path from 'path';
@@ -28,32 +28,32 @@ suite('Execution Flow Run Adapters', () => {
     (global as any).EXTENSION_ROOT_DIR = EXTENSION_ROOT_DIR;
     let myTestPath: string;
     let mockProc: MockChildProcess;
-    let utilsStartTestIdsNamedPipe: sinon.SinonStub;
+    let utilsWriteTestIdsFileStub: sinon.SinonStub;
     let utilsStartRunResultNamedPipe: sinon.SinonStub;
     let serverDisposeStub: sinon.SinonStub;
 
     setup(() => {
         // general vars
         myTestPath = path.join('/', 'my', 'test', 'path', '/');
-        configService = ({
+        configService = {
             getSettings: () => ({
                 testing: { pytestArgs: ['.'], unittestArgs: ['-v', '-s', '.', '-p', 'test*'] },
             }),
             isTestExecution: () => false,
-        } as unknown) as IConfigurationService;
+        } as unknown as IConfigurationService;
 
         // set up execService and execFactory, all mocked
         execServiceStub = typeMoq.Mock.ofType<IPythonExecutionService>();
         execFactoryStub = typeMoq.Mock.ofType<IPythonExecutionFactory>();
 
         // mocked utility functions that handle pipe related functions
-        utilsStartTestIdsNamedPipe = sinon.stub(util, 'startTestIdsNamedPipe');
+        utilsWriteTestIdsFileStub = sinon.stub(util, 'writeTestIdsFile');
         utilsStartRunResultNamedPipe = sinon.stub(util, 'startRunResultNamedPipe');
         serverDisposeStub = sinon.stub();
 
         // debug specific mocks
         debugLauncher = typeMoq.Mock.ofType<ITestDebugLauncher>();
-        debugLauncher.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
+        debugLauncher.setup((p) => (p as unknown as any).then).returns(() => undefined);
     });
     teardown(() => {
         sinon.restore();
@@ -82,12 +82,12 @@ suite('Execution Flow Run Adapters', () => {
             execFactoryStub
                 .setup((x) => x.createActivatedEnvironment(typeMoq.It.isAny()))
                 .returns(() => Promise.resolve(execServiceStub.object));
-            execFactoryStub.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
-            execServiceStub.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
+            execFactoryStub.setup((p) => (p as unknown as any).then).returns(() => undefined);
+            execServiceStub.setup((p) => (p as unknown as any).then).returns(() => undefined);
 
             // test ids named pipe mocking
             const deferredStartTestIdsNamedPipe = createDeferred();
-            utilsStartTestIdsNamedPipe.callsFake(() => {
+            utilsWriteTestIdsFileStub.callsFake(() => {
                 deferredStartTestIdsNamedPipe.resolve();
                 return Promise.resolve('named-pipe');
             });
@@ -110,23 +110,12 @@ suite('Execution Flow Run Adapters', () => {
                 }
             });
 
-            // mock EOT token & ExecClose token
-            const deferredEOT = createDeferred();
-            const deferredExecClose = createDeferred();
-            const utilsCreateEOTStub: sinon.SinonStub = sinon.stub(util, 'createTestingDeferred');
-            utilsCreateEOTStub.callsFake(() => {
-                if (utilsCreateEOTStub.callCount === 1) {
-                    return deferredEOT;
-                }
-                return deferredExecClose;
-            });
-
             // define adapter and run tests
             const testAdapter = createAdapter(adapter, configService, typeMoq.Mock.ofType<ITestOutputChannel>().object);
             await testAdapter.runTests(
                 Uri.file(myTestPath),
                 [],
-                false,
+                TestRunProfileKind.Run,
                 testRunMock.object,
                 execFactoryStub.object,
                 debugLauncher.object,
@@ -160,12 +149,12 @@ suite('Execution Flow Run Adapters', () => {
             execFactoryStub
                 .setup((x) => x.createActivatedEnvironment(typeMoq.It.isAny()))
                 .returns(() => Promise.resolve(execServiceStub.object));
-            execFactoryStub.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
-            execServiceStub.setup((p) => ((p as unknown) as any).then).returns(() => undefined);
+            execFactoryStub.setup((p) => (p as unknown as any).then).returns(() => undefined);
+            execServiceStub.setup((p) => (p as unknown as any).then).returns(() => undefined);
 
             // test ids named pipe mocking
             const deferredStartTestIdsNamedPipe = createDeferred();
-            utilsStartTestIdsNamedPipe.callsFake(() => {
+            utilsWriteTestIdsFileStub.callsFake(() => {
                 deferredStartTestIdsNamedPipe.resolve();
                 return Promise.resolve('named-pipe');
             });
@@ -191,17 +180,6 @@ suite('Execution Flow Run Adapters', () => {
                 }
             });
 
-            // mock EOT token & ExecClose token
-            const deferredEOT = createDeferred();
-            const deferredExecClose = createDeferred();
-            const utilsCreateEOTStub: sinon.SinonStub = sinon.stub(util, 'createTestingDeferred');
-            utilsCreateEOTStub.callsFake(() => {
-                if (utilsCreateEOTStub.callCount === 1) {
-                    return deferredEOT;
-                }
-                return deferredExecClose;
-            });
-
             // debugLauncher mocked
             debugLauncher
                 .setup((dl) => dl.launchDebugger(typeMoq.It.isAny(), typeMoq.It.isAny()))
@@ -220,7 +198,7 @@ suite('Execution Flow Run Adapters', () => {
             await testAdapter.runTests(
                 Uri.file(myTestPath),
                 [],
-                true,
+                TestRunProfileKind.Debug,
                 testRunMock.object,
                 execFactoryStub.object,
                 debugLauncher.object,

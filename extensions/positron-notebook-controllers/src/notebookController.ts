@@ -94,7 +94,7 @@ export class NotebookController implements vscode.Disposable {
 
 				await Promise.all([
 					updateNotebookLanguage(e.notebook, _runtimeMetadata.languageId),
-					this.startRuntimeSession(e.notebook),
+					this.selectRuntimeSession(e.notebook),
 				]);
 			} else {
 				await this._notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
@@ -105,6 +105,16 @@ export class NotebookController implements vscode.Disposable {
 	/** The human-readable label of the controller. */
 	public get label(): string {
 		return this._runtimeMetadata.runtimeName;
+	}
+
+	private async selectRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
+		// If there's an existing session from another runtime, shut it down.
+		if (this._notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
+			await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
+		}
+
+		// Start the new session.
+		await this.startRuntimeSession(notebook);
 	}
 
 	/**
@@ -120,7 +130,7 @@ export class NotebookController implements vscode.Disposable {
 			const retry = vscode.l10n.t('Retry');
 			const selection = await vscode.window.showErrorMessage(
 				vscode.l10n.t(
-					'Starting {0} interpreter for "{1}" failed. Reason: {2}',
+					"Starting {0} interpreter for '{1}' failed. Reason: {2}",
 					this.label,
 					notebook.uri.path,
 					err
@@ -191,6 +201,9 @@ export class NotebookController implements vscode.Disposable {
 			// Don't try to execute raw cells; they're often used to define metadata e.g in Quarto notebooks.
 			return;
 		}
+
+		// If a session is restarting for this notebook, wait for it to finish.
+		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
 
 		// Get the notebook's session.
 		let session = this._notebookSessionService.getNotebookSession(notebook.uri);

@@ -14,7 +14,6 @@ export type CommandsWithoutArgs = keyof ICommandNameWithoutArgumentTypeMapping;
 /**
  * Mapping between commands and list or arguments.
  * These commands do NOT have any arguments.
- * @interface ICommandNameWithoutArgumentTypeMapping
  */
 interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.InstallPythonOnMac]: [];
@@ -52,9 +51,6 @@ export type AllCommands = keyof ICommandNameArgumentTypeMapping;
 /**
  * Mapping between commands and list of arguments.
  * Used to provide strong typing for command & args.
- * @export
- * @interface ICommandNameArgumentTypeMapping
- * @extends {ICommandNameWithoutArgumentTypeMapping}
  */
 export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgumentTypeMapping {
     [Commands.Create_Environment]: [CreateEnvironmentOptions];
@@ -99,6 +95,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Start_Native_REPL]: [undefined | Uri];
     [Commands.Exec_In_REPL]: [undefined | Uri];
     [Commands.Exec_In_REPL_Enter]: [undefined | Uri];
+    [Commands.Exec_In_IW_Enter]: [undefined | Uri];
     [Commands.Exec_In_Terminal]: [undefined, Uri];
     [Commands.Exec_In_Terminal_Icon]: [undefined, Uri];
     [Commands.Debug_In_Terminal]: [Uri];
@@ -113,6 +110,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Focus_Positron_Console]: [];
     // --- End Positron ---
     [Commands.Tests_Configure]: [undefined, undefined | CommandSource, undefined | Uri];
+    [Commands.Tests_CopilotSetup]: [undefined | Uri];
     [Commands.LaunchTensorBoard]: [TensorBoardEntrypoint, TensorBoardEntrypointTrigger];
     ['workbench.view.testing.focus']: [];
     ['cursorMove']: [

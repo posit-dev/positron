@@ -58,6 +58,8 @@ exclude = [
     "tests/testing_tools/adapter/.data",
     "tests/unittestadapter/.data",
     # --- Start Positron ---
+    # Ignore upstream files with format errors
+    "tests/pytestadapter",
     # Ignore vendored dependencies
     'lib/',
     'positron/positron_ipykernel/_vendor/',

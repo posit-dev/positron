@@ -309,7 +309,7 @@ def positron_completion(
     snippet_disable = server.initialization_options.completion.disable_snippets
     resolve_eagerly = server.initialization_options.completion.resolve_eagerly
     ignore_patterns = server.initialization_options.completion.ignore_patterns
-    document = server.workspace.get_document(params.text_document.uri)
+    document = server.workspace.get_text_document(params.text_document.uri)
 
     # --- Start Positron ---
     # Don't complete comments or shell commands
@@ -349,7 +349,11 @@ def positron_completion(
         )
         enable_snippets = snippet_support and not snippet_disable and not is_import_context
         char_before_cursor = pygls_utils.char_before_cursor(
-            document=server.workspace.get_document(params.text_document.uri),
+            document=server.workspace.get_text_document(params.text_document.uri),
+            position=params.position,
+        )
+        char_after_cursor = pygls_utils.char_after_cursor(
+            document=server.workspace.get_text_document(params.text_document.uri),
             position=params.position,
         )
         jedi_utils.clear_completions_cache()
@@ -365,6 +369,7 @@ def positron_completion(
                 jedi_utils.lsp_completion_item(
                     completion=completion,
                     char_before_cursor=char_before_cursor,
+                    char_after_cursor=char_after_cursor,
                     enable_snippets=enable_snippets,
                     resolve_eagerly=resolve_eagerly,
                     markup_kind=markup_kind,
@@ -585,7 +590,7 @@ def positron_help_topic_request(
     server: PositronJediLanguageServer, params: HelpTopicParams
 ) -> Optional[ShowHelpTopicParams]:
     """Return topic to display in Help pane"""
-    document = server.workspace.get_document(params.text_document.uri)
+    document = server.workspace.get_text_document(params.text_document.uri)
     jedi_script = interpreter(server.project, document, server.shell)
     jedi_lines = jedi_utils.line_column(params.position)
     names = jedi_script.infer(*jedi_lines)
@@ -684,7 +689,7 @@ def _publish_diagnostics(server: JediLanguageServer, uri: str) -> None:
     if uri not in server.workspace.documents:
         return
 
-    doc = server.workspace.get_document(uri)
+    doc = server.workspace.get_text_document(uri)
 
     # Comment out magic/shell command lines so that they don't appear as syntax errors.
     source = "\n".join(

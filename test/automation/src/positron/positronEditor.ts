@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import { expect, FrameLocator, Locator } from '@playwright/test';
 import { Code } from '../code';
 
 // currently a dupe of declaration in ../editor.ts but trying not to modifiy that file
@@ -11,8 +11,20 @@ const EDITOR = (filename: string) => `.monaco-editor[data-uri$="${filename}"]`;
 const CURRENT_LINE = '.view-overlays .current-line';
 const PLAY_BUTTON = '.codicon-play';
 
+const OUTER_FRAME = '.webview';
+const INNER_FRAME = '#active-frame';
 
 export class PositronEditor {
+
+	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+
+	getEditorViewerLocator(locator: string,): Locator {
+		return this.viewerFrame.locator(locator);
+	}
+
+	getEditorViewerFrame(): FrameLocator {
+		return this.viewerFrame;
+	}
 
 	constructor(private code: Code) { }
 
@@ -21,7 +33,7 @@ export class PositronEditor {
 
 		// await appearance and disappearance of the toast
 		await expect(this.code.driver.page.locator('.notifications-toasts')).toBeVisible({ timeout: 30000 });
-		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 50000 });
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {

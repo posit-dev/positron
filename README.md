@@ -7,7 +7,7 @@ What is [Positron](https://positron.posit.co/)?
 - A familiar environment for reproducible authoring and publishing
 
 > [!IMPORTANT]
-> Positron is an early stage project under active development and may [not yet be a good fit for you](https://positron.posit.co/start.html#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
+> Positron is an early stage project under active development and may [not yet be a good fit for you](https://positron.posit.co/start#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
 
 
 
@@ -16,19 +16,17 @@ https://github.com/posit-dev/positron/assets/29187501/d1c4c9f0-7bd5-4132-bc24-c3
 
 ## Get started using Positron
 
-Check out [our website](https://positron.posit.co/) for information on what you should do before installing Positron, troubleshooting Positron, and more. Our [FAQ](https://positron.posit.co/faqs.html) also covers some common or expected questions.
+Check out [our website](https://positron.posit.co/) for information on what you should do before [installing Positron](https://positron.posit.co/download), troubleshooting Positron, and more. Our [FAQ](https://positron.posit.co/faqs) also covers some common or expected questions.
 
 Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn about basic features like commands, settings, using source control, and more, see the [VS Code documentation](https://code.visualstudio.com/docs).
 
 ## Install Positron
 
-Install Positron from our [Releases](https://github.com/posit-dev/positron/releases) page.
-
-Currently, Positron is producing pre-release builds from a continuous integration (CI) system for macOS, Windows, and Linux. These pre-release builds are tagged with a version number here on our Github repository. Select the build you want to download, then click on **Assets** and download the `.dmg` (for Mac), `.exe` (for Windows), or `.deb` (for Linux) file.
+Install the latest release of Positron from our [website](https://positron.posit.co/download), or find other versions [here on GitHub](https://github.com/posit-dev/positron/releases). Currently, Positron is producing pre-release builds from a continuous integration (CI) system for macOS, Windows, and Linux.
 
 ## Share your feedback about Positron
 
-We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://positron.posit.co/feedback.html) about giving feedback and reporting bugs.
+We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://positron.posit.co/feedback) about giving feedback and reporting bugs.
 
 ## Code of conduct
 
@@ -38,7 +36,7 @@ in this project you agree to abide by its terms.
 
 ## License
 
-Positron™ is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://positron.posit.co/licensing.html) about what this license means and our decision to use it.
+Positron™ is licensed under the [Elastic License 2.0](https://github.com/posit-dev/positron?tab=License-1-ov-file#readme), a source-available license. [Read more](https://positron.posit.co/licensing) about what this license means and our decision to use it.
 
 Positron™ and the Positron icon™ are trademarks of Posit Software, PBC. All rights reserved.
 

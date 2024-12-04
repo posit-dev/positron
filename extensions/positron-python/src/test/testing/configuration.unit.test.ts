@@ -250,6 +250,15 @@ suite('Unit Tests - ConfigurationService', () => {
                 expect(selectedItem).to.be.equal(undefined, 'invalid value');
                 appShell.verifyAll();
             });
+            test('Correctly returns hasConfiguredTests', () => {
+                let enabled = false;
+                unitTestSettings.setup((u) => u.unittestEnabled).returns(() => false);
+                unitTestSettings.setup((u) => u.pytestEnabled).returns(() => enabled);
+
+                expect(testConfigService.target.hasConfiguredTests(workspaceUri)).to.equal(false);
+                enabled = true;
+                expect(testConfigService.target.hasConfiguredTests(workspaceUri)).to.equal(true);
+            });
             test('Prompt to enable a test if a test framework is not enabled', async () => {
                 unitTestSettings.setup((u) => u.pytestEnabled).returns(() => false);
                 unitTestSettings.setup((u) => u.unittestEnabled).returns(() => false);
@@ -489,7 +498,7 @@ suite('Unit Tests - ConfigurationService', () => {
                     .setup((c) => c.enable())
                     .returns(() => Promise.resolve())
                     .verifiable(typeMoq.Times.once());
-                const configManagersToVerify: typeof configMgr[] = [configMgr];
+                const configManagersToVerify: (typeof configMgr)[] = [configMgr];
 
                 await testConfigService.target.promptToEnableAndConfigureTestFramework(workspaceUri);
 

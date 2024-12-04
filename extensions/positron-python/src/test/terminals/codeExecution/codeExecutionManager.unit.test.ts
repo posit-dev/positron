@@ -7,7 +7,6 @@ import { Disposable, TextDocument, TextEditor, Uri } from 'vscode';
 
 import { ICommandManager, IDocumentManager, IWorkspaceService } from '../../../client/common/application/types';
 import { Commands } from '../../../client/common/constants';
-import { IFileSystem } from '../../../client/common/platform/types';
 import { IServiceContainer } from '../../../client/ioc/types';
 import { CodeExecutionManager } from '../../../client/terminals/codeExecution/codeExecutionManager';
 import { ICodeExecutionHelper, ICodeExecutionManager, ICodeExecutionService } from '../../../client/terminals/types';
@@ -24,12 +23,9 @@ suite('Terminal - Code Execution Manager', () => {
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let documentManager: TypeMoq.IMock<IDocumentManager>;
     let configService: TypeMoq.IMock<IConfigurationService>;
-    let fileSystem: TypeMoq.IMock<IFileSystem>;
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let triggerCreateEnvironmentCheckNonBlockingStub: sinon.SinonStub;
     setup(() => {
-        fileSystem = TypeMoq.Mock.ofType<IFileSystem>();
-        fileSystem.setup((f) => f.readFile(TypeMoq.It.isAny())).returns(() => Promise.resolve(''));
         workspace = TypeMoq.Mock.ofType<IWorkspaceService>();
         workspace
             .setup((c) => c.onDidChangeWorkspaceFolders(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
@@ -45,13 +41,12 @@ suite('Terminal - Code Execution Manager', () => {
         interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
+            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
         serviceContainer.setup((c) => c.get(IInterpreterService)).returns(() => interpreterService.object);
         executionManager = new CodeExecutionManager(
             commandManager.object,
             documentManager.object,
             disposables,
-            fileSystem.object,
             configService.object,
             serviceContainer.object,
         );

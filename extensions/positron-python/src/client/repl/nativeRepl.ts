@@ -19,6 +19,8 @@ import { executeNotebookCell, openInteractiveREPL, selectNotebookKernel } from '
 import { createReplController } from './replController';
 import { EventName } from '../telemetry/constants';
 import { sendTelemetryEvent } from '../telemetry';
+import { VariablesProvider } from './variables/variablesProvider';
+import { VariableRequester } from './variables/variableRequester';
 
 let nativeRepl: NativeRepl | undefined; // In multi REPL scenario, hashmap of URI to Repl.
 export class NativeRepl implements Disposable {
@@ -48,7 +50,7 @@ export class NativeRepl implements Disposable {
         nativeRepl.interpreter = interpreter;
         await nativeRepl.setReplDirectory();
         nativeRepl.pythonServer = createPythonServer([interpreter.path as string], nativeRepl.cwd);
-        nativeRepl.replController = nativeRepl.setReplController();
+        nativeRepl.setReplController();
 
         return nativeRepl;
     }
@@ -107,19 +109,21 @@ export class NativeRepl implements Disposable {
 
     /**
      * Function that check if NotebookController for REPL exists, and returns it in Singleton manner.
-     * @returns NotebookController
      */
     public setReplController(): NotebookController {
         if (!this.replController) {
-            return createReplController(this.interpreter!.path, this.disposables, this.cwd);
+            this.replController = createReplController(this.interpreter!.path, this.disposables, this.cwd);
+            this.replController.variableProvider = new VariablesProvider(
+                new VariableRequester(this.pythonServer),
+                () => this.notebookDocument,
+                this.pythonServer.onCodeExecuted,
+            );
         }
         return this.replController;
     }
 
     /**
      * Function that checks if native REPL's text input box contains complete code.
-     * @param activeEditor
-     * @param pythonServer
      * @returns Promise<boolean> - True if complete/Valid code is present, False otherwise.
      */
     public async checkUserInputCompleteCode(activeEditor: TextEditor | undefined): Promise<boolean> {
@@ -140,7 +144,6 @@ export class NativeRepl implements Disposable {
 
     /**
      * Function that opens interactive repl, selects kernel, and send/execute code to the native repl.
-     * @param code
      */
     public async sendToNativeRepl(code?: string): Promise<void> {
         const notebookEditor = await openInteractiveREPL(this.replController, this.notebookDocument);
@@ -150,7 +153,7 @@ export class NativeRepl implements Disposable {
             this.replController.updateNotebookAffinity(this.notebookDocument, NotebookControllerAffinity.Default);
             await selectNotebookKernel(notebookEditor, this.replController.id, PVSC_EXTENSION_ID);
             if (code) {
-                await executeNotebookCell(this.notebookDocument, code);
+                await executeNotebookCell(notebookEditor, code);
             }
         }
     }

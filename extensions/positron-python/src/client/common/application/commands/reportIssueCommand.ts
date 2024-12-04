@@ -61,7 +61,7 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
             if (argSetting) {
                 if (typeof argSetting === 'object') {
                     let propertyHeaderAdded = false;
-                    const argSettingsDict = (settings[property] as unknown) as Record<string, unknown>;
+                    const argSettingsDict = settings[property] as unknown as Record<string, unknown>;
                     if (typeof argSettingsDict === 'object') {
                         Object.keys(argSetting).forEach((item) => {
                             const prop = argSetting[item];
@@ -104,7 +104,12 @@ export class ReportIssueCommandHandler implements IExtensionSingleActivationServ
 
         const installedExtensions = getExtensions()
             .filter((extension) => !extension.id.startsWith('vscode.'))
-            .sort((a, b) => a.packageJSON.displayName.localeCompare(b.packageJSON.displayName))
+            .sort((a, b) => {
+                if (a.packageJSON.displayName && b.packageJSON.displayName) {
+                    return a.packageJSON.displayName.localeCompare(b.packageJSON.displayName);
+                }
+                return a.id.localeCompare(b.id);
+            })
             .map(
                 (extension) =>
                     `|${extension.packageJSON.displayName}|${extension.id}|${extension.packageJSON.version}|`,
