@@ -41,11 +41,15 @@ interface NewConnectionModalDialogProps {
 
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
 
+	const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>();
+
 	const cancelHandler = () => {
 		props.renderer.dispose();
 	};
 
-	const [selectedDriver, setSelectedDriver] = useState<Driver | undefined>();
+	const backHandler = () => {
+		setSelectedDriver(undefined);
+	};
 
 	return <PositronModalDialog
 		renderer={props.renderer}
@@ -61,6 +65,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 						<CreateConnection
 							services={props.services}
 							onCancel={cancelHandler}
+							onBack={backHandler}
 							selectedDriver={selectedDriver} /> :
 						<ListDrivers
 							services={props.services}

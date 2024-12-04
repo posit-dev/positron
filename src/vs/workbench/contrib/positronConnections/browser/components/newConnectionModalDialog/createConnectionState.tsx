@@ -10,17 +10,32 @@ import { Driver } from 'vs/workbench/contrib/positronConnections/browser/compone
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import 'vs/css!./createConnectionState';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
+import Severity from 'vs/base/common/severity';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;
 	readonly onCancel: () => void;
+	readonly onBack: () => void;
 	readonly selectedDriver: Driver;
 }
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
 	const { name, languageId } = props.selectedDriver;
+	const { onBack, onCancel, services } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
+
+	const onCopy = async () => {
+		const code = editorRef.current.getValue();
+		await services.clipboardService.writeText(code);
+
+		const handle = services.connectionsService.notify(localize(
+			'positron.resumeConnectionModalDialog.codeCopied',
+			"Connection code copied to clipboard"
+		), Severity.Info);
+		// close the notification after 2 seconds
+		setTimeout(() => handle.close(), 2000);
+	};
 
 	return <div className='connections-new-connection-create-connection'>
 		<div className='create-connection-title'>
@@ -41,6 +56,10 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				ref={editorRef}
 				services={props.services}
 				language={languageId}
+				editorOptions={{
+					readOnly: true,
+					cursorBlinking: 'solid'
+				}}
 			>
 			</SimpleCodeEditor>
 		</div>
@@ -48,7 +67,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		<div className='create-connection-buttons'>
 			<PositronButton
 				className='button action-bar-button'
-				onPressed={props.onCancel}
+				onPressed={onCopy}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.copy', 'Copy'))()}
 			</PositronButton>
@@ -63,13 +82,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		<div className='create-connection-footer'>
 			<PositronButton
 				className='button action-bar-button'
-				onPressed={props.onCancel}
+				onPressed={onBack}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.back', 'Back'))()}
 			</PositronButton>
 			<PositronButton
 				className='button action-bar-button default'
-				onPressed={props.onCancel}
+				onPressed={onCancel}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
 			</PositronButton>
