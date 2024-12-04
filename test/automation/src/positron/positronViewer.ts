@@ -33,6 +33,15 @@ export class PositronViewer {
 
 	async clearViewer() {
 		await this.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
-		await this.fullApp.getByLabel(/Clear the/).click();
+
+		const clearRegex = /Clear the/;
+
+		if (await this.fullApp.getByLabel(clearRegex).isVisible()) {
+			await this.fullApp.getByLabel(clearRegex).click();
+		}
+	}
+
+	async openViewerToEditor() {
+		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 }
