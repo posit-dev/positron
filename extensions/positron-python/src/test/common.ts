@@ -112,13 +112,13 @@ export const resetGlobalInterpreterPathSetting = async () => retryAsync(restoreG
 
 async function restoreGlobalInterpreterPathSetting(): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await pythonConfig.update('defaultInterpreterPath', undefined, true);
     await disposePythonSettings();
 }
 async function setGlobalPathToInterpreter(pythonPath?: string): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await pythonConfig.update('defaultInterpreterPath', pythonPath, true);
     await disposePythonSettings();
 }
@@ -203,7 +203,7 @@ async function setPythonPathInWorkspace(
 }
 async function restoreGlobalPythonPathSetting(): Promise<void> {
     const vscode = require('vscode') as typeof import('vscode');
-    const pythonConfig = vscode.workspace.getConfiguration('python', (null as any) as Uri);
+    const pythonConfig = vscode.workspace.getConfiguration('python', null as any as Uri);
     await Promise.all([
         pythonConfig.update('defaultInterpreterPath', undefined, true),
         pythonConfig.update('defaultInterpreterPath', undefined, true),
@@ -455,12 +455,6 @@ export async function unzip(zipFile: string, targetFolder: string): Promise<void
 }
 /**
  * Wait for a condition to be fulfilled within a timeout.
- *
- * @export
- * @param {() => Promise<boolean>} condition
- * @param {number} timeoutMs
- * @param {string} errorMessage
- * @returns {Promise<void>}
  */
 export async function waitForCondition(
     condition: () => Promise<boolean>,

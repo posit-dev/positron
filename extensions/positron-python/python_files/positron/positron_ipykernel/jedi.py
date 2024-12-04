@@ -10,7 +10,9 @@ from ._vendor.jedi.api import Interpreter
 from ._vendor.jedi.api.classes import Completion
 from ._vendor.jedi.api.completion import (
     Completion as CompletionAPI,
-)  # Rename to avoid conflict with classes.Completion
+)
+
+# Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
@@ -153,6 +155,10 @@ class PositronCompletion(CompletionAPI):
 
         cached_name, completion_names = self._complete_python(leaf)
 
+        imported_names = []
+        if leaf.parent is not None and leaf.parent.type in ["import_as_names", "dotted_as_names"]:
+            imported_names.extend(extract_imported_names(leaf.parent))  # type: ignore
+
         completions = list(
             filter_names(
                 self._inference_state,
@@ -160,6 +166,7 @@ class PositronCompletion(CompletionAPI):
                 self.stack,
                 self._like_name,
                 self._fuzzy,
+                imported_names,
                 cached_name=cached_name,
             )
         )
@@ -169,7 +176,12 @@ class PositronCompletion(CompletionAPI):
             _remove_duplicates(prefixed_completions, completions)
             + sorted(
                 completions,
-                key=lambda x: (x.name.startswith("__"), x.name.startswith("_"), x.name.lower()),
+                key=lambda x: (
+                    not x.name.startswith(self._like_name),
+                    x.name.startswith("__"),
+                    x.name.startswith("_"),
+                    x.name.lower(),
+                ),
             )
         )
 

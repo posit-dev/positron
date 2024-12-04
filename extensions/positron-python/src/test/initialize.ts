@@ -50,7 +50,7 @@ export async function initialize(): Promise<IExtensionTestApi> {
     initializePositron();
     // --- End Positron ---
 
-    return (api as any) as IExtensionTestApi;
+    return api as any as IExtensionTestApi;
 }
 export async function activateExtension() {
     const extension = vscode.extensions.getExtension<PythonExtension>(PVSC_EXTENSION_ID_FOR_TESTS)!;

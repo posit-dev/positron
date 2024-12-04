@@ -49,11 +49,12 @@ import { IInterpreterQuickPick } from './interpreter/configuration/types';
 import { registerAllCreateEnvironmentFeatures } from './pythonEnvironments/creation/registrations';
 import { registerCreateEnvironmentTriggers } from './pythonEnvironments/creation/createEnvironmentTrigger';
 import { initializePersistentStateForTriggers } from './common/persistentState';
-import { logAndNotifyOnLegacySettings } from './logging/settingLogs';
 import { DebuggerTypeName } from './debugger/constants';
 import { StopWatch } from './common/utils/stopWatch';
 import { registerReplCommands, registerReplExecuteOnEnter, registerStartNativeReplCommand } from './repl/replCommands';
 import { registerTriggerForTerminalREPL } from './terminals/codeExecution/terminalReplWatcher';
+import { registerPythonStartup } from './terminals/pythonStartup';
+import { registerPixiFeatures } from './pythonEnvironments/common/environmentManagers/pixi';
 
 // --- Start Positron ---
 import { IPythonRuntimeManager } from './positron/manager';
@@ -96,23 +97,20 @@ export async function activateComponents(
 }
 
 export function activateFeatures(ext: ExtensionState, _components: Components): void {
-    const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
-        IInterpreterQuickPick,
-    );
-    const interpreterPathService: IInterpreterPathService = ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(
-        IInterpreterPathService,
-    );
-    const interpreterService: IInterpreterService = ext.legacyIOC.serviceContainer.get<IInterpreterService>(
-        IInterpreterService,
-    );
+    const interpreterQuickPick: IInterpreterQuickPick =
+        ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(IInterpreterQuickPick);
+    const interpreterPathService: IInterpreterPathService =
+        ext.legacyIOC.serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
+    const interpreterService: IInterpreterService =
+        ext.legacyIOC.serviceContainer.get<IInterpreterService>(IInterpreterService);
     const pathUtils = ext.legacyIOC.serviceContainer.get<IPathUtils>(IPathUtils);
 
     // --- Start Positron ---
-    const pythonRuntimeManager: IPythonRuntimeManager = ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(
-        IPythonRuntimeManager,
-    );
+    const pythonRuntimeManager: IPythonRuntimeManager =
+        ext.legacyIOC.serviceContainer.get<IPythonRuntimeManager>(IPythonRuntimeManager);
     // --- End Positron ---
 
+    registerPixiFeatures(ext.disposables);
     registerAllCreateEnvironmentFeatures(
         ext.disposables,
         interpreterQuickPick,
@@ -193,6 +191,8 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
 
             serviceManager.get<ITerminalAutoActivation>(ITerminalAutoActivation).register();
 
+            await registerPythonStartup(ext.context);
+
             serviceManager.get<ICodeExecutionManager>(ICodeExecutionManager).registerCommands();
 
             disposables.push(new ReplProvider(serviceContainer));
@@ -207,7 +207,6 @@ async function activateLegacy(ext: ExtensionState, startupStopWatch: StopWatch):
                 });
             disposables.push(terminalProvider);
 
-            logAndNotifyOnLegacySettings();
             registerCreateEnvironmentTriggers(disposables);
             initializePersistentStateForTriggers(ext.context);
         }

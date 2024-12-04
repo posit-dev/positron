@@ -14,7 +14,6 @@ import {
 import * as testItemUtilities from '../../../client/testing/testController/common/testItemUtilities';
 import * as ResultResolver from '../../../client/testing/testController/common/resultResolver';
 import * as util from '../../../client/testing/testController/common/utils';
-import { Deferred, createDeferred } from '../../../client/common/utils/async';
 import { traceLog } from '../../../client/logging';
 
 suite('Result Resolver tests', () => {
@@ -29,7 +28,7 @@ suite('Result Resolver tests', () => {
         let cancelationToken: CancellationToken;
 
         setup(() => {
-            testController = ({
+            testController = {
                 items: {
                     get: () => {
                         log.push('get');
@@ -48,9 +47,9 @@ suite('Result Resolver tests', () => {
                 dispose: () => {
                     // empty
                 },
-            } as unknown) as TestController;
+            } as unknown as TestController;
             defaultErrorMessage = 'pytest test discovery error (see Output > Python)';
-            blankTestItem = ({
+            blankTestItem = {
                 canResolveChildren: false,
                 tags: [],
                 children: {
@@ -58,10 +57,10 @@ suite('Result Resolver tests', () => {
                         // empty
                     },
                 },
-            } as unknown) as TestItem;
-            cancelationToken = ({
+            } as unknown as TestItem;
+            cancelationToken = {
                 isCancellationRequested: false,
-            } as unknown) as CancellationToken;
+            } as unknown as CancellationToken;
         });
         teardown(() => {
             sinon.restore();
@@ -89,8 +88,7 @@ suite('Result Resolver tests', () => {
             const populateTestTreeStub = sinon.stub(util, 'populateTestTree').returns();
 
             // call resolve discovery
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveDiscovery(payload, deferredTillEOT, cancelationToken);
+            resultResolver.resolveDiscovery(payload, cancelationToken);
 
             // assert the stub functions were called with the correct parameters
 
@@ -129,8 +127,7 @@ suite('Result Resolver tests', () => {
             const createErrorTestItemStub = sinon.stub(testItemUtilities, 'createErrorTestItem').returns(blankTestItem);
 
             // call resolve discovery
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveDiscovery(payload, deferredTillEOT, cancelationToken);
+            resultResolver.resolveDiscovery(payload, cancelationToken);
 
             // assert the stub functions were called with the correct parameters
 
@@ -175,8 +172,7 @@ suite('Result Resolver tests', () => {
             // stub out functionality of populateTestTreeStub which is called in resolveDiscovery
             const populateTestTreeStub = sinon.stub(util, 'populateTestTree').returns();
             // call resolve discovery
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveDiscovery(payload, deferredTillEOT, cancelationToken);
+            resultResolver.resolveDiscovery(payload, cancelationToken);
 
             // assert the stub functions were called with the correct parameters
 
@@ -239,10 +235,8 @@ suite('Result Resolver tests', () => {
             const deleteSpy = sinon.spy(testController.items, 'delete');
             const replaceSpy = sinon.spy(testController.items, 'replace');
             // call resolve discovery
-            let deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveDiscovery(regPayload, deferredTillEOT, cancelationToken);
-            deferredTillEOT = createDeferred<void>();
-            resultResolver.resolveDiscovery(errorPayload, deferredTillEOT, cancelationToken);
+            resultResolver.resolveDiscovery(regPayload, cancelationToken);
+            resultResolver.resolveDiscovery(errorPayload, cancelationToken);
 
             // assert the stub functions were called with the correct parameters
 
@@ -299,9 +293,9 @@ suite('Result Resolver tests', () => {
             testControllerMock = typemoq.Mock.ofType<TestController>();
             testControllerMock.setup((t) => t.items).returns(() => testItemCollectionMock.object);
 
-            cancelationToken = ({
+            cancelationToken = {
                 isCancellationRequested: false,
-            } as unknown) as CancellationToken;
+            } as unknown as CancellationToken;
 
             // define functions within runInstance
             runInstance = typemoq.Mock.ofType<TestRun>();
@@ -375,8 +369,7 @@ suite('Result Resolver tests', () => {
             };
 
             // call resolveExecution
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(successPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(successPayload, runInstance.object);
 
             // verify that the passed function was called for the single test item
             assert.ok(generatedId);
@@ -416,8 +409,7 @@ suite('Result Resolver tests', () => {
             };
 
             // call resolveExecution
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(successPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(successPayload, runInstance.object);
 
             // verify that the passed function was called for the single test item
             runInstance.verify((r) => r.failed(typemoq.It.isAny(), typemoq.It.isAny()), typemoq.Times.once());
@@ -456,8 +448,7 @@ suite('Result Resolver tests', () => {
             };
 
             // call resolveExecution
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(successPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(successPayload, runInstance.object);
 
             // verify that the passed function was called for the single test item
             runInstance.verify((r) => r.skipped(typemoq.It.isAny()), typemoq.Times.once());
@@ -496,8 +487,7 @@ suite('Result Resolver tests', () => {
             };
 
             // call resolveExecution
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(successPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(successPayload, runInstance.object);
 
             // verify that the passed function was called for the single test item
             runInstance.verify((r) => r.errored(typemoq.It.isAny(), typemoq.It.isAny()), typemoq.Times.once());
@@ -536,8 +526,7 @@ suite('Result Resolver tests', () => {
             };
 
             // call resolveExecution
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(successPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(successPayload, runInstance.object);
 
             // verify that the passed function was called for the single test item
             runInstance.verify((r) => r.passed(typemoq.It.isAny()), typemoq.Times.once());
@@ -558,8 +547,7 @@ suite('Result Resolver tests', () => {
                 error: 'error',
             };
 
-            const deferredTillEOT: Deferred<void> = createDeferred<void>();
-            resultResolver.resolveExecution(errorPayload, runInstance.object, deferredTillEOT);
+            resultResolver.resolveExecution(errorPayload, runInstance.object);
 
             // verify that none of these functions are called
 
@@ -572,7 +560,7 @@ suite('Result Resolver tests', () => {
 
 function createMockTestItem(id: string): TestItem {
     const range = new Range(0, 0, 0, 0);
-    const mockTestItem = ({
+    const mockTestItem = {
         id,
         canResolveChildren: false,
         tags: [],
@@ -583,7 +571,7 @@ function createMockTestItem(id: string): TestItem {
         },
         range,
         uri: Uri.file('/foo/bar'),
-    } as unknown) as TestItem;
+    } as unknown as TestItem;
 
     return mockTestItem;
 }

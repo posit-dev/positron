@@ -52,6 +52,7 @@ def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
     documents = {uri: document}
     server.workspace.documents = documents
     server.workspace.get_document = lambda uri: documents[uri]
+    server.workspace.get_text_document = lambda uri: documents[uri]
 
     return server
 

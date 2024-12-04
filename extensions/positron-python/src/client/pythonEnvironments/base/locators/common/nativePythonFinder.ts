@@ -12,7 +12,7 @@ import { EXTENSION_ROOT_DIR } from '../../../../constants';
 import { createDeferred, createDeferredFrom } from '../../../../common/utils/async';
 import { DisposableBase, DisposableStore } from '../../../../common/utils/resourceLifecycle';
 import { noop } from '../../../../common/utils/misc';
-import { getConfiguration, getWorkspaceFolderPaths } from '../../../../common/vscodeApis/workspaceApis';
+import { getConfiguration, getWorkspaceFolderPaths, isTrusted } from '../../../../common/vscodeApis/workspaceApis';
 import { CONDAPATH_SETTING_KEY } from '../../../common/environmentManagers/conda';
 import { VENVFOLDERS_SETTING_KEY, VENVPATH_SETTING_KEY } from '../lowLevel/customVirtualEnvLocator';
 import { getUserHomeDir } from '../../../../common/utils/platform';
@@ -22,6 +22,7 @@ import { NativePythonEnvironmentKind } from './nativePythonUtils';
 import type { IExtensionContext } from '../../../../common/types';
 import { StopWatch } from '../../../../common/utils/stopWatch';
 import { untildify } from '../../../../common/helpers';
+import { traceError } from '../../../../logging';
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
     ? path.join(EXTENSION_ROOT_DIR, 'python-env-tools', 'bin', 'pet.exe')
@@ -272,9 +273,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
         return connection;
     }
 
-    private doRefresh(
-        options?: NativePythonEnvironmentKind | Uri[],
-    ): { completed: Promise<void>; discovered: Event<NativeEnvInfo | NativeEnvManagerInfo> } {
+    private doRefresh(options?: NativePythonEnvironmentKind | Uri[]): {
+        completed: Promise<void>;
+        discovered: Event<NativeEnvInfo | NativeEnvManagerInfo>;
+    } {
         const disposable = this._register(new DisposableStore());
         const discovered = disposable.add(new EventEmitter<NativeEnvInfo | NativeEnvManagerInfo>());
         const completed = createDeferred<void>();
@@ -422,7 +424,10 @@ function getCustomVirtualEnvDirs(): string[] {
     const venvFolders = getPythonSettingAndUntildify<string[]>(VENVFOLDERS_SETTING_KEY) ?? [];
     const homeDir = getUserHomeDir();
     if (homeDir) {
-        venvFolders.map((item) => path.join(homeDir, item)).forEach((d) => venvDirs.push(d));
+        venvFolders
+            .map((item) => (item.startsWith(homeDir) ? item : path.join(homeDir, item)))
+            .forEach((d) => venvDirs.push(d));
+        venvFolders.forEach((item) => venvDirs.push(untildify(item)));
     }
     return Array.from(new Set(venvDirs));
 }
@@ -430,13 +435,32 @@ function getCustomVirtualEnvDirs(): string[] {
 function getPythonSettingAndUntildify<T>(name: string, scope?: Uri): T | undefined {
     const value = getConfiguration('python', scope).get<T>(name);
     if (typeof value === 'string') {
-        return value ? ((untildify(value as string) as unknown) as T) : undefined;
+        return value ? (untildify(value as string) as unknown as T) : undefined;
     }
     return value;
 }
 
 let _finder: NativePythonFinder | undefined;
 export function getNativePythonFinder(context?: IExtensionContext): NativePythonFinder {
+    if (!isTrusted()) {
+        return {
+            async *refresh() {
+                traceError('Python discovery not supported in untrusted workspace');
+                yield* [];
+            },
+            async resolve() {
+                traceError('Python discovery not supported in untrusted workspace');
+                return {};
+            },
+            async getCondaInfo() {
+                traceError('Python discovery not supported in untrusted workspace');
+                return {} as unknown as NativeCondaInfo;
+            },
+            dispose() {
+                // do nothing
+            },
+        };
+    }
     if (!_finder) {
         const cacheDirectory = context ? getCacheDirectory(context) : undefined;
         _finder = new NativePythonFinderImpl(cacheDirectory);

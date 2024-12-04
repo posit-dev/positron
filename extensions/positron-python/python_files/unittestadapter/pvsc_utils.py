@@ -74,11 +74,18 @@ class ExecutionPayloadDict(TypedDict):
     error: NotRequired[str]
 
 
-class EOTPayloadDict(TypedDict):
-    """A dictionary that is used to send a end of transmission post request to the server."""
+class FileCoverageInfo(TypedDict):
+    lines_covered: List[int]
+    lines_missed: List[int]
 
-    command_type: Literal["discovery", "execution"]
-    eot: bool
+
+class CoveragePayloadDict(Dict):
+    """A dictionary that is used to send a execution post request to the server."""
+
+    coverage: bool
+    cwd: str
+    result: Optional[Dict[str, FileCoverageInfo]]
+    error: Optional[str]  # Currently unused need to check
 
 
 # Helper functions for data retrieval.
@@ -300,7 +307,7 @@ atexit.register(lambda: __writer.close() if __writer else None)
 
 
 def send_post_request(
-    payload: Union[ExecutionPayloadDict, DiscoveryPayloadDict, EOTPayloadDict],
+    payload: Union[ExecutionPayloadDict, DiscoveryPayloadDict, CoveragePayloadDict],
     test_run_pipe: Optional[str],
 ):
     """

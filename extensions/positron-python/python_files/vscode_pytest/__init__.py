@@ -67,6 +67,13 @@ SYMLINK_PATH = None
 
 
 def pytest_load_initial_conftests(early_config, parser, args):  # noqa: ARG001
+    has_pytest_cov = early_config.pluginmanager.hasplugin("pytest_cov")
+    has_cov_arg = any("--cov" in arg for arg in args)
+    if has_cov_arg and not has_pytest_cov:
+        raise VSCodePytestError(
+            "\n \nERROR: pytest-cov is not installed, please install this before running pytest with coverage as pytest-cov is required. \n"
+        )
+
     global TEST_RUN_PIPE
     TEST_RUN_PIPE = os.getenv("TEST_RUN_PIPE")
     error_string = (
@@ -356,6 +363,11 @@ def check_skipped_condition(item):
     return False
 
 
+class FileCoverageInfo(TypedDict):
+    lines_covered: list[int]
+    lines_missed: list[int]
+
+
 def pytest_sessionfinish(session, exitstatus):
     """A pytest hook that is called after pytest has fulled finished.
 
@@ -420,9 +432,35 @@ def pytest_sessionfinish(session, exitstatus):
                 None,
             )
         # send end of transmission token
-    command_type = "discovery" if IS_DISCOVERY else "execution"
-    payload: EOTPayloadDict = {"command_type": command_type, "eot": True}
-    send_post_request(payload)
+
+    # send coverage if enabled
+    is_coverage_run = os.environ.get("COVERAGE_ENABLED")
+    if is_coverage_run == "True":
+        # load the report and build the json result to return
+        import coverage
+
+        cov = coverage.Coverage()
+        cov.load()
+        file_set: set[str] = cov.get_data().measured_files()
+        file_coverage_map: dict[str, FileCoverageInfo] = {}
+        for file in file_set:
+            analysis = cov.analysis2(file)
+            lines_executable = {int(line_no) for line_no in analysis[1]}
+            lines_missed = {int(line_no) for line_no in analysis[3]}
+            lines_covered = lines_executable - lines_missed
+            file_info: FileCoverageInfo = {
+                "lines_covered": list(lines_covered),  # list of int
+                "lines_missed": list(lines_missed),  # list of int
+            }
+            file_coverage_map[file] = file_info
+
+        payload: CoveragePayloadDict = CoveragePayloadDict(
+            coverage=True,
+            cwd=os.fspath(cwd),
+            result=file_coverage_map,
+            error=None,
+        )
+        send_post_request(payload)
 
 
 def build_test_tree(session: pytest.Session) -> TestNode:
@@ -738,11 +776,13 @@ class ExecutionPayloadDict(Dict):
     error: str | None  # Currently unused need to check
 
 
-class EOTPayloadDict(TypedDict):
-    """A dictionary that is used to send a end of transmission post request to the server."""
+class CoveragePayloadDict(Dict):
+    """A dictionary that is used to send a execution post request to the server."""
 
-    command_type: Literal["discovery", "execution"]
-    eot: bool
+    coverage: bool
+    cwd: str
+    result: dict[str, FileCoverageInfo] | None
+    error: str | None  # Currently unused need to check
 
 
 def get_node_path(node: Any) -> pathlib.Path:
@@ -822,14 +862,14 @@ def post_response(cwd: str, session_node: TestNode) -> None:
 class PathEncoder(json.JSONEncoder):
     """A custom JSON encoder that encodes pathlib.Path objects as strings."""
 
-    def default(self, obj):  # type: ignore ReportIncompatibleMethodOverride (remove once updated upstream)
-        if isinstance(obj, pathlib.Path):
-            return os.fspath(obj)
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, pathlib.Path):
+            return os.fspath(o)
+        return super().default(o)
 
 
 def send_post_request(
-    payload: ExecutionPayloadDict | DiscoveryPayloadDict | EOTPayloadDict,
+    payload: ExecutionPayloadDict | DiscoveryPayloadDict | CoveragePayloadDict,
     cls_encoder=None,
 ):
     """

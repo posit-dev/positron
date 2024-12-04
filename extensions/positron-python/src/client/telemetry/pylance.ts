@@ -29,7 +29,7 @@
       "method" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "modulehash" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "moduleversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-      "resultLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
+      "resultlength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
    }
 */
 /* __GDPR__
@@ -321,12 +321,13 @@
       "lsversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "method" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "modulehash" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
-      "resultLength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
+      "resultlength" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "isMeasurement": true }
    }
 */
 /* __GDPR__
    "language_server/settings" : {
       "addimportexactmatchonly" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+      "aicodeactionsimplementabstractclasses" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "autoimportcompletions" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "autosearchpaths" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "callArgumentNameInlayHints" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
@@ -344,6 +345,7 @@
       "intelliCodeEnabled" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "includeusersymbolsinautoimport" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "indexing" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
+      "languageservermode" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "lspinteractivewindows" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "lspnotebooks" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
       "movesymbol" : { "classification": "SystemMetaData", "purpose": "FeatureInsight" },
@@ -400,6 +402,7 @@
  */
 /* __GDPR__
 "language_server.crash" : {
-   "oom" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "rchiodo" }
+   "oom" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "rchiodo" },
+   "lsversion" : { "classification": "SystemMetaData", "purpose": "FeatureInsight", "owner": "rchiodo" }
 }
 */

@@ -4,6 +4,7 @@
 import {
     CancellationToken,
     Event,
+    FileCoverageDetail,
     OutputChannel,
     TestController,
     TestItem,
@@ -15,7 +16,7 @@ import {
 import { ITestDebugLauncher, TestDiscoveryOptions } from '../../common/types';
 import { IPythonExecutionFactory } from '../../../common/process/types';
 import { EnvironmentVariables } from '../../../common/variables/types';
-import { Deferred } from '../../../common/utils/async';
+import { PythonEnvironment } from '../../../pythonEnvironments/info';
 
 export type TestRunInstanceOptions = TestRunOptions & {
     exclude?: readonly TestItem[];
@@ -150,7 +151,7 @@ export type TestCommandOptions = {
     command: TestDiscoveryCommand | TestExecutionCommand;
     token?: CancellationToken;
     outChannel?: OutputChannel;
-    debugBool?: boolean;
+    profileKind?: TestRunProfileKind;
     testIds?: string[];
 };
 
@@ -195,36 +196,36 @@ export interface ITestResultResolver {
     runIdToVSid: Map<string, string>;
     runIdToTestItem: Map<string, TestItem>;
     vsIdToRunId: Map<string, string>;
-    resolveDiscovery(
-        payload: DiscoveredTestPayload | EOTTestPayload,
-        deferredTillEOT: Deferred<void>,
-        token?: CancellationToken,
-    ): void;
-    resolveExecution(
-        payload: ExecutionTestPayload | EOTTestPayload,
-        runInstance: TestRun,
-        deferredTillEOT: Deferred<void>,
-    ): void;
+    detailedCoverageMap: Map<string, FileCoverageDetail[]>;
+
+    resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
+    resolveExecution(payload: ExecutionTestPayload | CoveragePayload, runInstance: TestRun): void;
     _resolveDiscovery(payload: DiscoveredTestPayload, token?: CancellationToken): void;
     _resolveExecution(payload: ExecutionTestPayload, runInstance: TestRun): void;
+    _resolveCoverage(payload: CoveragePayload, runInstance: TestRun): void;
 }
 export interface ITestDiscoveryAdapter {
     // ** first line old method signature, second line new method signature
     discoverTests(uri: Uri): Promise<DiscoveredTestPayload>;
-    discoverTests(uri: Uri, executionFactory: IPythonExecutionFactory): Promise<DiscoveredTestPayload>;
+    discoverTests(
+        uri: Uri,
+        executionFactory: IPythonExecutionFactory,
+        interpreter?: PythonEnvironment,
+    ): Promise<DiscoveredTestPayload>;
 }
 
 // interface for execution/runner adapter
 export interface ITestExecutionAdapter {
     // ** first line old method signature, second line new method signature
-    runTests(uri: Uri, testIds: string[], debugBool?: boolean): Promise<ExecutionTestPayload>;
+    runTests(uri: Uri, testIds: string[], profileKind?: boolean | TestRunProfileKind): Promise<ExecutionTestPayload>;
     runTests(
         uri: Uri,
         testIds: string[],
-        debugBool?: boolean,
+        profileKind?: boolean | TestRunProfileKind,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
+        interpreter?: PythonEnvironment,
     ): Promise<ExecutionTestPayload>;
 }
 
@@ -255,9 +256,21 @@ export type DiscoveredTestPayload = {
     error?: string[];
 };
 
-export type EOTTestPayload = {
-    commandType: 'discovery' | 'execution';
-    eot: boolean;
+export type CoveragePayload = {
+    coverage: boolean;
+    cwd: string;
+    result?: {
+        [filePathStr: string]: FileCoverageMetrics;
+    };
+    error: string;
+};
+
+// using camel-case for these types to match the python side
+export type FileCoverageMetrics = {
+    // eslint-disable-next-line camelcase
+    lines_covered: number[];
+    // eslint-disable-next-line camelcase
+    lines_missed: number[];
 };
 
 export type ExecutionTestPayload = {

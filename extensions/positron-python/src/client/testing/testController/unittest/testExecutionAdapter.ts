@@ -2,13 +2,12 @@
 // Licensed under the MIT License.
 
 import * as path from 'path';
-import { TestRun, Uri } from 'vscode';
+import { TestRun, TestRunProfileKind, Uri } from 'vscode';
 import { ChildProcess } from 'child_process';
 import { IConfigurationService, ITestOutputChannel } from '../../../common/types';
 import { Deferred, createDeferred } from '../../../common/utils/async';
 import { EXTENSION_ROOT_DIR } from '../../../constants';
 import {
-    EOTTestPayload,
     ExecutionTestPayload,
     ITestExecutionAdapter,
     ITestResultResolver,
@@ -43,19 +42,18 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
     public async runTests(
         uri: Uri,
         testIds: string[],
-        debugBool?: boolean,
+        profileKind?: TestRunProfileKind,
         runInstance?: TestRun,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload> {
-        // deferredTillEOT awaits EOT message and deferredTillServerClose awaits named pipe server close
-        const deferredTillEOT: Deferred<void> = utils.createTestingDeferred();
+        // deferredTillServerClose awaits named pipe server close
         const deferredTillServerClose: Deferred<void> = utils.createTestingDeferred();
 
         // create callback to handle data received on the named pipe
-        const dataReceivedCallback = (data: ExecutionTestPayload | EOTTestPayload) => {
+        const dataReceivedCallback = (data: ExecutionTestPayload) => {
             if (runInstance && !runInstance.token.isCancellationRequested) {
-                this.resultResolver?.resolveExecution(data, runInstance, deferredTillEOT);
+                this.resultResolver?.resolveExecution(data, runInstance);
             } else {
                 traceError(`No run instance found, cannot resolve execution, for workspace ${uri.fsPath}.`);
             }
@@ -66,10 +64,8 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
             runInstance?.token, // token to cancel
         );
         runInstance?.token.onCancellationRequested(() => {
-            console.log(`Test run cancelled, resolving 'till EOT' deferred for ${uri.fsPath}.`);
+            console.log(`Test run cancelled, resolving 'till TillAllServerClose' deferred for ${uri.fsPath}.`);
             // if canceled, stop listening for results
-            deferredTillEOT.resolve();
-            // if canceled, close the server, resolves the deferredTillAllServerClose
             deferredTillServerClose.resolve();
             serverDispose();
         });
@@ -78,18 +74,15 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                 uri,
                 testIds,
                 resultNamedPipeName,
-                deferredTillEOT,
                 serverDispose,
                 runInstance,
-                debugBool,
+                profileKind,
                 executionFactory,
                 debugLauncher,
             );
         } catch (error) {
             traceError(`Error in running unittest tests: ${error}`);
         } finally {
-            // wait for EOT
-            await deferredTillEOT.promise;
             await deferredTillServerClose.promise;
         }
         const executionPayload: ExecutionTestPayload = {
@@ -104,10 +97,9 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         uri: Uri,
         testIds: string[],
         resultNamedPipeName: string,
-        deferredTillEOT: Deferred<void>,
         serverDispose: () => void,
         runInstance?: TestRun,
-        debugBool?: boolean,
+        profileKind?: TestRunProfileKind,
         executionFactory?: IPythonExecutionFactory,
         debugLauncher?: ITestDebugLauncher,
     ): Promise<ExecutionTestPayload> {
@@ -124,12 +116,15 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         const pythonPathCommand = [cwd, ...pythonPathParts].join(path.delimiter);
         mutableEnv.PYTHONPATH = pythonPathCommand;
         mutableEnv.TEST_RUN_PIPE = resultNamedPipeName;
+        if (profileKind && profileKind === TestRunProfileKind.Coverage) {
+            mutableEnv.COVERAGE_ENABLED = cwd;
+        }
 
         const options: TestCommandOptions = {
             workspaceFolder: uri,
             command,
             cwd,
-            debugBool,
+            profileKind,
             testIds,
             outChannel: this.outputChannel,
             token: runInstance?.token,
@@ -137,8 +132,8 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         traceLog(`Running UNITTEST execution for the following test ids: ${testIds}`);
 
         // create named pipe server to send test ids
-        const testIdsPipeName = await utils.startTestIdsNamedPipe(testIds);
-        mutableEnv.RUN_TEST_IDS_PIPE = testIdsPipeName;
+        const testIdsFileName = await utils.writeTestIdsFile(testIds);
+        mutableEnv.RUN_TEST_IDS_PIPE = testIdsFileName;
         traceInfo(`All environment variables set for pytest execution: ${JSON.stringify(mutableEnv)}`);
 
         const spawnOptions: SpawnOptions = {
@@ -161,13 +156,13 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
         }
 
         try {
-            if (options.debugBool) {
+            if (options.profileKind && options.profileKind === TestRunProfileKind.Debug) {
                 const launchOptions: LaunchOptions = {
                     cwd: options.cwd,
                     args,
                     token: options.token,
                     testProvider: UNITTEST_PROVIDER,
-                    runTestIdsPort: testIdsPipeName,
+                    runTestIdsPort: testIdsFileName,
                     pytestPort: resultNamedPipeName, // change this from pytest
                 };
                 traceInfo(`Running DEBUG unittest for workspace ${options.cwd} with arguments: ${args}\r\n`);
@@ -178,7 +173,6 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                 }
                 await debugLauncher.launchDebugger(launchOptions, () => {
                     serverDispose(); // this will resolve the deferredTillAllServerClose
-                    deferredTillEOT?.resolve();
                 });
             } else {
                 // This means it is running the test
@@ -229,12 +223,6 @@ export class UnittestTestExecutionAdapter implements ITestExecutionAdapter {
                             this.resultResolver?.resolveExecution(
                                 utils.createExecutionErrorPayload(code, signal, testIds, cwd),
                                 runInstance,
-                                deferredTillEOT,
-                            );
-                            this.resultResolver?.resolveExecution(
-                                utils.createEOTPayload(true),
-                                runInstance,
-                                deferredTillEOT,
                             );
                         }
                         serverDispose();

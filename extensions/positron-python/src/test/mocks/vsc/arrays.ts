@@ -186,9 +186,6 @@ export function sortedDiff<T>(before: T[], after: T[], compare: (a: T, b: T) => 
 /**
  * Takes two *sorted* arrays and computes their delta (removed, added elements).
  * Finishes in `Math.min(before.length, after.length)` steps.
- * @param before
- * @param after
- * @param compare
  */
 export function delta<T>(before: T[], after: T[], compare: (a: T, b: T) => number): { removed: T[]; added: T[] } {
     const splices = sortedDiff(before, after, compare);
@@ -367,7 +364,7 @@ export function index<T, R>(array: T[], indexer: (t: T) => string, merger?: (t: 
 export function index<T, R>(
     array: T[],
     indexer: (t: T) => string,
-    merger: (t: T, r: R) => R = (t) => (t as unknown) as R,
+    merger: (t: T, r: R) => R = (t) => t as unknown as R,
 ): Record<string, R> {
     return array.reduce((r, t) => {
         const key = indexer(t);
