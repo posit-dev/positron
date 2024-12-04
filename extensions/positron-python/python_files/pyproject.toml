@@ -2,7 +2,7 @@
 # --- Start Positron ---
 # Exclude vendored positron_ipykernel dependencies as well.
 exclude = ['lib', 'positron/positron_ipykernel/_vendor']
-extraPaths = ['lib', 'positron/positron_ipykernel/_vendor']
+extraPaths = ['lib/python', 'positron/positron_ipykernel/_vendor']
 # --- End Positron ---
 ignore = [
     # Ignore all pre-existing code with issues
