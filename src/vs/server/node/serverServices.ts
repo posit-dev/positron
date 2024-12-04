@@ -80,9 +80,9 @@ import { NodePtyHostStarter } from '../../platform/terminal/node/nodePtyHostStar
 import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 
 // --- Start Positron ---
-import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
-import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
-import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
+import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
+import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 // --- End Positron ---
 
 const eventPrefix = 'monacoworkbench';

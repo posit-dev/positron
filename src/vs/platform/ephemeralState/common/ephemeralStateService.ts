@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { IEphemeralStateService } from './ephemeralState.js';
 
 /**
  * A simple service that stores data in memory.

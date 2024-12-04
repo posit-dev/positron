@@ -11,16 +11,16 @@ import * as React from 'react';
 import { useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 
 // Other dependencies.
-import { IAction } from 'vs/base/common/actions';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
-import { MenuItemAction } from 'vs/platform/actions/common/actions';
-import { IModifierKeyStatus, ModifierKeyEmitter } from 'vs/base/browser/dom';
-import { IAccessibilityService } from 'vs/platform/accessibility/common/accessibility';
-import { useRegisterWithActionBar } from 'vs/platform/positronActionBar/browser/useRegisterWithActionBar';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { ActionBarButton, ActionBarButtonProps } from 'vs/platform/positronActionBar/browser/components/actionBarButton';
-import { actionTooltip, toMenuActionItem } from 'vs/platform/positronActionBar/common/helpers';
+import { IAction } from '../../../../base/common/actions.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
+import { MenuItemAction } from '../../../actions/common/actions.js';
+import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
+import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
+import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { usePositronActionBarContext } from '../positronActionBarContext.js';
+import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
+import { actionTooltip, toMenuActionItem } from '../../common/helpers.js';
 
 /**
  * Constants.

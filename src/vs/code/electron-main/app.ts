@@ -122,9 +122,9 @@ import { ICSSDevelopmentService, CSSDevelopmentService } from '../../platform/cs
 import { ExtensionSignatureVerificationService, IExtensionSignatureVerificationService } from '../../platform/extensionManagement/node/extensionSignatureVerificationService.js';
 
 // --- Start Positron ---
-import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
-import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
-import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
+import { IEphemeralStateService } from '../../platform/ephemeralState/common/ephemeralState.js';
+import { EphemeralStateService } from '../../platform/ephemeralState/common/ephemeralStateService.js';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from '../../platform/ephemeralState/common/ephemeralStateIpc.js';
 // --- End Positron ---
 
 /**
