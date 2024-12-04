@@ -41,6 +41,8 @@ from typing import (
     cast,
 )
 
+from .third_party import _numpy, _pandas, _torch
+
 from .utils import (
     JsonData,
     get_qualname,
@@ -124,27 +126,6 @@ def _get_simplified_qualname(value):
         return PACKAGE_REMAPPERS[top_path](value)
 
     return display_value
-
-
-# Lazy imports for expensive third party packages
-
-
-def _numpy():
-    import numpy as np
-
-    return np
-
-
-def _pandas():
-    import pandas as pd
-
-    return pd
-
-
-def _torch():
-    import torch
-
-    return torch
 
 
 class PositronInspector(Generic[T]):
