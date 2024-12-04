@@ -18,6 +18,21 @@ enum NotebookCellOutputType {
 	ExecuteResult = 'execute_result',
 }
 
+/** An event which fires when a notebook execution starts. */
+export interface DidStartExecutionEvent {
+	/** The notebook cells being executed. */
+	cells: vscode.NotebookCell[];
+}
+
+/** An event which fires when a notebook execution ends. */
+export interface DidEndExecutionEvent {
+	/** The notebook cells that were executed. */
+	cells: vscode.NotebookCell[];
+
+	/** The duration of the execution in milliseconds. */
+	duration: number;
+}
+
 /**
  * Wraps a vscode.NotebookController for a specific language, and manages a notebook runtime session
  * for each vscode.NotebookDocument that uses this controller.
@@ -31,6 +46,15 @@ export class NotebookController implements vscode.Disposable {
 
 	/** The wrapped VSCode notebook controller. */
 	public readonly controller: vscode.NotebookController;
+
+	private readonly _onDidStartExecution = new vscode.EventEmitter<DidStartExecutionEvent>();
+	private readonly _onDidEndExecution = new vscode.EventEmitter<DidEndExecutionEvent>();
+
+	/** An event that fires when a notebook execution starts. */
+	public readonly onDidStartExecution = this._onDidStartExecution.event;
+
+	/** An event that fires when a notebook execution ends. */
+	public readonly onDidEndExecution = this._onDidEndExecution.event;
 
 	/** Incremented for each cell we create to give it a unique ID. */
 	private static _CELL_COUNTER = 0;
@@ -120,9 +144,19 @@ export class NotebookController implements vscode.Disposable {
 	 * @returns Promise that resolves when the language has been set.
 	 */
 	private async executeCells(cells: vscode.NotebookCell[], notebook: vscode.NotebookDocument, _controller: vscode.NotebookController) {
+		const startTime = Date.now();
+
+		this._onDidStartExecution.fire({ cells });
+
 		// Queue all cells for execution; catch and log any execution errors.
-		await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook)))
-			.catch(err => log.debug(`Error executing cell: ${err}`));
+		try {
+			await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook)));
+		} catch (err) {
+			log.debug(`Error executing cells: ${err}`);
+		}
+
+		const duration = Date.now() - startTime;
+		this._onDidEndExecution.fire({ cells, duration });
 	}
 
 	/**
@@ -180,7 +214,6 @@ export class NotebookController implements vscode.Disposable {
 
 		const cellId = `positron-notebook-cell-${NotebookController._CELL_COUNTER++}`;
 
-		let success: boolean;
 		try {
 			await executeCode({
 				session,
@@ -190,13 +223,11 @@ export class NotebookController implements vscode.Disposable {
 				errorBehavior: positron.RuntimeErrorBehavior.Stop,
 				callback: message => this.handleMessageForCellExecution(message, currentExecution, session),
 			});
-			success = true;
+			currentExecution.end(true, Date.now());
 		} catch (error) {
-			// No need to log since the error message will be displayed in the cell output.
-			success = false;
+			currentExecution.end(false, Date.now());
+			throw error;
 		}
-
-		currentExecution.end(success, Date.now());
 	}
 
 	private async handleMessageForCellExecution(
@@ -289,7 +320,9 @@ function executeCode(
 				// Handle the message.
 				if (message.type === positron.LanguageRuntimeMessageType.Error) {
 					const error = message as positron.LanguageRuntimeError;
-					throw error;
+					throw new Error(
+						`Received language runtime error message: ${JSON.stringify(error)}`
+					);
 				} else if (message.type === positron.LanguageRuntimeMessageType.State) {
 					const state = message as positron.LanguageRuntimeState;
 					if (state.state === positron.RuntimeOnlineState.Idle) {
@@ -298,10 +331,19 @@ function executeCode(
 					}
 				}
 			}).catch(error => {
+				// Stop listening for replies.
 				handler.dispose();
+
+				// Reject the outer execution promise since we've encountered an error.
 				reject(error);
+
+				// Rethrow the error to stop any replies that are chained to this promise.
 				throw error;
 			});
+
+			// Avoid unhandled rejections being logged to the console.
+			// The actual error-handling is in the catch block above.
+			currentMessagePromise.catch(() => { });
 		});
 
 		// Execute the cell.

@@ -6,9 +6,10 @@
 import { Event } from '../../../../../base/common/event.js';
 import { IEditor } from '../../../../../editor/common/editorCommon.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { RuntimeItem } from '../classes/runtimeItem.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
+import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
+import { RuntimeCodeExecutionMode } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -88,9 +89,10 @@ export interface IPositronConsoleService {
 	 * @param focus A value which indicates whether to focus Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
+	 * @param mode Possible code execution modes for a language runtime
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean>;
+	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<boolean>;
 }
 
 /**
@@ -108,6 +110,17 @@ export enum SessionAttachMode {
 
 	/** The console is reattaching to a connected session */
 	Connected = 'connected',
+}
+
+/**
+ * Represents a code fragment and its execution options sent to a language runtime.
+ */
+export interface ILanguageRuntimeCodeExecutedEvent {
+	/* The code that was executed in the language runtime session */
+	code: string;
+
+	/* The mode used to execute the code in the language runtime session */
+	mode: RuntimeCodeExecutionMode;
 }
 
 /**
@@ -212,7 +225,7 @@ export interface IPositronConsoleInstance {
 	/**
 	 * The onDidExecuteCode event.
 	 */
-	readonly onDidExecuteCode: Event<string>;
+	readonly onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
 
 	/**
 	 * The onDidSelectPlot event.
@@ -296,14 +309,16 @@ export interface IPositronConsoleInstance {
 	 * @param code The code to enqueue.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
+	 * @param mode Possible code execution modes for a language runtime.
 	 */
-	enqueueCode(code: string, allowIncomplete?: boolean): Promise<void>;
+	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<void>;
 
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
+	 * @param mode Possible code execution modes for a language runtime.
 	 */
-	executeCode(code: string): void;
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode): void;
 
 	/**
 	 * Replies to a prompt.

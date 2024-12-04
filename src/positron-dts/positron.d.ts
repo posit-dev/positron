@@ -819,6 +819,11 @@ declare module 'positron' {
 		replyToPrompt(id: string, reply: string): void;
 
 		/**
+		 * Set the current working directory of the session.
+		 */
+		setWorkingDirectory(dir: string): Thenable<void>;
+
+		/**
 		 * Start the session; returns a Thenable that resolves with information about the runtime.
 		 * If the runtime fails to start for any reason, the Thenable should reject with an error
 		 * object containing a `message` field with a human-readable error message and an optional
@@ -1213,13 +1218,15 @@ declare module 'positron' {
 		 * @param focus Whether to focus the runtime's console
 		 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
+		* @param mode Possible code execution modes for a language runtime
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
 		export function executeCode(languageId: string,
 			code: string,
 			focus: boolean,
-			allowIncomplete?: boolean): Thenable<boolean>;
+			allowIncomplete?: boolean,
+			mode?: RuntimeCodeExecutionMode): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime manager with Positron. Returns a

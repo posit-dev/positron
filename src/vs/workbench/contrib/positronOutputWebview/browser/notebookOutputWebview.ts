@@ -16,14 +16,15 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { FromWebviewMessage, IClickedDataUrlMessage } from '../../notebook/browser/view/renderers/webviewMessages.js';
 import { IScopedRendererMessaging } from '../../notebook/common/notebookRendererMessagingService.js';
-import { INotebookOutputWebview } from './notebookOutputWebviewService.js';
+import { INotebookOutputWebview, WebviewType } from './notebookOutputWebviewService.js';
 import { IOverlayWebview, IWebviewElement } from '../../webview/browser/webview.js';
 import { INotebookLoggingService } from '../../notebook/common/notebookLoggingService.js';
 
-interface NotebookOutputWebviewOptions<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> {
+interface NotebookOutputWebviewOptions {
 	readonly id: string;
 	readonly sessionId: string;
-	readonly webview: WType;
+	readonly webview: IOverlayWebview | IWebviewElement;
+	webviewType: WebviewType;
 	rendererMessaging?: IScopedRendererMessaging;
 }
 
@@ -32,14 +33,15 @@ interface NotebookOutputWebviewOptions<WType extends IOverlayWebview | IWebviewE
  * A notebook output webview wraps a webview that contains rendered HTML content
  * from notebooks (including raw HTML or the Notebook Renderer API).
  */
-export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewElement = IOverlayWebview> extends Disposable implements INotebookOutputWebview<WType> {
+export class NotebookOutputWebview extends Disposable implements INotebookOutputWebview {
 
 	private readonly _onDidInitialize = this._register(new Emitter<void>());
 	private readonly _onDidRender = this._register(new Emitter<void>);
 
 	readonly id: string;
 	readonly sessionId: string;
-	readonly webview: WType;
+	readonly webview: IOverlayWebview | IWebviewElement;
+	readonly webviewType: WebviewType;
 
 	/**
 	 * Fired when the webviewPreloads script is loaded.
@@ -65,8 +67,9 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 			id,
 			sessionId,
 			webview,
-			rendererMessaging
-		}: NotebookOutputWebviewOptions<WType>,
+			rendererMessaging,
+			webviewType
+		}: NotebookOutputWebviewOptions,
 		@IFileDialogService private _fileDialogService: IFileDialogService,
 		@IFileService private _fileService: IFileService,
 		@IWorkspaceContextService private _workspaceContextService: IWorkspaceContextService,
@@ -82,6 +85,7 @@ export class NotebookOutputWebview<WType extends IOverlayWebview | IWebviewEleme
 		this.id = id;
 		this.sessionId = sessionId;
 		this.webview = webview;
+		this.webviewType = webviewType;
 
 		if (rendererMessaging) {
 			this._register(rendererMessaging);

@@ -38,6 +38,11 @@ export interface CellData {
 	[key: string]: string;
 }
 
+export interface ColumnProfile {
+	profileData: { [key: string]: string };
+	profileSparklineHeights: string[];
+}
+
 /*
  *  Reuseable Positron data explorer functionality for tests to leverage.
  */
@@ -179,7 +184,7 @@ export class PositronDataExplorer {
 		return await row.innerText();
 	}
 
-	async getColumnProfileInfo(rowNumber: number): Promise<{ [key: string]: string }> {
+	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
 		const expandCollapseLocator = this.code.driver.getLocator(EXPAND_COLLAPSE_PROFILE(rowNumber));
 
@@ -201,12 +206,28 @@ export class PositronDataExplorer {
 			}
 		}
 
+		// some rects have "count" class, some have "bin-count" class, some have "count other" class
+		const rects = await this.code.driver.getLocator('.column-profile-sparkline').locator('[class*="count"]').all();
+		const profileSparklineHeights: string[] = [];
+		for (let i = 0; i < rects.length; i++) {
+			const height = await rects[i].getAttribute('height');
+			if (height !== null) {
+				const rounded = parseFloat(height).toFixed(1); // Round to one decimal place
+				profileSparklineHeights.push(rounded);
+			}
+		}
+
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
 
 		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-right/);
 
-		return profileData;
+		const profileInfo: ColumnProfile = {
+			profileData: profileData,
+			profileSparklineHeights: profileSparklineHeights
+		};
+
+		return profileInfo;
 
 	}
 

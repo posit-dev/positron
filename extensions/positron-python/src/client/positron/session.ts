@@ -107,7 +107,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         const interpreter = interpreterService.getInterpreters().find((i) => i.id === extraData.pythonEnvironmentId);
         if (!interpreter) {
-            throw new Error(`Interpreter not found: ${extraData.pythonEnvironmentId}`);
+            const interpreterIds = interpreterService.getInterpreters().map((i) => `\n- ${i.id}`);
+            throw new Error(
+                `Interpreter ${extraData.pythonEnvironmentId} (path: ${extraData.pythonPath}) not found in available Python interpreters: ${interpreterIds}`,
+            );
         }
         this.interpreter = interpreter;
 
@@ -203,6 +206,34 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    async setWorkingDirectory(dir: string): Promise<void> {
+        if (this._kernel) {
+            // Check to see if the 'os' module is available in the kernel
+            const loaded = await this._kernel.callMethod('isModuleLoaded', 'os');
+            let code = '';
+            if (!loaded) {
+                code = 'import os; ';
+            }
+            // Escape backslashes in the directory path
+            dir = dir.replace(/\\/g, '\\\\');
+
+            // Escape single quotes in the directory path
+            dir = dir.replace(/'/g, "\\'");
+
+            // Set the working directory
+            code += `os.chdir('${dir}')`;
+
+            this._kernel.execute(
+                code,
+                createUniqueId(),
+                positron.RuntimeCodeExecutionMode.Interactive,
+                positron.RuntimeErrorBehavior.Continue,
+            );
+        } else {
+            throw new Error(`Cannot set working directory to ${dir}; kernel not started`);
+        }
+    }
+
     private async _installIpykernel(): Promise<void> {
         // Get the installer service
         const installer = this.serviceContainer.get<IInstaller>(IInstaller);
@@ -285,12 +316,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         // Ensure that the ipykernel module is installed for the interpreter.
         await this._installIpykernel();
 
-        // Update the active environment in the Python extension.
-        this._interpreterPathService.update(
-            undefined,
-            vscode.ConfigurationTarget.WorkspaceFolder,
-            this.interpreter.path,
-        );
+        if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console) {
+            // Update the active environment in the Python extension.
+            this._interpreterPathService.update(
+                undefined,
+                vscode.ConfigurationTarget.WorkspaceFolder,
+                this.interpreter.path,
+            );
+        }
 
         // Register for console width changes, if we haven't already
         if (!this._consoleWidthDisposable) {
@@ -434,20 +467,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-        // Determine whether to use the Kallichore supervisor
-        let useKallichore = true;
-        if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-            // In desktop mode, the supervisor is disabled by default, but can
-            // be enabled via the configuration.
-            const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
-            useKallichore = config.get<boolean>('enable', false);
-        }
-
-        if (useKallichore) {
-            // Use the Kallichore supervisor if enabled
-            const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+        const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+        if (config.get<boolean>('enable', true) && this.runtimeMetadata.runtimeId !== 'reticulate') {
+            // Use the Positron kernel supervisor if enabled
+            const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
             if (!ext) {
-                throw new Error('Kallichore Adapter extension not found');
+                throw new Error('Positron Supervisor extension not found');
             }
             if (!ext.isActive) {
                 await ext.activate();
@@ -609,6 +634,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             }
         }
     }
+}
+
+export function createUniqueId(): string {
+    return Math.floor(Math.random() * 0x100000000).toString(16);
 }
 
 export function createJupyterKernelExtra(): undefined {

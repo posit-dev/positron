@@ -74,7 +74,7 @@ export interface IRuntimeSessionMetadata {
  * The main interface for interacting with a language runtime session.
  */
 
-export interface ILanguageRuntimeSession {
+export interface ILanguageRuntimeSession extends IDisposable {
 	/** The language runtime's static metadata */
 	readonly runtimeMetadata: ILanguageRuntimeMetadata;
 
@@ -164,6 +164,11 @@ export interface ILanguageRuntimeSession {
 	 * (via a LanguageRuntimePrompt message)
 	 */
 	replyToPrompt(id: string, value: string): void;
+
+	/**
+	 * Set the runtime's working directory.
+	 */
+	setWorkingDirectory(directory: string): Thenable<void>;
 
 	start(): Thenable<ILanguageRuntimeInfo>;
 

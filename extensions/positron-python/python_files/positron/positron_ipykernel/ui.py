@@ -9,7 +9,7 @@ import os
 import sys
 import webbrowser
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 from urllib.parse import urlparse
 
 from comm.base_comm import BaseComm
@@ -28,6 +28,9 @@ from .ui_comm import (
     WorkingDirectoryParams,
 )
 from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
+
+if TYPE_CHECKING:
+    from .positron_ipkernel import PositronIPyKernel
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +54,16 @@ class _InvalidParamsError(Exception):
     pass
 
 
-def _set_console_width(params: List[JsonData]) -> None:
+def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bool:
+    if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
+        raise _InvalidParamsError(f"Expected a module name, got: {params}")
+    # Consider: this is not a perfect check for a couple of reasons:
+    # 1. The module could be loaded under a different name
+    # 2. The user may have a variable with the same name as the module
+    return params[0] in kernel.shell.user_ns.keys()
+
+
+def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
@@ -79,8 +91,9 @@ def _set_console_width(params: List[JsonData]) -> None:
         torch_.set_printoptions(linewidth=width)
 
 
-_RPC_METHODS: Dict[str, Callable[[List[JsonData]], JsonData]] = {
+_RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
+    "isModuleLoaded": _is_module_loaded,
 }
 
 
@@ -90,7 +103,9 @@ class UiService:
     Used for communication with the frontend, unscoped to any particular view.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, kernel: "PositronIPyKernel") -> None:
+        self.kernel = kernel
+
         self._comm: Optional[PositronComm] = None
 
         self._working_directory: Optional[Path] = None
@@ -157,7 +172,7 @@ class UiService:
             return logger.warning(f"Invalid frontend RPC request method: {rpc_request.method}")
 
         try:
-            result = func(rpc_request.params)
+            result = func(self.kernel, rpc_request.params)
         except _InvalidParamsError as exception:
             return logger.warning(
                 f"Invalid frontend RPC request params for method '{rpc_request.method}'. {exception}"

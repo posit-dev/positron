@@ -9,11 +9,11 @@ import './CellEditorMonacoWidget.css';
 // React.
 import React from 'react';
 
-// Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
 import { EditorExtensionsRegistry, IEditorContributionDescription } from '../../../../../editor/browser/editorExtensions.js';
 import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { Event } from '../../../../../base/common/event.js';
+
 import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
 import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
@@ -21,7 +21,7 @@ import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cell
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useServices } from '../ServicesProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { PositronNotebookCellGeneral } from '../PositronNotebookCell.js';
+import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 
 /**
  *

@@ -7,7 +7,8 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { findCurrentRBinary, makeMetadata, rRuntimeDiscoverer } from './provider';
 import { RInstallation, RMetadataExtra } from './r-installation';
-import { RSession, createJupyterKernelExtra, createJupyterKernelSpec } from './session';
+import { RSession, createJupyterKernelExtra } from './session';
+import { createJupyterKernelSpec } from './kernel-spec';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 

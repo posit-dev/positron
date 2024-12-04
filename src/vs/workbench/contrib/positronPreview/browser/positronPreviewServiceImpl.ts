@@ -13,7 +13,7 @@ import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
 import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PreviewUrl } from './previewUrl.js';
 import { ShowHtmlFileEvent, ShowUrlEvent, UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
@@ -26,6 +26,9 @@ import { PreviewHtml } from './previewHtml.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { basename } from '../../../../base/common/path.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 
 /**
  * Positron preview service; keeps track of the set of active previews and
@@ -45,6 +48,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	private _onDidChangeActivePreviewWebview = new Emitter<string>;
 
+	private _editors: Map<string, { uri: URI; webview: PreviewWebview; title?: string }> = new Map();
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
@@ -53,7 +58,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		@ILogService private readonly _logService: ILogService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
-		@IExtensionService private readonly _extensionService: IExtensionService
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IEditorService private readonly _editorService: IEditorService
 	) {
 		super();
 		this.onDidCreatePreviewWebview = this._onDidCreatePreviewWebviewEmitter.event;
@@ -395,8 +401,14 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
 				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview(e.id, session, e);
+					this._notebookOutputWebviewService.createNotebookOutputWebview({
+						id: e.id,
+						runtime: session,
+						output: e,
+						webviewType: WebviewType.Overlay
+					});
 				if (webview) {
+					assertIsOverlayPositronWebview(webview);
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(
 						'notebookRenderer',
@@ -495,5 +507,36 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 		// It's a localhost http or https URL; we can handle it in the viewer.
 		return true;
+	}
+
+	public async openEditor(uri: URI, title?: string): Promise<void> {
+		// Create and store webview overlay for editor
+		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
+		this._editors.set(previewId, {
+			uri: uri,
+			webview: this.createPreviewUrl(previewId, undefined, uri),
+			title: title || uri.authority || uri.path
+		});
+
+		await this._editorService.openEditor({
+			resource: URI.from({
+				scheme: Schemas.positronPreviewEditor,
+				path: previewId
+			}),
+		});
+	}
+
+	public editorWebview(editorId: string): PreviewWebview | undefined {
+		return this._editors.get(editorId)?.webview;
+	}
+
+	public editorTitle(previewId: string): string | undefined {
+		return this._editors.get(previewId)?.title;
+	}
+
+	public disposeEditor(previewId: string): void {
+		this._editors.get(previewId)?.webview.dispose();
+		// Remove the preview
+		this._editors.delete(previewId);
 	}
 }

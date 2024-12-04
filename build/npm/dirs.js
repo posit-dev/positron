@@ -23,6 +23,7 @@ const dirs = [
 	'extensions/positron-reticulate',
 	'extensions/positron-rstudio-keymap',
 	'extensions/positron-run-app',
+	'extensions/positron-supervisor',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
 	'extensions/positron-viewer',
@@ -49,7 +50,6 @@ const dirs = [
 	'extensions/json-language-features/server',
 	// --- Start Positron ---
 	'extensions/jupyter-adapter',
-	'extensions/kallichore-adapter',
 	// --- End Positron ---
 	'extensions/markdown-language-features',
 	'extensions/markdown-math',

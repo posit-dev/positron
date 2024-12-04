@@ -1788,11 +1788,10 @@ export class NotebookEditorWidget extends Disposable implements INotebookEditorD
 			}
 			// --- Start Positron ---
 		} else if (this.textModel) {
-			// If we still haven't selected a kernel, try to select the suggested one.
+			// If we still haven't selected a kernel, and there's a single suggested kernel, select it.
 			const matching = this.notebookKernelService.getMatchingKernel(this.textModel);
-			const kernel = matching.suggestions.length === 1 ? matching.suggestions[0] : undefined;
-			if (kernel) {
-				this.notebookKernelService.selectKernelForNotebook(kernel, this.textModel);
+			if (!matching.selected && matching.suggestions.length === 1) {
+				this.notebookKernelService.selectKernelForNotebook(matching.suggestions[0], this.textModel);
 			}
 			// --- End Positron ---
 		}

@@ -12,6 +12,7 @@ import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
+import { registerUriHandler } from './uri-handler';
 
 export const LOGGER = vscode.window.createOutputChannel('Positron R Extension', { log: true });
 
@@ -35,6 +36,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Provide tasks.
 	providePackageTasks(context);
+
+	// Prepare to handle cli-produced hyperlinks that target the positron-r extension.
+	registerUriHandler();
 
 	// Setup testthat test explorer.
 	setupTestExplorer(context);

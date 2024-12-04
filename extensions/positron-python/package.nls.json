@@ -104,6 +104,7 @@
     "python.testing.unittestEnabled.description": "Enable testing using unittest.",
     "python.venvFolders.description": "Folders in your home directory to look into for virtual environments (supports pyenv, direnv and virtualenvwrapper by default).",
     "python.venvPath.description": "Path to folder with a list of Virtual Environments (e.g. ~/.pyenv, ~/Envs, ~/.virtualenvs).",
+    "python.installModulesInTerminal.description": "Whether to install Python modules (such as `ipykernel`) in the Terminal, instead of in a background process. Installing modules in the Terminal allows you to see the output of the installation command.",
     "walkthrough.pythonWelcome.title": "Get Started with Python Development",
     "walkthrough.pythonWelcome.description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
      "walkthrough.step.python.createPythonFile.title": "Create a Python file",

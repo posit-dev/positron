@@ -31,6 +31,7 @@ import { IPositronPlotsService } from '../../../services/positronPlots/common/po
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronPlotsViewPane class.
@@ -141,39 +142,43 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 
 	/**
 	 * Constructor.
-	 * @param options The IViewPaneOptions for the view pane.
-	 * @param commandService The ICommandService.
-	 * @param configurationService The IConfigurationService.
-	 * @param contextKeyService The IContextKeyService.
-	 * @param contextMenuService The IContextMenuService.
-	 * @param instantiationService The IInstantiationService.
-	 * @param keybindingService The IKeybindingService.
-	 * @param openerService The IOpenerService.
-	 * @param positronPlotsService The IPositronPlotsService.
-	 * @param telemetryService The ITelemetryService.
-	 * @param themeService The IThemeService.
-	 * @param viewDescriptorService The IViewDescriptorService.
-	 * @param workbenchLayoutService The IWorkbenchLayoutService.
-	 * @param notificationService The INotificationService.
-	 * @param hoverService The IHoverService.
+	 * @param options The options for the view pane.
+	 * @param accessibilityService The accessibility service.
+	 * @param commandService The command service.
+	 * @param configurationService The configuration service.
+	 * @param contextKeyService The context key service.
+	 * @param contextMenuService The context menu service.
+	 * @param hoverService The hover service.
+	 * @param instantiationService The instantiation service.
+	 * @param keybindingService The keybinding service.
+	 * @param languageRuntimeService The language runtime service.
+	 * @param notificationService The notification service.
+	 * @param openerService The opener service.
+	 * @param positronPlotsService The oositron plots service.
+	 * @param telemetryService The telemetry service.
+	 * @param themeService The theme service.
+	 * @param viewDescriptorService The view descriptor service.
+	 * @param layoutService The layout service.
+	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
+		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
+		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@INotificationService private readonly notificationService: INotificationService,
-		@IHoverService hoverService: IHoverService,
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, telemetryService, hoverService);
@@ -238,6 +243,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronPlotsContainer));
 		this._positronReactRenderer.render(
 			<PositronPlots
+				accessibilityService={this.accessibilityService}
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}

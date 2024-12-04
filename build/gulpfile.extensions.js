@@ -29,7 +29,6 @@ const ext = require('./lib/extensions');
 // });
 const compilations = [
 	// --- Start Positron ---
-	'extensions/kallichore-adapter/tsconfig.json',
 	'extensions/open-remote-ssh/tsconfig.json',
 	'extensions/positron-code-cells/tsconfig.json',
 	'extensions/positron-connections/tsconfig.json',
@@ -38,14 +37,15 @@ const compilations = [
 	'extensions/positron-javascript/tsconfig.json',
 	'extensions/positron-notebook-controllers/tsconfig.json',
 	'extensions/positron-notebooks/tsconfig.json',
+	'extensions/positron-proxy/tsconfig.json',
+	'extensions/positron-python/tsconfig.json',
 	'extensions/positron-r/tsconfig.json',
+	'extensions/positron-reticulate/tsconfig.json',
 	'extensions/positron-rstudio-keymap/tsconfig.json',
 	'extensions/positron-run-app/tsconfig.json',
-	'extensions/positron-python/tsconfig.json',
-	'extensions/positron-proxy/tsconfig.json',
+	'extensions/positron-supervisor/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',
-	'extensions/positron-reticulate/tsconfig.json',
 	'extensions/jupyter-adapter/tsconfig.json',
 	// --- End Positron ---
 	'extensions/configuration-editing/tsconfig.json',

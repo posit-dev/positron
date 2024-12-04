@@ -35,6 +35,7 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronVariablesViewPane class.
@@ -168,6 +169,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
+	 * @param _accessibilityService The accessibility service.
 	 * @param clipboardService The clipboard service.
 	 * @param _commandService The command service.
 	 * @param configurationService The configuration service.
@@ -188,6 +190,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -269,6 +272,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronVariables
+				accessibilityService={this._accessibilityService}
 				clipboardService={this.clipboardService}
 				commandService={this._commandService}
 				configurationService={this.configurationService}

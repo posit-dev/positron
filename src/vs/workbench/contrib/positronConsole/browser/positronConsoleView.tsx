@@ -41,6 +41,7 @@ import { ILanguageRuntimeService } from '../../../services/languageRuntime/commo
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -172,6 +173,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	/**
 	 * Constructor.
 	 * @param options View pane options.
+	 * @param accessibilityService The accessibility service.
 	 * @param clipboardService The clipboard service.
 	 * @param commandService The command service.
 	 * @param configurationService The configuration service.
@@ -190,6 +192,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * @param positronConsoleService The Positron console service.
 	 * @param positronPlotsService The Positron plots service.
 	 * @param runtimeSessionService The runtime session service.
+	 * @param runtimeStartupService The runtime startup service.
 	 * @param telemetryService The telemetry service.
 	 * @param themeService The theme service.
 	 * @param viewDescriptorService The view descriptor service.
@@ -198,6 +201,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 */
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
@@ -275,6 +279,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronConsole
+				accessibilityService={this.accessibilityService}
 				clipboardService={this.clipboardService}
 				commandService={this.commandService}
 				configurationService={this.configurationService}

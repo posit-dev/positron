@@ -6,6 +6,7 @@
 import { NotebookCellOutputTextModel } from '../../notebook/common/model/notebookCellOutputTextModel.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { ICellOutput } from '../../notebook/common/notebookCommon.js';
+import { ParsedOutput, ParsedTextOutput } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 
 type CellOutputInfo = { id: string; content: string };
 
@@ -74,37 +75,12 @@ function getTextOutputContents(output: NotebookCellOutputTextModel): string {
 	}).join('\n');
 }
 
-export type ParsedTextOutput = {
-	type: 'stdout' | 'text' | 'stderr' | 'error';
-	content: string;
-};
 
 const textOutputTypes: ParsedTextOutput['type'][] = ['stdout', 'text', 'stderr', 'error'];
 
 export function isParsedTextOutput(output: ParsedOutput): output is ParsedTextOutput {
 	return (textOutputTypes as string[]).includes(output.type);
 }
-
-/**
- * Contents from cell outputs parsed for React components to display
- */
-type ParsedOutput = ParsedTextOutput |
-{
-	type: 'image';
-	dataUrl: string;
-} |
-{
-	type: 'html';
-	content: string;
-} |
-{
-	type: 'interupt';
-	trace: string;
-} |
-{
-	type: 'unknown';
-	contents: string;
-};
 
 /**
  * Parse cell output into standard serializable js objects.
@@ -143,10 +119,6 @@ export function parseOutputData(output: ICellOutput['outputs'][number]): ParsedO
 
 	if (mime === 'text/plain') {
 		return { type: 'text', content: message };
-	}
-
-	if (mime === 'text/html') {
-		return { type: 'html', content: message };
 	}
 
 	if (mime === 'image/png') {

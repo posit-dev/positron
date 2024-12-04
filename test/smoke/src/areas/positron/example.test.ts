@@ -3,36 +3,74 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// Note - these paths will need to change for your specific test location
-import { Application, PositronPythonFixtures } from '../../../../automation';
-import { setupAndStartApp } from '../../test-runner/test-hooks';
+// TO RUN THIS TEST:
+// remove this line of code from playwright.config.ts: `testIgnore: '**/example.test.ts`
 
-describe('Major Test Area', () => {
-	// Needed at parent `describe` block to setup shared before/after hooks
-	// It does return the logger (in case you want/need to log in test)
-	setupAndStartApp();
+// we must import test from _test.setup to ensure we have the correct test
+// context which enables our custom fixtures
+import { test, expect } from './_test.setup';
 
-	describe('Minor Test area', () => {
+// we need this to ensure each spec gets a fresh app instance read more here:
+// https://positpbc.atlassian.net/wiki/spaces/POSITRON/pages/1224999131/Proof+of+Concept+Playwright#SuiteId
+test.use({
+	suiteId: __filename
+});
 
-		before(async function () {
-			// Executes once before executing all tests.
-			// Change to 'beforeEach' if it needs to run before each individual test.
-			await PositronPythonFixtures.SetupFixtures(this.app as Application);
-		});
+test.describe('Examples of Concepts', () => {
+	test.beforeAll('How to set User Settings', async function ({ userSettings }) {
+		// we set the user settings before all tests in a spec begin
+		// the fixture cleans up and unsets after all tests have finished
+		await userSettings.set([['files.autoSave', 'false']]);
+	});
 
-		it('Sample Test Case A [TESTRAIL_ID]', async function () {
-			const app = this.app as Application; //Get handle to application
-			await app.workbench.positronConsole.barPowerButton.waitforVisible();
-			this.code.logger.log("Waiting for Power button.");
-		});
+	test('How to use app instance', async function ({ app }) {
+		// the "app" fixture is automatically created and available for use in all tests
+		// we just need to reference it in the test function signature to use it
+		// note: the app instance is re-created for EACH SPEC FILE
+		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+	});
 
-		it('Sample Test Case B [TESTRAIL_ID]', async function () {
-			const app = this.app as Application; //Get handle to application
-			await app.workbench.positronConsole.barRestartButton.waitforVisible();
-			this.code.logger.log("Waiting for Power button.");
-		});
+	test('How to use page instance', async function ({ app, page }) {
+		// the first step in this test accesses the page instance directly via the app
+		// object (app.code.driver.page), while the second step in this test uses the "page" fixture
+		// which is just passing the same app object directly, therefore simplifying the code
+		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+		await expect(page.getByLabel('Start Interpreter')).toBeVisible();
+	});
 
+	test('How to use logger', async function ({ logger }) {
+		// the "logger" fixture is automatically created and available for use in all tests
+		// we just need to reference it in the test function signature to use it
+		// log files can be found at: /test-logs and are also attached to the HTML report
+		logger.log("This will show up in the log files");
+	});
+
+	test('How to set Python/R interpreter at start of test', async function ({ page, r }) {
+		// we can invoke the "r" interpreter fixture, which will set the interpreter to R
+		// before any of the test steps execute
+		await expect(page.getByText(/R.*started/)).toBeVisible();
+	});
+
+	test('How to set Python/R interpreter anywhere in test', async function ({ page, interpreter }) {
+		// we can invoke the "interpreter" fixture, and then set the interpreter to Python or R
+		// from anywhere within our test
+		await expect(page.getByText(/R.*started|Start Interpreter/)).toBeVisible();
+		await interpreter.set('Python');
+		await expect(page.getByText(/Python.*started/)).toBeVisible();
+	});
+
+	test('How to restart app instance at start of test', async function ({ restartApp: app }) {
+		// in some cases you may want to restart the app instance within a spec file
+		// this example uses the "restartApp" fixture which restarts the app instance
+		// before any of test steps execute
+		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
+	});
+
+	test('How to restart app instance anywhere in test', async function ({ app }) {
+		// this example call the restart method on the app instance, which can be used
+		// from anywhere within the test
+		await app.restart();
+		await expect(app.code.driver.page.getByLabel('Start Interpreter')).toBeVisible();
 	});
 
 });
-

@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { IElement } from './driver';
 
 export class QuickInput {
 
@@ -62,23 +61,12 @@ export class QuickInput {
 		}
 	}
 	// --- Start Positron ---
-	async selectQuickInputElementContaining(contains: string): Promise<IElement | undefined> {
-		const selector = `${QuickInput.QUICK_INPUT_ROW}[aria-label*="${contains}"]`;
-		try {
-			const element = this.code.getElement(selector);
-			await this.code.waitAndClick(selector);
-			return element;
-		} catch (ex) {
-			// Show a more helpful error message by clearing the input and logging the list of items
-			await this.type('');
-			const elements = await this.code.waitForElements(QuickInput.QUICK_INPUT_ROW, false);
-			const ariaLabels = elements.map(e => e.attributes['aria-label']);
-			throw new Error(`Could not find item containing '${contains}' in list:\n${ariaLabels.join('\n')}`);
-		}
+	async selectQuickInputElementContaining(text: string): Promise<void> {
+		await this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_ROW}[aria-label*="${text}"]`).first().click({ timeout: 10000 });
 	}
 
 	async clickOkOnQuickInput(): Promise<void> {
-		await this.code.driver.getLocator(QuickInput.QUICKINPUT_OK_BUTTON).click();
+		await this.code.driver.page.locator(QuickInput.QUICKINPUT_OK_BUTTON).click();
 	}
 	// --- End Positron ---
 }

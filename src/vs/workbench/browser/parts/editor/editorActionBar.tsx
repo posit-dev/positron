@@ -10,18 +10,12 @@ import './editorActionBar.css';
 import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { localize } from '../../../../nls.js';
 import * as DOM from '../../../../base/browser/dom.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
-import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { ActionBarButton } from '../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-
-// Constants.
-const PADDING_LEFT = 8;
-const PADDING_RIGHT = 8;
 
 /**
  * EditorActionBarServices interface.
@@ -33,15 +27,8 @@ interface EditorActionBarServices extends PositronActionBarServices {
  * EditorActionBarProps interface
  */
 interface EditorActionBarProps extends EditorActionBarServices {
+	readonly editorActionBarFactory: EditorActionBarFactory;
 }
-
-/**
- * Localized strings.
- */
-const moveIntoNewWindowButtonDescription = localize(
-	'positron.moveIntoNewWindow',
-	"Move into New Window"
-);
 
 /**
  * EditorActionBar component.
@@ -52,38 +39,31 @@ export const EditorActionBar = (props: EditorActionBarProps) => {
 	const ref = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [moveIntoNewWindowDisabled, setMoveIntoNewWindowDisabled] = useState(true);
+	const [, setRenderMarker] = useState(1);
 
-	// Main useEffect.
+	// Menu manager effect.
 	useEffect(() => {
-		setMoveIntoNewWindowDisabled(isAuxiliaryWindow(DOM.getWindow(ref.current)));
-	}, []);
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidActionsChange event handler.
+		disposableStore.add(props.editorActionBarFactory.onDidActionsChange(() => {
+			// Re-render the component.
+			setRenderMarker(renderCounter => renderCounter + 1);
+		}));
+
+		// Return the cleanup function that will dispose of the disposables.
+		return () => disposableStore.dispose();
+	}, [props.editorActionBarFactory]);
+
+	// Determine whether the window is an auxiliary window.
+	const auxiliaryWindow = ref.current ? isAuxiliaryWindow(DOM.getWindow(ref.current)) : undefined;
 
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div ref={ref} className='editor-action-bar'>
-				<PositronActionBar
-					size='small'
-					borderTop={false}
-					borderBottom={true}
-					paddingLeft={PADDING_LEFT}
-					paddingRight={PADDING_RIGHT}
-				>
-					<ActionBarRegion location='right'>
-						<ActionBarButton
-							disabled={moveIntoNewWindowDisabled}
-							iconId='positron-open-in-new-window'
-							tooltip={moveIntoNewWindowButtonDescription}
-							ariaLabel={moveIntoNewWindowButtonDescription}
-							onPressed={() =>
-								props.commandService.executeCommand(
-									'workbench.action.moveEditorToNewWindow'
-								)
-							}
-						/>
-					</ActionBarRegion>
-				</PositronActionBar>
+				{props.editorActionBarFactory.create(auxiliaryWindow)}
 			</div>
 		</PositronActionBarContextProvider>
 	);

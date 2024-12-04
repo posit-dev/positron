@@ -85,6 +85,10 @@ import '../platform/userDataProfile/electron-sandbox/userDataProfileStorageServi
 import './services/auxiliaryWindow/electron-sandbox/auxiliaryWindowService.js';
 import '../platform/extensionManagement/electron-sandbox/extensionsProfileScannerService.js';
 
+// --- Start Positron ---
+import './services/ephemeralState/electron-sandbox/ephemeralStateService.js';
+// --- End Positron ---
+
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
 import { IUserDataInitializationService, UserDataInitializationService } from './services/userData/browser/userDataInit.js';
 import { SyncDescriptor } from '../platform/instantiation/common/descriptors.js';

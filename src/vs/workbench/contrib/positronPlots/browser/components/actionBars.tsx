@@ -33,6 +33,7 @@ import { CopyPlotTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, Plo
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { POSITRON_EDITOR_PLOTS, positronPlotsEditorEnabled } from '../../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -43,6 +44,7 @@ const kPaddingRight = 8;
  */
 export interface ActionBarsProps {
 	// Services.
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

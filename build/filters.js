@@ -29,7 +29,7 @@ module.exports.all = [
 
 	// --- Start Positron ---
 	// Excluded since it's generated code (an OpenAPI client)
-	'!extensions/kallichore-adapter/src/kcclient/**/*',
+	'!extensions/positron-supervisor/src/kcclient/**/*',
 
 	// Excluded since it comes from an external source with its own hygiene
 	// rules

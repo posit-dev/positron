@@ -1332,6 +1332,11 @@ export interface ReturnColumnProfilesParams {
 	 * Array of individual column profile results
 	 */
 	profiles: Array<ColumnProfileResult>;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
 }
 
 /**
@@ -1359,6 +1364,11 @@ export interface ReturnColumnProfilesEvent {
 	 * Array of individual column profile results
 	 */
 	profiles: Array<ColumnProfileResult>;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
 
 }
 
@@ -1390,7 +1400,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidSchemaUpdate = super.createEventEmitter('schema_update', []);
 		this.onDidDataUpdate = super.createEventEmitter('data_update', []);
-		this.onDidReturnColumnProfiles = super.createEventEmitter('return_column_profiles', ['callback_id', 'profiles']);
+		this.onDidReturnColumnProfiles = super.createEventEmitter('return_column_profiles', ['callback_id', 'profiles', 'error_message']);
 	}
 
 	/**

@@ -31,12 +31,14 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronPreviewProps interface.
  */
 export interface PositronPreviewProps extends PositronPreviewServices {
 	// Services.
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

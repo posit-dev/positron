@@ -39,13 +39,13 @@ import { ParameterHintsController } from '../../../../../editor/contrib/paramete
 import { IInputHistoryEntry } from '../../../executionHistory/common/executionHistoryService.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
+import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController2.js';
 
 // Position enumeration.
 const enum Position {
@@ -865,11 +865,12 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(code => {
-			// Trim the code. If it isn't empty, or a duplicate of the last history entry, add it to
-			// the history.
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(({ code, mode }) => {
+			// Trim the code
 			const trimmedCode = code.trim();
-			if (trimmedCode.length) {
+
+			// If the code isn't empty and run interactively, add it to the history.
+			if (trimmedCode.length && mode === RuntimeCodeExecutionMode.Interactive) {
 				// Creates an IInputHistoryEntry.
 				const createInputHistoryEntry = (): IInputHistoryEntry => ({
 					when: new Date().getTime(),

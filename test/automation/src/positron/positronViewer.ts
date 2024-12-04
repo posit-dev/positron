@@ -14,7 +14,7 @@ const FULL_APP = 'body';
 
 export class PositronViewer {
 
-	fullApp = this.code.driver.getLocator(FULL_APP);
+	fullApp = this.code.driver.page.locator(FULL_APP);
 	viewerFrame = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
 
 	constructor(private code: Code) { }
@@ -28,10 +28,11 @@ export class PositronViewer {
 	}
 
 	async refreshViewer() {
-		await this.code.waitAndClick(REFRESH_BUTTON);
+		await this.code.driver.page.locator(REFRESH_BUTTON).click({ timeout: 15000 });
 	}
 
 	async clearViewer() {
+		await this.code.driver.page.getByRole('tab', { name: 'Viewer' }).locator('a').click();
 		await this.fullApp.getByLabel(/Clear the/).click();
 	}
 }

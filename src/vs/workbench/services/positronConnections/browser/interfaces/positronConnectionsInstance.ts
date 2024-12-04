@@ -6,13 +6,35 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IPositronConnectionEntry } from '../positronConnectionsUtils.js';
 
-export interface ConnectionMetadata {
+export interface IConnectionMetadata {
 	name: string;
 	language_id: string;
 	host?: string;
 	type?: string;
 	code?: string;
 	icon?: string;
+}
+
+export class ConnectionMetadata implements IConnectionMetadata {
+	name: string;
+	language_id: string;
+	host?: string;
+	type?: string;
+	code?: string;
+	icon?: string;
+
+	constructor(metadata: IConnectionMetadata) {
+		this.name = metadata.name;
+		this.language_id = metadata.language_id;
+		this.code = metadata.code;
+		this.update(metadata);
+	}
+
+	update(values: Partial<IConnectionMetadata>): void {
+		console.log(values);
+		Object.assign(this, values);
+		console.log(this);
+	}
 }
 
 /***

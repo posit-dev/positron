@@ -79,6 +79,12 @@ import { RemoteUserDataProfilesServiceChannel } from '../../platform/userDataPro
 import { NodePtyHostStarter } from '../../platform/terminal/node/nodePtyHostStarter.js';
 import { CSSDevelopmentService, ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 
+// --- Start Positron ---
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
+// --- End Positron ---
+
 const eventPrefix = 'monacoworkbench';
 
 export async function setupServerServices(connectionToken: ServerConnectionToken, args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, disposables: DisposableStore) {
@@ -205,6 +211,11 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 	const ptyHostService = instantiationService.createInstance(PtyHostService, ptyHostStarter);
 	services.set(IPtyService, ptyHostService);
 
+	// --- Start Positron ---
+	const ephemeralStateService = new EphemeralStateService();
+	services.set(IEphemeralStateService, ephemeralStateService);
+	// --- End Positron ---
+
 	instantiationService.invokeFunction(accessor => {
 		const extensionManagementService = accessor.get(INativeServerExtensionManagementService);
 		const extensionsScannerService = accessor.get(IExtensionsScannerService);
@@ -228,6 +239,12 @@ export async function setupServerServices(connectionToken: ServerConnectionToken
 
 		const channel = new ExtensionManagementChannel(extensionManagementService, (ctx: RemoteAgentConnectionContext) => getUriTransformer(ctx.remoteAuthority));
 		socketServer.registerChannel('extensions', channel);
+
+		// --- Start Positron ---
+		// Ephemeral State
+		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
+		socketServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+		// --- End Positron ---
 
 		// clean up extensions folder
 		remoteExtensionsScanner.whenExtensionsReady().then(() => extensionManagementService.cleanUp());

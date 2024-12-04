@@ -13,8 +13,8 @@ import { preloadsScriptStr } from '../../notebook/browser/view/renderers/webview
 import { INotebookRendererInfo, RENDERER_NOT_AVAILABLE, RendererMessagingSpec } from '../../notebook/common/notebookCommon.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { NotebookOutputWebview } from './notebookOutputWebview.js';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from './notebookOutputWebviewService.js';
-import { IOverlayWebview, IWebviewElement, IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
+import { INotebookOutputOverlayWebview, INotebookOutputStandardWebview, INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from './notebookOutputWebviewService.js';
+import { IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { asWebviewUri } from '../../webview/common/webview.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
@@ -22,8 +22,11 @@ import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common
 import { dirname } from '../../../../base/common/resources.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { handleWebviewLinkClicksInjection } from './downloadUtils.js';
+import { handleWebviewLinkClicksInjection } from './downloadUtils';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { OverlayWebview } from '../../webview/browser/overlayWebview.js';
+import { WebviewElement } from '../../webview/browser/webviewElement.js';
+import { webviewMessageCodeString } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 
 /**
  * Processed bundle of information about a message and how to render it for a webview.
@@ -33,6 +36,42 @@ type MessageRenderInfo = {
 	renderer: INotebookRendererInfo;
 	output: ILanguageRuntimeMessageWebOutput;
 };
+
+/**
+ * Type assertion function to verify that a webview is an OverlayWebview.
+ * @param webview The webview to check
+ * @throws {Error} If the webview is not an OverlayWebview
+ */
+function assertIsOverlayWebview(webview: unknown): asserts webview is OverlayWebview {
+	if (!(webview instanceof OverlayWebview)) {
+		throw new Error('Expected webview to be an overlay webview');
+	}
+}
+
+/**
+ * Type assertion function to verify that a webview is a standard WebviewElement.
+ * @param webview The webview to check
+ * @throws {Error} If the webview is not a WebviewElement
+ */
+function assertIsStandardWebview(webview: unknown): asserts webview is WebviewElement {
+	if (!(webview instanceof WebviewElement)) {
+		throw new Error('Expected webview to be a standard webview');
+	}
+}
+
+/**
+ * Assert that a webview is an overlay webview. Relies on the webviewType property.
+ */
+export function assertIsOverlayPositronWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputOverlayWebview {
+	assertIsOverlayWebview(notebookWebview.webview);
+}
+
+/**
+ * Assert that a webview is a standard webview. Relies on the webviewType property.
+ */
+export function assertIsStandardPositronWebview(notebookWebview: INotebookOutputWebview): asserts notebookWebview is INotebookOutputStandardWebview {
+	assertIsStandardWebview(notebookWebview.webview);
+}
 
 export class PositronNotebookOutputWebviewService implements IPositronNotebookOutputWebviewService {
 
@@ -102,15 +141,17 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 	}
 
 	async createMultiMessageWebview({
-		runtime,
+		runtimeId,
 		preReqMessages,
 		displayMessage,
-		viewType
+		viewType,
+		webviewType
 	}: {
-		runtime: ILanguageRuntimeSession;
+		runtimeId: string;
 		preReqMessages: ILanguageRuntimeMessageWebOutput[];
 		displayMessage: ILanguageRuntimeMessageWebOutput;
 		viewType?: string;
+		webviewType: WebviewType;
 	}): Promise<INotebookOutputWebview | undefined> {
 
 		const displayInfo = this._findRendererForOutput(displayMessage);
@@ -124,18 +165,23 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		}
 		return this.createNotebookRenderOutput({
 			id: displayMessage.id,
-			runtime,
+			runtimeId,
 			displayMessageInfo: displayInfo,
 			preReqMessagesInfo: this._findRenderersForOutputs(preReqMessages),
-			viewType
+			viewType,
+			webviewType,
 		});
 	}
 
 	async createNotebookOutputWebview(
-		id: string,
-		runtime: ILanguageRuntimeSession,
-		output: ILanguageRuntimeMessageWebOutput,
-		viewType?: string,
+		{ id, runtime, output, viewType, webviewType }:
+			{
+				id: string;
+				runtime: ILanguageRuntimeSession;
+				output: ILanguageRuntimeMessageWebOutput;
+				webviewType: WebviewType;
+				viewType?: string;
+			}
 	): Promise<INotebookOutputWebview | undefined> {
 		// Check to see if any of the MIME types have a renderer associated with
 		// them. If they do, prefer the renderer.
@@ -151,9 +197,10 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 			if (renderer) {
 				return this.createNotebookRenderOutput({
 					id,
-					runtime,
+					runtimeId: runtime.sessionId,
 					displayMessageInfo: { mimeType, renderer, output },
-					viewType
+					viewType,
+					webviewType,
 				});
 			}
 		}
@@ -166,7 +213,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					id,
 					runtimeOrSessionId: runtime,
 					html: output.data[mimeType],
-					webviewType: WebviewType.Overlay
+					webviewType
 				});
 			}
 		}
@@ -261,21 +308,22 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 
 	private async createNotebookRenderOutput({
 		id,
-		runtime,
+		runtimeId,
 		displayMessageInfo,
 		preReqMessagesInfo,
-		viewType
+		viewType,
+		webviewType
 	}: {
 		id: string;
-		runtime: ILanguageRuntimeSession;
+		runtimeId: string;
 		displayMessageInfo: MessageRenderInfo;
 		preReqMessagesInfo?: MessageRenderInfo[];
 		viewType?: string;
+		webviewType: WebviewType;
 	}): Promise<INotebookOutputWebview> {
 
 		// Make message info into an array if it isn't already
 		const messagesInfo = [...preReqMessagesInfo ?? [], displayMessageInfo];
-
 
 		// Create the preload script contents. This is a simplified version of the
 		// preloads script that the notebook renderer API creates.
@@ -324,7 +372,9 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		};
 
 		// Create the webview itself
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
+		const webview = webviewType === WebviewType.Overlay
+			? this._webviewService.createWebviewOverlay(webviewInitInfo)
+			: this._webviewService.createWebviewElement(webviewInitInfo);
 
 		// Form the HTML to send to the webview. Currently, this is a very simplified version
 		// of the HTML that the notebook renderer API creates, but it works for many renderers.
@@ -341,6 +391,7 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		window.prompt = (message, _default) => {
 			return _default ?? 'Untitled';
 		};
+		${webviewMessageCodeString}
 	</script>
 </head>
 <body>
@@ -353,11 +404,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		const scopedRendererMessaging = this._notebookRendererMessagingService.getScoped(id);
 
 		const notebookOutputWebview = this._instantiationService.createInstance(
-			NotebookOutputWebview<IOverlayWebview>,
+			NotebookOutputWebview,
 			{
 				id,
-				sessionId: runtime.sessionId,
+				sessionId: runtimeId,
 				webview,
+				webviewType,
 				rendererMessaging: scopedRendererMessaging
 			},
 		);
@@ -390,14 +442,12 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		return notebookOutputWebview;
 	}
 
-	async createRawHtmlOutput<WType extends WebviewType>({ id, html, webviewType, runtimeOrSessionId }: {
+	async createRawHtmlOutput({ id, html, runtimeOrSessionId, webviewType }: {
 		id: string;
 		html: string;
-		webviewType: WType;
 		runtimeOrSessionId: ILanguageRuntimeSession | string;
-	}): Promise<
-		INotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>
-	> {
+		webviewType: WebviewType;
+	}): Promise<INotebookOutputWebview> {
 
 		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
 		// which is provided by the Jupyter extension.
@@ -455,8 +505,9 @@ window.onload = function() {
 				id,
 				sessionId: typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
 				webview,
+				webviewType
 			}
-		) as NotebookOutputWebview<WType extends WebviewType.Overlay ? IOverlayWebview : IWebviewElement>;
+		);
 	}
 
 	/**

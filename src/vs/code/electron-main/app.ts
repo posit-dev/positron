@@ -121,6 +121,12 @@ import { normalizeNFC } from '../../base/common/normalization.js';
 import { ICSSDevelopmentService, CSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
 import { ExtensionSignatureVerificationService, IExtensionSignatureVerificationService } from '../../platform/extensionManagement/node/extensionSignatureVerificationService.js';
 
+// --- Start Positron ---
+import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
+import { EphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralStateService';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannel } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
+// --- End Positron ---
+
 /**
  * The main VS Code application. There will only ever be one instance,
  * even if the user starts many instances (e.g. from the command line).
@@ -1126,6 +1132,10 @@ export class CodeApplication extends Disposable {
 			services.set(IExtensionSignatureVerificationService, new SyncDescriptor(ExtensionSignatureVerificationService, undefined, true));
 		}
 
+		// --- Start Positron ---
+		services.set(IEphemeralStateService, new SyncDescriptor(EphemeralStateService, undefined, true));
+		// --- End Positron ---
+
 		// Init services that require it
 		await Promises.settled([
 			backupMainService.initialize(),
@@ -1249,6 +1259,12 @@ export class CodeApplication extends Disposable {
 		// Extension Host Starter
 		const extensionHostStarterChannel = ProxyChannel.fromService(accessor.get(IExtensionHostStarter), disposables);
 		mainProcessElectronServer.registerChannel(ipcExtensionHostStarterChannelName, extensionHostStarterChannel);
+
+		// --- Start Positron ---
+		// Ephemeral State
+		const ephemeralStateChannel = new EphemeralStateChannel(accessor.get(IEphemeralStateService));
+		mainProcessElectronServer.registerChannel(EPHEMERAL_STATE_CHANNEL_NAME, ephemeralStateChannel);
+		// --- End Positron ---
 
 		// Utility Process Worker
 		const utilityProcessWorkerChannel = ProxyChannel.fromService(accessor.get(IUtilityProcessWorkerMainService), disposables);

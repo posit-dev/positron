@@ -52,7 +52,7 @@ const createInterpreterGroups = (
 		}
 
 		// Add the runtime to the alternateRuntimes array if it's not the preferred runtime.
-		if (runtime !== preferredRuntime) {
+		if (runtime.runtimeId !== preferredRuntime.runtimeId) {
 			languageRuntimeGroup.alternateRuntimes.push(runtime);
 		}
 	}

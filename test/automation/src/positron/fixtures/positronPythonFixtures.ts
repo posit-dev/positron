@@ -17,11 +17,7 @@ export class PositronPythonFixtures {
 
 	static async SetupFixtures(app: Application, skipReadinessCheck: boolean = false) {
 		const fixtures = new PositronPythonFixtures(app);
-		await expect(async () => {
-			await fixtures.startPythonInterpreter(skipReadinessCheck);
-		}).toPass({
-			timeout: 60000
-		});
+		await fixtures.startPythonInterpreter(skipReadinessCheck);
 	}
 
 	async startPythonInterpreter(skipReadinessCheck: boolean = false) {
@@ -36,7 +32,7 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronConsole.selectInterpreter(InterpreterType.Python, desiredPython, skipReadinessCheck);
 			await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
 		} catch (e) {
-			this.app.code.driver.takeScreenshot('startPythonInterpreter');
+			await this.app.code.driver.takeScreenshot('startPythonInterpreter');
 			throw e;
 		}
 		await this.app.workbench.positronConsole.logConsoleContents();
@@ -56,8 +52,7 @@ export class PositronPythonFixtures {
 			await this.app.workbench.positronPopups.installIPyKernel();
 		}
 
-		await this.app.workbench.positronConsole.waitForReady('>>>', 2000);
-
+		await expect(this.app.workbench.positronConsole.activeConsole.getByText('>>>')).toBeVisible({ timeout: 30000 });
 		await this.app.workbench.positronConsole.logConsoleContents();
 
 		return interpreterInfo;

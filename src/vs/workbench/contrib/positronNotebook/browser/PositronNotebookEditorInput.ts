@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { IReference } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -17,6 +16,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { ExtUri } from '../../../../base/common/resources.js';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -38,7 +38,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	static count = 0;
 
-	private _identifier = `Positron Notebook | Input(${PositronNotebookEditorInput.count++}) |`;
+	/**
+	 * Unique identifier for this specific input instance
+	 */
+	readonly uniqueId: string = `positron-notebook-${PositronNotebookEditorInput.count++}`;
+
+	private _identifier = `Positron Notebook | Input(${this.uniqueId}) |`;
 	//#region Static Properties
 	/**
 	 * Gets the type ID.
@@ -108,7 +113,10 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
+
+		this.notebookInstance?.dispose();
 		// Call the base class's dispose method.
+		this.notebookInstance?.close();
 		super.dispose();
 	}
 
@@ -139,7 +147,8 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @returns The display name of this input.
 	 */
 	override getName(): string {
-		return localize('positronNotebookInputName', "Positron Notebook");
+		const extUri = new ExtUri(() => false);
+		return extUri.basename(this.resource) ?? localize('positronNotebookInputName', "Positron Notebook");
 	}
 
 	/**

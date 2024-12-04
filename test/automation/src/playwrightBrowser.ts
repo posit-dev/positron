@@ -30,6 +30,10 @@ export async function launch(options: LaunchOptions): Promise<{ serverProcess: C
 	};
 }
 
+// --- Start Positron ---
+// Modified `launchServer` function to add support for multiple ports to enable parallel test
+// execution of browser tests. Also added helper functions: `getServerArgs`, `resolveServerLocation`,
+// and `startServer` to make this code easier to read.
 async function launchServer(options: LaunchOptions) {
 	const { userDataDir, codePath, extensionsPath, logger, logsPath } = options;
 	const serverLogsPath = join(logsPath, 'server');
@@ -39,57 +43,101 @@ async function launchServer(options: LaunchOptions) {
 
 	const env = {
 		VSCODE_REMOTE_SERVER_PATH: codeServerPath,
-		...process.env
+		...process.env,
 	};
 
+	const maxRetries = 10;
+	let serverProcess: ChildProcess | null = null;
+	let endpoint: string | undefined;
+
+	for (let attempts = 0; attempts < maxRetries; attempts++) {
+		const currentPort = port++;
+		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
+		const serverLocation = resolveServerLocation(codeServerPath, logger);
+
+		logger.log(`Attempting to start server on port ${currentPort}`);
+		logger.log(`Command: '${serverLocation}' ${args.join(' ')}`);
+
+		try {
+			serverProcess = await startServer(serverLocation, args, env, logger);
+			endpoint = await measureAndLog(
+				() => waitForEndpoint(serverProcess!, logger),
+				'waitForEndpoint(serverProcess)',
+				logger
+			);
+
+			logger.log(`Server started successfully on port ${currentPort}`);
+			break; // Exit loop on success
+		} catch (error) {
+			if ((error as Error).message.includes('EADDRINUSE')) {
+				logger.log(`Port ${currentPort} is already in use. Retrying...`);
+				serverProcess?.kill();
+			} else {
+				throw error; // Rethrow non-port-related errors
+			}
+		}
+	}
+
+	if (!serverProcess || !endpoint) {
+		throw new Error('Failed to launch the server after multiple attempts.');
+	}
+
+	return { serverProcess, endpoint };
+}
+
+function getServerArgs(
+	port: number,
+	extensionsPath: string,
+	agentFolder: string,
+	logsPath: string,
+	verbose?: boolean
+): string[] {
 	const args = [
 		'--disable-telemetry',
 		'--disable-workspace-trust',
-		`--port=${port++}`,
+		`--port=${port}`,
 		'--enable-smoke-test-driver',
 		`--extensions-dir=${extensionsPath}`,
 		`--server-data-dir=${agentFolder}`,
 		'--accept-server-license-terms',
-		`--logsPath=${serverLogsPath}`,
-		// --- Start Positron ---
-		`--connection-token`,
-		`dev-token`
-		// --- End Positron ---
+		`--logsPath=${logsPath}`,
+		'--connection-token',
+		'dev-token',
 	];
 
-	if (options.verbose) {
+	if (verbose) {
 		args.push('--log=trace');
 	}
 
-	let serverLocation: string | undefined;
+	return args;
+}
+
+function resolveServerLocation(codeServerPath: string | undefined, logger: Logger): string {
 	if (codeServerPath) {
 		const { serverApplicationName } = require(join(codeServerPath, 'product.json'));
-		serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
-
-		logger.log(`Starting built server from '${serverLocation}'`);
-	} else {
-		serverLocation = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
-
-		logger.log(`Starting server out of sources from '${serverLocation}'`);
+		const serverLocation = join(codeServerPath, 'bin', `${serverApplicationName}${process.platform === 'win32' ? '.cmd' : ''}`);
+		logger.log(`Using built server from '${serverLocation}'`);
+		return serverLocation;
 	}
 
-	logger.log(`Storing log files into '${serverLogsPath}'`);
-
-	logger.log(`Command line: '${serverLocation}' ${args.join(' ')}`);
-	const shell: boolean = (process.platform === 'win32');
-	const serverProcess = spawn(
-		serverLocation,
-		args,
-		{ env, shell }
-	);
-
-	logger.log(`Started server for browser smoke tests (pid: ${serverProcess.pid})`);
-
-	return {
-		serverProcess,
-		endpoint: await measureAndLog(() => waitForEndpoint(serverProcess, logger), 'waitForEndpoint(serverProcess)', logger)
-	};
+	const scriptPath = join(root, `scripts/code-server.${process.platform === 'win32' ? 'bat' : 'sh'}`);
+	logger.log(`Using source server from '${scriptPath}'`);
+	return scriptPath;
 }
+
+async function startServer(
+	serverLocation: string,
+	args: string[],
+	env: NodeJS.ProcessEnv,
+	logger: Logger
+): Promise<ChildProcess> {
+	logger.log(`Starting server: ${serverLocation}`);
+	const serverProcess = spawn(serverLocation, args, { env, shell: process.platform === 'win32' });
+	logger.log(`Server started (pid: ${serverProcess.pid})`);
+	return serverProcess;
+}
+// --- End Positron ---
+
 
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, headless } = options;
@@ -105,7 +153,9 @@ async function launchBrowser(options: LaunchOptions, endpoint: string) {
 
 	if (tracing) {
 		try {
-			await measureAndLog(() => context.tracing.start({ screenshots: true, /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
+			// --- Start Positron ---
+			await measureAndLog(() => context.tracing.start({ screenshots: true, snapshots: options.snapshots, /* remaining options are off for perf reasons */ }), 'context.tracing.start()', logger);
+			// --- End Positron ---
 		} catch (error) {
 			logger.log(`Playwright (Browser): Failed to start playwright tracing (${error})`); // do not fail the build when this fails
 		}

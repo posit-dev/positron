@@ -4,7 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore, MutableDisposable } from '../../../../base/common/lifecycle.js';
-import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { INotebookOutputWebview, IPositronNotebookOutputWebviewService, WebviewType } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { assertIsOverlayPositronWebview } from '../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
 import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
@@ -52,14 +53,16 @@ export class NotebookMultiMessagePlotClient extends WebviewPlotClient {
 			throw new Error('Webview already created. Dispose the existing webview first.');
 		}
 		const output = await this._notebookOutputWebviewService.createMultiMessageWebview({
-			runtime: this._session,
+			runtimeId: this._session.sessionId,
 			preReqMessages: this._preReqMessages,
 			displayMessage: this._displayMessage,
-			viewType: 'jupyter-notebook'
+			viewType: 'jupyter-notebook',
+			webviewType: WebviewType.Overlay
 		});
 		if (!output) {
 			throw new Error('Failed to create notebook output webview');
 		}
+		assertIsOverlayPositronWebview(output);
 		this._output.value = output;
 
 		// Wait for the webview to finish rendering. When it does, nudge the

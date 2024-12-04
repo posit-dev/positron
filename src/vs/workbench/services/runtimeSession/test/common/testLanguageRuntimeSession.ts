@@ -7,11 +7,11 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
+import { CancellationError } from '../../../../../base/common/errors.js';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -63,47 +63,20 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		busy: false,
 	};
 
-	private readonly _languageVersion = '0.0.1';
-	readonly runtimeMetadata: ILanguageRuntimeMetadata = {
-		base64EncodedIconSvg: '',
-		extensionId: new ExtensionIdentifier('test-extension'),
-		extraRuntimeData: {},
-		languageId: 'test',
-		languageName: 'Test',
-		languageVersion: this._languageVersion,
-		runtimeId: '00000000-0000-0000-0000-100000000000',
-		runtimeName: `Test ${this._languageVersion}`,
-		runtimePath: '/test',
-		runtimeShortName: this._languageVersion,
-		runtimeSource: 'Test',
-		runtimeVersion: '0.0.1',
-		sessionLocation: LanguageRuntimeSessionLocation.Browser,
-		startupBehavior: LanguageRuntimeStartupBehavior.Implicit,
-	};
-
-	readonly metadata: IRuntimeSessionMetadata;
-
 	readonly sessionId: string;
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
 	constructor(
-		sessionMode: LanguageRuntimeSessionMode = LanguageRuntimeSessionMode.Console,
-		notebookUri?: URI,
+		readonly metadata: IRuntimeSessionMetadata,
+		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 	) {
 		super();
 
-		this.sessionId = 'session-id';
+		this.sessionId = this.metadata.sessionId;
 
-		this.metadata = {
-			createdTimestamp: Date.now(),
-			sessionId: this.sessionId,
-			sessionMode,
-			sessionName: 'session-name',
-			startReason: 'test',
-			notebookUri,
-		};
-
+		// Track the runtime state.
+		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
 	getRuntimeState(): RuntimeState {
@@ -169,8 +142,23 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	async start(): Promise<ILanguageRuntimeInfo> {
+	setWorkingDirectory(_dir: string): Promise<void> {
 		throw new Error('Not implemented.');
+	}
+
+	async start(): Promise<ILanguageRuntimeInfo> {
+		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
+
+		// Complete the startup on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Ready);
+		}, 0);
+
+		return {
+			banner: 'Test runtime started',
+			implementation_version: this.runtimeMetadata.runtimeVersion,
+			language_version: this.runtimeMetadata.languageVersion,
+		};
 	}
 
 	async interrupt(): Promise<void> {
@@ -178,11 +166,41 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async restart(): Promise<void> {
-		throw new Error('Not implemented.');
+		await this.shutdown(RuntimeExitReason.Restart);
+
+		// Wait for the session to exit, then start it again.
+		const disposable = this._register(this.onDidChangeRuntimeState(state => {
+			if (state === RuntimeState.Exited) {
+				disposable.dispose();
+				this.start();
+			}
+		}));
 	}
 
-	async shutdown(_exitReason: RuntimeExitReason): Promise<void> {
-		throw new Error('Not implemented.');
+	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
+		if (this._currentState !== RuntimeState.Idle &&
+			this._currentState !== RuntimeState.Busy &&
+			this._currentState !== RuntimeState.Ready) {
+			throw new Error('Cannot shut down kernel; it is not (yet) running.' +
+				` (state = ${this._currentState})`);
+		}
+
+		if (exitReason === RuntimeExitReason.Restart) {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Restarting);
+		} else {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Exiting);
+		}
+
+		// Complete the shutdown on the next tick, trying to match real runtime behavior.
+		setTimeout(() => {
+			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
+			this._onDidEndSession.fire({
+				runtime_name: this.runtimeMetadata.runtimeName,
+				exit_code: 0,
+				reason: exitReason,
+				message: '',
+			});
+		}, 0);
 	}
 
 	async forceQuit(): Promise<void> {
@@ -197,14 +215,9 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		throw new Error('Not implemented.');
 	}
 
-	override dispose() {
-		super.dispose();
-	}
-
 	// Test helpers
 
 	setRuntimeState(state: RuntimeState) {
-		this._currentState = state;
 		this._onDidChangeRuntimeState.fire(state);
 	}
 
@@ -363,4 +376,25 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			runtime_name: this.runtimeMetadata.runtimeName,
 		});
 	}
+}
+
+export async function waitForRuntimeState(
+	session: ILanguageRuntimeSession,
+	state: RuntimeState,
+	timeout = 10_000,
+) {
+	return new Promise<void>((resolve, reject) => {
+		const timer = setTimeout(() => {
+			disposable.dispose();
+			reject(new CancellationError());
+		}, timeout);
+
+		const disposable = session.onDidChangeRuntimeState(newState => {
+			if (newState === state) {
+				clearTimeout(timer);
+				disposable.dispose();
+				resolve();
+			}
+		});
+	});
 }

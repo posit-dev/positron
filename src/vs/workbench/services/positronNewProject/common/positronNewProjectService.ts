@@ -283,7 +283,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	/**
 	 * Runs R Project specific tasks.
-	 * Relies on extension vscode.positron-r
+	 * Relies on extension positron.positron-r
 	 */
 	private async _runRTasks() {
 		// no-op for now, since we haven't defined any pre-runtime startup R tasks
@@ -305,7 +305,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	/**
 	 * Runs R Project specific post-initialization tasks.
-	 * Relies on extension vscode.positron-r
+	 * Relies on extension positron.positron-r
 	 */
 	private async _runRPostInitTasks() {
 		// Create the R environment
@@ -518,7 +518,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	/**
 	 * Creates the R environment.
-	 * Relies on extension vscode.positron-r
+	 * Relies on extension positron.positron-r
 	 */
 	private async _createREnvironment() {
 		if (this._newProjectConfig?.useRenv) {

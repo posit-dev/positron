@@ -55,6 +55,8 @@ interface ServiceBundle {
 	 */
 	notebookWebviewService: IPositronNotebookOutputWebviewService;
 
+	webviewPreloadService: IPositronWebviewPreloadService;
+
 	/**
 	 * Servicer for opening external links
 	 */

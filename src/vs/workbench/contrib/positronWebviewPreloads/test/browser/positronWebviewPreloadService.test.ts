@@ -2,24 +2,17 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
 import assert from 'assert';
 import { timeout } from '../../../../../base/common/async.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { NotebookRendererMessagingService } from '../../../notebook/browser/services/notebookRendererMessagingServiceImpl.js';
-import { INotebookRendererMessagingService } from '../../../notebook/common/notebookRendererMessagingService.js';
-import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { PositronWebviewPreloadService } from '../../browser/positronWebviewPreloadsService.js';
-import { TestNotebookService } from '../../../positronIPyWidgets/test/browser/positronIPyWidgetsService.test.js';
-import { IPositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { PositronNotebookOutputWebviewService } from '../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
-import { WebviewPlotClient } from '../../../positronPlots/browser/webviewPlotClient.js';
-import { IWebviewService } from '../../../webview/browser/webview.js';
-import { WebviewService } from '../../../webview/browser/webviewService.js';
-import { LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } from '../../../../test/browser/positronWorkbenchTestServices.js';
+import { RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
-import { TestRuntimeSessionService } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
-import { workbenchInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
+import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
+import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
+import { NotebookMultiMessagePlotClient } from '../../../positronPlots/browser/notebookMultiMessagePlotClient.js';
 
 
 const hvPreloadMessage = {
@@ -56,31 +49,23 @@ const bokehDisplayMessage = {
 suite('Positron - PositronWebviewPreloadService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
+	let instantiationService: TestInstantiationService;
 	let positronWebviewPreloadService: PositronWebviewPreloadService;
-	let runtimeSessionService: TestRuntimeSessionService;
 
 	setup(() => {
-		const instantiationService = workbenchInstantiationService(undefined, disposables);
-		instantiationService.stub(INotebookRendererMessagingService, disposables.add(instantiationService.createInstance(NotebookRendererMessagingService)));
-		instantiationService.stub(INotebookService, new TestNotebookService());
-		instantiationService.stub(IWebviewService, disposables.add(new WebviewService(instantiationService)));
-		instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));
-		runtimeSessionService = disposables.add(new TestRuntimeSessionService());
-		instantiationService.stub(IRuntimeSessionService, runtimeSessionService);
-		positronWebviewPreloadService = disposables.add(instantiationService.createInstance(PositronWebviewPreloadService));
+		instantiationService = positronWorkbenchInstantiationService(disposables);
+		const accessor = instantiationService.createInstance(PositronTestServiceAccessor);
+		positronWebviewPreloadService = accessor.positronWebviewPreloadService;
 	});
 
 	async function createConsoleSession() {
 
 		// Start a console session.
-		const session = disposables.add(new TestLanguageRuntimeSession(LanguageRuntimeSessionMode.Console));
-		runtimeSessionService.startSession(session);
-
-		await timeout(0);
+		const session = await startTestLanguageRuntimeSession(instantiationService, disposables);
 
 		const out: {
 			session: TestLanguageRuntimeSession;
-			plotClient: WebviewPlotClient | undefined;
+			plotClient: NotebookMultiMessagePlotClient | undefined;
 		} = {
 			session, plotClient: undefined,
 		};

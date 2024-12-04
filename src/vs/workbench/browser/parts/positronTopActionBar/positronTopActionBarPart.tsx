@@ -37,6 +37,7 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronTopActionBarService } from '../../../services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from './positronTopActionBar.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronTopActionBarPart class.
@@ -103,6 +104,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	//#region Class Initialization
 
 	constructor(
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -138,6 +140,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		this.positronReactRenderer = new PositronReactRenderer(this.element);
 		this.positronReactRenderer.render(
 			<PositronTopActionBar
+				accessibilityService={this._accessibilityService}
 				commandService={this.commandService}
 				configurationService={this.configurationService}
 				contextKeyService={this.contextKeyService}

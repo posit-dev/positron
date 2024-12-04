@@ -47,18 +47,15 @@ import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
 import { ServicesProvider } from './ServicesProvider.js';
-import {
-	GroupsOrder,
-	IEditorGroup,
-	IEditorGroupsService
-} from '../../../services/editor/common/editorGroupsService.js';
-import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
+import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
+import { PositronNotebookEditorInput } from './PositronNotebookEditorInput';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 
 interface NotebookLayoutInfo {
@@ -121,6 +118,7 @@ export class PositronNotebookEditor extends EditorPane {
 		@ITextModelService private readonly _textModelResolverService: ITextModelService,
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IPositronNotebookOutputWebviewService private readonly _notebookWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
@@ -161,31 +159,31 @@ export class PositronNotebookEditor extends EditorPane {
 		}
 	}
 
-	private _loadNotebookEditorViewState(
-		input: PositronNotebookEditorInput
-	): INotebookEditorViewState | undefined {
-		let result: INotebookEditorViewState | undefined;
-		if (this.group) {
-			result = this._editorMemento.loadEditorState(this.group, input.resource);
-		}
-		if (result) {
-			return result;
-		}
-		// when we don't have a view state for the group/input-tuple then we try to use an existing
-		// editor for the same resource. (Comment copied from vs-notebooks implementation)
-		for (const group of this._editorGroupService.getGroups(
-			GroupsOrder.MOST_RECENTLY_ACTIVE
-		)) {
-			if (
-				group.activeEditorPane !== this &&
-				group.activeEditorPane instanceof PositronNotebookEditor &&
-				group.activeEditor?.matches(input)
-			) {
-				return group.activeEditorPane.notebookInstance?.getEditorViewState();
-			}
-		}
-		return;
-	}
+	// private _loadNotebookEditorViewState(
+	// 	input: PositronNotebookEditorInput
+	// ): INotebookEditorViewState | undefined {
+	// 	let result: INotebookEditorViewState | undefined;
+	// 	if (this.group) {
+	// 		result = this._editorMemento.loadEditorState(this.group, input.resource);
+	// 	}
+	// 	if (result) {
+	// 		return result;
+	// 	}
+	// 	// when we don't have a view state for the group/input-tuple then we try to use an existing
+	// 	// editor for the same resource. (Comment copied from vs-notebooks implementation)
+	// 	for (const group of this._editorGroupService.getGroups(
+	// 		GroupsOrder.MOST_RECENTLY_ACTIVE
+	// 	)) {
+	// 		if (
+	// 			group.activeEditorPane !== this &&
+	// 			group.activeEditorPane instanceof PositronNotebookEditor &&
+	// 			group.activeEditor?.matches(input)
+	// 		) {
+	// 			return group.activeEditorPane.notebookInstance?.getEditorViewState();
+	// 		}
+	// 	}
+	// 	return;
+	// }
 
 	protected override saveState(): void {
 		this._saveEditorViewState();
@@ -303,10 +301,6 @@ export class PositronNotebookEditor extends EditorPane {
 			)
 		);
 
-		const viewState =
-			options?.viewState ?? this._loadNotebookEditorViewState(input);
-
-
 		if (input.notebookInstance === undefined) {
 			throw new Error(
 				'Notebook instance is undefined. This should have been created in the constructor.'
@@ -315,9 +309,7 @@ export class PositronNotebookEditor extends EditorPane {
 
 		this._renderReact();
 
-		const viewModel = this.getViewModel(model.notebook);
-
-		input.notebookInstance.attachView(viewModel, this._parentDiv, viewState);
+		input.notebookInstance.attachView(this._parentDiv);
 	}
 
 	override clearInput(): void {
@@ -459,6 +451,7 @@ export class PositronNotebookEditor extends EditorPane {
 					textModelResolverService: this._textModelResolverService,
 					webviewService: this._webviewService,
 					notebookWebviewService: this._notebookWebviewService,
+					webviewPreloadService: this._positronWebviewPreloadService,
 					commandService: this._commandService,
 					logService: this._logService,
 					openerService: this._openerService,

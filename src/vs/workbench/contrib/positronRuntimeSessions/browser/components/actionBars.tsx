@@ -48,7 +48,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const positronSessionsContext = usePositronRuntimeSessionsContext();
 
 	// If there are no instances, return null.
-	if (positronSessionsContext.positronSessions.length === 0) {
+	if (positronSessionsContext.positronSessions.size === 0) {
 		return null;
 	}
 
@@ -57,7 +57,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
 				<PositronActionBar size='small' borderTop={true} borderBottom={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
-					{positronSessionsContext.positronSessions.length} sessions
+					{positronSessionsContext.positronSessions.size} sessions
 				</PositronActionBar>
 			</div>
 		</PositronActionBarContextProvider>

@@ -15,7 +15,7 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { AddCellButtons } from './AddCellButtons.js';
 import { useObservedValue } from './useObservedValue.js';
 import { localize } from '../../../../nls.js';
-import { PositronNotebookHeader } from './PositronNotebookHeader.js';
+import { PositronNotebookHeader } from './PositronNotebookHeader';
 import { NotebookCodeCell } from './notebookCells/NotebookCodeCell.js';
 import { NotebookMarkdownCell } from './notebookCells/NotebookMarkdownCell.js';
 import { useServices } from './ServicesProvider.js';
@@ -23,7 +23,7 @@ import { IEditorOptions } from '../../../../editor/common/config/editorOptions.j
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
-import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
+import { PositronNotebookCellGeneral } from 'PositronNotebookCells/PositronNotebookCell.js';
 
 
 export function PositronNotebookComponent() {

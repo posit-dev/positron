@@ -24,6 +24,7 @@ from .utils import (
     json_rpc_notification,
     json_rpc_request,
     json_rpc_response,
+    percent_difference,
 )
 
 #
@@ -82,7 +83,7 @@ def _create_mpl_plot(
         args.append(f"dpi={dpi}")
     args_code = ", ".join(args)
 
-    shell.run_cell(f"plt.figure({args_code})")
+    shell.run_cell(f"plt.figure({args_code})").raise_error()
     plot_comm = cast(DummyComm, plots_service._plots[-1]._comm.comm)
     assert plot_comm.messages == [comm_open_message(_CommTarget.Plot)]
     plot_comm.messages.clear()
@@ -158,55 +159,83 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
     dpi = 100
     plot_comm = _create_mpl_plot(shell, plots_service, intrinsic_size, dpi)
 
+    # Plot some data.
+    shell.run_cell("plt.gca().plot([0, 1], [0, 1])").raise_error()
+    # Add text outside the default bounding box (https://github.com/posit-dev/positron/issues/5068).
+    shell.run_cell("plt.gcf().text(x=0.5, y=1, s='title', size=20)").raise_error()
+
     # Send a render request to the plot comm. The frontend would send this on comm creation.
     size = PlotSize(width=400, height=300)
     pixel_ratio = 2.0
     format = "png"
     response = _do_render(plot_comm, size, pixel_ratio, format)
 
-    # Check that the response includes the expected base64-encoded resized image.
-    image_bytes = response["data"]["result"].pop("data")
-    image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
-    assert image.format == format.upper()
-    assert image.size == (size.width * pixel_ratio, size.height * pixel_ratio)
-    # Save it to disk for manual inspection.
-    image.save(images_path / "test-mpl-render.png")
+    def verify_response(response, filename: str, expected_size: Tuple[float, float], threshold=0.0):
+        # Check that the response includes the expected base64-encoded resized image.
+        image_bytes = response["data"]["result"].pop("data")
+        image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
 
-    # Check the rest of the response.
-    assert response == json_rpc_response({"mime_type": f"image/{format}"})
+        # First save it to disk for manual inspection if the test fails.
+        image.save(images_path / f"{filename}.png")
+
+        # Check the format and size of the image.
+        assert image.format == format.upper()
+        assert percent_difference(image.size[0], expected_size[0] * pixel_ratio) <= threshold
+        assert percent_difference(image.size[1], expected_size[1] * pixel_ratio) <= threshold
+
+        # Check the rest of the response.
+        assert response == json_rpc_response({"mime_type": f"image/{format}"})
+
+    verify_response(response, "test-mpl-render-0-explicit-size", (size.width, size.height))
 
     # Now render the plot at its intrinsic size.
     # Having rendered the plot at an explicit size should not affect the intrinsic size.
-    response = _do_render(plot_comm, pixel_ratio=pixel_ratio, format=format)
+    response = _do_render(plot_comm, None, pixel_ratio, format)
 
-    # Check that the response includes the expected base64-encoded resized image.
-    image_bytes = response["data"]["result"].pop("data")
-    image = Image.open(io.BytesIO(base64.b64decode(image_bytes)))
-    assert image.format == format.upper()
-    assert image.size == (
-        intrinsic_size[0] * dpi * pixel_ratio,
-        intrinsic_size[1] * dpi * pixel_ratio,
+    verify_response(
+        response,
+        "test-mpl-render-1-intrinsic-size",
+        (intrinsic_size[0] * dpi, intrinsic_size[1] * dpi),
+        # The size of the image isn't guaranteed when using a tight bounding box, we arbitrarily
+        # check that it's within 10% of the intrinsic size in pixels.
+        0.1,
     )
-    # Save it to disk for manual inspection.
-    image.save(images_path / "test-mpl-render-intrinsic.png")
 
-    # Check the rest of the response.
-    assert response == json_rpc_response({"mime_type": f"image/{format}"})
+    # Double-check that we can still render at a requested size.
+    response = _do_render(plot_comm, size, pixel_ratio, format)
+    verify_response(
+        response, "test-mpl-render-2-explicit-size-after-intrinsic-size", (size.width, size.height)
+    )
 
 
-def test_mpl_update(shell: PositronShell, plots_service: PlotsService) -> None:
+@pytest.mark.parametrize(
+    ("code", "should_update"),
+    [
+        # Drawing to an active plot should trigger an update.
+        ("plt.plot([1, 2])", True),
+        # Executing code that doesn't draw to the active plot should not trigger an update.
+        ("1", False),
+        # Drawing outside the default bounding box should trigger an update.
+        pytest.param(
+            "plt.gcf().text(x=0.5, y=1.0, s='title')",
+            True,
+            marks=pytest.mark.skip(reason="Not implemented yet"),
+        ),
+    ],
+)
+def test_mpl_update(
+    code: str, should_update: bool, shell: PositronShell, plots_service: PlotsService
+) -> None:
+    # Create and render a plot.
     plot_comm = _create_mpl_plot(shell, plots_service)
 
     _do_render(plot_comm)
 
-    # Drawing to an active plot should trigger an update.
-    shell.run_cell("plt.plot([1, 2])")
-    assert plot_comm.messages == [json_rpc_notification("update", {})]
-    plot_comm.messages.clear()
+    # Run some code.
+    shell.run_cell(code).raise_error()
 
-    # Executing code that doesn't draw to the active plot should not trigger an update.
-    shell.run_cell("1")
-    assert plot_comm.messages == []
+    # Check whether an update was triggered.
+    assert plot_comm.messages == ([json_rpc_notification("update", {})] if should_update else [])
 
 
 def _assert_plot_comm_closed(plot_comm: DummyComm) -> None:

@@ -5,7 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
 import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, ClearWebviewPreloadsEvent } from './positronUiComm';
 import { PositronUiCommInstance } from './positronUiCommInstance.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
@@ -13,8 +13,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../contrib/positronPreview/browser/positronPreview.contribution.js';
 
+export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
 /**
  * The types of messages that can be sent to the backend.
@@ -109,7 +109,7 @@ export class UiClientInstance extends Disposable {
 		super();
 		this._register(this._client);
 
-		this._comm = new PositronUiCommInstance(this._client);
+		this._comm = this._register(new PositronUiCommInstance(this._client));
 		this.onDidBusy = this._comm.onDidBusy;
 		this.onDidClearConsole = this._comm.onDidClearConsole;
 		this.onDidSetEditorSelections = this._comm.onDidSetEditorSelections;
@@ -242,5 +242,19 @@ export class UiClientInstance extends Disposable {
 		}
 
 		return uri;
+	}
+
+	/**
+	 * Get the ID of the underlying runtime client
+	 */
+	public getClientId(): string {
+		return this._client.getClientId();
+	}
+
+	/**
+	 * Get the state of the underlying runtime client
+	 */
+	public getClientState(): RuntimeClientState {
+		return this._client.clientState.get();
 	}
 }

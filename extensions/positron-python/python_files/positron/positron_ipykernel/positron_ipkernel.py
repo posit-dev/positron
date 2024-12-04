@@ -37,6 +37,7 @@ from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
 from .patch.holoviews import set_holoviews_extension
 from .plots import PlotsService
 from .session_mode import SessionMode
+from .third_party import RestartRequiredError
 from .ui import UiService
 from .utils import BackgroundJobQueue, JsonRecord, get_qualname
 from .variables import VariablesService
@@ -168,6 +169,8 @@ class PositronMagics(Magics):
             )
         except TypeError:
             raise UsageError(f"cannot view object of type '{get_qualname(obj)}'")
+        except RestartRequiredError as error:
+            raise UsageError(*error.args)
 
     @magic_arguments.magic_arguments()
     @magic_arguments.argument(
@@ -411,7 +414,7 @@ class PositronIPyKernel(IPythonKernel):
         # Create Positron services
         self.data_explorer_service = DataExplorerService(_CommTarget.DataExplorer, self.job_queue)
         self.plots_service = PlotsService(_CommTarget.Plot, self.session_mode)
-        self.ui_service = UiService()
+        self.ui_service = UiService(self)
         self.help_service = HelpService()
         self.lsp_service = LSPService(self)
         self.variables_service = VariablesService(self)

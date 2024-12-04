@@ -10,8 +10,9 @@ import './variablesInstance.css';
 import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
 import * as DOM from '../../../../../base/browser/dom.js';
-import { isMacintosh } from '../../../../../base/common/platform.js';
+import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
@@ -452,6 +453,15 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 		positronVariablesContext.reactComponentContainer.focusChanged?.(false);
 	};
 
+	// workaround for web disabling scrolling on the window to prevent URL navigation
+	const wheelHandler = (e: React.WheelEvent<HTMLDivElement>) => {
+		if (!isWeb) {
+			return;
+		}
+
+		innerRef.current.parentElement?.scrollBy(e.deltaX, e.deltaY);
+	};
+
 	/**
 	 * VariableEntry component.
 	 * @param index The index of the variable entry.
@@ -527,6 +537,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onFocus={focusHandler}
 			onBlur={blurHandler}
+			onWheel={wheelHandler}
 		>
 			{!variableEntries.length ?
 				<VariablesEmpty initializing={initializing} /> :

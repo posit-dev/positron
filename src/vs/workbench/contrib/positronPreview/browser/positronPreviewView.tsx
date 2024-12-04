@@ -28,6 +28,7 @@ import { IRuntimeSessionService } from '../../../services/runtimeSession/common/
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronPreviewViewPane class.
@@ -76,6 +77,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -179,6 +181,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronPreview
+				accessibilityService={this.accessibilityService}
 				commandService={this.commandService}
 				layoutService={this.layoutService}
 				configurationService={this.configurationService}

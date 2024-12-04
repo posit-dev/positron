@@ -53,10 +53,7 @@ suite('Process - Python tool execution service', () => {
         when(pythonService.execModule(anything(), anything(), anything())).thenResolve(executionResult);
         const pythonServiceInstance = instance(pythonService);
 
-        // --- Start Positron ---
-        // No longer needed and errors since we already set `.then` in positron/initialize/patchMockingLibs.
-        // (pythonServiceInstance as any).then = undefined;
-        // --- End Positron ---
+        (pythonServiceInstance as any).then = undefined;
 
         executionFactory = mock(PythonExecutionFactory);
         when(executionFactory.create(anything())).thenResolve(pythonServiceInstance);

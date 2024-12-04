@@ -1,0 +1,108 @@
+{
+  "name": "positron-supervisor",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "publisher": "vscode",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.61.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "scripts": {
+    "compile": "gulp compile-extension:positron-supervisor",
+    "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
+    "lint": "eslint src --ext ts",
+    "pretest": "yarn run compile && yarn run lint",
+    "postinstall": "ts-node scripts/post-install.ts",
+    "test": "node ./out/test/runTest.js",
+    "vscode:prepublish": "yarn run compile",
+    "watch": "gulp watch-extension:positron-supervisor"
+  },
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "Positron Kernel Supervisor Configuration",
+      "properties": {
+        "positronKernelSupervisor.enable": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.enable.description%"
+        },
+        "positronKernelSupervisor.showTerminal": {
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.showTerminal.description%"
+        },
+        "positronKernelSupervisor.logLevel": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "trace"
+          ],
+          "enumDescriptions": [
+            "%configuration.logLevel.error.description%",
+            "%configuration.logLevel.warn.description%",
+            "%configuration.logLevel.info.description%",
+            "%configuration.logLevel.debug.description%",
+            "%configuration.logLevel.trace.description%"
+          ],
+          "default": "debug",
+          "description": "%configuration.logLevel.description%"
+        },
+        "positronKernelSupervisor.attachOnStartup": {
+          "scope": "window",
+          "type": "boolean",
+          "default": false,
+          "description": "%configuration.attachOnStartup.description%"
+        },
+        "positronKernelSupervisor.sleepOnStartup": {
+          "scope": "window",
+          "type": "number",
+          "description": "%configuration.sleepOnStartup.description%"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "positron.supervisor.showKernelSupervisorLog",
+        "category": "%command.positron.supervisor.category%",
+        "title": "%command.showKernelSupervisorLog.title%",
+        "shortTitle": "%command.showKernelSupervisorLog.title%"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron"
+  },
+  "devDependencies": {
+    "@types/decompress": "^4.2.7",
+    "@types/request": "^2.48.12",
+    "@types/mocha": "^9.1.0",
+    "@types/tail": "^2.2.3",
+    "@types/ws": "^8.5.12",
+    "mocha": "^9.2.1",
+    "ts-node": "^10.9.1",
+    "decompress": "^4.2.1"
+  },
+  "positron": {
+    "binaryDependencies": {
+      "kallichore": "0.1.21"
+    }
+  },
+  "dependencies": {
+    "request": "^2.88.2",
+    "tail": "^2.2.6",
+    "ws": "^8.18.0"
+  }
+}

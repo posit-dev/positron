@@ -20,11 +20,10 @@ import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensio
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { PositronOpenUrlInViewerAction } from './positronPreviewActions.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { POSITRON_PREVIEW_PLOTS_IN_VIEWER } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 
 // The Positron preview view icon.
 const positronPreviewViewIcon = registerIcon('positron-preview-view-icon', Codicon.positronPreviewView, nls.localize('positronPreviewViewIcon', 'View icon of the Positron preview view.'));
-
-export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
 // Register the Positron preview container.
 const VIEW_CONTAINER: ViewContainer = Registry.as<IViewContainersRegistry>(ViewContainerExtensions.ViewContainersRegistry).registerViewContainer({

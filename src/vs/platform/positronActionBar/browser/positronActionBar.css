@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,7 @@
 
 .positron-action-bar.small {
 	--positronActionBar-height: 32px;
-	--positronActionBar-iconSize: 26px;
+	--positronActionBar-iconSize: 28px;
 	--positronActionBar-tooltipTop: 30px;
 }
 

@@ -31,7 +31,8 @@ from .plot_comm import PlotSize
 logger = logging.getLogger(__name__)
 
 
-# Enable interactive mode when this backend is used. See the note at the top of the file.
+# Enable interactive mode (i.e. redraw after every plotting command).
+# This is expected to run when the backend is selected. See the note at the top of the file.
 matplotlib.interactive(True)
 
 
@@ -170,10 +171,20 @@ class FigureCanvasPositron(FigureCanvasAgg):
         if size is None:
             # If no size was provided, restore the figure to its intrinsic size.
             self.figure.set_size_inches(*self.intrinsic_size, forward=False)
+
+            # Also use a tight bounding box. This guarantees that the image contains all elements in
+            # the figure, but the size of the image is no longer guaranteed. It will match images
+            # produced in Jupyter Notebooks which is probably what users expect.
+            # See https://github.com/posit-dev/positron/issues/5068.
+            bbox_inches = "tight"
         else:
+            # If a specific size is requested, resize the image accordingly.
             width_in = size.width * self.device_pixel_ratio / self.figure.dpi
             height_in = size.height * self.device_pixel_ratio / self.figure.dpi
             self.figure.set_size_inches(width_in, height_in, forward=False)
+
+            # Also disable the tight bounding box to guarantee the size of the image.
+            bbox_inches = None
 
         # Render the canvas.
         with io.BytesIO() as figure_buffer:
@@ -181,6 +192,7 @@ class FigureCanvasPositron(FigureCanvasAgg):
                 figure_buffer,
                 format=format,
                 dpi=self.figure.dpi,
+                bbox_inches=bbox_inches,
             )
             rendered = figure_buffer.getvalue()
 

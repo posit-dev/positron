@@ -11,7 +11,7 @@ import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithC
 
 // Other dependencies.
 import { positronClassNames } from '../../../../common/positronUtilities.js';
-import { IHoverManager } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * MouseTrigger enumeration.
@@ -45,6 +45,8 @@ interface ButtonProps {
 	readonly mouseTrigger?: MouseTrigger;
 	readonly onBlur?: () => void;
 	readonly onFocus?: () => void;
+	readonly onMouseEnter?: () => void;
+	readonly onMouseLeave?: () => void;
 	readonly onPressed?: (e: KeyboardModifiers) => void;
 }
 
@@ -60,11 +62,28 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	// Customize the ref handle that is exposed.
 	useImperativeHandle(ref, () => buttonRef.current, []);
 
+	// State hooks.
+	const [mouseInside, setMouseInside] = useState(false);
+
+	// Hover useEffect.
+	React.useEffect(() => {
+		// If the mouse is inside, show the hover. This has the effect of showing the hover when
+		// mouseInside is set to true and updating the hover when the tooltip changes.
+		if (mouseInside) {
+			props.hoverManager?.showHover(buttonRef.current, props.tooltip);
+		}
+	}, [mouseInside, props.hoverManager, props.tooltip]);
+
+	/**
+	 * Sends the onPressed event.
+	 * @param e The event that triggered the onPressed event.
+	 */
 	const sendOnPressed = (e: MouseEvent<HTMLButtonElement> | KeyboardEvent<HTMLButtonElement>) => {
 		// Consume the event.
 		e.preventDefault();
 		e.stopPropagation();
 
+		// Hide the hover.
 		props.hoverManager?.hideHover();
 
 		// Raise the onPressed event if the button isn't disabled.
@@ -104,37 +123,11 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseEnterHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// If there's a hover manager, see if there's a tooltip.
-		if (props.hoverManager) {
-			// Get the tooltip.
-			const tooltip = (() => {
-				if (!props.tooltip) {
-					// There isn't a tooltip.
-					return undefined;
-				} else if (typeof props.tooltip === 'string') {
-					// Return the string tooltip.
-					return props.tooltip;
-				} else {
-					// Return the dynamic tooltip.
-					return props.tooltip();
-				}
-			})();
+		// Set the mouse inside state.
+		setMouseInside(true);
 
-			// If there's a tooltip, show it.
-			if (tooltip) {
-				props.hoverManager.showHover({
-					content: tooltip,
-					target: buttonRef.current,
-					persistence: {
-						hideOnKeyDown: true,
-						hideOnHover: false
-					},
-					appearance: {
-						showPointer: true
-					}
-				}, false);
-			}
-		}
+		// Call the onMouseEnter callback.
+		props.onMouseEnter?.();
 	};
 
 	/**
@@ -142,10 +135,14 @@ export const Button = forwardRef<HTMLButtonElement, PropsWithChildren<ButtonProp
 	 * @param e A MouseEvent<HTMLDivElement> that describes a user interaction with the mouse.
 	 */
 	const mouseLeaveHandler = (e: MouseEvent<HTMLButtonElement>) => {
-		// If there's a hover manager, hide hover.
-		if (props.hoverManager) {
-			props.hoverManager.hideHover();
-		}
+		// Clear the mouse inside state.
+		setMouseInside(false);
+
+		// Hide the hover.
+		props.hoverManager?.hideHover();
+
+		// Call the onMouseLeave callback.
+		props.onMouseLeave?.();
 	};
 
 	/**

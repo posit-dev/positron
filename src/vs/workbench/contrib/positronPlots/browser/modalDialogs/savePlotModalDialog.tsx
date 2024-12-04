@@ -28,11 +28,11 @@ import { FileFilter } from 'electron';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { IntrinsicSize, PlotUnit, RenderFormat } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IntrinsicSize, RenderFormat } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
-import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
@@ -273,20 +273,21 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		);
 	};
 
-	let displayWidth: number;
-	let displayHeight: number;
+	let intrinsicWidth = '';
+	let intrinsicHeight = '';
 	if (enableIntrinsicSize && props.plotIntrinsicSize) {
-		displayWidth = props.plotIntrinsicSize.width;
-		displayHeight = props.plotIntrinsicSize.height;
-
-		// Convert intrinsic size to pixels if necessary
-		if (props.plotIntrinsicSize.unit === PlotUnit.Inches) {
-			displayWidth *= dpi.value;
-			displayHeight *= dpi.value;
-		}
-	} else {
-		displayWidth = width.value;
-		displayHeight = height.value;
+		intrinsicWidth = localize(
+			'positron.savePlotModalDialog.width.intrinsicSize',
+			"{0}{1}",
+			props.plotIntrinsicSize.width,
+			formatPlotUnit(props.plotIntrinsicSize.unit),
+		);
+		intrinsicHeight = localize(
+			'positron.savePlotModalDialog.height.intrinsicSize',
+			"{0}{1}",
+			props.plotIntrinsicSize.height,
+			formatPlotUnit(props.plotIntrinsicSize.unit),
+		);
 	}
 
 	return (
@@ -344,30 +345,49 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 							</div>
 						</div>
 						<div className='plot-input'>
-							<LabeledTextInput
-								label={(() => localize(
-									'positron.savePlotModalDialog.width',
-									"Width"
-								))()}
-								value={displayWidth}
-								type={'number'}
-								onChange={e => updateWidth(e.target.value)}
-								min={1}
-								error={!width.valid}
-								disabled={enableIntrinsicSize}
-							/>
-							<LabeledTextInput
-								label={(() => localize(
-									'positron.savePlotModalDialog.height',
-									"Height"
-								))()}
-								value={displayHeight}
-								type={'number'}
-								onChange={e => updateHeight(e.target.value)}
-								min={1}
-								error={!height.valid}
-								disabled={enableIntrinsicSize}
-							/>
+							{enableIntrinsicSize ? <>
+								<LabeledTextInput
+									label={(() => localize(
+										'positron.savePlotModalDialog.width',
+										"Width"
+									))()}
+									type={'text'}
+									value={intrinsicWidth}
+									disabled={true}
+								/>
+								<LabeledTextInput
+									label={(() => localize(
+										'positron.savePlotModalDialog.height',
+										"Height"
+									))()}
+									type={'text'}
+									value={intrinsicHeight}
+									disabled={true}
+								/>
+							</> : <>
+								<LabeledTextInput
+									label={(() => localize(
+										'positron.savePlotModalDialog.width',
+										"Width"
+									))()}
+									value={width.value}
+									type={'number'}
+									onChange={e => updateWidth(e.target.value)}
+									min={1}
+									error={!width.valid}
+								/>
+								<LabeledTextInput
+									label={(() => localize(
+										'positron.savePlotModalDialog.height',
+										"Height"
+									))()}
+									value={height.value}
+									type={'number'}
+									onChange={e => updateHeight(e.target.value)}
+									min={1}
+									error={!height.valid}
+								/>
+							</>}
 							{enableDPI && <LabeledTextInput
 								label={(() => localize(
 									'positron.savePlotModalDialog.dpi',

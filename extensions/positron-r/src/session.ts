@@ -5,7 +5,6 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import * as path from 'path';
 import PQueue from 'p-queue';
 
 import { JupyterAdapterApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra } from './jupyter-adapter';
@@ -13,19 +12,18 @@ import { ArkLsp, LspState } from './lsp';
 import { delay, whenTimeout, timeout } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
 import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
-import { getArkKernelPath } from './kernel';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
-import { EXTENSION_ROOT_DIR } from './constants';
-import { getPandocPath } from './pandoc';
 
 interface RPackageInstallation {
 	packageName: string;
-	packageVersion?: string;
+	packageVersion: string;
+	minimumVersion: string;
+	compatible: boolean;
 }
 
-interface EnvVar {
+export interface EnvVar {
 	[key: string]: string;
 }
 
@@ -33,6 +31,7 @@ interface EnvVar {
 // locale to also be present here, such as LC_CTYPE or LC_TIME. These can vary by OS, so this
 // interface doesn't attempt to enumerate them.
 interface Locale {
+	// eslint-disable-next-line @typescript-eslint/naming-convention
 	LANG: string;
 	[key: string]: string;
 }
@@ -76,8 +75,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** A timestamp assigned when the session was created. */
 	private _created: number;
 
-	/** Cache for which packages we know are installed in this runtime **/
-	private _packageCache = new Array<RPackageInstallation>();
+	/** Cache of installed packages and associated version info */
+	private _packageCache: Map<string, RPackageInstallation> = new Map();
 
 	/** The current dynamic runtime state */
 	public dynState: positron.LanguageRuntimeDynState;
@@ -224,6 +223,29 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			this._kernel.replyToPrompt(id, reply);
 		} else {
 			throw new Error(`Cannot reply to prompt ${id}; kernel not started`);
+		}
+	}
+
+	/**
+	 * Sets the working directory for the runtime.
+	 *
+	 * @param dir The working directory to set.
+	 */
+	async setWorkingDirectory(dir: string): Promise<void> {
+		if (this._kernel) {
+			// Escape any backslashes in the directory path
+			dir = dir.replace(/\\/g, '\\\\');
+
+			// Escape any quotes in the directory path
+			dir = dir.replace(/"/g, '\\"');
+
+			// Tell the kernel to change the working directory
+			this._kernel.execute(`setwd("${dir}")`,
+				randomUUID(),
+				positron.RuntimeCodeExecutionMode.Interactive,
+				positron.RuntimeErrorBehavior.Continue);
+		} else {
+			throw new Error(`Cannot change to ${dir}; kernel not started`);
 		}
 	}
 
@@ -385,71 +407,155 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
-	 * Checks whether a package is installed in the runtime.
-	 * @param pkgName The name of the package to check
-	 * @param pkgVersion Optionally, the version of the package needed
-	 * @returns true if the package is installed, false otherwise
+	 * Gets information from the runtime about a specific installed package (or maybe not
+	 *   installed). This method caches the results of the package check and, by default, consults
+	 *   this cache in subsequent calls. If positron-r initiates package installation via
+	 *   checkInstalled(), we update the cache. But our cache does not reflect changes made through
+	 *   other channels.
+	 * @param pkgName The name of the package to check.
+	 * @param minimumVersion Optionally, a minimum version to check for. This may seem weird, but we
+	 *   need R to compare versions for us. We can't easily do it over here.
+	 * @param refresh If true, removes any cache entry for pkgName (without regard to
+	 *   minimumVersion), gets fresh info from the runtime, and caches it.
+	 * @returns An instance of RPackageInstallation if the package is installed, `null` otherwise.
 	 */
+	public async packageVersion(
+		pkgName: string,
+		minimumVersion: string | null = null,
+		refresh: boolean = false
+	): Promise<RPackageInstallation | null> {
+		const cacheKey = `${pkgName}>=${minimumVersion ?? '0.0.0'}`;
 
-	async checkInstalled(pkgName: string, pkgVersion?: string): Promise<boolean> {
-		let isInstalled: boolean;
-		// Check the cache first
-		if (this._packageCache.includes({ packageName: pkgName, packageVersion: pkgVersion }) ||
-			(pkgVersion === undefined && this._packageCache.some(p => p.packageName === pkgName))) {
-			return true;
-		}
-		try {
-			if (pkgVersion) {
-				isInstalled = await this.callMethod('is_installed', pkgName, pkgVersion);
-			} else {
-				isInstalled = await this.callMethod('is_installed', pkgName);
+		if (!refresh) {
+			if (this._packageCache.has(cacheKey)) {
+				return this._packageCache.get(cacheKey)!;
 			}
+
+			if (minimumVersion === null) {
+				for (const key of this._packageCache.keys()) {
+					if (key.startsWith(pkgName)) {
+						return this._packageCache.get(key)!;
+					}
+				}
+			}
+		}
+		// Possible sceanrios:
+		// - We're skipping the cache and refreshing the package info.
+		// - The package isn't in the cache.
+		// - The package is in the cache, but version is insufficient (last time we checked).
+
+		// Remove a pre-existing cache entry for this package, regardless of minimumVersion.
+		for (const key of this._packageCache.keys()) {
+			if (key.startsWith(pkgName)) {
+				this._packageCache.delete(key);
+			}
+		}
+
+		const pkgInst = await this._getPackageVersion(pkgName, minimumVersion);
+
+		if (pkgInst) {
+			this._packageCache.set(cacheKey, pkgInst);
+		}
+
+		return pkgInst;
+	}
+
+	private async _getPackageVersion(
+		pkgName: string,
+		minimumVersion: string | null = null
+	): Promise<RPackageInstallation | null> {
+		let pkg: any;
+		try {
+			pkg = await this.callMethod('packageVersion', pkgName, minimumVersion);
 		} catch (err) {
 			const runtimeError = err as positron.RuntimeMethodError;
-			throw new Error(`Error checking for package ${pkgName}: ${runtimeError.message} ` +
-				`(${runtimeError.code})`);
+			throw new Error(`Error getting version of package ${pkgName}: ${runtimeError.message} (${runtimeError.code})`);
 		}
 
-		if (!isInstalled) {
-			const message = pkgVersion ? vscode.l10n.t('Package `{0}` version `{1}` required but not installed.', pkgName, pkgVersion)
-				: vscode.l10n.t('Package `{0}` required but not installed.', pkgName);
-			const install = await positron.window.showSimpleModalDialogPrompt(
-				vscode.l10n.t('Missing R package'),
-				message,
-				vscode.l10n.t('Install now')
-			);
-			if (install) {
-				const id = randomUUID();
-
-				// A promise that resolves when the runtime is idle:
-				const promise = new Promise<void>(resolve => {
-					const disp = this.onDidReceiveRuntimeMessage(runtimeMessage => {
-						if (runtimeMessage.parent_id === id &&
-							runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
-							const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
-							if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
-								resolve();
-								disp.dispose();
-							}
-						}
-					});
-				});
-
-				this.execute(`install.packages("${pkgName}")`,
-					id,
-					positron.RuntimeCodeExecutionMode.Interactive,
-					positron.RuntimeErrorBehavior.Continue);
-
-				// Wait for the the runtime to be idle, or for the timeout:
-				await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
-
-				return true;
-			} else {
-				return false;
-			}
+		if (pkg.version === null) {
+			return null;
 		}
-		this._packageCache.push({ packageName: pkgName, packageVersion: pkgVersion });
-		return true;
+
+		const pkgInst: RPackageInstallation = {
+			packageName: pkgName,
+			packageVersion: pkg.version,
+			minimumVersion: minimumVersion ?? '0.0.0',
+			compatible: pkg.compatible
+		};
+
+		return pkgInst;
+	}
+
+	/**
+	 * Checks whether a package is installed in the runtime, possibly at a minimum version. If not,
+	 * prompts the user to install the package. See the documentation for `packageVersion() for some
+	 * caveats around caching.
+	 * @param pkgName The name of the package to check.
+	 * @param minimumVersion Optionally, the version of the package needed.
+	 * @returns true if the package is installed, at a sufficient version, false otherwise.
+	 */
+
+	async checkInstalled(pkgName: string, minimumVersion: string | null = null): Promise<boolean> {
+		let pkgInst = await this.packageVersion(pkgName, minimumVersion);
+		const installed = pkgInst !== null;
+		let compatible = pkgInst?.compatible ?? false;
+		if (compatible) {
+			return true;
+		}
+		// One of these is true:
+		// - Package is not installed.
+		// - Package is installed, but version is insufficient.
+		// - (Our cache gave us outdated info, but we're just accepting this risk.)
+
+		const title = installed
+			? vscode.l10n.t('Insufficient package version')
+			: vscode.l10n.t('Missing R package');
+		const message = installed
+			? vscode.l10n.t(
+				'The {0} package is installed at version {1}, but version {2} is required.',
+				pkgName, pkgInst!.packageVersion, minimumVersion as string
+			)
+			: vscode.l10n.t('The {0} package is required, but not installed.', pkgName);
+		const okButtonTitle = installed
+			? vscode.l10n.t('Update now')
+			: vscode.l10n.t('Install now');
+
+		const install = await positron.window.showSimpleModalDialogPrompt(
+			title,
+			message,
+			okButtonTitle
+		);
+		if (!install) {
+			return false;
+		}
+
+		const id = randomUUID();
+
+		// A promise that resolves when the runtime is idle:
+		const promise = new Promise<void>(resolve => {
+			const disp = this.onDidReceiveRuntimeMessage(runtimeMessage => {
+				if (runtimeMessage.parent_id === id &&
+					runtimeMessage.type === positron.LanguageRuntimeMessageType.State) {
+					const runtimeMessageState = runtimeMessage as positron.LanguageRuntimeState;
+					if (runtimeMessageState.state === positron.RuntimeOnlineState.Idle) {
+						resolve();
+						disp.dispose();
+					}
+				}
+			});
+		});
+
+		this.execute(`install.packages("${pkgName}")`,
+			id,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue);
+
+		// Wait for the the runtime to be idle, or for the timeout:
+		await Promise.race([promise, timeout(2e4, 'waiting for package installation')]);
+
+		pkgInst = await this.packageVersion(pkgName, minimumVersion, true);
+		compatible = pkgInst?.compatible ?? false;
+		return compatible;
 	}
 
 	async isPackageAttached(packageName: string): Promise<boolean> {
@@ -469,20 +575,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		// Determine whether to use the Kallichore supervisor
-		let useKallichore = true;
-		if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-			// In desktop mode, the supervisor is disabled by default, but can
-			// be enabled via the configuration.
-			const config = vscode.workspace.getConfiguration('kallichoreSupervisor');
-			useKallichore = config.get<boolean>('enable', false);
-		}
-
-		if (useKallichore) {
-			// Use the Kallichore supervisor if enabled
-			const ext = vscode.extensions.getExtension('vscode.kallichore-adapter');
+		const config = vscode.workspace.getConfiguration('positronKernelSupervisor');
+		if (config.get<boolean>('enable', true)) {
+			// Use the Positron kernel supervisor if enabled
+			const ext = vscode.extensions.getExtension('vscode.positron-supervisor');
 			if (!ext) {
-				throw new Error('Kallichore Adapter extension not found');
+				throw new Error('Positron Supervisor extension not found');
 			}
 			if (!ext.isActive) {
 				await ext.activate();
@@ -689,119 +787,6 @@ export function createJupyterKernelExtra(): JupyterKernelExtra {
 		attachOnStartup: new ArkAttachOnStartup(),
 		sleepOnStartup: new ArkDelayStartup(),
 	};
-}
-
-/**
- * Create a new Jupyter kernel spec.
- *
- * @param rHomePath The R_HOME path for the R version
- * @param runtimeName The (display) name of the runtime
- * @param sessionMode The mode in which to create the session
- *
- * @returns A JupyterKernelSpec definining the kernel's path, arguments, and
- *  metadata.
- */
-export function createJupyterKernelSpec(
-	rHomePath: string,
-	runtimeName: string,
-	sessionMode: positron.LanguageRuntimeSessionMode): JupyterKernelSpec {
-
-	// Path to the kernel executable
-	const kernelPath = getArkKernelPath();
-	if (!kernelPath) {
-		throw new Error('Unable to find R kernel');
-	}
-
-	// Check the R kernel log level setting
-	const config = vscode.workspace.getConfiguration('positron.r');
-	const logLevel = config.get<string>('kernel.logLevel') ?? 'warn';
-	const logLevelForeign = config.get<string>('kernel.logLevelExternal') ?? 'warn';
-	const userEnv = config.get<object>('kernel.env') ?? {};
-	const profile = config.get<string>('kernel.profile');
-
-
-	/* eslint-disable */
-	const env = <Record<string, string>>{
-		'RUST_BACKTRACE': '1',
-		'RUST_LOG': logLevelForeign + ',ark=' + logLevel,
-		'R_HOME': rHomePath,
-		...userEnv
-	};
-	/* eslint-enable */
-
-	if (profile) {
-		env['ARK_PROFILE'] = profile;
-	}
-
-	if (process.platform === 'linux') {
-		// Workaround for
-		// https://github.com/posit-dev/positron/issues/1619#issuecomment-1971552522
-		env['LD_LIBRARY_PATH'] = rHomePath + '/lib';
-	} else if (process.platform === 'darwin') {
-		// Workaround for
-		// https://github.com/posit-dev/positron/issues/3732
-		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
-	}
-
-	// Inject the path to the Pandoc executable into the environment; R packages
-	// that use Pandoc for rendering will need this.
-	//
-	// On MacOS, the binary path lives alongside the app bundle; on other
-	// platforms, it's a couple of directories up from the app root.
-	const pandocPath = getPandocPath();
-	if (pandocPath) {
-		env['RSTUDIO_PANDOC'] = pandocPath;
-	}
-
-	// R script to run on session startup
-	const startupFile = path.join(EXTENSION_ROOT_DIR, 'resources', 'scripts', 'startup.R');
-
-	const argv = [
-		kernelPath,
-		'--connection_file', '{connection_file}',
-		'--log', '{log_file}',
-		'--startup-file', `${startupFile}`,
-		'--session-mode', `${sessionMode}`,
-	];
-
-	// Only create profile if requested in configuration
-	if (profile) {
-		argv.push(...[
-			'--profile', '{profile_file}',
-		]);
-	}
-
-	argv.push(...[
-		// The arguments after `--` are passed verbatim to R
-		'--',
-		'--interactive',
-	]);
-
-	// Create a kernel spec for this R installation
-	const kernelSpec: JupyterKernelSpec = {
-		'argv': argv,
-		'display_name': runtimeName, // eslint-disable-line
-		'language': 'R',
-		'env': env,
-	};
-
-	// Unless the user has chosen to restore the workspace, pass the
-	// `--no-restore-data` flag to R.
-	if (!config.get<boolean>('restoreWorkspace')) {
-		kernelSpec.argv.push('--no-restore-data');
-	}
-
-	// If the user has supplied extra arguments to R, pass them along.
-	const extraArgs = config.get<Array<string>>('extraArguments');
-	const quietMode = config.get<boolean>('quietMode');
-	if (quietMode && extraArgs?.indexOf('--quiet') === -1) {
-		extraArgs?.push('--quiet');
-	}
-	if (extraArgs) {
-		kernelSpec.argv.push(...extraArgs);
-	}
-
-	return kernelSpec;
 }
 
 export async function checkInstalled(pkgName: string,

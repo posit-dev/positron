@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// React.
-import React from 'react';
-
-// Other dependencies.
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -23,12 +19,15 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IViewDescriptorService } from '../../../common/views.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronConnections } from './positronConnections.js';
+import * as React from 'react';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -71,6 +70,7 @@ export class PositronConnectionsView
 
 	constructor(
 		options: IViewPaneOptions,
+		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -86,7 +86,8 @@ export class PositronConnectionsView
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@IClipboardService private readonly clipboardService: IClipboardService,
 		@INotificationService private readonly notificationService: INotificationService,
-		@IEditorService private readonly editorService: IEditorService
+		@IEditorService private readonly editorService: IEditorService,
+		@IModelService private readonly modelService: IModelService
 	) {
 		super(
 			options,
@@ -132,6 +133,7 @@ export class PositronConnectionsView
 		this._register(this.positronReactRenderer);
 		this.positronReactRenderer.render(
 			<PositronConnections
+				accessibilityService={this.accessibilityService}
 				configurationService={this.configurationService}
 				commandService={this.commandService}
 				contextKeyService={this.contextKeyService}
@@ -144,6 +146,8 @@ export class PositronConnectionsView
 				clipboardService={this.clipboardService}
 				notificationService={this.notificationService}
 				editorService={this.editorService}
+				instantiationService={this.instantiationService}
+				modelService={this.modelService}
 			/>
 		);
 	}

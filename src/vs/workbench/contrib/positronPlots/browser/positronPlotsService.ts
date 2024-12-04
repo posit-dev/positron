@@ -39,7 +39,7 @@ import { NotebookOutputPlotClient } from './notebookOutputPlotClient.js';
 import { HtmlPlotClient } from './htmlPlotClient.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
-import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/common/positronWebviewPreloadService.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { PlotSizingPolicyIntrinsic } from '../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';

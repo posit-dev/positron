@@ -8,7 +8,7 @@ import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js'
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService, RuntimeStartupPhase } from '../../services/runtimeStartup/common/runtimeStartupService.js';
-import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider, PythonRuntimeFilter } from './interfaces/newProjectWizardEnums.js';
+import { EnvironmentSetupType, NewProjectWizardStep, PythonEnvironmentProvider } from './interfaces/newProjectWizardEnums.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { ILogService } from '../../../platform/log/common/log.js';
@@ -85,12 +85,6 @@ export interface INewProjectWizardStateManager {
 	readonly onUpdateInterpreterState: Event<void>;
 	readonly onUpdateProjectDirectory: Event<void>;
 }
-
-/**
- * RuntimeFilter type.
- * More filters can be added here as needed.
- */
-type RuntimeFilter = PythonRuntimeFilter;
 
 /**
  * NewProjectWizardStateManager class.
@@ -174,8 +168,7 @@ export class NewProjectWizardStateManager
 				.then(() => {
 					this._runtimeStartupComplete = true;
 					this._updateInterpreterRelatedState();
-				}
-				);
+				});
 		} else {
 			// Register disposables.
 			this._register(
@@ -607,22 +600,8 @@ export class NewProjectWizardStateManager
 			return;
 		}
 
-		const langId = this._getLangId();
-		let runtimeSourceFilters: RuntimeFilter[] | undefined = undefined;
-
-		// Add runtime filters for new Venv Python environments.
-		if (langId === LanguageIds.Python && this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment) {
-			if (this._getEnvProviderName() === PythonEnvironmentProvider.Venv) {
-				// TODO: instead of applying our own filters, we should use the filters provided by the
-				// extension for Global python environments.
-				// extensions/positron-python/src/client/pythonEnvironments/creation/common/createEnvTriggerUtils.ts
-				// isGlobalPython
-				runtimeSourceFilters = [PythonRuntimeFilter.Global, PythonRuntimeFilter.Pyenv];
-			}
-		}
-
 		// Update the interpreters list.
-		this._interpreters = this._getFilteredInterpreters(runtimeSourceFilters);
+		this._interpreters = await this._getFilteredInterpreters();
 
 		// Update the interpreter that should be selected in the dropdown.
 		if (!this._selectedRuntime || !this._interpreters?.includes(this._selectedRuntime)) {
@@ -630,7 +609,7 @@ export class NewProjectWizardStateManager
 		}
 
 		// For Python projects, check if ipykernel needs to be installed.
-		if (langId === LanguageIds.Python) {
+		if (this._getLangId() === LanguageIds.Python) {
 			this._installIpykernel = await this._getInstallIpykernel();
 		}
 
@@ -753,7 +732,7 @@ export class NewProjectWizardStateManager
 		this._condaPythonVersionInfo = EMPTY_CONDA_PYTHON_VERSION_INFO;
 
 		if (!this._pythonEnvProviders?.length) {
-			this._services.logService.error('No Python environment providers found.');
+			this._services.logService.error('[Project Wizard] No Python environment providers found.');
 			return;
 		}
 
@@ -762,7 +741,7 @@ export class NewProjectWizardStateManager
 			(provider) => provider.name === PythonEnvironmentProvider.Conda
 		);
 		if (!providersIncludeConda) {
-			this._services.logService.info('Conda is not available as an environment provider.');
+			this._services.logService.info('[Project Wizard] Conda is not available as an environment provider.');
 			return;
 		}
 
@@ -772,7 +751,7 @@ export class NewProjectWizardStateManager
 		);
 		if (!this._isCondaInstalled) {
 			this._services.logService.warn(
-				'Conda is available as an environment provider, but it is not installed.'
+				'[Project Wizard] Conda is available as an environment provider, but it is not installed.'
 			);
 			return;
 		}
@@ -781,7 +760,7 @@ export class NewProjectWizardStateManager
 		const pythonVersionInfo: CondaPythonVersionInfo | undefined =
 			await this._services.commandService.executeCommand('python.getCondaPythonVersions');
 		if (!pythonVersionInfo) {
-			this._services.logService.warn('No Conda Python versions found.');
+			this._services.logService.warn('[Project Wizard] No Conda Python versions found.');
 			return;
 		}
 
@@ -821,15 +800,14 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
-	 * Retrieves the interpreters that match the language ID and runtime source filters. Sorts the
-	 * interpreters by runtime source.
-	 * @param runtimeSourceFilters Optional runtime source filters to apply.
-	 * @returns The filtered interpreters.
+	 * Retrieves the interpreters that match the current language ID and environment setup type if
+	 * applicable.
+	 * @returns The filtered interpreters sorted by runtime source, or undefined if runtime startup is
+	 * not complete or a Conda environment is being used.
 	 */
-	private _getFilteredInterpreters(runtimeSourceFilters?: RuntimeFilter[]): ILanguageRuntimeMetadata[] | undefined {
-		const langId = this._getLangId();
-
+	private async _getFilteredInterpreters(): Promise<ILanguageRuntimeMetadata[] | undefined> {
 		if (this._usesCondaEnv()) {
+			this._services.logService.trace(`[Project Wizard] Conda environments do not have registered runtimes`);
 			// Conda environments do not have registered runtimes. Instead, we have a list of Python
 			// versions available for Conda environments, which is stored in condaPythonVersionInfo.
 			return undefined;
@@ -838,39 +816,50 @@ export class NewProjectWizardStateManager
 		// We don't want to return a partial list of interpreters if the runtime startup is not
 		// complete, so we return undefined in that case.
 		if (!this._runtimeStartupComplete) {
+			this._services.logService.warn('[Project Wizard] Requested filtered interpreters before runtime startup is complete. Please come by later!');
 			return undefined;
 		}
 
 		// Once the runtime startup is complete, we can return the filtered list of interpreters.
-		return this._services.languageRuntimeService.registeredRuntimes
-			// Filter by language ID and runtime source.
-			.filter(
-				(runtime) =>
-					runtime.languageId === langId &&
-					this._includeRuntimeSource(runtime.runtimeSource, runtimeSourceFilters)
-			)
-			// Sort by runtime source.
+		const langId = this._getLangId();
+		let runtimesForLang = this._services.languageRuntimeService.registeredRuntimes
+			.filter(runtime => runtime.languageId === langId);
+
+		// If we're creating a new Python environment, only return Global runtimes.
+		if (langId === LanguageIds.Python
+			&& this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment
+		) {
+			const globalRuntimes = [];
+			for (const runtime of runtimesForLang) {
+				const interpreterPath = runtime.extraRuntimeData.pythonPath as string ?? runtime.runtimePath;
+				const isGlobal = await this.services.commandService.executeCommand(
+					'python.isGlobalPython',
+					interpreterPath
+				) satisfies boolean | undefined;
+				if (isGlobal === undefined) {
+					this._services.logService.error(
+						`[Project Wizard] Unable to determine if Python interpreter '${interpreterPath}' is global`
+					);
+					continue;
+				}
+				if (isGlobal) {
+					globalRuntimes.push(runtime);
+				} else {
+					this._services.logService.trace(`[Project Wizard] Skipping non-global Python interpreter '${interpreterPath}'`);
+				}
+			}
+			// If the global runtimes list is a different length than the original runtimes list,
+			// then we only want to show the global runtimes.
+			if (runtimesForLang.length !== globalRuntimes.length) {
+				runtimesForLang = globalRuntimes;
+			}
+		}
+
+		// Return the runtimes, sorted by runtime source.
+		return runtimesForLang
 			.sort((left, right) =>
 				left.runtimeSource.localeCompare(right.runtimeSource)
 			);
-	}
-
-	/**
-	 * Determines if the runtime source should be included based on the filters.
-	 * @param runtimeSource The runtime source to check.
-	 * @param filters The runtime source filters to apply.
-	 * @returns True if the runtime source should be included, false otherwise.
-	 * If no filters are provided, all runtime sources are included.
-	 */
-	private _includeRuntimeSource(
-		runtimeSource: string,
-		filters?: RuntimeFilter[]
-	) {
-		return (
-			!filters ||
-			!filters.length ||
-			filters.find((rs) => rs === runtimeSource) !== undefined
-		);
 	}
 
 	/**

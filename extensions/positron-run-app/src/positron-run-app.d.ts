@@ -54,6 +54,11 @@ export interface RunAppOptions {
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
 	appReadyMessage?: string;
+
+	/**
+	 * An optional array of app URI formats to parse the URI from the terminal output.
+	 */
+	appUrlStrings?: string[];
 }
 
 /**
@@ -88,6 +93,11 @@ export interface DebugAppOptions {
 	 * The optional app ready message to wait for in the terminal before previewing the application.
 	 */
 	appReadyMessage?: string;
+
+	/**
+	 * An optional array of app URI formats to parse the URI from the terminal output.
+	 */
+	appUrlStrings?: string[];
 }
 
 /**

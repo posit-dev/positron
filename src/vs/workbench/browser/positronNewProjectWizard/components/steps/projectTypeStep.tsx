@@ -17,6 +17,20 @@ import { NewProjectWizardStepProps } from '../../interfaces/newProjectWizardStep
 import { OKCancelBackNextActionBar } from '../../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
 import { ProjectTypeGroup } from '../projectTypeGroup.js';
 import { checkProjectName } from '../../utilities/projectNameUtils.js';
+import { NewProjectType } from '../../../../services/positronNewProject/common/positronNewProject.js';
+
+/**
+ * Generates a default project name in kebab case based on the provided project type.
+ *
+ * @param projectType - The type of the project for which to generate a default name.
+ * @returns The default project name as a string.
+ */
+const getDefaultProjectName = (projectType: NewProjectType) => {
+	return localize(
+		'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
+		"my"
+	) + '-' + projectType.toLowerCase().replace(/\s/g, '-');
+};
 
 /**
  * The ProjectTypeStep component is the first step in the new project wizard, used to
@@ -44,12 +58,7 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 			context.projectType !== selectedProjectType ||
 			context.projectName === ''
 		) {
-			// The default project name is 'my' + projectType without spaces, eg. 'myPythonProject'.
-			const defaultProjectName =
-				localize(
-					'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
-					"my"
-				) + selectedProjectType.replace(/\s/g, '');
+			const defaultProjectName = getDefaultProjectName(selectedProjectType);
 			context.projectType = selectedProjectType;
 			context.projectName = defaultProjectName;
 			context.projectNameFeedback = await checkProjectName(

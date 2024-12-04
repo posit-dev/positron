@@ -57,7 +57,6 @@ export class PositronVariables {
 	}
 
 	async doubleClickVariableRow(variableName: string) {
-
 		const desiredRow = await this.waitForVariableRow(variableName);
 		await desiredRow.dblclick();
 	}
@@ -138,5 +137,10 @@ export class PositronVariables {
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).isVisible();
 		await this.code.wait(500);
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).click();
+	}
+
+	async clickDatabaseIconForVariableRow(rowName: string) {
+		const DATABASE_ICON = '.codicon-database';
+		await this.code.driver.page.locator(VARIABLE_ITEMS).filter({ hasText: rowName }).locator(DATABASE_ICON).click();
 	}
 }

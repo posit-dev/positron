@@ -15,20 +15,15 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-
 import { localize } from '../../../../../nls.js';
+import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
 export const ACTION_BAR_HEIGHT = 32;
 
 interface ActionBarProps {
+	readonly accessibilityService: IAccessibilityService;
 	readonly commandService: ICommandService;
 	readonly configurationService: IConfigurationService;
 	readonly contextKeyService: IContextKeyService;

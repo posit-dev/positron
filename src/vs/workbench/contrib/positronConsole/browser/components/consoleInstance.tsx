@@ -13,7 +13,7 @@ import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useL
 import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { isMacintosh } from '../../../../../base/common/platform.js';
+import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { PixelRatio } from '../../../../../base/browser/pixelRatio.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -275,7 +275,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		}));
 
 		// Add the onDidExecuteCode event handler.
-		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(_code => {
+		disposableStore.add(props.positronConsoleInstance.onDidExecuteCode(() => {
 			scrollToBottom();
 		}));
 
@@ -566,6 +566,16 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	};
 
 	/**
+	 * Fixes the scroll event override that VS Code drops to prevent gesture navigation.
+	 * @param e A WheelEvent<HTMLDivElement>
+	 */
+	const scrollOverrideHandler = (e: WheelEvent<HTMLDivElement>) => {
+		if (isWeb) {
+			consoleInstanceRef.current.scrollBy(e.deltaX, e.deltaY);
+		}
+	};
+
+	/**
 	 * onWheel event handler.
 	 * @param e A WheelEvent<HTMLDivElement> that describes a user interaction with the wheel.
 	 */
@@ -607,7 +617,11 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onMouseDown={mouseDownHandler}
 			onWheel={wheelHandler}
 			onScroll={scrollHandler}>
-			<div ref={consoleInstanceContainerRef} className='console-instance-container'>
+			<div
+				ref={consoleInstanceContainerRef}
+				className='console-instance-container'
+				onWheel={scrollOverrideHandler}
+			>
 				<ConsoleInstanceItems
 					positronConsoleInstance={props.positronConsoleInstance}
 					editorFontInfo={editorFontInfo}

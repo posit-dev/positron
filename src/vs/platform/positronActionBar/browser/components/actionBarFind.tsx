@@ -69,8 +69,8 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					</button>
 				)}
 			</div>
-			<ActionBarButton layout='tight' iconId='chevron-up' align='right' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} disabled={!props.findResults} onPressed={() => props.onFindPrevious!()} />
-			<ActionBarButton layout='tight' iconId='chevron-down' align='right' tooltip={(() => localize('positronFindNext', "Find next"))()} disabled={!props.findResults} onPressed={() => props.onFindNext!()} />
+			<ActionBarButton iconId='chevron-up' align='right' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} disabled={!props.findResults} onPressed={() => props.onFindPrevious!()} />
+			<ActionBarButton iconId='chevron-down' align='right' tooltip={(() => localize('positronFindNext', "Find next"))()} disabled={!props.findResults} onPressed={() => props.onFindNext!()} />
 		</div>
 	);
 };

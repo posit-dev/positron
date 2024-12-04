@@ -36,7 +36,7 @@
   },
   "extensionDependencies": [
     "ms-python.python",
-    "vscode.positron-r",
+    "positron.positron-r",
     "vscode.jupyter-adapter"
   ],
   "devDependencies": {

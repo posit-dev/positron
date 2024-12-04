@@ -12,15 +12,15 @@ import React, { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { CommandCenter } from '../../../commandCenter/common/commandCenter.js';
+import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
-import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 
 /**
  * ActionBarCommandButtonProps interface.
  */
 interface ActionBarCommandButtonProps extends ActionBarButtonProps {
-	commandId: string;
+	readonly commandId: string;
 }
 
 /**
@@ -31,7 +31,9 @@ interface ActionBarCommandButtonProps extends ActionBarButtonProps {
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
 	const positronActionBarContext = usePositronActionBarContext();
-	const [disabled, setDisabled] = useState(!positronActionBarContext.isCommandEnabled(props.commandId));
+	const [commandDisabled, setCommandDisabled] = useState(
+		!positronActionBarContext.isCommandEnabled(props.commandId)
+	);
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// Add our event handlers.
@@ -49,20 +51,17 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			disposableStore.add(positronActionBarContext.contextKeyService.onDidChangeContext(e => {
 				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
-					setDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+					setCommandDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
 			}));
 		}
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [positronActionBarContext.contextKeyService, props.commandId]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
-
-	// Handlers.
-	const executeHandler = () => positronActionBarContext.commandService.executeCommand(props.commandId);
 
 	// Returns a dynamic tooltip for the command button.
 	const tooltip = (): string | undefined => {
@@ -85,5 +84,15 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	};
 
 	// Render.
-	return <ActionBarButton {...props} ref={buttonRef} tooltip={tooltip} disabled={disabled} onPressed={executeHandler} />;
+	return (
+		<ActionBarButton
+			ref={buttonRef}
+			{...props}
+			tooltip={tooltip}
+			disabled={props.disabled || commandDisabled}
+			onPressed={() =>
+				positronActionBarContext.commandService.executeCommand(props.commandId)
+			}
+		/>
+	);
 };

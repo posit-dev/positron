@@ -30,7 +30,7 @@ export class PreviewHtml extends PreviewWebview {
 		previewId: string,
 		webview: PreviewOverlayWebview,
 		readonly uri: URI,
-		readonly html: ShowHtmlFileEvent
+		readonly html?: ShowHtmlFileEvent
 	) {
 		super(POSITRON_PREVIEW_HTML_VIEW_TYPE, previewId,
 			POSITRON_PREVIEW_HTML_VIEW_TYPE,

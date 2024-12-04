@@ -81,7 +81,7 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	registerRuntime(metadata: ILanguageRuntimeMetadata): IDisposable {
 		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
-			return toDisposable(() => { });
+			return this._register(toDisposable(() => { }));
 		}
 
 		// Add the runtime to the registered runtimes.
@@ -93,9 +93,9 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// Logging.
 		this._logService.trace(`Language runtime ${formatLanguageRuntimeMetadata(metadata)} successfully registered.`);
 
-		return toDisposable(() => {
+		return this._register(toDisposable(() => {
 			this._registeredRuntimesByRuntimeId.delete(metadata.runtimeId);
-		});
+		}));
 	}
 
 	/**

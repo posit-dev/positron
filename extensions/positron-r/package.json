@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.2",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -155,15 +155,6 @@
             "default": false,
             "description": "%r.configuration.restoreWorkspace.description%"
           },
-          "positron.r.extraArguments": {
-            "scope": "window",
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": [],
-            "description": "%r.configuration.extraArguments.description%"
-          },
           "positron.r.quietMode": {
             "scope": "window",
             "type": "boolean",
@@ -281,6 +272,30 @@
             },
             "default": [],
             "description": "%r.configuration.extraArguments.description%"
+          },
+          "positron.r.taskHyperlinks": {
+            "scope": "window",
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.taskHyperlinks.description%"
+          },
+          "positron.r.defaultRepositories": {
+            "scope": "window",
+            "type": "string",
+            "enum": [
+              "auto",
+              "rstudio",
+              "posit-ppm",
+              "none"
+            ],
+            "enumDescriptions": [
+              "%r.configuration.defaultRepositories.auto.description%",
+              "%r.configuration.defaultRepositories.rstudio.description%",
+              "%r.configuration.defaultRepositories.posit-ppm.description%",
+              "%r.configuration.defaultRepositories.none.description%"
+            ],
+            "default": "auto",
+            "markdownDescription": "%r.configuration.defaultRepositories.description%"
           }
         }
       }
@@ -373,7 +388,7 @@
         "command": "r.insertPipe",
         "key": "ctrl+shift+m",
         "mac": "cmd+shift+m",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r || quarto.document.languageId == r"
       },
       {
         "command": "r.insertPipeConsole",
@@ -385,7 +400,7 @@
         "command": "r.insertLeftAssignment",
         "key": "alt+-",
         "mac": "alt+-",
-        "when": "editorLangId == r"
+        "when": "editorLangId == r || quarto.document.languageId == r"
       },
       {
         "command": "r.insertLeftAssignmentConsole",
@@ -469,7 +484,7 @@
         {
           "category": "R",
           "command": "r.insertPipe",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r || quarto.document.languageId == r"
         },
         {
           "category": "R",
@@ -479,7 +494,7 @@
         {
           "category": "R",
           "command": "r.insertLeftAssignment",
-          "when": "editorLangId == r"
+          "when": "editorLangId == r || quarto.document.languageId == r"
         },
         {
           "category": "R",
@@ -659,7 +674,8 @@
     "split2": "^4.2.0",
     "vscode-languageclient": "^9.0.1",
     "web-tree-sitter": "^0.20.8",
-    "which": "^3.0.0"
+    "which": "^3.0.0",
+    "xdg-portable": "^10.6.0"
   },
   "peerDependencies": {
     "@vscode/windows-registry": "^1.0.0"
@@ -670,7 +686,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.151"
+      "ark": "0.1.157"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

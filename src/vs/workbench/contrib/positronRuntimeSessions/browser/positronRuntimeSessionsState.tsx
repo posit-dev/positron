@@ -21,7 +21,7 @@ export interface PositronSessionsServices extends PositronActionBarServices {
  * PositronRuntimeSessionsState interface.
  */
 export interface PositronRuntimeSessionsState extends PositronSessionsServices {
-	positronSessions: ILanguageRuntimeSession[];
+	positronSessions: Map<string, ILanguageRuntimeSession>;
 }
 
 /**
@@ -31,8 +31,8 @@ export interface PositronRuntimeSessionsState extends PositronSessionsServices {
 export const usePositronRuntimeSessionsState = (services: PositronSessionsServices): PositronRuntimeSessionsState => {
 	// Hooks.
 	const [positronSessions, setPositronSessions] =
-		useState<ILanguageRuntimeSession[]>(
-			services.runtimeSessionService.activeSessions
+		useState(
+			new Map(services.runtimeSessionService.activeSessions.map(session => [session.sessionId, session])),
 		);
 
 	// Add event handlers.
@@ -42,12 +42,12 @@ export const usePositronRuntimeSessionsState = (services: PositronSessionsServic
 
 		// Add the onDidStartPositronSessionsInstance event handler.
 		disposableStore.add(services.runtimeSessionService.onDidStartRuntime(session => {
-			setPositronSessions(positronSessions => [...positronSessions, session]);
+			setPositronSessions(positronSessions => new Map(positronSessions).set(session.sessionId, session));
 		}));
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, []);
+	}, [services.runtimeSessionService]);
 
 	// Return the Positron variables state.
 	return {

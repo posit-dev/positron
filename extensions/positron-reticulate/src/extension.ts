@@ -471,6 +471,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.replyToPrompt(id, reply);
 	}
 
+	public setWorkingDirectory(dir: string): Thenable<void> {
+		return this.pythonSession.setWorkingDirectory(dir);
+	}
+
 	public start() {
 		return this.pythonSession.start();
 	}
@@ -715,6 +719,16 @@ export function activate(context: vscode.ExtensionContext) {
 				return true;
 			}
 		}));
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.getIPykernelPath', () => {
+			const api = vscode.extensions.getExtension('ms-python.python');
+			if (!api) {
+				throw new Error('Failed to find the Positron Python extension API.');
+			}
+			return api.extensionPath + '/python_files/positron/positron_ipykernel';
+		})
+	);
 
 	context.subscriptions.push(reticulateProvider);
 

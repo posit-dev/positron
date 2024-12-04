@@ -2,6 +2,7 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
@@ -11,15 +12,13 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { insertCellAtIndex } from '../../notebook/browser/controller/cellOperations.js';
 import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
-import { NotebookViewModel } from '../../notebook/browser/viewModel/notebookViewModelImpl.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
-import { CellEditType, CellKind, ICellReplaceEdit, SelectionStateType } from '../../notebook/common/notebookCommon.js';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from '../../notebook/common/notebookCommon.js';
 import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
-import { createNotebookCell } from './PositronNotebookCell.js';
+import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
 import * as DOM from '../../../../base/browser/dom.js';
@@ -27,27 +26,38 @@ import { IPositronNotebookCell } from '../../../services/positronNotebook/browse
 import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
 import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { disposableTimeout } from '../../../../base/common/async.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
 import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
-import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isEqual } from '../../../../base/common/resources.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
-interface IPositronNotebookInstanceRequiredViewModel extends IPositronNotebookInstance {
-	viewModel: NotebookViewModel;
-}
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
 }
 
+/**
+ * Implementation of IPositronNotebookInstance that handles the core notebook functionality
+ * and state management. This class serves as the bridge between the UI and the underlying
+ * notebook model.
+ *
+ * Key responsibilities:
+ * - Manages notebook cell state and execution
+ * - Handles kernel connectivity
+ * - Coordinates selection and editing states
+ * - Manages the lifecycle of the notebook view
+ */
 export class PositronNotebookInstance extends Disposable implements IPositronNotebookInstance {
 
 	// ===== Statics =====
 	// #region Statics
+	/** Map of all active notebook instances, keyed by notebook URI */
+	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
+
 	/**
 	 * Either makes or retrieves an instance of a Positron Notebook based on the resource. This
 	 * helps avoid having multiple instances open for the same file when the input is rebuilt.
@@ -78,14 +88,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return instance;
 	}
 
-	static _instanceMap: Map<string, PositronNotebookInstance> = new Map();
-
-	/**
-	 * Value to keep track of what instance number.
-	 * Used for keeping track in the logs.
-	 */
-	static _count = 0;
-
 	// #endregion
 
 	// =============================================================================================
@@ -96,14 +98,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _cells: IPositronNotebookCell[] = [];
 
-	private _language: string | undefined = undefined;
-
 	/**
 	 * A set of disposables that are linked to a given model
 	 * that need to be cleaned up when the model is changed.
 	 */
 	private readonly _modelStore = this._register(new DisposableStore());
 
+	/**
+	 * Dom element that contains the notebook is rendered in.
+	 */
 	private _container: HTMLElement | undefined = undefined;
 
 	/**
@@ -116,12 +119,14 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _baseCellEditorOptions: Map<string, IBaseCellEditorOptions> = new Map();
 
-
 	/**
 	 * View model for the notebook.
 	 */
-	private _viewModel: NotebookViewModel | undefined = undefined;
+	// private _viewModel: NotebookViewModel | undefined = undefined;
 
+	/**
+	 * Model for the notebook contents.
+	 */
 	private _textModel: NotebookTextModel | undefined = undefined;
 
 	/**
@@ -141,13 +146,26 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 * notebook gets fleshed out.
 	 */
 	private _notebookOptions: NotebookOptions | undefined;
+
+	/**
+	 * Keep track of if this editor has been disposed.
+	 */
+	private _isDisposed: boolean = false;
 	// #endregion
 
+	/**
+	 * Event emitter for when the text model changes.
+	 */
+	private readonly _onDidChangeContent = this._register(new Emitter<void>());
+	readonly onDidChangeContent = this._onDidChangeContent.event;
 
 	// =============================================================================================
 	// #region Public Properties
 
-	id: string = `positron.notebook.instance.${PositronNotebookInstance._count++}`;
+	/**
+	 * Unique identifier for the notebook instance. Currently just the notebook URI as a string.
+	 */
+	private _id: string;
 
 	/**
 	 * User facing cells wrapped in an observerable for the UI to react to changes
@@ -163,12 +181,15 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	kernelStatus: ISettableObservable<KernelStatus>;
 
+	/**
+	 * Current runtime for the notebook.
+	 */
 	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
 
 	/**
-	 * Keep track of if this editor has been disposed.
+	 * Language for the notebook.
 	 */
-	isDisposed: boolean = false;
+	private _language: string | undefined;
 
 	// #endregion
 
@@ -185,13 +206,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 	get uri(): URI {
 		return this._input.resource;
-	}
-
-	/**
-	 * Returns view model. Type of unknown is used to deal with type import rules. Should be type-cast to NotebookViewModel.
-	 */
-	get viewModel(): NotebookViewModel | undefined {
-		return this._viewModel;
 	}
 
 	/**
@@ -222,6 +236,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		return this._notebookOptions;
 	}
 
+	get id(): string {
+		return this._id;
+	}
+
+	get isDisposed(): boolean {
+		return this._isDisposed;
+	}
+
+	/**
+	 * Gets the language for the notebook.
+	 */
+	get language(): string {
+		if (this._language) {
+			return this._language;
+		}
+
+		// Try to get language from kernel
+		if (this._textModel) {
+			const kernel = this.notebookKernelService.getSelectedOrSuggestedKernel(this._textModel);
+			if (kernel) {
+				this._language = kernel.supportedLanguages[0];
+				return this._language;
+			}
+		}
+
+		// Fallback to a default language
+		return 'plaintext';
+	}
+
 	// #endregion
 
 	// =============================================================================================
@@ -233,7 +276,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookExecutionService private readonly notebookExecutionService: INotebookExecutionService,
 		@INotebookExecutionStateService private readonly notebookExecutionStateService: INotebookExecutionStateService,
-		@INotebookService private readonly _notebookService: INotebookService,
 		@INotebookKernelService private readonly notebookKernelService: INotebookKernelService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
@@ -241,9 +283,13 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
 		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		@IPositronWebviewPreloadService private readonly _webviewPreloadService: IPositronWebviewPreloadService,
 	) {
 		super();
 
+		this._setupNotebookTextModel();
+
+		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
@@ -255,23 +301,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			this._instantiationService.createInstance(SelectionStateMachine)
 		);
 
-		this._register(
-			this._notebookService.onDidAddNotebookDocument((model) => {
-				// Is this our notebook?
-				if (this._isThisNotebook(model.uri)) {
-					this._setupNotebookTextModel();
-				}
-			})
-		);
-
-		this._register(
-			this._notebookService.onDidRemoveNotebookDocument((model) => {
-				// Is this our notebook?
-				if (this._isThisNotebook(model.uri)) {
-					this._detachModel();
-				}
-			})
-		);
 
 		this._register(
 			this.notebookKernelService.onDidChangeSelectedNotebooks((e) => {
@@ -307,13 +336,22 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			})
 		);
 
+		this._webviewPreloadService.attachNotebookInstance(this);
+
 		this._logService.info(this.id, 'constructor');
+
+		// Add listener for content changes to sync cells
+		this._register(this.onDidChangeContent(() => {
+			this._syncCells();
+		}));
 	}
 
 	override dispose() {
 
 		this._logService.info(this.id, 'dispose');
 		this._positronNotebookService.unregisterInstance(this);
+		// Remove from the instance map
+		PositronNotebookInstance._instanceMap.delete(this.uri.toString());
 
 		super.dispose();
 		this.detachView();
@@ -337,24 +375,45 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 
 	addCell(type: CellKind, index: number): void {
-		this._assertViewModel();
+		this._assertTextModel();
 
-		if (!this._language) {
+		if (!this.language) {
 			throw new Error(localize('noLanguage', "No language for notebook"));
 		}
 		const synchronous = true;
 		const pushUndoStop = true;
-		insertCellAtIndex(
-			this.viewModel,
-			index,
-			'',
-			this._language,
-			type,
-			undefined,
-			[],
+		const endSelections: ISelectionState = { kind: SelectionStateType.Index, focus: { start: index, end: index + 1 }, selections: [{ start: index, end: index + 1 }] };
+		const focusAfterInsertion = {
+			start: index,
+			end: index + 1
+		};
+		this.textModel.applyEdits([
+			{
+				editType: CellEditType.Replace,
+				index,
+				count: 0,
+				cells: [
+					{
+						cellKind: type,
+						language: this.language,
+						mime: undefined,
+						outputs: [],
+						metadata: undefined,
+						source: ''
+					}
+				]
+			}
+		],
 			synchronous,
-			pushUndoStop
+			{
+				kind: SelectionStateType.Index,
+				focus: focusAfterInsertion,
+				selections: [focusAfterInsertion]
+			},
+			() => endSelections, undefined, pushUndoStop && !this.isReadOnly
 		);
+
+		this._onDidChangeContent.fire();
 	}
 
 	insertCodeCellAndFocusContainer(aboveOrBelow: 'above' | 'below'): void {
@@ -406,6 +465,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 			}
 		}, undefined, computeUndoRedo);
 
+		this._onDidChangeContent.fire();
 	}
 
 
@@ -416,36 +476,18 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.selectionStateMachine.selectCell(cell, CellSelectionType.Edit);
 	}
 
-	async attachView(viewModel: NotebookViewModel, container: HTMLElement, viewState?: INotebookEditorViewState) {
-		// Make sure we're detethered from existing views. (Useful when we're swapping to a new
-		// window and the old window still exists)
-
+	async attachView(container: HTMLElement) {
 		this.detachView();
-
 		this._container = container;
-
 		this.contextManager.setContainer(container);
-
-		const alreadyHasModel = this._viewModel !== undefined && this._viewModel.equal(viewModel.notebookDocument);
-		if (alreadyHasModel) {
-			// No need to do anything if the model is already set.
-			return;
-		}
 
 		const notifyOfModelChange = true;
 
-		this._viewModel = viewModel;
-
 		if (notifyOfModelChange) {
-			// Fire on did change with new model
-			this._onDidChangeModel.fire(this._viewModel?.notebookDocument);
+			this._onDidChangeModel.fire(this._textModel);
 		}
 
-		// Bring the view model back to the state it was in when the view state was saved.
-		this._viewModel?.restoreEditorViewState(viewState);
-
 		this._setupKeyboardNavigation(container);
-
 		this._logService.info(this.id, 'attachView');
 	}
 
@@ -463,7 +505,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		const options = new BaseCellEditorOptions({
 			onDidChangeModel: this._onDidChangeModel.event,
-			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this._viewModel)),
+			hasModel: <() => this is IActiveNotebookEditorDelegate>(() => Boolean(this._textModel)),
 			onDidChangeOptions: this._onDidChangeOptions.event,
 			isReadOnly: this.isReadOnly,
 		}, this.notebookOptions, this.configurationService, language);
@@ -496,16 +538,16 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._detachModel();
 	}
 
+	close(): void {
+		console.log('Closing a notebook instance');
+		this.dispose();
+	}
+
 	// #endregion
 
 	// =============================================================================================
 	// #region Private Methods
 
-	private _assertViewModel(): asserts this is IPositronNotebookInstanceRequiredViewModel {
-		if (this._viewModel === undefined) {
-			throw new Error('No view model for notebook');
-		}
-	}
 
 
 	private _assertTextModel(): asserts this is IPositronNotebookInstanceRequiredTextModel {
@@ -544,34 +586,35 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 
 		this._textModel = model.notebook;
 
-		this._syncCells();
-
 		this._modelStore.add(
 			this._textModel.onDidChangeContent((e) => {
-				// Only update cells if the number of cells has changed. Aka we've added or removed
-				// cells. There's a chance this is not smart enough. E.g. it may be possible to
-				// swap cells in the notebook and this would not catch that.
-				const numOldCells = this._cells.length;
-				const numNewCells = this._textModel?.cells.length;
+				// Check if cells are in the same order by comparing references
+				this._assertTextModel();
+				const newCells = this.textModel.cells;
 
-				if (numOldCells === numNewCells) {
+				if (
+					// If there are the same number of cells...
+					newCells.length === this._cells.length &&
+					// ... and they are in the same order...
+					newCells.every((cell, i) => this._cells[i].cellModel === cell)
+				) {
+					// ... then we don't need to sync the cells.
 					return;
 				}
 
-				this._syncCells();
+				this._onDidChangeContent.fire();
 			})
 		);
+
+		this._onDidChangeContent.fire();
 	}
 
 	/**
 	 * Method to sync the editor cells with the current cells in the model.
 	 */
 	private _syncCells() {
-		const modelCells = this._textModel?.cells;
-
-		if (!modelCells) {
-			throw new Error('No cells in notebook model to fill editor with.');
-		}
+		this._assertTextModel();
+		const modelCells = this.textModel.cells;
 
 		const cellModelToCellMap = new Map(
 			this._cells.map(cell => [cell.cellModel, cell])
@@ -603,7 +646,6 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		// Dispose of any cells that were not reused.
 		cellModelToCellMap.forEach(cell => cell.dispose());
 
-		this._language = modelCells[0].language;
 		this.cells.set(this._cells, undefined);
 		this.selectionStateMachine.setCells(this._cells);
 	}
@@ -680,10 +722,91 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	 */
 	private _detachModel() {
 		this._logService.info(this.id, 'detachModel');
-		// Clear store of disposables
 		this._modelStore.clear();
-		this._viewModel?.dispose();
-		this._viewModel = undefined;
+	}
+
+	/**
+	 * Clears the output of a specific cell in the notebook.
+	 * @param cell The cell to clear outputs from. If not provided, uses the currently selected cell.
+	 * @param skipContentEvent If true, won't fire the content change event (useful for batch operations)
+	 */
+	clearCellOutput(cell?: IPositronNotebookCell, skipContentEvent: boolean = false): void {
+		this._assertTextModel();
+
+		const targetCell = cell ?? this.selectionStateMachine.getSelectedCell();
+		if (!targetCell) {
+			return;
+		}
+
+		const cellIndex = this.textModel.cells.indexOf(targetCell.cellModel as NotebookCellTextModel);
+		if (cellIndex === -1) {
+			return;
+		}
+
+		const computeUndoRedo = !this.isReadOnly;
+		this.textModel.applyEdits([{
+			editType: CellEditType.Output,
+			index: cellIndex,
+			outputs: [],
+			append: false
+		}], true, undefined, () => undefined, undefined, computeUndoRedo);
+
+		if (!skipContentEvent) {
+			this._onDidChangeContent.fire();
+		}
+	}
+
+	/**
+	 * Clears the outputs of all cells in the notebook.
+	 */
+	clearAllCellOutputs(): void {
+		this._assertTextModel();
+
+		try {
+			const computeUndoRedo = !this.isReadOnly;
+
+			// Clear outputs from all cells
+			this.textModel.cells.forEach((cell, index) => {
+				this.clearCellOutput(this._cells[index], true);
+			});
+
+			// Clear execution metadata for non-executing cells
+			const clearExecutionMetadataEdits = this.textModel.cells.map((cell, index) => {
+				const runState = this.notebookExecutionStateService.getCellExecution(cell.uri)?.state;
+				if (runState !== NotebookCellExecutionState.Executing) {
+					return {
+						editType: CellEditType.PartialInternalMetadata,
+						index,
+						internalMetadata: {
+							runStartTime: null,
+							runStartTimeAdjustment: null,
+							runEndTime: null,
+							executionOrder: null,
+							lastRunSuccess: null
+						}
+					};
+				}
+				return undefined;
+			}).filter((edit): edit is ICellEditOperation & {
+				editType: CellEditType.PartialInternalMetadata;
+				index: number;
+				internalMetadata: {
+					runStartTime: null;
+					runStartTimeAdjustment: null;
+					runEndTime: null;
+					executionOrder: null;
+					lastRunSuccess: null;
+				};
+			} => !!edit);
+
+			if (clearExecutionMetadataEdits.length) {
+				this.textModel.applyEdits(clearExecutionMetadataEdits, true, undefined, () => undefined, undefined, computeUndoRedo);
+			}
+
+		} finally {
+			// Fire a single content change event
+			this._onDidChangeContent.fire();
+		}
 	}
 
 	// #endregion

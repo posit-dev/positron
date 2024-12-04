@@ -118,6 +118,8 @@ import { getOSReleaseInfo } from '../../../base/node/osReleaseInfo.js';
 import { getDesktopEnvironment } from '../../../base/common/desktopEnvironmentInfo.js';
 import { getCodeDisplayProtocol, getDisplayProtocol } from '../../../base/node/osDisplayProtocolInfo.js';
 import { RequestService } from '../../../platform/request/electron-utility/requestService.js';
+import { IEphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralState.js';
+import { EphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralStateService.js';
 
 class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
@@ -376,6 +378,11 @@ class SharedProcessMain extends Disposable implements IClientConnectionFilter {
 
 		// Remote Tunnel
 		services.set(IRemoteTunnelService, new SyncDescriptor(RemoteTunnelService));
+
+		// --- Start Positron ---
+		// Ephemeral State
+		services.set(IEphemeralStateService, new SyncDescriptor(EphemeralStateService));
+		// --- End Positron ---
 
 		return new InstantiationService(services);
 	}

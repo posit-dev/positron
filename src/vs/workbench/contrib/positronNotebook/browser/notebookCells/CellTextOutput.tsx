@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// CSS>
+// CSS.
 import './CellTextOutput.css';
 
 // React.
@@ -13,7 +13,7 @@ import React from 'react';
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 import { useServices } from '../ServicesProvider.js';
-import { ParsedTextOutput } from '../getOutputContents.js';
+import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';

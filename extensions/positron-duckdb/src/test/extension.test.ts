@@ -25,8 +25,6 @@ import {
 	RowFilterParams,
 	RowFilterType,
 	SetRowFiltersParams,
-	SetSortColumnsParams,
-	SupportedFeatures,
 	SupportStatus,
 	TableData,
 	TableSchema,
@@ -68,7 +66,7 @@ async function dxExec(rpc: DataExplorerRpc): Promise<any> {
 }
 
 function makeTempTableName(): string {
-	return `positron_${randomUUID().slice(0, 5)}`;
+	return `positron_${randomUUID().replace(/-/g, '')}`;
 }
 
 type InsertColumn = { name: string; type: string; values: Array<string> };
@@ -205,12 +203,9 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				},
 				get_column_profiles: {
 					support_status: SupportStatus.Supported,
-					supported_types: [
-						{
-							profile_type: ColumnProfileType.NullCount,
-							support_status: SupportStatus.Supported
-						}
-					]
+					supported_types: Object.values(ColumnProfileType).map((value) => {
+						return { profile_type: value, support_status: SupportStatus.Supported };
+					})
 				},
 				set_sort_columns: { support_status: SupportStatus.Supported, },
 				export_data_selection: {

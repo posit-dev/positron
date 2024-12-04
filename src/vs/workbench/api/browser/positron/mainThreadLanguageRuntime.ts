@@ -39,7 +39,7 @@ import { ISettableObservable, observableValue } from '../../../../base/common/ob
 import { IRuntimeStartupService, RuntimeStartupPhase } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
 import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
-import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/common/positronWebviewPreloadService.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
 
 /**
@@ -498,6 +498,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		this._proxy.$replyToPrompt(this.handle, id, value);
 	}
 
+	setWorkingDirectory(dir: string): Promise<void> {
+		return this._proxy.$setWorkingDirectory(this.handle, dir);
+	}
+
 	async interrupt(): Promise<void> {
 		this._stateEmitter.fire(RuntimeState.Interrupting);
 		return this._proxy.$interruptLanguageRuntime(this.handle);
@@ -898,6 +902,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	static clientCounter = 0;
+
+	dispose(): void {
+		// Do nothing.
+	}
 }
 
 /**
@@ -1248,8 +1256,8 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<boolean> {
-		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete);
+	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<boolean> {
+		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode);
 	}
 
 	public dispose(): void {

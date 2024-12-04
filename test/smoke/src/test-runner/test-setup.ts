@@ -9,9 +9,9 @@ const rimraf = require('rimraf');
 const mkdirp = require('mkdirp');
 import { getBuildElectronPath, getDevElectronPath, Logger } from '../../../automation';
 import { createLogger } from './logger';
+import * as os from 'os';
 
-const ROOT_PATH = process.env.ROOT_PATH || 'ROOT_PATH not set';
-const TEST_DATA_PATH = process.env.TEST_DATA_PATH || 'TEST_DATA_PATH not set';
+const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WEB = process.env.WEB;
 const REMOTE = process.env.REMOTE;
 const BUILD = process.env.BUILD;
@@ -22,12 +22,12 @@ const BUILD = process.env.BUILD;
  *   2. initializes the test environment
  *   3. prepares the test data directory
  */
-export function prepareTestEnv() {
-	const logsRootPath = join(ROOT_PATH, '.build', 'logs', 'test-setup');
+export function prepareTestEnv(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set prepareTestEnv') {
+	const logsRootPath = join(rootPath, '.build', 'logs', 'test-setup');
 	const logger = createLogger(logsRootPath);
 
 	try {
-		initializeTestEnvironment(logger);
+		initializeTestEnvironment(rootPath, logger);
 		console.log('Test environment setup completed successfully.');
 
 		// Disabling this section of code for now. It's used to download a stable version of VSCode
@@ -48,7 +48,7 @@ export function prepareTestEnv() {
 /**
  * Sets up the test environment for Electron or Web smoke tests.
  */
-function initializeTestEnvironment(logger: Logger): string | null {
+function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PATH not set initTestEnv', logger: Logger): string | null {
 	let version: string | null = null;
 
 	//
@@ -66,7 +66,7 @@ function initializeTestEnvironment(logger: Logger): string | null {
 		} else {
 			testCodePath = getDevElectronPath();
 			electronPath = testCodePath;
-			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_REPOSITORY = rootPath;
 			process.env.VSCODE_DEV = '1';
 			process.env.VSCODE_CLI = '1';
 		}
@@ -97,7 +97,7 @@ function initializeTestEnvironment(logger: Logger): string | null {
 		}
 
 		if (!testCodeServerPath) {
-			process.env.VSCODE_REPOSITORY = ROOT_PATH;
+			process.env.VSCODE_REPOSITORY = rootPath;
 			process.env.VSCODE_DEV = '1';
 			process.env.VSCODE_CLI = '1';
 

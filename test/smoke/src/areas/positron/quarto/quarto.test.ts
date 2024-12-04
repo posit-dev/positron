@@ -4,65 +4,70 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../../../automation';
-import { setupAndStartApp } from '../../../test-runner/test-hooks';
-import { expect } from '@playwright/test';
+import { test, expect } from '../_test.setup';
 const path = require('path');
 const fs = require('fs-extra');
 
+let isWeb = false;
 
-describe('Quarto #web', () => {
-	setupAndStartApp();
-	let app: Application;
+test.use({
+	suiteId: __filename
+});
 
-	before(async function () {
-		app = this.app as Application;
+test.describe('Quarto', { tag: ['@web'] }, () => {
+	test.beforeAll(async function ({ app, browserName }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
+		isWeb = browserName === 'chromium';
 	});
 
-	afterEach(async function () {
+	test.afterEach(async function ({ app }) {
 		await deleteGeneratedFiles(app);
 	});
 
-	it('should be able to render html [C842847]', async function () {
+	test('should be able to render html [C842847]', async function ({ app }) {
 		await renderQuartoDocument(app, 'html');
 		await verifyDocumentExists(app, 'html');
 	});
 
-	it('should be able to render docx [C842848]', async function () {
+	test('should be able to render docx [C842848]', async function ({ app }) {
 		await renderQuartoDocument(app, 'docx');
 		await verifyDocumentExists(app, 'docx');
 	});
 
-	it('should be able to render pdf (LaTeX) [C842890]', async function () {
+	test('should be able to render pdf (LaTeX) [C842890]', async function ({ app }) {
 		await renderQuartoDocument(app, 'pdf');
 		await verifyDocumentExists(app, 'pdf');
 	});
 
-	it('should be able to render pdf (typst) [C842889]', async function () {
+	test('should be able to render pdf (typst) [C842889]', async function ({ app }) {
 		await renderQuartoDocument(app, 'typst');
 		await verifyDocumentExists(app, 'pdf');
 	});
 
-	it('should be able to generate preview [C842891]', async function () {
+	test('should be able to generate preview [C842891]', async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('quarto.preview', { keepOpen: true });
+		const viewerFrame = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe');
 
-		const previewHeader = app.workbench.positronViewer.getViewerFrame().frameLocator('iframe').locator('h1');
-		await expect(previewHeader).toBeVisible({ timeout: 20000 });
-		await expect(previewHeader).toHaveText('Diamond sizes');
+		// verify preview displays
+		expect(await viewerFrame.locator('h1').innerText()).toBe('Diamond sizes');
 	});
 });
 
 
 const renderQuartoDocument = async (app: Application, fileExtension: string) => {
-	await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
-	await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+	await test.step(`render quarto document`, async () => {
+		await app.workbench.quickaccess.runCommand('quarto.render.document', { keepOpen: true });
+		await app.workbench.quickinput.selectQuickInputElementContaining(fileExtension);
+	});
 };
 
 const verifyDocumentExists = async (app: Application, fileExtension: string) => {
+	// there is a known issue with canvas interactions in webview
+	if (!isWeb) { await expect(app.code.driver.page.getByText(`Output created: quarto_basic.${fileExtension}`)).toBeVisible({ timeout: 30000 }); }
+
 	await expect(async () => {
-		await app.workbench.terminal.waitForTerminalText(buffer => buffer.some(line => line.includes(`Output created: quarto_basic.${fileExtension}`)));
 		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
-	}).toPass();
+	}).toPass({ timeout: 15000 });
 };
 
 const deleteGeneratedFiles = async (app: Application) => {

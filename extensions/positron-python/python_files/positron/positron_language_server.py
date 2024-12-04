@@ -5,6 +5,7 @@ Server and IPyKernel in the same environment.
 
 import argparse
 import asyncio
+import asyncio.events
 import logging
 import os
 import sys
@@ -137,12 +138,15 @@ if __name__ == "__main__":
 
     # IPyKernel uses Tornado which (as of version 5.0) shares the same event
     # loop as asyncio.
-    loop = asyncio.get_event_loop_policy().get_event_loop()
+    loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop_policy().get_event_loop()
 
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":
         loop.set_debug(True)
         POSITRON.set_debug(True)
+
+        # Log all callbacks that take longer than 0.5 seconds (the current default is too noisy).
+        loop.slow_callback_duration = 0.5
 
     try:
         loop.run_forever()

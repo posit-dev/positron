@@ -29,45 +29,31 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
  *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
  */
 export class PositronNotebooks {
-	kernelLabel = this.code.driver.getLocator(KERNEL_LABEL);
+	kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
+
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private notebook: Notebook) { }
 
 	async selectInterpreter(kernelGroup: string, desiredKernel: string) {
+		await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-		// get the kernel label text
-		let interpreterManagerText = (await this.code.waitForElement(KERNEL_LABEL)).textContent;
+		// Wait for either "select kernel" or "the desired kernel" to appear in KERNEL_LABEL
+		const kernelRegex = new RegExp(`${SELECT_KERNEL_TEXT}|${desiredKernel}`);
+		const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+		await expect(kernelLabelLocator).toHaveText(kernelRegex, { timeout: 10000 });
 
-		// if we are still detecting kernels, wait extra time for the correct kernel or for the
-		// "Select Kernel" option to appear
-		if (interpreterManagerText === DETECTING_KERNELS_TEXT) {
-			interpreterManagerText = (await this.code.waitForElement(KERNEL_LABEL, (e) =>
-				e!.textContent.includes(desiredKernel) ||
-				e!.textContent.includes(SELECT_KERNEL_TEXT), 600)).textContent;
-		}
+		// Retrieve the matched text for conditional logic
+		const matchedText = await kernelLabelLocator.textContent() || '';
 
-		// if select kernel appears, select the proper kernel
-		// also if the wrong kernel has shown up, select the proper kernel
-		if (interpreterManagerText === SELECT_KERNEL_TEXT || !interpreterManagerText.includes(desiredKernel)) {
-			await this.code.waitAndClick(KERNEL_ACTION);
+		if (!new RegExp(desiredKernel).test(matchedText)) {
+			await this.code.driver.page.locator(KERNEL_ACTION).click();
 			await this.quickinput.waitForQuickInputOpened();
-			// depending on random timing, it may or may not be necessary to select the kernel group
-			try {
-				await this.quickinput.selectQuickInputElementContaining(kernelGroup);
-			} catch {
-				this.code.logger.log('Kernel group not found');
-			}
-
-			// Close dialog if quick input element can't found and try to proceed
-			// (this may be necessary if the interpreter was set while this block was running)
-			try {
-				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
-				await this.quickinput.waitForQuickInputClosed();
-			} catch {
-				this.code.logger.log('Closing quick input');
-				await this.code.driver.getKeyboard().press('Escape');
-			}
+			await this.quickinput.selectQuickInputElementContaining(kernelGroup);
+			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+			await this.quickinput.waitForQuickInputClosed();
 		}
 	}
 
@@ -96,7 +82,7 @@ export class PositronNotebooks {
 	}
 
 	async assertCellOutput(text: string): Promise<void> {
-		await expect(this.frameLocator.getByText(text)).toBeVisible();
+		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
 	}
 
 	async closeNotebookWithoutSaving() {

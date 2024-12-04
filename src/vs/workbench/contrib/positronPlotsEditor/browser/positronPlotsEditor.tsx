@@ -11,6 +11,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
+import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -95,6 +96,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	constructor(
 		readonly _group: IEditorGroup,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -127,6 +129,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 		this._reactRenderer.render(
 			<PositronPlotsContextProvider
+				accessibilityService={this._accessibilityService}
 				commandService={this._commandService}
 				configurationService={this._configurationService}
 				contextKeyService={this._contextKeyService}
