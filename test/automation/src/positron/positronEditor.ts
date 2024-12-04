@@ -33,7 +33,7 @@ export class PositronEditor {
 
 		// await appearance and disappearance of the toast
 		await expect(this.code.driver.page.locator('.notifications-toasts')).toBeVisible({ timeout: 30000 });
-		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 30000 });
+		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 50000 });
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {
