@@ -133,5 +133,5 @@ jobs:
         repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
         slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
         include_jobs: "status-only"
-        notify_on: "failure-only"
+        # notify_on: "failure-only"
 
