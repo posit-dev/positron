@@ -72,9 +72,20 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: |
-          which node
-          node -v
+      - name: Check installed canvas version
+        run: npm ls canvas
+
+      - name: Reinstall canvas
+        run: npm install canvas
+
+      - name: Check installed canvas version
+        run: npm ls canvas
+
+      - name: Reinstall node-gyp
+        run: npm install -g node-gyp
+
+      - name: Rebuild native modules
+        run: npm rebuild
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
