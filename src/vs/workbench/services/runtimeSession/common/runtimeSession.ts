@@ -485,11 +485,21 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No session manager has been registered.`);
 		}
 
+		// Get the runtime's manager.
+		let sessionManager: ILanguageRuntimeSessionManager;
+		try {
+			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
+		} catch (err) {
+			startPromise.error(err);
+			this.clearStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			throw err;
+		}
+
 		// Restore the session. This can take some time; it may involve waiting
 		// for the extension to finish activating and the network to attempt to
 		// reconnect, etc.
 		let session: ILanguageRuntimeSession;
-		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 		try {
 			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
 		} catch (err) {
@@ -719,11 +729,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// at the debug level since we still expect the error to be handled/logged elsewhere.
 		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 
+		// Get the runtime's manager.
+		let sessionManager: ILanguageRuntimeSessionManager;
+		try {
+			sessionManager = await this.getManagerForRuntime(metadata);
+		} catch (err) {
+			startPromise.error(err);
+			this.clearStartingSessionMaps(sessionMode, metadata, notebookUri);
+			throw err;
+		}
+
 		// Check to see if the runtime has already been registered with the
 		// language runtime service.
 		const languageRuntime =
 			this._languageRuntimeService.getRegisteredRuntime(metadata.runtimeId);
-		const sessionManager = await this.getManagerForRuntime(metadata);
 
 		// If it has not been registered, validate the metadata.
 		if (!languageRuntime) {
@@ -813,7 +832,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 		}
 
-		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
+		// Get the runtime's manager.
+		let sessionManager: ILanguageRuntimeSessionManager;
+		try {
+			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
+		} catch (err) {
+			startPromise.error(err);
+			this.clearStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
+			throw err;
+		}
+
 		const sessionId = this.generateNewSessionId(runtimeMetadata);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
