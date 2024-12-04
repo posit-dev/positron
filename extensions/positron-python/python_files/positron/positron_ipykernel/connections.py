@@ -623,7 +623,10 @@ class SQLite3Connection(Connection):
                 "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
-        return pd_.read_sql(f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;", self.conn)
+        return pd_.read_sql(
+            f"SELECT * FROM {schema.name}.{table.name} LIMIT 1000;",
+            self.conn,
+        )
 
     def list_object_types(self):
         return {

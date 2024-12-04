@@ -69,7 +69,10 @@ def supports_keyword(func, keyword):
 
 
 def get_new_comm(
-    de_service: DataExplorerService, table: Any, title: str, comm_id: Optional[str] = None
+    de_service: DataExplorerService,
+    table: Any,
+    title: str,
+    comm_id: Optional[str] = None,
 ) -> DummyComm:
     """
 
@@ -149,7 +152,9 @@ def _open_viewer(variables_comm, path):
 
 
 def test_explorer_open_close_delete(
-    shell: PositronShell, de_service: DataExplorerService, variables_comm: DummyComm
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
 ):
     _assign_variables(
         shell,
@@ -188,7 +193,9 @@ def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variabl
 
 
 def test_explorer_delete_variable(
-    shell: PositronShell, de_service: DataExplorerService, variables_comm: DummyComm
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
 ):
     _assign_variables(
         shell,
@@ -342,7 +349,10 @@ DEFAULT_FORMAT = FormatOptions(
 
 class DataExplorerFixture:
     def __init__(
-        self, shell: PositronShell, de_service: DataExplorerService, variables_comm: DummyComm
+        self,
+        shell: PositronShell,
+        de_service: DataExplorerService,
+        variables_comm: DummyComm,
     ):
         self.shell = shell
         self.de_service = de_service
@@ -376,7 +386,10 @@ class DataExplorerFixture:
                 self.de_service._close_explorer(old_comm_id)
 
         self.de_service.register_table(
-            table, table_name, comm_id=comm_id, variable_path=[encode_access_key(table_name)]
+            table,
+            table_name,
+            comm_id=comm_id,
+            variable_path=[encode_access_key(table_name)],
         )
 
     def get_schema_for(self, df):
@@ -392,7 +405,11 @@ class DataExplorerFixture:
     def do_json_rpc(self, table_name, method, **params):
         comm_id = self._get_comm_id(table_name)
 
-        request = json_rpc_request(method, params=params, comm_id=comm_id)
+        request = json_rpc_request(
+            method,
+            params=params,
+            comm_id=comm_id,
+        )
         self.de_service.comms[comm_id].comm.handle_msg(request)
         response = get_last_message(self.de_service, comm_id)
         data = response["data"]
@@ -402,7 +419,11 @@ class DataExplorerFixture:
         if column_indices is None:
             column_indices = list(range(self.get_state(table_name)["table_shape"]["num_columns"]))
 
-        return self.do_json_rpc(table_name, "get_schema", column_indices=column_indices)["columns"]
+        return self.do_json_rpc(
+            table_name,
+            "get_schema",
+            column_indices=column_indices,
+        )["columns"]
 
     def search_schema(self, table_name, filters, start_index, max_results):
         return self.do_json_rpc(
@@ -418,17 +439,26 @@ class DataExplorerFixture:
 
     def get_data_values(self, table_name, format_options=DEFAULT_FORMAT, columns=None):
         return self.do_json_rpc(
-            table_name, "get_data_values", format_options=format_options, columns=columns
+            table_name,
+            "get_data_values",
+            format_options=format_options,
+            columns=columns,
         )
 
     def get_row_labels(self, table_name, selection, format_options=DEFAULT_FORMAT):
         return self.do_json_rpc(
-            table_name, "get_row_labels", format_options=format_options, selection=selection
+            table_name,
+            "get_row_labels",
+            format_options=format_options,
+            selection=selection,
         )
 
     def export_data_selection(self, table_name, selection, format="csv"):
         return self.do_json_rpc(
-            table_name, "export_data_selection", selection=selection, format=format
+            table_name,
+            "export_data_selection",
+            selection=selection,
+            format=format,
         )
 
     def set_row_filters(self, table_name, filters=None):
@@ -468,7 +498,10 @@ class DataExplorerFixture:
             pprint.pprint(state["row_filters"])
             raise
 
-        assert state["table_shape"] == {"num_rows": ex_num_rows, "num_columns": len(table.columns)}
+        assert state["table_shape"] == {
+            "num_rows": ex_num_rows,
+            "num_columns": len(table.columns),
+        }
         assert state["table_unfiltered_shape"] == {
             "num_rows": len(table),
             "num_columns": len(table.columns),
@@ -535,13 +568,23 @@ def get_column_profile_result(de_service: DataExplorerService, comm_id: str, cal
 
 def _select_all(num_rows, num_columns):
     return [
-        {"column_index": i, "spec": {"first_index": 0, "last_index": num_rows - 1}}
+        {
+            "column_index": i,
+            "spec": {
+                "first_index": 0,
+                "last_index": num_rows - 1,
+            },
+        }
         for i in range(num_columns)
     ]
 
 
 @pytest.fixture
-def dxf(shell: PositronShell, de_service: DataExplorerService, variables_comm: DummyComm):
+def dxf(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
     fixture = DataExplorerFixture(shell, de_service, variables_comm)
     yield fixture
 
@@ -565,8 +608,14 @@ def test_pandas_get_state(dxf: DataExplorerFixture):
 
     schema = dxf.get_schema("simple")
 
-    sort_keys = [{"column_index": 0, "ascending": True}, {"column_index": 1, "ascending": False}]
-    filters = [_compare_filter(schema[0], ">", 2), _compare_filter(schema[0], "<", 5)]
+    sort_keys = [
+        {"column_index": 0, "ascending": True},
+        {"column_index": 1, "ascending": False},
+    ]
+    filters = [
+        _compare_filter(schema[0], ">", 2),
+        _compare_filter(schema[0], "<", 5),
+    ]
     dxf.set_sort_columns("simple", sort_keys=sort_keys)
     dxf.set_row_filters("simple", filters=filters)
 
@@ -627,19 +676,24 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
             profile_type="null_count", support_status=SupportStatus.Supported
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats", support_status=SupportStatus.Supported
+            profile_type="summary_stats",
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="small_histogram", support_status=SupportStatus.Supported
+            profile_type="small_histogram",
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="large_histogram", support_status=SupportStatus.Supported
+            profile_type="large_histogram",
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="small_frequency_table", support_status=SupportStatus.Supported
+            profile_type="small_frequency_table",
+            support_status=SupportStatus.Supported,
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="large_frequency_table", support_status=SupportStatus.Supported
+            profile_type="large_frequency_table",
+            support_status=SupportStatus.Supported,
         ),
     ]
     for tp in profile_types:
@@ -651,8 +705,16 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         ([1, 2, 3, 4, 5], "int64", "number"),
         ([True, False, True, None, True], "bool", "boolean"),
         (["foo", "bar", None, "bar", "None"], "string", "string"),
-        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16), "float16", "number"),
-        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32), "float32", "number"),
+        (
+            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16),
+            "float16",
+            "number",
+        ),
+        (
+            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32),
+            "float32",
+            "number",
+        ),
         ([0, 1.2, -4.5, 6, np.nan], "float64", "number"),
         (
             pd.to_datetime(
@@ -687,13 +749,27 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "number"),
         (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "number"),
         # NA boolean
-        (pd.Series([True, False, None, None, True], dtype="boolean"), "boolean", "boolean"),
+        (
+            pd.Series([True, False, None, None, True], dtype="boolean"),
+            "boolean",
+            "boolean",
+        ),
         # NA string
-        (pd.Series(["foo", "bar", None, "baz", "qux"], dtype="string"), "string", "string"),
+        (
+            pd.Series(["foo", "bar", None, "baz", "qux"], dtype="string"),
+            "string",
+            "string",
+        ),
         # datetimetz
         (
             pd.Series(
-                ["2000-01-01", "2000-01-02", None, "2000-01-04", "2000-01-05"],
+                [
+                    "2000-01-01",
+                    "2000-01-02",
+                    None,
+                    "2000-01-04",
+                    "2000-01-05",
+                ],
                 dtype=pd.DatetimeTZDtype(tz="US/Eastern"),
             ),
             "datetime64[ns, US/Eastern]",
@@ -705,7 +781,10 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
         # Windows doesn't have complex256
         cases.append(
             (
-                np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex256"),
+                np.array(
+                    [1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j],
+                    dtype="complex256",
+                ),
                 "complex256",
                 "number",
             )
@@ -760,7 +839,14 @@ def test_pandas_get_schema_inference_limit(dxf: DataExplorerFixture):
 
     assert dxf.get_schema_for(df) == _wrap_json(
         ColumnSchema,
-        [{"column_name": "c0", "column_index": 0, "type_name": "empty", "type_display": "unknown"}],
+        [
+            {
+                "column_name": "c0",
+                "column_index": 0,
+                "type_name": "empty",
+                "type_display": "unknown",
+            }
+        ],
     )
 
 
@@ -772,7 +858,14 @@ def test_pandas_series(dxf: DataExplorerFixture):
     schema = dxf.get_schema("series")
     assert schema == _wrap_json(
         ColumnSchema,
-        [{"column_name": "a", "column_index": 0, "type_name": "int64", "type_display": "number"}],
+        [
+            {
+                "column_name": "a",
+                "column_index": 0,
+                "type_name": "int64",
+                "type_display": "number",
+            },
+        ],
     )
 
     dxf.compare_tables("series", "expected", (len(series), 1))
@@ -790,7 +883,7 @@ def test_pandas_series(dxf: DataExplorerFixture):
                 "column_index": 0,
                 "type_name": "int64",
                 "type_display": "number",
-            }
+            },
         ],
     )
 
@@ -807,7 +900,8 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
     for chunk_index in range(ncols // chunk_size):
         start_index = chunk_index * chunk_size
         dxf.register_table(
-            f"wide_df_{chunk_index}", df.iloc[:, start_index : (chunk_index + 1) * chunk_size]
+            f"wide_df_{chunk_index}",
+            df.iloc[:, start_index : (chunk_index + 1) * chunk_size],
         )
 
         schema_slice = dxf.get_schema("wide_df", list(range(start_index, start_index + chunk_size)))
@@ -821,7 +915,11 @@ def test_pandas_wide_schemas(dxf: DataExplorerFixture):
 def _text_search_filter(term, match="contains", case_sensitive=False):
     return {
         "filter_type": "text_search",
-        "params": {"search_type": match, "term": term, "case_sensitive": case_sensitive},
+        "params": {
+            "search_type": match,
+            "term": term,
+            "case_sensitive": case_sensitive,
+        },
     }
 
 
@@ -903,7 +1001,13 @@ def test_search_schema(dxf: DataExplorerFixture):
             ([ddd_filter], 0, 10, 10, full_schema[1150:1160]),
         ]
 
-        for filters, start_index, max_results, ex_total, ex_matches in cases:
+        for (
+            filters,
+            start_index,
+            max_results,
+            ex_total,
+            ex_matches,
+        ) in cases:
             result = dxf.search_schema(name, filters, start_index, max_results)
 
             assert result["total_num_matches"] == ex_total
@@ -952,7 +1056,8 @@ def test_pandas_get_data_values(dxf: DataExplorerFixture):
 
     # Edge cases: request beyond end of table
     response = dxf.get_data_values(
-        "simple", columns=[{"column_index": 0, "spec": {"first_index": 5, "last_index": 14}}]
+        "simple",
+        columns=[{"column_index": 0, "spec": {"first_index": 5, "last_index": 14}}],
     )
     assert response["columns"] == [[]]
 
@@ -972,7 +1077,9 @@ def _check_format_cases(dxf, table_name, cases):
 
     for options, expected in cases:
         result = dxf.get_data_values(
-            table_name, columns=_select_all(num_rows, num_columns), format_options=options
+            table_name,
+            columns=_select_all(num_rows, num_columns),
+            format_options=options,
         )
 
         assert result["columns"] == expected
@@ -1053,10 +1160,25 @@ def test_get_data_values_max_value_length(dxf: DataExplorerFixture):
 
     # (FormatOptions, expected results)
     cases = [
-        (DEFAULT_FORMAT.copy(update={"max_value_length": 50}), [["a" * 50, "b" * 50, "c" * 50]]),
+        (
+            DEFAULT_FORMAT.copy(update={"max_value_length": 50}),
+            [
+                [
+                    "a" * 50,
+                    "b" * 50,
+                    "c" * 50,
+                ]
+            ],
+        ),
         (
             DEFAULT_FORMAT.copy(update={"max_value_length": 1001}),
-            [["a" * 100, "b" * 1000, "c" * 1001]],
+            [
+                [
+                    "a" * 100,
+                    "b" * 1000,
+                    "c" * 1001,
+                ]
+            ],
         ),
     ]
 
@@ -1124,7 +1246,10 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
 def test_pandas_leading_whitespace(dxf: DataExplorerFixture):
     # See GH#3138
     df = pd.DataFrame(
-        {"a": ["   foo", "  bar", " baz", "qux", "potato"], "c": [True, False, True, False, True]}
+        {
+            "a": ["   foo", "  bar", " baz", "qux", "potato"],
+            "c": [True, False, True, False, True],
+        }
     )
 
     dxf.register_table("ws", df)
@@ -1166,33 +1291,56 @@ def _between_filter(column_schema, left_value, right_value, op="between", condit
         op,
         column_schema,
         condition=condition,
-        params={"left_value": str(left_value), "right_value": str(right_value)},
+        params={
+            "left_value": str(left_value),
+            "right_value": str(right_value),
+        },
     )
 
 
 def _not_between_filter(column_schema, left_value, right_value, condition="and"):
     return _between_filter(
-        column_schema, left_value, right_value, op="not_between", condition=condition
+        column_schema,
+        left_value,
+        right_value,
+        op="not_between",
+        condition=condition,
     )
 
 
 def _search_filter(
-    column_schema, term, case_sensitive=False, search_type="contains", condition="and"
+    column_schema,
+    term,
+    case_sensitive=False,
+    search_type="contains",
+    condition="and",
 ):
     return _filter(
         "search",
         column_schema,
         condition=condition,
-        params={"search_type": search_type, "term": term, "case_sensitive": case_sensitive},
+        params={
+            "search_type": search_type,
+            "term": term,
+            "case_sensitive": case_sensitive,
+        },
     )
 
 
-def _set_member_filter(column_schema, values, inclusive=True, condition="and"):
+def _set_member_filter(
+    column_schema,
+    values,
+    inclusive=True,
+    condition="and",
+):
     return _filter(
         "set_membership",
         column_schema,
         condition=condition,
-        params={"values": [str(x) for x in values], "inclusive": inclusive},
+        params={
+            "values": [str(x) for x in values],
+            "inclusive": inclusive,
+        },
     )
 
 
@@ -1212,7 +1360,9 @@ def test_pandas_filter_between(dxf: DataExplorerFixture):
         ex_not_between = df[(col < left_value) | (col > right_value)]
 
         dxf.check_filter_case(
-            df, [_between_filter(column_schema, str(left_value), str(right_value))], ex_between
+            df,
+            [_between_filter(column_schema, str(left_value), str(right_value))],
+            ex_between,
         )
         dxf.check_filter_case(
             df,
@@ -1237,7 +1387,9 @@ def test_pandas_filter_conditions(dxf: DataExplorerFixture):
     dxf.check_filter_case(df, filters, expected_df)
 
     # Test a single condition with or set
-    filters = [_compare_filter(schema[0], ">=", 3, condition="or")]
+    filters = [
+        _compare_filter(schema[0], ">=", 3, condition="or"),
+    ]
     dxf.check_filter_case(df, filters, df[df["a"] >= 3])
 
 
@@ -1257,7 +1409,11 @@ def test_pandas_filter_compare(dxf: DataExplorerFixture):
 def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
     tz = pytz.timezone("US/Eastern")
 
-    df = pd.DataFrame({"date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern")})
+    df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
     dxf.register_table("dtz", df)
     schema = dxf.get_schema("dtz")
 
@@ -1299,7 +1455,10 @@ def test_pandas_filter_reset(dxf: DataExplorerFixture):
 
 
 def test_pandas_polars_filter_value_coercion(dxf: DataExplorerFixture):
-    data = {"a": [1, 2, 3, 4, 5], "b": pd.date_range("2000-01-01", freq="D", periods=5)}
+    data = {
+        "a": [1, 2, 3, 4, 5],
+        "b": pd.date_range("2000-01-01", freq="D", periods=5),
+    }
 
     df = pd.DataFrame(data)
     pdf = pl.DataFrame(data)
@@ -1365,7 +1524,11 @@ def test_pandas_filter_empty(dxf: DataExplorerFixture):
 
 
 def test_pandas_filter_boolean(dxf: DataExplorerFixture):
-    df = pd.DataFrame({"a": [True, True, None, False, False, False, True, True]})
+    df = pd.DataFrame(
+        {
+            "a": [True, True, None, False, False, False, True, True],
+        }
+    )
 
     schema = dxf.get_schema_for(df)
 
@@ -1396,10 +1559,19 @@ def test_pandas_filter_set_membership(dxf: DataExplorerFixture):
 
     cases = [
         [[_set_member_filter(schema[0], [2, 4])], df[df["a"].isin([2, 4])]],
-        [[_set_member_filter(schema[0], [2.0, 3.5, 4])], df[df["a"].isin([2.0, 3.5, 4])]],
-        [[_set_member_filter(schema[2], ["bar", "foo"])], df[df["c"].isin(["bar", "foo"])]],
+        [
+            [_set_member_filter(schema[0], [2.0, 3.5, 4])],
+            df[df["a"].isin([2.0, 3.5, 4])],
+        ],
+        [
+            [_set_member_filter(schema[2], ["bar", "foo"])],
+            df[df["c"].isin(["bar", "foo"])],
+        ],
         [[_set_member_filter(schema[2], [])], df[df["c"].isin([])]],
-        [[_set_member_filter(schema[2], ["bar"], False)], df[~df["c"].isin(["bar"])]],
+        [
+            [_set_member_filter(schema[2], ["bar"], False)],
+            df[~df["c"].isin(["bar"])],
+        ],
         [[_set_member_filter(schema[2], [], False)], df],
     ]
 
@@ -1420,7 +1592,13 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
 
     # (search_type, column_schema, term, case_sensitive, boolean mask)
     cases = [
-        ("contains", schema[0], "foo", False, df["a"].str.lower().str.contains("foo")),
+        (
+            "contains",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.lower().str.contains("foo"),
+        ),
         ("contains", schema[0], "foo", True, df["a"].str.contains("foo")),
         (
             "not_contains",
@@ -1429,13 +1607,55 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
             False,
             ~df["a"].str.lower().str.contains("foo", na=True),
         ),
-        ("not_contains", schema[0], "foo", True, ~df["a"].str.contains("foo", na=True)),
-        ("starts_with", schema[0], "foo", False, df["a"].str.lower().str.startswith("foo")),
-        ("starts_with", schema[0], "foo", True, df["a"].str.startswith("foo")),
-        ("ends_with", schema[0], "foo", False, df["a"].str.lower().str.endswith("foo")),
-        ("ends_with", schema[0], "foo", True, df["a"].str.endswith("foo")),
-        ("regex_match", schema[0], "f[o]+", False, df["a"].str.match("f[o]+", case=False)),
-        ("regex_match", schema[0], "f[o]+[^o]*", True, df["a"].str.match("f[o]+[^o]*", case=True)),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            True,
+            ~df["a"].str.contains("foo", na=True),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.lower().str.startswith("foo"),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            True,
+            df["a"].str.startswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.lower().str.endswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            True,
+            df["a"].str.endswith("foo"),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+",
+            False,
+            df["a"].str.match("f[o]+", case=False),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+[^o]*",
+            True,
+            df["a"].str.match("f[o]+[^o]*", case=True),
+        ),
     ]
 
     for search_type, column_schema, term, cs, mask in cases:
@@ -1443,7 +1663,14 @@ def test_pandas_filter_search(dxf: DataExplorerFixture):
         ex_table = df[mask.astype(bool)]
         dxf.check_filter_case(
             df,
-            [_search_filter(column_schema, term, case_sensitive=cs, search_type=search_type)],
+            [
+                _search_filter(
+                    column_schema,
+                    term,
+                    case_sensitive=cs,
+                    search_type=search_type,
+                )
+            ],
             ex_table,
         )
 
@@ -1653,7 +1880,11 @@ def test_schema_change_scenario1(ssf: SchemaChangeFixture):
     ssf.check_scenario("df", scenario1, "df['a'] = df['a'].astype(str)")
 
     # polars
-    ssf.check_scenario("dfp", scenario1, "dfp = dfp.with_columns(pl.col('a').cast(pl.String))")
+    ssf.check_scenario(
+        "dfp",
+        scenario1,
+        "dfp = dfp.with_columns(pl.col('a').cast(pl.String))",
+    )
 
 
 def test_schema_change_scenario2(ssf: SchemaChangeFixture):
@@ -1717,14 +1948,20 @@ def test_schema_change_scenario5(ssf: SchemaChangeFixture):
     # Scenario 5: replace a column in place with a new name
     def scenario5(fixture: DataExplorerFixture, table_id):
         schema = fixture.get_schema(table_id)
-        return {"filters": [(_compare_filter(schema[1], "=", "foo"), False)]}
+        return {
+            "filters": [
+                (_compare_filter(schema[1], "=", "foo"), False),
+            ]
+        }
 
     # pandas
     ssf.check_scenario("df", scenario5, "df.insert(1, 'b2', df.pop('b'))")
 
     # polars
     ssf.check_scenario(
-        "dfp", scenario5, "dfp = dfp.drop('b').insert_column(1, dfp['b'].alias('b2'))"
+        "dfp",
+        scenario5,
+        "dfp = dfp.drop('b').insert_column(1, dfp['b'].alias('b2'))",
     )
 
 
@@ -1750,7 +1987,11 @@ def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixt
     # Scenario 7: delete column, then restore it and check that the
     def scenario7(fixture: DataExplorerFixture, table_id):
         schema = fixture.get_schema(table_id)
-        return {"filters": [(_compare_filter(schema[0], "<", "4"), False)]}
+        return {
+            "filters": [
+                (_compare_filter(schema[0], "<", "4"), False),
+            ]
+        }
 
     ## pandas
 
@@ -1780,7 +2021,10 @@ def test_schema_change_scenario7(ssf: SchemaChangeFixture, dxf: DataExplorerFixt
 def test_schema_change_scenario8(ssf: SchemaChangeFixture):
     # Scenario 8: Delete sorted column in middle of table
     def scenario8(fixture: DataExplorerFixture, table_id):
-        return {"sort_keys": [{"column_index": 1, "ascending": False}], "updated_sort_keys": []}
+        return {
+            "sort_keys": [{"column_index": 1, "ascending": False}],
+            "updated_sort_keys": [],
+        }
 
     # pandas
     ssf.check_scenario("df", scenario8, "del df['b']")
@@ -1811,7 +2055,11 @@ def test_pandas_set_sort_columns(dxf: DataExplorerFixture):
         ("df2", [(1, True)], {"by": "b"}),
         ("df2", [(2, True)], {"by": "c"}),
         ("df2", [(0, True), (1, True)], {"by": ["a", "b"]}),
-        ("df2", [(0, True), (1, False)], {"by": ["a", "b"], "ascending": [True, False]}),
+        (
+            "df2",
+            [(0, True), (1, False)],
+            {"by": ["a", "b"], "ascending": [True, False]},
+        ),
         (
             "df2",
             [(2, False), (1, True), (0, False)],
@@ -1860,7 +2108,11 @@ def test_pandas_change_schema_after_sort(
     # Sort a column that is out of bounds for the table after the
     # schema change below
     dxf.set_sort_columns(
-        "df", [{"column_index": 4, "ascending": True}, {"column_index": 0, "ascending": False}]
+        "df",
+        [
+            {"column_index": 4, "ascending": True},
+            {"column_index": 0, "ascending": False},
+        ],
     )
 
     expected_df = df[["b", "a"]].sort_values("a", ascending=False)  # type: ignore
@@ -1882,7 +2134,11 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
     # GitHub #3044, PandasView gets into an inconsistent state when a
     # dataset with sort keys set is updated (or the view is refreshed
     # because the dataset is large)
-    arrays = [[1, 2, 3, 4, 5], [True, False, True, None, True], ["foo", "bar", None, "bar", "None"]]
+    arrays = [
+        [1, 2, 3, 4, 5],
+        [True, False, True, None, True],
+        ["foo", "bar", None, "bar", "None"],
+    ]
     df = pd.DataFrame({"f0": arrays[0], "f1": arrays[1], "f2": arrays[2]})
 
     wide_df = _replicate_df_columns(df, 10000)
@@ -1914,11 +2170,17 @@ def test_pandas_updated_with_sort_keys(dxf: DataExplorerFixture):
 
 
 def _select_single_cell(row_index: int, col_index: int):
-    return {"kind": "single_cell", "selection": {"row_index": row_index, "column_index": col_index}}
+    return {
+        "kind": "single_cell",
+        "selection": {"row_index": row_index, "column_index": col_index},
+    }
 
 
 def _select_cell_range(
-    first_row_index: int, last_row_index: int, first_col_index: int, last_col_index: int
+    first_row_index: int,
+    last_row_index: int,
+    first_col_index: int,
+    last_col_index: int,
 ):
     return {
         "kind": "cell_range",
@@ -1932,7 +2194,10 @@ def _select_cell_range(
 
 
 def _select_range(first_index: int, last_index: int, kind: str):
-    return {"kind": kind, "selection": {"first_index": first_index, "last_index": last_index}}
+    return {
+        "kind": kind,
+        "selection": {"first_index": first_index, "last_index": last_index},
+    }
 
 
 def _select_column_range(first_index: int, last_index: int):
@@ -1944,7 +2209,10 @@ def _select_row_range(first_index: int, last_index: int):
 
 
 def _select_indices(indices: List[int], kind: str):
-    return {"kind": kind, "selection": {"indices": indices}}
+    return {
+        "kind": kind,
+        "selection": {"indices": indices},
+    }
 
 
 def _select_column_indices(indices: List[int]):
@@ -2029,7 +2297,10 @@ def test_export_data_selection(dxf: DataExplorerFixture):
         ("dfp", polars_export_cell, polars_export_table, polars_iloc),
     }
 
-    data = {"df": (df, df[df.iloc[:, 0] > 0]), "dfp": (dfp, dfp.filter(dfp[:, 0] > 0))}
+    data = {
+        "df": (df, df[df.iloc[:, 0] > 0]),
+        "dfp": (dfp, dfp.filter(dfp[:, 0] > 0)),
+    }
 
     for name, export_cell, export_table, iloc in data_cases:
         unfiltered, filtered = data[name]
@@ -2077,13 +2348,24 @@ def _get_null_count(column_index):
 def _get_histogram(column_index, bins=2000, method="fixed"):
     return _profile_request(
         column_index,
-        [{"profile_type": "small_histogram", "params": {"method": method, "num_bins": bins}}],
+        [
+            {
+                "profile_type": "small_histogram",
+                "params": {"method": method, "num_bins": bins},
+            }
+        ],
     )
 
 
 def _get_frequency_table(column_index, limit):
     return _profile_request(
-        column_index, [{"profile_type": "small_frequency_table", "params": {"limit": limit}}]
+        column_index,
+        [
+            {
+                "profile_type": "small_frequency_table",
+                "params": {"limit": limit},
+            }
+        ],
     )
 
 
@@ -2106,13 +2388,27 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
         dxf.register_table(name, df)
 
     # tuples like (table_name, [ColumnProfileRequest], [results])
-    all_profiles = [_get_null_count(0), _get_null_count(1), _get_null_count(2), _get_null_count(3)]
+    all_profiles = [
+        _get_null_count(0),
+        _get_null_count(1),
+        _get_null_count(2),
+        _get_null_count(3),
+    ]
     cases = [
         ("df1", [], []),
-        ("df1", [_get_null_count(3)], [0]),
         (
             "df1",
-            [_get_null_count(0), _get_null_count(1), _get_null_count(2), _get_null_count(3)],
+            [_get_null_count(3)],
+            [0],
+        ),
+        (
+            "df1",
+            [
+                _get_null_count(0),
+                _get_null_count(1),
+                _get_null_count(2),
+                _get_null_count(3),
+            ],
             [2, 3, 4, 0],
         ),
     ]
@@ -2129,7 +2425,12 @@ def test_pandas_profile_null_counts(dxf: DataExplorerFixture):
     # Test profiling with filter
     # format: (table, filters, filtered_table, profiles)
     filter_cases = [
-        (df1, [_filter("not_null", df1_schema[0])], df1[df1["a"].notnull()], all_profiles)
+        (
+            df1,
+            [_filter("not_null", df1_schema[0])],
+            df1[df1["a"].notnull()],
+            all_profiles,
+        )
     ]
     for table, filters, filtered_table, profiles in filter_cases:
         table_id = guid()
@@ -2221,7 +2522,19 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             "f0": arr,
             "f1": arr_with_nulls,
             "f2": [False, False, False, True, None] * 20,
-            "f3": ["foo", "", "baz", "qux", "foo", None, "bar", "", "bar", "zzz"] * 10,
+            "f3": [
+                "foo",
+                "",
+                "baz",
+                "qux",
+                "foo",
+                None,
+                "bar",
+                "",
+                "bar",
+                "zzz",
+            ]
+            * 10,
             "f4": getattr(
                 pd.date_range("2000-01-01", freq="D", periods=100), "date"
             ),  # date column
@@ -2242,7 +2555,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )
@@ -2254,7 +2574,14 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="US/Eastern")}
             ),
             pd.DataFrame(
-                {"x": pd.date_range("2000-01-01", freq="2h", periods=50, tz="Asia/Hong_Kong")}
+                {
+                    "x": pd.date_range(
+                        "2000-01-01",
+                        freq="2h",
+                        periods=50,
+                        tz="Asia/Hong_Kong",
+                    )
+                }
             ),
         ]
     )
@@ -2295,8 +2622,16 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "median": _format_float(df1["f1"].median()),
             },
         ),
-        ("df1", 2, {"true_count": 20, "false_count": 60}),
-        ("df1", 3, {"num_empty": 20, "num_unique": 6}),
+        (
+            "df1",
+            2,
+            {"true_count": 20, "false_count": 60},
+        ),
+        (
+            "df1",
+            3,
+            {"num_empty": 20, "num_unique": 6},
+        ),
         (
             "df1",
             4,
@@ -2332,9 +2667,21 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
                 "timezone": "US/Eastern",
             },
         ),
-        ("df1", 7, {"mean": "2.50+2.50j", "median": "2.50+2.50j"}),
-        ("df1", 8, {"min_value": "-INF", "max_value": "INF"}),
-        ("df1", 9, {}),
+        (
+            "df1",
+            7,
+            {"mean": "2.50+2.50j", "median": "2.50+2.50j"},
+        ),
+        (
+            "df1",
+            8,
+            {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            9,
+            {},
+        ),
         (
             "df_mixed_tz1",
             0,
@@ -2429,7 +2776,15 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         (
             _get_histogram(2, bins=6),
             {
-                "bin_edges": ["-10.00", "-6.67", "-3.33", "0.00", "3.33", "6.67", "10.00"],
+                "bin_edges": [
+                    "-10.00",
+                    "-6.67",
+                    "-3.33",
+                    "0.00",
+                    "3.33",
+                    "6.67",
+                    "10.00",
+                ],
                 "bin_counts": [1, 1, 1, 3, 2, 1],
                 "quantiles": [],
             },
@@ -2437,7 +2792,13 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         (
             _get_histogram(3, bins=4),
             {
-                "bin_edges": ["0.00", "2.50", "5.00", "7.50", "10.00"],
+                "bin_edges": [
+                    "0.00",
+                    "2.50",
+                    "5.00",
+                    "7.50",
+                    "10.00",
+                ],
                 "bin_counts": [5, 0, 0, 6],
                 "quantiles": [],
             },
@@ -2452,15 +2813,27 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         ),
         (
             _get_histogram(5, method="sturges"),
-            {"bin_edges": ["0.5000", "1.50"], "bin_counts": [11], "quantiles": []},
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
+                "quantiles": [],
+            },
         ),
         (
             _get_histogram(5, method="freedman_diaconis"),
-            {"bin_edges": ["0.5000", "1.50"], "bin_counts": [11], "quantiles": []},
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
+                "quantiles": [],
+            },
         ),
         (
             _get_histogram(5, method="scott"),
-            {"bin_edges": ["0.5000", "1.50"], "bin_counts": [11], "quantiles": []},
+            {
+                "bin_edges": ["0.5000", "1.50"],
+                "bin_counts": [11],
+                "quantiles": [],
+            },
         ),
         (
             _get_histogram(0, bins=50),
@@ -2488,7 +2861,18 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
 def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
     data = {
         "a": [0, 0, 0, 1, 1, 2, 2, 3, 4, 5],
-        "b": ["foo", "foo", "foo", "foo", "b0", "b0", "b1", "b2", "b3", None],
+        "b": [
+            "foo",
+            "foo",
+            "foo",
+            "foo",
+            "b0",
+            "b0",
+            "b1",
+            "b2",
+            "b3",
+            None,
+        ],
     }
     dxf.register_table("df", pd.DataFrame(data))
     dxf.register_table("dfp", pl.DataFrame(data))
@@ -2496,11 +2880,19 @@ def test_pandas_polars_profile_frequency_table(dxf: DataExplorerFixture):
     cases = [
         (
             _get_frequency_table(0, 3),
-            {"values": ["0", "1", "2"], "counts": [3, 2, 2], "other_count": 3},
+            {
+                "values": ["0", "1", "2"],
+                "counts": [3, 2, 2],
+                "other_count": 3,
+            },
         ),
         (
             _get_frequency_table(1, 3),
-            {"values": ["foo", "b0", "b1"], "counts": [4, 2, 1], "other_count": 2},
+            {
+                "values": ["foo", "b0", "b1"],
+                "counts": [4, 2, 1],
+                "other_count": 2,
+            },
         ),
     ]
 
@@ -2545,14 +2937,24 @@ POLARS_TYPE_EXAMPLES = [
     (pl.Int8, [-1, 2, 3, None], "Int8", "number"),
     (pl.Int16, [-10000, 20000, 30000, None], "Int16", "number"),
     (pl.Int32, [-10000000, 20000000, 30000000, None], "Int32", "number"),
-    (pl.Int64, [-10000000000, 20000000000, 30000000000, None], "Int64", "number"),
+    (
+        pl.Int64,
+        [-10000000000, 20000000000, 30000000000, None],
+        "Int64",
+        "number",
+    ),
     (pl.UInt8, [0, 2, 3, None], "UInt8", "number"),
     (pl.UInt16, [0, 2000, 3000, None], "UInt16", "number"),
     (pl.UInt32, [0, 2000000, 3000000, None], "UInt32", "number"),
     (pl.UInt64, [0, 2000000000, 3000000000, None], "UInt64", "number"),
     (pl.Float32, [-0.01234, 2.56789, 3.012345, None], "Float32", "number"),
     (pl.Float64, [-0.01234, 2.56789, 3.012345, None], "Float64", "number"),
-    (pl.Binary, [b"testing", b"some", b"strings", None], "Binary", "string"),
+    (
+        pl.Binary,
+        [b"testing", b"some", b"strings", None],
+        "Binary",
+        "string",
+    ),
     (pl.String, ["tésting", "söme", "strîngs", None], "String", "string"),
     (pl.Time, [0, 14400000000000, 40271000000000, None], "Time", "time"),
     (
@@ -2568,10 +2970,20 @@ POLARS_TYPE_EXAMPLES = [
         "datetime",
     ),
     (pl.Date, [130120, 0, -1, None], "Date", "date"),
-    (pl.Duration("ms"), [0, 1000, 2000, None], "Duration(time_unit='ms')", "unknown"),
+    (
+        pl.Duration("ms"),
+        [0, 1000, 2000, None],
+        "Duration(time_unit='ms')",
+        "unknown",
+    ),
     (
         pl.Decimal(12, 4),
-        [Decimal("123.4501"), Decimal("0.0000"), Decimal("12345678.4501"), None],
+        [
+            Decimal("123.4501"),
+            Decimal("0.0000"),
+            Decimal("12345678.4501"),
+            None,
+        ],
         "Decimal(precision=12, scale=4)",
         "number",
     ),
@@ -2670,7 +3082,8 @@ def test_polars_get_state(dxf: DataExplorerFixture):
             profile_type="null_count", support_status=SupportStatus.Supported
         ),
         ColumnProfileTypeSupportStatus(
-            profile_type="summary_stats", support_status=SupportStatus.Supported
+            profile_type="summary_stats",
+            support_status=SupportStatus.Supported,
         ),
     ]
 
@@ -2739,7 +3152,13 @@ def test_polars_get_data_values(dxf: DataExplorerFixture):
     result = dxf.get_data_values(
         name,
         columns=[
-            {"column_index": i, "spec": {"first_index": 2, "last_index": 11}}
+            {
+                "column_index": i,
+                "spec": {
+                    "first_index": 2,
+                    "last_index": 11,
+                },
+            }
             for i in range(15, df.shape[1])
         ],
     )
@@ -2765,7 +3184,9 @@ def test_polars_filter_between(dxf: DataExplorerFixture):
         ex_not_between = df.filter((col < left_value) | (col > right_value))
 
         dxf.check_filter_case(
-            df, [_between_filter(column_schema, str(left_value), str(right_value))], ex_between
+            df,
+            [_between_filter(column_schema, str(left_value), str(right_value))],
+            ex_between,
         )
         dxf.check_filter_case(
             df,
@@ -2832,10 +3253,14 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
     schema = dxf.get_schema_for(df)
 
     dxf.check_filter_case(
-        df, [_filter("is_empty", schema[0])], df.filter(df["a"].str.len_chars() == 0)
+        df,
+        [_filter("is_empty", schema[0])],
+        df.filter(df["a"].str.len_chars() == 0),
     )
     dxf.check_filter_case(
-        df, [_filter("not_empty", schema[0])], df.filter(df["a"].str.len_chars() != 0)
+        df,
+        [_filter("not_empty", schema[0])],
+        df.filter(df["a"].str.len_chars() != 0),
     )
     dxf.check_filter_case(
         df,
@@ -2850,7 +3275,11 @@ def test_polars_filter_empty(dxf: DataExplorerFixture):
 
 
 def test_polars_filter_boolean(dxf: DataExplorerFixture):
-    df = pl.DataFrame({"a": [True, True, None, False, False, False, True, True]})
+    df = pl.DataFrame(
+        {
+            "a": [True, True, None, False, False, False, True, True],
+        }
+    )
 
     schema = dxf.get_schema_for(df)
 
@@ -2884,34 +3313,90 @@ def test_polars_filter_reset(dxf: DataExplorerFixture):
 
 
 def test_polars_filter_search(dxf: DataExplorerFixture):
-    df = pl.DataFrame({"a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"]})
+    df = pl.DataFrame(
+        {
+            "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
+        }
+    )
 
     dxf.register_table("df", df)
     schema = dxf.get_schema("df")
 
     # (search_type, column_schema, term, case_sensitive, boolean mask)
     cases = [
-        ("contains", schema[0], "foo", False, df["a"].str.to_lowercase().str.contains("foo")),
+        (
+            "contains",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.to_lowercase().str.contains("foo"),
+        ),
         ("contains", schema[0], "foo", True, df["a"].str.contains("foo")),
-        ("starts_with", schema[0], "foo", False, df["a"].str.to_lowercase().str.starts_with("foo")),
-        ("starts_with", schema[0], "foo", True, df["a"].str.starts_with("foo")),
-        ("ends_with", schema[0], "foo", False, df["a"].str.to_lowercase().str.ends_with("foo")),
-        ("ends_with", schema[0], "foo", True, df["a"].str.ends_with("foo")),
-        ("regex_match", schema[0], "f[o]+", False, df["a"].str.contains("(?i)f[o]+")),
-        ("regex_match", schema[0], "f[o]+[^o]*", True, df["a"].str.contains("f[o]+[^o]*")),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.to_lowercase().str.starts_with("foo"),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            True,
+            df["a"].str.starts_with("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            False,
+            df["a"].str.to_lowercase().str.ends_with("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            True,
+            df["a"].str.ends_with("foo"),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+",
+            False,
+            df["a"].str.contains("(?i)f[o]+"),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+[^o]*",
+            True,
+            df["a"].str.contains("f[o]+[^o]*"),
+        ),
     ]
 
     for search_type, column_schema, term, cs, mask in cases:
         dxf.check_filter_case(
             df,
-            [_search_filter(column_schema, term, case_sensitive=cs, search_type=search_type)],
+            [
+                _search_filter(
+                    column_schema,
+                    term,
+                    case_sensitive=cs,
+                    search_type=search_type,
+                )
+            ],
             df.filter(mask),
         )
 
 
 def test_polars_filter_set_membership(dxf: DataExplorerFixture):
     df = pl.DataFrame(
-        {"a": [1, 2, 3, 4, None, 5, 6], "b": ["foo", "bar", None, "baz", "foo", None, "qux"]}
+        {
+            "a": [1, 2, 3, 4, None, 5, 6],
+            "b": ["foo", "bar", None, "baz", "foo", None, "qux"],
+        }
     )
     schema = dxf.get_schema_for(df)
 
@@ -2923,11 +3408,23 @@ def test_polars_filter_set_membership(dxf: DataExplorerFixture):
             [_set_member_filter(schema[0], [2, 3.5, 4.0, 5, 6.5])],
             df.filter(df["a"].is_in(pl.Series([2, 3.5, 4.0, 5, 6.5], dtype=pl.Float64))),
         ),
-        ([_set_member_filter(schema[0], [2, 4])], df.filter(df["a"].is_in([2, 4]))),
-        ([_set_member_filter(schema[1], ["bar", "foo"])], df.filter(df["b"].is_in(["bar", "foo"]))),
+        (
+            [_set_member_filter(schema[0], [2, 4])],
+            df.filter(df["a"].is_in([2, 4])),
+        ),
+        (
+            [_set_member_filter(schema[1], ["bar", "foo"])],
+            df.filter(df["b"].is_in(["bar", "foo"])),
+        ),
         ([_set_member_filter(schema[1], [])], df.filter(df["b"].is_in([]))),
-        ([_set_member_filter(schema[1], ["bar"], False)], df.filter(~df["b"].is_in(["bar"]))),
-        ([_set_member_filter(schema[1], [], False)], df.filter(~df["b"].is_in([]))),
+        (
+            [_set_member_filter(schema[1], ["bar"], False)],
+            df.filter(~df["b"].is_in(["bar"])),
+        ),
+        (
+            [_set_member_filter(schema[1], [], False)],
+            df.filter(~df["b"].is_in([])),
+        ),
     ]
 
     for filter_set, expected_df in cases:
@@ -2960,7 +3457,11 @@ def test_polars_set_sort_columns(dxf: DataExplorerFixture):
         ("df2", [(1, True)], {"by": "b"}),
         ("df2", [(2, True)], {"by": "c"}),
         ("df2", [(0, True), (1, True)], {"by": ["a", "b"]}),
-        ("df2", [(0, True), (1, False)], {"by": ["a", "b"], "descending": [False, True]}),
+        (
+            "df2",
+            [(0, True), (1, False)],
+            {"by": ["a", "b"], "descending": [False, True]},
+        ),
         (
             "df2",
             [(2, False), (1, True), (0, False)],
@@ -2970,7 +3471,12 @@ def test_polars_set_sort_columns(dxf: DataExplorerFixture):
 
     # Test sort AND filter
     filter_cases = {
-        "df2": [(lambda x: x.filter(x["a"] > 0), [_compare_filter(df2_schema[0], ">", 0)])]
+        "df2": [
+            (
+                lambda x: x.filter(x["a"] > 0),
+                [_compare_filter(df2_schema[0], ">", 0)],
+            )
+        ]
     }
 
     for df_name, sort_keys, expected_params in cases:
@@ -2980,7 +3486,10 @@ def test_polars_set_sort_columns(dxf: DataExplorerFixture):
         ]
 
         args = (expected_params["by"],)
-        kwds = {"descending": expected_params.get("descending", False), "maintain_order": True}
+        kwds = {
+            "descending": expected_params.get("descending", False),
+            "maintain_order": True,
+        }
 
         expected_df = df.sort(*args, **kwds)
         dxf.check_sort_case(df, wrapped_keys, expected_df)
@@ -3006,10 +3515,19 @@ def test_polars_profile_null_counts(dxf: DataExplorerFixture):
     # tuples like (table_name, [ColumnProfileRequest], [results])
     cases = [
         (name, [], []),
-        (name, [_get_null_count(3)], [0]),
         (
             name,
-            [_get_null_count(0), _get_null_count(1), _get_null_count(2), _get_null_count(3)],
+            [_get_null_count(3)],
+            [0],
+        ),
+        (
+            name,
+            [
+                _get_null_count(0),
+                _get_null_count(1),
+                _get_null_count(2),
+                _get_null_count(3),
+            ],
             [2, 3, 4, 0],
         ),
     ]
@@ -3033,12 +3551,26 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
             "f0": arr,
             "f1": arr_with_nulls,
             "f2": [False, False, False, True, None] * 20,
-            "f3": ["foo", "", "baz", "qux", "foo", None, "bar", "", "bar", "zzz"] * 10,
+            "f3": [
+                "foo",
+                "",
+                "baz",
+                "qux",
+                "foo",
+                None,
+                "bar",
+                "",
+                "bar",
+                "zzz",
+            ]
+            * 10,
             "f4": pl.Series(
-                pd.date_range("2000-01-01", freq="D", periods=100), dtype=pl.Date
+                pd.date_range("2000-01-01", freq="D", periods=100),
+                dtype=pl.Date,
             ),  # date column
             "f5": pl.Series(
-                list(pd.date_range("2000-01-01", freq="2h", periods=100)), dtype=pl.Datetime("us")
+                list(pd.date_range("2000-01-01", freq="2h", periods=100)),
+                dtype=pl.Datetime("us"),
             ),  # datetime no tz
             "f6": pl.Series(
                 [
@@ -3086,8 +3618,16 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 "median": _format_float(df1["f1"].median()),
             },
         ),
-        ("df1", 2, {"true_count": 20, "false_count": 60}),
-        ("df1", 3, {"num_empty": 20, "num_unique": 7}),
+        (
+            "df1",
+            2,
+            {"true_count": 20, "false_count": 60},
+        ),
+        (
+            "df1",
+            3,
+            {"num_empty": 20, "num_unique": 7},
+        ),
         (
             "df1",
             4,
@@ -3123,8 +3663,16 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
                 "timezone": "UTC",
             },
         ),
-        ("df1", 7, {"min_value": "-INF", "max_value": "INF"}),
-        ("df1", 8, {}),
+        (
+            "df1",
+            7,
+            {"min_value": "-INF", "max_value": "INF"},
+        ),
+        (
+            "df1",
+            8,
+            {},
+        ),
     ]
 
     for table_name, col_index, ex_result in cases:

@@ -29,8 +29,17 @@ def parse_args() -> argparse.Namespace:
         description="Positron Jedi language server: an LSP wrapper for jedi.",
     )
 
-    parser.add_argument("--debugport", help="port for debugpy debugger", type=int, default=None)
-    parser.add_argument("--logfile", help="redirect logs to file specified", type=str)
+    parser.add_argument(
+        "--debugport",
+        help="port for debugpy debugger",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--logfile",
+        help="redirect logs to file specified",
+        type=str,
+    )
     parser.add_argument(
         "--loglevel",
         help="logging level",
@@ -39,10 +48,16 @@ def parse_args() -> argparse.Namespace:
         choices=["critical", "error", "warn", "info", "debug"],
     )
     parser.add_argument(
-        "-f", "--connection-file", help="location of the IPyKernel connection file", type=str
+        "-f",
+        "--connection-file",
+        help="location of the IPyKernel connection file",
+        type=str,
     )
     parser.add_argument(
-        "-q", "--quiet", help="Suppress console startup banner information", action="store_true"
+        "-q",
+        "--quiet",
+        help="Suppress console startup banner information",
+        action="store_true",
     )
     parser.add_argument(
         "--session-mode",
@@ -78,8 +93,14 @@ if __name__ == "__main__":
     handlers = ["console"] if args.logfile is None else ["file"]
     logging_config = {
         "loggers": {
-            "": {"level": args.loglevel, "handlers": handlers},
-            "PositronIPKernelApp": {"level": args.loglevel, "handlers": handlers},
+            "": {
+                "level": args.loglevel,
+                "handlers": handlers,
+            },
+            "PositronIPKernelApp": {
+                "level": args.loglevel,
+                "handlers": handlers,
+            },
         }
     }
     if args.logfile is not None:

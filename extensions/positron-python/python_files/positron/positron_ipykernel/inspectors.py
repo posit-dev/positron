@@ -14,7 +14,14 @@ import re
 import sys
 import types
 from abc import ABC, abstractmethod
-from collections.abc import Mapping, MutableMapping, MutableSequence, MutableSet, Sequence, Set
+from collections.abc import (
+    Mapping,
+    MutableMapping,
+    MutableSequence,
+    MutableSet,
+    Sequence,
+    Set,
+)
 from inspect import getattr_static
 from typing import (
     TYPE_CHECKING,
@@ -100,7 +107,9 @@ class PositronInspector(Generic[T]):
         return str(key)
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         return pretty_format(self.value, print_width, truncate_at)
 
@@ -243,7 +252,9 @@ class BytesInspector(PositronInspector[bytes]):
         return super().deepcopy()
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Ignore print_width for strings
         return super().get_display_value(None, truncate_at)
@@ -324,7 +335,9 @@ class FunctionInspector(PositronInspector[Callable]):
         return False
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         if callable(self.value):
             sig = inspect.signature(self.value)
@@ -402,7 +415,9 @@ class NumpyNumberInspector(NumberInspector["np.number"]):
     CLASS_QNAME = numpy_numeric_scalars
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # numpy numbers do not print cleanly as of numpy 2.0
         # use the self.value.item() to retrieve the actual number
@@ -414,7 +429,9 @@ class StringInspector(PositronInspector[str]):
         return False
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Ignore print_width for strings
         display_value, is_truncated = super().get_display_value(None, truncate_at)
@@ -551,7 +568,11 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
 
     def value_to_json(self) -> JsonData:
         if isinstance(self.value, range):
-            return {"start": self.value.start, "stop": self.value.stop, "step": self.value.step}
+            return {
+                "start": self.value.start,
+                "stop": self.value.stop,
+                "step": self.value.step,
+            }
 
         return super().value_to_json()
 
@@ -571,7 +592,11 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
                 raise ValueError(f"Expected data['step'] to be int, got {data['step']}")
 
             # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
-            return range(cast(int, data["start"]), cast(int, data["stop"]), cast(int, data["step"]))
+            return range(
+                cast(int, data["start"]),
+                cast(int, data["stop"]),
+                cast(int, data["step"]),
+            )
 
         return super().value_from_json(type_name, data)
 
@@ -638,7 +663,9 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     CLASS_QNAME = "numpy.ndarray"
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         return (
             not_none(np_).array2string(
@@ -664,7 +691,9 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
     CLASS_QNAME = "torch.Tensor"
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
@@ -715,7 +744,15 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 #
 
 
-MT = TypeVar("MT", Mapping, "pd.DataFrame", "pl.DataFrame", "pd.Series", "pl.Series", "pd.Index")
+MT = TypeVar(
+    "MT",
+    Mapping,
+    "pd.DataFrame",
+    "pl.DataFrame",
+    "pd.Series",
+    "pl.Series",
+    "pd.Index",
+)
 
 
 class _BaseMapInspector(PositronInspector[MT], ABC):
@@ -764,7 +801,9 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         return f"{self.value.dtype} [{self.get_length()}]"
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         display_value = _get_class_display(self.value)
         column_values = str(cast(Column, self.value[:100]).to_list())
@@ -782,7 +821,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
-    CLASS_QNAME = ["pandas.core.series.Series", "geopandas.geoseries.GeoSeries"]
+    CLASS_QNAME = [
+        "pandas.core.series.Series",
+        "geopandas.geoseries.GeoSeries",
+    ]
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.index[key])
@@ -827,7 +869,9 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         return False
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
         if isinstance(self.value, not_none(pd_).RangeIndex):
@@ -856,7 +900,10 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
 
 class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
-    CLASS_QNAME = ["polars.series.series.Series", "polars.internals.series.series.Series"]
+    CLASS_QNAME = [
+        "polars.series.series.Series",
+        "polars.internals.series.series.Series",
+    ]
 
     def equals(self, value: pl.Series) -> bool:
         try:
@@ -905,7 +952,9 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         return True
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         display_value = _get_class_display(self.value)
         if hasattr(self.value, "shape"):
@@ -921,7 +970,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
-    CLASS_QNAME = ["pandas.core.frame.DataFrame", "geopandas.geodataframe.GeoDataFrame"]
+    CLASS_QNAME = [
+        "pandas.core.frame.DataFrame",
+        "geopandas.geodataframe.GeoDataFrame",
+    ]
 
     def get_display_name(self, key: int) -> str:
         return str(self.value.columns[key])
@@ -948,13 +1000,18 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
 
 
 class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
-    CLASS_QNAME = ["polars.dataframe.frame.DataFrame", "polars.internals.dataframe.frame.DataFrame"]
+    CLASS_QNAME = [
+        "polars.dataframe.frame.DataFrame",
+        "polars.internals.dataframe.frame.DataFrame",
+    ]
 
     def get_children(self):
         return self.value.columns
 
     def get_display_value(
-        self, print_width: Optional[int] = PRINT_WIDTH, truncate_at: int = TRUNCATE_AT
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         qualname = _get_class_display(self.value)
         shape = self.value.shape

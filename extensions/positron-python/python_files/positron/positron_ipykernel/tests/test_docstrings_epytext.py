@@ -89,9 +89,18 @@ MULTILINE_ARG_DESCRIPTION_MD = """Example of epytext docstring.
 """
 
 EPYTEXT_CASES = {
-    "basic example": {"epytext": BASIC_EXAMPLE, "md": BASIC_EXAMPLE_MD},
-    "escape magic method": {"epytext": ESCAPE_MAGIC_METHOD, "md": ESCAPE_MAGIC_METHOD_MD},
-    "plain section": {"epytext": PLAIN_SECTION, "md": PLAIN_SECTION_MD},
+    "basic example": {
+        "epytext": BASIC_EXAMPLE,
+        "md": BASIC_EXAMPLE_MD,
+    },
+    "escape magic method": {
+        "epytext": ESCAPE_MAGIC_METHOD,
+        "md": ESCAPE_MAGIC_METHOD_MD,
+    },
+    "plain section": {
+        "epytext": PLAIN_SECTION,
+        "md": PLAIN_SECTION_MD,
+    },
     "multiline arg description": {
         "epytext": MULTILINE_ARG_DESCRIPTION,
         "md": MULTILINE_ARG_DESCRIPTION_MD,
@@ -100,7 +109,9 @@ EPYTEXT_CASES = {
 
 
 @pytest.mark.parametrize(
-    "epytext", [case["epytext"] for case in EPYTEXT_CASES.values()], ids=EPYTEXT_CASES.keys()
+    "epytext",
+    [case["epytext"] for case in EPYTEXT_CASES.values()],
+    ids=EPYTEXT_CASES.keys(),
 )
 def test_looks_like_epytext_recognises_epytext(epytext):
     assert looks_like_epytext(epytext)

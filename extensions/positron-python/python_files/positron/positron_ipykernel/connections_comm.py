@@ -23,9 +23,13 @@ class ObjectSchema(BaseModel):
     ObjectSchema in Schemas
     """
 
-    name: StrictStr = Field(description="Name of the underlying object")
+    name: StrictStr = Field(
+        description="Name of the underlying object",
+    )
 
-    kind: StrictStr = Field(description="The object type (table, catalog, schema)")
+    kind: StrictStr = Field(
+        description="The object type (table, catalog, schema)",
+    )
 
 
 class FieldSchema(BaseModel):
@@ -33,9 +37,13 @@ class FieldSchema(BaseModel):
     FieldSchema in Schemas
     """
 
-    name: StrictStr = Field(description="Name of the field")
+    name: StrictStr = Field(
+        description="Name of the field",
+    )
 
-    dtype: StrictStr = Field(description="The field data type")
+    dtype: StrictStr = Field(
+        description="The field data type",
+    )
 
 
 class MetadataSchema(BaseModel):
@@ -43,18 +51,27 @@ class MetadataSchema(BaseModel):
     MetadataSchema in Schemas
     """
 
-    name: StrictStr = Field(description="Connection name")
-
-    language_id: StrictStr = Field(
-        description="Language ID for the connections. Essentially just R or python"
+    name: StrictStr = Field(
+        description="Connection name",
     )
 
-    host: Optional[StrictStr] = Field(default=None, description="Connection host")
+    language_id: StrictStr = Field(
+        description="Language ID for the connections. Essentially just R or python",
+    )
 
-    type: Optional[StrictStr] = Field(default=None, description="Connection type")
+    host: Optional[StrictStr] = Field(
+        default=None,
+        description="Connection host",
+    )
+
+    type: Optional[StrictStr] = Field(
+        default=None,
+        description="Connection type",
+    )
 
     code: Optional[StrictStr] = Field(
-        default=None, description="Code used to re-create the connection"
+        default=None,
+        description="Code used to re-create the connection",
     )
 
 
@@ -90,7 +107,7 @@ class ListObjectsParams(BaseModel):
     """
 
     path: List[ObjectSchema] = Field(
-        description="The path to object that we want to list children."
+        description="The path to object that we want to list children.",
     )
 
 
@@ -100,13 +117,18 @@ class ListObjectsRequest(BaseModel):
     and views.
     """
 
-    params: ListObjectsParams = Field(description="Parameters to the ListObjects method")
-
-    method: Literal[ConnectionsBackendRequest.ListObjects] = Field(
-        description="The JSON-RPC method name (list_objects)"
+    params: ListObjectsParams = Field(
+        description="Parameters to the ListObjects method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.ListObjects] = Field(
+        description="The JSON-RPC method name (list_objects)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ListFieldsParams(BaseModel):
@@ -114,7 +136,9 @@ class ListFieldsParams(BaseModel):
     List fields of an object, such as columns of a table or view.
     """
 
-    path: List[ObjectSchema] = Field(description="The path to object that we want to list fields.")
+    path: List[ObjectSchema] = Field(
+        description="The path to object that we want to list fields.",
+    )
 
 
 class ListFieldsRequest(BaseModel):
@@ -122,13 +146,18 @@ class ListFieldsRequest(BaseModel):
     List fields of an object, such as columns of a table or view.
     """
 
-    params: ListFieldsParams = Field(description="Parameters to the ListFields method")
-
-    method: Literal[ConnectionsBackendRequest.ListFields] = Field(
-        description="The JSON-RPC method name (list_fields)"
+    params: ListFieldsParams = Field(
+        description="Parameters to the ListFields method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.ListFields] = Field(
+        description="The JSON-RPC method name (list_fields)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ContainsDataParams(BaseModel):
@@ -137,7 +166,7 @@ class ContainsDataParams(BaseModel):
     """
 
     path: List[ObjectSchema] = Field(
-        description="The path to object that we want to check if it contains data."
+        description="The path to object that we want to check if it contains data.",
     )
 
 
@@ -146,13 +175,18 @@ class ContainsDataRequest(BaseModel):
     Check if an object contains data, such as a table or view.
     """
 
-    params: ContainsDataParams = Field(description="Parameters to the ContainsData method")
-
-    method: Literal[ConnectionsBackendRequest.ContainsData] = Field(
-        description="The JSON-RPC method name (contains_data)"
+    params: ContainsDataParams = Field(
+        description="Parameters to the ContainsData method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.ContainsData] = Field(
+        description="The JSON-RPC method name (contains_data)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class GetIconParams(BaseModel):
@@ -160,7 +194,9 @@ class GetIconParams(BaseModel):
     Get icon of an object, such as a table or view.
     """
 
-    path: List[ObjectSchema] = Field(description="The path to object that we want to get the icon.")
+    path: List[ObjectSchema] = Field(
+        description="The path to object that we want to get the icon.",
+    )
 
 
 class GetIconRequest(BaseModel):
@@ -168,13 +204,18 @@ class GetIconRequest(BaseModel):
     Get icon of an object, such as a table or view.
     """
 
-    params: GetIconParams = Field(description="Parameters to the GetIcon method")
-
-    method: Literal[ConnectionsBackendRequest.GetIcon] = Field(
-        description="The JSON-RPC method name (get_icon)"
+    params: GetIconParams = Field(
+        description="Parameters to the GetIcon method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.GetIcon] = Field(
+        description="The JSON-RPC method name (get_icon)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class PreviewObjectParams(BaseModel):
@@ -182,7 +223,9 @@ class PreviewObjectParams(BaseModel):
     Preview object data, such as a table or view.
     """
 
-    path: List[ObjectSchema] = Field(description="The path to object that we want to preview.")
+    path: List[ObjectSchema] = Field(
+        description="The path to object that we want to preview.",
+    )
 
 
 class PreviewObjectRequest(BaseModel):
@@ -190,13 +233,18 @@ class PreviewObjectRequest(BaseModel):
     Preview object data, such as a table or view.
     """
 
-    params: PreviewObjectParams = Field(description="Parameters to the PreviewObject method")
-
-    method: Literal[ConnectionsBackendRequest.PreviewObject] = Field(
-        description="The JSON-RPC method name (preview_object)"
+    params: PreviewObjectParams = Field(
+        description="Parameters to the PreviewObject method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.PreviewObject] = Field(
+        description="The JSON-RPC method name (preview_object)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class GetMetadataParams(BaseModel):
@@ -205,7 +253,7 @@ class GetMetadataParams(BaseModel):
     """
 
     comm_id: StrictStr = Field(
-        description="The comm_id of the client we want to retrieve metdata for."
+        description="The comm_id of the client we want to retrieve metdata for.",
     )
 
 
@@ -214,13 +262,18 @@ class GetMetadataRequest(BaseModel):
     A connection has tied metadata such as an icon, the host, etc.
     """
 
-    params: GetMetadataParams = Field(description="Parameters to the GetMetadata method")
-
-    method: Literal[ConnectionsBackendRequest.GetMetadata] = Field(
-        description="The JSON-RPC method name (get_metadata)"
+    params: GetMetadataParams = Field(
+        description="Parameters to the GetMetadata method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[ConnectionsBackendRequest.GetMetadata] = Field(
+        description="The JSON-RPC method name (get_metadata)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ConnectionsBackendMessageContent(BaseModel):

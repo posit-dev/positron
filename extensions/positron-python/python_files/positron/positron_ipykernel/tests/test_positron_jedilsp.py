@@ -67,7 +67,9 @@ def mock_server(uri: str, source: str, namespace: Dict[str, Any]) -> Mock:
     ],
 )
 def test_positron_help_topic_request(
-    source: str, namespace: Dict[str, Any], expected_topic: Optional[str]
+    source: str,
+    namespace: Dict[str, Any],
+    expected_topic: Optional[str],
 ) -> None:
     params = HelpTopicParams(TextDocumentIdentifier("file:///foo.py"), Position(0, 0))
     server = mock_server(params.text_document.uri, source, namespace)
@@ -89,7 +91,10 @@ class _ObjectWithProperty:
 _object_with_property = _ObjectWithProperty()
 
 
-def _completions(source: str, namespace: Dict[str, Any]) -> List[CompletionItem]:
+def _completions(
+    source: str,
+    namespace: Dict[str, Any],
+) -> List[CompletionItem]:
     lines = source.splitlines()
     line = len(lines) - 1
     character = len(lines[line])
@@ -123,7 +128,9 @@ def _completions(source: str, namespace: Dict[str, Any]) -> List[CompletionItem]
     ],
 )
 def test_positron_completion_exact(
-    source: str, namespace: Dict[str, Any], expected_labels: List[str]
+    source: str,
+    namespace: Dict[str, Any],
+    expected_labels: List[str],
 ) -> None:
     completions = _completions(source, namespace)
     completion_labels = [completion.label for completion in completions]
@@ -135,11 +142,13 @@ def test_positron_completion_exact(
     [
         # Pandas dataframe - attribute access.
         # Note that polars dataframes don't support accessing columns as attributes.
-        ("x.a", {"x": pd.DataFrame({"a": []})}, "a")
+        ("x.a", {"x": pd.DataFrame({"a": []})}, "a"),
     ],
 )
 def test_positron_completion_contains(
-    source: str, namespace: Dict[str, Any], expected_label: str
+    source: str,
+    namespace: Dict[str, Any],
+    expected_label: str,
 ) -> None:
     completions = _completions(source, namespace)
     completion_labels = [completion.label for completion in completions]
@@ -189,7 +198,12 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{_pd_df}\n```",
         ),
         # Pandas dataframe column - dict key access.
-        ('x["', {"x": _pd_df}, f"int64 [{_pd_df['a'].shape[0]}]", f"```text\n{_pd_df['a']}\n```"),
+        (
+            'x["',
+            {"x": _pd_df},
+            f"int64 [{_pd_df['a'].shape[0]}]",
+            f"```text\n{_pd_df['a']}\n```",
+        ),
         # Pandas series.
         (
             "x",
@@ -205,7 +219,12 @@ _pl_df = pl.DataFrame({"a": [0]})
             f"```text\n{_pl_df}\n```",
         ),
         # Polars dataframe column - dict key access.
-        ('x["', {"x": _pl_df}, f"Int64 [{_pl_df['a'].shape[0]}]", f"```text\n{_pl_df['a']}\n```"),
+        (
+            'x["',
+            {"x": _pl_df},
+            f"Int64 [{_pl_df['a'].shape[0]}]",
+            f"```text\n{_pl_df['a']}\n```",
+        ),
         # Polars series.
         (
             "x",

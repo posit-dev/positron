@@ -17,7 +17,13 @@ from comm.base_comm import BaseComm
 from .access_keys import decode_access_key, encode_access_key
 from .inspectors import get_inspector
 from .positron_comm import CommMessage, JsonRpcErrorCode, PositronComm
-from .utils import JsonData, JsonRecord, cancel_tasks, create_task, get_qualname
+from .utils import (
+    JsonData,
+    JsonRecord,
+    cancel_tasks,
+    create_task,
+    get_qualname,
+)
 from .variables_comm import (
     ClearRequest,
     ClipboardFormatFormat,
@@ -107,7 +113,9 @@ class VariablesService:
         self.send_refresh_event()
 
     def handle_msg(
-        self, msg: CommMessage[VariablesBackendMessageContent], raw_msg: JsonRecord
+        self,
+        msg: CommMessage[VariablesBackendMessageContent],
+        raw_msg: JsonRecord,
     ) -> None:
         """
         Handle messages received from the client via the positron.variables comm.
@@ -136,7 +144,10 @@ class VariablesService:
             logger.warning(f"Unhandled request: {request}")
 
     def _send_update(
-        self, assigned: Mapping[str, Any], unevaluated: Mapping[str, Any], removed: Set[str]
+        self,
+        assigned: Mapping[str, Any],
+        unevaluated: Mapping[str, Any],
+        removed: Set[str],
     ) -> None:
         """
         Sends the list of variables that have changed in the current
@@ -228,7 +239,11 @@ class VariablesService:
         variables = self._get_filtered_vars()
         filtered_variables = _summarize_children(variables, MAX_ITEMS)
 
-        msg = RefreshParams(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = RefreshParams(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_event(VariablesFrontendEvent.Refresh.value, msg.dict())
 
     async def shutdown(self) -> None:
@@ -320,7 +335,9 @@ class VariablesService:
         copied = repr(list(self._snapshot["mutable_copied"].keys()))
         logger.debug(f"Variables copied: {copied}")
 
-    def _compare_user_ns(self) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
+    def _compare_user_ns(
+        self,
+    ) -> Tuple[Dict[str, Any], Dict[str, Any], Set[str]]:
         """
         Attempts to detect changes to variables in the user's environment.
 
@@ -447,7 +464,11 @@ class VariablesService:
 
     def _send_list(self) -> None:
         filtered_variables = self._list_all_vars()
-        msg = VariableList(variables=filtered_variables, length=len(filtered_variables), version=0)
+        msg = VariableList(
+            variables=filtered_variables,
+            length=len(filtered_variables),
+            version=0,
+        )
         self._send_result(msg.dict())
 
     def _delete_all_vars(self, parent: Dict[str, Any]) -> None:
@@ -536,7 +557,8 @@ class VariablesService:
             self._send_details(path, value)
         else:
             self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to inspect"
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to inspect",
             )
 
     def _perform_view_action(self, path: List[str]) -> None:
@@ -550,7 +572,8 @@ class VariablesService:
         is_known, value = self._find_var(path)
         if not is_known:
             return self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to view"
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to view",
             )
 
         try:
@@ -643,7 +666,8 @@ class VariablesService:
             self._send_result(msg.dict())
         else:
             self._send_error(
-                JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to format"
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to format",
             )
 
     def _send_details(self, path: List[str], value: Any = None):

@@ -51,7 +51,10 @@ class Plot:
     """
 
     def __init__(
-        self, comm: PositronComm, render: Renderer, intrinsic_size: Tuple[int, int]
+        self,
+        comm: PositronComm,
+        render: Renderer,
+        intrinsic_size: Tuple[int, int],
     ) -> None:
         self._comm = comm
         self._render = render
@@ -112,14 +115,21 @@ class Plot:
         request = msg.content.data
         if isinstance(request, RenderRequest):
             self._handle_render(
-                request.params.size, request.params.pixel_ratio, request.params.format
+                request.params.size,
+                request.params.pixel_ratio,
+                request.params.format,
             )
         elif isinstance(request, GetIntrinsicSizeRequest):
             self._handle_get_intrinsic_size()
         else:
             logger.warning(f"Unhandled request: {request}")
 
-    def _handle_render(self, size: Optional[PlotSize], pixel_ratio: float, format: str) -> None:
+    def _handle_render(
+        self,
+        size: Optional[PlotSize],
+        pixel_ratio: float,
+        format: str,
+    ) -> None:
         rendered = self._render(size, pixel_ratio, format)
         data = base64.b64encode(rendered).decode()
         result = PlotResult(data=data, mime_type=MIME_TYPE[format]).dict()

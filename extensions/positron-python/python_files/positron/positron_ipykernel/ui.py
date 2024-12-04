@@ -115,7 +115,12 @@ class UiService:
         self._comm.on_msg(self.handle_msg, UiBackendMessageContent)
 
         self.browser = PositronViewerBrowser(comm=self._comm)
-        webbrowser.register(self.browser.name, PositronViewerBrowser, self.browser, preferred=True)
+        webbrowser.register(
+            self.browser.name,
+            PositronViewerBrowser,
+            self.browser,
+            preferred=True,
+        )
 
         # Clear the current working directory to generate an event for the new
         # client (i.e. after a reconnect)
@@ -193,7 +198,11 @@ class UiService:
 class PositronViewerBrowser(webbrowser.BaseBrowser):
     """Launcher class for Positron Viewer browsers."""
 
-    def __init__(self, name: str = "positron_viewer", comm: Optional[PositronComm] = None):
+    def __init__(
+        self,
+        name: str = "positron_viewer",
+        comm: Optional[PositronComm] = None,
+    ):
         self.name = name
         self._comm = comm
 

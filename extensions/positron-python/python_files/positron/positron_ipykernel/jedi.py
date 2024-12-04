@@ -8,7 +8,9 @@ from typing import Any, Tuple
 from ._vendor.jedi import cache, debug
 from ._vendor.jedi.api import Interpreter
 from ._vendor.jedi.api.classes import Completion
-from ._vendor.jedi.api.completion import Completion as CompletionAPI
+from ._vendor.jedi.api.completion import (
+    Completion as CompletionAPI,
+)
 
 # Rename to avoid conflict with classes.Completion
 from ._vendor.jedi.api.completion import (
@@ -91,7 +93,10 @@ class PositronInterpreter(Interpreter):
         )
         # --- Start Positron ---
         # Use our custom module context class.
-        return PositronMixedModuleContext(tree_module_value, self.namespaces)
+        return PositronMixedModuleContext(
+            tree_module_value,
+            self.namespaces,
+        )
         # --- End Positron ---
 
     def complete(self, line=None, column=None, *, fuzzy=False):
@@ -283,7 +288,11 @@ def _completions_for_dicts(inference_state, dicts, literal_string, cut_end_quote
     for name in sorted(_get_python_keys(inference_state, dicts), key=lambda x: repr(x.string_name)):
         # --- End Positron ---
         yield Completion(
-            inference_state, name, stack=None, like_name_length=len(literal_string), is_fuzzy=fuzzy
+            inference_state,
+            name,
+            stack=None,
+            like_name_length=len(literal_string),
+            is_fuzzy=fuzzy,
         )
 
 

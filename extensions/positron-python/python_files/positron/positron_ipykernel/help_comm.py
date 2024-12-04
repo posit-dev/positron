@@ -49,7 +49,9 @@ class ShowHelpTopicParams(BaseModel):
     delivered.
     """
 
-    topic: StrictStr = Field(description="The help topic to show")
+    topic: StrictStr = Field(
+        description="The help topic to show",
+    )
 
 
 class ShowHelpTopicRequest(BaseModel):
@@ -60,13 +62,18 @@ class ShowHelpTopicRequest(BaseModel):
     delivered.
     """
 
-    params: ShowHelpTopicParams = Field(description="Parameters to the ShowHelpTopic method")
-
-    method: Literal[HelpBackendRequest.ShowHelpTopic] = Field(
-        description="The JSON-RPC method name (show_help_topic)"
+    params: ShowHelpTopicParams = Field(
+        description="Parameters to the ShowHelpTopic method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[HelpBackendRequest.ShowHelpTopic] = Field(
+        description="The JSON-RPC method name (show_help_topic)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class HelpBackendMessageContent(BaseModel):
@@ -89,12 +96,16 @@ class ShowHelpParams(BaseModel):
     Request to show help in the frontend
     """
 
-    content: StrictStr = Field(description="The help content to show")
+    content: StrictStr = Field(
+        description="The help content to show",
+    )
 
-    kind: ShowHelpKind = Field(description="The type of content to show")
+    kind: ShowHelpKind = Field(
+        description="The type of content to show",
+    )
 
     focus: StrictBool = Field(
-        description="Whether to focus the Help pane when the content is displayed."
+        description="Whether to focus the Help pane when the content is displayed.",
     )
 
 

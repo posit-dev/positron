@@ -95,7 +95,11 @@ def _do_render(
 ) -> Dict[str, Any]:
     msg = json_rpc_request(
         "render",
-        {"size": size.dict() if size else None, "pixel_ratio": pixel_ratio, "format": format},
+        {
+            "size": size.dict() if size else None,
+            "pixel_ratio": pixel_ratio,
+            "format": format,
+        },
         comm_id="dummy_comm_id",
     )
     plot_comm.handle_msg(msg)

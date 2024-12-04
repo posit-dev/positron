@@ -67,14 +67,17 @@ class VariableList(BaseModel):
     A view containing a list of variables in the session.
     """
 
-    variables: List[Variable] = Field(description="A list of variables in the session.")
+    variables: List[Variable] = Field(
+        description="A list of variables in the session.",
+    )
 
     length: StrictInt = Field(
-        description="The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated."
+        description="The total number of variables in the session. This may be greater than the number of variables in the 'variables' array if the array is truncated.",
     )
 
     version: Optional[StrictInt] = Field(
-        default=None, description="The version of the view (incremented with each update)"
+        default=None,
+        description="The version of the view (incremented with each update)",
     )
 
 
@@ -83,10 +86,12 @@ class InspectedVariable(BaseModel):
     An inspected variable.
     """
 
-    children: List[Variable] = Field(description="The children of the inspected variable.")
+    children: List[Variable] = Field(
+        description="The children of the inspected variable.",
+    )
 
     length: StrictInt = Field(
-        description="The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated."
+        description="The total number of children. This may be greater than the number of children in the 'children' array if the array is truncated.",
     )
 
 
@@ -95,7 +100,9 @@ class FormattedVariable(BaseModel):
     An object formatted for copying to the clipboard.
     """
 
-    content: StrictStr = Field(description="The formatted content of the variable.")
+    content: StrictStr = Field(
+        description="The formatted content of the variable.",
+    )
 
 
 class Variable(BaseModel):
@@ -104,41 +111,51 @@ class Variable(BaseModel):
     """
 
     access_key: StrictStr = Field(
-        description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests"
+        description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
     )
 
-    display_name: StrictStr = Field(description="The name of the variable, formatted for display")
+    display_name: StrictStr = Field(
+        description="The name of the variable, formatted for display",
+    )
 
     display_value: StrictStr = Field(
-        description="A string representation of the variable's value, formatted for display and possibly truncated"
+        description="A string representation of the variable's value, formatted for display and possibly truncated",
     )
 
-    display_type: StrictStr = Field(description="The variable's type, formatted for display")
+    display_type: StrictStr = Field(
+        description="The variable's type, formatted for display",
+    )
 
-    type_info: StrictStr = Field(description="Extended information about the variable's type")
+    type_info: StrictStr = Field(
+        description="Extended information about the variable's type",
+    )
 
-    size: StrictInt = Field(description="The size of the variable's value in bytes")
+    size: StrictInt = Field(
+        description="The size of the variable's value in bytes",
+    )
 
     kind: VariableKind = Field(
-        description="The kind of value the variable represents, such as 'string' or 'number'"
+        description="The kind of value the variable represents, such as 'string' or 'number'",
     )
 
     length: StrictInt = Field(
-        description="The number of elements in the variable, if it is a collection"
+        description="The number of elements in the variable, if it is a collection",
     )
 
-    has_children: StrictBool = Field(description="Whether the variable has child variables")
+    has_children: StrictBool = Field(
+        description="Whether the variable has child variables",
+    )
 
     has_viewer: StrictBool = Field(
-        description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)"
+        description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
     )
 
     is_truncated: StrictBool = Field(
-        description="True if the 'value' field is a truncated representation of the variable's value"
+        description="True if the 'value' field is a truncated representation of the variable's value",
     )
 
     updated_time: StrictInt = Field(
-        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown."
+        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
     )
 
 
@@ -173,10 +190,13 @@ class ListRequest(BaseModel):
     """
 
     method: Literal[VariablesBackendRequest.List] = Field(
-        description="The JSON-RPC method name (list)"
+        description="The JSON-RPC method name (list)",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ClearParams(BaseModel):
@@ -185,7 +205,7 @@ class ClearParams(BaseModel):
     """
 
     include_hidden_objects: StrictBool = Field(
-        description="Whether to clear hidden objects in addition to normal variables"
+        description="Whether to clear hidden objects in addition to normal variables",
     )
 
 
@@ -194,13 +214,18 @@ class ClearRequest(BaseModel):
     Clears (deletes) all variables in the current session.
     """
 
-    params: ClearParams = Field(description="Parameters to the Clear method")
-
-    method: Literal[VariablesBackendRequest.Clear] = Field(
-        description="The JSON-RPC method name (clear)"
+    params: ClearParams = Field(
+        description="Parameters to the Clear method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[VariablesBackendRequest.Clear] = Field(
+        description="The JSON-RPC method name (clear)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class DeleteParams(BaseModel):
@@ -208,7 +233,9 @@ class DeleteParams(BaseModel):
     Deletes the named variables from the current session.
     """
 
-    names: List[StrictStr] = Field(description="The names of the variables to delete.")
+    names: List[StrictStr] = Field(
+        description="The names of the variables to delete.",
+    )
 
 
 class DeleteRequest(BaseModel):
@@ -216,13 +243,18 @@ class DeleteRequest(BaseModel):
     Deletes the named variables from the current session.
     """
 
-    params: DeleteParams = Field(description="Parameters to the Delete method")
-
-    method: Literal[VariablesBackendRequest.Delete] = Field(
-        description="The JSON-RPC method name (delete)"
+    params: DeleteParams = Field(
+        description="Parameters to the Delete method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[VariablesBackendRequest.Delete] = Field(
+        description="The JSON-RPC method name (delete)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class InspectParams(BaseModel):
@@ -231,7 +263,7 @@ class InspectParams(BaseModel):
     """
 
     path: List[StrictStr] = Field(
-        description="The path to the variable to inspect, as an array of access keys."
+        description="The path to the variable to inspect, as an array of access keys.",
     )
 
 
@@ -240,13 +272,18 @@ class InspectRequest(BaseModel):
     Returns the children of a variable, as an array of variables.
     """
 
-    params: InspectParams = Field(description="Parameters to the Inspect method")
-
-    method: Literal[VariablesBackendRequest.Inspect] = Field(
-        description="The JSON-RPC method name (inspect)"
+    params: InspectParams = Field(
+        description="Parameters to the Inspect method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[VariablesBackendRequest.Inspect] = Field(
+        description="The JSON-RPC method name (inspect)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ClipboardFormatParams(BaseModel):
@@ -256,11 +293,11 @@ class ClipboardFormatParams(BaseModel):
     """
 
     path: List[StrictStr] = Field(
-        description="The path to the variable to format, as an array of access keys."
+        description="The path to the variable to format, as an array of access keys.",
     )
 
     format: ClipboardFormatFormat = Field(
-        description="The requested format for the variable, as a MIME type"
+        description="The requested format for the variable, as a MIME type",
     )
 
 
@@ -270,13 +307,18 @@ class ClipboardFormatRequest(BaseModel):
     clipboard.
     """
 
-    params: ClipboardFormatParams = Field(description="Parameters to the ClipboardFormat method")
-
-    method: Literal[VariablesBackendRequest.ClipboardFormat] = Field(
-        description="The JSON-RPC method name (clipboard_format)"
+    params: ClipboardFormatParams = Field(
+        description="Parameters to the ClipboardFormat method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[VariablesBackendRequest.ClipboardFormat] = Field(
+        description="The JSON-RPC method name (clipboard_format)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class ViewParams(BaseModel):
@@ -286,7 +328,7 @@ class ViewParams(BaseModel):
     """
 
     path: List[StrictStr] = Field(
-        description="The path to the variable to view, as an array of access keys."
+        description="The path to the variable to view, as an array of access keys.",
     )
 
 
@@ -296,13 +338,18 @@ class ViewRequest(BaseModel):
     variable.
     """
 
-    params: ViewParams = Field(description="Parameters to the View method")
-
-    method: Literal[VariablesBackendRequest.View] = Field(
-        description="The JSON-RPC method name (view)"
+    params: ViewParams = Field(
+        description="Parameters to the View method",
     )
 
-    jsonrpc: str = Field(default="2.0", description="The JSON-RPC version specifier")
+    method: Literal[VariablesBackendRequest.View] = Field(
+        description="The JSON-RPC method name (view)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
 
 
 class VariablesBackendMessageContent(BaseModel):
@@ -336,19 +383,19 @@ class UpdateParams(BaseModel):
     """
 
     assigned: List[Variable] = Field(
-        description="An array of variables that have been newly assigned."
+        description="An array of variables that have been newly assigned.",
     )
 
     unevaluated: List[Variable] = Field(
-        description="An array of variables that were not evaluated for value updates."
+        description="An array of variables that were not evaluated for value updates.",
     )
 
     removed: List[StrictStr] = Field(
-        description="An array of variable names that have been removed."
+        description="An array of variable names that have been removed.",
     )
 
     version: StrictInt = Field(
-        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions."
+        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
     )
 
 
@@ -358,13 +405,15 @@ class RefreshParams(BaseModel):
     """
 
     variables: List[Variable] = Field(
-        description="An array listing all the variables in the current session."
+        description="An array listing all the variables in the current session.",
     )
 
-    length: StrictInt = Field(description="The number of variables in the current session.")
+    length: StrictInt = Field(
+        description="The number of variables in the current session.",
+    )
 
     version: StrictInt = Field(
-        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions."
+        description="The version of the view (incremented with each update), or 0 if the backend doesn't track versions.",
     )
 
 

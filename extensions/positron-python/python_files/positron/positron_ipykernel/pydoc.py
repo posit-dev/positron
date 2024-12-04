@@ -170,7 +170,16 @@ def _tabulate_attrs(attrs: List[_Attr], cls_name: Optional[str] = None) -> List[
         argspec = _compact_signature(attr.value, attr.name) or ""
         link = f'<a href="{full_name}"><code>{attr.name}</code></a>{argspec}'
         summary = _get_summary(attr.value) or ""
-        row_lines = ["<tr>", "<td>", link, "</td>", "<td>", summary, "</td>", "</tr>"]
+        row_lines = [
+            "<tr>",
+            "<td>",
+            link,
+            "</td>",
+            "<td>",
+            summary,
+            "</td>",
+            "</tr>",
+        ]
         result.extend(row_lines)
     result.append("</tbody>")
     result.append("</table>")
@@ -247,7 +256,11 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 <meta charset="utf-8">
 <title>Pydoc: %s</title>
 %s</head><body>%s</div>
-</body></html>""" % (title, css_link, contents)
+</body></html>""" % (
+            title,
+            css_link,
+            contents,
+        )
         # --- End Positron ---
 
     def heading(self, title: str, extras="") -> str:  # type: ignore ReportIncompatibleMethodOverride
@@ -260,7 +273,14 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         return result
 
     def section(  # type: ignore ReportIncompatibleMethodOverride
-        self, title: str, cls: str, contents: str, width=None, prelude="", marginalia=None, gap=None
+        self,
+        title: str,
+        cls: str,
+        contents: str,
+        width=None,
+        prelude="",
+        marginalia=None,
+        gap=None,
     ) -> str:
         """Format a section with a heading."""
         # Simplified version of pydoc.HTMLDoc.section that doesn't use tables
@@ -273,7 +293,10 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         if gap:
             logger.debug(f"Ignoring gap: {gap}")
 
-        lines = [f'<section class="{cls}">', f"<h2>{title}</h2>"]
+        lines = [
+            f'<section class="{cls}">',
+            f"<h2>{title}</h2>",
+        ]
         if prelude:
             lines.append(prelude)
         lines.append(contents)
@@ -413,7 +436,14 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
     # as is from pydoc.HTMLDoc to port Python 3.11 breaking CSS changes
     def docroutine(
-        self, object: Any, name=None, mod=None, funcs={}, classes={}, methods={}, cl=None
+        self,
+        object: Any,
+        name=None,
+        mod=None,
+        funcs={},
+        classes={},
+        methods={},
+        cl=None,
     ):
         """Produce HTML documentation for a function or method object."""
         realname = object.__name__
@@ -574,7 +604,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             return '<a href="%s.html">%s</a>' % (name, name)
 
         results = []
-        heading = self.heading('<strong class="title">Search Results</strong>')
+        heading = self.heading(
+            '<strong class="title">Search Results</strong>',
+        )
         for name, desc in search_result:
             results.append(bltinlink(name) + desc)
         contents = heading + self.bigsection("key = %s" % key, "index", "<br>".join(results))
@@ -600,7 +632,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
         def bltinlink(name):
             return '<a href="topic?key=%s">%s</a>' % (name, name)
 
-        heading = self.heading('<strong class="title">INDEX</strong>')
+        heading = self.heading(
+            '<strong class="title">INDEX</strong>',
+        )
         # --- Start Positron ---
         names = sorted(PositronHelper.topics.keys())
         # --- End Positron ---
@@ -612,7 +646,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_keywords(self):
         """Index of keywords."""
-        heading = self.heading('<strong class="title">INDEX</strong>')
+        heading = self.heading(
+            '<strong class="title">INDEX</strong>',
+        )
         # --- Start Positron ---
         names = sorted(PositronHelper.keywords.keys())
         # --- End Positron ---
@@ -636,7 +672,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
             title = "KEYWORD"
         else:
             title = "TOPIC"
-        heading = self.heading('<strong class="title">%s</strong>' % title)
+        heading = self.heading(
+            '<strong class="title">%s</strong>' % title,
+        )
         contents = "<pre>%s</pre>" % self.markup(contents)
         contents = self.bigsection(topic, "index", contents)
         if xrefs:
@@ -651,7 +689,9 @@ class _PositronHTMLDoc(pydoc.HTMLDoc):
 
     # as is from pydoc._url_handler to port Python 3.11 breaking CSS changes
     def html_error(self, url, exc):
-        heading = self.heading('<strong class="title">Not found</strong>')
+        heading = self.heading(
+            '<strong class="title">Not found</strong>',
+        )
         contents = "<br>".join(self.escape(line) for line in format_exception_only(type(exc), exc))
         # --- Start Positron ---
         contents = heading + self.bigsection("", "error", contents)

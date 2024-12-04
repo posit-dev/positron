@@ -83,7 +83,13 @@ class PositronIPythonInspector(oinspect.Inspector):
         if fname is None:
             # If we couldn't get a filename, fall back to the default implementation.
             return super().pinfo(
-                obj, oname, formatter, info, detail_level, enable_html_pager, omit_sections
+                obj,
+                oname,
+                formatter,
+                info,
+                detail_level,
+                enable_html_pager,
+                omit_sections,
             )
 
         # If we got a filename, try to get the line number and open an editor.
@@ -105,7 +111,10 @@ class PositronMagics(Magics):
         self.shell.kernel.ui_service.clear_console()
 
     @magic_arguments.magic_arguments()
-    @magic_arguments.argument("object", help="The object to view.")
+    @magic_arguments.argument(
+        "object",
+        help="The object to view.",
+    )
     @magic_arguments.argument(
         "title",
         nargs="?",
@@ -164,7 +173,10 @@ class PositronMagics(Magics):
             raise UsageError(*error.args)
 
     @magic_arguments.magic_arguments()
-    @magic_arguments.argument("object", help="The connection object to show.")
+    @magic_arguments.argument(
+        "object",
+        help="The connection object to show.",
+    )
     @line_magic
     def connection_show(self, line: str) -> None:
         """Show a connection object in the Positron Connections Pane."""
@@ -440,7 +452,11 @@ class PositronIPyKernel(IPythonKernel):
         # Patch bokeh to generate html in tempfile
         patch_bokeh_no_access()
 
-    def publish_execute_input(self, code: str, parent: JsonRecord) -> None:
+    def publish_execute_input(
+        self,
+        code: str,
+        parent: JsonRecord,
+    ) -> None:
         self._publish_execute_input(code, parent, self.execution_count - 1)
 
     def start(self) -> None:
@@ -487,7 +503,9 @@ class PositronIPyKernel(IPythonKernel):
                     child.wait(timeout=0)
                 except psutil.TimeoutExpired as exception:
                     self.log.warning(
-                        "Error while reaping zombie subprocess %s: %s", child, exception
+                        "Error while reaping zombie subprocess %s: %s",
+                        child,
+                        exception,
                     )
 
     # monkey patching warning.showwarning is recommended by the official documentation

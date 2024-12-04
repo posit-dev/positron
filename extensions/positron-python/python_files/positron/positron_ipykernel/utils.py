@@ -15,7 +15,18 @@ import uuid
 from binascii import b2a_base64
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Coroutine, Dict, List, Optional, Set, Tuple, TypeVar, Union, cast
+from typing import (
+    Any,
+    Coroutine,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+    cast,
+)
 from urllib.parse import unquote, urlparse
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
@@ -110,7 +121,9 @@ def is_numpy_ufunc(object: Any) -> bool:
 
 
 def pretty_format(
-    value, print_width: Optional[int] = None, truncate_at: Optional[int] = None
+    value,
+    print_width: Optional[int] = None,
+    truncate_at: Optional[int] = None,
 ) -> Tuple[str, bool]:
     if print_width is not None:
         s = pprint.pformat(value, width=print_width, compact=True)

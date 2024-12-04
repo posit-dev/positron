@@ -30,7 +30,15 @@ STRING_CASES = [
 
 # Python 3 ints are unbounded, but we include a few large numbers
 # for basic test cases
-INT_CASES = [-sys.maxsize * 100, -sys.maxsize, -1, 0, 1, sys.maxsize, sys.maxsize * 100]
+INT_CASES = [
+    -sys.maxsize * 100,
+    -sys.maxsize,
+    -1,
+    0,
+    1,
+    sys.maxsize,
+    sys.maxsize * 100,
+]
 
 
 NUMPY_SCALAR_CASES = [
@@ -88,4 +96,7 @@ RANGE_CASES = [
 ]
 
 
-TIMESTAMP_CASES = [pd.Timestamp("2021-01-01 01:23:45"), datetime.datetime(2021, 1, 1, 1, 23, 45)]
+TIMESTAMP_CASES = [
+    pd.Timestamp("2021-01-01 01:23:45"),
+    datetime.datetime(2021, 1, 1, 1, 23, 45),
+]

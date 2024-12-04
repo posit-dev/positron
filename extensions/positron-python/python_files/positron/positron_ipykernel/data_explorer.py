@@ -11,7 +11,16 @@ import logging
 import math
 import operator
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+)
 
 import comm
 
@@ -87,7 +96,14 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
-from .third_party import RestartRequiredError, import_pandas, import_polars, np_, pd_, pl_
+from .third_party import (
+    RestartRequiredError,
+    import_pandas,
+    import_polars,
+    np_,
+    pd_,
+    pl_,
+)
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
@@ -156,7 +172,11 @@ class DataExplorerTableView(abc.ABC):
     """
 
     def __init__(
-        self, table, comm: PositronComm, state: DataExplorerState, job_queue: BackgroundJobQueue
+        self,
+        table,
+        comm: PositronComm,
+        state: DataExplorerState,
+        job_queue: BackgroundJobQueue,
     ):
         # Note: we must not ever modify the user's data
         self.table = table
@@ -335,11 +355,17 @@ class DataExplorerTableView(abc.ABC):
 
     def get_data_values(self, request: GetDataValuesRequest):
         self._recompute_if_needed()
-        return self._get_data_values(request.params.columns, request.params.format_options)
+        return self._get_data_values(
+            request.params.columns,
+            request.params.format_options,
+        )
 
     def get_row_labels(self, request: GetRowLabelsRequest):
         self._recompute_if_needed()
-        return self._get_row_labels(request.params.selection, request.params.format_options)
+        return self._get_row_labels(
+            request.params.selection,
+            request.params.format_options,
+        )
 
     def _get_row_labels(self, selection: ArraySelection, format_options: FormatOptions):
         # By default, the table has no row labels, so this will only
@@ -367,12 +393,16 @@ class DataExplorerTableView(abc.ABC):
         elif kind == TableSelectionKind.RowRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
-                slice(sel.first_index, sel.last_index + 1), slice(None), fmt
+                slice(sel.first_index, sel.last_index + 1),
+                slice(None),
+                fmt,
             )
         elif kind == TableSelectionKind.ColumnRange:
             assert isinstance(sel, DataSelectionRange)
             return self._export_tabular(
-                slice(None), slice(sel.first_index, sel.last_index + 1), fmt
+                slice(None),
+                slice(sel.first_index, sel.last_index + 1),
+                fmt,
             )
         elif kind == TableSelectionKind.RowIndices:
             assert isinstance(sel, DataSelectionIndices)
@@ -482,7 +512,9 @@ class DataExplorerTableView(abc.ABC):
         for req in request.params.profiles:
             try:
                 result = self._compute_profiles(
-                    req.column_index, req.profiles, request.params.format_options
+                    req.column_index,
+                    req.profiles,
+                    request.params.format_options,
                 )
                 results.append(result.dict())
             except Exception as e:
@@ -497,7 +529,10 @@ class DataExplorerTableView(abc.ABC):
         )
 
     def _compute_profiles(
-        self, column_index: int, profiles: List[ColumnProfileSpec], format_options: FormatOptions
+        self,
+        column_index: int,
+        profiles: List[ColumnProfileSpec],
+        format_options: FormatOptions,
     ):
         results = {}
         for spec in profiles:
@@ -548,7 +583,10 @@ class DataExplorerTableView(abc.ABC):
 
         return BackendState(
             display_name=self.state.name,
-            table_shape=TableShape(num_rows=filtered_num_rows, num_columns=filtered_num_columns),
+            table_shape=TableShape(
+                num_rows=filtered_num_rows,
+                num_columns=filtered_num_columns,
+            ),
             table_unfiltered_shape=TableShape(num_rows=num_rows, num_columns=num_columns),
             has_row_labels=self._has_row_labels,
             column_filters=self.state.column_filters,
@@ -566,7 +604,12 @@ class DataExplorerTableView(abc.ABC):
         raise NotImplementedError
 
     def _get_adjusted_filters(
-        self, new_columns, schema_changes, shifted_columns, deleted_columns, schema_getter
+        self,
+        new_columns,
+        schema_changes,
+        shifted_columns,
+        deleted_columns,
+        schema_getter,
     ):
         # Shared by implementations of get_updated_state
         new_filters = []
@@ -594,7 +637,10 @@ class DataExplorerTableView(abc.ABC):
                         # Probably a new column that allows the old
                         # filter to become valid again if the type is
                         # compatible
-                        filt.column_schema = schema_getter(column_name, column_index)
+                        filt.column_schema = schema_getter(
+                            column_name,
+                            column_index,
+                        )
                     else:
                         is_deleted = True
             elif column_index in shifted_columns:
@@ -651,7 +697,9 @@ class DataExplorerTableView(abc.ABC):
         return new_sort_keys
 
     def _get_data_values(
-        self, selections: List[ColumnSelection], format_options: FormatOptions
+        self,
+        selections: List[ColumnSelection],
+        format_options: FormatOptions,
     ) -> dict:
         raise NotImplementedError
 
@@ -673,13 +721,22 @@ class DataExplorerTableView(abc.ABC):
         elif filt.filter_type == RowFilterType.Compare:
             params = filt.params
             assert isinstance(params, FilterComparison), str(params)
-            if params.op in [FilterComparisonOp.Eq, FilterComparisonOp.NotEq]:
+            if params.op in [
+                FilterComparisonOp.Eq,
+                FilterComparisonOp.NotEq,
+            ]:
                 return True
             else:
                 return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [RowFilterType.Between, RowFilterType.NotBetween]:
+        elif filt.filter_type in [
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ]:
             return display_type in _FILTER_RANGE_COMPARE_SUPPORTED
-        elif filt.filter_type in [RowFilterType.IsTrue, RowFilterType.IsFalse]:
+        elif filt.filter_type in [
+            RowFilterType.IsTrue,
+            RowFilterType.IsFalse,
+        ]:
             return display_type == ColumnDisplayType.Boolean
         else:
             # Filters always supported
@@ -712,18 +769,25 @@ class DataExplorerTableView(abc.ABC):
         raise NotImplementedError
 
     def _prof_freq_table(
-        self, column_index: int, params: ColumnFrequencyTableParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
         raise NotImplementedError
 
     def _prof_histogram(
-        self, column_index: int, params: ColumnHistogramParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
     ) -> ColumnHistogram:
         raise NotImplementedError
 
     FEATURES = SupportedFeatures(
         search_schema=SearchSchemaFeatures(
-            support_status=SupportStatus.Unsupported, supported_types=[]
+            support_status=SupportStatus.Unsupported,
+            supported_types=[],
         ),
         set_column_filters=SetColumnFiltersFeatures(
             support_status=SupportStatus.Unsupported, supported_types=[]
@@ -734,11 +798,13 @@ class DataExplorerTableView(abc.ABC):
             supported_types=[],
         ),
         get_column_profiles=GetColumnProfilesFeatures(
-            support_status=SupportStatus.Unsupported, supported_types=[]
+            support_status=SupportStatus.Unsupported,
+            supported_types=[],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Unsupported),
         export_data_selection=ExportDataSelectionFeatures(
-            support_status=SupportStatus.Unsupported, supported_formats=[]
+            support_status=SupportStatus.Unsupported,
+            supported_formats=[],
         ),
     )
 
@@ -747,7 +813,11 @@ def _box_number_stats(min_val, max_val, mean_val, median_val, std_val):
     return ColumnSummaryStats(
         type_display=ColumnDisplayType.Number,
         number_stats=SummaryStatsNumber(
-            min_value=min_val, max_value=max_val, mean=mean_val, median=median_val, stdev=std_val
+            min_value=min_val,
+            max_value=max_val,
+            mean=mean_val,
+            median=median_val,
+            stdev=std_val,
         ),
     )
 
@@ -925,7 +995,13 @@ def _pandas_summarize_number(col: "pd.Series", options: FormatOptions):
             min_val = float_format(min_val)
             max_val = float_format(max_val)
 
-    return _box_number_stats(min_val, max_val, mean_val, median_val, std_val)
+    return _box_number_stats(
+        min_val,
+        max_val,
+        mean_val,
+        median_val,
+        std_val,
+    )
 
 
 def _pandas_summarize_string(col: "pd.Series", options: FormatOptions):
@@ -1163,11 +1239,18 @@ class PandasView(DataExplorerTableView):
 
         def schema_getter(column_name, column_index):
             return self._construct_schema(
-                new_table.iloc[:, column_index], column_name, column_index, new_state
+                new_table.iloc[:, column_index],
+                column_name,
+                column_index,
+                new_state,
             )
 
         new_state.row_filters = self._get_adjusted_filters(
-            new_table.columns, schema_changes, shifted_columns, deleted_columns, schema_getter
+            new_table.columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
         )
 
         new_state.sort_keys = self._get_adjusted_sort_keys(
@@ -1302,7 +1385,9 @@ class PandasView(DataExplorerTableView):
         return str(self.table.columns[index])
 
     def _get_data_values(
-        self, selections: List[ColumnSelection], format_options: FormatOptions
+        self,
+        selections: List[ColumnSelection],
+        format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
         for selection in selections:
@@ -1416,7 +1501,10 @@ class PandasView(DataExplorerTableView):
         inferred_type = self._get_inferred_dtype(col, column_index, self.state)
 
         mask = None
-        if filt.filter_type in (RowFilterType.Between, RowFilterType.NotBetween):
+        if filt.filter_type in (
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ):
             params = filt.params
             assert isinstance(params, FilterBetween)
             left_value = self._coerce_value(params.left_value, dtype, inferred_type)
@@ -1534,7 +1622,9 @@ class PandasView(DataExplorerTableView):
                 # the sorting indices). Mergesort is needed to make it
                 # stable
                 sort_indexer = nargsort(
-                    column.take(self.filtered_indices), kind="mergesort", ascending=key.ascending
+                    column.take(self.filtered_indices),
+                    kind="mergesort",
+                    ascending=key.ascending,
                 )
                 # Reorder the filtered_indices to provide the
                 # filtered, sorted virtual view for future data
@@ -1581,7 +1671,10 @@ class PandasView(DataExplorerTableView):
     }
 
     def _prof_freq_table(
-        self, column_index: int, params: ColumnFrequencyTableParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
         col = self._get_column(column_index)
         counts = col.value_counts()
@@ -1598,7 +1691,10 @@ class PandasView(DataExplorerTableView):
         )
 
     def _prof_histogram(
-        self, column_index: int, params: ColumnHistogramParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
     ) -> ColumnHistogram:
         col = self._get_column(column_index)
 
@@ -1624,7 +1720,9 @@ class PandasView(DataExplorerTableView):
         formatted_edges = self._format_values(bin_edges, format_options)
 
         return ColumnHistogram(
-            bin_edges=formatted_edges, bin_counts=[int(x) for x in bin_counts], quantiles=[]
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
         )
 
     SUPPORTED_FILTERS = {
@@ -1675,7 +1773,8 @@ class PandasView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount, support_status=SupportStatus.Supported
+                    profile_type=ColumnProfileType.NullCount,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
@@ -1702,7 +1801,11 @@ class PandasView(DataExplorerTableView):
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         export_data_selection=ExportDataSelectionFeatures(
             support_status=SupportStatus.Supported,
-            supported_formats=[ExportFormat.Csv, ExportFormat.Tsv, ExportFormat.Html],
+            supported_formats=[
+                ExportFormat.Csv,
+                ExportFormat.Tsv,
+                ExportFormat.Html,
+            ],
         ),
     )
 
@@ -1801,7 +1904,11 @@ def _possibly(f, otherwise=None):
         return otherwise
 
 
-_ISO_8601_FORMATS = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"]
+_ISO_8601_FORMATS = [
+    "%Y-%m-%d %H:%M:%S",
+    "%Y-%m-%d %H:%M",
+    "%Y-%m-%d",
+]
 
 
 def _parse_iso8601_like(x, tz=None):
@@ -1848,7 +1955,13 @@ def _polars_summarize_number(col: "pl.Series", options: FormatOptions):
         min_val = float_format(min_val)
         max_val = float_format(max_val)
 
-    return _box_number_stats(min_val, max_val, mean_val, median_val, std_val)
+    return _box_number_stats(
+        min_val,
+        max_val,
+        mean_val,
+        median_val,
+        std_val,
+    )
 
 
 def _polars_summarize_string(col: "pl.Series", _):
@@ -1920,7 +2033,9 @@ class PolarsView(DataExplorerTableView):
 
     def get_updated_state(self, new_table) -> StateUpdate:
         new_state = DataExplorerState(
-            self.state.name, row_filters=self.state.row_filters, sort_keys=self.state.sort_keys
+            self.state.name,
+            row_filters=self.state.row_filters,
+            sort_keys=self.state.sort_keys,
         )
 
         # As of June 2024, polars seems to be really slow for
@@ -1987,10 +2102,18 @@ class PolarsView(DataExplorerTableView):
             schema_changes[old_index] = self._construct_schema(new_column, column_name, new_index)
 
         def schema_getter(column_name, column_index):
-            return self._construct_schema(new_table[:, column_index], column_name, column_index)
+            return self._construct_schema(
+                new_table[:, column_index],
+                column_name,
+                column_index,
+            )
 
         new_state.row_filters = self._get_adjusted_filters(
-            new_columns, schema_changes, shifted_columns, deleted_columns, schema_getter
+            new_columns,
+            schema_changes,
+            shifted_columns,
+            deleted_columns,
+            schema_getter,
         )
 
         new_state.sort_keys = self._get_adjusted_sort_keys(
@@ -2014,7 +2137,12 @@ class PolarsView(DataExplorerTableView):
         return self.table[:, column_index].name
 
     @classmethod
-    def _construct_schema(cls, column: "pl.Series", column_name: str, column_index: int):
+    def _construct_schema(
+        cls,
+        column: "pl.Series",
+        column_name: str,
+        column_index: int,
+    ):
         type_display = cls._get_type_display(column.dtype)
 
         return ColumnSchema(
@@ -2063,7 +2191,9 @@ class PolarsView(DataExplorerTableView):
         raise NotImplementedError
 
     def _get_data_values(
-        self, selections: List[ColumnSelection], format_options: FormatOptions
+        self,
+        selections: List[ColumnSelection],
+        format_options: FormatOptions,
     ) -> dict:
         formatted_columns = []
         for selection in selections:
@@ -2168,7 +2298,10 @@ class PolarsView(DataExplorerTableView):
         display_type = self._get_type_display(dtype)
 
         mask = None
-        if filt.filter_type in (RowFilterType.Between, RowFilterType.NotBetween):
+        if filt.filter_type in (
+            RowFilterType.Between,
+            RowFilterType.NotBetween,
+        ):
             params = filt.params
             assert isinstance(params, FilterBetween)
             left_value = self._coerce_value(params.left_value, dtype, display_type)
@@ -2221,7 +2354,8 @@ class PolarsView(DataExplorerTableView):
                 boxed_values = pl_.Series(coerced_values, dtype=col.dtype)
             except TypeError:
                 boxed_values = pl_.Series(
-                    coerced_values, dtype=_polars_dtype_from_display(display_type)
+                    coerced_values,
+                    dtype=_polars_dtype_from_display(display_type),
                 )
             mask = col.is_in(boxed_values)
             if not params.inclusive:
@@ -2309,7 +2443,11 @@ class PolarsView(DataExplorerTableView):
 
             try:
                 to_sort = to_sort.select(
-                    pl_.all().sort_by(cols_to_sort, descending=directions, maintain_order=True)
+                    pl_.all().sort_by(
+                        cols_to_sort,
+                        descending=directions,
+                        maintain_order=True,
+                    )
                 )
             except TypeError:
                 # Older versions of polars do not have maintain_order
@@ -2344,7 +2482,10 @@ class PolarsView(DataExplorerTableView):
     }
 
     def _prof_freq_table(
-        self, column_index: int, params: ColumnFrequencyTableParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnFrequencyTableParams,
+        format_options: FormatOptions,
     ) -> ColumnFrequencyTable:
         col = self._get_column(column_index).alias("values")
 
@@ -2363,7 +2504,10 @@ class PolarsView(DataExplorerTableView):
         )
 
     def _prof_histogram(
-        self, column_index: int, params: ColumnHistogramParams, format_options: FormatOptions
+        self,
+        column_index: int,
+        params: ColumnHistogramParams,
+        format_options: FormatOptions,
     ) -> ColumnHistogram:
         col = self._get_column(column_index)
 
@@ -2393,7 +2537,9 @@ class PolarsView(DataExplorerTableView):
         formatted_edges = self._format_values(bin_edges, format_options)
 
         return ColumnHistogram(
-            bin_edges=formatted_edges, bin_counts=[int(x) for x in bin_counts], quantiles=[]
+            bin_edges=formatted_edges,
+            bin_counts=[int(x) for x in bin_counts],
+            quantiles=[],
         )
 
     FEATURES = SupportedFeatures(
@@ -2417,7 +2563,8 @@ class PolarsView(DataExplorerTableView):
             support_status=SupportStatus.Supported,
             supported_types=[
                 ColumnProfileTypeSupportStatus(
-                    profile_type=ColumnProfileType.NullCount, support_status=SupportStatus.Supported
+                    profile_type=ColumnProfileType.NullCount,
+                    support_status=SupportStatus.Supported,
                 ),
                 ColumnProfileTypeSupportStatus(
                     profile_type=ColumnProfileType.SummaryStats,
@@ -2470,7 +2617,10 @@ def _is_polars(table):
 
 
 def _get_table_view(
-    table, comm: PositronComm, state: DataExplorerState, job_queue: BackgroundJobQueue
+    table,
+    comm: PositronComm,
+    state: DataExplorerState,
+    job_queue: BackgroundJobQueue,
 ):
     state.name = state.name or guid()
 
@@ -2519,7 +2669,13 @@ class DataExplorerService:
     def is_supported(self, value) -> bool:
         return value is not None and _value_type_is_supported(value)
 
-    def register_table(self, table, title, variable_path: Optional[List[str]] = None, comm_id=None):
+    def register_table(
+        self,
+        table,
+        title,
+        variable_path: Optional[List[str]] = None,
+        comm_id=None,
+    ):
         """
         Set up a new comm and data explorer table query wrapper to
         handle requests and manage state.
@@ -2551,7 +2707,9 @@ class DataExplorerService:
             comm_id = guid()
 
         base_comm = comm.create_comm(
-            target_name=self.comm_target, comm_id=comm_id, data={"title": title}
+            target_name=self.comm_target,
+            comm_id=comm_id,
+            data={"title": title},
         )
 
         def close_callback(_):

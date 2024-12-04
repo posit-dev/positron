@@ -63,23 +63,35 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
         ("import numpy as np", [f"x = np.array({x})" for x in [3, [3], [[3]]]]),
         ("import torch", [f"x = torch.tensor({x})" for x in [3, [3], [[3]]]]),
         pytest.param(
-            "import pandas as pd", [f"x = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]]
+            "import pandas as pd",
+            [f"x = pd.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         pytest.param(
-            "import polars as pl", [f"x = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]]
+            "import polars as pl",
+            [f"x = pl.Series({x})" for x in [[], [3], [3, 3], ["3"]]],
         ),
         (
             "import pandas as pd",
             [
                 f"x = pd.DataFrame({x})"
-                for x in [{"a": []}, {"a": [3]}, {"a": ["3"]}, {"a": [3], "b": [3]}]
+                for x in [
+                    {"a": []},
+                    {"a": [3]},
+                    {"a": ["3"]},
+                    {"a": [3], "b": [3]},
+                ]
             ],
         ),
         (
             "import polars as pl",
             [
                 f"x = pl.DataFrame({x})"
-                for x in [{"a": []}, {"a": [3]}, {"a": ["3"]}, {"a": [3], "b": [3]}]
+                for x in [
+                    {"a": []},
+                    {"a": [3]},
+                    {"a": ["3"]},
+                    {"a": [3], "b": [3]},
+                ]
             ],
         ),
         # Nested mutable types
@@ -88,7 +100,10 @@ def test_comm_open(kernel: PositronIPyKernel) -> None:
     ],
 )
 def test_change_detection(
-    import_code: str, value_codes: List[str], shell: PositronShell, variables_comm: DummyComm
+    import_code: str,
+    value_codes: List[str],
+    shell: PositronShell,
+    variables_comm: DummyComm,
 ) -> None:
     """
     Test change detection when updating the value of the same name.
@@ -135,7 +150,12 @@ def _assert_assigned(shell: PositronShell, value_code: str, variables_comm: Dumm
         assert variables_comm.messages == [
             json_rpc_notification(
                 "update",
-                {"assigned": assigned, "removed": [], "unevaluated": unevaluated, "version": 0},
+                {
+                    "assigned": assigned,
+                    "removed": [],
+                    "unevaluated": unevaluated,
+                    "version": 0,
+                },
             )
         ]
 
@@ -170,7 +190,13 @@ def _do_list(variables_comm: DummyComm):
 
     # Check the structure of the message but let the caller verify the contents.
     assert variables_comm.messages == [
-        json_rpc_response({"variables": ANY, "length": ANY, "version": 0})
+        json_rpc_response(
+            {
+                "variables": ANY,
+                "length": ANY,
+                "version": 0,
+            }
+        )
     ]
 
     result = variables_comm.messages[0]["data"]["result"]
@@ -300,7 +326,9 @@ def _encode_path(path: List[Any]) -> List[JsonData]:
 
 @pytest.mark.asyncio
 async def test_clear(
-    shell: PositronShell, variables_service: VariablesService, variables_comm: DummyComm
+    shell: PositronShell,
+    variables_service: VariablesService,
+    variables_comm: DummyComm,
 ) -> None:
     shell.user_ns.update({"x": 3, "y": 5})
 
@@ -315,7 +343,12 @@ async def test_clear(
         json_rpc_response({}),
         json_rpc_notification(
             "update",
-            {"assigned": [], "removed": _encode_path(["x", "y"]), "unevaluated": [], "version": 0},
+            {
+                "assigned": [],
+                "removed": _encode_path(["x", "y"]),
+                "unevaluated": [],
+                "version": 0,
+            },
         ),
         json_rpc_notification("refresh", {"length": 0, "variables": [], "version": 0}),
     ]
@@ -335,7 +368,9 @@ def test_delete(shell: PositronShell, variables_comm: DummyComm) -> None:
     assert "x" not in shell.user_ns
     assert "y" in shell.user_ns
 
-    assert variables_comm.messages == [json_rpc_response(_encode_path(["x"]))]
+    assert variables_comm.messages == [
+        json_rpc_response(_encode_path(["x"])),
+    ]
 
 
 def test_delete_error(variables_comm: DummyComm) -> None:
@@ -348,13 +383,24 @@ def test_delete_error(variables_comm: DummyComm) -> None:
 
 # TODO(seem): encoded_path should be typed as List[str] but that makes pyright unhappy; might be a pyright bug
 def _do_inspect(encoded_path: List[JsonData], variables_comm: DummyComm) -> List[Variable]:
-    msg = json_rpc_request("inspect", {"path": encoded_path}, comm_id="dummy_comm_id")
+    msg = json_rpc_request(
+        "inspect",
+        {"path": encoded_path},
+        comm_id="dummy_comm_id",
+    )
 
     with patch("positron_ipykernel.variables.timestamp", return_value=0):
         variables_comm.handle_msg(msg)
 
     # Check the structure of the message but let the caller verify the contents.
-    assert variables_comm.messages == [json_rpc_response({"children": ANY, "length": ANY})]
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "children": ANY,
+                "length": ANY,
+            }
+        )
+    ]
 
     children = [
         Variable.parse_obj(child)
@@ -378,7 +424,11 @@ _test_obj = TestClass()
 
 
 def variable(display_name: str, display_value: str, children: List[Dict[str, Any]] = []):
-    return {"display_name": display_name, "display_value": display_value, "children": children}
+    return {
+        "display_name": display_name,
+        "display_value": display_value,
+        "children": children,
+    }
 
 
 @pytest.mark.parametrize(
@@ -388,13 +438,17 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
         (
             pd.Series([1, 2]),
             variable(
-                "root", "pandas.Series [1, 2]", children=[variable("0", "1"), variable("1", "2")]
+                "root",
+                "pandas.Series [1, 2]",
+                children=[variable("0", "1"), variable("1", "2")],
             ),
         ),
         (
             pl.Series([1, 2]),
             variable(
-                "root", "polars.Series [1, 2]", children=[variable("0", "1"), variable("1", "2")]
+                "root",
+                "polars.Series [1, 2]",
+                children=[variable("0", "1"), variable("1", "2")],
             ),
         ),
         # DataFrames
@@ -443,8 +497,16 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 "root",
                 "[[0,1],\n [2,3]]",
                 children=[
-                    variable("0", "[0,1]", children=[variable("0", "0"), variable("1", "1")]),
-                    variable("1", "[2,3]", children=[variable("0", "2"), variable("1", "3")]),
+                    variable(
+                        "0",
+                        "[0,1]",
+                        children=[variable("0", "0"), variable("1", "1")],
+                    ),
+                    variable(
+                        "1",
+                        "[2,3]",
+                        children=[variable("0", "2"), variable("1", "3")],
+                    ),
                 ],
             ),
         ),
@@ -454,7 +516,10 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
             variable(
                 "root",
                 repr(_test_obj),
-                children=[variable("x", "0"), variable("x_plus_one", repr(TestClass.x_plus_one))],
+                children=[
+                    variable("x", "0"),
+                    variable("x_plus_one", repr(TestClass.x_plus_one)),
+                ],
             ),
         ),
         # Children with duplicate keys
@@ -487,12 +552,24 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
         # Children with unique keys that have the same display_name
         (
             {0: 0, "0": 1},
-            variable("root", "{0: 0, '0': 1}", children=[variable("0", "0"), variable("0", "1")]),
+            variable(
+                "root",
+                "{0: 0, '0': 1}",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
+            ),
         ),
         (
             pd.Series({0: 0, "0": 1}),
             variable(
-                "root", "pandas.Series [0, 1]", children=[variable("0", "0"), variable("0", "1")]
+                "root",
+                "pandas.Series [0, 1]",
+                children=[
+                    variable("0", "0"),
+                    variable("0", "1"),
+                ],
             ),
         ),
         (
@@ -501,8 +578,16 @@ def variable(display_name: str, display_value: str, children: List[Dict[str, Any
                 "root",
                 "[1 rows x 2 columns] pandas.DataFrame",
                 children=[
-                    variable("0", "pandas.Series [0]", children=[variable("0", "0")]),
-                    variable("0", "pandas.Series [1]", children=[variable("0", "1")]),
+                    variable(
+                        "0",
+                        "pandas.Series [0]",
+                        children=[variable("0", "0")],
+                    ),
+                    variable(
+                        "0",
+                        "pandas.Series [1]",
+                        children=[variable("0", "1")],
+                    ),
                 ],
             ),
         ),
@@ -564,7 +649,8 @@ def test_inspect_error(variables_comm: DummyComm) -> None:
     # An error message is sent
     assert variables_comm.messages == [
         json_rpc_error(
-            JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to inspect"
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to inspect",
         )
     ]
 
@@ -574,7 +660,10 @@ def test_clipboard_format(shell: PositronShell, variables_comm: DummyComm) -> No
 
     msg = json_rpc_request(
         "clipboard_format",
-        {"path": _encode_path(["x"]), "format": "text/plain"},
+        {
+            "path": _encode_path(["x"]),
+            "format": "text/plain",
+        },
         comm_id="dummy_comm_id",
     )
     variables_comm.handle_msg(msg)
@@ -595,13 +684,17 @@ def test_clipboard_format_error(variables_comm: DummyComm) -> None:
     # An error message is sent
     assert variables_comm.messages == [
         json_rpc_error(
-            JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to format"
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to format",
         )
     ]
 
 
 def _do_view(
-    name: str, shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock
+    name: str,
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
 ):
     path = _encode_path([name])
     msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
@@ -617,7 +710,9 @@ def _do_view(
 
 
 def test_view(
-    shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
 ) -> None:
     name = "dfx"
     shell.user_ns[name] = pd.DataFrame({"a": [0]})
@@ -626,7 +721,10 @@ def test_view(
 
 
 def test_view_with_sqlalchemy_v1_3(
-    shell: PositronShell, variables_comm: DummyComm, mock_dataexplorer_service: Mock, monkeypatch
+    shell: PositronShell,
+    variables_comm: DummyComm,
+    mock_dataexplorer_service: Mock,
+    monkeypatch,
 ) -> None:
     # Simulate sqlalchemy<=1.3 where `sqlalchemy.Engine` does not exist.
     import sqlalchemy
@@ -647,7 +745,10 @@ def test_view_error(variables_comm: DummyComm) -> None:
 
     # An error message is sent
     assert variables_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.INVALID_PARAMS, f"Cannot find variable at '{path}' to view")
+        json_rpc_error(
+            JsonRpcErrorCode.INVALID_PARAMS,
+            f"Cannot find variable at '{path}' to view",
+        )
     ]
 
 
@@ -696,7 +797,10 @@ def test_unknown_method(variables_comm: DummyComm) -> None:
     variables_comm.handle_msg(msg, raise_errors=False)
 
     assert variables_comm.messages == [
-        json_rpc_error(JsonRpcErrorCode.METHOD_NOT_FOUND, "Unknown method 'unknown_method'")
+        json_rpc_error(
+            JsonRpcErrorCode.METHOD_NOT_FOUND,
+            "Unknown method 'unknown_method'",
+        )
     ]
 
 
