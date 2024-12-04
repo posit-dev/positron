@@ -75,18 +75,6 @@ jobs:
       - name: Check installed canvas version
         run: npm ls canvas
 
-      - name: Reinstall canvas
-        run: npm install canvas
-
-      - name: Check installed canvas version
-        run: npm ls canvas
-
-      - name: Reinstall node-gyp
-        run: npm install -g node-gyp
-
-      - name: Rebuild native modules
-        run: npm rebuild
-
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
         run: |
