@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useRef } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
 import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import 'vs/css!./createConnectionState';
+import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;
@@ -18,7 +19,8 @@ interface CreateConnectionProps {
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
-	const { name } = props.selectedDriver;
+	const { name, languageId } = props.selectedDriver;
+	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	return <div className='connections-new-connection-create-connection'>
 		<div className='create-connection-title'>
@@ -35,6 +37,12 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		</div>
 
 		<div className='create-connection-code-editor'>
+			<SimpleCodeEditor
+				ref={editorRef}
+				services={props.services}
+				language={languageId}
+			>
+			</SimpleCodeEditor>
 		</div>
 
 		<div className='create-connection-buttons'>

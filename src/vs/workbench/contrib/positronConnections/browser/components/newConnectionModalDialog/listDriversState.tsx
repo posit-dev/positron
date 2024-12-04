@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import React, { PropsWithChildren } from 'react';
+import React, { PropsWithChildren, useState } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
 import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
@@ -21,87 +21,86 @@ interface ListDriversProps {
 
 export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 
-	const onSelectionChangedHandler = ({ }) => {
-		// TODO: it should matter what language is selected.
-		// But for now we just select the first driver.
-	};
-
 	const onDriverSelectedHandler = (driver: Driver) => {
 		props.onSelection(driver);
 	};
 
 	const entries = getRegisteredLanguages(props.services);
+	const [languageId, setLanguageId] = useState<string>(entries[0]?.languageId);
+	const drivers = languageId ? getRegisteredDrivers(languageId) : [];
 
-	if (entries.length === 0) {
-		return <div className='connections-new-connection-list-drivers'>
-			<div className='no-drivers'>
-				{localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available")}
-			</div>
-		</div>;
-	}
-
-	const drivers = getRegisteredDrivers(entries[0].languageId);
+	const onLanguageChangeHandler = (lang: string) => {
+		setLanguageId(lang);
+	};
 
 	return <div className='connections-new-connection-list-drivers'>
-		<div className='title'>
-			<h1>
-				{localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver")}
-			</h1>
-		</div>
-		<div className='select-language'>
-			<DropDownListBox
-				keybindingService={props.services.keybindingService}
-				layoutService={props.services.layoutService}
-				title={localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language")}
-				entries={getRegisteredLanguages(props.services).map((item) => {
-					return new DropDownListBoxItem({
-						identifier: item.languageId,
-						value: item
-					});
-				})}
-				createItem={(item) => {
-					const value = item.options.value;
+		{
+			drivers.length === 0 ?
+				<div className='no-drivers'>
+					{localize('positron.newConnectionModalDialog.listDrivers.noDrivers', "No drivers available")}
+				</div> :
+				<>
+					<div className='title'>
+						<h1>
+							{localize('positron.newConnectionModalDialog.listDrivers.title', "Choose a Database Driver")}
+						</h1>
+					</div>
+					<div className='select-language'>
+						<DropDownListBox
+							keybindingService={props.services.keybindingService}
+							layoutService={props.services.layoutService}
+							title={localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language")}
+							entries={getRegisteredLanguages(props.services).map((item) => {
+								return new DropDownListBoxItem({
+									identifier: item.languageId,
+									value: item
+								});
+							})}
+							createItem={(item) => {
+								const value = item.options.value;
 
-					return <div className='language-dropdown-entry'>
-						{value.base64EncodedIconSvg ? <img className='dropdown-entry-icon' src={`data:image/svg+xml;base64,${value.base64EncodedIconSvg}`} /> : null}
-						<div className='dropdown-entry-title'>
-							{value.languageName}
-						</div>
-					</div>;
-				}}
-				onSelectionChanged={onSelectionChangedHandler}
-				selectedIdentifier={entries[0].languageId}
-			>
-			</DropDownListBox>
-		</div>
-		<div className='driver-list'>
-			{
-				drivers.concat(drivers, drivers, drivers, drivers, drivers, drivers).map(driver => {
-					const icon = driver.base64EncodedIconSvg ?
-						<img className='driver-icon' src={`data:image/svg+xml;base64,${driver.base64EncodedIconSvg}`} /> :
-						<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
+								return <div className='language-dropdown-entry'>
+									{value.base64EncodedIconSvg ? <img className='dropdown-entry-icon' src={`data:image/svg+xml;base64,${value.base64EncodedIconSvg}`} /> : null}
+									<div className='dropdown-entry-title'>
+										{value.languageName}
+									</div>
+								</div>;
+							}}
+							onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
+							selectedIdentifier={languageId}
+						>
+						</DropDownListBox>
+					</div>
+					<div className='driver-list'>
+						{
+							drivers.concat(drivers, drivers, drivers, drivers, drivers, drivers).map(driver => {
+								const icon = driver.base64EncodedIconSvg ?
+									<img className='driver-icon' src={`data:image/svg+xml;base64,${driver.base64EncodedIconSvg}`} /> :
+									<div className='driver-icon codicon codicon-database' style={{ opacity: 0.5, fontSize: '24px' }}></div>;
 
-					return <div key={driver.driverId} className='driver-list-item'>
-						{icon}
-						<div className='driver-info' onMouseDown={() => onDriverSelectedHandler(driver)}>
-							<div className='driver-name'>
-								{driver.name}
-							</div>
-							<div className={`driver-button codicon codicon-chevron-right`}>
-							</div>
-						</div>
-					</div>;
-				})
-			}
-		</div>
-		<div className='footer'>
-			<PositronButton
-				className='button action-bar-button'
-				onPressed={props.onCancel}
-			>
-				{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
-			</PositronButton>
-		</div>
+								return <div key={driver.driverId} className='driver-list-item'>
+									{icon}
+									<div className='driver-info' onMouseDown={() => onDriverSelectedHandler(driver)}>
+										<div className='driver-name'>
+											{driver.name}
+										</div>
+										<div className={`driver-button codicon codicon-chevron-right`}>
+										</div>
+									</div>
+								</div>;
+							})
+						}
+					</div>
+					<div className='footer'>
+						<PositronButton
+							className='button action-bar-button'
+							onPressed={props.onCancel}
+						>
+							{(() => localize('positron.resumeConnectionModalDialog.cancel', "Cancel"))()}
+						</PositronButton>
+					</div>
+				</>
+		}
 	</div>;
 };
 
