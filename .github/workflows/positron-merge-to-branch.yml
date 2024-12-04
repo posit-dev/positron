@@ -187,12 +187,11 @@ jobs:
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
-      - name: Slack Slack Notification
+      - name: Send Slack Notification
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
-          include_commit_message: true
-          notify_on: 'on-failure'
+          notify_on: "on-failure"
 
 
