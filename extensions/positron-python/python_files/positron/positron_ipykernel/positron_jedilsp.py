@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Uni
 from comm.base_comm import BaseComm
 
 from ._vendor import attrs
-from ._vendor.jedi.api import Interpreter, Project
+from ._vendor.jedi.api import Interpreter
+from ._vendor.jedi.api.project import Project
 from ._vendor.jedi_language_server import jedi_utils, pygls_utils
 from ._vendor.jedi_language_server.server import (
     JediLanguageServer,

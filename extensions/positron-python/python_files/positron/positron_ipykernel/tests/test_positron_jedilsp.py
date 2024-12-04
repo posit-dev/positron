@@ -11,7 +11,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron_ipykernel._vendor.jedi import Project
+from positron_ipykernel._vendor.jedi.api.project import Project
 from positron_ipykernel._vendor.jedi_language_server import jedi_utils
 from positron_ipykernel._vendor.lsprotocol.types import (
     CompletionItem,

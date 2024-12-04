@@ -1,0 +1,5 @@
+[tool.ruff]
+exclude = [
+    # Ignore vendored dependencies
+    'positron_ipykernel/_vendor/',
+]

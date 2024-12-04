@@ -16,6 +16,7 @@ from ._vendor.jedi.api.completion import (
 from ._vendor.jedi.api.completion import (
     _extract_string_while_in_string,
     _remove_duplicates,
+    extract_imported_names,
     filter_names,
 )
 from ._vendor.jedi.api.file_name import complete_file_name

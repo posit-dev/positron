@@ -23,7 +23,6 @@ from typing import (
 )
 
 import comm
-from IPython.core.error import UsageError
 
 from .access_keys import decode_access_key
 from .data_explorer_comm import (
