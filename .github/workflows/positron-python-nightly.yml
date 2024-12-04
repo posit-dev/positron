@@ -68,15 +68,8 @@ jobs:
       - name: Install test requirements
         run: python -m pip install -r build/test-requirements.txt
 
-      # - name: Run Python unit tests
-      #   run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
       - name: Run Python unit tests
-        run: |
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" && "${{ matrix.python }}" == "3.11" ]]; then
-            echo "Simulated failure for testing notifications" && exit 1
-          else
-            python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
-          fi
+        run: python python_files/tests/run_all.py --junit-xml=python-unit-test-results.xml
 
       - name: Upload test artifacts
         uses: actions/upload-artifact@v4
