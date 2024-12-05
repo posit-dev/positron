@@ -207,7 +207,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 									"Your project will be created at: "
 								))()}
 							<PathDisplay
-								pathComponents={[parentFolder.fsPath, projectName]}
+								pathComponents={[
+									labelService.getUriLabel(parentFolder, { noPrefix: true }),
+									projectName
+								]}
 								pathService={pathService}
 							/>
 						</WizardFormattedText>
