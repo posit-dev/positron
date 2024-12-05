@@ -230,38 +230,44 @@
 	*/
 
 	function setupImportMaps<T extends ISandboxConfiguration>(configuration: T, baseUrl: URL) {
-		const style = document.createElement('style');
-		style.type = 'text/css';
-		style.media = 'screen';
-		style.id = 'vscode-css-loading';
-		document.head.appendChild(style);
-
-		const importMap: { imports: Record<string, string> } = { imports: {} };
-		const addModule = (packageName: string) => {
-			const packageNamePath = packageName.split('/');
-			const module = `esm-package-dependencies/${packageNamePath[packageNamePath.length - 1]}.js`;
-			const url = new URL(module, baseUrl).href;
-			importMap.imports[packageName] = url;
-		};
-
-		addModule('he');
-		addModule('react');
-		addModule('react-dom');
-		addModule('react-dom/client');
-		addModule('react-window');
-
-		// importMap.imports['he'] = new URL('https://esm.sh/he').href;
-		// importMap.imports['react'] = new URL('https://esm.sh/react').href;
-		// importMap.imports['react-dom'] = new URL('https://esm.sh/react-dom').href;
-		// importMap.imports['react-dom/client'] = new URL('https://esm.sh/react-dom/client').href;
-		// importMap.imports['react-window'] = new URL('https://esm.sh/react-window').href;
-
-		// DEV ---------------------------------------------------------------------------------------
-		// DEV: This is for development and enables loading CSS via import-statements via import-maps.
-		// DEV: For each CSS modules that we have we defined an entry in the import map that maps to
-		// DEV: a blob URL that loads the CSS via a dynamic @import-rule.
-		// DEV ---------------------------------------------------------------------------------------
+		// Only set up import maps if we have CSS modules. These only exist in
+		// development configurations.
 		if (Array.isArray(configuration.cssModules) && configuration.cssModules.length > 0) {
+
+			// Create import maps for React and other dependencies. This is for
+			// development mode only; for release builds, import maps are
+			// loaded earlier, in bootstrap-external.js.
+			const style = document.createElement('style');
+			style.type = 'text/css';
+			style.media = 'screen';
+			style.id = 'vscode-css-loading';
+			document.head.appendChild(style);
+
+			const importMap: { imports: Record<string, string> } = { imports: {} };
+			const addModule = (packageName: string) => {
+				const packageNamePath = packageName.split('/');
+				const module = `esm-package-dependencies/${packageNamePath[packageNamePath.length - 1]}.js`;
+				const url = new URL(module, baseUrl).href;
+				importMap.imports[packageName] = url;
+			};
+
+			addModule('he');
+			addModule('react');
+			addModule('react-dom');
+			addModule('react-dom/client');
+			addModule('react-window');
+
+			// importMap.imports['he'] = new URL('https://esm.sh/he').href;
+			// importMap.imports['react'] = new URL('https://esm.sh/react').href;
+			// importMap.imports['react-dom'] = new URL('https://esm.sh/react-dom').href;
+			// importMap.imports['react-dom/client'] = new URL('https://esm.sh/react-dom/client').href;
+			// importMap.imports['react-window'] = new URL('https://esm.sh/react-window').href;
+
+			// DEV ---------------------------------------------------------------------------------------
+			// DEV: This is for development and enables loading CSS via import-statements via import-maps.
+			// DEV: For each CSS modules that we have we defined an entry in the import map that maps to
+			// DEV: a blob URL that loads the CSS via a dynamic @import-rule.
+			// DEV ---------------------------------------------------------------------------------------
 			globalThis._VSCODE_CSS_LOAD = function (url) {
 				style.textContent += `@import url(${url});\n`;
 			};
@@ -272,16 +278,16 @@
 				const blob = new Blob([jsSrc], { type: 'application/javascript' });
 				importMap.imports[cssUrl] = URL.createObjectURL(blob);
 			}
-		}
 
-		const ttp = window.trustedTypes?.createPolicy('vscode-bootstrapImportMap', { createScript(value) { return value; }, });
-		const importMapSrc = JSON.stringify(importMap, undefined, 2);
-		const importMapScript = document.createElement('script');
-		importMapScript.type = 'importmap';
-		importMapScript.setAttribute('nonce', '0c6a828f1297');
-		// @ts-ignore
-		importMapScript.textContent = ttp?.createScript(importMapSrc) ?? importMapSrc;
-		document.head.appendChild(importMapScript);
+			const ttp = window.trustedTypes?.createPolicy('vscode-bootstrapImportMap', { createScript(value) { return value; }, });
+			const importMapSrc = JSON.stringify(importMap, undefined, 2);
+			const importMapScript = document.createElement('script');
+			importMapScript.type = 'importmap';
+			importMapScript.setAttribute('nonce', '0c6a828f1297');
+			// @ts-ignore
+			importMapScript.textContent = ttp?.createScript(importMapSrc) ?? importMapSrc;
+			document.head.appendChild(importMapScript);
+		}
 	}
 
 	// --- End Positron ---
