@@ -22,14 +22,14 @@
     "menus": {
       "explorer/context": [
         {
-          "when": "resourceLangId == html",
+          "when": "resourceLangId == html && resourceScheme == file",
           "command": "positronProxy.showHtmlPreview",
           "group": "navigation"
         }
       ],
       "editor/title": [
         {
-          "when": "resourceLangId == html",
+          "when": "resourceLangId == html  && resourceScheme == file",
           "command": "positronProxy.showHtmlPreview",
           "group": "navigation"
         }
