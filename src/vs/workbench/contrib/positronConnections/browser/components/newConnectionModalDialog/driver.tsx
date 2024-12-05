@@ -6,7 +6,7 @@
 export enum InputType {
 	String = 'string',
 	Number = 'number',
-	Boolean = 'boolean',
+	Option = 'option',
 }
 
 export interface Input {
@@ -16,6 +16,10 @@ export interface Input {
 	label: string;
 	// The type of the input.
 	type: InputType;
+	// Options, if the input type is an option.
+	options?: { 'identifier': string; 'title': string }[];
+	// The default value for the input.
+	defaultValue?: string;
 }
 
 export interface Driver {

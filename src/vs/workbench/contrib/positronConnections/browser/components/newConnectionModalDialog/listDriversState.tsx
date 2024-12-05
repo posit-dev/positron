@@ -129,32 +129,39 @@ const getRegisteredDrivers = (languageId: string): Array<Driver> => {
 				{
 					'id': 'server',
 					'label': 'Server',
-					'type': InputType.String
+					'type': InputType.String,
+					'defaultValue': 'localhost'
 				},
 				{
 					'id': 'port',
 					'label': 'Port',
-					'type': InputType.Number
+					'type': InputType.Number,
+					'defaultValue': '5432'
 				},
 				{
 					'id': 'database',
 					'label': 'Database',
-					'type': InputType.String
+					'type': InputType.String,
+					'defaultValue': 'main'
 				},
 				{
 					'id': 'user_id',
 					'label': 'User ID',
-					'type': InputType.String
+					'type': InputType.String,
+					'defaultValue': 'postgres'
 				},
 				{
 					'id': 'password',
 					'label': 'Password',
-					'type': InputType.String
+					'type': InputType.String,
+					'defaultValue': 'password'
 				},
 				{
 					'id': 'bool_as_char',
 					'label': 'Boolean as Character',
-					'type': InputType.Boolean
+					'type': InputType.Option,
+					'options': [{ 'identifier': 'yes', 'title': 'Yes' }, { 'identifier': 'no', 'title': 'No' }],
+					'defaultValue': 'Yes'
 				}
 			]
 		},

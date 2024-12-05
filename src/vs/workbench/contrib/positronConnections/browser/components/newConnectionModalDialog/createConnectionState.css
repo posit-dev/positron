@@ -67,11 +67,38 @@
 	padding: 2px;
 }
 
-.create-connection-inputs > .labeled-text-input > label {
+.create-connection-inputs > .labeled-input label {
 	display: flex;
 	flex-direction: row;
 	align-items: center;
 	gap: 5px;
 	height: 40px;
 	text-wrap: nowrap;
+	padding: 0px 8px;
+}
+
+.create-connection-inputs > .labeled-input:not(:last-child) label {
+	border-bottom: 1px solid var(--vscode-positronVariables-border);
+}
+
+.create-connection-inputs > .labeled-input label > .label-text {
+	flex-basis: 150px;
+	flex-shrink: 0;
+	overflow-x: hidden;
+	text-overflow: ellipsis;
+}
+
+.create-connection-inputs > .labeled-input label > .text-input {
+	flex: 1;
+	min-width: 0;
+	margin-top: 0px;
+	background: transparent;
+	border: none;
+}
+
+.create-connection-inputs > .labeled-input > label > .radio-group {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 6px;
 }

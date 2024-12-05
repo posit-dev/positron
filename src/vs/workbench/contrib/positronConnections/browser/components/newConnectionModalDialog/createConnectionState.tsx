@@ -6,11 +6,13 @@
 import React, { PropsWithChildren, useRef } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
-import { Driver, Input } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import 'vs/css!./createConnectionState';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
 import Severity from 'vs/base/common/severity';
+import { Driver, Input, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
+import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
+import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;
@@ -102,11 +104,36 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 };
 
 const FormElement = (props: PropsWithChildren<Input>) => {
-	const { label } = props;
-	return <div className='labeled-text-input'>
-		<label className='label input'>
-			{label}
-			<input type='text' className='text-input'></input>
-		</label>
-	</div>;
+	const { label, defaultValue = '', type } = props;
+
+	switch (type) {
+		case InputType.Number:
+			return <div className='labeled-input'>
+				<LabeledTextInput
+					label={label}
+					value={defaultValue}
+					type='text'
+				></LabeledTextInput>
+			</div>;
+		case InputType.Option:
+			return <div className='labeled-input'><label>
+				<span className='label-text'>{label}</span>
+				<RadioGroup
+					name={label}
+					labelledBy={label}
+					entries={props.options!.map(option => ({ options: option }))}
+					initialSelectionId={props.options![0].identifier}
+					onSelectionChanged={() => { }}
+				/>
+			</label></div>;
+		case InputType.String:
+		default:
+			return <div className='labeled-input'>
+				<LabeledTextInput
+					label={label}
+					value={defaultValue}
+					type='text'
+				></LabeledTextInput>
+			</div>;
+	}
 };
