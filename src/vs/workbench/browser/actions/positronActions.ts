@@ -27,6 +27,7 @@ import { ILogService } from 'vs/platform/log/common/log';
 import { IOpenerService } from 'vs/platform/opener/common/opener';
 import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/workspaceTrust';
+import { ILabelService } from 'vs/platform/label/common/label';
 
 /**
  * The PositronNewProjectAction.
@@ -74,6 +75,7 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(IFileDialogService),
 			accessor.get(IFileService),
 			accessor.get(IKeybindingService),
+			accessor.get(ILabelService),
 			accessor.get(ILanguageRuntimeService),
 			accessor.get(IWorkbenchLayoutService),
 			accessor.get(ILogService),
@@ -82,7 +84,7 @@ export class PositronNewProjectAction extends Action2 {
 			accessor.get(IPositronNewProjectService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
-			accessor.get(IWorkspaceTrustManagementService)
+			accessor.get(IWorkspaceTrustManagementService),
 		);
 	}
 }
@@ -129,6 +131,7 @@ export class PositronNewFolderAction extends Action2 {
 			accessor.get(IFileDialogService),
 			accessor.get(IFileService),
 			accessor.get(IKeybindingService),
+			accessor.get(ILabelService),
 			accessor.get(IWorkbenchLayoutService),
 		);
 	}
@@ -179,6 +182,7 @@ export class PositronNewFolderFromGitAction extends Action2 {
 			accessor.get(IConfigurationService),
 			accessor.get(IFileDialogService),
 			accessor.get(IKeybindingService),
+			accessor.get(ILabelService),
 			accessor.get(IWorkbenchLayoutService),
 		);
 	}

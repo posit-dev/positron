@@ -36,7 +36,7 @@ import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/p
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
 	const context = useNewProjectWizardContext();
-	const { fileDialogService, fileService, logService, pathService } = context.services;
+	const { fileDialogService, fileService, labelService, logService, pathService } = context.services;
 
 	// Hooks.
 	const [projectName, setProjectName] = useState(context.projectName);
@@ -219,7 +219,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={parentFolder.fsPath}
+					value={labelService.getUriLabel(parentFolder)}
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
