@@ -68,11 +68,17 @@ export const showNewFolderFromGitModalDialog = async (
 						kGitOpenAfterClone,
 						result.newWindow ? 'alwaysNewWindow' : 'always'
 					);
+					// The Git clone command works with a path string instead of a URI. We need to
+					// convert the folder URI to an OS-aware path string using the label service.
+					const parentFolder = labelService.getUriLabel(
+						result.parentFolder,
+						{ noPrefix: true }
+					);
 					try {
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder.fsPath
+							parentFolder
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
