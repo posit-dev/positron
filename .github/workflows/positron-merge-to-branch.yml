@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version-file: 20.14
 
       - name: Debug Node.js version
         run: |
@@ -73,14 +73,14 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: cd test/e2e && yarn install && yarn compile
-      - name: Rebuild Canvas
-        run: npm rebuild canvas # i don't understand why i have to do this?
+      # - name: Rebuild Canvas
+      #   run: npm rebuild canvas # i don't understand why i have to do this?
 
       - name: Check installed canvas version
         run: cd test/e2e && npm ls canvas
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
