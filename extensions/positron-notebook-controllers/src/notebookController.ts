@@ -121,9 +121,7 @@ export class NotebookController implements vscode.Disposable {
 
 	private async selectRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
 		// If there's an existing session from another runtime, shut it down.
-		if (this._notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
-			await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
-		}
+		await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
 
 		// Start the new session.
 		await this.startRuntimeSession(notebook);
