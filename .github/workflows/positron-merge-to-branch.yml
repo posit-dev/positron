@@ -59,8 +59,8 @@ jobs:
           node -v
           node -p "process.versions.modules"
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
+      # - name: Cache node_modules, build, extensions, and remote
+      #   uses: ./.github/actions/cache-multi-paths
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
@@ -78,6 +78,12 @@ jobs:
 
       - name: Check installed canvas version
         run: cd test/e2e && npm ls canvas
+
+      - name: More debugging
+        run: |
+          which node
+          node -v
+          node -p "process.versions.modules"
 
       # - name: Setup tmate session
       #   uses: mxschmitt/action-tmate@v3
