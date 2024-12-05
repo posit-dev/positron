@@ -11,8 +11,8 @@ import {
 	SchemaFetchRange,
 	TableDataCache,
 	TableSchemaCache
-} from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerCache";
-import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
+} from "../../../positronDataExplorer/common/positronDataExplorerCache.js";
+import * as mocks from "../../../positronDataExplorer/common/positronDataExplorerMocks.js";
 
 
 class MockDataCache extends TableDataCache {

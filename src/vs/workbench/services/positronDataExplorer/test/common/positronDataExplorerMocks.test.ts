@@ -13,7 +13,7 @@ import {
 	RowFilterType,
 	TextSearchType
 } from '../../../languageRuntime/common/positronDataExplorerComm.js';
-import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
+import * as mocks from "../../../positronDataExplorer/common/positronDataExplorerMocks.js";
 
 /**
  * Basic smoke tests for debugging the mock functions
