@@ -31,7 +31,7 @@ runs:
         # dependencies
         yarn --immutable --network-timeout 120000
         yarn --cwd test/automation install --frozen-lockfile
-        yarn --cwd test/smoke install --frozen-lockfile
+        yarn --cwd test/e2e install --frozen-lockfile
 
     - name: Compile and Download
       shell: bash

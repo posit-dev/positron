@@ -274,9 +274,6 @@ export class NotebookController implements vscode.Disposable {
 		// Create a cell execution.
 		const currentExecution = this.controller.createNotebookCellExecution(cell);
 
-		// If the cell's stop button is pressed, interrupt the runtime.
-		currentExecution.token.onCancellationRequested(session.interrupt.bind(session));
-
 		// Start the execution timer.
 		currentExecution.start(Date.now());
 
