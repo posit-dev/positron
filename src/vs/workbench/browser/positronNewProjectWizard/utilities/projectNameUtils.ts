@@ -37,7 +37,10 @@ export const checkProjectName = async (
 	// TODO: Additional project name validation (i.e. unsupported characters, length, etc.)
 
 	// The project directory can't already exist.
-	const folderPath = parentFolder.with({ path: (await pathService.path).join(parentFolder.fsPath, projectName) });
+	const pathBuilder = await pathService.path;
+	const folderPath = parentFolder.with({
+		path: pathBuilder.join(parentFolder.path, projectName)
+	});
 	if (await fileService.exists(folderPath)) {
 		return {
 			type: WizardFormattedTextType.Error,
