@@ -42,6 +42,35 @@
 		// --- End PWB ---
 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
 	</script>
+
+	<!--- Start Positron --->
+	<script>
+		const importMap = { imports: {} };
+		const addModule = (packageName) => {
+			const packageNamePath = packageName.split("/");
+			const module = `esm-package-dependencies/${
+				packageNamePath[packageNamePath.length - 1]
+			}.js`;
+			const url = new URL(module, globalThis._VSCODE_FILE_ROOT).href;
+
+			importMap.imports[packageName] = url;
+		};
+
+		addModule("he");
+		addModule("react");
+		addModule("react-dom");
+		addModule("react-dom/client");
+		addModule("react-window");
+
+		// --- End Positron ---
+		const importMapElement = document.createElement("script");
+		importMapElement.type = "importmap";
+		importMapElement.setAttribute("nonce", "1nline-m4p");
+		importMapElement.textContent = JSON.stringify(importMap, undefined, 2);
+		document.head.appendChild(importMapElement);
+	</script>
+	<!--- End Positron --->
+
 	<script>
 		performance.mark('code/willLoadWorkbenchMain');
 	</script>

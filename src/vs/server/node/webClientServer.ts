@@ -38,6 +38,7 @@ import { kProxyRegex } from './pwbConstants.js';
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
 	'.js': 'text/javascript',
+	'.mjs': 'text/javascript',
 	'.json': 'application/json',
 	'.css': 'text/css',
 	'.svg': 'image/svg+xml',
