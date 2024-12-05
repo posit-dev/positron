@@ -20,9 +20,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
 		log.debug(`Notebook closed: ${notebook.uri.path}`);
-		if (notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
-			await notebookSessionService.shutdownRuntimeSession(notebook.uri);
-		}
+		await notebookSessionService.shutdownRuntimeSession(notebook.uri);
 	}));
 
 	const manager = new NotebookControllerManager(notebookSessionService);

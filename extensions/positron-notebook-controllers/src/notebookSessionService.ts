@@ -59,18 +59,6 @@ export class NotebookSessionService implements vscode.Disposable {
 	}
 
 	/**
-	 * Checks for a starting or running notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a starting or running notebook session exists for the given notebook URI.
-	 */
-	hasStartingOrRunningNotebookSession(notebookUri: vscode.Uri): boolean {
-		return this._startingSessionsByNotebookUri.has(notebookUri) ||
-			this._restartingSessionsByNotebookUri.has(notebookUri) ||
-			positron.runtime.getNotebookSession(notebookUri) !== undefined;
-	}
-
-	/**
 	 * Wait for a notebook session to complete a shutdown sequence.
 	 *
 	 * @param notebookUri The notebook URI to wait for.
