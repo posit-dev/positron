@@ -53,13 +53,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Set the hasRunningNotebookSession context when the active notebook editor changes.
 	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
 		const session = editor && await positron.runtime.getNotebookSession(editor?.notebook.uri);
-		setHasRunningNotebookSessionContext(!!session);
+		setHasRunningNotebookSessionContext(Boolean(session));
 	}));
 
 	// Set the hasRunningNotebookSession context when a session is started/shutdown for the active notebook.
 	context.subscriptions.push(notebookSessionService.onDidChangeNotebookSession((e) => {
 		if (e.notebookUri === vscode.window.activeNotebookEditor?.notebook.uri) {
-			setHasRunningNotebookSessionContext(!!e.session);
+			setHasRunningNotebookSessionContext(Boolean(e.session));
 		}
 	}));
 
