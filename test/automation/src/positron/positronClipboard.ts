@@ -27,4 +27,14 @@ export class PositronClipboard {
 
 		return clipboardImageBuffer ? Buffer.from(clipboardImageBuffer) : null;
 	}
+
+	async clearClipboard(): Promise<void> {
+		// Grant permissions to modify the clipboard
+		await this.code.driver.context.grantPermissions(['clipboard-write']);
+
+		// Use the page context to overwrite the clipboard
+		await this.code.driver.page.evaluate(async () => {
+			await navigator.clipboard.writeText(''); // Clear clipboard by writing an empty string
+		});
+	}
 }

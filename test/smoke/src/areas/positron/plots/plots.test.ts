@@ -66,8 +66,12 @@ test.describe('Plots', () => {
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
-				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				let clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
+
+				await app.workbench.positronClipboard.clearClipboard();
+				clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).toBeNull();
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
@@ -297,8 +301,12 @@ test.describe('Plots', () => {
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
-				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				let clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
+
+				await app.workbench.positronClipboard.clearClipboard();
+				clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).toBeNull();
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
