@@ -28,7 +28,7 @@ suite('Connections pane works for R', () => {
 			'con <- connections::connection_open(RSQLite::SQLite(), tempfile())',
 		);
 
-		const ext = vscode.extensions.getExtension<ConnectionItemsProvider>('vscode.positron-connections');
+		const ext = vscode.extensions.getExtension<ConnectionItemsProvider>('positron.positron-connections');
 		const provider = ext?.exports;
 		assert(provider !== undefined);
 

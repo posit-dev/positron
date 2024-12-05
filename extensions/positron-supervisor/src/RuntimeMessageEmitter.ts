@@ -41,6 +41,9 @@ export class RuntimeMessageEmitter {
 	 */
 	public emitJupyter(msg: JupyterMessage): void {
 		switch (msg.header.msg_type) {
+			case 'clear_output':
+				this.onClearOutput(msg, msg.content as JupyterClearOutput);
+				break;
 			case 'comm_msg':
 				this.onCommMessage(msg, msg.content as JupyterCommMsg);
 				break;
