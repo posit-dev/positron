@@ -1108,8 +1108,8 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
 
 
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
-    def get_display_name(self, key: Any) -> str:
-        return str(key)
+    def is_mutable(self):
+        return False
 
     def get_display_value(
         self,
