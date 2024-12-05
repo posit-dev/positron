@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { log } from './extension';
 import { ResourceMap } from './map';
-import { getRunningNotebookSession } from './utils';
+import { getNotebookSession } from './utils';
 
 export interface INotebookSessionDidChangeEvent {
 	/** The URI of the notebook corresponding to the session. */
@@ -215,7 +215,7 @@ export class NotebookSessionService implements vscode.Disposable {
 
 	private async getExistingOrPendingSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
 		// Check for an active session first.
-		const activeSession = await getRunningNotebookSession(notebookUri);
+		const activeSession = await getNotebookSession(notebookUri);
 		if (activeSession) {
 			return activeSession;
 		}
@@ -271,7 +271,7 @@ export class NotebookSessionService implements vscode.Disposable {
 
 	async doRestartRuntimeSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession> {
 		// Get the notebook's session.
-		const session = await getRunningNotebookSession(notebookUri);
+		const session = await getNotebookSession(notebookUri);
 		if (!session) {
 			throw new Error(`Tried to restart runtime for notebook without a running runtime: ${notebookUri.path}`);
 		}

@@ -17,15 +17,26 @@ export function formatCount(count: number, unit: string): string {
 	return `${count} ${unit}s`;
 }
 
-export async function getRunningNotebookSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
-	// TODO: Use getSessions()?
-	// TODO: Check that it's the expected runtime?
-	return positron.runtime.getNotebookSession(notebookUri);
-	// const state = session?.state;
-	// if (state === positron.RuntimeState.Uninitialized
-	// 	|| state === positron.RuntimeState.Exiting
-	// 	|| state === positron.RuntimeState.Exited) {
-	// 	return undefined;
-	// }
-	// return session;
+/**
+ * Get the language runtime session for a notebook.
+ *
+ * @param notebookUri The URI of the notebook.
+ * @param runtimeId Optional runtime ID to filter the session by.
+ * @returns Promise that resolves with the language runtime session, or `undefined` if no session is found.
+ */
+export async function getNotebookSession(
+	notebookUri: vscode.Uri, runtimeId?: string,
+): Promise<positron.LanguageRuntimeSession | undefined> {
+	// Get the session for the notebook.
+	const session = await positron.runtime.getNotebookSession(notebookUri);
+	if (!session) {
+		return undefined;
+	}
+
+	// Ensure that the session is for the requested runtime.
+	if (runtimeId && session.runtimeMetadata.runtimeId !== runtimeId) {
+		return undefined;
+	}
+
+	return session;
 }
