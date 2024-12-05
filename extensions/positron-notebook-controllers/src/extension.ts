@@ -10,13 +10,11 @@ import { NotebookSessionService } from './notebookSessionService';
 import { registerCommands } from './commands';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { registerExecutionInfoStatusBar } from './statusBar';
-import { getNotebookSession } from './utils';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	const notebookSessionService = new NotebookSessionService();
-	context.subscriptions.push(notebookSessionService);
 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
@@ -51,19 +49,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		manager.updateNotebookAffinity(notebook);
 	}
 
-	// Set the hasRunningNotebookSession context when the active notebook editor changes.
-	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
-		const session = editor && await getNotebookSession(editor.notebook.uri);
-		setHasRunningNotebookSessionContext(Boolean(session));
-	}));
-
-	// Set the hasRunningNotebookSession context when a session is started/shutdown for the active notebook.
-	context.subscriptions.push(notebookSessionService.onDidChangeNotebookSession((e) => {
-		if (e.notebookUri.toString() === vscode.window.activeNotebookEditor?.notebook.uri.toString()) {
-			setHasRunningNotebookSessionContext(Boolean(e.session));
-		}
-	}));
-
 	// Register kernel source action providers for the kernel selection quickpick.
 	context.subscriptions.push(vscode.notebooks.registerKernelSourceActionProvider(JUPYTER_NOTEBOOK_TYPE, {
 		provideNotebookKernelSourceActions: () => {
@@ -83,13 +68,4 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	registerCommands(context, notebookSessionService);
 
 	registerExecutionInfoStatusBar(context.subscriptions, manager);
-}
-
-function setHasRunningNotebookSessionContext(value: boolean): void {
-	log.debug(`Setting 'positron.hasRunningNotebookSession' context to: ${value}`);
-	vscode.commands.executeCommand(
-		'setContext',
-		'positron.hasRunningNotebookSession',
-		value,
-	);
 }
