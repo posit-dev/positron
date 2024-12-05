@@ -80,7 +80,7 @@ suite('NotebookController', () => {
 		} as vscode.NotebookCell];
 
 		// Create a test session.
-		session = new TestLanguageRuntimeSession();
+		session = new TestLanguageRuntimeSession(runtime);
 		disposables.push(session);
 		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
 			.withArgs(notebook.uri).resolves(session as any);
