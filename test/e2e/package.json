@@ -2,7 +2,6 @@
   "name": "positron-e2e-tests",
   "version": "0.0.1",
   "license": "MIT",
-  "main": "./src/main.js",
   "scripts": {
     "compile": "yarn --cwd ../automation compile && node ../../node_modules/typescript/bin/tsc",
     "watch-automation": "yarn --cwd ../automation watch",

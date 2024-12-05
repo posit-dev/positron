@@ -11,7 +11,6 @@ import { fail } from 'assert';
 import { test, expect } from '../_test.setup';
 import { Application } from '../../../automation';
 
-
 test.use({
 	suiteId: __filename
 });

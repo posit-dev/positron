@@ -183,7 +183,7 @@ jobs:
 
   slack-notify:
     # if: ${{ failure() && inputs.e2e_grep == '' }}
-    if: always()
+    if: ${{ inputs.e2e_grep == '' }}
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:
@@ -191,7 +191,14 @@ jobs:
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL}}
-          # notify_on: "failure"
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
+          notify_on: "failure"
+      # adding this for time being so i can monitor slack notifications to make sure
+      # behavior is as expected.
+      - name: Send Slack Notification
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
 
 
