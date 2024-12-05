@@ -8,6 +8,7 @@ import inspect
 import pprint
 import random
 import string
+import sys
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
@@ -914,6 +915,7 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
 def test_inspect_ibis_exprs() -> None:
     import ibis
 
