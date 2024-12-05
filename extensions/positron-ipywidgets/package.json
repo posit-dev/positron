@@ -31,9 +31,9 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "yarn build-renderer",
+    "vscode:prepublish": "npm run build-renderer",
     "build-renderer": "node ./esbuild-renderer",
-    "postinstall": "yarn install --cwd renderer"
+    "postinstall": "npm install --prefix renderer"
   },
   "dependencies": {},
   "devDependencies": {}
