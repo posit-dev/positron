@@ -57,9 +57,6 @@ const vscodeEntryPoints = [
 ].flat();
 
 const vscodeResourceIncludes = [
-	// --- Start Positron ---
-	'out-build/react-dom/client.js',
-	// --- End Positron ---
 
 	// NLS
 	'out-build/nls.messages.json',
@@ -110,11 +107,6 @@ const vscodeResourceIncludes = [
 
 	// Tree Sitter highlights
 	'out-build/vs/editor/common/languages/highlights/*.scm',
-
-	// --- Start Positron ---
-	// React DOM client script
-	'out-build/react-dom/client.js',
-	// --- End Positron ---
 
 	// Issue Reporter
 	'out-build/vs/workbench/contrib/issue/electron-sandbox/issueReporter.html'

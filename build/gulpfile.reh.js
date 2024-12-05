@@ -61,9 +61,6 @@ const BUILD_TARGETS = [
 ];
 
 const serverResourceIncludes = [
-	// --- Start Positron ---
-	'out-build/react-dom/client.js',
-	// --- End Positron ---
 	// --- Start PWB ---
 	'out-build/vs/code/browser/workbench/rsLoginCheck.js',
 	// --- End PWB ---
@@ -370,7 +367,7 @@ function packageTask(type, platform, arch, sourceFolderName, destinationFolderNa
 		const productionDependencies = getProductionDependencies(type === 'reh-web' ? REMOTE_REH_WEB_FOLDER : REMOTE_FOLDER);
 		const dependenciesSrc = productionDependencies.map(d => path.relative(REPO_ROOT, d)).map(d => [`${d}/**`, `!${d}/**/{test,tests}/**`, `!${d}/.bin/**`]).flat();
 		const deps = gulp.src(dependenciesSrc, { base: packageJsonBase, dot: true })
-		// --- End Positron ---
+			// --- End Positron ---
 			// filter out unnecessary files, no source maps in server build
 			.pipe(filter(['**', '!**/package-lock.json', '!**/*.js.map']))
 			.pipe(util.cleanNodeModules(path.join(__dirname, '.moduleignore')))
