@@ -3,9 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { NotebookSessionService } from './notebookSessionService';
+import { getRunningNotebookSession } from './utils';
 
 export function registerCommands(context: vscode.ExtensionContext, notebookSessionService: NotebookSessionService): void {
 	context.subscriptions.push(vscode.commands.registerCommand('positron.restartKernel', async () => {
@@ -16,7 +16,7 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 		}
 
 		// Get the session for the active notebook.
-		const session = await positron.runtime.getNotebookSession(notebook.uri);
+		const session = await getRunningNotebookSession(notebook.uri);
 		if (!session) {
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
