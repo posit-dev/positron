@@ -3,7 +3,7 @@
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.1",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },
@@ -37,7 +37,7 @@
   "extensionDependencies": [
     "ms-python.python",
     "positron.positron-r",
-    "vscode.jupyter-adapter"
+    "positron.jupyter-adapter"
   ],
   "devDependencies": {
     "@types/glob": "^7.2.0",

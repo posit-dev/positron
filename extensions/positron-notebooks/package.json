@@ -3,7 +3,7 @@
   "displayName": "Positron Notebooks Helpers",
   "description": "Positron Notebook Helpers",
   "version": "1.0.0",
-  "publisher": "vscode",
+  "publisher": "positron",
   "engines": {
     "vscode": "^1.65.0"
   },

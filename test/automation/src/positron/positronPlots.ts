@@ -133,4 +133,12 @@ export class PositronPlots {
 			await expect(this.savePlotModal).not.toBeVisible();
 		}
 	}
+
+	async openPlotInEditor() {
+		await this.code.driver.page.locator('.codicon-go-to-file').click();
+	}
+
+	async waitForPlotInEditor() {
+		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
+	}
 }

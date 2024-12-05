@@ -68,10 +68,10 @@ suite('PositronRunApp', () => {
 		sinon.stub(vscode.commands, 'executeCommand')
 			.withArgs('positronProxy.startPendingProxyServer')
 			.resolves({
-			proxyPath: '/proxy/path',
-			externalUri: vscode.Uri.parse('http://localhost:1234'),
-			finishProxySetup: () => {},
-		});
+				proxyPath: '/proxy/path',
+				externalUri: vscode.Uri.parse('http://localhost:1234'),
+				finishProxySetup: () => { },
+			});
 
 		// Stub the preview URL function.
 		previewUrlStub = sinon.stub(positron.window, 'previewUrl');
@@ -102,7 +102,7 @@ suite('PositronRunApp', () => {
 	});
 
 	async function getRunAppApi(): Promise<PositronRunAppApiImpl> {
-		const extension = vscode.extensions.getExtension<PositronRunAppApiImpl>('vscode.positron-run-app');
+		const extension = vscode.extensions.getExtension<PositronRunAppApiImpl>('positron.positron-run-app');
 		if (!extension) {
 			throw new Error('Could not find Positron Run App extension');
 		}

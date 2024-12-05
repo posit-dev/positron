@@ -4,12 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
-import compareImages = require('resemblejs/compareImages');
+const compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
 import { test, expect } from '../_test.setup';
-import { Application } from '../../../../../automation';
+import { Application } from '../../../automation';
 
 test.use({
 	suiteId: __filename
@@ -18,6 +18,11 @@ test.use({
 test.describe('Plots', () => {
 	// Some tests are not tagged @win because they woould require a new master image.
 	test.describe('Python Plots', () => {
+
+		test.beforeAll(async function ({ userSettings }) {
+			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
+		});
+
 		test.beforeEach(async function ({ app, interpreter }) {
 			// Set the viewport to a size that ensures all the plots view actions are visible
 			if (process.platform === 'linux') {
@@ -61,9 +66,19 @@ test.describe('Plots', () => {
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
-				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				let clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
+
+				await app.workbench.positronClipboard.clearClipboard();
+				clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).toBeNull();
 			}
+
+			await test.step('Verify plot can be opened in editor', async () => {
+				await app.workbench.positronPlots.openPlotInEditor();
+				await app.workbench.positronPlots.waitForPlotInEditor();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();
@@ -90,6 +105,13 @@ test.describe('Plots', () => {
 				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
+
+			await test.step('Verify plot can be opened in editor', async () => {
+				await app.workbench.positronPlots.openPlotInEditor();
+				await app.workbench.positronPlots.waitForPlotInEditor();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
+
 		});
 
 		test('Python - Verifies the plots pane action bar - Plot actions [C656297]', { tag: ['@web', '@win'] }, async function ({ app }) {
@@ -240,9 +262,14 @@ test.describe('Plots', () => {
 	});
 
 	test.describe('R Plots', () => {
+
+		test.beforeAll(async function ({ userSettings }) {
+			await userSettings.set([['application.experimental.positronPlotsInEditorTab', 'true']]);
+		});
+
 		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('R');
 			await app.workbench.positronLayouts.enterLayout('stacked');
+			await interpreter.set('R');
 		});
 
 		test.afterEach(async function ({ app }) {
@@ -274,9 +301,19 @@ test.describe('Plots', () => {
 			if (!headless) {
 				await app.workbench.positronPlots.copyCurrentPlotToClipboard();
 
-				const clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				let clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
+
+				await app.workbench.positronClipboard.clearClipboard();
+				clipboardImageBuffer = await app.workbench.positronClipboard.getClipboardImage();
+				expect(clipboardImageBuffer).toBeNull();
 			}
+
+			await test.step('Verify plot can be opened in editor', async () => {
+				await app.workbench.positronPlots.openPlotInEditor();
+				await app.workbench.positronPlots.waitForPlotInEditor();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+			});
 
 			await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.positronPlots.clearPlots();

@@ -63,7 +63,7 @@ class SelectPositronNotebookKernelAction extends Action2 {
 
 		const gatherKernelPicks = () => {
 			const kernelMatches = notebookKernelService.getMatchingKernel(notebook);
-			const positronKernels = kernelMatches.all.filter(k => k.extension.value === 'vscode.positron-notebook-controllers');
+			const positronKernels = kernelMatches.all.filter(k => k.extension.value === 'positron.positron-notebook-controllers');
 			if (positronKernels.length === 0) {
 				quickPick.busy = true;
 				quickPick.items = [{ label: localize('positronNotebookActions.selectKernel.noKernel', 'No Positron Notebook Kernel found'), picked: true }];

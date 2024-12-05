@@ -41,6 +41,7 @@ module.exports.all = [
 
 	// Excluded since it isn't shipping code
 	'!test/smoke/test-repo/**/*',
+	'!test/e2e/test-repo/**/*',
 	// --- End Positron ---
 ];
 
@@ -108,6 +109,7 @@ module.exports.indentationFilter = [
 	'!test/automation/out/**',
 	'!test/monaco/out/**',
 	'!test/smoke/out/**',
+	'!test/e2e/out/**',
 	'!extensions/typescript-language-features/test-workspace/**',
 	'!extensions/typescript-language-features/resources/walkthroughs/**',
 	'!extensions/typescript-language-features/package-manager/node-maintainer/**',

@@ -26,7 +26,7 @@ export class TestNotebookService implements Partial<INotebookService> {
 	getPreferredRenderer(_mimeType: string): NotebookOutputRendererInfo | undefined {
 		return <NotebookOutputRendererInfo>{
 			id: 'positron-ipywidgets',
-			extensionId: new ExtensionIdentifier('vscode.positron-ipywidgets'),
+			extensionId: new ExtensionIdentifier('positron.positron-ipywidgets'),
 		};
 	}
 

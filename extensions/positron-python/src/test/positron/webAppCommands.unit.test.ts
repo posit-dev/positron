@@ -32,7 +32,7 @@ suite('Web app commands', () => {
     let isFastAPICliInstalled: boolean;
 
     setup(() => {
-        // Stub `vscode.extensions.getExtension('vscode.positron-run-app')` to return an extension
+        // Stub `vscode.extensions.getExtension('positron.positron-run-app')` to return an extension
         // with:
         // 1. `runApplication` that records the last `options` that it was called with.
         // 2. `debugApplication` that records the last `options` that it was called with.
@@ -49,7 +49,7 @@ suite('Web app commands', () => {
             },
         };
         sinon.stub(vscode.extensions, 'getExtension').callsFake((extensionId) => {
-            if (extensionId === 'vscode.positron-run-app') {
+            if (extensionId === 'positron.positron-run-app') {
                 return {
                     id: '',
                     extensionPath: '',

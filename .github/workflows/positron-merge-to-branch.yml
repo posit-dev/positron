@@ -86,7 +86,7 @@ jobs:
 
   unit-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -132,7 +132,7 @@ jobs:
 
   integration-tests:
       runs-on: ubuntu-latest-4x
-      timeout-minutes: 20
+      timeout-minutes: 30
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -190,7 +190,7 @@ jobs:
         uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL}}
+          slack_webhook_url: ${{ secrets.SLACK_TEST_RESULTS_WEBHOOK_URL }}
           notify_on: "failure"
 
 
