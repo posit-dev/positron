@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
@@ -58,15 +58,6 @@ jobs:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check installed canvas version
-        run: cd test/e2e && npm ls canvas
-
-      - name: More debugging
-        run: |
-          which node
-          node -v
-          node -p "process.versions.modules"
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}

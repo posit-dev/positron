@@ -22,9 +22,8 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { createLogger } from '../helpers/logger';
+import { createLogger, createApp } from '../helpers';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../automation';
-import { createApp } from '../../smoke/src/utils';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
 const ROOT_PATH = process.cwd();

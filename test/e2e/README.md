@@ -21,21 +21,20 @@ This document provides guidelines and setup instructions for effectively running
 
 ### Test Code Location
 
-- General test dir: `test/smoke/src/areas`
-- Positron test dir: `test/smoke/src/areas/positron`
+- `test/e2e/features`
 
-For instance, the e2e tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
 
 ### Test Helpers Location
 
 - General helpers dir: `test/automation/src`
 - Positron helpers dir: `test/automation/src/positron`
 
-For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/smoke/src/areas/positron/help/help.test.ts`
+For each area under test, there is typically a companion class that assists with locating and interacting with elements (similar to POM pattern). For instance, the e2e tests for the help pane are at `test/e2e/features/help/help.test.ts`
 
 ### Test Template
 
-An [example test](https://github.com/posit-dev/positron/blob/main/test/smoke/src/areas/positron/example.test.ts) is available to help guide you in structuring a new test.
+An [example test](https://github.com/posit-dev/positron/blob/main/test/e2e/example.test.ts) is available to help guide you in structuring a new test.
 
 ## Setup
 
@@ -106,7 +105,7 @@ Before compiling the tests, make sure to install dependencies in the following d
 
 ```bash
 yarn --cwd test/automation install
-yarn --cwd test/smoke install
+yarn --cwd test/e2e install
 ```
 
 ### Build
@@ -114,7 +113,7 @@ yarn --cwd test/smoke install
 The tests are written in TypeScript, but unlike the main Positron code, these files aren’t automatically transpiled by the build daemons. To run the tests, you’ll need to start the build watcher:
 
 ```bash
-yarn --cwd test/smoke watch
+yarn --cwd test/e2e watch
 ```
 
 _You may see errors in test files before you run this builder step once, as it's looking for types in the not-yet-existing build artifacts._
@@ -207,7 +206,7 @@ When a run is complete, you can debug any test failures that occurred using the 
 
 ### Plot Tests That Use Resemblejs
 
-In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case. We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold. You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/smoke/plots`.
+In order to get the "golden screenshots" used for plot comparison is CI, you will need to temporarily uncomment the line of code marked with `capture master image in CI` or add a similar line of code for a new case. We must use CI taken snapshots because if the "golden screenshots" are taken locally, they will differ too much from the CI images to be useable with a proper threshold. You can't compare the current runtime plot against a snapshot until you have established a baseline screenshot from CI that is saved to `test/e2e/plots`.
 
 ## Tests run on PRs
 
