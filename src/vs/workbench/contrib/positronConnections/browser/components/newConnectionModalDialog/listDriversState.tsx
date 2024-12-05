@@ -6,12 +6,12 @@
 import React, { PropsWithChildren, useState } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
-import { Driver, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
 import { DropDownListBoxItem } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBoxItem';
 import 'vs/css!./listDriversState';
+import { Driver, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
 
 interface ListDriversProps {
 	readonly services: PositronConnectionsServices;
