@@ -38,3 +38,9 @@ export const previousChangeIcon = registerIcon('notebook-diff-editor-previous-ch
 export const nextChangeIcon = registerIcon('notebook-diff-editor-next-change', Codicon.arrowDown, localize('nextChangeIcon', 'Icon for the next change action in the diff editor.'));
 
 export const variablesViewIcon = registerIcon('variables-view-icon', Codicon.debugAlt, localize('variablesViewIcon', 'View icon of the variables view.'));
+
+// --- Begin Positron ---
+export const positronKernelIdleIcon = registerIcon('circle-large-outline', Codicon.serverEnvironment, localize('kernelIdleIcon', 'Icon to indicate a kernel idle in notebook editors.'));
+export const positronKernelRunningIcon = registerIcon('circle-large-filled', Codicon.serverEnvironment, localize('kernelRunningIcon', 'Icon to indicate a kernel running in notebook editors.'));
+export const positronKernelNoKernelIcon = registerIcon('circle-slash', Codicon.serverEnvironment, localize('kernelNoKernelIcon', 'Icon to indicate a kernel no kernel in notebook editors.'));
+// --- End Positron ---

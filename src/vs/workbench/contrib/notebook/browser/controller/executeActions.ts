@@ -30,6 +30,9 @@ import { NotebookEditorInput } from 'vs/workbench/contrib/notebook/common/notebo
 import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
 import { IEditorGroupsService } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+// --- Begin Positron ---
+import { NOTEBOOK_KERNEL_SELECTED } from 'vs/workbench/contrib/notebook/common/notebookContextKeys';
+// --- End Positron ---
 
 const EXECUTE_NOTEBOOK_COMMAND_ID = 'notebook.execute';
 const CANCEL_NOTEBOOK_COMMAND_ID = 'notebook.cancelExecution';
@@ -627,6 +630,95 @@ registerAction2(class InterruptNotebook extends CancelNotebook {
 	}
 });
 
+// --- Begin Positron ---
+registerAction2(class ShowNoKernelIndicatorAction extends NotebookAction {
+	static readonly ID = 'notebook.showNoKernelIndicator';
+	static readonly LABEL = localize('notebookActions.showNoKernelIndicator', "Kernel Disconnected");
+
+	constructor() {
+		super({
+			id: ShowNoKernelIndicatorAction.ID,
+			title: ShowNoKernelIndicatorAction.LABEL,
+			f1: false,
+			menu: [{
+				id: MenuId.NotebookToolbar,
+				group: 'navigation/execute',
+				order: 10,
+				when: ContextKeyExpr.and(
+					NOTEBOOK_KERNEL_SELECTED.toNegated(),
+					NOTEBOOK_IS_ACTIVE_EDITOR,
+					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
+				)
+			}],
+			icon: icons.positronKernelNoKernelIcon
+		});
+	}
+
+	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
+		// This is just an indicator, so no action needed
+		return;
+	}
+});
+
+
+registerAction2(class ShowRunningIndicatorAction extends NotebookAction {
+	static readonly ID = 'notebook.showRunningIndicator';
+	static readonly LABEL = localize('notebookActions.showRunningIndicator', "Kernel Running");
+
+	constructor() {
+		super({
+			id: ShowRunningIndicatorAction.ID,
+			title: ShowRunningIndicatorAction.LABEL,
+			f1: false,
+			menu: [{
+				id: MenuId.NotebookToolbar,
+				group: 'navigation/execute',
+				order: 10,
+				when: ContextKeyExpr.and(
+					NOTEBOOK_HAS_SOMETHING_RUNNING,
+					NOTEBOOK_IS_ACTIVE_EDITOR,
+					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
+				)
+			}],
+			icon: icons.positronKernelRunningIcon
+		});
+	}
+
+	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
+		// This is just an indicator, so no action needed
+		return;
+	}
+});
+
+registerAction2(class ShowIdleIndicatorAction extends NotebookAction {
+	static readonly ID = 'notebook.showIdleIndicator';
+	static readonly LABEL = localize('notebookActions.showIdleIndicator', "Kernel Idle");
+
+	constructor() {
+		super({
+			id: ShowIdleIndicatorAction.ID,
+			title: ShowIdleIndicatorAction.LABEL,
+			f1: false,
+			menu: [{
+				id: MenuId.NotebookToolbar,
+				group: 'navigation/execute',
+				order: 10,
+				when: ContextKeyExpr.and(
+					NOTEBOOK_HAS_SOMETHING_RUNNING.negate(),
+					NOTEBOOK_IS_ACTIVE_EDITOR,
+					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
+				)
+			}],
+			icon: icons.positronKernelIdleIcon
+		});
+	}
+
+	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
+		// This is just an indicator, so no action needed
+		return;
+	}
+});
+// --- End Positron ---
 
 MenuRegistry.appendMenuItem(MenuId.NotebookToolbar, {
 	title: localize('revealRunningCellShort', "Go To"),
