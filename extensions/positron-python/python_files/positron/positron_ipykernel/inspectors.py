@@ -61,6 +61,12 @@ if TYPE_CHECKING:
     except ImportError:
         pass
 
+    try:
+        import ibis  # python >= 3.10
+    except ImportError:
+        pass
+
+
 # General display settings
 TRUNCATE_AT: int = 1024
 PRINT_WIDTH: int = 100

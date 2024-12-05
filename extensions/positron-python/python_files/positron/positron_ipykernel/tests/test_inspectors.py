@@ -919,7 +919,12 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
 def test_inspect_ibis_exprs() -> None:
     import ibis
 
-    t = ibis.table({"a": "int64", "b": "string"})
+    # Make sure we don't return an executed repr
+    ibis.options.interactive = True
+
+    df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
+
+    t = ibis.memtable(df, name="df")
     table_type = "ibis.expr.types.relations.Table"
 
     verify_inspector(
