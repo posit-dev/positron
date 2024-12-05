@@ -1108,6 +1108,12 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
 
 
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
+    def has_children(self) -> bool:
+        return False
+
+    def get_length(self) -> int:
+        return 0
+
     def is_mutable(self):
         return False
 
@@ -1117,7 +1123,7 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Just use the default object.__repr__ for now
-        return pretty_format(object.__repr__(self.value), print_width, truncate_at)
+        return pretty_format(type(self.value), print_width, truncate_at)
 
     def get_display_type(self) -> str:
         return type(self.value).__name__
