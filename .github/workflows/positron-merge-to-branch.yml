@@ -44,7 +44,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version-file: 20.14
+          node-version: 20
 
       - name: Debug Node.js version
         run: |
