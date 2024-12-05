@@ -80,7 +80,6 @@ suite('NotebookController', () => {
 
 		// Create a test session.
 		session = new TestLanguageRuntimeSession();
-		session.setRuntimeState(positron.RuntimeState.Idle);
 		disposables.push(session);
 		sinon.stub(positron.runtime, 'getNotebookSession').withArgs(notebook.uri).resolves(session as any);
 
