@@ -8,6 +8,7 @@ import inspect
 import pprint
 import random
 import string
+import sys
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
 
@@ -912,6 +913,46 @@ def test_get_children(data: Any, expected: Iterable) -> None:
 def test_get_child(value: Any, key: Any, expected: Any) -> None:
     child = get_inspector(value).get_child(key)
     assert get_inspector(child).equals(expected)
+
+
+@pytest.mark.skipif(sys.version_info < (3, 10), reason="requires Python 3.10 or higher")
+def test_inspect_ibis_exprs() -> None:
+    import ibis
+
+    # Make sure we don't return an executed repr
+    ibis.options.interactive = True
+
+    df = pd.DataFrame({"a": [1, 2, 1, 1, 2], "b": ["foo", "bar", "baz", "qux", None]})
+
+    t = ibis.memtable(df, name="df")
+    table_type = "ibis.expr.types.relations.Table"
+
+    verify_inspector(
+        value=t,
+        display_value=table_type,
+        kind=VariableKind.Other,
+        display_type=f"ibis.Expr",
+        type_info=get_type_as_str(t),
+        has_children=False,
+        is_truncated=True,
+        length=0,
+        mutable=False,
+    )
+
+    a_sum = t["a"].sum()  # type: ignore
+    int_type = "ibis.expr.types.numeric.IntegerScalar"
+
+    verify_inspector(
+        value=a_sum,
+        display_value=int_type,
+        kind=VariableKind.Other,
+        display_type=f"ibis.Expr",
+        type_info=get_type_as_str(a_sum),
+        has_children=False,
+        is_truncated=True,
+        length=0,
+        mutable=False,
+    )
 
 
 # TODO(wesm): these size values are only currently used for computing
