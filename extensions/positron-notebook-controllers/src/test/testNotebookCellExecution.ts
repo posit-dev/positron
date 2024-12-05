@@ -9,6 +9,8 @@ export class TestNotebookCellExecution implements vscode.NotebookCellExecution {
 	token: vscode.CancellationToken;
 	executionOrder: number | undefined;
 
+	private readonly tokenSource = new vscode.CancellationTokenSource();
+
 	private _started = false;
 	private _startTime?: number;
 	private _ended = false;
@@ -18,8 +20,7 @@ export class TestNotebookCellExecution implements vscode.NotebookCellExecution {
 	constructor(
 		public readonly cell: vscode.NotebookCell,
 	) {
-		const tokenSource = new vscode.CancellationTokenSource();
-		this.token = tokenSource.token;
+		this.token = this.tokenSource.token;
 	}
 
 	start(startTime?: number): void {
@@ -67,6 +68,10 @@ export class TestNotebookCellExecution implements vscode.NotebookCellExecution {
 
 	get endTime() {
 		return this._endTime;
+	}
+
+	interrupt() {
+		this.tokenSource.cancel();
 	}
 
 	assertDidStart() {

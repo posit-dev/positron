@@ -11,8 +11,8 @@ import { JUPYTER_NOTEBOOK_TYPE } from '../constants';
 import { DidEndExecutionEvent, DidStartExecutionEvent, NotebookController } from '../notebookController';
 import { NotebookSessionService } from '../notebookSessionService';
 import { log } from '../extension';
-import { randomUUID } from 'crypto';
 import { TestNotebookCellExecution } from './testNotebookCellExecution';
+import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession';
 
 suite('NotebookController', () => {
 	const runtime = {
@@ -25,11 +25,11 @@ suite('NotebookController', () => {
 	let disposables: vscode.Disposable[];
 	let notebookSessionService: sinon.SinonStubbedInstance<NotebookSessionService>;
 	let notebookController: NotebookController;
-	let onDidReceiveRuntimeMessage: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
 	let notebook: vscode.NotebookDocument;
 	let cells: vscode.NotebookCell[];
-	let session: positron.LanguageRuntimeSession;
+	let session: TestLanguageRuntimeSession;
 	let executions: TestNotebookCellExecution[];
+	let onDidCreateNotebookCellExecution: vscode.EventEmitter<TestNotebookCellExecution>;
 
 	setup(async () => {
 		disposables = [];
@@ -78,25 +78,19 @@ suite('NotebookController', () => {
 			notebook,
 		} as vscode.NotebookCell];
 
-		// Create a mock session.
-		onDidReceiveRuntimeMessage = new vscode.EventEmitter();
-		disposables.push(onDidReceiveRuntimeMessage);
-		session = {
-			metadata: {
-				sessionId: 'test-session',
-			} as positron.RuntimeSessionMetadata,
-			async interrupt() { },
-			onDidReceiveRuntimeMessage: onDidReceiveRuntimeMessage.event,
-			execute(_code, _id, _mode, _errorBehavior) { }
-		} as Partial<positron.LanguageRuntimeSession> as positron.LanguageRuntimeSession;
-		notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(session);
+		// Create a test session.
+		session = new TestLanguageRuntimeSession();
+		disposables.push(session);
+		notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(session as any);
 
 		// Stub the notebook controller to return a test cell execution.
 		executions = [];
+		onDidCreateNotebookCellExecution = new vscode.EventEmitter();
 		sinon.stub(notebookController.controller, 'createNotebookCellExecution')
 			.callsFake((cell) => {
 				const execution = new TestNotebookCellExecution(cell);
 				executions.push(execution);
+				onDidCreateNotebookCellExecution.fire(execution);
 				return execution;
 			});
 	});
@@ -123,37 +117,13 @@ suite('NotebookController', () => {
 		return notebookController.controller.executeHandler(cellsToExecute, notebook, notebookController.controller);
 	}
 
-	function fireIdleMessage(parent_id: string) {
-		onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			type: positron.LanguageRuntimeMessageType.State,
-			parent_id,
-			when: new Date().toISOString(),
-			state: positron.RuntimeOnlineState.Idle,
-		} as positron.LanguageRuntimeState);
-	}
-
-	function fireErrorMessage(parent_id: string) {
-		onDidReceiveRuntimeMessage.fire({
-			id: randomUUID(),
-			type: positron.LanguageRuntimeMessageType.Error,
-			parent_id,
-			when: new Date().toISOString(),
-			message: 'An error occurred.',
-			name: 'Error',
-			traceback: ['Traceback line 1', 'Traceback line 2'],
-		} as positron.LanguageRuntimeError);
-	}
-
-	function onExecute(callback: (id: string) => void) {
-		sinon.stub(session, 'execute').callsFake((_code, id, _mode, _errorBehavior) => {
-			callback(id);
-		});
+	function interruptNotebook() {
+		return notebookController.controller.interruptHandler!(notebook);
 	}
 
 	suite('executeHandler', () => {
 		test('single cell executes successfully on status idle message', async () => {
-			onExecute(fireIdleMessage);
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
 
 			await executeNotebook([0]);
 
@@ -163,7 +133,7 @@ suite('NotebookController', () => {
 		});
 
 		test('single cell fires start and end execution events', async () => {
-			onExecute(fireIdleMessage);
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
 
 			const startExecution = sinon.spy((_e: DidStartExecutionEvent) => { });
 			disposables.push(notebookController.onDidStartExecution(startExecution));
@@ -180,7 +150,7 @@ suite('NotebookController', () => {
 		});
 
 		test('single cell executes unsuccessfully on error message', async () => {
-			onExecute(fireErrorMessage);
+			disposables.push(session.onDidExecute((id) => session.fireErrorMessage(id)));
 
 			await executeNotebook([0]);
 
@@ -190,7 +160,7 @@ suite('NotebookController', () => {
 		});
 
 		test('queued cells are not executed if a preceding cell errors', async () => {
-			onExecute(fireErrorMessage);
+			disposables.push(session.onDidExecute((id) => session.fireErrorMessage(id)));
 
 			await executeNotebook([0, 1]);
 
@@ -199,8 +169,8 @@ suite('NotebookController', () => {
 			executions[0].assertDidEndUnsuccessfully();
 		});
 
-		test('queued cells execute in order', async () => {
-			onExecute(fireIdleMessage);
+		test('queued cells execute in order (single execution)', async () => {
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
 
 			await executeNotebook([0, 1]);
 
@@ -211,6 +181,78 @@ suite('NotebookController', () => {
 			executions[0].assertDidEndSuccessfully();
 			executions[1].assertDidEndSuccessfully();
 			executions[0].assertDidExecuteBefore(executions[1]);
+		});
+
+		test('queued cells execute in order (multiple executions)', async () => {
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
+
+			await Promise.all([executeNotebook([0]), executeNotebook([1])]);
+
+			// Check the executions.
+			assert.equal(executions.length, 2);
+			assert.equal(executions[0].cell.index, 0);
+			assert.equal(executions[1].cell.index, 1);
+			executions[0].assertDidEndSuccessfully();
+			executions[1].assertDidEndSuccessfully();
+			executions[0].assertDidExecuteBefore(executions[1]);
+		});
+
+		test('internal state is reset after each execution', async () => {
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
+
+			await executeNotebook([0]);
+			assert.equal(executions.length, 1);
+			executions[0].assertDidEndSuccessfully();
+
+			await executeNotebook([1]);
+			assert.equal(executions.length, 2);
+			executions[1].assertDidEndSuccessfully();
+		});
+
+		test('interrupt with running session and executing cell', async () => {
+			const executionStartedPromise = new Promise<void>(resolve => {
+				disposables.push(session.onDidExecute((_id) => {
+					// Don't fire an idle message since we're testing interrupt.
+					resolve();
+				}));
+			});
+			const executionEndedPromise = executeNotebook([0]);
+			await executionStartedPromise;
+
+			// Interrupt and wait for the execution to end.
+			await interruptNotebook();
+			await executionEndedPromise;
+
+			assert.equal(executions.length, 1);
+			executions[0].assertDidEndUnsuccessfully();
+		});
+
+		test('interrupt with no executing cell', async () => {
+			// This should not error.
+			await interruptNotebook();
+
+			assert.equal(executions.length, 0);
+		});
+
+		test('interrupt with no running session', async () => {
+			const executionStartedPromise = new Promise<void>(resolve => {
+				disposables.push(session.onDidExecute((_id) => {
+					// Don't fire an idle message since we're testing interrupt.
+					resolve();
+				}));
+			});
+			const executionEndedPromise = executeNotebook([0]);
+			await executionStartedPromise;
+
+			// Simulate the session exiting.
+			notebookSessionService.getNotebookSession.withArgs(notebook.uri).returns(undefined);
+
+			// Interrupt and wait for the execution to end.
+			await interruptNotebook();
+			await executionEndedPromise;
+
+			assert.equal(executions.length, 1);
+			executions[0].assertDidEndUnsuccessfully();
 		});
 	});
 });
