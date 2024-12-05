@@ -59,3 +59,19 @@
 .create-connection-footer > .default {
 	margin-left: auto;
 }
+
+.create-connection-inputs {
+	display: flex;
+	flex-direction: column;
+	overflow: auto;
+	padding: 2px;
+}
+
+.create-connection-inputs > .labeled-text-input > label {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 5px;
+	height: 40px;
+	text-wrap: nowrap;
+}

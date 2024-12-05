@@ -6,7 +6,7 @@
 import React, { PropsWithChildren, useState } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
-import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
+import { Driver, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from 'vs/workbench/browser/positronComponents/dropDownListBox/dropDownListBox';
@@ -125,6 +125,38 @@ const getRegisteredDrivers = (languageId: string): Array<Driver> => {
 			languageId: languageId,
 			driverId: 'postgres',
 			name: 'PostgresSQL',
+			inputs: [
+				{
+					'id': 'server',
+					'label': 'Server',
+					'type': InputType.String
+				},
+				{
+					'id': 'port',
+					'label': 'Port',
+					'type': InputType.Number
+				},
+				{
+					'id': 'database',
+					'label': 'Database',
+					'type': InputType.String
+				},
+				{
+					'id': 'user_id',
+					'label': 'User ID',
+					'type': InputType.String
+				},
+				{
+					'id': 'password',
+					'label': 'Password',
+					'type': InputType.String
+				},
+				{
+					'id': 'bool_as_char',
+					'label': 'Boolean as Character',
+					'type': InputType.Boolean
+				}
+			]
 		},
 	];
 };

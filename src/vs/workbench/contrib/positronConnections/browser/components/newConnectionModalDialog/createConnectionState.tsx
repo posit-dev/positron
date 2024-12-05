@@ -6,7 +6,7 @@
 import React, { PropsWithChildren, useRef } from 'react';
 import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
 import { localize } from 'vs/nls';
-import { Driver } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
+import { Driver, Input } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog';
 import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
 import 'vs/css!./createConnectionState';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from 'vs/workbench/contrib/positronConnections/browser/components/simpleCodeEditor';
@@ -21,7 +21,7 @@ interface CreateConnectionProps {
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
 
-	const { name, languageId } = props.selectedDriver;
+	const { name, languageId, inputs } = props.selectedDriver;
 	const { onBack, onCancel, services } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
@@ -44,8 +44,13 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</h1>
 		</div>
 
-		<div className='create-connection-inputs'>
-		</div>
+		<form className='create-connection-inputs'>
+			{
+				inputs.map((input) => {
+					return <FormElement key={input.id} {...input}></FormElement>;
+				})
+			}
+		</form>
 
 		<div className='create-connection-code-title'>
 			{localize('positron.newConnectionModalDialog.createConnection.code', "Connection Code")}
@@ -93,5 +98,15 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
 			</PositronButton>
 		</div>
+	</div>;
+};
+
+const FormElement = (props: PropsWithChildren<Input>) => {
+	const { label } = props;
+	return <div className='labeled-text-input'>
+		<label className='label input'>
+			{label}
+			<input type='text' className='text-input'></input>
+		</label>
 	</div>;
 };
