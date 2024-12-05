@@ -219,7 +219,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={labelService.getUriLabel(parentFolder)}
+					value={labelService.getUriLabel(parentFolder, { noPrefix: true })}
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
