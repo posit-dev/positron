@@ -433,6 +433,21 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 			});
 
+			test(`${action} ${mode} concurrently encounters session.start() error`, async () => {
+				// Listen to the onWillStartSession event and stub session.start() to throw an error.
+				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
+					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+				});
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
+				// Start twice concurrently.
+				// Neither should error.
+				const [session1, session2] = await Promise.all([start(), start()]);
+
+				// The same session should be returned.
+				assert.equal(session1, session2);
+			});
+
 			test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
 				let error: Error;
 				if (mode === LanguageRuntimeSessionMode.Console) {
@@ -500,7 +515,7 @@ suite('Positron - RuntimeSessionService', () => {
 			});
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
-				test(`${action} concurrently with no session manager for runtime (#5615)`, async () => {
+				test(`${action} console concurrently with no session manager for runtime (#5615)`, async () => {
 					sinon.stub(manager, 'managesRuntime').resolves(false);
 
 					// Start twice concurrently.

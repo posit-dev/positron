@@ -515,9 +515,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually reconnect the session.
 		try {
 			await this.doStartRuntimeSession(session, sessionManager, false);
-			startPromise.complete(sessionMetadata.sessionId);
 		} catch (err) {
-			startPromise.error(err);
+			// Do nothing
+		} finally {
+			startPromise.complete(sessionMetadata.sessionId);
 		}
 	}
 
@@ -870,9 +871,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually start the session.
 		try {
 			await this.doStartRuntimeSession(session, sessionManager, true);
-			startPromise.complete(sessionId);
 		} catch (err) {
-			startPromise.error(err);
+			// Do nothing
+		} finally {
+			startPromise.complete(sessionId);
 		}
 
 		return sessionId;
