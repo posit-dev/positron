@@ -6,9 +6,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { NotebookSessionService } from './notebookSessionService';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
-import { log } from './extension';
+import { log, setHasRunningNotebookSessionContext } from './extension';
 import { ResourceMap } from './map';
-import { getNotebookSession } from './utils';
+import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
 
 /** The type of a Jupyter notebook cell output. */
 enum NotebookCellOutputType {
@@ -110,7 +110,7 @@ export class NotebookController implements vscode.Disposable {
 					this.selectRuntimeSession(e.notebook),
 				]);
 			} else {
-				await this._notebookSessionService.shutdownRuntimeSession(e.notebook.uri);
+				await this.shutdownRuntimeSession(e.notebook);
 			}
 		}));
 	}
@@ -122,10 +122,18 @@ export class NotebookController implements vscode.Disposable {
 
 	private async selectRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
 		// If there's an existing session from another runtime, shut it down.
-		await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
+		await this.shutdownRuntimeSession(notebook);
 
 		// Start the new session.
 		await this.startRuntimeSession(notebook);
+	}
+
+	private async shutdownRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
+		if (isActiveNotebookEditorUri(notebook.uri)) {
+			await setHasRunningNotebookSessionContext(false);
+		}
+
+		await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
 	}
 
 	/**
@@ -136,7 +144,13 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async startRuntimeSession(notebook: vscode.NotebookDocument): Promise<positron.LanguageRuntimeSession> {
 		try {
-			return await this._notebookSessionService.startRuntimeSession(notebook.uri, this._runtimeMetadata.runtimeId);
+			const session = await this._notebookSessionService.startRuntimeSession(notebook.uri, this._runtimeMetadata.runtimeId);
+
+			if (isActiveNotebookEditorUri(notebook.uri)) {
+				await setHasRunningNotebookSessionContext(true);
+			}
+
+			return session;
 		} catch (err) {
 			const retry = vscode.l10n.t('Retry');
 			const selection = await vscode.window.showErrorMessage(
