@@ -46,21 +46,8 @@ jobs:
         with:
           node-version: 20
 
-      - name: Debug Node.js version
-        run: |
-          echo "Node.js version:"
-          node -v
-          echo "Node.js MODULE_VERSION:"
-          node -p "process.versions.modules"
-
-      - name: More debugging
-        run: |
-          which node
-          node -v
-          node -p "process.versions.modules"
-
-      # - name: Cache node_modules, build, extensions, and remote
-      #   uses: ./.github/actions/cache-multi-paths
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
 
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
@@ -72,10 +59,6 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - run: cd test/e2e && yarn install && yarn compile
-      # - name: Rebuild Canvas
-      #   run: npm rebuild canvas # i don't understand why i have to do this?
-
       - name: Check installed canvas version
         run: cd test/e2e && npm ls canvas
 
@@ -84,9 +67,6 @@ jobs:
           which node
           node -v
           node -p "process.versions.modules"
-
-      # - name: Setup tmate session
-      #   uses: mxschmitt/action-tmate@v3
 
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
