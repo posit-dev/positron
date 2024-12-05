@@ -38,7 +38,10 @@ import { kProxyRegex } from './pwbConstants.js';
 const textMimeType: { [ext: string]: string | undefined } = {
 	'.html': 'text/html',
 	'.js': 'text/javascript',
+	// --- Start Positron ---
+	// Add MJS mime type (for ES modules)
 	'.mjs': 'text/javascript',
+	// --- End Positron ---
 	'.json': 'application/json',
 	'.css': 'text/css',
 	'.svg': 'image/svg+xml',
