@@ -5,6 +5,7 @@ geopandas==0.13.2; python_version < '3.9'
 geopandas==1.0.1; python_version >= '3.9'
 hvplot==0.10.0 ; python_version >= '3.9'
 hvplot==0.8.0 ; python_version < '3.9'
+ibis-framework[duckdb]==9.5.0
 ipykernel==6.29.5
 ipywidgets==8.1.5
 matplotlib==3.9.2; python_version >= '3.9'

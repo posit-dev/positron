@@ -90,9 +90,35 @@ SIMPLER_NAMES = {
 }
 
 
-def _get_class_display(value):
+def _remap_ibis_classnames(value):
+    # We will provide more nuanced handling of Ibis expressions in the
+    # inspector class for ibis.Expr and its many subclasses
+
+    import ibis
+
+    if isinstance(value, ibis.Expr):
+        return "ibis.Expr"
+
+    return get_qualname(value)
+
+
+PACKAGE_REMAPPERS = {
+    "ibis": _remap_ibis_classnames,
+}
+
+
+def _get_simplified_qualname(value):
     display_value = get_qualname(value)
-    return SIMPLER_NAMES.get(display_value, display_value)
+
+    if display_value in SIMPLER_NAMES:
+        return SIMPLER_NAMES[display_value]
+
+    top_path = display_value.split(".")[0]
+
+    if top_path in PACKAGE_REMAPPERS:
+        return PACKAGE_REMAPPERS[top_path](value)
+
+    return display_value
 
 
 class PositronInspector(Generic[T]):
@@ -805,7 +831,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_class_display(self.value)
+        display_value = _get_simplified_qualname(self.value)
         column_values = str(cast(Column, self.value[:100]).to_list())
         display_value = f"{display_value} {column_values}"
 
@@ -821,9 +847,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
+    # Simplified names
     CLASS_QNAME = [
-        "pandas.core.series.Series",
-        "geopandas.geoseries.GeoSeries",
+        "pandas.Series",
+        "geopandas.GeoSeries",
     ]
 
     def get_display_name(self, key: int) -> str:
@@ -900,9 +927,9 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
 
 class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
+    # Simplified class names
     CLASS_QNAME = [
-        "polars.series.series.Series",
-        "polars.internals.series.series.Series",
+        "polars.Series",
     ]
 
     def equals(self, value: pl.Series) -> bool:
@@ -956,7 +983,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_class_display(self.value)
+        display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
             display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
@@ -970,9 +997,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
+    # Simplified names
     CLASS_QNAME = [
-        "pandas.core.frame.DataFrame",
-        "geopandas.geodataframe.GeoDataFrame",
+        "pandas.DataFrame",
+        "geopandas.GeoDataFrame",
     ]
 
     def get_display_name(self, key: int) -> str:
@@ -1000,9 +1028,9 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
 
 
 class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
+    # Simplified class name
     CLASS_QNAME = [
-        "polars.dataframe.frame.DataFrame",
-        "polars.internals.dataframe.frame.DataFrame",
+        "polars.DataFrame",
     ]
 
     def get_children(self):
@@ -1013,7 +1041,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        qualname = _get_class_display(self.value)
+        qualname = _get_simplified_qualname(self.value)
         shape = self.value.shape
         display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
         return (display_value, True)
@@ -1079,6 +1107,22 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
         return True
 
 
+class IbisExprInspector(PositronInspector["ibis.Expr"]):
+    def get_display_name(self, key: Any) -> str:
+        return str(key)
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        # Just use the default object.__repr__ for now
+        return pretty_format(object.__repr__(self.value), print_width, truncate_at)
+
+    def get_display_type(self) -> str:
+        return type(self.value).__name__
+
+
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
@@ -1092,6 +1136,7 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
     **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
+    "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
     "class": ClassInspector,
@@ -1117,7 +1162,7 @@ def get_inspector(value: T) -> PositronInspector[T]:
     elif isinstance(value, property):
         qualname = "property"
     else:
-        qualname = get_qualname(value)
+        qualname = _get_simplified_qualname(value)
     inspector_cls = INSPECTOR_CLASSES.get(qualname, None)
 
     if inspector_cls is None:
