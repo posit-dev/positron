@@ -519,7 +519,10 @@ export class SearchView extends ViewPane {
 
 		this.inputPatternIncludes = this._register(this.instantiationService.createInstance(IncludePatternInputWidget, folderIncludesList, this.contextViewService, {
 			ariaLabel: filesToIncludeTitle,
-			placeholder: nls.localize('placeholder.includes', "e.g. *.ts, src/**/include"),
+			// --- Start Positron ---
+			// placeholder: nls.localize('placeholder.includes', "e.g. *.ts, src/**/include"),
+			placeholder: nls.localize('placeholder.includes', "e.g. *.py, tests/testthat/*.R"),
+			// --- End Positron
 			showPlaceholderOnFocus: true,
 			history: patternIncludesHistory,
 			inputBoxStyles: defaultInputBoxStyles
@@ -539,7 +542,10 @@ export class SearchView extends ViewPane {
 		dom.append(excludesList, $('h4', undefined, excludesTitle));
 		this.inputPatternExcludes = this._register(this.instantiationService.createInstance(ExcludePatternInputWidget, excludesList, this.contextViewService, {
 			ariaLabel: excludesTitle,
-			placeholder: nls.localize('placeholder.excludes', "e.g. *.ts, src/**/exclude"),
+			// --- Start Positron ---
+			// placeholder: nls.localize('placeholder.excludes', "e.g. *.ts, src/**/exclude"),
+			placeholder: nls.localize('placeholder.excludes', "e.g. *.html, *.Rd, man/**/*.md"),
+			// --- End Positron
 			showPlaceholderOnFocus: true,
 			history: patternExclusionsHistory,
 			inputBoxStyles: defaultInputBoxStyles
