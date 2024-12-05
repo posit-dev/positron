@@ -544,7 +544,7 @@ export class SearchView extends ViewPane {
 			ariaLabel: excludesTitle,
 			// --- Start Positron ---
 			// placeholder: nls.localize('placeholder.excludes', "e.g. *.ts, src/**/exclude"),
-			placeholder: nls.localize('placeholder.excludes', "e.g. *.html, man/**/*.md"),
+			placeholder: nls.localize('placeholder.excludes', "e.g. *.html, *.Rd, man/**/*.md"),
 			// --- End Positron
 			showPlaceholderOnFocus: true,
 			history: patternExclusionsHistory,
