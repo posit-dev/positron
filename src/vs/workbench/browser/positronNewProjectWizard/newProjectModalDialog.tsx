@@ -30,6 +30,7 @@ import { IWorkspaceTrustManagementService } from 'vs/platform/workspace/common/w
 import { showChooseNewProjectWindowModalDialog } from 'vs/workbench/browser/positronNewProjectWizard/chooseNewProjectWindowModalDialog';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
 import { URI } from 'vs/base/common/uri';
+import { ILabelService } from 'vs/platform/label/common/label';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -40,6 +41,7 @@ export const showNewProjectModalDialog = async (
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
+	labelService: ILabelService,
 	languageRuntimeService: ILanguageRuntimeService,
 	layoutService: IWorkbenchLayoutService,
 	logService: ILogService,
@@ -48,7 +50,7 @@ export const showNewProjectModalDialog = async (
 	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
-	workspaceTrustManagementService: IWorkspaceTrustManagementService
+	workspaceTrustManagementService: IWorkspaceTrustManagementService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -66,6 +68,7 @@ export const showNewProjectModalDialog = async (
 				fileDialogService,
 				fileService,
 				keybindingService,
+				labelService,
 				languageRuntimeService,
 				layoutService,
 				logService,

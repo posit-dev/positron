@@ -26,6 +26,7 @@ import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positr
 import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKCancelModalDialog';
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
+import { ILabelService } from 'vs/platform/label/common/label';
 
 /**
  * Shows the new folder from Git modal dialog.
@@ -40,6 +41,7 @@ export const showNewFolderFromGitModalDialog = async (
 	configurationService: IConfigurationService,
 	fileDialogService: IFileDialogService,
 	keybindingService: IKeybindingService,
+	labelService: ILabelService,
 	layoutService: IWorkbenchLayoutService,
 ): Promise<void> => {
 	// Create the renderer.
@@ -53,6 +55,7 @@ export const showNewFolderFromGitModalDialog = async (
 	renderer.render(
 		<NewFolderFromGitModalDialog
 			fileDialogService={fileDialogService}
+			labelService={labelService}
 			renderer={renderer}
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
@@ -94,6 +97,7 @@ interface NewFolderFromGitResult {
  */
 interface NewFolderFromGitModalDialogProps {
 	fileDialogService: IFileDialogService;
+	labelService: ILabelService;
 	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
@@ -167,7 +171,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.fsPath}
+					value={props.labelService.getUriLabel(result.parentFolder)}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
