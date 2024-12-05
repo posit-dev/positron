@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 
 export class TestLanguageRuntimeSession implements Partial<positron.LanguageRuntimeSession> {
-	private _state = positron.RuntimeState.Uninitialized;
 	private _lastExecutionId?: string;
 	private readonly _onDidReceiveRuntimeMessage = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
 	private readonly _onDidExecute = new vscode.EventEmitter<string>();
@@ -19,10 +18,6 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 	public readonly metadata = {
 		sessionId: 'test-session',
 	} as positron.RuntimeSessionMetadata;
-
-	get state(): positron.RuntimeState {
-		return this._state;
-	}
 
 	execute(_code: string, id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior) {
 		this._lastExecutionId = id;
@@ -40,10 +35,6 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 	}
 
 	// Test helpers
-
-	public setRuntimeState(state: positron.RuntimeState) {
-		this._state = state;
-	}
 
 	public fireErrorMessage(parent_id: string) {
 		this._onDidReceiveRuntimeMessage.fire({
