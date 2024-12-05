@@ -542,7 +542,10 @@ export class SearchView extends ViewPane {
 		dom.append(excludesList, $('h4', undefined, excludesTitle));
 		this.inputPatternExcludes = this._register(this.instantiationService.createInstance(ExcludePatternInputWidget, excludesList, this.contextViewService, {
 			ariaLabel: excludesTitle,
-			placeholder: nls.localize('placeholder.excludes', "e.g. *.ts, src/**/exclude"),
+			// --- Start Positron ---
+			// placeholder: nls.localize('placeholder.excludes', "e.g. *.ts, src/**/exclude"),
+			placeholder: nls.localize('placeholder.excludes', "e.g. *.html, man/**/*.md"),
+			// --- End Positron
 			showPlaceholderOnFocus: true,
 			history: patternExclusionsHistory,
 			inputBoxStyles: defaultInputBoxStyles
