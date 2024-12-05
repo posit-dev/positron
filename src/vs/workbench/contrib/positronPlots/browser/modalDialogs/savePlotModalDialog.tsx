@@ -31,6 +31,7 @@ import { formatPlotUnit, PlotSizingPolicyIntrinsic } from 'vs/workbench/services
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IRenderedPlot } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { ILabelService } from 'vs/platform/label/common/label';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -64,6 +65,7 @@ export const showSavePlotModalDialog = (
 	fileDialogService: IFileDialogService,
 	logService: ILogService,
 	notificationService: INotificationService,
+	labelService: ILabelService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
@@ -84,6 +86,7 @@ export const showSavePlotModalDialog = (
 			keybindingService={keybindingService}
 			logService={logService}
 			notificationService={notificationService}
+			labelService={labelService}
 			renderer={renderer}
 			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
 			plotSize={plotClient.lastRender?.size}
@@ -103,6 +106,7 @@ interface SavePlotModalDialogProps {
 	logService: ILogService;
 	notificationService: INotificationService;
 	keybindingService: IKeybindingService;
+	labelService: ILabelService;
 	renderer: PositronModalReactRenderer;
 	enableIntrinsicSize: boolean;
 	plotSize: IPlotSize | undefined;
@@ -301,7 +305,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									'positron.savePlotModalDialog.directory',
 									"Directory"
 								))()}
-								value={directory.value.fsPath}
+								value={props.labelService.getUriLabel(directory.value, { noPrefix: true })}
 								onChange={e => updatePath(directory.value.with({ path: e.target.value }))}
 								onBrowse={browseHandler}
 								readOnlyInput={false}
