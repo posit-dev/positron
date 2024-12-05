@@ -24,9 +24,9 @@ test.describe('Large Python Notebook', {
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-		await app.code.driver.page.getByText('Run All').click();
+		await app.code.driver.page.getByLabel('Run All').click();
 
-		const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: 'Stop Execution' });
+		const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 		await expect(stopExecutionLocator).toBeVisible();
 		await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
 
