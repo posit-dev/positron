@@ -5,3 +5,5 @@
 
 export { prepareTestEnv } from './test-setup';
 export { cloneTestRepo } from './utils';
+export { createApp } from './create-app';
+export { createLogger } from './logger';
