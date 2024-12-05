@@ -36,11 +36,11 @@ jobs:
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
-        run: yarn test-node
+        run: npm run test-node
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
-        run: DISPLAY=:10 yarn test-browser-no-install --browser chromium
+        run: DISPLAY=:10 npm run test-browser-no-install --browser chromium
 
   integration-tests:
     runs-on: ubuntu-latest
@@ -73,7 +73,7 @@ jobs:
           version: "4.4.0"
 
       - name: Compile Integration Tests
-        run: yarn --cwd test/integration/browser compile
+        run: npm --prefix test/integration/browser run compile
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
@@ -195,7 +195,7 @@ jobs:
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
-        run: yarn gulp node
+        run: npm run gulp node
 
       - name: Run Tests (Browser)
         env:
@@ -234,7 +234,8 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: mcr.microsoft.com/playwright:v1.48.0-jammy
-    needs: [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
+    needs:
+      [e2e-electron-tests, e2e-browser-tests, unit-tests, integration-tests]
     env:
       REPORT_DIR: playwright-report-${{ github.run_id }}
 
