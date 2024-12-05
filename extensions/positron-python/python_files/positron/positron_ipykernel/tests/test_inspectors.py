@@ -914,6 +914,40 @@ def test_get_child(value: Any, key: Any, expected: Any) -> None:
     assert get_inspector(child).equals(expected)
 
 
+def test_inspect_ibis_exprs() -> None:
+    import ibis
+
+    t = ibis.table({"a": "int64", "b": "string"})
+    table_type = "ibis.expr.types.relations.Table"
+
+    verify_inspector(
+        value=t,
+        display_value=table_type,
+        kind=VariableKind.Other,
+        display_type=f"ibis.Expr",
+        type_info=get_type_as_str(t),
+        has_children=False,
+        is_truncated=True,
+        length=0,
+        mutable=False,
+    )
+
+    a_sum = t["a"].sum()  # type: ignore
+    int_type = "ibis.expr.types.numeric.IntegerScalar"
+
+    verify_inspector(
+        value=a_sum,
+        display_value=int_type,
+        kind=VariableKind.Other,
+        display_type=f"ibis.Expr",
+        type_info=get_type_as_str(a_sum),
+        has_children=False,
+        is_truncated=True,
+        length=0,
+        mutable=False,
+    )
+
+
 # TODO(wesm): these size values are only currently used for computing
 # comparison costs. We should align on # of cells vs. # of bytes for
 # these comparisons (possibly based on more experiments)

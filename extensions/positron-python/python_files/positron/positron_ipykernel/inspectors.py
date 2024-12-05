@@ -1123,10 +1123,17 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # Just use the default object.__repr__ for now
-        return pretty_format(type(self.value), print_width, truncate_at)
+        simplified_name = get_qualname(self.value)
+        return (f"{simplified_name}", True)
 
     def get_display_type(self) -> str:
-        return type(self.value).__name__
+        return "ibis.Expr"
+
+    def to_html(self) -> str:
+        return self.get_display_value()[0]
+
+    def to_plaintext(self) -> str:
+        return self.get_display_value()[0]
 
 
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
