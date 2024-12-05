@@ -79,6 +79,9 @@ jobs:
       - name: Check installed canvas version
         run: cd test/e2e && npm ls canvas
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
         run: |
