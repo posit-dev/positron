@@ -511,7 +511,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	public async openEditor(uri: URI, title?: string): Promise<void> {
 		// Create and store webview overlay for editor
-		const previewId = `editorPreview.${PositronPreviewService._previewIdCounter++}`;
+		// We use the URI to try to attempt to open the same editor, if possible
+		const previewId = `editorPreview.${uri.toString()}`;
 		this._editors.set(previewId, {
 			uri: uri,
 			webview: this.createPreviewUrl(previewId, undefined, uri),
