@@ -141,7 +141,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			}
 		}
 
-		// If we couldn't restore a session, start a new one.
+		// Start the session.
 		try {
 			const session = await positron.runtime.startLanguageRuntime(
 				runtimeId,
