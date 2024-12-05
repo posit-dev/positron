@@ -169,7 +169,7 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={props.labelService.getUriLabel(result.parentFolder)}
+					value={props.labelService.getUriLabel(result.parentFolder, { noPrefix: true })}
 					onBrowse={browseHandler}
 					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
 				/>
