@@ -28,6 +28,7 @@ suite('NotebookController', () => {
 	let notebook: vscode.NotebookDocument;
 	let cells: vscode.NotebookCell[];
 	let session: TestLanguageRuntimeSession;
+	let getNotebookSessionStub: sinon.SinonStub;
 	let executions: TestNotebookCellExecution[];
 	let onDidCreateNotebookCellExecution: vscode.EventEmitter<TestNotebookCellExecution>;
 
@@ -81,7 +82,8 @@ suite('NotebookController', () => {
 		// Create a test session.
 		session = new TestLanguageRuntimeSession();
 		disposables.push(session);
-		sinon.stub(positron.runtime, 'getNotebookSession').withArgs(notebook.uri).resolves(session as any);
+		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
+			.withArgs(notebook.uri).resolves(session as any);
 
 		// Stub the notebook controller to return a test cell execution.
 		executions = [];
@@ -244,13 +246,19 @@ suite('NotebookController', () => {
 			const executionEndedPromise = executeNotebook([0]);
 			await executionStartedPromise;
 
-			// Exit the session.
-			session.setRuntimeState(positron.RuntimeState.Exited);
+			const sessionInterruptSpy = sinon.spy(session, 'interrupt');
 
-			// Interrupt and wait for the execution to end.
+			// Simulate the session exiting.
+			getNotebookSessionStub.withArgs(notebook.uri).resolves(undefined);
+
+			// Interrupt and wait for the execution to end (it should actually end!).
 			await interruptNotebook();
 			await executionEndedPromise;
 
+			// session.interrupt() should not be called.
+			sinon.assert.notCalled(sessionInterruptSpy);
+
+			// The execution should still end unsuccessfully.
 			assert.equal(executions.length, 1);
 			executions[0].assertDidEndUnsuccessfully();
 		});
