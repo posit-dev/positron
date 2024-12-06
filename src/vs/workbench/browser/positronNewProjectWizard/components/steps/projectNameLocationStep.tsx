@@ -25,6 +25,7 @@ import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/
 import { checkIfPathValid, checkIfURIExists } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+import { combineLabelWithPathUri, pathUriToLabel } from 'vs/workbench/browser/utils/path';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -229,11 +230,13 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={labelService.getUriLabel(parentFolder, { noPrefix: true })}
+					value={pathUriToLabel(parentFolder, labelService)}
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
-					onChange={(e) => onChangeParentFolder(parentFolder.with({ path: e.target.value }))}
+					onChange={async (e) => onChangeParentFolder(
+						await combineLabelWithPathUri(e.target.value, parentFolder, pathService)
+					)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep

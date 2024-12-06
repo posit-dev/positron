@@ -133,6 +133,7 @@ export class PositronNewFolderAction extends Action2 {
 			accessor.get(IKeybindingService),
 			accessor.get(ILabelService),
 			accessor.get(IWorkbenchLayoutService),
+			accessor.get(IPathService),
 		);
 	}
 }
@@ -184,6 +185,7 @@ export class PositronNewFolderFromGitAction extends Action2 {
 			accessor.get(IKeybindingService),
 			accessor.get(ILabelService),
 			accessor.get(IWorkbenchLayoutService),
+			accessor.get(IPathService),
 		);
 	}
 }

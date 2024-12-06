@@ -27,6 +27,8 @@ import { OKCancelModalDialog } from 'vs/workbench/browser/positronComponents/pos
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { isInputEmpty } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { ILabelService } from 'vs/platform/label/common/label';
+import { combineLabelWithPathUri, pathUriToLabel } from 'vs/workbench/browser/utils/path';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
 /**
  * Shows the new folder from Git modal dialog.
@@ -43,6 +45,7 @@ export const showNewFolderFromGitModalDialog = async (
 	keybindingService: IKeybindingService,
 	labelService: ILabelService,
 	layoutService: IWorkbenchLayoutService,
+	pathService: IPathService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -56,6 +59,7 @@ export const showNewFolderFromGitModalDialog = async (
 		<NewFolderFromGitModalDialog
 			fileDialogService={fileDialogService}
 			labelService={labelService}
+			pathService={pathService}
 			renderer={renderer}
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
@@ -104,6 +108,7 @@ interface NewFolderFromGitResult {
 interface NewFolderFromGitModalDialogProps {
 	fileDialogService: IFileDialogService;
 	labelService: ILabelService;
+	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
@@ -177,9 +182,16 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={props.labelService.getUriLabel(result.parentFolder, { noPrefix: true })}
+					value={pathUriToLabel(result.parentFolder, props.labelService)}
 					onBrowse={browseHandler}
-					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
+					onChange={async (e) => setResult({
+						...result,
+						parentFolder: await combineLabelWithPathUri(
+							e.target.value,
+							result.parentFolder,
+							props.pathService
+						)
+					})}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>
