@@ -56,7 +56,8 @@
     "@types/tail": "^2.2.1",
     "@types/zeromq": "^5.2.1",
     "electron-rebuild": "^3.2.9",
-    "ts-node": "^10.9.1"
+    "ts-node": "^10.9.1",
+    "node-addon-api": "^8.2.2"
   },
   "dependencies": {
     "portfinder": "^1.0.28",
