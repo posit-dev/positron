@@ -149,6 +149,11 @@ export class TableDataCache extends Disposable {
 	private _rows = 0;
 
 	/**
+	 * Flag if table has row labels
+	 */
+	private _hasRowLabels = false;
+
+	/**
 	 * Gets or sets the width calculators.
 	 */
 	private _widthCalculators?: WidthCalculators;
@@ -376,6 +381,7 @@ export class TableDataCache extends Disposable {
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
+		this._hasRowLabels = tableState.has_row_labels;
 
 		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
@@ -673,7 +679,11 @@ export class TableDataCache extends Disposable {
 	 * @returns The row label for the specified column index.
 	 */
 	getRowLabel(rowIndex: number) {
-		return this._rowLabelCache.get(rowIndex) ?? `${rowIndex}`;
+		if (this._hasRowLabels) {
+			return this._rowLabelCache.get(rowIndex) ?? `...`;
+		} else {
+			return `${rowIndex}`;
+		}
 	}
 
 	/**
