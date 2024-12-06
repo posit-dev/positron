@@ -765,7 +765,15 @@ declare module 'positron' {
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
 
-		/** Execute code in the runtime */
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The language ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
 		execute(code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
