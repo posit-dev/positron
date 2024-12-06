@@ -70,6 +70,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			setProjectName(context.projectName);
 			setProjectNameFeedback(context.projectNameFeedback);
 			setMaxProjectPathLength(() => getMaxProjectPathLength(context.parentFolder.path.length));
+			// The parent folder state is local to this component, so we don't update it here.
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -117,7 +118,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Update the parent folder and the project name feedback.
 	const onChangeParentFolder = async (folder: string) => {
+		// Update the parent folder component state. The parent folder URI will be updated in the
+		// project wizard context when the user navigates to the next step.
 		setParentFolder(folder);
+
+		// Check that the project name is still valid.
 		const parentFolderUri = await combineLabelWithPathUri(
 			folder,
 			context.parentFolder,
@@ -132,7 +137,12 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// Navigate to the next step in the wizard, based on the selected project type.
 	const nextStep = async () => {
-		context.parentFolder = await combineLabelWithPathUri(parentFolder, context.parentFolder, pathService)
+		// Update the parent folder URI in the context before navigating to the next step.
+		context.parentFolder = await combineLabelWithPathUri(
+			parentFolder,
+			context.parentFolder,
+			pathService
+		);
 
 		switch (context.projectType) {
 			case NewProjectType.RProject:
