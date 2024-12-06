@@ -49,6 +49,7 @@ import { URI } from 'vs/base/common/uri';
 import { PositronPlotCommProxy } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
 import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
 import { ILabelService } from 'vs/platform/label/common/label';
+import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -163,6 +164,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@ILabelService private readonly _labelService: ILabelService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 		super();
 
@@ -856,6 +858,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 								this._logService,
 								this._notificationService,
 								this._labelService,
+								this._pathService,
 								plot,
 								this.savePlotAs,
 								suggestedPath
