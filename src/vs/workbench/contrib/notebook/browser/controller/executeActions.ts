@@ -633,7 +633,7 @@ registerAction2(class InterruptNotebook extends CancelNotebook {
 // --- Begin Positron ---
 registerAction2(class ShowNoKernelIndicatorAction extends NotebookAction {
 	static readonly ID = 'notebook.showNoKernelIndicator';
-	static readonly LABEL = localize('notebookActions.showNoKernelIndicator', "Kernel Disconnected");
+	static readonly LABEL = localize('notebookActions.showNoKernelIndicator', "No Kernel Connected");
 
 	constructor() {
 		super({
@@ -661,6 +661,36 @@ registerAction2(class ShowNoKernelIndicatorAction extends NotebookAction {
 });
 
 
+registerAction2(class ShowIdleIndicatorAction extends NotebookAction {
+	static readonly ID = 'notebook.showIdleIndicator';
+	static readonly LABEL = localize('notebookActions.showIdleIndicator', "Kernel Idle");
+
+	constructor() {
+		super({
+			id: ShowIdleIndicatorAction.ID,
+			title: ShowIdleIndicatorAction.LABEL,
+			f1: false,
+			menu: [{
+				id: MenuId.NotebookToolbar,
+				group: 'navigation/execute',
+				order: 10,
+				when: ContextKeyExpr.and(
+					NOTEBOOK_KERNEL_SELECTED,
+					NOTEBOOK_HAS_SOMETHING_RUNNING.negate(),
+					NOTEBOOK_IS_ACTIVE_EDITOR,
+					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
+				)
+			}],
+			icon: icons.positronKernelIdleIcon
+		});
+	}
+
+	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
+		// This is just an indicator, so no action needed
+		return;
+	}
+});
+
 registerAction2(class ShowRunningIndicatorAction extends NotebookAction {
 	static readonly ID = 'notebook.showRunningIndicator';
 	static readonly LABEL = localize('notebookActions.showRunningIndicator', "Kernel Running");
@@ -675,6 +705,7 @@ registerAction2(class ShowRunningIndicatorAction extends NotebookAction {
 				group: 'navigation/execute',
 				order: 10,
 				when: ContextKeyExpr.and(
+					NOTEBOOK_KERNEL_SELECTED,
 					NOTEBOOK_HAS_SOMETHING_RUNNING,
 					NOTEBOOK_IS_ACTIVE_EDITOR,
 					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
@@ -690,34 +721,6 @@ registerAction2(class ShowRunningIndicatorAction extends NotebookAction {
 	}
 });
 
-registerAction2(class ShowIdleIndicatorAction extends NotebookAction {
-	static readonly ID = 'notebook.showIdleIndicator';
-	static readonly LABEL = localize('notebookActions.showIdleIndicator', "Kernel Idle");
-
-	constructor() {
-		super({
-			id: ShowIdleIndicatorAction.ID,
-			title: ShowIdleIndicatorAction.LABEL,
-			f1: false,
-			menu: [{
-				id: MenuId.NotebookToolbar,
-				group: 'navigation/execute',
-				order: 10,
-				when: ContextKeyExpr.and(
-					NOTEBOOK_HAS_SOMETHING_RUNNING.negate(),
-					NOTEBOOK_IS_ACTIVE_EDITOR,
-					ContextKeyExpr.equals('config.notebook.globalToolbar', true)
-				)
-			}],
-			icon: icons.positronKernelIdleIcon
-		});
-	}
-
-	async runWithContext(accessor: ServicesAccessor, context: INotebookActionContext): Promise<void> {
-		// This is just an indicator, so no action needed
-		return;
-	}
-});
 // --- End Positron ---
 
 MenuRegistry.appendMenuItem(MenuId.NotebookToolbar, {
