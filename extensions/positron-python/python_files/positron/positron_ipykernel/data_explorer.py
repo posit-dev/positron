@@ -1895,7 +1895,8 @@ def _get_histogram_numpy(data, num_bins, method="fd"):
     # then there's data to display.
     # hist_params = {"bins": bin_edges.tolist()}
     if issubclass(data.dtype.type, np.integer):
-        width = (data.max() - data.min()).item()
+        # Avoid overflows with smaller integers
+        width = (data.max().astype(np.int64) - data.min().astype(np.int64)).item()
         if len(bin_edges) > width and width > 0:
             hist_params = {"bins": width + 1}
             need_recompute = True
