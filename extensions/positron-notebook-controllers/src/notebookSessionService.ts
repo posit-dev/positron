@@ -99,7 +99,7 @@ export class NotebookSessionService {
 				await shuttingDownSessionPromise;
 			} catch (err) {
 				log.error(`Waiting for notebook runtime to shutdown before starting failed. Reason ${err}`);
-				throw err;
+				// Try to start a new session anyway.
 			}
 		}
 
