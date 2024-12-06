@@ -42,14 +42,18 @@ export const PositronConnections = (props: React.PropsWithChildren<PositronConne
 		disposableStore.add(connectionsService.onDidFocus(async (id) => {
 			// The focus event might be sent before the connection is actually registered
 			// with the service. So we try a few times to find the connection before giving up.
-			for (let i = 0; i < 10; i++) {
+			// Initially we were waiting for just 500ms but that turned out to be too short
+			// for the CI machines.
+			for (let i = 0; i < 100; i++) {
 				const con = connectionsService.getConnections().find(item => item.id === id);
 				if (con && con.active) {
 					setActiveInstanceId(id);
-					break;
+					return;
 				}
 				await new Promise(resolve => setTimeout(resolve, 50));
 			}
+			// Warn if a connection is not found so we can easily debug CI failures in the future.
+			console.warn('Could not find connection with id', id);
 		}));
 		return () => disposableStore.dispose();
 	}, [setActiveInstanceId, connectionsService]);
