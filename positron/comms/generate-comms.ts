@@ -314,7 +314,7 @@ function* enumVisitor(
 	} else if (typeof contract === 'object') {
 		// If this object is an object, recurse into each property
 		for (const key of Object.keys(contract)) {
-			if (contract['name']) {
+			if (contract['name'] && typeof contract['name'] === 'string') {
 				// If this is a named object, push the name onto the context
 				// and recurse
 				yield* enumVisitor(
