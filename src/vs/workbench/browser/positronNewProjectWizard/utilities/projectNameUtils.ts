@@ -9,6 +9,12 @@ import { IFileService } from 'vs/platform/files/common/files';
 import { WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
 
 /**
+ * The maximum length of a project path, which is the full path when joining a parent folder with
+ * the project name.
+ */
+export const MAX_LENGTH_PROJECT_PATH = 255;
+
+/**
  * Checks the project name to ensure it is valid.
  * @param projectName The project name to check.
  * @param parentFolder The parent folder of the project.

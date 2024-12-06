@@ -19,7 +19,7 @@ import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positr
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
 import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
+import { checkProjectName, MAX_LENGTH_PROJECT_PATH } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { checkIfPathValid, checkIfURIExists } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
@@ -42,11 +42,19 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 	const [projectName, setProjectName] = useState(context.projectName);
 	const [parentFolder, setParentFolder] = useState(context.parentFolder);
 	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
+	const [maxProjectPathLength, setMaxProjectPathLength] = useState(
+		MAX_LENGTH_PROJECT_PATH - context.parentFolder.path.length
+	);
 	// TODO: Merge `nameValidationErrorMsg` and `parentPathErrorMsg` with the `checkProjectName()`
 	// function.
 	const nameValidationErrorMsg = useDebouncedValidator({
 		value: projectName,
-		validator: x => checkIfPathValid(x, { parentPath: parentFolder.fsPath })
+		validator: x => checkIfPathValid(x, {
+			parentPath: labelService.getUriLabel(
+				parentFolder,
+				{ noPrefix: true }
+			)
+		})
 	});
 	const isInvalidName = nameValidationErrorMsg !== undefined;
 	const parentPathErrorMsg = useDebouncedValidator({
@@ -65,6 +73,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			setProjectName(context.projectName);
 			setParentFolder(context.parentFolder);
 			setProjectNameFeedback(context.projectNameFeedback);
+			setMaxProjectPathLength(MAX_LENGTH_PROJECT_PATH - context.parentFolder.path.length);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -179,7 +188,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
 					// Don't let the user create a project with a location that is too long.
-					maxLength={255 - parentFolder.fsPath.length}
+					maxLength={maxProjectPathLength}
 					error={
 						(projectNameFeedback &&
 							projectNameFeedback.type === WizardFormattedTextType.Error) ||
