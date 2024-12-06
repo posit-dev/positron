@@ -115,18 +115,40 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 
 	private async _execRpc<Type>(rpc: DataExplorerRpc): Promise<Type> {
 		await this.initialSetup;
-		const response = await this._commandService.executeCommand(
-			'positron-duckdb.dataExplorerRpc', rpc
-		);
-		if (response === undefined) {
-			return Promise.reject(
-				new Error('Sending request to positron-duckdb failed for unknown reason')
-			);
-		} else if ('error_message' in response) {
-			return Promise.reject(new Error(response.error_message));
-		} else {
-			return response.result;
+
+		// Wait for command to become available (retry up to 30 times with 1 second delay)
+		const maxRetries = 30;
+		const retryDelay = 1000;
+
+		for (let i = 0; i < maxRetries; i++) {
+			try {
+				const response = await this._commandService.executeCommand(
+					'positron-duckdb.dataExplorerRpc', rpc
+				);
+
+				if (response === undefined) {
+					return Promise.reject(
+						new Error('Sending request to positron-duckdb failed for unknown reason')
+					);
+				} else if ('error_message' in response) {
+					return Promise.reject(new Error(response.error_message));
+				} else {
+					return response.result;
+				}
+			} catch (error) {
+				if (error.message?.includes('command \'positron-duckdb.dataExplorerRpc\' not found')) {
+					if (i === maxRetries - 1) {
+						return Promise.reject(new Error('Timeout waiting for positron-duckdb extension to load'));
+					}
+					await new Promise(resolve => setTimeout(resolve, retryDelay));
+					continue;
+				}
+				throw error; // Re-throw if it's a different kind of error
+			}
 		}
+
+		// This should never be reached due to the rejection in the loop
+		return Promise.reject(new Error('Unexpected error waiting for positron-duckdb extension'));
 	}
 
 	async openDataset() {
