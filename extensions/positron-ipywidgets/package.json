@@ -33,7 +33,7 @@
   "scripts": {
     "vscode:prepublish": "npm run build-renderer",
     "build-renderer": "node ./esbuild-renderer",
-    "postinstall": "npm install --prefix renderer"
+    "postinstall": "cd renderer && npm install"
   },
   "dependencies": {},
   "devDependencies": {}
