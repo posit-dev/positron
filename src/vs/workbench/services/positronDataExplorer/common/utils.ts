@@ -29,3 +29,21 @@ export const arrayFromIndexRange = (startIndex: number, endIndex: number) =>
  */
 export const linearConversion = (value: number, from: Range, to: Range) =>
 	((value - from.min) / (from.max - from.min)) * (to.max - to.min) + to.min;
+
+
+/**
+ * Add quoting to column name in case it is an empty string or contains leading whitespace.
+ * @param name The column name from the backend
+ * @returns A modified column name that helps distinguish whitespace
+ */
+export function getDisplayedColumnName(name: string | undefined) {
+	let result = name ?? '';
+
+	const EMPTY_SPACE_SYMBOL = '\u2423';
+	// If a column name is an empty string (allowed by pandas, at least) or contains
+	// leading whitespace, then we surround the column name with quotations.
+	if (result === '' || result.match(/^\s/)) {
+		result = `"${result}"`.replace(/ /g, EMPTY_SPACE_SYMBOL);
+	}
+	return result;
+}
