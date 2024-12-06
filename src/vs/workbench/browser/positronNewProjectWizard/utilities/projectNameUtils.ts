@@ -7,7 +7,6 @@ import { URI } from 'vs/base/common/uri';
 import { localize } from 'vs/nls';
 import { IFileService } from 'vs/platform/files/common/files';
 import { WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { IPathService } from 'vs/workbench/services/path/common/pathService';
 
 /**
  * Checks the project name to ensure it is valid.
@@ -20,7 +19,6 @@ import { IPathService } from 'vs/workbench/services/path/common/pathService';
 export const checkProjectName = async (
 	projectName: string,
 	parentFolder: URI,
-	pathService: IPathService,
 	fileService: IFileService
 ) => {
 	// The project name can't be empty.
@@ -37,10 +35,7 @@ export const checkProjectName = async (
 	// TODO: Additional project name validation (i.e. unsupported characters, length, etc.)
 
 	// The project directory can't already exist.
-	const pathBuilder = await pathService.path;
-	const folderPath = parentFolder.with({
-		path: pathBuilder.join(parentFolder.path, projectName)
-	});
+	const folderPath = URI.joinPath(parentFolder, projectName);
 	if (await fileService.exists(folderPath)) {
 		return {
 			type: WizardFormattedTextType.Error,

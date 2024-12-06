@@ -93,7 +93,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		context.projectNameFeedback = await checkProjectName(
 			name,
 			parentFolder,
-			pathService,
 			fileService
 		);
 	};
@@ -104,7 +103,6 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		context.projectNameFeedback = await checkProjectName(
 			projectName,
 			folder,
-			pathService,
 			fileService
 		);
 	};
