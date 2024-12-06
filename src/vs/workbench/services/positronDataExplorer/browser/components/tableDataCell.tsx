@@ -28,17 +28,28 @@ interface TableDataCellProps {
  * @returns The rendered component.
  */
 export const TableDataCell = (props: TableDataCellProps) => {
+	const EMPTY_SPACE_SYMBOL = '\u2423';
+
+	let isSpecialValue = props.dataCell.kind !== DataCellKind.NON_NULL;
+
+	// Render empty strings as special value
+	let renderedOutput = props.dataCell.formatted
+		.replace(/\r/g, '\\r')
+		.replace(/\n/g, '\\n')
+		.replace(/ /g, EMPTY_SPACE_SYMBOL);
+	if (props.dataCell.kind === DataCellKind.NON_NULL && renderedOutput === '') {
+		isSpecialValue = true;
+		renderedOutput = '<empty>';
+	}
+
 	// Set the class names.
-	const classNames = positronClassNames(
-		'text-value',
-		{ 'special-value': props.dataCell.kind !== DataCellKind.NON_NULL }
-	);
+	const classNames = positronClassNames('text-value', { 'special-value': isSpecialValue });
 
 	// Render.
 	return (
 		<div className={positronClassNames('text-container', props.column.alignment)}>
 			<div className={classNames}>
-				{props.dataCell.formatted.replace(/\r/g, '\\r').replace(/\n/g, '\\n')}
+				{renderedOutput}
 			</div>
 		</div>
 	);
