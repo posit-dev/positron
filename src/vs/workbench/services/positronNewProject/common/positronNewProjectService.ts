@@ -637,6 +637,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			this._contextService.getWorkspace().folders[0]?.uri;
 		const newProjectFolder = URI.from({
 			scheme: this._newProjectConfig.folderScheme,
+			authority: this._newProjectConfig.folderAuthority,
 			path: this._newProjectConfig.projectFolder
 		});
 		const currentWindowIsNewProject = relativePath(currentFolderPath, newProjectFolder) === '';
