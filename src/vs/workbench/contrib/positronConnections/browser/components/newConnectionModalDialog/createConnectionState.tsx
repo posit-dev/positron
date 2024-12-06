@@ -117,14 +117,20 @@ const FormElement = (props: PropsWithChildren<Input>) => {
 			</div>;
 		case InputType.Option:
 			return <div className='labeled-input'><label>
-				<span className='label-text'>{label}</span>
-				<RadioGroup
-					name={label}
-					labelledBy={label}
-					entries={props.options!.map(option => ({ options: option }))}
-					initialSelectionId={props.options![0].identifier}
-					onSelectionChanged={() => { }}
-				/>
+				<span className='label-text'>{label}</span>\
+				{
+					props.options && props.options.length > 0 ?
+						<RadioGroup
+							name={label}
+							labelledBy={label}
+							entries={props.options.map(option => ({ options: option }))}
+							initialSelectionId={props.options[0].identifier}
+							onSelectionChanged={() => { }}
+						/>
+						: <p>
+							{localize('positron.newConnectionModalDialog.createConnection.input.noOption', 'No options provided')}
+						</p>
+				}
 			</label></div>;
 		case InputType.String:
 		default:
