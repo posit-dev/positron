@@ -22,7 +22,6 @@ import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Schemas } from 'vs/base/common/network';
 
 /**
  * PositronNewProjectService class.
@@ -329,11 +328,14 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 */
 	private async _runGitInit() {
 		if (!this._newProjectConfig) {
+			this._logService.error(`[New project startup] git init - no new project configuration found`);
 			return;
 		}
+
 		const projectRoot = URI.from({
-			scheme: this._newProjectConfig?.folderScheme ?? Schemas.file,
-			path: this._newProjectConfig?.projectFolder
+			scheme: this._newProjectConfig.folderScheme,
+			authority: this._newProjectConfig.folderAuthority,
+			path: this._newProjectConfig.projectFolder
 		});
 
 		// true to skip the folder prompt
