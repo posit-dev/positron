@@ -21,6 +21,7 @@ const VARIABLES_SECTION = '[aria-label="Variables Section"]';
 const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
+const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-text';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
@@ -132,8 +133,13 @@ export class PositronVariables {
 		return result;
 	}
 
+	async getCurrentVariablesGroup(): Promise<string> {
+		const group = await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).innerText();
+		return group;
+	}
+
 	async selectVariablesGroup(name: string) {
-		await this.code.driver.page.locator('.positron-variables-container .action-bar-button-text').click();
+		await this.code.driver.page.locator(VARIABLES_GROUP_SELECTOR).click();
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).isVisible();
 		await this.code.wait(500);
 		await this.code.driver.page.locator('a.action-menu-item', { hasText: name }).click();
