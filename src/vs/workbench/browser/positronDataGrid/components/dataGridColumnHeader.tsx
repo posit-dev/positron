@@ -18,6 +18,7 @@ import { selectionType } from 'vs/workbench/browser/positronDataGrid/utilities/m
 import { VerticalSplitter } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
 import { ColumnSelectionState } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
 import { usePositronDataGridContext } from 'vs/workbench/browser/positronDataGrid/positronDataGridContext';
+import { getDisplayedColumnName } from 'vs/workbench/services/positronDataExplorer/common/utils';
 
 /**
  * Constants.
@@ -104,6 +105,8 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
+	const displayedColumnName = getDisplayedColumnName(props.column?.name);
+
 	// Render.
 	return (
 		<div
@@ -138,7 +141,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 				}}
 			>
 				<div className='title-description'>
-					<div className='title'>{props.column?.name}</div>
+					<div className='title'>{displayedColumnName}</div>
 					{props.column?.description &&
 						<div className='description'>{props.column.description}</div>
 					}
