@@ -1271,9 +1271,9 @@ export class DataExplorerRpcHandler {
 		if (fileStats.size < VIEW_THRESHOLD) {
 			// For smaller files, read the entire contents and register it as a temp file to avoid
 			// caching in duckdb-wasm
-			const fileContents = fs.readFileSync(filePath, 'utf8');
+			const fileContents = fs.readFileSync(filePath, { encoding: null });
 			const virtualPath = path.basename(filePath);
-			await this.db.db.registerFileText(virtualPath, fileContents);
+			await this.db.db.registerFileBuffer(virtualPath, fileContents);
 
 			const ctasQuery = getCtasQuery(virtualPath);
 			await this.db.runQuery(ctasQuery);
