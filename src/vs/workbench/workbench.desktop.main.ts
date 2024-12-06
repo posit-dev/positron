@@ -181,6 +181,8 @@ import 'vs/workbench/contrib/encryption/electron-sandbox/encryption.contribution
 
 // --- Start Positron ---
 import 'vs/workbench/contrib/positronPreview/electron-sandbox/positronPreview.contribution';
+// Positron Variables
+import 'vs/workbench/services/positronVariables/common/positronVariables.contribution';
 // --- End Positron ---
 
 //#endregion
