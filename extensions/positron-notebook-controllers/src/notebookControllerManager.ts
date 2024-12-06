@@ -102,10 +102,19 @@ export class NotebookControllerManager implements vscode.Disposable {
 		// Detect the notebook's language.
 		// First try the notebook metadata.
 		const metadata = notebook.metadata?.custom?.metadata;
-		const languageId = metadata?.language_info?.name
-			?? metadata?.kernelspec?.language
-			// Fall back to the first cell's language.
-			?? notebook.getCells()?.[0].document.languageId;
+		let languageId = metadata?.language_info?.name
+			?? metadata?.kernelspec?.language;
+
+		// Fall back to the first cell's language, if available.
+		if (!languageId) {
+			const cells = notebook.getCells();
+			if (cells && cells.length > 0) {
+				languageId = cells[0].document.languageId;
+			} else {
+				log.debug(`Notebook has no cells, can't determine language: ${notebook.uri.path}`);
+				return;
+			}
+		}
 
 		// Get the preferred controller for the language.
 		let preferredRuntime: positron.LanguageRuntimeMetadata;
