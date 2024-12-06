@@ -1221,8 +1221,6 @@ export class DataExplorerRpcHandler {
 				fs.watchFile(filePath, { interval: 1000 }, async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.db.runQuery('CALL sql_auto_cache_reset();');
-
 					await this.createTableFromFilePath(filePath, newTableName);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
@@ -1240,39 +1238,50 @@ export class DataExplorerRpcHandler {
 	}
 
 	async createTableFromFilePath(filePath: string, catalogName: string) {
-		const fileExt = path.extname(filePath);
-		let scanOperation;
-		switch (fileExt) {
-			case '.parquet':
-			case '.parq':
-				scanOperation = `parquet_scan('${filePath}')`;
-				break;
-			// TODO: Will need to be able to pass CSV / TSV options from the
-			// UI at some point.
-			case '.csv':
-				scanOperation = `read_csv('${filePath}')`;
-				break;
-			case '.tsv':
-				scanOperation = `read_csv('${filePath}', delim='\t')`;
-				break;
-			default:
-				return { error_message: `Unsupported file extension: ${fileExt}` };
-		}
-
-		const fileStats = fs.statSync(filePath);
-
 		// Depending on the size of the file, we use CREATE VIEW (less memory,
 		// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
 		// and especially given that Parquet files may materialize much larger than that appear
 		// on disk.
 		const VIEW_THRESHOLD = 25_000_000;
-		const catalogType = fileStats.size > VIEW_THRESHOLD ? 'VIEW' : 'TABLE';
+		const fileStats = fs.statSync(filePath);
 
-		const ctasQuery = `
-		CREATE ${catalogType} ${catalogName} AS
-		SELECT * FROM ${scanOperation};`;
+		const getCtasQuery = (filePath: string, catalogType: string = 'TABLE') => {
+			const fileExt = path.extname(filePath);
+			let scanOperation;
+			switch (fileExt) {
+				case '.parquet':
+				case '.parq':
+					scanOperation = `parquet_scan('${filePath}')`;
+					break;
+				// TODO: Will need to be able to pass CSV / TSV options from the
+				// UI at some point.
+				case '.csv':
+					scanOperation = `read_csv('${filePath}')`;
+					break;
+				case '.tsv':
+					scanOperation = `read_csv('${filePath}', delim='\t')`;
+					break;
+				default:
+					throw new Error(`Unsupported file extension: ${fileExt}`);
+			}
+			return `CREATE ${catalogType} ${catalogName} AS
+			SELECT * FROM ${scanOperation};`;
+		};
 
-		return this.db.runQuery(ctasQuery);
+		if (fileStats.size < VIEW_THRESHOLD) {
+			// For smaller files, read the entire contents and register it as a temp file to avoid
+			// caching in duckdb-wasm
+			const fileContents = fs.readFileSync(filePath, 'utf8');
+			const virtualPath = path.basename(filePath);
+			await this.db.db.registerFileText(virtualPath, fileContents);
+
+			const ctasQuery = getCtasQuery(virtualPath);
+			await this.db.runQuery(ctasQuery);
+			await this.db.db.dropFile(virtualPath);
+		} else {
+			const ctasQuery = getCtasQuery(filePath);
+			await this.db.runQuery(ctasQuery);
+		}
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {
