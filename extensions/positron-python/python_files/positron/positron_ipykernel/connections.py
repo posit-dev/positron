@@ -6,17 +6,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    TypedDict,
-    Union,
-)
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple, TypedDict, Union
 
 import comm
 
@@ -420,9 +410,7 @@ class ConnectionsService:
         self.comm_id_to_connection = {}
 
     def handle_msg(
-        self,
-        msg: CommMessage[ConnectionsBackendMessageContent],
-        raw_msg: JsonRecord,
+        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
     ) -> None:
         """
         Handles messages from the frontend.
@@ -449,9 +437,7 @@ class ConnectionsService:
             )
 
     def _handle_msg(
-        self,
-        msg: CommMessage[ConnectionsBackendMessageContent],
-        raw_msg: JsonRecord,
+        self, msg: CommMessage[ConnectionsBackendMessageContent], raw_msg: JsonRecord
     ) -> None:
         comm_id = msg.content.comm_id
         request = msg.content.data
@@ -609,8 +595,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.",
-                f"Path: {path}",
+                "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
         # https://www.sqlite.org/pragma.html#pragma_table_info
@@ -636,8 +621,7 @@ class SQLite3Connection(Connection):
         schema, table = path
         if schema.kind != "schema" or table.kind not in ["table", "view"]:
             raise ValueError(
-                "Path must include a schema and a table/view in this order.",
-                f"Path: {path}",
+                "Path must include a schema and a table/view in this order.", f"Path: {path}"
             )
 
         return pd.read_sql(
@@ -733,7 +717,7 @@ class SQLAlchemyConnection(Connection):
             import sqlalchemy
         except ImportError:
             raise ModuleNotFoundError(
-                "SQLAlchemy is required for previewing objects in " "SQLAlchemy connections."
+                "SQLAlchemy is required for previewing objects in SQLAlchemy connections."
             )
 
         try:
@@ -745,10 +729,7 @@ class SQLAlchemyConnection(Connection):
         schema, table = path
 
         table = sqlalchemy.Table(
-            table.name,
-            sqlalchemy.MetaData(),
-            autoload_with=self.conn,
-            schema=schema.name,
+            table.name, sqlalchemy.MetaData(), autoload_with=self.conn, schema=schema.name
         )
         stmt = sqlalchemy.sql.select(table).limit(1000)
         # using conn.connect() is safer then using the conn directly and is also supported
@@ -761,8 +742,7 @@ class SQLAlchemyConnection(Connection):
     def _check_table_path(self, path: List[ObjectSchema]):
         if len(path) != 2:
             raise ValueError(
-                f"Invalid path. Length path ({len(path)}) expected to be 2.",
-                f"Path: {path}",
+                f"Invalid path. Length path ({len(path)}) expected to be 2.", f"Path: {path}"
             )
 
         schema, table = path
