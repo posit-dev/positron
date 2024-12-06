@@ -1276,8 +1276,11 @@ export class DataExplorerRpcHandler {
 			await this.db.db.registerFileBuffer(virtualPath, fileContents);
 
 			const ctasQuery = getCtasQuery(virtualPath);
-			await this.db.runQuery(ctasQuery);
-			await this.db.db.dropFile(virtualPath);
+			try {
+				await this.db.runQuery(ctasQuery);
+			} finally {
+				await this.db.db.dropFile(virtualPath);
+			}
 		} else {
 			const ctasQuery = getCtasQuery(filePath);
 			await this.db.runQuery(ctasQuery);
