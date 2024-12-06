@@ -384,7 +384,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Activates all of the extensions that provides language runtimes, then
-	 * entires the discovery phase, in which each extension is asked to supply
+	 * enters the discovery phase, in which each extension is asked to supply
 	 * its language runtime metadata.
 	 */
 	private async discoverAllRuntimes() {
