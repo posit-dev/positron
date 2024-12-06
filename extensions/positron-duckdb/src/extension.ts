@@ -878,7 +878,10 @@ END`;
 			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
 				if ('first_index' in spec) {
 					// There may be fewer rows available than what was requested
-					const lastIndex = Math.min(spec.last_index, queryResult.numRows - 1);
+					const lastIndex = Math.min(
+						spec.last_index,
+						spec.first_index + queryResult.numRows - 1
+					);
 
 					const columnValues: Array<string | number> = [];
 					// Value range, we need to extract the actual slice requested
