@@ -24,6 +24,7 @@ import { ColumnProfileDatetime } from './columnProfileDatetime.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { ColumnDisplayType, ColumnProfileType, ColumnSchema } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../common/positronDataExplorerExperimentalConfig.js';
+import { getDisplayedColumnName } from '../../common/utils.js';
 
 /**
  * Constants.
@@ -413,7 +414,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 					onMouseLeave={() => props.hoverService.hideHover()}
 				/>
 				<div className='column-name'>
-					{props.columnSchema.column_name}
+					{getDisplayedColumnName(props.columnSchema.column_name)}
 				</div>
 				{!expanded && <ColumnSparkline />}
 				<ColumnNullPercent />
