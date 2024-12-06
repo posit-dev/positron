@@ -12,7 +12,15 @@ import { WizardFormattedTextType } from 'vs/workbench/browser/positronNewProject
  * The maximum length of a project path, which is the full path when joining a parent folder with
  * the project name.
  */
-export const MAX_LENGTH_PROJECT_PATH = 255;
+const MAX_LENGTH_PROJECT_PATH = 255;
+
+/**
+ * Calculates the maximum length of a project name based on the maximum length of a project path and
+ * the length of the parent folder path.
+ * @param parentFolderLength The length of the parent folder path string.
+ * @returns The maximum length of a project name.
+ */
+export const getMaxProjectPathLength = (parentFolderLength: number) => MAX_LENGTH_PROJECT_PATH + 1 - parentFolderLength;
 
 /**
  * Checks the project name to ensure it is valid.
