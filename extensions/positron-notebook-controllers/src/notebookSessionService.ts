@@ -104,21 +104,10 @@ export class NotebookSessionService {
 		}
 
 		// Start the session.
-		try {
-			const session = await positron.runtime.startLanguageRuntime(
-				runtimeId,
-				path.basename(notebookUri.path), // Use the notebook's file name as the session name.
-				notebookUri);
-			log.info(
-				`Starting session for language runtime ${session.metadata.sessionId} `
-				+ `(language: ${session.runtimeMetadata.languageName}, name: ${session.runtimeMetadata.runtimeName}, `
-				+ `version: ${session.runtimeMetadata.runtimeVersion}, notebook: ${notebookUri.path})`
-			);
-			return session;
-		} catch (err) {
-			log.error(`Starting session for language runtime ${runtimeId} failed. Reason: ${err}`);
-			throw err;
-		}
+		return positron.runtime.startLanguageRuntime(
+			runtimeId,
+			path.basename(notebookUri.path), // Use the notebook's file name as the session name.
+			notebookUri);
 	}
 
 	/**
