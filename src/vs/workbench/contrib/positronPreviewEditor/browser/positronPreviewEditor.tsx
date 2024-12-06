@@ -144,31 +144,51 @@ export class PositronPreviewEditor
 		context: IEditorOpenContext,
 		token: CancellationToken
 	): Promise<void> {
-		const previewId = input._previewId;
+		this._identifier = input._previewId;
 
-		if (!previewId) { throw Error; }
+		if (!this._identifier) { return; }
 
-		this.renderContainer(previewId);
+		this.renderContainer(this._identifier);
 
 		// redraw if the editor is resized
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
 
-			if (this._positronReactRenderer) {
-				this.renderContainer(previewId);
+			if (this._positronReactRenderer && this._identifier) {
+				this.renderContainer(this._identifier);
 			}
 		});
 
 		this.onVisibilityChanged((visible: boolean) => {
 			this._visible = visible;
 
-			if (this._positronReactRenderer) {
-				this.renderContainer(previewId);
+			if (this._positronReactRenderer && this._identifier) {
+				this.renderContainer(this._identifier);
 			}
 		});
 
 		await super.setInput(input, options, context, token);
+	}
+
+	/**
+	 * Clears the input.
+	 */
+	override clearInput(): void {
+		// Dispose the PositronReactRenderer.
+		this.disposeReactRenderer();
+
+		// // If there is an identifier, clear it.
+		if (this._identifier) {
+			// Clear the focused Positron data explorer.
+			//this._positronPreviewService.editorWebview(this._identifier)?.dispose();
+
+			// Clear the identifier.
+			this._identifier = undefined;
+		}
+
+		// Call the base class's method.
+		super.clearInput();
 	}
 
 	/**
