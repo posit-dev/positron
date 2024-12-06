@@ -115,7 +115,6 @@
     "node-pty": "^1.1.0-beta22",
     "open": "^8.4.2",
     "react": "18.3.1",
-    "react-dom": "18.3.1",
     "react-window": "^1.8.10",
     "tas-client-umd": "0.2.0",
     "v8-inspect-profiler": "^0.1.1",
