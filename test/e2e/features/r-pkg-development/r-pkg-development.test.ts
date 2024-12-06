@@ -69,6 +69,10 @@ test.describe('R Package Development', { tag: ['@web'] }, () => {
 				await expect(app.workbench.positronConsole.activeConsole.getByText('restarted')).toBeVisible({ timeout: 30000 });
 				await expect(app.workbench.positronConsole.activeConsole.getByText('library(testfun)')).toBeVisible();
 			}).toPass({ timeout: 70000 });
+
+			await app.workbench.positronConsole.pasteCodeToConsole('(.packages())');
+			await app.workbench.positronConsole.sendEnterKey();
+			await expect(app.workbench.positronConsole.activeConsole.getByText('"testfun"')).toBeVisible();
 		});
 	});
 });
