@@ -108,6 +108,26 @@
 			style.sheet.insertRule(`@import url(${url});`);
 		};
 
+		// --- Start Positron ---
+
+		//3: React and other external dependencies
+
+		const addModule = (packageName) => {
+			const packageNamePath = packageName.split("/");
+			const module = `esm-package-dependencies/${
+				packageNamePath[packageNamePath.length - 1]
+			}.js`;
+			importMap.imports[packageName] = "../../../src/" + module;
+		};
+
+		addModule("he");
+		addModule("react");
+		addModule("react-dom");
+		addModule("react-dom/client");
+		addModule("react-window");
+
+		// --- End Positron ---
+
 		const { promisify } = require('util');
 		globalThis._VSCODE_TEST_INIT = promisify(require('glob'))('**/*.css', { cwd: basePath }).then(cssModules => {
 			for (const cssModule of cssModules) {
