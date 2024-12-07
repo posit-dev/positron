@@ -63,8 +63,8 @@ const HelpLines = [
 	'env rm X         - Removes X variables',
 	'env update X     - Updates X variables',
 	'error X Y Z      - Simulates an unsuccessful X line input with Y lines of error message and Z lines of traceback (where X >= 1 and Y >= 1 and Z >= 0)',
-	'exec silent X Y  - Executes a code snippet Y in the language X silently',
 	'exec X Y         - Executes a code snippet Y in the language X interactively',
+	'exec silent X Y  - Executes a code snippet Y in the language X silently',
 	'fancy            - Simulates fancy HTML output',
 	'flicker          - Simulates a flickering console prompt',
 	'help             - Shows this help',
@@ -386,13 +386,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			// Execute code silently in another language.
 			const languageId = match[1];
 			const codeToExecute = match[2];
-			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Silent);
+			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Silent, positron.RuntimeErrorBehavior.Continue);
 			return;
 		} else if (match = code.match(/^exec ([a-zA-Z]+) (.+)/)) {
 			// Execute code in another language.
 			const languageId = match[1];
 			const codeToExecute = match[2];
-			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Interactive);
+			this.simulateCodeExecution(id, code, languageId, codeToExecute, positron.RuntimeCodeExecutionMode.Interactive, positron.RuntimeErrorBehavior.Continue);
 			return;
 		} else if (match = code.match(/^preview( .+)?/)) {
 			const command = (match.length > 1 && match[1]) ? match[1].trim() : 'default';
@@ -1605,12 +1605,14 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * @param languageId The language identifier
 	 * @param codeToExecute The code to execute.
 	 * @param mode The execution mode to conform to.
+	 * @param errorBehavior The error behavior to conform to.
 	 */
 	private async simulateCodeExecution(parentId: string,
 		code: string,
 		languageId: string,
 		codeToExecute: string,
-		mode: positron.RuntimeCodeExecutionMode) {
+		mode: positron.RuntimeCodeExecutionMode,
+		errorBehavior: positron.RuntimeErrorBehavior) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
@@ -1622,7 +1624,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		const focus = mode !== positron.RuntimeCodeExecutionMode.Silent;
 
 		// Perform the execution
-		const success = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode);
+		const success = await positron.runtime.executeCode(languageId, codeToExecute, focus, true, mode, errorBehavior);
 		if (!success) {
 			this.simulateOutputMessage(parentId, `Failed; is there an active console for ${languageId}?`);
 		}
