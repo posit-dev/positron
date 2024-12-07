@@ -37,15 +37,30 @@ export const combineLabelWithPathUri = async (
 
 	// If the label is empty, return the original URI
 	if (labelUpdated === '') {
-		return uri;
+		return uri.with({ path: '' });
 	}
 
-	// URIs with authority need to have a path with a leading slash
-	if (uri.authority) {
-		const pathBuilder = await pathService.path;
-		if (!labelUpdated.startsWith(pathBuilder.sep)) {
-			labelUpdated = pathBuilder.sep + labelUpdated;
-		}
+	// Prepend a slash to the label if it doesn't already have one. This is necessary in order to
+	// properly combine the label with the URI.
+	if (!labelUpdated.startsWith('/')) {
+		labelUpdated = '/' + labelUpdated;
 	}
+
+	// Get the path library for the platform on which the server is running.
+	const pathLib = await pathService.path;
+
+	// Check if we need to add the trailing slash back to the label.
+	let includeTrailingSlash = false;
+	if (labelUpdated.endsWith('/') || labelUpdated.endsWith('\\')) {
+		includeTrailingSlash = true;
+	}
+
+	// This normalizes and formats the path according to the platform on which the server is running.
+	// Unfortunately, it removes the trailing slash, so we need to add it back if it was there originally.
+	labelUpdated = pathLib.format(pathLib.parse(labelUpdated));
+	if (includeTrailingSlash) {
+		labelUpdated += pathLib.sep;
+	}
+
 	return uri.with({ path: labelUpdated });
 };
