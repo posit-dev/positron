@@ -35,7 +35,7 @@ export const combineLabelWithPathUri = async (
 ): Promise<URI> => {
 	let labelUpdated = label.trim();
 
-	// If the label is empty, return the original URI
+	// If the label is empty, return the original URI with the path cleared.
 	if (labelUpdated === '') {
 		return uri.with({ path: '' });
 	}

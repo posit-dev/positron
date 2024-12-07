@@ -207,7 +207,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					))()}
 					value={parentFolderLabel}
 					onBrowse={browseHandler}
-					onChange={async (e) => onChangeParentFolder(e.target.value)}
+					onChange={e => onChangeParentFolder(e.target.value)}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>
