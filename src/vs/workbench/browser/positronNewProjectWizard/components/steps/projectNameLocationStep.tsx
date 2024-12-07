@@ -259,7 +259,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
-					onChange={async (e) => onChangeParentFolder(e.target.value)}
+					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep
