@@ -10,7 +10,6 @@ import { PropsWithChildren, useEffect, useState } from 'react';  // eslint-disab
 // Other dependencies.
 import { localize } from 'vs/nls';
 import { useNewProjectWizardContext } from 'vs/workbench/browser/positronNewProjectWizard/newProjectWizardContext';
-import { URI } from 'vs/base/common/uri';
 import { NewProjectWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardEnums';
 import { NewProjectWizardStepProps } from 'vs/workbench/browser/positronNewProjectWizard/interfaces/newProjectWizardStepProps';
 import { PositronWizardStep } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardStep';
@@ -19,12 +18,13 @@ import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positr
 import { LabeledFolderInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledFolderInput';
 import { Checkbox } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/checkbox';
 import { WizardFormattedText, WizardFormattedTextType } from 'vs/workbench/browser/positronNewProjectWizard/components/wizardFormattedText';
-import { checkProjectName } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
+import { checkProjectName, getMaxProjectPathLength } from 'vs/workbench/browser/positronNewProjectWizard/utilities/projectNameUtils';
 import { DisposableStore } from 'vs/base/common/lifecycle';
 import { NewProjectType } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
 import { checkIfPathValid, checkIfURIExists } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/fileInputValidators';
 import { PathDisplay } from 'vs/workbench/browser/positronNewProjectWizard/components/pathDisplay';
 import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/useDebouncedValidator';
+import { combineLabelWithPathUri, pathUriToLabel } from 'vs/workbench/browser/utils/path';
 
 /**
  * The ProjectNameLocationStep component is the second step in the new project wizard.
@@ -36,25 +36,30 @@ import { useDebouncedValidator } from 'vs/workbench/browser/positronComponents/p
 export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizardStepProps>) => {
 	// State.
 	const context = useNewProjectWizardContext();
-	const { fileDialogService, fileService, logService, pathService } = context.services;
+	const { fileDialogService, fileService, labelService, logService, pathService } = context.services;
 
 	// Hooks.
 	const [projectName, setProjectName] = useState(context.projectName);
-	const [parentFolder, setParentFolder] = useState(context.parentFolder);
+	const [parentFolder, setParentFolder] = useState(() => pathUriToLabel(context.parentFolder, labelService));
 	const [projectNameFeedback, setProjectNameFeedback] = useState(context.projectNameFeedback);
+	const [maxProjectPathLength, setMaxProjectPathLength] = useState(() => getMaxProjectPathLength(parentFolder.length));
 	// TODO: Merge `nameValidationErrorMsg` and `parentPathErrorMsg` with the `checkProjectName()`
 	// function.
 	const nameValidationErrorMsg = useDebouncedValidator({
 		value: projectName,
-		validator: x => checkIfPathValid(x, { parentPath: parentFolder.fsPath })
+		validator: name => checkIfPathValid(name, {
+			parentPath: parentFolder
+		})
 	});
 	const isInvalidName = nameValidationErrorMsg !== undefined;
 	const parentPathErrorMsg = useDebouncedValidator({
 		value: parentFolder,
-		validator: (path: URI) => checkIfURIExists(path, fileService)
+		validator: async folder => {
+			const pathUri = await combineLabelWithPathUri(folder, context.parentFolder, pathService);
+			return checkIfURIExists(pathUri, fileService);
+		}
 	});
 	const isInvalidParentPath = parentPathErrorMsg !== undefined;
-
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -63,8 +68,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 		// Add the onUpdateProjectConfig event handler and update the component state.
 		disposableStore.add(context.onUpdateProjectDirectory(() => {
 			setProjectName(context.projectName);
-			setParentFolder(context.parentFolder);
 			setProjectNameFeedback(context.projectNameFeedback);
+			setMaxProjectPathLength(() => getMaxProjectPathLength(context.parentFolder.path.length));
+			// The parent folder state is local to this component, so we don't update it here.
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -73,9 +79,16 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 	// The browse handler.
 	const browseHandler = async () => {
+		// Construct the parent folder URI.
+		const parentFolderUri = await combineLabelWithPathUri(
+			parentFolder,
+			context.parentFolder,
+			pathService
+		);
+
 		// Show the open dialog.
 		const uri = await fileDialogService.showOpenDialog({
-			defaultUri: parentFolder,
+			defaultUri: parentFolderUri,
 			canSelectFiles: false,
 			canSelectFolders: true,
 			canSelectMany: false,
@@ -83,34 +96,54 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			onChangeParentFolder(uri[0]);
+			const pathLabel = pathUriToLabel(uri[0], labelService);
+			onChangeParentFolder(pathLabel);
 		}
 	};
 
 	// Update the project name and the project name feedback.
 	const onChangeProjectName = async (name: string) => {
 		context.projectName = name.trim();
+		const parentFolderUri = await combineLabelWithPathUri(
+			parentFolder,
+			context.parentFolder,
+			pathService
+		);
 		context.projectNameFeedback = await checkProjectName(
 			name,
-			parentFolder,
-			pathService,
+			parentFolderUri,
 			fileService
 		);
 	};
 
 	// Update the parent folder and the project name feedback.
-	const onChangeParentFolder = async (folder: URI) => {
-		context.parentFolder = folder;
+	const onChangeParentFolder = async (folder: string) => {
+		// Update the parent folder component state. The parent folder URI will be updated in the
+		// project wizard context when the user navigates to the next step.
+		setParentFolder(folder);
+
+		// Check that the project name is still valid.
+		const parentFolderUri = await combineLabelWithPathUri(
+			folder,
+			context.parentFolder,
+			pathService
+		);
 		context.projectNameFeedback = await checkProjectName(
 			projectName,
-			folder,
-			pathService,
+			parentFolderUri,
 			fileService
 		);
 	};
 
 	// Navigate to the next step in the wizard, based on the selected project type.
-	const nextStep = () => {
+	const nextStep = async () => {
+		// Update the parent folder URI in the context before navigating to the next step.
+		context.parentFolder = await combineLabelWithPathUri(
+			parentFolder,
+			context.parentFolder,
+			pathService
+		);
+
 		switch (context.projectType) {
 			case NewProjectType.RProject:
 				props.next(NewProjectWizardStep.RConfiguration);
@@ -181,7 +214,7 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					onChange={(e) => onChangeProjectName(e.target.value)}
 					type='text'
 					// Don't let the user create a project with a location that is too long.
-					maxLength={255 - parentFolder.fsPath.length}
+					maxLength={maxProjectPathLength}
 					error={
 						(projectNameFeedback &&
 							projectNameFeedback.type === WizardFormattedTextType.Error) ||
@@ -207,7 +240,10 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 									"Your project will be created at: "
 								))()}
 							<PathDisplay
-								pathComponents={[parentFolder.fsPath, projectName]}
+								pathComponents={[
+									parentFolder,
+									projectName
+								]}
 								pathService={pathService}
 							/>
 						</WizardFormattedText>
@@ -219,11 +255,11 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 							'projectNameLocationSubStep.parentDirectory.description',
 							"Select a directory to create your project in"
 						))()}
-					value={parentFolder.fsPath}
+					value={parentFolder}
 					onBrowse={browseHandler}
 					error={Boolean(parentPathErrorMsg)}
 					skipValidation
-					onChange={(e) => onChangeParentFolder(parentFolder.with({ path: e.target.value }))}
+					onChange={(e) => onChangeParentFolder(e.target.value)}
 				/>
 			</PositronWizardSubStep>
 			<PositronWizardSubStep

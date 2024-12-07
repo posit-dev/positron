@@ -16,13 +16,12 @@ import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { VSBuffer } from 'vs/base/common/buffer';
-import { joinPath } from 'vs/base/common/resources';
+import { joinPath, relativePath } from 'vs/base/common/resources';
 import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbench/services/positronNewProject/common/positronNewProjectTemplates';
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { localize } from 'vs/nls';
 import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Schemas } from 'vs/base/common/network';
 
 /**
  * PositronNewProjectService class.
@@ -119,7 +118,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._register(
 			this.onDidChangePendingInitTasks((tasks) => {
 				this._logService.debug(
-					`[New project startup] Pending tasks changed to: ${tasks}`
+					`[New project startup] Pending tasks changed to: ${JSON.stringify(tasks)}`
 				);
 				// If there are no pending init tasks, it's time for runtime startup
 				if (tasks.size === 0) {
@@ -140,7 +139,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		this._register(
 			this.onDidChangePostInitTasks((tasks) => {
 				this._logService.debug(
-					`[New project startup] Post-init tasks changed to: ${tasks}`
+					`[New project startup] Post-init tasks changed to: ${JSON.stringify(tasks)}`
 				);
 				// If there are no post-init tasks, the new project startup is complete
 				if (tasks.size === 0) {
@@ -328,7 +327,16 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * Relies on extension vscode.git
 	 */
 	private async _runGitInit() {
-		const projectRoot = URI.from({ scheme: this._newProjectConfig?.folderScheme ?? Schemas.file, path: this._newProjectConfig?.projectFolder });
+		if (!this._newProjectConfig) {
+			this._logService.error(`[New project startup] git init - no new project configuration found`);
+			return;
+		}
+
+		const projectRoot = URI.from({
+			scheme: this._newProjectConfig.folderScheme,
+			authority: this._newProjectConfig.folderAuthority,
+			path: this._newProjectConfig.projectFolder
+		});
 
 		// true to skip the folder prompt
 		await this._commandService.executeCommand('git.init', true)
@@ -336,13 +344,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				const errorMessage = localize('positronNewProjectService.gitInitError', 'Error initializing git repository {0}', error);
 				this._notificationService.error(errorMessage);
 			});
-		await this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig?.projectName}`))
+		await this._fileService.createFile(joinPath(projectRoot, 'README.md'), VSBuffer.fromString(`# ${this._newProjectConfig.projectName}`))
 			.catch((error) => {
 				const errorMessage = localize('positronNewProjectService.readmeError', 'Error creating readme {0}', error);
 				this._notificationService.error(errorMessage);
 			});
 
-		switch (this._newProjectConfig?.projectType) {
+		switch (this._newProjectConfig.projectType) {
 			case NewProjectType.PythonProject:
 				await this._fileService.createFile(joinPath(projectRoot, '.gitignore'), VSBuffer.fromString(DOT_IGNORE_PYTHON))
 					.catch((error) => {
@@ -364,7 +372,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			default:
 				this._logService.error(
 					'Cannot determine .gitignore content for unknown project type',
-					this._newProjectConfig?.projectType
+					this._newProjectConfig.projectType
 				);
 				break;
 		}
@@ -388,7 +396,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					this._contextService.getWorkspace().folders[0];
 
 				if (!workspaceFolder) {
-					const message = this._failedPythonEnvMessage(`Could not determine workspace folder for ${this._newProjectConfig.projectFolder}.`);
+					const message = this._failedPythonEnvMessage(
+						`Could not determine workspace folder for ${this._newProjectConfig.projectFolder}.`
+					);
 					this._logService.error(message);
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewProjectTask.PythonEnvironment);
@@ -593,7 +603,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 *Returns the post initialization tasks that need to be performed for the new project.
+	 * Returns the post initialization tasks that need to be performed for the new project.
 	 * @returns Returns the post initialization tasks that need to be performed for the new project.
 	 */
 	private _getPostInitTasks(): Set<NewProjectTask> {
@@ -625,10 +635,16 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		if (!this._newProjectConfig) {
 			return false;
 		}
-		const newProjectPath = this._newProjectConfig.projectFolder;
 		const currentFolderPath =
-			this._contextService.getWorkspace().folders[0]?.uri.fsPath;
-		return newProjectPath === currentFolderPath;
+			this._contextService.getWorkspace().folders[0]?.uri;
+		const newProjectFolder = URI.from({
+			scheme: this._newProjectConfig.folderScheme,
+			authority: this._newProjectConfig.folderAuthority,
+			path: this._newProjectConfig.projectFolder
+		});
+		const currentWindowIsNewProject = relativePath(currentFolderPath, newProjectFolder) === '';
+		this._logService.debug(`[New project startup] Current window is new project: ${currentWindowIsNewProject}`);
+		return currentWindowIsNewProject;
 	}
 
 	async initNewProject() {
