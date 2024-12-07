@@ -1,32 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (c) Microsoft Corporation. All rights reserved.
- *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 (async function () {
 
 	type INativeWindowConfiguration = import('vs/platform/window/common/window.ts').INativeWindowConfiguration;
-	// type IBootstrapWindow = import('vs/platform/window/electron-sandbox/window.js').IBootstrapWindow;
 	type IMainWindowSandboxGlobals = import('vs/base/parts/sandbox/electron-sandbox/globals.js').IMainWindowSandboxGlobals;
-	// type IDesktopMain = import('vs/workbench/electron-sandbox/desktop.main.js').IDesktopMain;
 
-	// const bootstrapWindow: IBootstrapWindow = (window as any).MonacoBootstrapWindow; 	// defined by bootstrap-window.ts
 	const preloadGlobals: IMainWindowSandboxGlobals = (window as any).vscode; 			// defined by preload.ts
 
 	const configuration = await preloadGlobals.context.resolveConfiguration() as INativeWindowConfiguration;
 
 	const safeProcess = preloadGlobals.process;
-
-	// async function resolveWindowConfiguration<T extends INativeWindowConfiguration>() {
-	// 	const timeout = setTimeout(() => { console.error(`[resolve window config] Could not resolve window configuration within 10 seconds, but will continue to wait...`); }, 10000);
-
-	// 	const configuration = await preloadGlobals.context.resolveConfiguration() as T;
-
-	// 	clearTimeout(timeout);
-
-	// 	return configuration;
-	// }
-
 
 	function fileUriFromPath(path: string, config: { isWindows?: boolean; scheme?: string; fallbackAuthority?: string }): string {
 
@@ -90,27 +76,4 @@
 	}
 
 	await setupImportMaps(configuration);
-
-	//#endregion
-
-	// const { result, configuration } = await bootstrapWindow.load<IDesktopMain, INativeWindowConfiguration>('foo',
-	// 	{
-	// 		configureDeveloperSettings: function (windowConfig) {
-	// 			return {
-	// 				// disable automated devtools opening on error when running extension tests
-	// 				// as this can lead to nondeterministic test execution (devtools steals focus)
-	// 				forceDisableShowDevtoolsOnError: typeof windowConfig.extensionTestsPath === 'string' || windowConfig['enable-smoke-test-driver'] === true,
-	// 				// enable devtools keybindings in extension development window
-	// 				forceEnableDeveloperKeybindings: Array.isArray(windowConfig.extensionDevelopmentPath) && windowConfig.extensionDevelopmentPath.length > 0,
-	// 				removeDeveloperKeybindingsAfterLoad: true
-	// 			};
-	// 		},
-	// 		beforeImport: function (windowConfig) {
-	// 			setupImportMaps(windowConfig);
-	// 		}
-	// 	}
-	// );
-
-	// // Load workbench
-	// result.main(configuration);
 }());
