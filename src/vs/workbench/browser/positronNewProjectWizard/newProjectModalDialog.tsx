@@ -121,12 +121,11 @@ export const showNewProjectModalDialog = async (
 					}
 
 					// Create the new project configuration.
-					const folderPath = labelService.getUriLabel(folder, { noPrefix: true });
 					const newProjectConfig: NewProjectConfiguration = {
 						folderScheme: folder.scheme,
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
-						projectFolder: folderPath,
+						projectFolder: folder.path,
 						projectName: result.projectName,
 						initGitRepo: result.initGitRepo,
 						pythonEnvProviderId: result.pythonEnvProviderId,
