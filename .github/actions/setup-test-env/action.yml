@@ -16,7 +16,7 @@ runs:
   steps:
     - name: Compile E2E Tests
       shell: bash
-      run: yarn --cwd test/automation compile && yarn --cwd test/e2e compile
+      run: npm --prefix test/automation run compile && npm --prefix test/e2e run compile
 
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
