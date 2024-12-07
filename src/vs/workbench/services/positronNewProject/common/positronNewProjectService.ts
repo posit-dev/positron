@@ -16,7 +16,7 @@ import { Barrier } from 'vs/base/common/async';
 import { ILanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IFileService } from 'vs/platform/files/common/files';
 import { VSBuffer } from 'vs/base/common/buffer';
-import { joinPath } from 'vs/base/common/resources';
+import { joinPath, relativePath } from 'vs/base/common/resources';
 import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from 'vs/workbench/services/positronNewProject/common/positronNewProjectTemplates';
 import { URI } from 'vs/base/common/uri';
 import { INotificationService } from 'vs/platform/notification/common/notification';
@@ -635,8 +635,13 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		}
 		const currentFolderPath =
 			this._contextService.getWorkspace().folders[0]?.uri;
-		return this._newProjectConfig.projectFolder === currentFolderPath.path
-			&& this._newProjectConfig.folderScheme === currentFolderPath.scheme;
+		const newProjectFolder = URI.from({
+			scheme: this._newProjectConfig.folderScheme,
+			path: this._newProjectConfig.projectFolder
+		});
+		const currentWindowIsNewProject = relativePath(currentFolderPath, newProjectFolder) === '';
+		this._logService.debug(`[New project startup] Current window is new project: ${currentWindowIsNewProject}`);
+		return currentWindowIsNewProject;
 	}
 
 	async initNewProject() {
