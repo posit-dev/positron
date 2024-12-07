@@ -1227,7 +1227,7 @@ declare module 'positron' {
 		 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 		 * @param mode Possible code execution mode for a language runtime
-		 * @param errorBehavior Possible error behavior for a language runtime
+		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
