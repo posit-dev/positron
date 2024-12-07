@@ -16,7 +16,6 @@ from comm.base_comm import BaseComm
 
 from ._vendor.pydantic import BaseModel
 from .positron_comm import CommMessage, PositronComm
-from .third_party import np_, pd_, pl_, torch_
 from .ui_comm import (
     CallMethodParams,
     CallMethodRequest,
@@ -75,20 +74,29 @@ def _set_console_width(kernel: "PositronIPyKernel", params: List[JsonData]) -> N
 
     # Library-specific options:
 
-    if np_ is not None:
-        np_.set_printoptions(linewidth=width)
+    if "numpy" in sys.modules:
+        import numpy as np
 
-    if pd_ is not None:
-        # Set display.width to None so that pandas auto-detects the correct value given the
-        # terminal width configured via the COLUMNS variable above.
-        # See: https://pandas.pydata.org/docs/user_guide/options.html
-        pd_.set_option("display.width", None)
+        np.set_printoptions(linewidth=width)
 
-    if pl_ is not None:
-        pl_.Config.set_tbl_width_chars(width)
+    if "pandas" in sys.modules:
+        import pandas as pd
 
-    if torch_ is not None:
-        torch_.set_printoptions(linewidth=width)
+        # Set display.width to None so that pandas auto-detects the
+        # correct value given the terminal width configured via the
+        # COLUMNS variable above.  See:
+        # https://pandas.pydata.org/docs/user_guide/options.html
+        pd.set_option("display.width", None)
+
+    if "polars" in sys.modules:
+        import polars as pl
+
+        pl.Config.set_tbl_width_chars(width)
+
+    if "torch" in sys.modules:
+        import torch
+
+        torch.set_printoptions(linewidth=width)
 
 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {

@@ -41,7 +41,8 @@ from typing import (
     cast,
 )
 
-from .third_party import np_, pd_, torch_
+from .third_party import _numpy, _pandas, _torch
+
 from .utils import (
     JsonData,
     get_qualname,
@@ -60,6 +61,12 @@ if TYPE_CHECKING:
         import torch  # type: ignore [reportMissingImports]
     except ImportError:
         pass
+
+    try:
+        import ibis  # python >= 3.10
+    except ImportError:
+        pass
+
 
 # General display settings
 TRUNCATE_AT: int = 1024
@@ -90,9 +97,35 @@ SIMPLER_NAMES = {
 }
 
 
-def _get_class_display(value):
+def _remap_ibis_classnames(value):
+    # We will provide more nuanced handling of Ibis expressions in the
+    # inspector class for ibis.Expr and its many subclasses
+
+    import ibis
+
+    if isinstance(value, ibis.Expr):
+        return "ibis.Expr"
+
+    return get_qualname(value)
+
+
+PACKAGE_REMAPPERS = {
+    "ibis": _remap_ibis_classnames,
+}
+
+
+def _get_simplified_qualname(value):
     display_value = get_qualname(value)
-    return SIMPLER_NAMES.get(display_value, display_value)
+
+    if display_value in SIMPLER_NAMES:
+        return SIMPLER_NAMES[display_value]
+
+    top_path = display_value.split(".")[0]
+
+    if top_path in PACKAGE_REMAPPERS:
+        return PACKAGE_REMAPPERS[top_path](value)
+
+    return display_value
 
 
 class PositronInspector(Generic[T]):
@@ -496,7 +529,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 
     @classmethod
     def value_from_isoformat(cls, string: str) -> pd.Timestamp:
-        return not_none(pd_).Timestamp.fromisoformat(string)
+        return _pandas().Timestamp.fromisoformat(string)
 
 
 #
@@ -668,7 +701,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         return (
-            not_none(np_).array2string(
+            _numpy().array2string(
                 self.value,
                 max_line_width=print_width,
                 threshold=ARRAY_THRESHOLD,
@@ -679,7 +712,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
         )
 
     def equals(self, value: np.ndarray) -> bool:
-        return not_none(np_).array_equal(self.value, value)
+        return _numpy().array_equal(self.value, value)
 
     def deepcopy(self) -> np.ndarray:
         # TODO: ndarray.copy() is actually a shallow copy which could cause unexpected behavior for
@@ -698,7 +731,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
         # is in a stable version we can use it to temporarily set print options
-        torch = not_none(torch_)
+        torch = _torch()
 
         new_options = {
             "threshold": ARRAY_THRESHOLD,
@@ -719,13 +752,15 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         return display_value, True
 
     def equals(self, value: torch.Tensor) -> bool:
-        return not_none(torch_).equal(self.value, value)
+        return _torch().equal(self.value, value)
 
     def deepcopy(self) -> torch.Tensor:
-        # Detach the tensor from any existing computation graphs to avoid gradients propagating
-        # through them.
-        # TODO: This creates a completely new tensor using new memory. Is there a more
-        #       memory-efficient way to do this?
+        # Detach the tensor from any existing computation graphs to
+        # avoid gradients propagating through them.
+
+        # TODO: This creates a completely new tensor using new
+        #       memory. Is there a more memory-efficient way to do
+        #       this?
         return self.value.detach().clone()
 
     def get_size(self) -> int:
@@ -805,7 +840,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_class_display(self.value)
+        display_value = _get_simplified_qualname(self.value)
         column_values = str(cast(Column, self.value[:100]).to_list())
         display_value = f"{display_value} {column_values}"
 
@@ -821,9 +856,10 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
 
 class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
+    # Simplified names
     CLASS_QNAME = [
-        "pandas.core.series.Series",
-        "geopandas.geoseries.GeoSeries",
+        "pandas.Series",
+        "geopandas.GeoSeries",
     ]
 
     def get_display_name(self, key: int) -> str:
@@ -874,7 +910,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
-        if isinstance(self.value, not_none(pd_).RangeIndex):
+        if isinstance(self.value, _pandas().RangeIndex):
             return str(self.value), False
 
         display_value = str(self.value[:100].to_list())
@@ -883,7 +919,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     def has_children(self) -> bool:
         # For ranges, we don't visualize the children as they're
         # implied as a contiguous set of integers in a range.
-        if isinstance(self.value, not_none(pd_).RangeIndex):
+        if isinstance(self.value, _pandas().RangeIndex):
             return False
 
         return super().has_children()
@@ -900,9 +936,9 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
 
 class PolarsSeriesInspector(BaseColumnInspector["pl.Series"]):
+    # Simplified class names
     CLASS_QNAME = [
-        "polars.series.series.Series",
-        "polars.internals.series.series.Series",
+        "polars.Series",
     ]
 
     def equals(self, value: pl.Series) -> bool:
@@ -956,7 +992,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        display_value = _get_class_display(self.value)
+        display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
             display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
@@ -970,9 +1006,10 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
 
 class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
+    # Simplified names
     CLASS_QNAME = [
-        "pandas.core.frame.DataFrame",
-        "geopandas.geodataframe.GeoDataFrame",
+        "pandas.DataFrame",
+        "geopandas.GeoDataFrame",
     ]
 
     def get_display_name(self, key: int) -> str:
@@ -1000,9 +1037,9 @@ class PandasDataFrameInspector(BaseTableInspector["pd.DataFrame", "pd.Series"]):
 
 
 class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
+    # Simplified class name
     CLASS_QNAME = [
-        "polars.dataframe.frame.DataFrame",
-        "polars.internals.dataframe.frame.DataFrame",
+        "polars.DataFrame",
     ]
 
     def get_children(self):
@@ -1013,7 +1050,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
         print_width: Optional[int] = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> Tuple[str, bool]:
-        qualname = _get_class_display(self.value)
+        qualname = _get_simplified_qualname(self.value)
         shape = self.value.shape
         display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
         return (display_value, True)
@@ -1079,6 +1116,35 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
         return True
 
 
+class IbisExprInspector(PositronInspector["ibis.Expr"]):
+    def has_children(self) -> bool:
+        return False
+
+    def get_length(self) -> int:
+        return 0
+
+    def is_mutable(self):
+        return False
+
+    def get_display_value(
+        self,
+        print_width: Optional[int] = PRINT_WIDTH,
+        truncate_at: int = TRUNCATE_AT,
+    ) -> Tuple[str, bool]:
+        # Just use the default object.__repr__ for now
+        simplified_name = get_qualname(self.value)
+        return (f"{simplified_name}", True)
+
+    def get_display_type(self) -> str:
+        return "ibis.Expr"
+
+    def to_html(self) -> str:
+        return self.get_display_value()[0]
+
+    def to_plaintext(self) -> str:
+        return self.get_display_value()[0]
+
+
 INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     **dict.fromkeys(PandasDataFrameInspector.CLASS_QNAME, PandasDataFrameInspector),
     **dict.fromkeys(PandasSeriesInspector.CLASS_QNAME, PandasSeriesInspector),
@@ -1092,6 +1158,7 @@ INSPECTOR_CLASSES: Dict[str, Type[PositronInspector]] = {
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
     **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
+    "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,
     "class": ClassInspector,
@@ -1117,7 +1184,7 @@ def get_inspector(value: T) -> PositronInspector[T]:
     elif isinstance(value, property):
         qualname = "property"
     else:
-        qualname = get_qualname(value)
+        qualname = _get_simplified_qualname(value)
     inspector_cls = INSPECTOR_CLASSES.get(qualname, None)
 
     if inspector_cls is None:

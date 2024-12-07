@@ -840,13 +840,9 @@ END`;
 
 		const queryResult = await this.db.runQuery(query);
 
-		// Sanity checks
+		// Sanity check
 		if (queryResult.numCols !== params.columns.length) {
-			return 'Incorrect number of columns in query result';
-		}
-
-		if (queryResult.numRows !== numRows) {
-			return 'Incorrect number of rows in query result';
+			throw new Error('Incorrect number of columns in query result');
 		}
 
 		const result: TableData = {
@@ -881,9 +877,15 @@ END`;
 
 			const fetchValues = (adapter: (field: Vector<any>, i: number) => ColumnValue) => {
 				if ('first_index' in spec) {
+					// There may be fewer rows available than what was requested
+					const lastIndex = Math.min(
+						spec.last_index,
+						spec.first_index + queryResult.numRows - 1
+					);
+
 					const columnValues: Array<string | number> = [];
 					// Value range, we need to extract the actual slice requested
-					for (let i = spec.first_index; i <= spec.last_index; ++i) {
+					for (let i = spec.first_index; i <= lastIndex; ++i) {
 						columnValues.push(adapter(field, i));
 					}
 					return columnValues;

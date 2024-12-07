@@ -50,7 +50,6 @@ from ..data_explorer_comm import (
     RowFilterTypeSupportStatus,
     SupportStatus,
 )
-from ..third_party import RestartRequiredError
 from ..utils import guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH
@@ -295,30 +294,6 @@ def test_register_table_with_variable_path(de_service: DataExplorerService):
     assert table_view.table is dfvp
     # Also check the Data Explorer name is the same as the title, even though a path was provided
     assert table_view.state.name == title
-
-
-@pytest.mark.parametrize(
-    ("table", "import_name", "title"),
-    [(pd.DataFrame({}), "pd_", "Pandas"), (pl.DataFrame({}), "pl_", "Polars")],
-)
-def test_register_table_after_installing_dependency(
-    table: Union[pd.DataFrame, pl.DataFrame],
-    import_name: str,
-    title: str,
-    de_service: DataExplorerService,
-    monkeypatch,
-):
-    # Patch the module (e.g. third_party.pd_) to None. Since these packages are really is installed
-    # during tests, this simulates the case where the user installs the package after the kernel
-    # starts, therefore the third_party attribute (e.g. pd_) is None but the corresponding import
-    # function (third_party.import_pandas()) returns the module.
-    # See https://github.com/posit-dev/positron/issues/5535.
-    monkeypatch.setattr(data_explorer, import_name, None)
-
-    with pytest.raises(
-        RestartRequiredError, match=f"^{title} was installed after the session started."
-    ):
-        de_service.register_table(table, "test_table")
 
 
 def test_shutdown(de_service: DataExplorerService):
