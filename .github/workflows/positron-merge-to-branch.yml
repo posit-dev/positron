@@ -1,4 +1,4 @@
-name: "Test: Merge to Branch"
+name: "Test: PR & Merge"
 
 on:
   pull_request:
