@@ -35,7 +35,7 @@ on:
 
 jobs:
   electron:
-    if: ${{ inputs.run_e2e_linux }}
+    if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
       grep: ""
@@ -43,7 +43,7 @@ jobs:
     secrets: inherit
 
   windows:
-    if: ${{ inputs.run_e2e_windows }}
+    if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
     uses: ./.github/workflows/e2e-windows.yml
     with:
       grep: "@win"
@@ -51,7 +51,7 @@ jobs:
     secrets: inherit
 
   browser:
-    if: ${{ inputs.run_e2e_browser }}
+    if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
       grep: ""
