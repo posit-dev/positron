@@ -54,16 +54,16 @@ runs:
       shell: bash
       run: aws --version
 
-    - name: Download Blob Reports
-      uses: actions/download-artifact@v4
-      with:
-        path: all-blob-reports
-        pattern: ${{ inputs.blob-pattern }}
-        merge-multiple: true
+    # - name: Download Blob Reports
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     path: all-blob-reports
+    #     pattern: ${{ inputs.blob-pattern }}
+    #     merge-multiple: true
 
-    - name: Merge Blobs into HTML Report
-      shell: bash
-      run: npx playwright merge-reports --reporter html ./all-blob-reports
+    # - name: Merge Blobs into HTML Report
+    #   shell: bash
+    #   run: npx playwright merge-reports --reporter html ./all-blob-reports
 
     - name: Upload Playwright Report to S3
       uses: ./.github/actions/upload-report-to-s3
@@ -77,24 +77,24 @@ runs:
         echo "Report URL: $REPORT_URL"
         echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
-    - name: Download JUnit Reports
-      uses: actions/download-artifact@v4
-      with:
-        path: all-junit-reports
-        pattern: ${{ inputs.junit-pattern }}
-        merge-multiple: true
+    # - name: Download JUnit Reports
+    #   uses: actions/download-artifact@v4
+    #   with:
+    #     path: all-junit-reports
+    #     pattern: ${{ inputs.junit-pattern }}
+    #     merge-multiple: true
 
-    - name: Merge JUnit Reports
-      shell: bash
-      run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
+    # - name: Merge JUnit Reports
+    #   shell: bash
+    #   run: npm install -g junit-report-merger && npx jrm junit.xml "all-junit-reports/*.xml"
 
-    - name: Install trcli
-      shell: bash
-      run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
+    # - name: Install trcli
+    #   shell: bash
+    #   run: apt-get update && apt-get install -y python3-pip && pip3 install trcli
 
-    - name: Upload Test Results to TestRail
-      shell: bash
-      run: |
-        TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
-        echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-        trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
+    # - name: Upload Test Results to TestRail
+    #   shell: bash
+    #   run: |
+    #     TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ inputs.testrail-title }} - $GITHUB_REF_NAME"
+    #     echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
+    #     trcli --host "https://posit.testrail.io/" --project "${{ inputs.testrail-project }}" --username testrailautomation@posit.co --key "${{ inputs.testrail-api-key }}" parse_junit --file "./junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run

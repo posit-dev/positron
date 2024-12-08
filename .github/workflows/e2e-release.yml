@@ -1,4 +1,4 @@
-name: "Latest Release: E2E Electron Tests"
+name: "Test: E2E (Latest Release)"
 
 on:
   workflow_dispatch:
