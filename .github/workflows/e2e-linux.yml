@@ -1,0 +1,104 @@
+name: "Test: E2E (Linux)"
+
+on:
+  workflow_call:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Test locally with: npx playwright test --grep=<regex>"
+        default: "@pr"
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: string
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+
+  workflow_dispatch:
+    inputs:
+      grep:
+        required: false
+        description: "Only run tests matching this regular expression. Can be tags, test titles, filenames, etc. If left blank, all tests will run."
+        default: "@pr"
+        type: string
+      project:
+          required: false
+          description: "The name of the Playwright project to run tests for."
+          default: "e2e-electron"
+          type: choice
+          options:
+            - e2e-electron
+            - e2e-browser
+      repeat_each:
+        required: false
+        description: "Run each test N times, defaults to one."
+        default: 1
+        type: number
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  e2e-electron:
+    timeout-minutes: 45
+    runs-on: ubuntu-latest-8x
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
+      AWS_S3_BUCKET: positron-test-reports
+      REPORT_DIR: playwright-report-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
+
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
+        with:
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
+          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+
+      - name: Run Playwright Tests (Electron)
+        env:
+          POSITRON_PY_VER_SEL: 3.10.12
+          POSITRON_R_VER_SEL: 4.4.0
+          CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
+          CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
+          PWTEST_BLOB_DO_NOT_REMOVE: 1
+          CURRENTS_TAG: "electron,${{ inputs.grep }}"
+        id: e2e-playwright-tests
+        run: |
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep=${{ inputs.grep }} --repeat-each ${{ inputs.repeat_each }}
+
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
+        with:
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+

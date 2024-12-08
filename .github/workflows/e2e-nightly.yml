@@ -1,0 +1,69 @@
+name: "Nightly: E2E Tests"
+
+on:
+  schedule:
+    - cron: "0 4 * * 1-5" # Run at 4 AM UTC on weekdays
+
+  workflow_dispatch:
+      inputs:
+        run_e2e_linux:
+          description: "Run E2E Linux Tests"
+          required: false
+          default: true
+          type: boolean
+        run_e2e_windows:
+          description: "Run E2E Windows Tests"
+          required: false
+          default: true
+          type: boolean
+        run_e2e_browser:
+          description: "Run E2E Browser Tests"
+          required: false
+          default: true
+          type: boolean
+        notify_on:
+            description: "When to send a notification to Slack"
+            required: false
+            default: "failure"
+            type: choice
+            options:
+              - failure
+              - always
+
+jobs:
+  electron:
+    if: ${{ inputs.run_e2e_linux == 'true' }}
+    uses: ./.github/workflows/e2e-linux.yml
+    with:
+      grep: ""
+      project: "e2e-electron"
+    secrets: inherit
+
+  windows:
+    if: ${{ inputs.run_e2e_windows == 'true' }}
+    uses: ./.github/workflows/e2e-windows.yml
+    with:
+      grep: "@win"
+      project: "e2e-electron"
+    secrets: inherit
+
+  browser:
+    if: ${{ inputs.run_e2e_browser == 'true' }}
+    uses: ./.github/workflows/e2e-linux.yml
+    with:
+      grep: ""
+      project: "e2e-browser"
+    secrets: inherit
+
+  slack-notify:
+    needs: [electron, windows, browser]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          notify_on: ${{ inputs.notify_on }}
+
