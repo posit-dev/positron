@@ -34,7 +34,8 @@ on:
               - always
 
 jobs:
-  electron:
+  e2e-electron:
+    name: test
     if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
@@ -42,7 +43,8 @@ jobs:
       project: "e2e-electron"
     secrets: inherit
 
-  windows:
+  e2e-windows:
+    name: 'test'
     if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
     uses: ./.github/workflows/e2e-windows.yml
     with:
@@ -50,7 +52,8 @@ jobs:
       project: "e2e-electron"
     secrets: inherit
 
-  browser:
+  e2e-browser:
+    name: 'test'
     if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
@@ -59,7 +62,7 @@ jobs:
     secrets: inherit
 
   slack-notify:
-    needs: [electron, windows, browser]
+    needs: [e2e-electron, e2e-windows, e2e-browser]
     runs-on: ubuntu-latest
     if: always()
     steps:
