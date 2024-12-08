@@ -18,6 +18,11 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-electron"
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -46,6 +51,7 @@ permissions:
 
 jobs:
   e2e-electron:
+    name: ${{ inputs.display_name }}
     timeout-minutes: 45
     runs-on: ubuntu-latest-8x
     env:
