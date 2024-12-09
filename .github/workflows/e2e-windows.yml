@@ -155,12 +155,8 @@ jobs:
         if: ${{ !cancelled() }}
         run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
-      - name: Report Test Results
-        uses: ./.github/actions/e2e-report
-        if: always()
+      - name: Upload Playwright Report to S3
+        if: ${{ success() || failure() }}
+        uses: ./.github/actions/upload-report-to-s3
         with:
-          aws-s3-bucket: positron-test-reports
-          aws-role: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
-          # testrail-api-key: ${{ secrets.TESTRAIL_API_KEY }}
-          # testrail-title: "E2E Electron Test Run"
-
+          role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
