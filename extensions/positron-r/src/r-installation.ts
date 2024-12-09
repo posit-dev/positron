@@ -36,23 +36,23 @@ export interface RMetadataExtra {
  * Enum represents how we discovered an R binary.
  */
 export enum ReasonDiscovered {
-	affiliated,
-	registry,
+	affiliated = "affiliated",
+	registry = "registry",
 	/* eslint-disable @typescript-eslint/naming-convention */
-	PATH,
-	HQ,
+	PATH = "PATH",
+	HQ = "HQ",
 	/* eslint-enable @typescript-eslint/naming-convention */
-	adHoc,
-	user
+	adHoc = "adHoc",
+	user = "user"
 }
 
 /**
  * Enum represents why we rejected an R binary.
  */
 export enum ReasonRejected {
-	invalid,
-	unsupported,
-	nonOrthogonal
+	invalid = "invalid",
+	unsupported = "unsupported",
+	nonOrthogonal = "nonOrthogonal"
 }
 
 export function friendlyReason(reason: ReasonDiscovered | ReasonRejected | null): string {
