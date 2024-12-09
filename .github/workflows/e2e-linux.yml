@@ -95,6 +95,25 @@ jobs:
         if: ${{ inputs.project == 'e2e-browser' }}
         run: yarn gulp node
 
+      - name: Extract Tags from Grep Input
+        if: ${{ inputs.project == 'e2e-electron' }}
+        run: |
+          # Extract tags from the grep input (e.g., @feature)
+          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
+          echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
+        shell: bash
+
+      - name: Extract Tags from Grep Input
+        if: ${{ inputs.project == 'e2e-browser' }}
+        run: |
+          # Extract tags from the grep input, ensure @web is included
+          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@web" | tr '\n' ',' | sed 's/,$//' > tags.txt
+          # Append @web to the extracted tags
+          echo "@web" >> tags.txt
+          # Combine and export as a single environment variable
+          echo "EXTRACTED_TAGS=$(cat tags.txt | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
+        shell: bash
+
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12
@@ -106,7 +125,7 @@ jobs:
           CURRENTS_TAG: "electron,${{ inputs.grep }}"
         id: e2e-playwright-tests
         run: |
-          DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep=${{ inputs.grep }} --repeat-each ${{ inputs.repeat_each }}
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep ${{ env.EXTRACTED_TAGS }} --repeat-each ${{ inputs.repeat_each }}
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
