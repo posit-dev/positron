@@ -59,6 +59,15 @@ class TestGlyphRasterizer implements IGlyphRasterizer {
 	}
 }
 
+// --- Start Positron ---
+// These tests are all currently skipped because they are unrelated to Positron
+// features and fail consistently in our CI environment, which differs from
+// Microsoft's.
+//
+// Specifically, running these tests results in CI errors like these:
+// TextureAtlas get single glyph (reason: getActiveWindow().requestIdleCallback is not a function. (In 'getActiveWindow().requestIdleCallback(callback)', 'getActiveWindow().requestIdleCallback' is undefined))
+// --- End Positron ---
+
 suite('TextureAtlas', () => {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -79,18 +88,18 @@ suite('TextureAtlas', () => {
 		glyphRasterizer.nextGlyphColor = [0, 0, 0, 0xFF];
 	});
 
-	test('get single glyph', () => {
+	test.skip('get single glyph', () => {
 		assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 	});
 
-	test('get multiple glyphs', () => {
+	test.skip('get multiple glyphs', () => {
 		atlas = store.add(instantiationService.createInstance(TextureAtlas, 32, undefined));
 		for (let i = 0; i < 10; i++) {
 			assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 		}
 	});
 
-	test('adding glyph to full page creates new page', () => {
+	test.skip('adding glyph to full page creates new page', () => {
 		let pageCount: number | undefined;
 		for (let i = 0; i < 4; i++) {
 			assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
@@ -104,12 +113,12 @@ suite('TextureAtlas', () => {
 		strictEqual(atlas.pages.length, pageCount! + 1, 'the 5th glyph should overflow to a new page');
 	});
 
-	test('adding a glyph larger than the atlas', () => {
+	test.skip('adding a glyph larger than the atlas', () => {
 		glyphRasterizer.nextGlyphDimensions = [3, 2];
 		throws(() => atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), 'should throw when the glyph is too large, this should not happen in practice');
 	});
 
-	test('adding a glyph larger than the standard slab size', () => {
+	test.skip('adding a glyph larger than the standard slab size', () => {
 		glyphRasterizer.nextGlyphDimensions = [2, 2];
 		atlas = store.add(instantiationService.createInstance(TextureAtlas, 32, {
 			allocatorType: (canvas, textureIndex) => new TextureAtlasSlabAllocator(canvas, textureIndex, { slabW: 1, slabH: 1 })
@@ -117,7 +126,7 @@ suite('TextureAtlas', () => {
 		assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 	});
 
-	test('adding a non-first glyph larger than the standard slab size, causing an overflow to a new page', () => {
+	test.skip('adding a non-first glyph larger than the standard slab size, causing an overflow to a new page', () => {
 		atlas = store.add(instantiationService.createInstance(TextureAtlas, 2, {
 			allocatorType: (canvas, textureIndex) => new TextureAtlasSlabAllocator(canvas, textureIndex, { slabW: 1, slabH: 1 })
 		}));
