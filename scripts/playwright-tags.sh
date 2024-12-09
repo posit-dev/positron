@@ -16,7 +16,7 @@ echo "  * Tags: '$TAGS'"
 # Initialize regex or output
 OUTPUT=""
 
-# Filter tags based on project
+# Filter and preprocess tags based on project
 if [[ "$PROJECT" == "e2e-windows" ]]; then
   # Remove @win from the tags
   TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | tr '\n' ',' | sed 's/,$//')
@@ -28,10 +28,10 @@ fi
 # Determine prefix based on PROJECT
 case "$PROJECT" in
   "e2e-browser")
-    OUTPUT="(?=.*@web)"
+    OUTPUT="(?=.*@web)"  # Base tag for browser
     ;;
   "e2e-windows")
-    OUTPUT="(?=.*@win)"
+    OUTPUT="(?=.*@win)"  # Base tag for windows
     ;;
   "e2e-electron")
     OUTPUT="" # No prefix for linux
@@ -42,20 +42,11 @@ case "$PROJECT" in
     ;;
 esac
 
-# Append tags to the output
+# Append OR logic for additional tags
 if [[ -n "$TAGS" ]]; then
-  # Convert comma-separated tags into regex format for browser/windows
-  if [[ "$PROJECT" == "e2e-browser" || "$PROJECT" == "e2e-windows" ]]; then
-    TAGS_REGEX=$(echo "$TAGS" | tr ',' '\n' | sed 's/^/(?=.*&/' | sed 's/$/)/' | tr -d '\n')
-    OUTPUT="$OUTPUT$TAGS_REGEX"
-  else
-    # Deduplicate tags
-    if [[ -n "$TAGS" ]]; then
-      TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
-    fi
-
-    OUTPUT="$TAGS"
-  fi
+  # Convert comma-separated tags into OR regex format
+  TAGS_REGEX=$(echo "$TAGS" | tr ',' '|' | sed 's/^/(?=.*(/;s/$/))/' | sed 's/|)/)/') # Create OR condition
+  OUTPUT="$OUTPUT$TAGS_REGEX"
 fi
 
 # Output the final string
