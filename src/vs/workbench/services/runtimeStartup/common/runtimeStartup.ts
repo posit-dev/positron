@@ -169,8 +169,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// if no runtimes were found, notify the user about the problem
 				if (this._languageRuntimeService.registeredRuntimes.length === 0) {
 					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
-						"No runtimes found. Please see the [Get Started](https://positron.posit.co/start.html) \
-					page for instructions on how to add a runtime."));
+						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
+						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
 				}
 
 				// If there are no affiliated runtimes, and no starting or running
