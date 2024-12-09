@@ -27,66 +27,8 @@ jobs:
       - name: Set screen resolution
         shell: pwsh
         run: |
-          Add-Type -TypeDefinition @"
-          using System;
-          using System.Runtime.InteropServices;
-          public class Screen {
-            [DllImport("user32.dll")]
-            public static extern int ChangeDisplaySettings(ref DEVMODE devMode, int flags);
-            public const int DM_PELSWIDTH = 0x80000;
-            public const int DM_PELSHEIGHT = 0x100000;
-            public const int CDS_UPDATEREGISTRY = 0x1;
-            [StructLayout(LayoutKind.Sequential)]
-            public struct DEVMODE {
-              public const int CCHDEVICENAME = 32;
-              public const int CCHFORMNAME = 32;
-              [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHDEVICENAME)]
-              public string dmDeviceName;
-              public ushort dmSpecVersion;
-              public ushort dmDriverVersion;
-              public ushort dmSize;
-              public ushort dmDriverExtra;
-              public uint dmFields;
-              public int dmPositionX;
-              public int dmPositionY;
-              public uint dmDisplayOrientation;
-              public uint dmDisplayFixedOutput;
-              public short dmColor;
-              public short dmDuplex;
-              public short dmYResolution;
-              public short dmTTOption;
-              public short dmCollate;
-              [MarshalAs(UnmanagedType.ByValTStr, SizeConst = CCHFORMNAME)]
-              public string dmFormName;
-              public short dmLogPixels;
-              public short dmBitsPerPel;
-              public uint dmPelsWidth;
-              public uint dmPelsHeight;
-              public uint dmDisplayFlags;
-              public uint dmDisplayFrequency;
-              public uint dmICMMethod;
-              public uint dmICMIntent;
-              public uint dmMediaType;
-              public uint dmDitherType;
-              public uint dmReserved1;
-              public uint dmReserved2;
-              public uint dmPanningWidth;
-              public uint dmPanningHeight;
-            }
-            public static void SetResolution(uint width, uint height) {
-              DEVMODE dm = new DEVMODE();
-              dm.dmSize = (ushort)Marshal.SizeOf(typeof(DEVMODE));
-              dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
-              dm.dmPelsWidth = width;
-              dm.dmPelsHeight = height;
-              ChangeDisplaySettings(ref dm, CDS_UPDATEREGISTRY);
-            }
-          }
-          "@
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
 
-          # Set the screen resolution
-          [Screen]::SetResolution(1920, 1080)
-          
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
