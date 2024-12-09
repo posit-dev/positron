@@ -47,11 +47,14 @@ if [[ -n "$TAGS" ]]; then
   # Convert comma-separated tags into OR regex format
   TAGS_REGEX=$(echo "$TAGS" | tr ',' '|' | sed 's/^/(?=.*(/;s/$/))/' | sed 's/|)/)/') # Create OR condition
   OUTPUT="$OUTPUT$TAGS_REGEX"
+else
+  # Ensure OUTPUT remains explicitly an empty string if TAGS is empty
+  OUTPUT="${OUTPUT:-}"
 fi
 
 # Output the final string
 echo "Output:"
-echo "  * $OUTPUT"
+echo "  * '${OUTPUT}'"  # Show quotes for clarity
 
 # Save to GITHUB_ENV
-echo "PW_TAGS=$OUTPUT" >> $GITHUB_ENV
+echo "PW_TAGS=${OUTPUT}" >> $GITHUB_ENV
