@@ -32,7 +32,7 @@ on:
           default: true
           type: boolean
         notify_on:
-            description: "Send a notification to Slack"
+            description: "Send Slack notification:"
             required: false
             default: "failure"
             type: choice
