@@ -166,11 +166,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// auto-start a runtime.
 		this._register(this.onDidChangeRuntimeStartupPhase(phase => {
 			if (phase === RuntimeStartupPhase.Complete) {
-				if (!this.hasAffiliatedRuntime() &&
+				// if no runtimes were found, notify the user about the problem
+				if (this._languageRuntimeService.registeredRuntimes.length === 0) {
+					this._notificationService.error(nls.localize('positron.runtimeStartupService.noRuntimesMessage',
+						"No interpreters found. Please see the [Get Started](https://positron.posit.co/start) \
+						documentation to learn how to prepare your Python and/or R environments to work with Positron."));
+				}
+
+				// If there are no affiliated runtimes, and no starting or running
+				// runtimes, start the first runtime that has Immediate startup
+				// behavior.
+				else if (!this.hasAffiliatedRuntime() &&
 					!this._runtimeSessionService.hasStartingOrRunningConsole()) {
-					// If there are no affiliated runtimes, and no starting or running
-					// runtimes, start the first runtime that has Immediate startup
-					// behavior.
 					const languageRuntimes = this._languageRuntimeService.registeredRuntimes
 						.filter(metadata =>
 							metadata.startupBehavior === LanguageRuntimeStartupBehavior.Immediate);
@@ -384,7 +391,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	/**
 	 * Activates all of the extensions that provides language runtimes, then
-	 * entires the discovery phase, in which each extension is asked to supply
+	 * enters the discovery phase, in which each extension is asked to supply
 	 * its language runtime metadata.
 	 */
 	private async discoverAllRuntimes() {
