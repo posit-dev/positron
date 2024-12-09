@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Test Explorer', () => {
+test.describe('Test Explorer', { tag: ['@test-explorer'] }, () => {
 	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
 			// don't use native file picker

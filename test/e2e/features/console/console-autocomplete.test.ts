@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Console Autocomplete', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@console']
 }, () => {
 	test('Python - Verify Console Autocomplete [C947968]', async function ({ app, python }) {
 		await app.workbench.positronConsole.pasteCodeToConsole('import pandas as pd');

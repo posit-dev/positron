@@ -15,7 +15,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Large Data Frame', {
-	tag: ['@pr', '@web', '@win']
+	tag: ['@pr', '@web', '@win', '@data-explorer']
 }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');

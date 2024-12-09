@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-test.describe('Data Explorer - Very Large Data Frame', { tag: ['@win'] }, () => {
+test.describe('Data Explorer - Very Large Data Frame', { tag: ['@win', '@data-explorer'] }, () => {
 	test.beforeAll(async function ({ app }) {
 		if (githubActions) {
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);

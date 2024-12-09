@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Pane: Python', { tag: ['@web', '@win'] }, () => {
+test.describe('Console Pane: Python', { tag: ['@web', '@win', '@console'] }, () => {
 
 	test('Verify restart button inside the console [C377918]', async function ({ app, python }) {
 		await expect(async () => {

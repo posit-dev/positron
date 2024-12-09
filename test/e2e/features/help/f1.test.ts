@@ -12,7 +12,7 @@ test.use({
 
 
 test.describe('F1 Help #web #win', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@help']
 }, () => {
 
 	test('R - Verifies basic F1 help functionality [C1018854]', async function ({ app, r }) {

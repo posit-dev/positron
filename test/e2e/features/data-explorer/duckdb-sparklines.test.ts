@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - DuckDB Column Summary', {
-	tag: ['@web', '@win', '@pr']
+	tag: ['@web', '@win', '@pr', '@data-explorer', '@duck-db']
 }, () => {
 	// python fixture not actually needed but serves as a long wait so that we can be sure
 	// headless/duckdb open will work

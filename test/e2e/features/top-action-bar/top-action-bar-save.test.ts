@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Top Action Bar - Save Actions', {
-	tag: ['@web']
+	tag: ['@web', '@top-action-bar']
 }, () => {
 
 	test.beforeAll(async function ({ app, userSettings }) {
