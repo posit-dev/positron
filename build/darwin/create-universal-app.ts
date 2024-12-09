@@ -63,7 +63,7 @@ const reconciliationFiles = [
 	'Contents/Resources/app/out/nls.messages.json',
 	'Contents/Resources/app/out/nls.keys.json',
 	// Consumers of localised strings, found by grepping for `nls_1.localize`
-	'Contents/Resources/app/out/vs/platform/profiling/electron-sandbox/profileAnalysisWorker.js',
+	'Contents/Resources/app/out/vs/platform/profiling/electron-sandbox/profileAnalysisWorkerMain.js',
 	'Contents/Resources/app/out/vs/platform/files/node/watcher/watcherMain.js',
 	'Contents/Resources/app/out/vs/platform/terminal/node/ptyHostMain.js',
 	'Contents/Resources/app/out/vs/code/node/cli.js',
