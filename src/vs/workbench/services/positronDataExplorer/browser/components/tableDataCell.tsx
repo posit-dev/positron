@@ -39,30 +39,38 @@ export const TableDataCell = (props: TableDataCellProps) => {
 		.replace(/\r/g, '\\r')
 		.replace(/\n/g, '\\n');
 
-	// Handle leading whitespace
-	const leadingMatch = formattedText.match(/^\s+/);
-	if (leadingMatch) {
+	// Handle text that is only whitespace
+	if (formattedText.trim() === '') {
 		parts.push(
 			<span className='whitespace'>
-				{EMPTY_SPACE_SYMBOL.repeat(leadingMatch[0].length)}
+				{EMPTY_SPACE_SYMBOL.repeat(formattedText.length)}
 			</span>
 		);
+	} else {
+		// Handle leading whitespace
+		const leadingMatch = formattedText.match(/^\s+/);
+		if (leadingMatch) {
+			parts.push(
+				<span className='whitespace'>
+					{EMPTY_SPACE_SYMBOL.repeat(leadingMatch[0].length)}
+				</span>
+			);
+		}
+
+		// Add the main content
+		const mainContent = formattedText.trim();
+		parts.push(mainContent);
+
+		// Handle trailing whitespace
+		const trailingMatch = formattedText.match(/\s+$/);
+		if (trailingMatch) {
+			parts.push(
+				<span className='whitespace'>
+					{EMPTY_SPACE_SYMBOL.repeat(trailingMatch[0].length)}
+				</span>
+			);
+		}
 	}
-
-	// Add the main content
-	const mainContent = formattedText.trim();
-	parts.push(mainContent);
-
-	// Handle trailing whitespace
-	const trailingMatch = formattedText.match(/\s+$/);
-	if (trailingMatch) {
-		parts.push(
-			<span className='whitespace'>
-				{EMPTY_SPACE_SYMBOL.repeat(trailingMatch[0].length)}
-			</span>
-		);
-	}
-
 	let renderedOutput = parts;
 	if (props.dataCell.kind === DataCellKind.NON_NULL && formattedText === '') {
 		isSpecialValue = true;
