@@ -33,7 +33,7 @@ function makeCompileBuildTask(disableMangle) {
 
 // Full compile, including nls and inline sources in sourcemaps, mangling, minification, for build
 // --- Start Positron ---
-const compileBuildTask = task.define('compile-build', makeCompileBuildTask(process.argv.includes('--no-mangler')));
+const compileBuildTask = task.define('compile-build', makeCompileBuildTask(process.argv.includes('--disable-mangler')));
 // --- End Positron ---
 gulp.task(compileBuildTask);
 exports.compileBuildTask = compileBuildTask;
