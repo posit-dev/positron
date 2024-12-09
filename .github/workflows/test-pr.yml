@@ -14,7 +14,7 @@ jobs:
       grep: "@pr"
       project: "e2e-electron"
       display_name: "electron (linux)"
-      currents_tags: "@pr,@electron/linux"
+      currents_tags: "electron/linux"
     secrets: inherit
 
   unit-tests:

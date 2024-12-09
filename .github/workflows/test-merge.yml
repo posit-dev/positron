@@ -14,7 +14,7 @@ jobs:
       grep: ""
       project: "e2e-electron"
       display_name: "electron (linux)"
-      currents_tags: "@push,@electron/linux"
+      currents_tags: "push,electron/linux"
     secrets: inherit
 
   unit-tests:
