@@ -15,7 +15,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.positronLayouts.enterLayout("stacked");
 });
 
-test.describe('R - New Project Wizard', () => {
+test.describe('R - New Project Wizard', { tag: ['@new-project-wizard'] }, () => {
 	test.describe.configure({ mode: 'serial' });
 
 	const defaultProjectName = 'my-r-project';

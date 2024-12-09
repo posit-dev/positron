@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Viewer', () => {
+test.describe('Viewer', { tag: ['@viewer'] }, () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronViewer.clearViewer();

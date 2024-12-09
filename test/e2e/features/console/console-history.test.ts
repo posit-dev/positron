@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Console History', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@console']
 }, () => {
 	test.afterEach(async function ({ app }) {
 		app.workbench.positronConsole.sendKeyboardKey('Escape');

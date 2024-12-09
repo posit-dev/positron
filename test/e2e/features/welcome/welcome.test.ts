@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Welcome Page', () => {
+test.describe('Welcome Page', { tag: ['@welcome'] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('Help: Welcome');
 	});

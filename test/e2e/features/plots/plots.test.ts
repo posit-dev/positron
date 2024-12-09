@@ -15,7 +15,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Plots', () => {
+test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 	// Some tests are not tagged @win because they woould require a new master image.
 	test.describe('Python Plots', () => {
 

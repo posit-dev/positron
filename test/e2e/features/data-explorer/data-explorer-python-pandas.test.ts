@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Pandas', {
-	tag: ['@web', '@win', '@pr']
+	tag: ['@web', '@win', '@pr', '@data-explorer']
 }, () => {
 	test('Python Pandas - Verifies basic data explorer functionality [C557556]', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/

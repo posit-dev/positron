@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Sparklines', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@data-explorer']
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

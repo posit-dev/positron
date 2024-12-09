@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R Package Development', { tag: ['@web'] }, () => {
+test.describe('R Package Development', { tag: ['@web', '@r-pkg-development'] }, () => {
 	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
 			// don't use native file picker

@@ -14,7 +14,7 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: ['@web'],
+	tag: ['@web', '@reticulate'],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5226' }]
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
