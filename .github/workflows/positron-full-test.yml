@@ -1,0 +1,99 @@
+name: "Test: Full Suite"
+
+on:
+  schedule:
+    - cron: "0 4 * * 1-5" # Run at 4 AM UTC on weekdays
+
+  workflow_dispatch:
+      inputs:
+        run_e2e_linux:
+          description: "Run E2E Electron (Linux) Tests"
+          required: false
+          default: true
+          type: boolean
+        run_e2e_windows:
+          description: "Run E2E Electron (Windows) Tests"
+          required: false
+          default: true
+          type: boolean
+        run_e2e_browser:
+          description: "Run E2E Browser (Linux) Tests"
+          required: false
+          default: true
+          type: boolean
+        run_unit_tests:
+          description: "Run Unit Tests"
+          required: false
+          default: true
+          type: boolean
+        run_integration_tests:
+          description: "Run Integration Tests"
+          required: false
+          default: true
+          type: boolean
+        notify_on:
+            description: "When to send a notification to Slack"
+            required: false
+            default: "failure"
+            type: choice
+            options:
+              - failure
+              - always
+
+jobs:
+  e2e-electron:
+    name: e2e
+    if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
+    uses: ./.github/workflows/test-e2e-linux.yml
+    with:
+      grep: "@dummy-test"
+      project: "e2e-electron"
+      display_name: "electron (linux)"
+      currents_tags: "@nightly,@electron/linux"
+    secrets: inherit
+
+  e2e-windows:
+    name: e2e
+    if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
+    uses: ./.github/workflows/test-e2e-windows.yml
+    with:
+      grep: "@dummy-test"
+      display_name: "electron (win)"
+      currents_tags: "@nightly,@electron/win"
+    secrets: inherit
+
+  e2e-browser:
+    name: e2e
+    if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
+    uses: ./.github/workflows/test-e2e-linux.yml
+    with:
+      grep: "@dummy-test"
+      project: "e2e-browser"
+      display_name: "browser (linux)"
+      currents_tags: "@nightly,@browser/linux"
+    secrets: inherit
+
+  unit-tests:
+    name: test
+    if: ${{ inputs.run_unit_tests == true || inputs.run_unit_tests == null }}
+    uses: ./.github/workflows/test-unit.yml
+    secrets: inherit
+
+  integration-tests:
+    name: test
+    if: ${{ inputs.run_integration_tests == true || inputs.run_integration_tests == null }}
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
+
+  slack-notify:
+    needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          notify_on: ${{ inputs.notify_on }}
+
