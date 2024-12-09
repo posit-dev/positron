@@ -6,9 +6,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { NotebookSessionService } from './notebookSessionService';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
-import { log, updateHasRunningNotebookSessionContext } from './extension';
+import { log, setHasRunningNotebookSessionContext } from './extension';
 import { ResourceMap } from './map';
-import { getNotebookSession } from './utils';
+import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
 
 /** The type of a Jupyter notebook cell output. */
 enum NotebookCellOutputType {
@@ -129,7 +129,9 @@ export class NotebookController implements vscode.Disposable {
 	}
 
 	private async shutdownRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
-		updateHasRunningNotebookSessionContext(notebook.uri, undefined);
+		if (isActiveNotebookEditorUri(notebook.uri)) {
+			await setHasRunningNotebookSessionContext(false);
+		}
 
 		await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
 	}
@@ -144,7 +146,9 @@ export class NotebookController implements vscode.Disposable {
 		try {
 			const session = await this._notebookSessionService.startRuntimeSession(notebook.uri, this._runtimeMetadata.runtimeId);
 
-			updateHasRunningNotebookSessionContext(notebook.uri, session);
+			if (isActiveNotebookEditorUri(notebook.uri)) {
+				await setHasRunningNotebookSessionContext(true);
+			}
 
 			return session;
 		} catch (err) {

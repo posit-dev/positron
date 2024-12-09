@@ -41,6 +41,10 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 		}
 	}
 
+	async shutdown(): Promise<void> {
+		// Do nothing.
+	}
+
 	dispose() {
 		this._onDidReceiveRuntimeMessage.dispose();
 	}

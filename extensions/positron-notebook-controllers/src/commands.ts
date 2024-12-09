@@ -5,8 +5,8 @@
 
 import * as vscode from 'vscode';
 import { NotebookSessionService } from './notebookSessionService';
-import { getNotebookSession } from './utils';
-import { updateHasRunningNotebookSessionContext as setHasRunningNotebookSessionContext } from './extension';
+import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
+import { setHasRunningNotebookSessionContext } from './extension';
 
 export function registerCommands(context: vscode.ExtensionContext, notebookSessionService: NotebookSessionService): void {
 	context.subscriptions.push(vscode.commands.registerCommand('positron.restartKernel', async () => {
@@ -23,7 +23,9 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 		}
 
 		// Disable the hasRunningNotebookSession context before restarting.
-		setHasRunningNotebookSessionContext(notebook.uri, undefined);
+		if (isActiveNotebookEditorUri(notebook.uri)) {
+			await setHasRunningNotebookSessionContext(false);
+		}
 
 		// Restart the session with a progress bar.
 		try {
@@ -32,9 +34,10 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.runtimeName, notebook.uri.path),
 			}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
 
-			// Update the hasRunningNotebookSession context.
-			const restartedSession = await getNotebookSession(notebook.uri);
-			setHasRunningNotebookSessionContext(notebook.uri, restartedSession);
+			// Enable the hasRunningNotebookSession context.
+			if (isActiveNotebookEditorUri(notebook.uri)) {
+				await setHasRunningNotebookSessionContext(true);
+			}
 		} catch (error) {
 			vscode.window.showErrorMessage(
 				vscode.l10n.t("Restarting {0} interpreter for '{1}' failed. Reason: {2}",

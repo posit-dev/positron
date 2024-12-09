@@ -20,9 +20,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
 		log.debug(`Notebook closed: ${notebook.uri.path}`);
-
-		updateHasRunningNotebookSessionContext(notebook.uri, undefined);
-
+		if (isActiveNotebookEditorUri(notebook.uri)) {
+			await setHasRunningNotebookSessionContext(false);
+		}
 		await notebookSessionService.shutdownRuntimeSession(notebook.uri);
 	}));
 
@@ -55,18 +55,22 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	// Set the hasRunningNotebookSession context when the active notebook editor changes.
 	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
-		const uri = editor?.notebook.uri;
-		if (uri) {
-			const session = await getNotebookSession(uri);
-			updateHasRunningNotebookSessionContext(uri, session);
+		if (editor) {
+			// Changed to a notebook editor.
+			const notebookUri = editor.notebook.uri;
+			const session = await getNotebookSession(notebookUri);
+			await setHasRunningNotebookSessionContext(Boolean(session));
+		} else {
+			// Changed to a non-notebook editor.
+			await setHasRunningNotebookSessionContext(false);
 		}
 	}));
 
 	// Set the hasRunningNotebookSession context for the current active notebook editor.
-	const activeNotebookUri = vscode.window.activeNotebookEditor?.notebook.uri;
-	if (activeNotebookUri) {
-		const session = await getNotebookSession(activeNotebookUri);
-		updateHasRunningNotebookSessionContext(activeNotebookUri, session);
+	if (vscode.window.activeNotebookEditor) {
+		const notebookUri = vscode.window.activeNotebookEditor.notebook.uri;
+		const session = await getNotebookSession(notebookUri);
+		await setHasRunningNotebookSessionContext(Boolean(session));
 	}
 
 	// Register kernel source action providers for the kernel selection quickpick.
@@ -90,17 +94,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	registerExecutionInfoStatusBar(context.subscriptions, manager);
 }
 
-export function updateHasRunningNotebookSessionContext(
-	notebookUri: vscode.Uri, session: positron.LanguageRuntimeSession | undefined,
-): void {
-	// If this is the active notebook editor, update the hasRunningNotebookSession context.
-	if (isActiveNotebookEditorUri(notebookUri)) {
-		const hasRunningNotebookSession = Boolean(session);
-		log.debug(`Setting 'positron.hasRunningNotebookSession' context to: ${hasRunningNotebookSession}`);
-		vscode.commands.executeCommand(
-			'setContext',
-			'positron.hasRunningNotebookSession',
-			hasRunningNotebookSession,
-		);
-	}
+export function setHasRunningNotebookSessionContext(value: boolean): Thenable<unknown> {
+	return vscode.commands.executeCommand(
+		'setContext',
+		'positron.hasRunningNotebookSession',
+		value,
+	);
 }

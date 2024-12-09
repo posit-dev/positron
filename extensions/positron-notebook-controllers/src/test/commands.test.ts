@@ -17,9 +17,7 @@ suite('commands', () => {
 
 	setup(() => {
 		disposables = [];
-
 		session = new TestLanguageRuntimeSession();
-
 		onDidSetPositronHasRunningNotebookSessionContext = stubSetHasRunningNotebookSessionContext(disposables);
 	});
 
@@ -32,15 +30,15 @@ suite('commands', () => {
 		// Simulate a running session for the notebook.
 		sinon.stub(positron.runtime, 'getNotebookSession').resolves(session as any);
 
+		// Simulate a successful restart.
 		sinon.stub(positron.runtime, 'restartSession').callsFake(async () => {
 			session.setRuntimeState(positron.RuntimeState.Ready);
 		});
 
-		// Show a test Jupyter notebook.
+		// Open a test Jupyter notebook.
 		await openTestJupyterNotebookDocument();
 
-		// Create a promise that resolves when the hasRunningNotebookSession context is set.
-		// TODO: Assert first set to false then to true.
+		// Capture hasRunningNotebookSession context values.
 		const values: boolean[] = [];
 		disposables.push(onDidSetPositronHasRunningNotebookSessionContext(value => {
 			values.push(value);
@@ -48,7 +46,7 @@ suite('commands', () => {
 
 		await vscode.commands.executeCommand('positron.restartKernel');
 
-		// Assert that the context is eventually set to true.
+		// Assert that the context is first set to false, then true.
 		assert.deepStrictEqual(values, [false, true]);
 	});
 });

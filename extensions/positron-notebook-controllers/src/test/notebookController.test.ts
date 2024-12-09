@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { strict as assert } from 'assert';
+import * as path from 'path';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
@@ -18,13 +19,18 @@ import { eventToPromise, stubSetHasRunningNotebookSessionContext } from './utils
 suite('NotebookController', () => {
 	let runtime: positron.LanguageRuntimeMetadata;
 	let disposables: vscode.Disposable[];
-	let notebookSessionService: sinon.SinonStubbedInstance<NotebookSessionService>;
+	let notebookSessionService: NotebookSessionService;
 	let notebookController: NotebookController;
 	let notebook: vscode.NotebookDocument;
 	let cells: vscode.NotebookCell[];
 	let session: TestLanguageRuntimeSession;
 	let getNotebookSessionStub: sinon.SinonStub;
+	let startLanguageRuntimeStub: sinon.SinonStub;
 	let executions: TestNotebookCellExecution[];
+	let onDidChangeSelectedNotebooks: vscode.EventEmitter<{
+		readonly notebook: vscode.NotebookDocument;
+		readonly selected: boolean;
+	}>;
 	let onDidCreateNotebookCellExecution: vscode.EventEmitter<TestNotebookCellExecution>;
 	let onDidSetPositronHasRunningNotebookSessionContext: vscode.Event<boolean>;
 
@@ -43,18 +49,6 @@ suite('NotebookController', () => {
 		disposables.push(session);
 		runtime = session.runtimeMetadata;
 
-		// Stub the Positron API to return the test session.
-		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
-			.withArgs(notebook.uri).resolves(session as any);
-
-		// Stub the notebook session service to start the test session.
-		notebookSessionService.startRuntimeSession.resolves(session as any);
-
-
-		notebookSessionService = sinon.createStubInstance(NotebookSessionService);
-		notebookController = new NotebookController(runtime, notebookSessionService as any);
-		disposables.push(notebookController);
-
 		// Create a mock notebook.
 		notebook = {
 			metadata: {
@@ -67,6 +61,7 @@ suite('NotebookController', () => {
 				},
 			},
 			uri: vscode.Uri.parse('file:///path/to/notebook.ipynb'),
+			getCells: () => cells,
 		} as Partial<vscode.NotebookDocument> as vscode.NotebookDocument;
 
 		// Create mock cells.
@@ -88,7 +83,27 @@ suite('NotebookController', () => {
 			notebook,
 		} as vscode.NotebookCell];
 
-		// Stub the notebook controller to return a test cell execution.
+		// Stub vscode notebook controllers so that we can fire onDidChangeSelectedNotebooks manually.
+		onDidChangeSelectedNotebooks = new vscode.EventEmitter();
+		disposables.push(onDidChangeSelectedNotebooks);
+		const createNotebookController = vscode.notebooks.createNotebookController;
+		sinon.stub(vscode.notebooks, 'createNotebookController').callsFake((id, notebookType, label) => {
+			const controller = createNotebookController(id, notebookType, label);
+			sinon.stub(controller, 'onDidChangeSelectedNotebooks').value(onDidChangeSelectedNotebooks.event);
+			return controller;
+		});
+
+		notebookSessionService = new NotebookSessionService();
+		notebookController = new NotebookController(runtime, notebookSessionService);
+		disposables.push(notebookController);
+
+		// Stub the Positron API to return the test session.
+		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
+			.withArgs(notebook.uri).resolves(session as any);
+		startLanguageRuntimeStub = sinon.stub(positron.runtime, 'startLanguageRuntime')
+			.resolves(session as any);
+
+		// Stub the vscode notebook controller to return a test cell execution.
 		executions = [];
 		onDidCreateNotebookCellExecution = new vscode.EventEmitter();
 		sinon.stub(notebookController.controller, 'createNotebookCellExecution')
@@ -129,7 +144,51 @@ suite('NotebookController', () => {
 		return notebookController.controller.interruptHandler!(notebook);
 	}
 
-	test('start runtime session when a controller is selected for a notebook', async () => {
+	test('select the controller for a notebook', async () => {
+		// Simulate no session for the notebook.
+		getNotebookSessionStub.withArgs(notebook.uri).resolves(undefined);
+
+		// Stub the active notebook editor.
+		sinon.stub(vscode.window, 'activeNotebookEditor').value({ notebook });
+
+		// Capture the first two hasRunningNotebookSession context values.
+		const promise = new Promise<boolean[]>(resolve => {
+			const values: boolean[] = [];
+			disposables.push(onDidSetPositronHasRunningNotebookSessionContext(value => {
+				values.push(value);
+				if (values.length === 2) {
+					resolve(values);
+				}
+			}));
+		});
+
+		// Select the controller for the notebook.
+		onDidChangeSelectedNotebooks.fire({ notebook, selected: true });
+
+		// Assert that the context is eventually set to false, then true.
+		assert.deepStrictEqual(await promise, [false, true]);
+
+		// Assert that startLanguageRuntime was called.
+		sinon.assert.calledOnceWithExactly(
+			startLanguageRuntimeStub,
+			runtime.runtimeId,
+			path.basename(notebook.uri.path),
+			notebook.uri,
+		);
+	});
+
+	test('deselect the controller for a notebook', async () => {
+		// Stub the active notebook editor.
+		sinon.stub(vscode.window, 'activeNotebookEditor').value({ notebook });
+
+		// Create a promise that resolves when the hasRunningNotebookSession context is set.
+		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+
+		// Deselect the controller for the notebook.
+		onDidChangeSelectedNotebooks.fire({ notebook, selected: false });
+
+		// Assert that the context is eventually set to false.
+		assert.deepStrictEqual(await promise, false);
 	});
 
 	suite('executeHandler', () => {
