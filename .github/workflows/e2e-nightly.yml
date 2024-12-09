@@ -50,7 +50,7 @@ jobs:
     uses: ./.github/workflows/e2e-windows.yml
     with:
       grep: "@win"
-      project: "e2e-electron"
+      project: "e2e-windows"
       display_name: "e2e-windows"
     secrets: inherit
 

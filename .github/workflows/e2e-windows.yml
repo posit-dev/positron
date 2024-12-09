@@ -139,8 +139,8 @@ jobs:
 
       - name: Extract Tags from Grep Input
         run: |
-          # Extract tags from the `grep` input (e.g., @feature)
-          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
+          # Extract tags from the `grep` input, excluding @win
+          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@win" | tr '\n' ',' | sed 's/,$//' > tags.txt
           echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
         shell: bash
 
@@ -155,8 +155,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "electron,@win,${{ env.EXTRACTED_TAGS }}"
         if: ${{ !cancelled() }}
-        id: e2e-win-electron-tests
-        run: npx playwright test --project e2e-electron --grep "${{ inputs.grep }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: npx playwright test --project "e2e-windows" --grep "${{ inputs.grep }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
       - name: Report Test Results
         uses: ./.github/actions/e2e-report
