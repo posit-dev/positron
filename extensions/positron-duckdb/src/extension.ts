@@ -708,7 +708,7 @@ export class DuckDBTableView {
 		this._unfilteredShape = this._getShape();
 
 		// Need to re-apply the row filters, if any
-		this._applyRowFilters();
+		await this._applyRowFilters();
 
 		// When the file changes, refuse to guess and send SchemaUpdate event
 		return vscode.commands.executeCommand(
