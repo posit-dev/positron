@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   integration-tests:
-    name: unit
+    name: integration
     runs-on: ubuntu-latest-4x
     timeout-minutes: 30
     env:
