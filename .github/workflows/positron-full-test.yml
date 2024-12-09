@@ -56,6 +56,7 @@ jobs:
               libgstreamer-gl1.0-0 \
               gstreamer1.0-plugins-base \
               gstreamer1.0-plugins-good \
+              gstreamer1.0-plugins-bad \
               libgles2-mesa
 
       - name: Run Unit Tests (Browser, Chromium)
