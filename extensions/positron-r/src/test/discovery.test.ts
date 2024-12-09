@@ -66,7 +66,7 @@ suite('Discovery', () => {
 
 		test('Find R on Windows path', async () => {
 			const result = await currentRBinaryFromPATHWindows(r432);
-			assert.strictEqual(result, r432);
+			assert.strictEqual(result?.path, r432);
 		});
 	});
 
@@ -103,7 +103,7 @@ suite('Discovery', () => {
 
 		test('Find R on Windows path', async () => {
 			const result = await currentRBinaryFromPATHWindows(smartshim);
-			assert.strictEqual(result, x64);
+			assert.strictEqual(result?.path, x64);
 		});
 	});
 });
