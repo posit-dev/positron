@@ -140,6 +140,7 @@ jobs:
           REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
+        shell: bash
 
       - name: Get Playwright Tags
         run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"

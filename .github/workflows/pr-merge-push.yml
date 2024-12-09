@@ -21,8 +21,8 @@ jobs:
     with:
       grep: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '' }}
       project: "e2e-electron"
-      display_name: "electron"
-      currents_tags: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '@push' }}
+      display_name: "electron (linux)"
+      currents_tags: ${{ github.event_name == 'pull_request' && '@pr,@electron/linux' || github.event_name == 'push' && '@push,@electron/linux' }}
     secrets: inherit
 
   unit-tests:
