@@ -107,14 +107,15 @@ export async function* rRuntimeDiscoverer(): AsyncGenerator<positron.LanguageRun
 		if (rInstallations.length === 0) {
 			LOGGER.warn(`All discovered R installations are unusable by Positron.`);
 			LOGGER.warn('Learn more about R discovery at https://positron.posit.co/r-installations.html');
-			vscode.window.showWarningMessage(
-				`All discovered R installations are unusable by Positron.`,
-				{ modal: true }, 'See the log file')
-				.then(selection => {
-					if (selection === 'See the log file') {
-						LOGGER.show();
-					}
-				});
+			const showLog = await positron.window.showSimpleModalDialogPrompt(
+				vscode.l10n.t('All discovered R installations are unusable by Positron.'),
+				vscode.l10n.t('Learn more about R discovery at <https://positron.posit.co/r-installations.html>'),
+				vscode.l10n.t('View the logs for R discovery'),
+				vscode.l10n.t('Dismiss')
+			);
+			if (showLog) {
+				LOGGER.show();
+			}
 		} else {
 			LOGGER.warn(`Some discovered R installations are unusable by Positron.`);
 			LOGGER.warn('Learn more about R discovery at https://positron.posit.co/r-installations.html');
