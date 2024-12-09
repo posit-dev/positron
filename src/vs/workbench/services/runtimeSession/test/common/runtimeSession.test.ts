@@ -46,6 +46,14 @@ suite('Positron - RuntimeSessionService', () => {
 		workspaceTrustManagementService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
 		manager = TestRuntimeSessionManager.instance;
 
+		// Dispose all sessions on teardown.
+		// TODO: Should this happen in RuntimeSessionService.dispose() instead?
+		disposables.add({
+			dispose() {
+				runtimeSessionService.activeSessions.forEach(session => session.dispose());
+			}
+		});
+
 		runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		anotherRuntime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
 		sessionName = runtime.runtimeName;
@@ -383,7 +391,13 @@ suite('Positron - RuntimeSessionService', () => {
 				const didStartRuntime = sinon.spy();
 				disposables.add(runtimeSessionService.onDidStartRuntime(didStartRuntime));
 
-				const session1 = await start();
+				// Start the session. It should error.
+				await assert.rejects(start(), new Error('Session failed to start'));
+
+				// The session should still be created.
+				assert.equal(runtimeSessionService.activeSessions.length, 1);
+				const session1 = runtimeSessionService.activeSessions[0];
+				disposables.add(session1);
 
 				assert.strictEqual(session1.getRuntimeState(), RuntimeState.Uninitialized);
 
@@ -440,12 +454,11 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
 
-				// Start twice concurrently.
-				// Neither should error.
-				const [session1, session2] = await Promise.all([start(), start()]);
-
-				// The same session should be returned.
-				assert.equal(session1, session2);
+				// Start twice concurrently. Both should error.
+				await Promise.all([
+					assert.rejects(start()),
+					assert.rejects(start()),
+				]);
 			});
 
 			test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
