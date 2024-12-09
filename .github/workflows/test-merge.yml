@@ -1,28 +1,20 @@
-name: "Test: PR / Merge"
+name: "Test: Merge to branch"
 
 on:
-  pull_request:
-    branches:
-      - main
-      - 'prerelease/**'
   push:
     branches:
       - main
       - 'prerelease/**'
-
-permissions:
-  id-token: write
-  contents: read
 
 jobs:
   e2e-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
-      grep: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '' }}
+      grep: ""
       project: "e2e-electron"
       display_name: "electron (linux)"
-      currents_tags: ${{ github.event_name == 'pull_request' && '@pr,@electron/linux' || github.event_name == 'push' && '@push,@electron/linux' }}
+      currents_tags: "@push,@electron/linux"
     secrets: inherit
 
   unit-tests:
@@ -36,7 +28,7 @@ jobs:
     secrets: inherit
 
   slack-notify:
-    # if: ${{ failure() && inputs.e2e_grep == '' }}
+    if: failure()
     needs: [unit-tests, integration-tests, e2e-electron]
     runs-on: ubuntu-latest
     steps:

@@ -27,7 +27,7 @@ on:
     inputs:
       grep:
         required: false
-        description: "Tests tagged with @win will run by default. Can specify other tags, test titles, filenames, etc. to include in filter"
+        description: "Tests tagged with @win are always run. Can specify other tags, test titles, filenames, etc. to filter tests further."
         default: ""
         type: string
       repeat_each:

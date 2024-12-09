@@ -75,6 +75,10 @@ jobs:
         uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
 
+      - name: Get and set Playwright tags to $PW_TAGS
+        run: bash scripts/playwright-tags.sh "e2e-electron" "${{ inputs.grep }}"
+        shell: bash
+
       - name: Run Tests (Electron)
         if: ${{ !cancelled() }}
         env:
@@ -88,7 +92,7 @@ jobs:
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 3 --grep=${{ env.grep }}
+          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep=${{ env.grep }}
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
