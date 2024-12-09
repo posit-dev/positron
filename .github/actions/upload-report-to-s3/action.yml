@@ -4,6 +4,9 @@ inputs:
   role-to-assume:
     description: "The AWS role to assume"
     required: true
+  report-dir:
+    description: "The directory containing the Playwright report"
+    required: true
 
 runs:
   using: "composite"
@@ -19,4 +22,4 @@ runs:
       if: ${{ !cancelled() }}
       shell: bash
       run: |
-        aws s3 cp playwright-report/. s3://positron-test-reports/playwright-report-${{ github.run_id }} --recursive
+        aws s3 cp playwright-report/. s3://positron-test-reports/${{ inputs.report-dir }} --recursive

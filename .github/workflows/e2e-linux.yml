@@ -66,7 +66,6 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
       AWS_S3_BUCKET: positron-test-reports
-      REPORT_DIR: playwright-report-${{ github.run_id }}
     steps:
       - uses: actions/checkout@v4
 
@@ -96,6 +95,9 @@ jobs:
       - name: Send HTML report URL to GitHub Summary
         if: ${{ !cancelled() }}
         run: |
+          RANDOM_SUFFIX=$RANDOM
+          echo "REPORT_DIR=playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}" >> $GITHUB_ENV
+
           REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
@@ -126,4 +128,5 @@ jobs:
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 

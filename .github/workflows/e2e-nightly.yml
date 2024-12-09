@@ -1,4 +1,4 @@
-name: "Nightly: E2E Tests"
+name: "Test: Full Suite"
 
 on:
   schedule:
@@ -10,17 +10,27 @@ on:
   workflow_dispatch:
       inputs:
         run_e2e_linux:
-          description: "Run E2E Linux Tests"
+          description: "Run E2E Electron (Linux) Tests"
           required: false
           default: true
           type: boolean
         run_e2e_windows:
-          description: "Run E2E Windows Tests"
+          description: "Run E2E Electron (Windows) Tests"
           required: false
           default: true
           type: boolean
         run_e2e_browser:
-          description: "Run E2E Browser Tests"
+          description: "Run E2E Browser (Linux) Tests"
+          required: false
+          default: true
+          type: boolean
+        run_unit_tests:
+          description: "Run Unit Tests"
+          required: false
+          default: true
+          type: boolean
+        run_integration_tests:
+          description: "Run Integration Tests"
           required: false
           default: true
           type: boolean
