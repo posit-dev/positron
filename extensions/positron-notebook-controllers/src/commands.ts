@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { NotebookSessionService } from './notebookSessionService';
 import { getNotebookSession, isActiveNotebookEditorUri } from './utils';
 import { setHasRunningNotebookSessionContext } from './extension';
 
-export function registerCommands(context: vscode.ExtensionContext, notebookSessionService: NotebookSessionService): void {
-	context.subscriptions.push(vscode.commands.registerCommand('positron.restartKernel', async () => {
+export function registerCommands(disposables: vscode.Disposable[]): void {
+	disposables.push(vscode.commands.registerCommand('positron.restartKernel', async () => {
 		// Get the active notebook.
 		const notebook = vscode.window.activeNotebookEditor?.notebook;
 		if (!notebook) {
@@ -32,7 +32,7 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
 				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.runtimeName, notebook.uri.path),
-			}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
+			}, () => positron.runtime.restartSession(session.metadata.sessionId));
 
 			// Enable the hasRunningNotebookSession context.
 			if (isActiveNotebookEditorUri(notebook.uri)) {
