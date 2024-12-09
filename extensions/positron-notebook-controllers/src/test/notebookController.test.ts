@@ -13,15 +13,10 @@ import { NotebookSessionService } from '../notebookSessionService';
 import { log } from '../extension';
 import { TestNotebookCellExecution } from './testNotebookCellExecution';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession';
+import { eventToPromise, stubSetHasRunningNotebookSessionContext } from './utils';
 
 suite('NotebookController', () => {
-	const runtime = {
-		runtimeId: 'test-runtime-10349',
-		runtimeName: 'Test Runtime',
-		runtimePath: '/path/to/runtime',
-		languageId: 'test-language',
-	} as positron.LanguageRuntimeMetadata;
-
+	let runtime: positron.LanguageRuntimeMetadata;
 	let disposables: vscode.Disposable[];
 	let notebookSessionService: sinon.SinonStubbedInstance<NotebookSessionService>;
 	let notebookController: NotebookController;
@@ -31,6 +26,7 @@ suite('NotebookController', () => {
 	let getNotebookSessionStub: sinon.SinonStub;
 	let executions: TestNotebookCellExecution[];
 	let onDidCreateNotebookCellExecution: vscode.EventEmitter<TestNotebookCellExecution>;
+	let onDidSetPositronHasRunningNotebookSessionContext: vscode.Event<boolean>;
 
 	setup(async () => {
 		disposables = [];
@@ -41,6 +37,19 @@ suite('NotebookController', () => {
 				console.info('[Positron notebook controllers]', ...args);
 			});
 		}
+
+		// Create a test session.
+		session = new TestLanguageRuntimeSession();
+		disposables.push(session);
+		runtime = session.runtimeMetadata;
+
+		// Stub the Positron API to return the test session.
+		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
+			.withArgs(notebook.uri).resolves(session as any);
+
+		// Stub the notebook session service to start the test session.
+		notebookSessionService.startRuntimeSession.resolves(session as any);
+
 
 		notebookSessionService = sinon.createStubInstance(NotebookSessionService);
 		notebookController = new NotebookController(runtime, notebookSessionService as any);
@@ -79,12 +88,6 @@ suite('NotebookController', () => {
 			notebook,
 		} as vscode.NotebookCell];
 
-		// Create a test session.
-		session = new TestLanguageRuntimeSession(runtime);
-		disposables.push(session);
-		getNotebookSessionStub = sinon.stub(positron.runtime, 'getNotebookSession')
-			.withArgs(notebook.uri).resolves(session as any);
-
 		// Stub the notebook controller to return a test cell execution.
 		executions = [];
 		onDidCreateNotebookCellExecution = new vscode.EventEmitter();
@@ -95,6 +98,9 @@ suite('NotebookController', () => {
 				onDidCreateNotebookCellExecution.fire(execution);
 				return execution;
 			});
+
+		// An event that fires when the hasRunningNotebookSession context is set.
+		onDidSetPositronHasRunningNotebookSessionContext = stubSetHasRunningNotebookSessionContext(disposables);
 	});
 
 	teardown(() => {
@@ -123,6 +129,9 @@ suite('NotebookController', () => {
 		return notebookController.controller.interruptHandler!(notebook);
 	}
 
+	test('start runtime session when a controller is selected for a notebook', async () => {
+	});
+
 	suite('executeHandler', () => {
 		test('single cell executes successfully on status idle message', async () => {
 			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
@@ -149,6 +158,26 @@ suite('NotebookController', () => {
 			sinon.assert.calledOnceWithExactly(startExecution, { cells: executedCells });
 			sinon.assert.calledOnceWithExactly(endExecution, sinon.match({ cells: executedCells, duration: sinon.match.number }));
 			sinon.assert.callOrder(startExecution, endExecution);
+		});
+
+		test('single cell starts a new session if required', async () => {
+			// On execution, fire an idle message to complete the execution.
+			disposables.push(session.onDidExecute((id) => session.fireIdleMessage(id)));
+
+			// Simulate no session for the notebook.
+			getNotebookSessionStub.withArgs(notebook.uri).resolves(undefined);
+
+			// Stub the active notebook editor.
+			sinon.stub(vscode.window, 'activeNotebookEditor').value({ notebook });
+
+			// Create a promise that resolves when the hasRunningNotebookSession context is set.
+			const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
+
+			// Execute a cell.
+			await executeNotebook([0]);
+
+			// Assert that the context is eventually set to true.
+			assert.strictEqual(await promise, true);
 		});
 
 		test('single cell executes unsuccessfully on error message', async () => {

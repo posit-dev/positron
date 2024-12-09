@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { closeAllEditors, eventToPromise, stubSetHasRunningNotebookSessionContext } from './utils';
+import { closeAllEditors, eventToPromise, openTestJupyterNotebookDocument, stubSetHasRunningNotebookSessionContext } from './utils';
 
 suite('extension', () => {
 	let disposables: vscode.Disposable[];
@@ -33,7 +33,7 @@ suite('extension', () => {
 		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
 
 		// Show a test Jupyter notebook.
-		await showTestJupyterNotebookDocument();
+		await openTestJupyterNotebookDocument();
 
 		// Assert that the context is eventually set to true.
 		assert.strictEqual(await promise, true);
@@ -47,7 +47,7 @@ suite('extension', () => {
 		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
 
 		// Show a test Jupyter notebook.
-		await showTestJupyterNotebookDocument();
+		await openTestJupyterNotebookDocument();
 
 		// Assert that the context is eventually set to false.
 		assert.strictEqual(await promise, false);
@@ -58,7 +58,7 @@ suite('extension', () => {
 		sinon.stub(positron.runtime, 'getNotebookSession').resolves({} as positron.LanguageRuntimeSession);
 
 		// Show a test Jupyter notebook.
-		await showTestJupyterNotebookDocument();
+		await openTestJupyterNotebookDocument();
 
 		// Create a promise that resolves when the hasRunningNotebookSession context is set to false.
 		const promise = eventToPromise(onDidSetPositronHasRunningNotebookSessionContext);
@@ -70,13 +70,3 @@ suite('extension', () => {
 		assert.strictEqual(await promise, false);
 	});
 });
-
-async function showTestJupyterNotebookDocument(): Promise<void> {
-	const notebookType = 'jupyter-notebook';
-	const notebook = await vscode.workspace.openNotebookDocument(notebookType, {
-		cells: [
-			{ kind: vscode.NotebookCellKind.Code, languageId: 'text', value: '' }
-		]
-	});
-	await vscode.window.showNotebookDocument(notebook);
-}
