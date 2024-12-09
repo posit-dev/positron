@@ -39,7 +39,7 @@ jobs:
         run: npm run test-node
 
       - name: Install Browser Test Dependencies
-        run: apt-get update && apt-get install -y libflite1 libvpx7 libavif13
+        run: sudo apt-get update && sudo apt-get install -y libflite1 libvpx7 libavif13
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
