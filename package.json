@@ -78,7 +78,8 @@
     "extensions-ci": "node --max-old-space-size=8095 ./node_modules/gulp/bin/gulp.js extensions-ci",
     "extensions-ci-pr": "node --max-old-space-size=4095 ./node_modules/gulp/bin/gulp.js extensions-ci-pr",
     "perf": "node scripts/code-perf.js",
-    "update-build-ts-version": "yarn add typescript@next && tsc -p ./build/tsconfig.build.json"
+    "update-build-ts-version": "yarn add typescript@next && tsc -p ./build/tsconfig.build.json",
+    "fast-build": "node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js vscode --no-mangler"
   },
   "dependencies": {
     "@microsoft/1ds-core-js": "^3.2.13",
