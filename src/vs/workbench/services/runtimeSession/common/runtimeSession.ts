@@ -515,11 +515,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually reconnect the session.
 		try {
 			await this.doStartRuntimeSession(session, sessionManager, false);
-		} catch (err) {
-			// Do nothing
-		} finally {
 			startPromise.complete(sessionMetadata.sessionId);
+		} catch (err) {
+			startPromise.error(err);
 		}
+
+		return startPromise.p.then(() => { });
 	}
 
 	/**
@@ -871,13 +872,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Actually start the session.
 		try {
 			await this.doStartRuntimeSession(session, sessionManager, true);
-		} catch (err) {
-			// Do nothing
-		} finally {
 			startPromise.complete(sessionId);
+		} catch (err) {
+			startPromise.error(err);
 		}
 
-		return sessionId;
+		return startPromise.p;
 	}
 
 	/**
