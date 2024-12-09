@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Console Pane: R', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@console']
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons

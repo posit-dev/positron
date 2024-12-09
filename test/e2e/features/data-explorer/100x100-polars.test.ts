@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - Python - Polars [C674520]', { tag: ['@win'] }, async function ({ app, python }) {
+test('Data Explorer 100x100 - Python - Polars [C674520]', { tag: ['@win', '@data-explorer'] }, async function ({ app, python }) {
 	test.slow();
 
 	const dataFrameName = 'polars100x100';

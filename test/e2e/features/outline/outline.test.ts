@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Outline #web #win', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@outline']
 }, () => {
 
 	test('Python - Verify Outline Contents [C956870]', async function ({ app, python }) {

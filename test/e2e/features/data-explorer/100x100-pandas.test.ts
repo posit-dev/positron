@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - Python - Pandas [C557563]', { tag: ['@win'] }, async function ({ app, python }) {
+test('Data Explorer 100x100 - Python - Pandas [C557563]', { tag: ['@win', '@data-explorer'] }, async function ({ app, python }) {
 	test.slow();
 
 	const dataFrameName = 'pandas100x100';

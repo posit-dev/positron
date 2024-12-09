@@ -14,7 +14,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
 });
 
-test.describe('Python - New Project Wizard', () => {
+test.describe('Python - New Project Wizard', { tag: ['@new-project-wizard'] }, () => {
 	const defaultProjectName = 'my-python-project';
 
 	test('Create a new Conda environment [C628628]', async function ({ app, page }) {

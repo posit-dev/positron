@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Output', { tag: ['@win'] }, () => {
+test.describe('Console Output', { tag: ['@win', '@console'] }, () => {
 	test('R - Console output in a loop with short pauses [C885225]', async function ({ app, r }) {
 		await app.workbench.positronConsole.pasteCodeToConsole(rCode);
 		await app.workbench.positronConsole.sendEnterKey();
