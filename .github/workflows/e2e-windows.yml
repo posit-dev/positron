@@ -139,9 +139,24 @@ jobs:
 
       - name: Extract Tags from Grep Input
         run: |
-          # Extract tags from the `grep` input, excluding @win
-          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@win" | tr '\n' ',' | sed 's/,$//' > tags.txt
-          echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
+          # Debug initial grep input
+          echo "Initial grep input: '${{ inputs.grep }}'"
+
+          # Extract tags from the grep input, excluding @win
+          tags=$(echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@win" || true)
+
+          # Ensure @win is included
+          if [[ -z "$tags" ]]; then
+            tags="@win"
+          else
+            tags="$tags,@win"
+          fi
+
+          # Remove trailing commas and save to an environment variable
+          echo "EXTRACTED_TAGS=$(echo $tags | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
+
+          # Debug output
+          echo "Extracted Tags: $tags"
         shell: bash
 
       - name: Run Tests on Windows (Electron)

@@ -98,20 +98,44 @@ jobs:
       - name: Extract Tags from Grep Input
         if: ${{ inputs.project == 'e2e-electron' }}
         run: |
-          # Extract tags from the grep input (e.g., @feature)
-          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
-          echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
+          # Debug initial grep input
+          echo "Initial grep input: '${{ inputs.grep }}'"
+
+          # Check if grep input is empty or undefined
+          if [[ -z "${{ inputs.grep }}" ]]; then
+            echo "No grep input provided. Using no tags."
+            echo "EXTRACTED_TAGS=" >> $GITHUB_ENV
+          else
+            # Extract tags from the grep input, ensuring it's not blank
+            echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
+            echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
+          fi
+
+          # Debug output
+          echo "Extracted Tags: $EXTRACTED_TAGS"
         shell: bash
 
       - name: Extract Tags from Grep Input
         if: ${{ inputs.project == 'e2e-browser' }}
         run: |
-          # Extract tags from the grep input, ensure @web is included
-          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@web" | tr '\n' ',' | sed 's/,$//' > tags.txt
-          # Append @web to the extracted tags
-          echo "@web" >> tags.txt
-          # Combine and export as a single environment variable
-          echo "EXTRACTED_TAGS=$(cat tags.txt | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
+          # Debug initial grep input
+          echo "Initial grep input: '${{ inputs.grep }}'"
+
+          # Extract tags from the grep input, excluding @web
+          tags=$(echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@web" || true)
+
+          # Ensure @web is included
+          if [[ -z "$tags" ]]; then
+            tags="@web"
+          else
+            tags="$tags,@web"
+          fi
+
+          # Remove trailing commas and save to an environment variable
+          echo "EXTRACTED_TAGS=$(echo $tags | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
+
+          # Debug output
+          echo "Extracted Tags: $tags"
         shell: bash
 
       - name: Run Playwright Tests (Electron)
