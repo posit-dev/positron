@@ -708,7 +708,7 @@ suite('Positron - RuntimeSessionService', () => {
 		const clock = sinon.useFakeTimers();
 		const promise = assert.rejects(selectRuntime(anotherRuntime), new Error(`Timed out waiting for runtime ` +
 			`${formatLanguageRuntimeSession(session)} to finish exiting.`));
-		await clock.tickAsync(10_000);
+		await clock.tickAsync(5_000);
 		await promise;
 	});
 
@@ -758,16 +758,61 @@ suite('Positron - RuntimeSessionService', () => {
 
 				await restartSession(session.sessionId);
 
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Restarting);
-				assertSingleSessionIsRestarting(session);
-
-				await waitForRuntimeState(session, RuntimeState.Ready);
+				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 				assertSingleSessionIsReady(session);
 
 				sinon.assert.calledOnceWithExactly(willStartSession, {
 					session,
 					startMode: RuntimeStartMode.Restarting,
 				});
+			});
+
+			test(`restart ${mode} in '${state}' state encounters session.restart() error`, async () => {
+				// Start the session and wait for it to be ready.
+				const session = await start();
+				await waitForRuntimeState(session, RuntimeState.Ready);
+
+				// Set the state to the desired state.
+				if (session.getRuntimeState() !== state) {
+					session.setRuntimeState(state);
+				}
+
+				// Stub session.restart() to reject.
+				const restartStub = sinon.stub(session, 'restart').rejects(new Error('Session failed to restart'));
+
+				// Restart the session. It should error.
+				await assert.rejects(restartSession(session.sessionId));
+
+				// The session's state should not have changed.
+				assert.strictEqual(session.getRuntimeState(), state);
+
+				// If we restart now, without session.restart() rejecting, it should work.
+				restartStub.restore();
+				await restartSession(session.sessionId);
+
+				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+				assertSingleSessionIsReady(session);
+			});
+
+			test(`restart ${mode} in '${state}' state and session never reaches ready state`, async () => {
+				// Start the session and wait for it to be ready.
+				const session = await start();
+				await waitForRuntimeState(session, RuntimeState.Ready);
+
+				// Set the state to the desired state.
+				if (session.getRuntimeState() !== state) {
+					session.setRuntimeState(state);
+				}
+
+				// Stub onDidChangeRuntimeState to never fire, causing the restart to time out.
+				sinon.stub(session, 'onDidChangeRuntimeState').returns({ dispose: () => { } });
+
+				// Use a fake timer to avoid actually having to wait for the timeout.
+				const clock = sinon.useFakeTimers();
+				const promise = assert.rejects(restartSession(session.sessionId), new Error(`Timed out waiting for runtime ` +
+					`${formatLanguageRuntimeSession(session)} to finish restarting.`));
+				await clock.tickAsync(10_000);
+				await promise;
 			});
 		}
 
@@ -864,36 +909,41 @@ suite('Positron - RuntimeSessionService', () => {
 				restartSession(session.sessionId),
 			]);
 
-			assertSingleSessionIsRestarting(session);
+			assertSingleSessionIsReady(session);
 
 			sinon.assert.calledOnce(target);
 		});
 
 		test(`restart ${mode} successively`, async () => {
 			const session = await start();
+			await waitForRuntimeState(session, RuntimeState.Ready);
 
 			const target = sinon.spy(session, 'restart');
 
-			await waitForRuntimeState(session, RuntimeState.Ready);
 			await restartSession(session.sessionId);
-			await waitForRuntimeState(session, RuntimeState.Ready);
 			await restartSession(session.sessionId);
-			await waitForRuntimeState(session, RuntimeState.Ready);
 			await restartSession(session.sessionId);
 
-			assertSingleSessionIsRestarting(session);
+			assertSingleSessionIsReady(session);
 
 			sinon.assert.calledThrice(target);
 		});
 
-		test(`restart ${mode} while ready -> start`, async () => {
+		test(`restart ${mode} while ready, then start successively`, async () => {
 			const session = await start();
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
 			await restartSession(session.sessionId);
+			const newSession = await start();
+
+			assertSingleSessionIsReady(newSession);
+		});
+
+		test(`restart ${mode} while ready, then start concurrently`, async () => {
+			const session = await start();
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
-			const newSession = await start();
+			const [, newSession] = await Promise.all([restartSession(session.sessionId), start()]);
 
 			assertSingleSessionIsReady(newSession);
 		});
