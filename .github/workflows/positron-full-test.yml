@@ -32,7 +32,7 @@ on:
           default: true
           type: boolean
         notify_on:
-            description: "When to send a notification to Slack"
+            description: "Send a notification to Slack"
             required: false
             default: "failure"
             type: choice
@@ -43,7 +43,7 @@ on:
 jobs:
   e2e-electron:
     name: e2e
-    if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
+    if: ${{ inputs.run_e2e_linux }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: "@dummy-test"
@@ -54,7 +54,7 @@ jobs:
 
   e2e-windows:
     name: e2e
-    if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
+    if: ${{ inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
       grep: "@dummy-test"
@@ -64,7 +64,7 @@ jobs:
 
   e2e-browser:
     name: e2e
-    if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
+    if: ${{ inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: "@dummy-test"
@@ -75,13 +75,13 @@ jobs:
 
   unit-tests:
     name: test
-    if: ${{ inputs.run_unit_tests == true || inputs.run_unit_tests == null }}
+    if: ${{ inputs.run_unit_tests }}
     uses: ./.github/workflows/test-unit.yml
     secrets: inherit
 
   integration-tests:
     name: test
-    if: ${{ inputs.run_integration_tests == true || inputs.run_integration_tests == null }}
+    if: ${{ inputs.run_integration_tests }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
 
