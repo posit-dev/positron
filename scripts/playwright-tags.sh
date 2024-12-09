@@ -6,14 +6,24 @@
 
 # Input parameters
 PROJECT="$1"  # The PROJECT (e.g., e2e-electron, e2e-browser, e2e-windows)
-TAGS="$2"      # Comma-separated tags (e.g., "@feat1,@feat2")
+TAGS="$2"     # Comma-separated tags (e.g., "@feat1,@feat2")
 
 # Debug initial inputs
-echo "Project: '$PROJECT'"
-echo "Tags: '$TAGS'"
+echo "Input:"
+echo "  * Project: '$PROJECT'"
+echo "  * Tags: '$TAGS'"
 
 # Initialize regex or output
 OUTPUT=""
+
+# Filter tags based on project
+if [[ "$PROJECT" == "e2e-windows" ]]; then
+  # Remove @win from the tags
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | tr '\n' ',' | sed 's/,$//')
+elif [[ "$PROJECT" == "e2e-browser" ]]; then
+  # Remove @web from the tags
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | tr '\n' ',' | sed 's/,$//')
+fi
 
 # Determine prefix based on PROJECT
 case "$PROJECT" in
@@ -41,13 +51,18 @@ if [[ -n "$TAGS" ]]; then
     TAGS_REGEX=$(echo "$TAGS" | tr ',' '\n' | sed 's/^/(?=.*&/' | sed 's/$/)/' | tr -d '\n')
     OUTPUT="$OUTPUT$TAGS_REGEX"
   else
-    # Just append tags as-is for linux
+    # Deduplicate tags
+    if [[ -n "$TAGS" ]]; then
+      TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+    fi
+
     OUTPUT="$TAGS"
   fi
 fi
 
 # Output the final string
-echo "$OUTPUT"
+echo "Output:"
+echo "  * $OUTPUT"
 
 # Save to GITHUB_ENV
 echo "PW_TAGS=$OUTPUT" >> $GITHUB_ENV
