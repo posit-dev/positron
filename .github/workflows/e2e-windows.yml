@@ -1,23 +1,27 @@
 name: "Test: E2E (Windows)"
-
 on:
   workflow_call:
     inputs:
       grep:
         required: false
-        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Test locally with: npx playwright test --grep=<regex>"
-        default: "@pr"
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. Test locally with: npx playwright test --grep=<regex>"
+        default: "@win"
         type: string
       project:
-          required: false
-          description: "The name of the Playwright project to run tests for."
-          default: "e2e-electron"
-          type: string
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: string
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
+      display_name:
+        required: false
+        description: "The name of the job as it will appear in the GitHub Actions UI."
+        default: "e2e-windows"
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -46,6 +50,7 @@ permissions:
 
 jobs:
   e2e-windows:
+    name: ${{ inputs.display_name }}
     runs-on:
       labels: [windows-latest-8x]
     timeout-minutes: 80
@@ -141,10 +146,10 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,${{ inputs.e2e_grep }}"
+          CURRENTS_TAG: "electron,${{ inputs.grep }}"
         if: ${{ !cancelled() }}
         id: e2e-win-electron-tests
-        run: npx playwright test --project e2e-electron --grep ${{ inputs.e2e_grep}} --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: npx playwright test --project e2e-electron --grep ${{ inputs.grep}} --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
       - name: Report Test Results
         uses: ./.github/actions/e2e-report

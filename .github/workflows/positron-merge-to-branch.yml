@@ -1,4 +1,4 @@
-name: "Test: PR Merge"
+name: "Test: PR Merge / Push"
 
 on:
   pull_request:
@@ -15,11 +15,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  e2e-electron:
+    name: test
     uses: ./.github/workflows/e2e-linux.yml
     with:
       grep: "@pr"
       project: "e2e-electron"
+      display_name: "e2e-electron"
     secrets: inherit
 
   # unit-tests:
@@ -122,7 +124,7 @@ jobs:
   slack-notify:
     # if: ${{ failure() && inputs.e2e_grep == '' }}
     # needs: [unit-tests, integration-tests, e2e-electron]
-    needs: [test]
+    needs: [e2e-electron]
     runs-on: ubuntu-latest
     steps:
       - name: Send Slack Notification

@@ -45,17 +45,17 @@ jobs:
     secrets: inherit
 
   e2e-windows:
-    name: 'test'
+    name: test
     if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
     uses: ./.github/workflows/e2e-windows.yml
     with:
       grep: "@win"
       project: "e2e-electron"
-      # display_name: "e2e-windows"
+      display_name: "e2e-windows"
     secrets: inherit
 
   e2e-browser:
-    name: 'test'
+    name: test
     if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
