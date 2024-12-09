@@ -16,12 +16,12 @@ permissions:
 
 jobs:
   e2e-electron:
-    name: test
+    name: e2e
     uses: ./.github/workflows/e2e-linux.yml
     with:
       grep: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '' }}
       project: "e2e-electron"
-      display_name: "e2e-electron"
+      display_name: "electron"
       currents_tags: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '@push' }}
     secrets: inherit
 
