@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import { LOGGER } from './extension';
 
 export class PromiseHandles<T> {
 	resolve!: (value: T | Promise<T>) => void;
@@ -42,8 +43,13 @@ export function timeout(ms: number, reason: string) {
 }
 
 export function readLines(pth: string): Array<string> {
-	const bigString = fs.readFileSync(pth, 'utf8');
-	return bigString.split(/\r?\n/);
+	try {
+		const bigString = fs.readFileSync(pth, 'utf8');
+		return bigString.split(/\r?\n/);
+	} catch (error) {
+		LOGGER.error(`Error reading file: "${error}"`);
+		return [];
+	}
 }
 
 // extractValue('KEY=VALUE', 'KEY')      --> 'VALUE'
