@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   integration-tests:
-    name: integration
+    name: unit
     runs-on: ubuntu-latest-4x
     timeout-minutes: 30
     env:
@@ -35,8 +35,8 @@ jobs:
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
-            github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-            license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one integration test needs this: Connections pane works for R
       - name: Setup R
