@@ -71,11 +71,6 @@ export interface IRuntimeStartupService {
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
 
 	/**
-	 * Event for when the runtime discovery phase is completed.
-	 */
-	onDidCompleteDiscoveryPhase: Event<undefined>;
-
-	/**
 	 * The current startup phase.
 	 */
 	readonly startupPhase: RuntimeStartupPhase;
