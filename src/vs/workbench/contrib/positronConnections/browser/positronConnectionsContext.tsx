@@ -18,7 +18,9 @@ import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
+import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IPositronConnectionsService } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
+import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 
 export interface PositronConnectionsServices {
 	readonly accessibilityService: IAccessibilityService;
@@ -36,6 +38,8 @@ export interface PositronConnectionsServices {
 	readonly editorService: IEditorService;
 	readonly instantiationService: IInstantiationService;
 	readonly modelService: IModelService;
+	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly runtimeAffiliationService: IRuntimeStartupService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);
