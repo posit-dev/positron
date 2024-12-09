@@ -76,8 +76,20 @@ jobs:
       currents_tags: "@nightly,@browser/linux"
     secrets: inherit
 
+  unit-tests:
+    name: test
+    if: ${{ inputs.run_unit_tests == true || inputs.run_unit_tests == null }}
+    uses: ./.github/workflows/unit-tests.yml
+    secrets: inherit
+
+  integration-tests:
+    name: test
+    if: ${{ inputs.run_integration_tests == true || inputs.run_integration_tests == null }}
+    uses: ./.github/workflows/integration-tests.yml
+    secrets: inherit
+
   slack-notify:
-    needs: [e2e-electron, e2e-windows, e2e-browser]
+    needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
     runs-on: ubuntu-latest
     if: always()
     steps:

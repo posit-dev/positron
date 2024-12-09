@@ -13,10 +13,6 @@ permissions:
   id-token: write
   contents: read
 
-env:
-  E2E_GREP: ${{ inputs.e2e_grep || '' }}
-  REPORT_DIR: playwright-report-${{ github.run_id }}
-
 jobs:
   linux:
     name: e2e-electron-tests
@@ -103,4 +99,5 @@ jobs:
         uses: ./.github/actions/upload-report-to-s3
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
+          report-dir: ${{ env.REPORT_DIR }}
 
