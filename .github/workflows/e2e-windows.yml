@@ -170,7 +170,7 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: "electron,@win,${{ env.EXTRACTED_TAGS }}"
         if: ${{ !cancelled() }}
-        run: npx playwright test --project "e2e-windows" --grep "${{ inputs.grep }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: npx playwright test --project "e2e-windows" --grep "${{ env.EXTRACTED_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
       - name: Report Test Results
         uses: ./.github/actions/e2e-report

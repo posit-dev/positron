@@ -35,7 +35,7 @@ on:
 
 jobs:
   e2e-electron:
-    name: test
+    name: t0
     if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
@@ -45,7 +45,7 @@ jobs:
     secrets: inherit
 
   e2e-windows:
-    name: test
+    name: t1
     if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
     uses: ./.github/workflows/e2e-windows.yml
     with:
@@ -55,7 +55,7 @@ jobs:
     secrets: inherit
 
   e2e-browser:
-    name: test
+    name: t2
     if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
