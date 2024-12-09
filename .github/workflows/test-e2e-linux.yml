@@ -92,31 +92,19 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Generate Unique REPORT_DIR
-        run: |
-          RANDOM_SUFFIX=$RANDOM
-          echo "REPORT_DIR=playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}" >> $GITHUB_ENV
-          echo "Generated REPORT_DIR: playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}"
-
-      - name: Debug REPORT_DIR
-        run: |
-          echo "REPORT_DIR: ${{ env.REPORT_DIR }}"
-
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
-        run: |
-          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
-          echo "Report URL: $REPORT_URL"
-          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
-
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary
         if: ${{ inputs.project == 'e2e-browser' }}
         run: yarn gulp node
 
-      - name: Get Playwright Tags
-        run: bash scripts/playwright-tags.sh "${{ inputs.project}}" "${{ inputs.grep }}"
+      - name: Get and set Playwright tags to $PW_TAGS
+        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
+        shell: bash
+
+      - name: Send HTML Summary to GH Action Summary
+        if: ${{ !cancelled() }}
+        uses: ./.github/actions/generate-report-dir
 
       - name: Run Playwright Tests (Electron)
         env:
