@@ -92,12 +92,19 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send HTML report URL to GitHub Summary
-        if: ${{ !cancelled() }}
+      - name: Generate Unique REPORT_DIR
         run: |
           RANDOM_SUFFIX=$RANDOM
           echo "REPORT_DIR=playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}" >> $GITHUB_ENV
+          echo "Generated REPORT_DIR: playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}"
 
+      - name: Debug REPORT_DIR
+        run: |
+          echo "REPORT_DIR: ${{ env.REPORT_DIR }}"
+
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
           REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY

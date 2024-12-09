@@ -17,7 +17,7 @@ permissions:
 jobs:
   e2e-electron:
     name: e2e
-    uses: ./.github/workflows/e2e-linux.yml
+    uses: ./.github/workflows/test-e2e-linux.yml
     with:
       grep: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '' }}
       project: "e2e-electron"
@@ -27,12 +27,12 @@ jobs:
 
   unit-tests:
     name: test
-    uses: ./.github/workflows/unit-tests.yml
+    uses: ./.github/workflows/test-unit.yml
     secrets: inherit
 
   integration-tests:
     name: test
-    uses: ./.github/workflows/integration-tests.yml
+    uses: ./.github/workflows/test-integration.yml
 
   # unit-tests:
   #   runs-on: ubuntu-latest
