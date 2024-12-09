@@ -23,6 +23,11 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-electron"
         type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: "@linux"
+        type: string
 
   workflow_dispatch:
     inputs:
@@ -116,7 +121,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ env.PW_TAGS }}
+          CURRENTS_TAG: ${{ inputs.currents_tags }}
         run: |
           DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
 

@@ -17,19 +17,29 @@ on:
         description: "The name of the job as it will appear in the GitHub Actions UI."
         default: "e2e-windows"
         type: string
+      currents_tags:
+        required: false
+        description: "The tags to use for Currents recording."
+        default: ""
+        type: string
 
   workflow_dispatch:
     inputs:
       grep:
         required: false
-        description: "Only run tests matching this regular expression. Can be tags, test titles, filenames, etc. If left blank, all tests will run."
-        default: "@win"
+        description: "Tests tagged with @win will run by default. Can specify other tags, test titles, filenames, etc. to include in filter"
+        default: ""
         type: string
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
+      currents_tags:
+          required: false
+          description: "The tags to use for Currents recording."
+          default: "@windows/linux"
+          type: string
 
 permissions:
   id-token: write
@@ -141,7 +151,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: ${{ env.PW_TAGS }}
+          CURRENTS_TAG: ${{ inputs.currents_tags }}
         if: ${{ !cancelled() }}
         run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 

@@ -35,32 +35,35 @@ on:
 
 jobs:
   e2e-electron:
-    name: t0
+    name: test
     if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
-      grep: ""
+      grep: "@dummy-test"
       project: "e2e-electron"
       display_name: "e2e-electron"
+      currents_tags: "@nightly,@electron/linux"
     secrets: inherit
 
   e2e-windows:
-    name: t1
+    name: test
     if: ${{ inputs.run_e2e_windows == true || inputs.run_e2e_windows == null }}
     uses: ./.github/workflows/e2e-windows.yml
     with:
-      grep: "@win"
+      grep: "@dummy-test"
       display_name: "e2e-windows"
+      currents_tags: "@nightly,@electron/win"
     secrets: inherit
 
   e2e-browser:
-    name: t2
+    name: test
     if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
     uses: ./.github/workflows/e2e-linux.yml
     with:
-      grep: ""
+      grep: "@dummy-test"
       project: "e2e-browser"
       display_name: "e2e-browser"
+      currents_tags: "@nightly,@browser/linux"
     secrets: inherit
 
   slack-notify:
@@ -69,7 +72,7 @@ jobs:
     if: always()
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@master
+        uses: midleman/slack-workflow-status@master\
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}

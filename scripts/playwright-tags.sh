@@ -2,7 +2,7 @@
 # Usage:
 # bash scripts/playwright-tags.sh <project> <tags>
 # Example:
-# bash scripts/playwright-tags.sh "browser" "@feat1,@feat2"
+# bash scripts/playwright-tags.sh "e2e-browser" "@feat1,@feat2"
 
 # Input parameters
 PROJECT="$1"  # The PROJECT (e.g., e2e-electron, e2e-browser, e2e-windows)
@@ -35,12 +35,10 @@ case "$PROJECT" in
     ;;
   "e2e-electron")
     OUTPUT="" # No prefix for linux
-    # Append @electron tag to linux
-    if [[ -n "$TAGS" ]]; then
-      TAGS="@electron,$TAGS"
-    else
-      TAGS="@electron"
-    fi
+    ;;
+  *)
+    echo "Unknown PROJECT: $PROJECT"
+    exit 1
     ;;
 esac
 
