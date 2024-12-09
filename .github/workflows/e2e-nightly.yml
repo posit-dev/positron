@@ -34,16 +34,16 @@ on:
               - always
 
 jobs:
-  # e2e-electron:
-  #   name: test
-  #   if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
-  #   uses: ./.github/workflows/e2e-linux.yml
-  #   with:
-  #     grep: "@dummy-test"
-  #     project: "e2e-electron"
-  #     display_name: "e2e-electron"
-  #     currents_tags: "@nightly,@electron/linux"
-  #   secrets: inherit
+  e2e-electron:
+    name: test
+    if: ${{ inputs.run_e2e_linux == true || inputs.run_e2e_linux == null }}
+    uses: ./.github/workflows/e2e-linux.yml
+    with:
+      grep: "@dummy-test"
+      project: "e2e-electron"
+      display_name: "e2e-electron"
+      currents_tags: "@nightly,@electron/linux"
+    secrets: inherit
 
   e2e-windows:
     name: test
@@ -55,25 +55,24 @@ jobs:
       currents_tags: "@nightly,@electron/win"
     secrets: inherit
 
-  # e2e-browser:
-  #   name: test
-  #   if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
-  #   uses: ./.github/workflows/e2e-linux.yml
-  #   with:
-  #     grep: "@dummy-test"
-  #     project: "e2e-browser"
-  #     display_name: "e2e-browser"
-  #     currents_tags: "@nightly,@browser/linux"
-  #   secrets: inherit
+  e2e-browser:
+    name: test
+    if: ${{ inputs.run_e2e_browser == true || inputs.run_e2e_browser == null }}
+    uses: ./.github/workflows/e2e-linux.yml
+    with:
+      grep: "@dummy-test"
+      project: "e2e-browser"
+      display_name: "e2e-browser"
+      currents_tags: "@nightly,@browser/linux"
+    secrets: inherit
 
   slack-notify:
-    # needs: [e2e-electron, e2e-windows, e2e-browser]
-    needs: [e2e-windows]
+    needs: [e2e-electron, e2e-windows, e2e-browser]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@master\
+        uses: midleman/slack-workflow-status@master
         with:
           repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
           slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}

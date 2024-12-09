@@ -19,9 +19,10 @@ jobs:
     name: test
     uses: ./.github/workflows/e2e-linux.yml
     with:
-      grep: "@pr"
+      grep: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '' }}
       project: "e2e-electron"
       display_name: "e2e-electron"
+      currents_tags: ${{ github.event_name == 'pull_request' && '@pr' || github.event_name == 'push' && '@push' }}
     secrets: inherit
 
   unit-tests:
