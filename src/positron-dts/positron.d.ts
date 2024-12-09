@@ -765,7 +765,15 @@ declare module 'positron' {
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
 
-		/** Execute code in the runtime */
+		/**
+		 * Execute code in the runtime
+		 *
+		 * @param code The code to execute
+		 * @param id The language ID of the code
+		 * @param mode The code execution mode
+		 * @param errorBehavior The code execution error behavior
+		 * Note: The errorBehavior parameter is currently ignored by kernels
+		 */
 		execute(code: string,
 			id: string,
 			mode: RuntimeCodeExecutionMode,
@@ -1218,7 +1226,8 @@ declare module 'positron' {
 		 * @param focus Whether to focus the runtime's console
 		 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 		 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-		* @param mode Possible code execution modes for a language runtime
+		 * @param mode Possible code execution mode for a language runtime
+		 * @param errorBehavior Possible error behavior for a language runtime, currently ignored by kernels
 		 * @returns A Thenable that resolves with true if the code was sent to a
 		 *   runtime successfully, false otherwise.
 		 */
@@ -1226,7 +1235,8 @@ declare module 'positron' {
 			code: string,
 			focus: boolean,
 			allowIncomplete?: boolean,
-			mode?: RuntimeCodeExecutionMode): Thenable<boolean>;
+			mode?: RuntimeCodeExecutionMode,
+			errorBehavior?: RuntimeErrorBehavior): Thenable<boolean>;
 
 		/**
 		 * Register a language runtime manager with Positron. Returns a
