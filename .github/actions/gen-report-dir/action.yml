@@ -1,4 +1,4 @@
-name: "Generate Report Directory"
+name: "Generate Report Directory & Send to GH Summary"
 description: "Generates a unique REPORT_DIR and appends the report URL to the GitHub Actions summary"
 inputs:
   bucket-url:

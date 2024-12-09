@@ -102,9 +102,9 @@ jobs:
         run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
         shell: bash
 
-      - name: Send HTML Summary to GH Action Summary
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
-        uses: ./.github/actions/generate-report-dir
 
       - name: Run Playwright Tests (Electron)
         env:

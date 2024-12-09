@@ -71,9 +71,9 @@ jobs:
           sudo update-rc.d xvfb defaults
           sudo service xvfb start
 
-      - name: Send HTML Summary to GH Action Summary
+      - name: Send Results to GH Summary
+        uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
-        uses: ./.github/actions/generate-report-dir
 
       - name: Run Tests (Electron)
         if: ${{ !cancelled() }}
