@@ -15,7 +15,7 @@ import { IExtensionService } from 'vs/workbench/services/extensions/common/exten
 import { ILanguageRuntimeExit, ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionLocation, LanguageRuntimeSessionMode, LanguageRuntimeStartupBehavior, RuntimeExitReason, RuntimeState, formatLanguageRuntimeMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { IRuntimeStartupService, RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { Event } from 'vs/base/common/event';
+import { Emitter, Event } from 'vs/base/common/event';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { ExtensionsRegistry } from 'vs/workbench/services/extensions/common/extensionsRegistry';
 import { ExtensionIdentifier } from 'vs/platform/extensions/common/extensions';
@@ -91,6 +91,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private _shuttingDown = false;
 
 	onDidChangeRuntimeStartupPhase: Event<RuntimeStartupPhase>;
+
+	// The event emitter for the onDidCompleteDiscoveryPhase event.
+	onDidCompleteDiscoveryPhaseEmitter =
+		this._register(new Emitter<undefined>);
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -179,6 +183,16 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							`An extension requested the runtime to be started immediately.`);
 					}
 				}
+			}
+		}));
+
+		// Add the onDidCompleteDiscoveryPhase event handler.
+		this._register(this.onDidCompleteDiscoveryPhase(() => {
+			if (this._languageRuntimeService.registeredRuntimes.length === 0) {
+				// if no runtimes were found, notify the user about the problem
+				this._notificationService.error(nls.localize('noRuntimesMessage',
+					"No runtimes found. Please see the [Get Started](https://positron.posit.co/start.html) \
+					page for instructions on how to add a runtime."));
 			}
 		}));
 
@@ -291,6 +305,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}));
 	}
 
+	// An event that fires when the runtime discovery phase is completed.
+	readonly onDidCompleteDiscoveryPhase = this.onDidCompleteDiscoveryPhaseEmitter.event;
+
 	/**
 	 * The main entry point for the runtime startup service.
 	 */
@@ -335,6 +352,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	completeDiscovery(): void {
 		this._startupPhase.set(RuntimeStartupPhase.Complete, undefined);
+		// Fire the onDidCompleteDiscoveryPhase event.
+		this.onDidCompleteDiscoveryPhaseEmitter.fire(undefined);
 	}
 
 	/**
