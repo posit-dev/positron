@@ -118,7 +118,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		const commandName = 'positron-duckdb.dataExplorerRpc';
 		if (CommandsRegistry.getCommand(commandName) === undefined) {
 			await (new Promise<void>((resolve, reject) => {
-				// Set up the timeout
+				// Reject if command not registered within 30 seconds
 				const timeoutId = setTimeout(() => {
 					reject(new Error(`${commandName} not registered within 30 seconds`));
 				}, 30000);
