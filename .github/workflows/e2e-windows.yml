@@ -7,11 +7,6 @@ on:
         description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@win)(?=.*@feature)"
         default: "@win"
         type: string
-      project:
-        required: false
-        description: "The name of the Playwright project to run tests for."
-        default: "e2e-electron"
-        type: string
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -30,14 +25,6 @@ on:
         description: "Only run tests matching this regular expression. Can be tags, test titles, filenames, etc. If left blank, all tests will run."
         default: "@win"
         type: string
-      project:
-          required: false
-          description: "The name of the Playwright project to run tests for."
-          default: "e2e-electron"
-          type: choice
-          options:
-            - e2e-electron
-            - e2e-browser
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."
@@ -66,6 +53,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+
+      - name: Get Playwright Tags
+        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
+        shell: bash
 
       - name: Install System Level Python
         uses: actions/setup-python@v5
@@ -137,26 +128,8 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      - name: Extract Tags from Grep Input
-        run: |
-          # Debug initial grep input
-          echo "Initial grep input: '${{ inputs.grep }}'"
-
-          # Extract tags from the grep input, excluding @win
-          tags=$(echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@win" || true)
-
-          # Ensure @win is included
-          if [[ -z "$tags" ]]; then
-            tags="@win"
-          else
-            tags="$tags,@win"
-          fi
-
-          # Remove trailing commas and save to an environment variable
-          echo "EXTRACTED_TAGS=$(echo $tags | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
-
-          # Debug output
-          echo "Extracted Tags: $tags"
+      - name: Get Playwright Tags
+        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
         shell: bash
 
       - name: Run Tests on Windows (Electron)
@@ -168,9 +141,9 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,@win,${{ env.EXTRACTED_TAGS }}"
+          CURRENTS_TAG: ${{ env.PW_TAGS }}
         if: ${{ !cancelled() }}
-        run: npx playwright test --project "e2e-windows" --grep "${{ env.EXTRACTED_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
       - name: Report Test Results
         uses: ./.github/actions/e2e-report

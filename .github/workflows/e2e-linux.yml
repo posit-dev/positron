@@ -69,6 +69,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # temporary test
+      - name: Get Playwright Tags
+        run: bash scripts/playwright-tags.sh "${{ inputs.project }}" "${{ inputs.grep }}"
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -101,48 +105,8 @@ jobs:
         if: ${{ inputs.project == 'e2e-browser' }}
         run: yarn gulp node
 
-      - name: Extract Tags from Grep Input
-        if: ${{ inputs.project == 'e2e-electron' }}
-        run: |
-          # Debug initial grep input
-          echo "Initial grep input: '${{ inputs.grep }}'"
-
-          # Check if grep input is empty or undefined
-          if [[ -z "${{ inputs.grep }}" ]]; then
-            echo "No grep input provided. Using no tags."
-            echo "EXTRACTED_TAGS=" >> $GITHUB_ENV
-          else
-            # Extract tags from the grep input, ensuring it's not blank
-            echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
-            echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
-          fi
-
-          # Debug output
-          echo "Extracted Tags: $EXTRACTED_TAGS"
-        shell: bash
-
-      - name: Extract Tags from Grep Input
-        if: ${{ inputs.project == 'e2e-browser' }}
-        run: |
-          # Debug initial grep input
-          echo "Initial grep input: '${{ inputs.grep }}'"
-
-          # Extract tags from the grep input, excluding @web
-          tags=$(echo "${{ inputs.grep }}" | grep -o "@[^)]*" | grep -v "@web" || true)
-
-          # Ensure @web is included
-          if [[ -z "$tags" ]]; then
-            tags="@web"
-          else
-            tags="$tags,@web"
-          fi
-
-          # Remove trailing commas and save to an environment variable
-          echo "EXTRACTED_TAGS=$(echo $tags | tr '\n' ',' | sed 's/,$//')" >> $GITHUB_ENV
-
-          # Debug output
-          echo "Extracted Tags: $tags"
-        shell: bash
+      - name: Get Playwright Tags
+        run: bash scripts/playwright-tags.sh "${{ inputs.project}}" "${{ inputs.grep }}"
 
       - name: Run Playwright Tests (Electron)
         env:
@@ -152,10 +116,9 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,${{ env.EXTRACTED_TAGS }}"
-        id: e2e-playwright-tests
+          CURRENTS_TAG: ${{ env.PW_TAGS }}
         run: |
-          DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep "${{ env.EXTRACTED_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project}} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
