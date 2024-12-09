@@ -134,18 +134,6 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
-      # - name: Generate Unique REPORT_DIR
-      #   shell: bash
-      #   run: |
-      #     RANDOM_SUFFIX=$RANDOM
-      #     echo "REPORT_DIR=playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}" >> $GITHUB_ENV
-      #     echo "Generated REPORT_DIR: playwright-report-${{ github.run_id }}-${RANDOM_SUFFIX}"
-
-      # - name: Debug REPORT_DIR
-      #   shell: bash
-      #   run: |
-      #     echo "REPORT_DIR: ${{ env.REPORT_DIR }}"
-
       - name: Get and set Playwright tags to $PW_TAGS
         run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
         shell: bash

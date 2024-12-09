@@ -31,19 +31,19 @@ on:
 
   workflow_dispatch:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: choice
+        options:
+          - e2e-electron
+          - e2e-browser
       grep:
         required: false
         description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-browser`, tests tagged with @web always run; additional tags, titles, or filenames can be specified to refine filtering."
         default: "@pr"
         type: string
-      project:
-          required: false
-          description: "The name of the Playwright project to run tests for."
-          default: "e2e-electron"
-          type: choice
-          options:
-            - e2e-electron
-            - e2e-browser
       repeat_each:
         required: false
         description: "Run each test N times, defaults to one."

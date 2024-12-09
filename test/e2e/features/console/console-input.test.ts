@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Console Input', {
-	tag: ['@web', '@pr', '@win', '@dummy-test']
+	tag: ['@web', '@pr', '@win']
 }, () => {
 
 	test.describe('Console Input - Python', () => {

@@ -46,7 +46,7 @@ jobs:
     if: ${{ inputs.run_e2e_linux }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
-      grep: "@dummy-test"
+      grep: ""
       project: "e2e-electron"
       display_name: "electron (linux)"
       currents_tags: "nightly,electron/linux"
@@ -57,7 +57,7 @@ jobs:
     if: ${{ inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
     with:
-      grep: "@dummy-test"
+      grep: ""
       display_name: "electron (win)"
       currents_tags: "nightly,electron/win"
     secrets: inherit
@@ -67,7 +67,7 @@ jobs:
     if: ${{ inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
-      grep: "@dummy-test"
+      grep: ""
       project: "e2e-browser"
       display_name: "browser (linux)"
       currents_tags: "nightly,browser/linux"
