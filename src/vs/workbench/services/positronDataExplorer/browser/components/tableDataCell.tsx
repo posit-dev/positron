@@ -28,18 +28,45 @@ interface TableDataCellProps {
  * @returns The rendered component.
  */
 export const TableDataCell = (props: TableDataCellProps) => {
-	const EMPTY_SPACE_SYMBOL = '\u2423';
+	const EMPTY_SPACE_SYMBOL = '\u00B7';
 
 	let isSpecialValue = props.dataCell.kind !== DataCellKind.NON_NULL;
 
 	// Render empty strings as special value
-	let renderedOutput = props.dataCell.formatted
+	// Initialize rendered output parts
+	const parts: (string | JSX.Element)[] = [];
+	const formattedText = props.dataCell.formatted
 		.replace(/\r/g, '\\r')
-		.replace(/\n/g, '\\n')
-		.replace(/ /g, EMPTY_SPACE_SYMBOL);
-	if (props.dataCell.kind === DataCellKind.NON_NULL && renderedOutput === '') {
+		.replace(/\n/g, '\\n');
+
+	// Handle leading whitespace
+	const leadingMatch = formattedText.match(/^\s+/);
+	if (leadingMatch) {
+		parts.push(
+			<span className='whitespace'>
+				{EMPTY_SPACE_SYMBOL.repeat(leadingMatch[0].length)}
+			</span>
+		);
+	}
+
+	// Add the main content
+	const mainContent = formattedText.trim();
+	parts.push(mainContent);
+
+	// Handle trailing whitespace
+	const trailingMatch = formattedText.match(/\s+$/);
+	if (trailingMatch) {
+		parts.push(
+			<span className='whitespace'>
+				{EMPTY_SPACE_SYMBOL.repeat(trailingMatch[0].length)}
+			</span>
+		);
+	}
+
+	let renderedOutput = parts;
+	if (props.dataCell.kind === DataCellKind.NON_NULL && formattedText === '') {
 		isSpecialValue = true;
-		renderedOutput = '<empty>';
+		renderedOutput = ['<empty>'];
 	}
 
 	// Set the class names.
