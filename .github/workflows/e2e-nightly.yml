@@ -41,7 +41,7 @@ jobs:
     with:
       grep: "@dummy-test"
       project: "e2e-electron"
-      display_name: "electron"
+      display_name: "electron (linux)"
       currents_tags: "@nightly,@electron/linux"
     secrets: inherit
 
@@ -51,7 +51,7 @@ jobs:
     uses: ./.github/workflows/e2e-windows.yml
     with:
       grep: "@dummy-test"
-      display_name: "windows"
+      display_name: "electron (win)"
       currents_tags: "@nightly,@electron/win"
     secrets: inherit
 
@@ -62,7 +62,7 @@ jobs:
     with:
       grep: "@dummy-test"
       project: "e2e-browser"
-      display_name: "browser"
+      display_name: "browser (linux)"
       currents_tags: "@nightly,@browser/linux"
     secrets: inherit
 

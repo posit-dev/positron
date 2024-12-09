@@ -64,10 +64,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Get Playwright Tags
-        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
-        shell: bash
-
       - name: Install System Level Python
         uses: actions/setup-python@v5
         with:
@@ -137,6 +133,13 @@ jobs:
         with:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+
+      - name: Send HTML report URL to GitHub Summary
+        if: ${{ !cancelled() }}
+        run: |
+          REPORT_URL="https://d38p2avprg8il3.cloudfront.net/${{ env.REPORT_DIR }}/index.html"
+          echo "Report URL: $REPORT_URL"
+          echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
       - name: Get Playwright Tags
         run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"

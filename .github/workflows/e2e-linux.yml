@@ -74,10 +74,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      # temporary test
-      - name: Get Playwright Tags
-        run: bash scripts/playwright-tags.sh "${{ inputs.project }}" "${{ inputs.grep }}"
-
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
