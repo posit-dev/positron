@@ -75,6 +75,12 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
