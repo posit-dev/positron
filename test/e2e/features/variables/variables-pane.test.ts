@@ -28,7 +28,7 @@ test.describe('Variables Pane', { tag: ['@web', '@win', '@pr', '@variables'] }, 
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');
 		const variablesMap = await app.workbench.positronVariables.getFlatVariables();
 
-		expect(variablesMap.get('x')).toStrictEqual({ value: '1', type: 'int' });
+		expect(variablesMap.get('x')).toStrictEqual({ value: '1111', type: 'int' });
 		expect(variablesMap.get('y')).toStrictEqual({ value: '10', type: 'int' });
 		expect(variablesMap.get('z')).toStrictEqual({ value: '100', type: 'int' });
 
