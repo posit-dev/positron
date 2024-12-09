@@ -89,6 +89,12 @@ jobs:
           echo "Report URL: $REPORT_URL"
           echo "📄 [Playwright Report]($REPORT_URL) <br>" > $GITHUB_STEP_SUMMARY
 
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        if: ${{ inputs.project == 'e2e-browser' }}
+        run: yarn gulp node
+
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.12

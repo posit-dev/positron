@@ -54,17 +54,6 @@ runs:
       shell: bash
       run: aws --version
 
-    # - name: Download Blob Reports
-    #   uses: actions/download-artifact@v4
-    #   with:
-    #     path: all-blob-reports
-    #     pattern: ${{ inputs.blob-pattern }}
-    #     merge-multiple: true
-
-    # - name: Merge Blobs into HTML Report
-    #   shell: bash
-    #   run: npx playwright merge-reports --reporter html ./all-blob-reports
-
     - name: Upload Playwright Report to S3
       uses: ./.github/actions/upload-report-to-s3
       with:

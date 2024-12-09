@@ -4,7 +4,7 @@ on:
     inputs:
       grep:
         required: false
-        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. Test locally with: npx playwright test --grep=<regex>"
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@win)(?=.*@feature)"
         default: "@win"
         type: string
       project:
@@ -137,6 +137,13 @@ jobs:
           role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
+      - name: Extract Tags from Grep Input
+        run: |
+          # Extract tags from the `grep` input (e.g., @feature)
+          echo "${{ inputs.grep }}" | grep -o "@[^)]*" | tr '\n' ',' | sed 's/,$//' > tags.txt
+          echo "EXTRACTED_TAGS=$(cat tags.txt)" >> $GITHUB_ENV
+        shell: bash
+
       - name: Run Tests on Windows (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.10.10
@@ -146,10 +153,10 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "electron,${{ inputs.grep }}"
+          CURRENTS_TAG: "electron,@win,${{ env.EXTRACTED_TAGS }}"
         if: ${{ !cancelled() }}
         id: e2e-win-electron-tests
-        run: npx playwright test --project e2e-electron --grep ${{ inputs.grep}} --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: npx playwright test --project e2e-electron --grep "${{ inputs.grep }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
 
       - name: Report Test Results
         uses: ./.github/actions/e2e-report
