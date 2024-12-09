@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { NotebookSessionService } from './notebookSessionService';
 import { getNotebookSession } from './utils';
+import { updateHasRunningNotebookSessionContext as setHasRunningNotebookSessionContext } from './extension';
 
 export function registerCommands(context: vscode.ExtensionContext, notebookSessionService: NotebookSessionService): void {
 	context.subscriptions.push(vscode.commands.registerCommand('positron.restartKernel', async () => {
@@ -21,12 +22,19 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 			throw new Error('No session found for active notebook. This command should only be available when a session is running.');
 		}
 
+		// Disable the hasRunningNotebookSession context before restarting.
+		setHasRunningNotebookSessionContext(notebook.uri, undefined);
+
 		// Restart the session with a progress bar.
 		try {
 			await vscode.window.withProgress({
 				location: vscode.ProgressLocation.Notification,
 				title: vscode.l10n.t("Restarting {0} interpreter for '{1}'", session.runtimeMetadata.runtimeName, notebook.uri.path),
 			}, () => notebookSessionService.restartRuntimeSession(notebook.uri));
+
+			// Update the hasRunningNotebookSession context.
+			const restartedSession = await getNotebookSession(notebook.uri);
+			setHasRunningNotebookSessionContext(notebook.uri, restartedSession);
 		} catch (error) {
 			vscode.window.showErrorMessage(
 				vscode.l10n.t("Restarting {0} interpreter for '{1}' failed. Reason: {2}",
