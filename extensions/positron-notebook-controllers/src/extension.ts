@@ -10,6 +10,7 @@ import { NotebookSessionService } from './notebookSessionService';
 import { registerCommands } from './commands';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { registerExecutionInfoStatusBar } from './statusBar';
+import { getNotebookSession } from './utils';
 
 export const log = vscode.window.createOutputChannel('Positron Notebook Controllers', { log: true });
 
@@ -20,9 +21,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	// Shutdown any running sessions when a notebook is closed.
 	context.subscriptions.push(vscode.workspace.onDidCloseNotebookDocument(async (notebook) => {
 		log.debug(`Notebook closed: ${notebook.uri.path}`);
-		if (notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
-			await notebookSessionService.shutdownRuntimeSession(notebook.uri);
-		}
+		await notebookSessionService.shutdownRuntimeSession(notebook.uri);
 	}));
 
 	const manager = new NotebookControllerManager(notebookSessionService);
@@ -53,15 +52,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	// Set the hasRunningNotebookSession context when the active notebook editor changes.
-	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor((editor) => {
-		const value = notebookSessionService.hasRunningNotebookSession(editor?.notebook.uri);
-		setHasRunningNotebookSessionContext(value);
+	context.subscriptions.push(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
+		const session = editor && await getNotebookSession(editor.notebook.uri);
+		setHasRunningNotebookSessionContext(Boolean(session));
 	}));
 
 	// Set the hasRunningNotebookSession context when a session is started/shutdown for the active notebook.
 	context.subscriptions.push(notebookSessionService.onDidChangeNotebookSession((e) => {
-		if (e.notebookUri === vscode.window.activeNotebookEditor?.notebook.uri) {
-			setHasRunningNotebookSessionContext(!!e.session);
+		if (e.notebookUri.toString() === vscode.window.activeNotebookEditor?.notebook.uri.toString()) {
+			setHasRunningNotebookSessionContext(Boolean(e.session));
 		}
 	}));
 
