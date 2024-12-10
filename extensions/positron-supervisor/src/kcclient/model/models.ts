@@ -1,6 +1,8 @@
 import localVarRequest from 'request';
 
 export * from './activeSession';
+export * from './adoptedSession';
+export * from './connectionInfo';
 export * from './executionQueue';
 export * from './interruptMode';
 export * from './modelError';
@@ -25,6 +27,8 @@ export type RequestFile = string | Buffer | fs.ReadStream | RequestDetailedFile;
 
 
 import { ActiveSession } from './activeSession';
+import { AdoptedSession } from './adoptedSession';
+import { ConnectionInfo } from './connectionInfo';
 import { ExecutionQueue } from './executionQueue';
 import { InterruptMode } from './interruptMode';
 import { ModelError } from './modelError';
@@ -54,6 +58,8 @@ let enumsMap: {[index: string]: any} = {
 
 let typeMap: {[index: string]: any} = {
     "ActiveSession": ActiveSession,
+    "AdoptedSession": AdoptedSession,
+    "ConnectionInfo": ConnectionInfo,
     "ExecutionQueue": ExecutionQueue,
     "ModelError": ModelError,
     "NewSession": NewSession,

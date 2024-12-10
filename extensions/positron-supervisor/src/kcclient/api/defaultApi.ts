@@ -16,6 +16,7 @@ import http from 'http';
 
 /* tslint:disable:no-unused-locals */
 import { ActiveSession } from '../model/activeSession';
+import { AdoptedSession } from '../model/adoptedSession';
 import { ModelError } from '../model/modelError';
 import { NewSession } from '../model/newSession';
 import { NewSession200Response } from '../model/newSession200Response';
@@ -98,6 +99,75 @@ export class DefaultApi {
         this.interceptors.push(interceptor);
     }
 
+    /**
+     * 
+     * @summary Adopt an existing session
+     * @param adoptedSession 
+     */
+    public async adoptSession (adoptedSession: AdoptedSession, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: NewSession200Response;  }> {
+        const localVarPath = this.basePath + '/sessions/adopt';
+        let localVarQueryParameters: any = {};
+        let localVarHeaderParams: any = (<any>Object).assign({}, this._defaultHeaders);
+        const produces = ['application/json'];
+        // give precedence to 'application/json'
+        if (produces.indexOf('application/json') >= 0) {
+            localVarHeaderParams.Accept = 'application/json';
+        } else {
+            localVarHeaderParams.Accept = produces.join(',');
+        }
+        let localVarFormParams: any = {};
+
+        // verify required parameter 'adoptedSession' is not null or undefined
+        if (adoptedSession === null || adoptedSession === undefined) {
+            throw new Error('Required parameter adoptedSession was null or undefined when calling adoptSession.');
+        }
+
+        (<any>Object).assign(localVarHeaderParams, options.headers);
+
+        let localVarUseFormData = false;
+
+        let localVarRequestOptions: localVarRequest.Options = {
+            method: 'PUT',
+            qs: localVarQueryParameters,
+            headers: localVarHeaderParams,
+            uri: localVarPath,
+            useQuerystring: this._useQuerystring,
+            json: true,
+            body: ObjectSerializer.serialize(adoptedSession, "AdoptedSession")
+        };
+
+        let authenticationPromise = Promise.resolve();
+        authenticationPromise = authenticationPromise.then(() => this.authentications.default.applyToRequest(localVarRequestOptions));
+
+        let interceptorPromise = authenticationPromise;
+        for (const interceptor of this.interceptors) {
+            interceptorPromise = interceptorPromise.then(() => interceptor(localVarRequestOptions));
+        }
+
+        return interceptorPromise.then(() => {
+            if (Object.keys(localVarFormParams).length) {
+                if (localVarUseFormData) {
+                    (<any>localVarRequestOptions).formData = localVarFormParams;
+                } else {
+                    localVarRequestOptions.form = localVarFormParams;
+                }
+            }
+            return new Promise<{ response: http.IncomingMessage; body: NewSession200Response;  }>((resolve, reject) => {
+                localVarRequest(localVarRequestOptions, (error, response, body) => {
+                    if (error) {
+                        reject(error);
+                    } else {
+                        if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+                            body = ObjectSerializer.deserialize(body, "NewSession200Response");
+                            resolve({ response: response, body: body });
+                        } else {
+                            reject(new HttpError(response, body, response.statusCode));
+                        }
+                    }
+                });
+            });
+        });
+    }
     /**
      * 
      * @summary Upgrade to a WebSocket for channel communication
