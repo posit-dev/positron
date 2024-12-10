@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ILocalizedString } from 'vs/platform/action/common/action';
-import { ContextKeyExpression } from 'vs/platform/contextkey/common/contextkey';
+import { ILocalizedString } from '../../action/common/action.js';
+import { ContextKeyExpression } from '../../contextkey/common/contextkey.js';
 
 interface ICommandInfo {
 	id: string;

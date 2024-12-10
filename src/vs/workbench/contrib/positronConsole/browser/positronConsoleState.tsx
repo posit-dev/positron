@@ -3,26 +3,29 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { useEffect, useState } from 'react';  // eslint-disable-line no-duplicate-imports
-import { ILogService } from 'vs/platform/log/common/log';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { IModelService } from 'vs/editor/common/services/model';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { ILanguageService } from 'vs/editor/common/languages/language';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { INotificationService } from 'vs/platform/notification/common/notification';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IWorkbenchLayoutService } from 'vs/workbench/services/layout/browser/layoutService';
-import { IPositronPlotsService } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { ILanguageRuntimeService } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
-import { IExecutionHistoryService } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { IPositronConsoleInstance, IPositronConsoleService } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IRuntimeStartupService } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { ICommandService } from 'vs/platform/commands/common/commands';
+// React.
+import { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { IModelService } from '../../../../editor/common/services/model.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { ILanguageService } from '../../../../editor/common/languages/language.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
+import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron

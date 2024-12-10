@@ -1,15 +1,20 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./topActionBarNewMenu';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { IAction, Separator } from 'vs/base/common/actions';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { usePositronActionBarContext } from 'vs/platform/positronActionBar/browser/positronActionBarContext';
-import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction } from 'vs/workbench/browser/actions/positronActions';
+// CSS.
+import './topActionBarNewMenu.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction } from '../../../actions/positronActions.js';
 
 /**
  * Localized strings.

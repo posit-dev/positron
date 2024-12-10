@@ -4,15 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./button';
+import './button.css';
 
 // React.
-import * as React from 'react';
-import { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { CSSProperties, forwardRef, KeyboardEvent, MouseEvent, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { IHoverManager } from 'vs/platform/hover/browser/hoverManager';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { IHoverManager } from '../../../../../platform/hover/browser/hoverManager.js';
 
 /**
  * MouseTrigger enumeration.

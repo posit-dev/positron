@@ -18,10 +18,10 @@
     "compile": "gulp compile-extension:positron-supervisor",
     "install-kallichore": "ts-node scripts/install-kallichore-server.ts",
     "lint": "eslint src --ext ts",
-    "pretest": "yarn run compile && yarn run lint",
+    "pretest": "npm run compile && npm run lint",
     "postinstall": "ts-node scripts/post-install.ts",
     "test": "node ./out/test/runTest.js",
-    "vscode:prepublish": "yarn run compile",
+    "vscode:prepublish": "npm run compile",
     "watch": "gulp watch-extension:positron-supervisor"
   },
   "contributes": {

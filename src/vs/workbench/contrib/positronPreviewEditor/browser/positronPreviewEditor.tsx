@@ -4,25 +4,25 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import * as DOM from 'vs/base/browser/dom';
+import * as DOM from '../../../../base/browser/dom.js';
 import {
 	IReactComponentContainer,
 	ISize,
 	PositronReactRenderer,
-} from 'vs/base/browser/positronReactRenderer';
-import { CancellationToken } from 'vs/base/common/cancellation';
-import { Emitter, Event } from 'vs/base/common/event';
-import { IEditorOptions } from 'vs/platform/editor/common/editor';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { EditorPane } from 'vs/workbench/browser/parts/editor/editorPane';
-import { IEditorOpenContext } from 'vs/workbench/common/editor';
-import { PositronPreviewContextProvider } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewContext';
-import { PositronPreviewEditorInput } from 'vs/workbench/contrib/positronPreviewEditor/browser/positronPreviewEditorInput';
-import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
-import { EditorPreviewContainer } from 'vs/workbench/contrib/positronPreviewEditor/browser/editorPreviewContainer';
+} from '../../../../base/browser/positronReactRenderer.js';
+import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { IEditorOptions } from '../../../../platform/editor/common/editor.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
+import { IEditorOpenContext } from '../../../common/editor.js';
+import { PositronPreviewContextProvider } from '../../positronPreview/browser/positronPreviewContext.js';
+import { PositronPreviewEditorInput } from './positronPreviewEditorInput.js';
+import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
+import { IPositronPreviewService } from '../../positronPreview/browser/positronPreview.js';
+import { EditorPreviewContainer } from './editorPreviewContainer.js';
 
 export interface IPositronPreviewEditorOptions extends IEditorOptions {
 	get identifier(): string | undefined;

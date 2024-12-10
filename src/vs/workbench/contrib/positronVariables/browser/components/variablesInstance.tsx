@@ -3,24 +3,28 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./variablesInstance';
-import * as React from 'react';
-import { KeyboardEvent, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import * as DOM from 'vs/base/browser/dom';
-import { isMacintosh, isWeb } from 'vs/base/common/platform';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { useStateRef } from 'vs/base/browser/ui/react/useStateRef';
+// CSS.
+import './variablesInstance.css';
+
+// React.
+import React, { KeyboardEvent, useEffect, useRef, useState } from 'react';
+
+// Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
+import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { FixedSizeList as List, ListChildComponentProps } from 'react-window';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { VerticalSplitterResizeParams } from 'vs/base/browser/ui/positronComponents/splitters/verticalSplitter';
-import { VariableItem } from 'vs/workbench/contrib/positronVariables/browser/components/variableItem';
-import { VariableGroup } from 'vs/workbench/contrib/positronVariables/browser/components/variableGroup';
-import { VariablesEmpty } from 'vs/workbench/contrib/positronVariables/browser/components/variablesEmpty';
-import { VariableOverflow } from 'vs/workbench/contrib/positronVariables/browser/components/variableOverflow';
-import { usePositronVariablesContext } from 'vs/workbench/contrib/positronVariables/browser/positronVariablesContext';
-import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IVariableItem } from 'vs/workbench/services/positronVariables/common/interfaces/variableItem';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { VariableItem } from './variableItem.js';
+import { VariableGroup } from './variableGroup.js';
+import { VariablesEmpty } from './variablesEmpty.js';
+import { VariableOverflow } from './variableOverflow.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
+import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
 
 /**
  * Constants.

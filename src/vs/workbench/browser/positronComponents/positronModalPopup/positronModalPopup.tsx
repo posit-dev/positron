@@ -4,18 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./positronModalPopup';
+import './positronModalPopup.css';
 
 // React.
-import * as React from 'react';
-import { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { PropsWithChildren, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { isNumber } from 'vs/base/common/types';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
+import * as DOM from '../../../../base/browser/dom.js';
+import { isNumber } from '../../../../base/common/types.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
 
 /**
  * Constants.

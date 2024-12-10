@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { disposableTimeout } from 'vs/base/common/async';
-import { ISettableObservable, observableValue } from 'vs/base/common/observable';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { IPositronNotebookMarkdownCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
+import { disposableTimeout } from '../../../../../base/common/async.js';
+import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
+import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { IPositronNotebookMarkdownCell } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 
 export class PositronNotebookMarkdownCell extends PositronNotebookCellGeneral implements IPositronNotebookMarkdownCell {
 

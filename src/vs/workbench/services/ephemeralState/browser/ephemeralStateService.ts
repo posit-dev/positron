@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IEphemeralStateService } from 'vs/platform/ephemeralState/common/ephemeralState';
-import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannelClient } from 'vs/platform/ephemeralState/common/ephemeralStateIpc';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IRemoteAgentService } from 'vs/workbench/services/remote/common/remoteAgentService';
+import { IEphemeralStateService } from '../../../../platform/ephemeralState/common/ephemeralState.js';
+import { EPHEMERAL_STATE_CHANNEL_NAME, EphemeralStateChannelClient } from '../../../../platform/ephemeralState/common/ephemeralStateIpc.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IRemoteAgentService } from '../../remote/common/remoteAgentService.js';
 
 /**
  * The implementation of the `IEphemeralStateService` for the browser. This is

@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { PositronActionBarServices } from 'vs/platform/positronActionBar/browser/positronActionBarState';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * PositronSessionsServices interface.

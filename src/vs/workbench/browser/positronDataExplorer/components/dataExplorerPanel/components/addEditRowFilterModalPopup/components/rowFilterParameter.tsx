@@ -4,14 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./rowFilterParameter';
+import './rowFilterParameter.css';
 
 // React.
-import * as React from 'react';
-import { forwardRef, useImperativeHandle, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import { positronClassNames } from '../../../../../../../../base/common/positronUtilities.js';
 
 /**
  * RowFilterParameterProps interface.

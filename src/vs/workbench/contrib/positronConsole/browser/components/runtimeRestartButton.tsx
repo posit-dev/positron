@@ -3,13 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimeRestartButton';
-import * as nls from 'vs/nls';
-import * as React from 'react';
-import { RuntimeItemRestartButton } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemRestartButton';
-import { IPositronConsoleInstance } from 'vs/workbench/services/positronConsole/browser/interfaces/positronConsoleService';
-import { useEffect } from 'react';
-import { DisposableStore } from 'vs/base/common/lifecycle';
+// CSS.
+import './runtimeRestartButton.css';
+
+// React.
+import React, { useEffect } from 'react';
+
+// Other dependencies.
+import * as nls from '../../../../../nls.js';
+import { RuntimeItemRestartButton } from '../../../../services/positronConsole/browser/classes/runtimeItemRestartButton.js';
+import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 // RuntimeRestartButtonProps interface.
 export interface RuntimeRestartButtonProps {

@@ -1,12 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./runtimeExited';
-import * as React from 'react';
-import { OutputLines } from 'vs/workbench/contrib/positronConsole/browser/components/outputLines';
-import { RuntimeItemExited } from 'vs/workbench/services/positronConsole/browser/classes/runtimeItemExited';
+// CSS.
+import './runtimeExited.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { OutputLines } from './outputLines.js';
+import { RuntimeItemExited } from '../../../../services/positronConsole/browser/classes/runtimeItemExited.js';
 
 // RuntimeExitedProps interface.
 export interface RuntimeExitedProps {

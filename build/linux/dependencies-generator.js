@@ -19,7 +19,6 @@ const types_2 = require("./rpm/types");
 // which we don't need.
 // import product = require('../../product.json');
 // --- End Positron --
-const esm_1 = require("../lib/esm");
 // A flag that can easily be toggled.
 // Make sure to compile the build directory after toggling the value.
 // If false, we warn about new dependencies if they show up
@@ -32,7 +31,7 @@ const esm_1 = require("../lib/esm");
 // different from the machine used to build VSCode.
 const FAIL_BUILD_FOR_NEW_DEPENDENCIES = false;
 // --- End Positron --
-// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/124.0.6367.243:chrome/installer/linux/BUILD.gn;l=64-80
+// Based on https://source.chromium.org/chromium/chromium/src/+/refs/tags/128.0.6613.186:chrome/installer/linux/BUILD.gn;l=64-80
 // and the Linux Archive build
 // Shared library dependencies that we already bundle.
 const bundledDeps = [
@@ -52,7 +51,7 @@ async function getDependencies(packageType, buildDir, applicationName, arch) {
         throw new Error('Invalid RPM arch string ' + arch);
     }
     // Get the files for which we want to find dependencies.
-    const canAsar = !(0, esm_1.isESM)('ASAR disabled in Linux builds'); // TODO@esm ASAR disabled in ESM
+    const canAsar = false; // TODO@esm ASAR disabled in ESM
     const nativeModulesPath = path.join(buildDir, 'resources', 'app', canAsar ? 'node_modules.asar.unpacked' : 'node_modules');
     const findResult = (0, child_process_1.spawnSync)('find', [nativeModulesPath, '-name', '*.node']);
     if (findResult.status) {

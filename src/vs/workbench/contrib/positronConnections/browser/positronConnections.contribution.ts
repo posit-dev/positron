@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Codicon } from 'vs/base/common/codicons';
-import { registerIcon } from 'vs/platform/theme/common/iconRegistry';
-import * as nls from 'vs/nls';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { Extensions, IViewContainersRegistry, IViewsRegistry, ViewContainerLocation } from 'vs/workbench/common/views';
-import { POSITRON_CONNECTIONS_VIEW_ID } from 'vs/workbench/services/positronConnections/browser/interfaces/positronConnectionsService';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { ViewPaneContainer } from 'vs/workbench/browser/parts/views/viewPaneContainer';
-import { PositronConnectionsView } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsView';
-import { POSITRON_CONNECTIONS_VIEW_ENABLED } from 'vs/workbench/services/positronConnections/browser/positronConnectionsFeatureFlag';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { registerIcon } from '../../../../platform/theme/common/iconRegistry.js';
+import * as nls from '../../../../nls.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { Extensions, IViewContainersRegistry, IViewsRegistry, ViewContainerLocation } from '../../../common/views.js';
+import { POSITRON_CONNECTIONS_VIEW_ID } from '../../../services/positronConnections/browser/interfaces/positronConnectionsService.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContainer.js';
+import { PositronConnectionsView } from './positronConnectionsView.js';
+import { POSITRON_CONNECTIONS_VIEW_ENABLED } from '../../../services/positronConnections/browser/positronConnectionsFeatureFlag.js';
 
 const positronConnectionsViewIcon = registerIcon(
 	'positron-connections-view-icon',

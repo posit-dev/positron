@@ -3,22 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { Schemas } from 'vs/base/common/network';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { EditorExtensions } from 'vs/workbench/common/editor';
-import { Registry } from 'vs/platform/registry/common/platform';
-import { SyncDescriptor } from 'vs/platform/instantiation/common/descriptors';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { EditorPaneDescriptor, IEditorPaneRegistry } from 'vs/workbench/browser/editor';
-import { WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
-import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPriority } from 'vs/workbench/services/editor/common/editorResolverService';
-import { PositronDataExplorerEditor } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditor';
-import { PositronDataExplorerEditorInput } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput';
-import { registerPositronDataExplorerActions } from 'vs/workbench/contrib/positronDataExplorerEditor/browser/positronDataExplorerActions';
-import { extname } from 'vs/base/common/resources';
-import { IPositronDataExplorerService } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
+import { localize } from '../../../../nls.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { EditorExtensions } from '../../../common/editor.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
+import { WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
+import { EditorInputFactoryFunction, IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
+import { PositronDataExplorerEditor } from './positronDataExplorerEditor.js';
+import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
+import { registerPositronDataExplorerActions } from './positronDataExplorerActions.js';
+import { extname } from '../../../../base/common/resources.js';
+import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 
 /**
  * PositronDataExplorerContribution class.

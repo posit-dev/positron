@@ -3,17 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { ISettableObservable, observableValue } from 'vs/base/common/observable';
-import { ITextModelService } from 'vs/editor/common/services/resolverService';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { parseOutputData } from 'vs/workbench/contrib/positronNotebook/browser/getOutputContents';
-import { PositronNotebookCellGeneral } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCell';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
-import { PositronWebviewPreloadService } from 'vs/workbench/contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService';
-import { IPositronNotebookCodeCell, NotebookCellOutputs } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
-import { pickPreferredOutputItem } from './notebookOutputUtils';
+import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
+import { ITextModelService } from '../../../../../editor/common/services/resolverService.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { parseOutputData } from '../getOutputContents.js';
+import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
+import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
+import { PositronWebviewPreloadService } from '../../../positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
+import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { pickPreferredOutputItem } from './notebookOutputUtils.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;

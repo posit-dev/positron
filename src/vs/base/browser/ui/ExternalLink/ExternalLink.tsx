@@ -2,9 +2,12 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import * as React from 'react';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
 
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 
 interface ExternalLinkProps extends React.ComponentPropsWithoutRef<'a'> {
 	/**

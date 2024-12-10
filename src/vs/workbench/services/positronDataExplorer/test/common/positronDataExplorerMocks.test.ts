@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { ensureNoDisposablesAreLeakedInTestSuite } from 'vs/base/test/common/utils';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import {
 	FilterComparison,
 	FilterComparisonOp,
@@ -12,8 +12,8 @@ import {
 	FilterTextSearch,
 	RowFilterType,
 	TextSearchType
-} from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import * as mocks from "vs/workbench/services/positronDataExplorer/common/positronDataExplorerMocks";
+} from '../../../languageRuntime/common/positronDataExplorerComm.js';
+import * as mocks from "../../../positronDataExplorer/common/positronDataExplorerMocks.js";
 
 /**
  * Basic smoke tests for debugging the mock functions

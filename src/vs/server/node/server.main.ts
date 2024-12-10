@@ -6,19 +6,20 @@
 import * as os from 'os';
 import * as fs from 'fs';
 import * as net from 'net';
-import { FileAccess } from 'vs/base/common/network';
-import { run as runCli } from 'vs/server/node/remoteExtensionHostAgentCli';
-import { createServer as doCreateServer, IServerAPI } from 'vs/server/node/remoteExtensionHostAgentServer';
-import { parseArgs, ErrorReporter } from 'vs/platform/environment/node/argv';
-import { join, dirname } from 'vs/base/common/path';
+import { FileAccess } from '../../base/common/network.js';
+import { run as runCli } from './remoteExtensionHostAgentCli.js';
+import { createServer as doCreateServer, IServerAPI } from './remoteExtensionHostAgentServer.js';
+import { parseArgs, ErrorReporter } from '../../platform/environment/node/argv.js';
+import { join, dirname } from '../../base/common/path.js';
 import { performance } from 'perf_hooks';
-import { serverOptions } from 'vs/server/node/serverEnvironmentService';
+import { serverOptions } from './serverEnvironmentService.js';
+import product from '../../platform/product/common/product.js';
+import * as perf from '../../base/common/performance.js';
+
 // --- Start PWB ---
 // eslint-disable-next-line no-duplicate-imports
-import { ServerParsedArgs } from 'vs/server/node/serverEnvironmentService';
+import { ServerParsedArgs } from './serverEnvironmentService';
 // --- End PWB ---
-import product from 'vs/platform/product/common/product';
-import * as perf from 'vs/base/common/performance';
 
 perf.mark('code/server/codeLoaded');
 (<any>global).vscodeServerCodeLoadedTime = performance.now();

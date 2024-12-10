@@ -3,16 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./startupStatus';
-import * as React from 'react';
-import { localize } from 'vs/nls';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { ProgressBar } from 'vs/base/browser/ui/progressbar/progressbar';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+// CSS.
+import './startupStatus.css';
 
-// eslint-disable-next-line no-duplicate-imports
-import { useEffect, useState } from 'react';
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");

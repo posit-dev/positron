@@ -3,11 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import Severity from 'vs/base/common/severity';
-import { URI } from 'vs/base/common/uri';
-import * as nls from 'vs/nls';
-import { IExtensionManifest } from 'vs/platform/extensions/common/extensions';
-import { isValidVersion, normalizeVersion, parseVersion } from 'vs/platform/extensions/common/extensionValidator';
+import Severity from '../../../base/common/severity.js';
+import { URI } from '../../../base/common/uri.js';
+import * as nls from '../../../nls.js';
+import { IExtensionManifest } from './extensions.js';
+import { isValidVersion, normalizeVersion, parseVersion } from './extensionValidator.js';
 
 type ProductDate = string | Date | undefined;
 

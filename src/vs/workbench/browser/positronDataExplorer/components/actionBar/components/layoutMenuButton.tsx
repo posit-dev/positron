@@ -4,19 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./layoutMenuButton';
+import './layoutMenuButton.css';
 
 // React.
-import * as React from 'react';
-import { useEffect, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import { IAction } from 'vs/base/common/actions';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
-import { usePositronDataExplorerContext } from 'vs/workbench/browser/positronDataExplorer/positronDataExplorerContext';
-import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
+import { localize } from '../../../../../../nls.js';
+import { IAction } from '../../../../../../base/common/actions.js';
+import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
+import { ActionBarMenuButton } from '../../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
+import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
 /**
  * Localized strings.

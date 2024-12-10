@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { onUnexpectedError } from 'vs/base/common/errors';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from 'vs/workbench/common/contributions';
-import { ILifecycleService, LifecyclePhase, StartupKind } from 'vs/workbench/services/lifecycle/common/lifecycle';
-import { IPositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProject';
-import { PositronNewProjectService } from 'vs/workbench/services/positronNewProject/common/positronNewProjectService';
+import { onUnexpectedError } from '../../../../base/common/errors.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
+import { ILifecycleService, LifecyclePhase, StartupKind } from '../../../services/lifecycle/common/lifecycle.js';
+import { IPositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProject.js';
+import { PositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProjectService.js';
 
 // Register the Positron New Project service
 registerSingleton(IPositronNewProjectService, PositronNewProjectService, InstantiationType.Delayed);

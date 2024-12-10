@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
+import { IPositronPreviewService } from './positronPreview.js';
 
 /**
  * PositronPreviewServices interface. Defines the set of services that are

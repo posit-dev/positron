@@ -4,11 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as React from 'react';
-import { getWindow } from 'vs/base/browser/dom';
-import { INotebookOutputWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService';
-import { IWebviewElement } from 'vs/workbench/contrib/webview/browser/webview';
-import { assertIsStandardPositronWebview } from 'vs/workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewServiceImpl';
-import { isHTMLOutputWebviewMessage } from 'vs/workbench/contrib/positronWebviewPreloads/browser/notebookOutputUtils';
+import { getWindow } from '../../../../../../base/browser/dom.js';
+import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
+import { IWebviewElement } from '../../../../webview/browser/webview.js';
+import { assertIsStandardPositronWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewServiceImpl.js';
+import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 
 
 export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {

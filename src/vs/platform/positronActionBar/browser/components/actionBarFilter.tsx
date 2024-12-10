@@ -1,13 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./actionBarFilter';
-import * as React from 'react';
-import { ChangeEvent, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
-import { localize } from 'vs/nls';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+// CSS.
+import './actionBarFilter.css';
+
+// React.
+import React, { ChangeEvent, useRef, useState } from 'react';
+
+// Other dependencies.
+import { localize } from '../../../../nls.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarFilterProps interface.

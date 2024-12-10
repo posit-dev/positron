@@ -3,29 +3,30 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { isStandalone } from 'vs/base/browser/browser';
-import { mainWindow } from 'vs/base/browser/window';
-import { VSBuffer, decodeBase64, encodeBase64 } from 'vs/base/common/buffer';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable, IDisposable } from 'vs/base/common/lifecycle';
-import { parse } from 'vs/base/common/marshalling';
-import { Schemas } from 'vs/base/common/network';
-import { posix } from 'vs/base/common/path';
-import { isEqual } from 'vs/base/common/resources';
-import { ltrim } from 'vs/base/common/strings';
-import { URI, UriComponents } from 'vs/base/common/uri';
-import product from 'vs/platform/product/common/product';
-import { ISecretStorageProvider } from 'vs/platform/secrets/common/secrets';
-import { isFolderToOpen, isWorkspaceToOpen } from 'vs/platform/window/common/window';
-import type { IWorkbenchConstructionOptions, IWorkspace, IWorkspaceProvider } from 'vs/workbench/browser/web.api';
-import { AuthenticationSessionInfo } from 'vs/workbench/services/authentication/browser/authenticationService';
-import type { IURLCallbackProvider } from 'vs/workbench/services/url/browser/urlService';
-import { create } from 'vs/workbench/workbench.web.main';
+import { isStandalone } from '../../../base/browser/browser.js';
+import { mainWindow } from '../../../base/browser/window.js';
+import { VSBuffer, decodeBase64, encodeBase64 } from '../../../base/common/buffer.js';
+import { Emitter } from '../../../base/common/event.js';
+import { Disposable, IDisposable } from '../../../base/common/lifecycle.js';
+import { parse } from '../../../base/common/marshalling.js';
+import { Schemas } from '../../../base/common/network.js';
+import { posix } from '../../../base/common/path.js';
+import { isEqual } from '../../../base/common/resources.js';
+import { ltrim } from '../../../base/common/strings.js';
+import { URI, UriComponents } from '../../../base/common/uri.js';
+import product from '../../../platform/product/common/product.js';
+import { ISecretStorageProvider } from '../../../platform/secrets/common/secrets.js';
+import { isFolderToOpen, isWorkspaceToOpen } from '../../../platform/window/common/window.js';
+import type { IWorkbenchConstructionOptions, IWorkspace, IWorkspaceProvider } from '../../../workbench/browser/web.api.js';
+import { AuthenticationSessionInfo } from '../../../workbench/services/authentication/browser/authenticationService.js';
+import type { IURLCallbackProvider } from '../../../workbench/services/url/browser/urlService.js';
+import { create } from '../../../workbench/workbench.web.main.internal.js';
+
 // --- Start PWB: proxy port url ---
-import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from 'vs/platform/tunnel/common/tunnel';
-import { transformPort } from './urlPorts';
+import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from '../../../platform/tunnel/common/tunnel.js';
+import { transformPort } from './urlPorts.js';
 // eslint-disable-next-line no-duplicate-imports
-import { join } from 'vs/base/common/path';
+import { join } from '../../../base/common/path.js';
 // --- End PWB ---
 
 interface ISecretStorageCrypto {
@@ -47,6 +48,14 @@ const enum AESConstants {
 	ALGORITHM = 'AES-GCM',
 	KEY_LENGTH = 256,
 	IV_LENGTH = 12,
+}
+
+class NetworkError extends Error {
+	constructor(inner: Error) {
+		super(inner.message);
+		this.name = inner.name;
+		this.stack = inner.stack;
+	}
 }
 
 class ServerKeyedAESCrypto implements ISecretStorageCrypto {
@@ -144,7 +153,7 @@ class ServerKeyedAESCrypto implements ISecretStorageCrypto {
 		}
 
 		let attempt = 0;
-		let lastError: unknown | undefined;
+		let lastError: Error | undefined;
 
 		while (attempt <= 3) {
 			try {
@@ -152,14 +161,14 @@ class ServerKeyedAESCrypto implements ISecretStorageCrypto {
 				if (!res.ok) {
 					throw new Error(res.statusText);
 				}
-				const serverKey = new Uint8Array(await await res.arrayBuffer());
+				const serverKey = new Uint8Array(await res.arrayBuffer());
 				if (serverKey.byteLength !== AESConstants.KEY_LENGTH / 8) {
 					throw Error(`The key retrieved by the server is not ${AESConstants.KEY_LENGTH} bit long.`);
 				}
 				this._serverKey = serverKey;
 				return this._serverKey;
 			} catch (e) {
-				lastError = e;
+				lastError = e instanceof Error ? e : new Error(String(e));
 				attempt++;
 
 				// exponential backoff
@@ -167,7 +176,10 @@ class ServerKeyedAESCrypto implements ISecretStorageCrypto {
 			}
 		}
 
-		throw lastError;
+		if (lastError) {
+			throw new NetworkError(lastError);
+		}
+		throw new Error('Unknown error');
 	}
 }
 
@@ -193,7 +205,9 @@ export class LocalStorageSecretStorageProvider implements ISecretStorageProvider
 			} catch (err) {
 				// TODO: send telemetry
 				console.error('Failed to decrypt secrets from localStorage', err);
-				localStorage.removeItem(this._storageKey);
+				if (!(err instanceof NetworkError)) {
+					localStorage.removeItem(this._storageKey);
+				}
 			}
 		}
 

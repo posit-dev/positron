@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./horizontalSplitter';
+import './horizontalSplitter.css';
 
 // React.
-import * as React from 'react';
-import { useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useState } from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { isMacintosh } from 'vs/base/common/platform';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
+import * as DOM from '../../../dom.js';
+import { isMacintosh } from '../../../../common/platform.js';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
 
 /**
  * HorizontalSplitterResizeParams interface. This defines the parameters of a resize operation. When

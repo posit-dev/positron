@@ -3,19 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './resumeConnectionModalDialog.css';
+
+// React.
 import React, { PropsWithChildren, useEffect, useRef } from 'react';
-import { localize } from 'vs/nls';
-import { ContentArea } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/contentArea';
-import { PositronModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronModalDialog';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { PositronConnectionsServices } from 'vs/workbench/contrib/positronConnections/browser/positronConnectionsContext';
-import { PositronButton } from 'vs/base/browser/ui/positronComponents/button/positronButton';
-import 'vs/css!./resumeConnectionModalDialog';
-import Severity from 'vs/base/common/severity';
-import { CodeEditorWidget } from 'vs/editor/browser/widget/codeEditor/codeEditorWidget';
-import { DisposableStore } from 'vs/base/common/lifecycle';
-import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from 'vs/workbench/contrib/codeEditor/browser/simpleEditorOptions';
-import { Emitter } from 'vs/base/common/event';
+
+// Other dependencies.
+import { localize } from '../../../../../nls.js';
+import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
+import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
+import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronConnectionsServices } from '../positronConnectionsContext.js';
+import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import Severity from '../../../../../base/common/severity.js';
+import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
+import { Emitter } from '../../../../../base/common/event.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;

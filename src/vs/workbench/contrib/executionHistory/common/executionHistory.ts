@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from 'vs/workbench/contrib/executionHistory/common/executionHistoryService';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { IStorageService, StorageScope } from 'vs/platform/storage/common/storage';
-import { ILogService } from 'vs/platform/log/common/log';
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { RuntimeExecutionHistory } from 'vs/workbench/contrib/executionHistory/common/runtimeExecutionHistory';
-import { LanguageInputHistory } from 'vs/workbench/contrib/executionHistory/common/languageInputHistory';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IWorkspaceContextService, WorkbenchState } from 'vs/platform/workspace/common/workspace';
+import { IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry } from './executionHistoryService.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { RuntimeExecutionHistory } from './runtimeExecutionHistory.js';
+import { LanguageInputHistory } from './languageInputHistory.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
 /**
  * Service that manages execution histories for all runtimes.

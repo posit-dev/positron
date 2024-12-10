@@ -1,22 +1,25 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { IOpenerService } from 'vs/platform/opener/common/opener';
-import { IViewDescriptorService } from 'vs/workbench/common/views';
-import { IThemeService } from 'vs/platform/theme/common/themeService';
-import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronReactRenderer } from 'vs/base/browser/positronReactRenderer';
-import { IContextMenuService } from 'vs/platform/contextview/browser/contextView';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ViewPane, IViewPaneOptions } from 'vs/workbench/browser/parts/views/viewPane';
-import { TestContent } from 'vs/workbench/contrib/positronOutline/browser/components/testContent';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
+import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { TestContent } from './components/testContent.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 
 export class PositronOutlineViewPane extends ViewPane {
 

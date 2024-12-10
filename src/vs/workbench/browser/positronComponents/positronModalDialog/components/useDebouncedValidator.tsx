@@ -3,7 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
+// React.
+import React, { useRef } from 'react';
 
 export type ValidatorFn<T> = (value: T) => (string | undefined) | Promise<string | undefined>;
 
@@ -14,7 +15,7 @@ export type ValidatorFn<T> = (value: T) => (string | undefined) | Promise<string
 export function useDebouncedValidator<T>({ validator, value, debounceDelayMs = 100 }: { validator?: ValidatorFn<T>; value: T; debounceDelayMs?: number }) {
 	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
 
-	const callbackTimeoutRef = React.useRef<NodeJS.Timeout | undefined>();
+	const callbackTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
 	const clearCallbackTimeout = React.useCallback(() => {
 		if (!callbackTimeoutRef.current) { return; }

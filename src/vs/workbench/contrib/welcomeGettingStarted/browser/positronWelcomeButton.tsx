@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
-import { ActionButton } from 'vs/workbench/contrib/positronNotebook/browser/utilityComponents/ActionButton';
+// Other dependencies.
+import { ActionButton } from '../../positronNotebook/browser/utilityComponents/ActionButton.js';
 
 // WelcomeButton props
 interface WelcomeButtonProps {

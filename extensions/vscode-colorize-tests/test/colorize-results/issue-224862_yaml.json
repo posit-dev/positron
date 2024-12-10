@@ -1,0 +1,102 @@
+[
+	{
+		"c": "---",
+		"t": "source.yaml entity.other.document.begin.yaml",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "foo",
+		"t": "source.yaml string.unquoted.plain.out.yaml entity.name.tag.yaml",
+		"r": {
+			"hc_black": "entity.name.tag: #569CD6",
+			"positron_dark": "entity.name.tag: #569CD6",
+			"positron_light": "entity.name.tag: #800000",
+			"hc_light": "entity.name.tag: #0F4A85"
+		}
+	},
+	{
+		"c": ":",
+		"t": "source.yaml punctuation.separator.key-value.mapping.yaml",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": " ",
+		"t": "source.yaml",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "1",
+		"t": "source.yaml constant.numeric.integer.yaml",
+		"r": {
+			"hc_black": "constant.numeric: #B5CEA8",
+			"positron_dark": "constant.numeric: #B5CEA8",
+			"positron_light": "constant.numeric: #098658",
+			"hc_light": "constant.numeric: #096D48"
+		}
+	},
+	{
+		"c": "---",
+		"t": "source.yaml entity.other.document.begin.yaml",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "This is highlighted as a YAML string",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
+		"r": {
+			"hc_black": "string: #CE9178",
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string.unquoted.plain.out.yaml: #0000FF",
+			"hc_light": "string.unquoted.plain.out.yaml: #0F4A85"
+		}
+	},
+	{
+		"c": "#",
+		"t": "source.yaml comment.line.number-sign.yaml punctuation.definition.comment.yaml",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": " This is highlighted as a YAML comment",
+		"t": "source.yaml comment.line.number-sign.yaml",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "This is highlighted as a YAML error",
+		"t": "source.yaml string.unquoted.plain.out.yaml",
+		"r": {
+			"hc_black": "string: #CE9178",
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string.unquoted.plain.out.yaml: #0000FF",
+			"hc_light": "string.unquoted.plain.out.yaml: #0F4A85"
+		}
+	}
+]

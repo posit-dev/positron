@@ -2,39 +2,39 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import { Emitter } from 'vs/base/common/event';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
-import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
-import { URI } from 'vs/base/common/uri';
-import { localize } from 'vs/nls';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { ILogService } from 'vs/platform/log/common/log';
-import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from 'vs/workbench/contrib/notebook/browser/notebookBrowser';
-import { NotebookOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
-import { NotebookTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookTextModel';
-import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { INotebookExecutionService } from 'vs/workbench/contrib/notebook/common/notebookExecutionService';
-import { INotebookExecutionStateService } from 'vs/workbench/contrib/notebook/common/notebookExecutionStateService';
-import { createNotebookCell } from './PositronNotebookCells/createNotebookCell';
-import { PositronNotebookEditorInput } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookEditorInput';
-import { BaseCellEditorOptions } from './BaseCellEditorOptions';
-import * as DOM from 'vs/base/browser/dom';
-import { IPositronNotebookCell } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { CellSelectionType, SelectionStateMachine } from 'vs/workbench/services/positronNotebook/browser/selectionMachine';
-import { PositronNotebookContextKeyManager } from 'vs/workbench/services/positronNotebook/browser/ContextKeysManager';
-import { IPositronNotebookService } from 'vs/workbench/services/positronNotebook/browser/positronNotebookService';
-import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { disposableTimeout } from 'vs/base/common/async';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction';
-import { INotebookKernelService } from 'vs/workbench/contrib/notebook/common/notebookKernelService';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from 'vs/workbench/services/runtimeSession/common/runtimeSessionService';
-import { isEqual } from 'vs/base/common/resources';
-import { IPositronWebviewPreloadService } from 'vs/workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService';
 
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { URI } from '../../../../base/common/uri.js';
+import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { IActiveNotebookEditorDelegate, IBaseCellEditorOptions, INotebookEditorCreationOptions, INotebookEditorViewState } from '../../notebook/browser/notebookBrowser.js';
+import { NotebookOptions } from '../../notebook/browser/notebookOptions.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
+import { CellEditType, CellKind, ICellEditOperation, ISelectionState, SelectionStateType, ICellReplaceEdit, NotebookCellExecutionState } from '../../notebook/common/notebookCommon.js';
+import { INotebookExecutionService } from '../../notebook/common/notebookExecutionService.js';
+import { INotebookExecutionStateService } from '../../notebook/common/notebookExecutionStateService.js';
+import { createNotebookCell } from './PositronNotebookCells/createNotebookCell.js';
+import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
+import { BaseCellEditorOptions } from './BaseCellEditorOptions.js';
+import * as DOM from '../../../../base/browser/dom.js';
+import { IPositronNotebookCell } from '../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { CellSelectionType, SelectionStateMachine } from '../../../services/positronNotebook/browser/selectionMachine.js';
+import { PositronNotebookContextKeyManager } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+import { IPositronNotebookInstance, KernelStatus } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { disposableTimeout } from '../../../../base/common/async.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { SELECT_KERNEL_ID_POSITRON, SelectPositronNotebookKernelContext } from './SelectPositronNotebookKernelAction.js';
+import { INotebookKernelService } from '../../notebook/common/notebookKernelService.js';
+import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;

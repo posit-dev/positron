@@ -40,7 +40,8 @@ if (platform() === 'darwin') {
 
 // Check and see if we need to install.
 const versionPath = `${__dirname}/../node_modules/zeromq-VERSION`;
-if (existsSync(versionPath)) {
+const zeromqPath = `${__dirname}/../node_modules/zeromq`;
+if (existsSync(versionPath) && existsSync(zeromqPath)) {
 	const lastInstalledVersion = readFileSync(versionPath, { encoding: 'utf-8' });
 	if (lastInstalledVersion === zeromqVersion) {
 		console.info('zeromq is already up-to-date; nothing to do.');

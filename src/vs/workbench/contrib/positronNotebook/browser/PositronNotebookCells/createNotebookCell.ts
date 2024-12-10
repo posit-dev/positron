@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IInstantiationService } from 'vs/platform/instantiation/common/instantiation';
-import { NotebookCellTextModel } from 'vs/workbench/contrib/notebook/common/model/notebookCellTextModel';
-import { CellKind } from 'vs/workbench/contrib/notebook/common/notebookCommon';
-import { PositronNotebookCodeCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookCodeCell';
-import { PositronNotebookMarkdownCell } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookCells/PositronNotebookMarkdownCell';
-import { PositronNotebookInstance } from 'vs/workbench/contrib/positronNotebook/browser/PositronNotebookInstance';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { NotebookCellTextModel } from '../../../notebook/common/model/notebookCellTextModel.js';
+import { CellKind } from '../../../notebook/common/notebookCommon.js';
+import { PositronNotebookCodeCell } from './PositronNotebookCodeCell.js';
+import { PositronNotebookMarkdownCell } from './PositronNotebookMarkdownCell.js';
+import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
 
 /**
  * Instantiate a notebook cell based on the cell's kind

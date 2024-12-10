@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
-import { PositronModalDialogs } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogs';
-import { registerPositronModalDialogsActions } from 'vs/workbench/contrib/positronModalDialogs/browser/positronModalDialogsActions';
-import { IPositronModalDialogsService } from 'vs/workbench/services/positronModalDialogs/common/positronModalDialogs';
+import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
+import { PositronModalDialogs } from './positronModalDialogs.js';
+import { registerPositronModalDialogsActions } from './positronModalDialogsActions.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 registerPositronModalDialogsActions();
 

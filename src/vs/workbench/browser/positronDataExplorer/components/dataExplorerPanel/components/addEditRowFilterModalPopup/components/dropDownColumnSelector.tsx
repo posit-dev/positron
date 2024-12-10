@@ -4,27 +4,26 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./dropDownColumnSelector';
+import './dropDownColumnSelector.css';
 
 // React.
-import * as React from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react'; // eslint-disable-line no-duplicate-imports
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { localize } from 'vs/nls';
-import * as DOM from 'vs/base/browser/dom';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { ColumnSchema } from 'vs/workbench/services/languageRuntime/common/positronDataExplorerComm';
-import { OKModalDialog } from 'vs/workbench/browser/positronComponents/positronModalDialog/positronOKModalDialog';
-import { VerticalStack } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/verticalStack';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { columnSchemaDataTypeIcon } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/utility/columnSchemaUtilities';
-import { ColumnSelectorModalPopup } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorModalPopup';
-import { ColumnSelectorDataGridInstance } from 'vs/workbench/browser/positronDataExplorer/components/dataExplorerPanel/components/addEditRowFilterModalPopup/components/columnSelectorDataGridInstance';
+import { localize } from '../../../../../../../../nls.js';
+import * as DOM from '../../../../../../../../base/browser/dom.js';
+import { ILayoutService } from '../../../../../../../../platform/layout/browser/layoutService.js';
+import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { IKeybindingService } from '../../../../../../../../platform/keybinding/common/keybinding.js';
+import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
+import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { OKModalDialog } from '../../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
+import { VerticalStack } from '../../../../../../positronComponents/positronModalDialog/components/verticalStack.js';
+import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { DataExplorerClientInstance } from '../../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities.js';
+import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
+import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 
 /**
  * DropDownColumnSelectorProps interface.

@@ -1,20 +1,22 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import 'vs/css!./consoleCore';
-import * as React from 'react';
-import { IReactComponentContainer } from 'vs/base/browser/positronReactRenderer';
-import { ActionBar } from 'vs/workbench/contrib/positronConsole/browser/components/actionBar';
-import { EmptyConsole } from 'vs/workbench/contrib/positronConsole/browser/components/emptyConsole';
-import { ConsoleInstance } from 'vs/workbench/contrib/positronConsole/browser/components/consoleInstance';
-import { usePositronConsoleContext } from 'vs/workbench/contrib/positronConsole/browser/positronConsoleContext';
-import { StartupStatus } from 'vs/workbench/contrib/positronConsole/browser/components/startupStatus';
+// CSS.
+import './consoleCore.css';
 
-// eslint-disable-next-line no-duplicate-imports
-import { useEffect, useState } from 'react';
-import { RuntimeStartupPhase } from 'vs/workbench/services/runtimeStartup/common/runtimeStartupService';
+// React.
+import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { ActionBar } from './actionBar.js';
+import { EmptyConsole } from './emptyConsole.js';
+import { ConsoleInstance } from './consoleInstance.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { StartupStatus } from './startupStatus.js';
+import { RuntimeStartupPhase } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 
 // ConsoleCoreProps interface.
 interface ConsoleCoreProps {

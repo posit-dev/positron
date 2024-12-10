@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IPositronPlotSizingPolicy } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import * as nls from 'vs/nls';
-import { SizingPolicyFixedAspectRatio } from 'vs/workbench/services/positronPlots/common/sizingPolicyFixedAspectRatio';
-import { PlotClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
+import { IPositronPlotSizingPolicy } from './sizingPolicy.js';
+import * as nls from '../../../../nls.js';
+import { SizingPolicyFixedAspectRatio } from './sizingPolicyFixedAspectRatio.js';
+import { PlotClientInstance } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * This class implements a plot sizing policy that sizes the plot to a fixed 1:1

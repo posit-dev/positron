@@ -3,17 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { URI } from 'vs/base/common/uri';
-import { IStorageService } from 'vs/platform/storage/common/storage';
-import { MainThreadWebviews, reviveWebviewExtension } from 'vs/workbench/api/browser/mainThreadWebviews';
-import { WebviewExtensionDescription } from 'vs/workbench/api/common/extHost.protocol';
-import { ExtensionKeyedWebviewOriginStore } from 'vs/workbench/contrib/webview/browser/webview';
-import { IExtHostContext } from 'vs/workbench/services/extensions/common/extHostCustomers';
-import * as extHostProtocol from 'vs/workbench/api/common/positron/extHost.positron.protocol';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from 'vs/workbench/contrib/positronPreview/browser/positronPreviewSevice';
-import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
-import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
+import { URI } from '../../../../base/common/uri.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { MainThreadWebviews, reviveWebviewExtension } from '../mainThreadWebviews.js';
+import { WebviewExtensionDescription } from '../../common/extHost.protocol.js';
+import { ExtensionKeyedWebviewOriginStore } from '../../../contrib/webview/browser/webview.js';
+import { IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
+import * as extHostProtocol from '../../common/positron/extHost.positron.protocol.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IPositronPreviewService, POSITRON_PREVIEW_VIEW_ID } from '../../../contrib/positronPreview/browser/positronPreviewSevice.js';
+import { PreviewWebview } from '../../../contrib/positronPreview/browser/previewWebview.js';
+import { IViewsService } from '../../../services/views/common/viewsService.js';
 
 /**
  * Bi-directional map between webview handles and previews.

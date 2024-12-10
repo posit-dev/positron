@@ -1,11 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren, createContext, useContext } from 'react'; // eslint-disable-line no-duplicate-imports
-import { PositronPlotsServices, PositronPlotsState, usePositronPlotsState } from 'vs/workbench/contrib/positronPlots/browser/positronPlotsState';
+// React.
+import React, { PropsWithChildren, createContext, useContext } from 'react';
+
+// Other dependencies.
+import { PositronPlotsServices, PositronPlotsState, usePositronPlotsState } from './positronPlotsState.js';
 
 /**
  * Create the Positron plots context.

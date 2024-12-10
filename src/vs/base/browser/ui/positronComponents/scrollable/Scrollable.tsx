@@ -3,12 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as React from 'react';
-import { PropsWithChildren } from 'react';
-import { DomScrollableElement } from 'vs/base/browser/ui/scrollbar/scrollableElement';
-import { ScrollableElementChangeOptions } from 'vs/base/browser/ui/scrollbar/scrollableElementOptions';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ScrollbarVisibility } from 'vs/base/common/scrollable';
+// React.
+import React, { PropsWithChildren } from 'react';
+
+// Other dependencies.
+import { DomScrollableElement } from '../../scrollbar/scrollableElement.js';
+import { ScrollableElementChangeOptions } from '../../scrollbar/scrollableElementOptions.js';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { ScrollbarVisibility } from '../../../../common/scrollable.js';
 
 interface ScrollableProps {
 	width: number;

@@ -4,23 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import 'vs/css!./customContextMenu';
+import './customContextMenu.css';
 
 // React.
-import * as React from 'react';
+import React from 'react';
 
 // Other dependencies.
-import * as DOM from 'vs/base/browser/dom';
-import { isMacintosh } from 'vs/base/common/platform';
-import { positronClassNames } from 'vs/base/common/positronUtilities';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { Button } from 'vs/base/browser/ui/positronComponents/button/button';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
-import { CustomContextMenuSeparator } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator';
-import { CustomContextMenuItem, CustomContextMenuItemOptions } from 'vs/workbench/browser/positronComponents/customContextMenu/customContextMenuItem';
-import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from 'vs/workbench/browser/positronComponents/positronModalPopup/positronModalPopup';
+import * as DOM from '../../../../base/browser/dom.js';
+import { isMacintosh } from '../../../../base/common/platform.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
+import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
+import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 
 /**
  * CustomContextMenuEntry type.

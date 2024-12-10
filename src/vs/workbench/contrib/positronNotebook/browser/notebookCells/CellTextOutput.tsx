@@ -2,17 +2,21 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./CellTextOutput';
 
-import * as React from 'react';
-import { ANSIOutput } from 'vs/base/common/ansiOutput';
-import { OutputLines } from 'vs/workbench/browser/positronAnsiRenderer/outputLines';
-import { useServices } from 'vs/workbench/contrib/positronNotebook/browser/ServicesProvider';
-import { ParsedTextOutput } from 'vs/workbench/services/positronNotebook/browser/IPositronNotebookCell';
-import { useNotebookOptions } from 'vs/workbench/contrib/positronNotebook/browser/NotebookInstanceProvider';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { NotebookDisplayOptions } from 'vs/workbench/contrib/notebook/browser/notebookOptions';
+// CSS.
+import './CellTextOutput.css';
 
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
+import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
+import { useServices } from '../ServicesProvider.js';
+import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
+import { useNotebookOptions } from '../NotebookInstanceProvider.js';
+import { ICommandService } from '../../../../../platform/commands/common/commands.js';
+import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
@@ -32,7 +36,7 @@ type TruncationResult =
 function useLongOutputBehavior(content: string): {
 	containerRef: React.RefObject<HTMLDivElement>; truncation: TruncationResult;
 } {
-	const containerRef = React.useRef<HTMLDivElement>(null);
+	const containerRef = React.useRef<HTMLDivElement>(null!);
 	const notebookOptions = useNotebookOptions();
 	const layoutOptions = notebookOptions.getLayoutConfiguration();
 

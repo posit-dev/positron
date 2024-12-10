@@ -30,10 +30,10 @@
     "url": "https://github.com/posit-dev/positron.git"
   },
   "scripts": {
-    "vscode:prepublish": "yarn run compile",
+    "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "pretest": "yarn run compile && yarn run lint",
+    "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts"
   },
   "contributes": {
@@ -170,7 +170,8 @@
         "key": "ctrl+shift+s",
         "when": "config.rstudio.keymap.enable && editorLangId == r",
         "command": "r.sourceCurrentFile"
-      },      {
+      },
+      {
         "mac": "cmd+shift+enter",
         "win": "ctrl+shift+enter",
         "linux": "ctrl+shift+enter",

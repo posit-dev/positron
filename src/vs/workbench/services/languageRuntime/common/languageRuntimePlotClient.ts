@@ -3,12 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IPositronPlotClient } from 'vs/workbench/services/positronPlots/common/positronPlots';
-import { IntrinsicSize, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
-import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
-import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from 'vs/workbench/services/languageRuntime/common/positronPlotCommProxy';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
+import { IntrinsicSize, RenderFormat } from './positronPlotComm.js';
+import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
+import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */

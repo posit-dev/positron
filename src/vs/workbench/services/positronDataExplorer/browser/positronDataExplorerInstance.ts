@@ -3,26 +3,26 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from 'vs/nls';
-import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
-import { IHoverService } from 'vs/platform/hover/browser/hover';
-import { ICommandService } from 'vs/platform/commands/common/commands';
-import { ILayoutService } from 'vs/platform/layout/browser/layoutService';
-import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
-import { IClipboardService } from 'vs/platform/clipboard/common/clipboardService';
-import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
-import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
-import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-import { TableDataCache } from 'vs/workbench/services/positronDataExplorer/common/tableDataCache';
-import { TableSummaryCache } from 'vs/workbench/services/positronDataExplorer/common/tableSummaryCache';
-import { PositronDataExplorerUri } from 'vs/workbench/services/positronDataExplorer/common/positronDataExplorerUri';
-import { TableDataDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableDataDataGridInstance';
-import { DataExplorerClientInstance } from 'vs/workbench/services/languageRuntime/common/languageRuntimeDataExplorerClient';
-import { TableSummaryDataGridInstance } from 'vs/workbench/services/positronDataExplorer/browser/tableSummaryDataGridInstance';
-import { PositronDataExplorerLayout } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService';
-import { IPositronDataExplorerInstance } from 'vs/workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from 'vs/workbench/browser/positronDataGrid/classes/dataGridInstance';
+import { localize } from '../../../../nls.js';
+import { Emitter } from '../../../../base/common/event.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IEditorService } from '../../editor/common/editorService.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
+import { TableDataCache } from '../common/tableDataCache.js';
+import { TableSummaryCache } from '../common/tableSummaryCache.js';
+import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
+import { TableDataDataGridInstance } from './tableDataDataGridInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js';
+import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
+import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * Constants.

@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from 'vs/base/common/lifecycle';
-import { DeferredPromise } from 'vs/base/common/async';
-import { Event, Emitter } from 'vs/base/common/event';
-import { IRuntimeClientInstance, RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
-import { IPositronPlotMetadata } from 'vs/workbench/services/languageRuntime/common/languageRuntimePlotClient';
-import { IntrinsicSize, PositronPlotComm, RenderFormat } from 'vs/workbench/services/languageRuntime/common/positronPlotComm';
-import { IPlotSize } from 'vs/workbench/services/positronPlots/common/sizingPolicy';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
+import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
+import { IPositronPlotMetadata } from './languageRuntimePlotClient.js';
+import { IntrinsicSize, PositronPlotComm, RenderFormat } from './positronPlotComm.js';
+import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 
 /**
  * A rendered plot.

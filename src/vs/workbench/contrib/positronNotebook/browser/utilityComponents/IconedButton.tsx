@@ -2,10 +2,15 @@
  *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import 'vs/css!./IconedButton';
 
-import * as React from 'react';
-import { ActionButton } from './ActionButton';
+// CSS.
+import './IconedButton.css';
+
+// React.
+import React from 'react';
+
+// Other dependencies.
+import { ActionButton } from './ActionButton.js';
 
 /**
  * Button with icon to the left for notebook actions etc..
