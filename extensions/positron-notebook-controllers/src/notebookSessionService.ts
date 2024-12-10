@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { log } from './extension';
 import { ResourceMap } from './map';
+import { getNotebookSession } from './utils';
 
 export interface INotebookSessionDidChangeEvent {
 	/** The URI of the notebook corresponding to the session. */
@@ -47,9 +48,6 @@ export class NotebookSessionService implements vscode.Disposable {
 	 */
 	private readonly _restartingSessionsByNotebookUri = new ResourceMap<Promise<positron.LanguageRuntimeSession>>();
 
-	/** A map of the currently active notebook sessions, keyed by notebook URI. */
-	private readonly _notebookSessionsByNotebookUri = new ResourceMap<positron.LanguageRuntimeSession>();
-
 	/** The event emitter for the onDidChangeNotebookSession event. */
 	private readonly _onDidChangeNotebookSession = this._register(new vscode.EventEmitter<INotebookSessionDidChangeEvent>);
 
@@ -62,28 +60,13 @@ export class NotebookSessionService implements vscode.Disposable {
 	}
 
 	/**
-	 * Checks for a starting or running notebook for the given notebook URI.
+	 * Wait for a notebook session to complete a shutdown sequence.
 	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a starting or running notebook session exists for the given notebook URI.
+	 * @param notebookUri The notebook URI to wait for.
+	 * @returns A promise that resolves when the session has completed the shutdown sequence.
 	 */
-	hasStartingOrRunningNotebookSession(notebookUri: vscode.Uri): boolean {
-		return this._startingSessionsByNotebookUri.has(notebookUri) ||
-			this._restartingSessionsByNotebookUri.has(notebookUri) ||
-			this._notebookSessionsByNotebookUri.has(notebookUri);
-	}
-
-	/**
-	 * Checks for a running notebook for the given notebook URI.
-	 *
-	 * @param notebookUri The notebook URI to check for.
-	 * @returns True if a running notebook session exists for the given notebook URI.
-	 */
-	hasRunningNotebookSession(notebookUri: vscode.Uri | undefined): boolean {
-		if (!notebookUri) {
-			return false;
-		}
-		return this._notebookSessionsByNotebookUri.has(notebookUri);
+	async waitForNotebookSessionToShutdown(notebookUri: vscode.Uri): Promise<void> {
+		await this._shuttingDownSessionsByNotebookUri.get(notebookUri);
 	}
 
 	/**
@@ -94,31 +77,6 @@ export class NotebookSessionService implements vscode.Disposable {
 	 */
 	async waitForNotebookSessionToRestart(notebookUri: vscode.Uri): Promise<void> {
 		await this._restartingSessionsByNotebookUri.get(notebookUri);
-	}
-
-	/**
-	 * Get the running notebook session for the given notebook URI, if one exists.
-	 *
-	 * @param notebookUri The notebook URI of the session to retrieve.
-	 * @returns The running notebook session for the given notebook URI, if one exists.
-	 */
-	getNotebookSession(notebookUri: vscode.Uri): positron.LanguageRuntimeSession | undefined {
-		return this._notebookSessionsByNotebookUri.get(notebookUri);
-	}
-
-	/**
-	 * Set a notebook session for a notebook URI.
-	 *
-	 * @param notebookUri The notebook URI of the session to set.
-	 * @param session The session to set for the notebook URI, or undefined to delete the session.
-	 */
-	setNotebookSession(notebookUri: vscode.Uri, session: positron.LanguageRuntimeSession | undefined): void {
-		if (session) {
-			this._notebookSessionsByNotebookUri.set(notebookUri, session);
-		} else {
-			this._notebookSessionsByNotebookUri.delete(notebookUri);
-		}
-		this._onDidChangeNotebookSession.fire({ notebookUri, session });
 	}
 
 	/**
@@ -141,7 +99,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			try {
 				const session = await this.doStartRuntimeSession(notebookUri, runtimeId);
 				this._startingSessionsByNotebookUri.delete(notebookUri);
-				this.setNotebookSession(notebookUri, session);
+				this._onDidChangeNotebookSession.fire({ notebookUri, session });
 				log.info(`Session ${session.metadata.sessionId} is started`);
 				return session;
 			} catch (err) {
@@ -167,27 +125,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			}
 		}
 
-		// If there's already a session for this runtime e.g. one restored after a window reload, use it.
-		try {
-			const session = await positron.runtime.getNotebookSession(notebookUri);
-			if (session) {
-				// TODO: If it isn't running, log an error and start a new one.
-				// TODO: If it doesn't match the runtime ID, log an error, shut it down, and start a new one.
-				log.info(
-					`Restored session for language runtime ${session.metadata.sessionId} `
-					+ `(language: ${session.runtimeMetadata.languageName}, name: ${session.runtimeMetadata.runtimeName}, `
-					+ `version: ${session.runtimeMetadata.runtimeVersion}, notebook: ${notebookUri.path})`
-				);
-				return session;
-			}
-		} catch (err) {
-			log.error(
-				`Getting existing session for notebook ${notebookUri.path}' failed. Reason: ${err}`
-			);
-			throw err;
-		}
-
-		// If we couldn't restore a session, start a new one.
+		// Start the session.
 		try {
 			const session = await positron.runtime.startLanguageRuntime(
 				runtimeId,
@@ -223,7 +161,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			try {
 				await this.doShutdownRuntimeSession(notebookUri);
 				this._shuttingDownSessionsByNotebookUri.delete(notebookUri);
-				this.setNotebookSession(notebookUri, undefined);
+				this._onDidChangeNotebookSession.fire({ notebookUri, session: undefined });
 			} catch (err) {
 				this._startingSessionsByNotebookUri.delete(notebookUri);
 				throw err;
@@ -277,7 +215,7 @@ export class NotebookSessionService implements vscode.Disposable {
 
 	private async getExistingOrPendingSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
 		// Check for an active session first.
-		const activeSession = this._notebookSessionsByNotebookUri.get(notebookUri);
+		const activeSession = await getNotebookSession(notebookUri);
 		if (activeSession) {
 			return activeSession;
 		}
@@ -317,7 +255,7 @@ export class NotebookSessionService implements vscode.Disposable {
 			try {
 				const session = await this.doRestartRuntimeSession(notebookUri);
 				this._restartingSessionsByNotebookUri.delete(notebookUri);
-				this.setNotebookSession(notebookUri, session);
+				this._onDidChangeNotebookSession.fire({ notebookUri, session });
 				log.info(`Session ${session.metadata.sessionId} is restarted`);
 				return session;
 			} catch (err) {
@@ -333,14 +271,14 @@ export class NotebookSessionService implements vscode.Disposable {
 
 	async doRestartRuntimeSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession> {
 		// Get the notebook's session.
-		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
+		const session = await getNotebookSession(notebookUri);
 		if (!session) {
 			throw new Error(`Tried to restart runtime for notebook without a running runtime: ${notebookUri.path}`);
 		}
 
 		// Remove the session from the map of active notebooks in case it's accessed while we're
 		// restarting.
-		this.setNotebookSession(notebookUri, undefined);
+		this._onDidChangeNotebookSession.fire({ notebookUri, session: undefined });
 
 		// If the notebook's session is still shutting down, wait for it to finish.
 		const shuttingDownSessionPromise = this._shuttingDownSessionsByNotebookUri.get(notebookUri);

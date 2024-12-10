@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { Application, Logger } from '../../../automation';
 
 test.use({
@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Headless Data Explorer - Large Data Frame', {
-	tag: ['@web', '@data-explorer', '@duck-db']
+	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
 	// python fixture not actually needed but serves as a long wait so that we can be sure
 	// headless/duckdb open will work

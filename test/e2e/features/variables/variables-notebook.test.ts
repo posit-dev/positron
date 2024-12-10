@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -14,7 +14,9 @@ test.afterEach(async function ({ app }) {
 	await app.workbench.positronLayouts.enterLayout('stacked');
 });
 
-test.describe('Variables Pane - Notebook', { tag: ['@critical', '@web', '@variables', '@notebook'] }, () => {
+test.describe('Variables Pane - Notebook', {
+	tag: [tags.CRITICAL, tags.WEB, tags.VARIABLES, tags.NOTEBOOK]
+}, () => {
 	test('Python - Verifies Variables pane basic function for notebook [C669188]', async function ({ app, python }) {
 		await app.workbench.positronNotebooks.createNewNotebook();
 

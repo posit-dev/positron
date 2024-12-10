@@ -4,13 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@critical', '@connections'] }, () => {
+test.describe('SQLite DB Connection', {
+	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.CONNECTIONS]
+}, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['positron.connections.showConnectionPane', 'true']], true);
 	});

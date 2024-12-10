@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { join } from 'path';
 import { parquetFilePath, testDataExplorer } from './helpers/100x100';
 
@@ -11,7 +11,9 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - R [C674521]', { tag: ['@win', '@data-explorer'] }, async function ({ app, r }) {
+test('Data Explorer 100x100 - R [C674521]', {
+	tag: [tags.WIN, tags.DATA_EXPLORER]
+}, async function ({ app, r }) {
 	test.slow();
 
 	// Test the data explorer.

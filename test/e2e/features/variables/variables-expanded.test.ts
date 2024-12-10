@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables - Expanded View', { tag: ['@web', '@variables'] }, () => {
+test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, () => {
 	test.beforeEach(async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', script, '>>>');
 		await app.workbench.positronLayouts.enterLayout('fullSizedAuxBar');

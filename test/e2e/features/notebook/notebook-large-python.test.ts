@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
@@ -12,7 +12,9 @@ test.use({
 });
 
 // Note that this test is too heavy to pass on web and windows
-test.describe('Large Python Notebook', { tag: ['@notebook'] }, () => {
+test.describe('Large Python Notebook', {
+	tag: [tags.NOTEBOOK]
+}, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
 		test.setTimeout(480_000); // huge timeout because this is a heavy test

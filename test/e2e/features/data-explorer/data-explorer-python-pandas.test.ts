@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Data Explorer - Python Pandas', {
-	tag: ['@web', '@win', '@critical', '@data-explorer']
+	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
 	test('Python Pandas - Verifies basic data explorer functionality [C557556]', async function ({ app, python, logger }) {
 		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/

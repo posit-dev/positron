@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { fail } from 'assert';
 
 test.use({
@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Console Autocomplete', {
-	tag: ['@web', '@win', '@console']
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
 	test('Python - Verify Console Autocomplete [C947968]', async function ({ app, python }) {
 		await app.workbench.positronConsole.pasteCodeToConsole('import pandas as pd');

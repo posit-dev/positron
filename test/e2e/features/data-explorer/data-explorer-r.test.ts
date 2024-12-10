@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Data Explorer - R ', {
-	tag: ['@web', '@win', '@data-explorer']
+	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verifies basic data explorer functionality [C609620]', { tag: ['@critical'] }, async function ({ app, r, logger }) {
+	test('R - Verifies basic data explorer functionality [C609620]', { tag: [tags.CRITICAL] }, async function ({ app, r, logger }) {
 		// snippet from https://www.w3schools.com/r/r_data_frames.asp
 		const script = `Data_Frame <- data.frame (
 	Training = c("Strength", "Stamina", "Other"),
@@ -45,7 +45,7 @@ test.describe('Data Explorer - R ', {
 
 	});
 	test('R - Verifies basic data explorer column info functionality [C734265]', {
-		tag: ['@critical']
+		tag: [tags.CRITICAL]
 	}, async function ({ app, r }) {
 		await app.workbench.positronDataExplorer.expandSummary();
 

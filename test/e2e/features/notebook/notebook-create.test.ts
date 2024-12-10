@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebooks', { tag: ['@critical', '@web', '@win', '@notebook'] }, () => {
+test.describe('Notebooks', {
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOK]
+}, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.positronLayouts.enterLayout('notebook');

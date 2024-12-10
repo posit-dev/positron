@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Console ANSI styling', { tag: ['@critical', '@console'] }, () => {
+test.describe('Console ANSI styling', { tag: [tags.CRITICAL, tags.CONSOLE] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('fullSizedPanel');
 	});

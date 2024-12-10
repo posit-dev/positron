@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Data Explorer - DuckDB Column Summary', {
-	tag: ['@web', '@win', '@critical', '@data-explorer', '@duck-db']
+	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER, tags.DUCK_DB]
 }, () => {
 	// python fixture not actually needed but serves as a long wait so that we can be sure
 	// headless/duckdb open will work
