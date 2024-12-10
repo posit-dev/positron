@@ -406,5 +406,5 @@ jobs:
       - name: Run smoke tests
         env:
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        run: npm run tsc && node ./out/test/smokeTest.js
+        run: npx tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'
