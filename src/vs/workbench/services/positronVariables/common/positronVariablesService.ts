@@ -55,7 +55,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	 * The previous console session. Used to restore variables pane to active session
 	 * when a notebook is hidden.
 	 */
-	private _previousConsoleSession?: ILanguageRuntimeSession;
+	private _activeConsoleSession?: ILanguageRuntimeSession;
 
 	//#endregion Private Properties
 
@@ -105,7 +105,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			// If this is a console session, set it as the main console session that is
 			// used when the notebook is hidden.
 			if (e.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-				this._previousConsoleSession = e.session;
+				this._activeConsoleSession = e.session;
 			}
 		}));
 
@@ -148,9 +148,9 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 				// If the editor is not for a jupyter notebook, just leave variables session as is.
 				if (!notebookSession) { return; }
 				this._setActivePositronVariablesBySession(notebookSession);
-			} else if (this._previousConsoleSession) {
+			} else if (this._activeConsoleSession) {
 				// Revert to the most recent console session if we're not in a notebook editor
-				this._setActivePositronVariablesBySession(this._previousConsoleSession);
+				this._setActivePositronVariablesBySession(this._activeConsoleSession);
 			} else {
 				// All else fails, just reset to the default
 				this._setActivePositronVariablesInstance()
@@ -226,8 +226,8 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			}
 
 			// If this was the previous console session, clear it
-			if (this._previousConsoleSession === instance.session) {
-				this._previousConsoleSession = undefined;
+			if (this._activeConsoleSession === instance.session) {
+				this._activeConsoleSession = undefined;
 			}
 
 			// Dispose the instance and remove it from our map
