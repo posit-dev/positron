@@ -11,7 +11,7 @@ GITHUB_EVENT_PATH="$1"
 echo "Extracting PR body..."
 PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
 
-echo "Parsing tags from PR body: $PR_BODY"
+echo "Parsing tags from PR body..."
 
 # Check if &all is present in the PR body
 if echo "$PR_BODY" | grep -q "&all"; then
