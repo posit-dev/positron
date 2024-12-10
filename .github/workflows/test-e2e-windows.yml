@@ -136,7 +136,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
 
       - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
+        run: bash scripts/generate-playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
         shell: bash
 
       - name: Send Results to GH Summary

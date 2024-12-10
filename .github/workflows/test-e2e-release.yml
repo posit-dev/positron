@@ -84,7 +84,7 @@ jobs:
         if: ${{ !cancelled() }}
 
       - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/playwright-tags.sh "e2e-electron" "${{ inputs.grep }}"
+        run: bash scripts/generate-playwright-tags.sh "e2e-electron" "${{ inputs.grep }}"
         shell: bash
 
       - name: Run Tests (Electron)
