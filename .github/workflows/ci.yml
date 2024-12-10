@@ -152,6 +152,9 @@ jobs:
         run: npm run compile
         working-directory: test/integration/browser
 
+      - name: Install Unit Test Dependencies
+        uses: ./.github/actions/setup-unit-test-env
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh

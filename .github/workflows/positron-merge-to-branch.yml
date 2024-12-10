@@ -118,6 +118,9 @@ jobs:
         with:
           version: "4.4.0"
 
+      - name: Install Unit Test Dependencies
+        uses: ./.github/actions/setup-unit-test-env
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh

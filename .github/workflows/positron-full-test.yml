@@ -30,6 +30,9 @@ jobs:
       - name: Setup Build and Compile
         uses: ./.github/actions/setup-build-env
 
+      - name: Install Unit Test Dependencies
+        uses: ./.github/actions/setup-unit-test-env
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
@@ -37,27 +40,6 @@ jobs:
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
         run: npm run test-node
-
-      - name: Install Browser Test Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-              libwoff1 \
-              libvpx7 \
-              libevent-2.1-7 \
-              libgstreamer-plugins-base1.0-0 \
-              libgstreamer1.0-0 \
-              libflite1 \
-              libavif13 \
-              libhyphen0 \
-              libmanette-0.2-0 \
-              libgl1-mesa-glx \
-              libx264-dev \
-              libgstreamer-gl1.0-0 \
-              gstreamer1.0-plugins-base \
-              gstreamer1.0-plugins-good \
-              gstreamer1.0-plugins-bad \
-              libgles2-mesa
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
