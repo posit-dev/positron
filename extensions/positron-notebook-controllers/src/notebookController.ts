@@ -8,6 +8,7 @@ import { NotebookSessionService } from './notebookSessionService';
 import { JUPYTER_NOTEBOOK_TYPE } from './constants';
 import { log } from './extension';
 import { ResourceMap } from './map';
+import { getNotebookSession } from './utils';
 
 /** The type of a Jupyter notebook cell output. */
 enum NotebookCellOutputType {
@@ -121,9 +122,7 @@ export class NotebookController implements vscode.Disposable {
 
 	private async selectRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
 		// If there's an existing session from another runtime, shut it down.
-		if (this._notebookSessionService.hasStartingOrRunningNotebookSession(notebook.uri)) {
-			await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
-		}
+		await this._notebookSessionService.shutdownRuntimeSession(notebook.uri);
 
 		// Start the new session.
 		await this.startRuntimeSession(notebook);
@@ -166,7 +165,7 @@ export class NotebookController implements vscode.Disposable {
 	 */
 	private async interruptRuntimeSession(notebook: vscode.NotebookDocument): Promise<void> {
 		// If the notebook has a session, interrupt it.
-		const session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		const session = await getNotebookSession(notebook.uri);
 		if (session) {
 			await session.interrupt();
 			return;
@@ -207,7 +206,7 @@ export class NotebookController implements vscode.Disposable {
 		try {
 			await Promise.all(cells.map(cell => this.queueCellExecution(cell, notebook, tokenSource.token)));
 		} catch (err) {
-			log.debug(`Error executing cells: ${err}`);
+			log.debug(`Error executing cells: ${err.stack ?? err}`);
 		} finally {
 			// Clean up the cancellation token source for this execution.
 			if (this._executionTokenSourceByNotebookUri.get(notebook.uri) === tokenSource) {
@@ -260,11 +259,14 @@ export class NotebookController implements vscode.Disposable {
 			return;
 		}
 
+		// If a session is shutting down for this notebook, wait for it to finish.
+		await this._notebookSessionService.waitForNotebookSessionToShutdown(notebook.uri);
+
 		// If a session is restarting for this notebook, wait for it to finish.
 		await this._notebookSessionService.waitForNotebookSessionToRestart(notebook.uri);
 
 		// Get the notebook's session.
-		let session = this._notebookSessionService.getNotebookSession(notebook.uri);
+		let session = await getNotebookSession(notebook.uri, this._runtimeMetadata.runtimeId);
 
 		// No session has been started for this notebook, start one.
 		if (!session) {
