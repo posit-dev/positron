@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../automation';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Data Explorer - Sparklines', {
-	tag: ['@web', '@win', '@data-explorer']
+	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

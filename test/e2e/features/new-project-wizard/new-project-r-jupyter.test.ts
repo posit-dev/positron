@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ProjectType, ProjectWizardNavigateAction } from '../../../automation';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -15,12 +15,12 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.positronLayouts.enterLayout("stacked");
 });
 
-test.describe('R - New Project Wizard', { tag: ['@new-project-wizard'] }, () => {
+test.describe('R - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
 	test.describe.configure({ mode: 'serial' });
 
 	const defaultProjectName = 'my-r-project';
 
-	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
+	test('R - Project Defaults [C627913]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.R_PROJECT);
@@ -138,7 +138,7 @@ test.describe('R - New Project Wizard', { tag: ['@new-project-wizard'] }, () => 
 test.describe('Jupyter - New Project Wizard', () => {
 	const defaultProjectName = 'my-jupyter-notebook';
 
-	test('Jupyter Project Defaults [C629352]', { tag: ['@pr'] }, async function ({ app }) {
+	test('Jupyter Project Defaults [C629352]', { tag: [tags.CRITICAL] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.JUPYTER_NOTEBOOK);

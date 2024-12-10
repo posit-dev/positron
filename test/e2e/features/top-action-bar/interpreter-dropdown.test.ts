@@ -8,13 +8,13 @@ import {
 	PositronInterpreterDropdown,
 } from '../../../automation';
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: ['@web', '@top-action-bar'] }, () => {
+test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: [tags.WEB, tags.TOP_ACTION_BAR] }, () => {
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
 

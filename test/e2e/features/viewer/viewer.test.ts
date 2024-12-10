@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Viewer', { tag: ['@viewer'] }, () => {
+test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.positronViewer.clearViewer();
@@ -60,7 +60,6 @@ test.describe('Viewer', { tag: ['@viewer'] }, () => {
 	});
 
 	test('R - Verify Viewer functionality with reactable [C784930]', async function ({ app, logger, r }) {
-
 
 		logger.log('Sending code to console');
 		await app.workbench.positronConsole.executeCode('R', rReactableScript, '>');

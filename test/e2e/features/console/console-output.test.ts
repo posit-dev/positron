@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Output', { tag: ['@win', '@console'] }, () => {
+test.describe('Console Output', { tag: [tags.WIN, tags.CONSOLE] }, () => {
 	test('R - Console output in a loop with short pauses [C885225]', async function ({ app, r }) {
 		await app.workbench.positronConsole.pasteCodeToConsole(rCode);
 		await app.workbench.positronConsole.sendEnterKey();

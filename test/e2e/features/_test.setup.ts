@@ -7,6 +7,7 @@
 import * as playwright from '@playwright/test';
 const { test: base, expect: playwrightExpect } = playwright;
 
+
 // Node.js built-in modules
 import { join } from 'path';
 import * as os from 'os';
@@ -22,7 +23,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { createLogger, createApp } from '../helpers';
+import { createLogger, createApp, TestTags } from '../helpers';
 import { Application, Logger, PositronPythonFixtures, PositronRFixtures, PositronUserSettingsFixtures, UserSetting } from '../../automation';
 
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -298,6 +299,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 });
 
 export { playwrightExpect as expect };
+export { TestTags as tags };
 
 async function moveAndOverwrite(sourcePath, destinationPath) {
 	try {
