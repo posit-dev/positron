@@ -17,7 +17,9 @@ jobs:
       - name: Extract Pull Request Body
         id: extract-body
         run: |
-          echo "PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+          echo "Extracting PR body..."
+          PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
+          echo "PR_BODY=$PR_BODY" >> $GITHUB_ENV
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
 
@@ -25,8 +27,9 @@ jobs:
         id: extract-tags
         run: |
           echo "Extracting tags from PR description..."
-          TAGS=$(echo "$PR_BODY" | grep -o "@[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
-          echo "TAGS=$TAGS"
+          # Parse tags starting with '&' and convert to '@'
+          TAGS=$(echo "$PR_BODY" | grep -o "&[a-zA-Z0-9_-]*" | sed 's/&/@/g' | tr '\n' ',' | sed 's/,$//')
+          echo "Extracted Tags: $TAGS"
           echo "::set-output name=tags::$TAGS"
         env:
           PR_BODY: ${{ env.PR_BODY }}
