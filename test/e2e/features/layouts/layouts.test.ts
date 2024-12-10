@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS] }, () => {
+test.describe('Layouts', { tag: [tags.WEB, tags.LAYOUTS, tags.WIN] }, () => {
 
 	test.describe('Stacked Layout', () => {
 
