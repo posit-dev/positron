@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { openTestJupyterNotebookDocument } from './utils';
+import { closeAllEditors, openTestJupyterNotebookDocument } from './utils';
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession';
 import { onDidSetHasRunningNotebookSessionContext } from '../extension';
 
@@ -20,7 +20,8 @@ suite('commands', () => {
 		session = new TestLanguageRuntimeSession();
 	});
 
-	teardown(() => {
+	teardown(async () => {
+		await closeAllEditors();
 		vscode.Disposable.from(...disposables).dispose();
 		sinon.restore();
 	});

@@ -3,7 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as fs from 'fs';
+import * as path from 'path';
 import * as vscode from 'vscode';
+import { JUPYTER_NOTEBOOK_TYPE } from '../constants';
+
+const packageJson = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), { encoding: 'utf8' }));
 
 export function eventToPromise<T>(event: vscode.Event<T>): Promise<T> {
 	return new Promise<T>(resolve => {
@@ -18,9 +23,8 @@ export function closeAllEditors(): Thenable<any> {
 	return vscode.commands.executeCommand('workbench.action.closeAllEditors');
 }
 
-export async function openTestJupyterNotebookDocument(languageId = 'text'): Promise<vscode.NotebookDocument> {
-	const notebookType = 'jupyter-notebook';
-	return await vscode.workspace.openNotebookDocument(notebookType, {
+export async function openTestJupyterNotebookDocument(languageId = 'text'): Promise<vscode.NotebookEditor> {
+	const notebook = await vscode.workspace.openNotebookDocument(JUPYTER_NOTEBOOK_TYPE, {
 		metadata: {
 			custom: {
 				metadata: {
@@ -35,4 +39,14 @@ export async function openTestJupyterNotebookDocument(languageId = 'text'): Prom
 			{ kind: vscode.NotebookCellKind.Code, languageId, value: 'more code' },
 		],
 	});
+	return await vscode.window.showNotebookDocument(notebook);
+}
+
+export async function selectNotebookController(id: string): Promise<void> {
+	const extension = `${packageJson.publisher}.${packageJson.name}`;
+	const context = { id, extension };
+	const success = await vscode.commands.executeCommand('notebook.selectKernel', context) as boolean;
+	if (!success) {
+		throw new Error(`Failed to select controller '${extension}/${id}' for the active notebook.`);
+	}
 }

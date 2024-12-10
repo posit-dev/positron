@@ -20,6 +20,8 @@ const _onDidSetHasRunningNotebookSessionContext = new vscode.EventEmitter<boolea
 export const onDidSetHasRunningNotebookSessionContext = _onDidSetHasRunningNotebookSessionContext.event;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+	context.subscriptions.push(_onDidSetHasRunningNotebookSessionContext);
+
 	const notebookSessionService = new NotebookSessionService();
 
 	// Shutdown any running sessions when a notebook is closed.

@@ -12,8 +12,8 @@ import { onDidSetHasRunningNotebookSessionContext } from '../extension';
 
 suite('extension', () => {
 	teardown(async () => {
-		sinon.restore();
 		await closeAllEditors();
+		sinon.restore();
 	});
 
 	test('showing a notebook with a running session enables hasRunningNotebookSession', async () => {
