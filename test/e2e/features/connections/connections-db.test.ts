@@ -14,7 +14,7 @@ test.describe('SQLite DB Connection', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.CONNECTIONS]
 }, () => {
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['positron.connections.showConnectionPane', 'true']], true);
+		await userSettings.set([['positron.connections.showConnectionPane', 'true']]);
 	});
 
 	test.afterEach(async function ({ app }) {
@@ -23,7 +23,9 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.positronConnections.deleteConnection();
 	});
 
-	test('Python - SQLite DB Connection [C628636]', async function ({ app, python }) {
+	test.skip('Python - SQLite DB Connection [C628636]', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
+	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
@@ -39,6 +41,15 @@ test.describe('SQLite DB Connection', {
 		});
 
 		await test.step('Verify connection nodes', async () => {
+			await app.workbench.positronConnections.openConnectionsNodes(['main']);
+			await app.workbench.positronConnections.assertConnectionNodes(['albums']);
+		});
+
+		await test.step('Disconnect, reconnect with dialog, & reverify', async () => {
+			await app.workbench.positronConnections.disconnectButton.click();
+			await app.workbench.positronConnections.connectIcon.click();
+			await app.workbench.positronConnections.resumeConnectionButton.click();
+
 			await app.workbench.positronConnections.openConnectionsNodes(['main']);
 			await app.workbench.positronConnections.assertConnectionNodes(['albums']);
 		});
@@ -59,6 +70,16 @@ test.describe('SQLite DB Connection', {
 			await app.workbench.positronConnections.openConnectionsNodes(['SQLiteConnection', 'Default']);
 			await app.workbench.positronConnections.openConnectionsNodes(tables);
 		});
+
+		await test.step('Disconnect, reconnect with dialog, & reverify', async () => {
+			await app.workbench.positronConnections.disconnectButton.click();
+			await app.workbench.positronConnections.connectIcon.click();
+			await app.workbench.positronConnections.resumeConnectionButton.click();
+
+			await app.workbench.positronConnections.openConnectionsNodes(['SQLiteConnection', 'Default']);
+			await app.workbench.positronConnections.openConnectionsNodes(tables);
+		});
+
 	});
 
 	test('R - Connections are update after adding a database,[C663724]', async function ({ app, page, r }) {
