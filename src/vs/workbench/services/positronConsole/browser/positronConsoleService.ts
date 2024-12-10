@@ -434,11 +434,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		attachMode: SessionAttachMode
 	): IPositronConsoleInstance {
 		// Create the new Positron console instance.
-		const positronConsoleInstance = this._instantiationService.createInstance(
+		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
 			session,
 			attachMode
-		);
+		));
 
 		// Add the Positron console instance.
 		this._positronConsoleInstancesByLanguageId.set(
@@ -522,7 +522,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
 	 * detached.
 	 */
-	private _runtimeDisposableStore = new DisposableStore();
+	private _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the runtime state.

@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Emitter } from 'vs/base/common/event';
-import { Disposable } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableMap } from 'vs/base/common/lifecycle';
 import { ILogService } from 'vs/platform/log/common/log';
 import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/common/extensions';
 import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
@@ -32,7 +32,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	 * Gets a map of the Positron variables instances by session ID.
 	 */
 	private readonly _positronVariablesInstancesBySessionId =
-		new Map<string, PositronVariablesInstance>();
+		this._register(new DisposableMap<string, PositronVariablesInstance>());
 
 	/**
 	 * Gets or sets the active Positron variables instance.
@@ -231,8 +231,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			}
 
 			// Dispose the instance and remove it from our map
-			instance.dispose();
-			this._positronVariablesInstancesBySessionId.delete(sessionId);
+			this._positronVariablesInstancesBySessionId.deleteAndDispose(sessionId);
 		}
 	}
 
@@ -283,7 +282,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		if (existingInstance) {
 			// Clean up the old session ID mapping
-			this._positronVariablesInstancesBySessionId.delete(existingInstance.session.sessionId);
+			this._positronVariablesInstancesBySessionId.deleteAndDispose(existingInstance.session.sessionId);
 
 			// Update the map of Positron variables instances by session ID.
 			this._positronVariablesInstancesBySessionId.set(
