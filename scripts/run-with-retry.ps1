@@ -33,6 +33,9 @@ while ($attempt -lt $maxAttempts -and -not $success) {
             Write-Host "Command '$command' succeeded"
         } else {
             Write-Host "Command '$command' had exit code $LASTEXITCODE on attempt $attempt of $maxAttempts"
+
+            # Wait 5 seconds before retrying
+            Start-Sleep -Seconds 5
         }
     }
     catch {
