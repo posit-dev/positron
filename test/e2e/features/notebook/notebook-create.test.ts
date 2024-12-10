@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Notebooks', { tag: ['@pr', '@web', '@win', '@notebook'] }, () => {
+test.describe('Notebooks', { tag: ['@critical', '@web', '@win', '@notebook'] }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.positronLayouts.enterLayout('notebook');

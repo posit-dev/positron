@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@pr', '@connections'] }, () => {
+test.describe('SQLite DB Connection', { tag: ['@web', '@win', '@critical', '@connections'] }, () => {
 	test.beforeAll(async function ({ userSettings }) {
 		await userSettings.set([['positron.connections.showConnectionPane', 'true']], true);
 	});

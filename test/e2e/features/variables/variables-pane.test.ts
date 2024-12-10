@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables Pane', { tag: ['@web', '@win', '@pr', '@variables'] }, () => {
+test.describe('Variables Pane', { tag: ['@web', '@win', '@critical', '@variables'] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});

@@ -19,10 +19,13 @@ OUTPUT=""
 # Filter and preprocess tags based on project
 if [[ "$PROJECT" == "e2e-windows" ]]; then
   # Remove @win from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | tr '\n' ',' | sed 's/,$//')
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@win" | sort -u | tr '\n' ',' | sed 's/,$//')
 elif [[ "$PROJECT" == "e2e-browser" ]]; then
   # Remove @web from the tags
-  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | tr '\n' ',' | sed 's/,$//')
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | grep -v "@web" | sort -u | tr '\n' ',' | sed 's/,$//')
+else
+  # Deduplicate for other projects
+  TAGS=$(echo "$TAGS" | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
 fi
 
 # Determine prefix based on PROJECT
@@ -58,3 +61,4 @@ echo "  * '${OUTPUT}'"  # Show quotes for clarity
 
 # Save to GITHUB_ENV
 echo "PW_TAGS=${OUTPUT}" >> $GITHUB_ENV
+

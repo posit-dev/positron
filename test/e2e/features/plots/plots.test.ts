@@ -40,7 +40,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 		});
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
-			tag: ['@pr', '@web']
+			tag: ['@critical', '@web']
 		}, async function ({ app, logger, headless }) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
@@ -86,7 +86,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('Python - Verifies basic plot functionality - Static Plot [C654401]', { tag: ['@pr', '@web'] }, async function ({ app, logger }) {
+		test('Python - Verifies basic plot functionality - Static Plot [C654401]', { tag: ['@critical', '@web'] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonStaticPlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentStaticPlot();
@@ -278,7 +278,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger, headless }) {
+		test('R - Verifies basic plot functionality [C628633]', { tag: ['@critical', '@web'] }, async function ({ app, logger, headless }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();

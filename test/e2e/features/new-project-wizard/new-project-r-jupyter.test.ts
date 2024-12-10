@@ -20,7 +20,7 @@ test.describe('R - New Project Wizard', { tag: ['@new-project-wizard'] }, () => 
 
 	const defaultProjectName = 'my-r-project';
 
-	test('R - Project Defaults [C627913]', { tag: ['@pr', '@win'] }, async function ({ app }) {
+	test('R - Project Defaults [C627913]', { tag: ['@critical', '@win'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.R_PROJECT);
@@ -138,7 +138,7 @@ test.describe('R - New Project Wizard', { tag: ['@new-project-wizard'] }, () => 
 test.describe('Jupyter - New Project Wizard', () => {
 	const defaultProjectName = 'my-jupyter-notebook';
 
-	test('Jupyter Project Defaults [C629352]', { tag: ['@pr'] }, async function ({ app }) {
+	test('Jupyter Project Defaults [C629352]', { tag: ['@critical'] }, async function ({ app }) {
 		const projSuffix = addRandomNumSuffix('_defaults');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.JUPYTER_NOTEBOOK);

@@ -38,7 +38,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-linux.yml
     needs: extract-pr-tags
     with:
-      grep: "pr,${{ needs.extract-pr-tags.outputs.pr-tags }}"
+      grep: "@critical,${{ needs.extract-pr-tags.outputs.pr-tags }}"
       display_name: "electron (linux)"
       currents_tags: "electron/linux"
     secrets: inherit

@@ -18,9 +18,9 @@ main branch by either pulling or rebasing.
 
 ### Tests to Run
 
-&pr, &quarto
+&critical
 <!-- Available tags:
-  &pr, &quarto, &console
+  &critical, &quarto, &console
 -->
 
 ### QA Notes

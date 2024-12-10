@@ -15,7 +15,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Large Data Frame', {
-	tag: ['@pr', '@web', '@win', '@data-explorer']
+	tag: ['@critical', '@web', '@win', '@data-explorer']
 }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
@@ -58,7 +58,7 @@ test.describe('Data Explorer - Large Data Frame', {
 	});
 
 	test('R - Verifies data explorer functionality with large data frame [C557554]', {
-		tag: ['@web', '@pr']
+		tag: ['@web', '@critical']
 	}, async function ({ app, logger, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');

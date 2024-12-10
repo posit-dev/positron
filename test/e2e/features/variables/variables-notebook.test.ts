@@ -14,7 +14,7 @@ test.afterEach(async function ({ app }) {
 	await app.workbench.positronLayouts.enterLayout('stacked');
 });
 
-test.describe('Variables Pane - Notebook', { tag: ['@pr', '@web', '@variables', '@notebook'] }, () => {
+test.describe('Variables Pane - Notebook', { tag: ['@critical', '@web', '@variables', '@notebook'] }, () => {
 	test('Python - Verifies Variables pane basic function for notebook [C669188]', async function ({ app, python }) {
 		await app.workbench.positronNotebooks.createNewNotebook();
 
