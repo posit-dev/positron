@@ -8,7 +8,7 @@ import { generateUuid } from 'vs/base/common/uuid';
 import { Event, Emitter } from 'vs/base/common/event';
 import { IEditor } from 'vs/editor/common/editorCommon';
 import { ILogService } from 'vs/platform/log/common/log';
-import { Disposable, DisposableStore } from 'vs/base/common/lifecycle';
+import { Disposable, DisposableStore, IDisposable } from 'vs/base/common/lifecycle';
 import { ISettableObservable, observableValue } from 'vs/base/common/observableInternal/base';
 import { IViewsService } from 'vs/workbench/services/views/common/viewsService';
 import { IConfigurationService } from 'vs/platform/configuration/common/configuration';
@@ -764,6 +764,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Dispose of the runtime event handlers.
 		this._runtimeDisposableStore.dispose();
+	}
+
+	/**
+	 * Adds disposables that should be cleaned up when this instance is disposed.
+	 * @param disposables The disposables to add.
+	 */
+	addDisposables(disposables: IDisposable): void {
+		this._register(disposables);
 	}
 
 	//#endregion Constructor & Dispose

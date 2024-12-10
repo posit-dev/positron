@@ -10,7 +10,7 @@ import { InstantiationType, registerSingleton } from 'vs/platform/instantiation/
 import { PositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/positronVariablesInstance';
 import { IPositronVariablesService } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesService';
 import { IPositronVariablesInstance } from 'vs/workbench/services/positronVariables/common/interfaces/positronVariablesInstance';
-import { LanguageRuntimeSessionMode, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
+import { LanguageRuntimeSessionMode, RuntimeState, formatLanguageRuntimeSession } from 'vs/workbench/services/languageRuntime/common/languageRuntimeService';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService';
 import { INotificationService } from 'vs/platform/notification/common/notification';
 import { RuntimeClientState } from 'vs/workbench/services/languageRuntime/common/languageRuntimeClientInstance';
@@ -79,7 +79,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService
 	) {
-		// Call the disposable constrcutor.
+		// Call the disposable constructor.
 		super();
 
 		// Start a Positron variables instance for each running runtime.
@@ -109,6 +109,13 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			}
 		}));
 
+		// Register session cleanup handler
+		this._register(this._runtimeSessionService.onDidChangeRuntimeState(e => {
+			if (e.new_state === RuntimeState.Exited) {
+				this.cleanupSession(e.session_id);
+			}
+		}));
+
 		// Register the onDidChangeActiveRuntime event handler.
 		this._register(this._runtimeSessionService.onDidChangeForegroundSession(session => {
 			this._setActivePositronVariablesBySession(session)
@@ -116,7 +123,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 
 		// Listen for console instances executing code
 		this._register(this._positronConsoleService.onDidStartPositronConsoleInstance((instance) => {
-			this._register(instance.onDidExecuteCode(() => {
+			instance.addDisposables(instance.onDidExecuteCode(() => {
 				// Check for feature flag for session following editor being on before proceeding
 				if (!this._configurationService.getValue('positron.variables.followMode')) {
 					return;
@@ -207,9 +214,30 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	//#region Private Methods
 
 	/**
-	 * Ensures that the given session has a corresponding Positron variables instance, either by
-	 * attaching it to an existing Positron variables instance or by creating a new one. Has no
-	 * effect if there's already a live Positron variables instance for the runtime.
+	 * Cleans up resources associated with a session.
+	 * @param session The session to clean up.
+	 */
+	private cleanupSession(sessionId: string): void {
+		const instance = this._positronVariablesInstancesBySessionId.get(sessionId);
+		if (instance) {
+			// If this was the active instance, clear it
+			if (this._activePositronVariablesInstance === instance) {
+				this._setActivePositronVariablesInstance(undefined);
+			}
+
+			// If this was the previous console session, clear it
+			if (this._previousConsoleSession === instance.session) {
+				this._previousConsoleSession = undefined;
+			}
+
+			// Dispose the instance and remove it from our map
+			instance.dispose();
+			this._positronVariablesInstancesBySessionId.delete(sessionId);
+		}
+	}
+
+	/**
+	 * Creates or assigns a Positron variables instance for the specified session.
 	 * @param session The session to create or assign a Positron variables instance for.
 	 */
 	private createOrAssignPositronVariablesInstance(session: ILanguageRuntimeSession) {
@@ -254,6 +282,9 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			});
 
 		if (existingInstance) {
+			// Clean up the old session ID mapping
+			this._positronVariablesInstancesBySessionId.delete(existingInstance.session.sessionId);
+
 			// Update the map of Positron variables instances by session ID.
 			this._positronVariablesInstancesBySessionId.set(
 				session.sessionId,
@@ -276,8 +307,8 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	 */
 	private startPositronVariablesInstance(session: ILanguageRuntimeSession): IPositronVariablesInstance {
 		// Create the new Positron variables instance.
-		const positronVariablesInstance = new PositronVariablesInstance(
-			session, this._logService, this._notificationService, this._accessibilityService);
+		const positronVariablesInstance = this._register(new PositronVariablesInstance(
+			session, this._logService, this._notificationService, this._accessibilityService));
 
 		this._positronVariablesInstancesBySessionId.set(
 			session.sessionId,
