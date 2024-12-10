@@ -8,7 +8,6 @@ on:
 
 jobs:
   extract-pr-tags:
-    name: Extract PR Tags
     runs-on: ubuntu-latest
     outputs:
       parsed-tags: ${{ steps.extract-tags.outputs.tags }}
