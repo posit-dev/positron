@@ -7,17 +7,17 @@ on:
   workflow_dispatch:
       inputs:
         run_e2e_linux:
-          description: "E2E Electron (Linux) Tests"
+          description: "E2E Tests / Electron (Linux)"
           required: false
           default: true
           type: boolean
         run_e2e_windows:
-          description: "E2E Electron (Windows) Tests"
+          description: "E2E Tests / Electron (Windows)"
           required: false
           default: true
           type: boolean
         run_e2e_browser:
-          description: "E2E Browser (Linux) Tests"
+          description: "E2E Tests / Chromium (Linux)"
           required: false
           default: true
           type: boolean
