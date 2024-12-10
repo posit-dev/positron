@@ -519,6 +519,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} catch (err) {
 			startPromise.error(err);
 		}
+
+		return startPromise.p.then(() => { });
 	}
 
 	/**
@@ -875,7 +877,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startPromise.error(err);
 		}
 
-		return sessionId;
+		return startPromise.p;
 	}
 
 	/**
