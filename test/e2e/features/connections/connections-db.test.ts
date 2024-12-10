@@ -23,7 +23,9 @@ test.describe('SQLite DB Connection', {
 		await app.workbench.positronConnections.deleteConnection();
 	});
 
-	test('Python - SQLite DB Connection [C628636]', async function ({ app, python }) {
+	test.skip('Python - SQLite DB Connection [C628636]', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5692' }]
+	}, async function ({ app, python }) {
 		await test.step('Open a Python file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.quickaccess.runCommand('python.execInConsole');
