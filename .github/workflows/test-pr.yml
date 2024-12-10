@@ -7,11 +7,35 @@ on:
       - 'prerelease/**'
 
 jobs:
+  extract-pr-tags:
+    name: Extract PR Tags
+    runs-on: ubuntu-latest
+    outputs:
+      parsed-tags: ${{ steps.extract-tags.outputs.tags }}
+    steps:
+
+      - name: Extract Pull Request Body
+        id: extract-body
+        run: |
+          echo "PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH")" >> $GITHUB_ENV
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+
+      - name: Parse Tags from PR Description
+        id: extract-tags
+        run: |
+          echo "Extracting tags from PR description..."
+          TAGS=$(echo "$PR_BODY" | grep -o "@[a-zA-Z0-9_-]*" | tr '\n' ',' | sed 's/,$//')
+          echo "TAGS=$TAGS"
+          echo "::set-output name=tags::$TAGS"
+        env:
+          PR_BODY: ${{ env.PR_BODY }}
+
   e2e-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-linux.yml
     with:
-      grep: "@pr"
+      grep: "@pr,${{ needs.extract-pr-tags.outputs.parsed-tags }}"
       project: "e2e-electron"
       display_name: "electron (linux)"
       currents_tags: "electron/linux"

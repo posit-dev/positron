@@ -10,10 +10,17 @@ main branch by either pulling or rebasing.
 <!--
   Describe briefly what problem this pull request resolves, or what
   new feature it introduces. Include screenshots of any new or altered
-  UI. Link to any GitHub issues but avoid "magic" keywords that will 
-  automatically close the issue. If there are any details about your 
-  approach that are unintuitive or you want to draw attention to, please 
+  UI. Link to any GitHub issues but avoid "magic" keywords that will
+  automatically close the issue. If there are any details about your
+  approach that are unintuitive or you want to draw attention to, please
   describe them here.
+-->
+
+### Tests to Run
+
+@pr, @quarto
+<!-- Available tags:
+  @pr, @quarto, @console
 -->
 
 ### QA Notes
