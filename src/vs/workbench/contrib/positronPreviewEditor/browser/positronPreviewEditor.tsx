@@ -23,6 +23,7 @@ import { PositronPreviewEditorInput } from 'vs/workbench/contrib/positronPreview
 import { IEditorGroup } from 'vs/workbench/services/editor/common/editorGroupsService';
 import { IPositronPreviewService } from 'vs/workbench/contrib/positronPreview/browser/positronPreview';
 import { EditorPreviewContainer } from 'vs/workbench/contrib/positronPreviewEditor/browser/editorPreviewContainer';
+import { PreviewWebview } from 'vs/workbench/contrib/positronPreview/browser/previewWebview';
 
 export interface IPositronPreviewEditorOptions extends IEditorOptions {
 	get identifier(): string | undefined;
@@ -58,6 +59,8 @@ export class PositronPreviewEditor
 	);
 
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
+
+	private _preview: PreviewWebview | undefined;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -108,22 +111,33 @@ export class PositronPreviewEditor
 			storageService
 		);
 		this._container = DOM.$('.positron-preview-editor-container');
+
+		this._register(this.onVisibilityChanged(visible => {
+			if (!visible) {
+				this._onSaveScrollPositionEmitter.fire();
+			} else {
+				this._onRestoreScrollPositionEmitter.fire();
+			}
+			this._onVisibilityChangedEmitter.fire(visible);
+		}
+		));
 	}
 
 	private renderContainer(previewId: string): void {
 		if (!this._positronReactRenderer) {
 			this._positronReactRenderer = new PositronReactRenderer(this._container);
 		}
+		this._preview = this._positronPreviewService.editorWebview(previewId);
 
 		this._positronReactRenderer.render(
 			<PositronPreviewContextProvider
 				positronPreviewService={this._positronPreviewService}
 			>
 				<EditorPreviewContainer
-					preview={this._positronPreviewService.editorWebview(previewId)}
+					preview={this._preview}
 					width={this._width}
 					height={this._height}
-					visible={this.containerVisible}
+					visible={this._visible}
 				/>
 			</PositronPreviewContextProvider>
 		);
@@ -154,14 +168,6 @@ export class PositronPreviewEditor
 		this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
-
-			if (this._positronReactRenderer && this._identifier) {
-				this.renderContainer(this._identifier);
-			}
-		});
-
-		this.onVisibilityChanged((visible: boolean) => {
-			this._visible = visible;
 
 			if (this._positronReactRenderer && this._identifier) {
 				this.renderContainer(this._identifier);
@@ -215,6 +221,12 @@ export class PositronPreviewEditor
 
 	override dispose(): void {
 		this.disposeReactRenderer();
+
+		// if there is a preview, dispose it.
+		if (this._preview) {
+			this._preview.dispose();
+		}
+
 		super.dispose();
 	}
 }
