@@ -13,6 +13,7 @@ jobs:
     outputs:
       tags: ${{ steps.pr-tags.outputs.tags }}
     steps:
+      - uses: actions/checkout@v4
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/parse-pr-tags.sh "${{ github.event_path }}"
