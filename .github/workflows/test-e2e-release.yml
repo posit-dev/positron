@@ -5,9 +5,17 @@ on:
     inputs:
       grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @critical, @win, etc."
+        description: "Grep filter to apply to the e2e tests: @critical, @console, etc. Leave blank to run all tests."
         default: ""
         type: string
+      notify_on:
+        description: "Slack notification on:"
+        required: false
+        default: "failure"
+        type: choice
+        options:
+          - failure
+          - always
 
 permissions:
   id-token: write
@@ -101,3 +109,14 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
+  slack-notify:
+    needs: [e2e-electron]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@master
+        with:
+          repo_token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          slack_webhook_url: ${{ secrets.SLACK_MARIE_WEBHOOK_URL }}
+          notify_on: ${{ inputs.notify_on }}
