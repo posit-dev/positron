@@ -73,6 +73,10 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Get and set Playwright tags to $PW_TAGS
+        run: bash scripts/generate-playwright-tags.sh ${{ inputs.project}} "${{ inputs.grep }}"
+        shell: bash
+
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
@@ -97,10 +101,6 @@ jobs:
       - name: Preload Node.js Binary
         if: ${{ inputs.project == 'e2e-browser' }}
         run: yarn gulp node
-
-      - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/generate-playwright-tags.sh ${{ inputs.project}} "${{ inputs.grep }}"
-        shell: bash
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
