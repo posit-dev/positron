@@ -36,6 +36,9 @@ import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ILabelService } from '../../../../../platform/label/common/label.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
+import { IPathService } from '../../../../services/path/common/pathService.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -56,6 +59,8 @@ const BASE_DPI = 100; // matplotlib default DPI
  * @param fileDialogService the file dialog service to prompt where to save the plot
  * @param logService the log service
  * @param notificationService the notification service to show user-facing notifications
+ * @param labelService the label service
+ * @param pathService the path service
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
@@ -69,6 +74,8 @@ export const showSavePlotModalDialog = (
 	fileDialogService: IFileDialogService,
 	logService: ILogService,
 	notificationService: INotificationService,
+	labelService: ILabelService,
+	pathService: IPathService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
@@ -89,6 +96,8 @@ export const showSavePlotModalDialog = (
 			keybindingService={keybindingService}
 			logService={logService}
 			notificationService={notificationService}
+			labelService={labelService}
+			pathService={pathService}
 			renderer={renderer}
 			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
 			plotSize={plotClient.lastRender?.size}
@@ -108,6 +117,8 @@ interface SavePlotModalDialogProps {
 	logService: ILogService;
 	notificationService: INotificationService;
 	keybindingService: IKeybindingService;
+	labelService: ILabelService;
+	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	enableIntrinsicSize: boolean;
 	plotSize: IPlotSize | undefined;
@@ -306,8 +317,14 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									'positron.savePlotModalDialog.directory',
 									"Directory"
 								))()}
-								value={directory.value.fsPath}
-								onChange={e => updatePath(directory.value.with({ path: e.target.value }))}
+								value={pathUriToLabel(directory.value, props.labelService)}
+								onChange={async e => updatePath(
+									await combineLabelWithPathUri(
+										e.target.value,
+										directory.value,
+										props.pathService
+									)
+								)}
 								onBrowse={browseHandler}
 								readOnlyInput={false}
 								error={!directory.valid}

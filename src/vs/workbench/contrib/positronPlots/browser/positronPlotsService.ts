@@ -48,6 +48,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { ILabelService } from '../../../../platform/label/common/label.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -160,7 +162,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
-		@IEditorService private readonly _editorService: IEditorService
+		@IEditorService private readonly _editorService: IEditorService,
+		@ILabelService private readonly _labelService: ILabelService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 		super();
 
@@ -853,6 +857,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 								this._fileDialogService,
 								this._logService,
 								this._notificationService,
+								this._labelService,
+								this._pathService,
 								plot,
 								this.savePlotAs,
 								suggestedPath

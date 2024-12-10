@@ -46,7 +46,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerExecCommand(
             Commands.Exec_Gradio_In_Terminal,
             'Gradio',
-            (_runtime, document, urlPrefix) => getGradioDebugConfig(document, urlPrefix),
+            (_runtime, document, _urlPrefix) => getGradioDebugConfig(document),
             undefined,
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
@@ -100,7 +100,7 @@ export function activateWebAppCommands(serviceContainer: IServiceContainer, disp
         registerDebugCommand(
             Commands.Debug_Gradio_In_Terminal,
             'Gradio',
-            (_runtime, document, urlPrefix) => getGradioDebugConfig(document, urlPrefix),
+            (_runtime, document, _urlPrefix) => getGradioDebugConfig(document),
             undefined,
             undefined,
             // Gradio url strings: https://github.com/gradio-app/gradio/blob/main/gradio/strings.py
@@ -276,15 +276,8 @@ function getFlaskDebugConfig(document: vscode.TextDocument): DebugConfiguration 
     return { module: 'flask', args };
 }
 
-function getGradioDebugConfig(document: vscode.TextDocument, urlPrefix?: string): DebugConfiguration {
+function getGradioDebugConfig(document: vscode.TextDocument): DebugConfiguration {
     const env: { [key: string]: string } = {};
-    if (urlPrefix) {
-        // Gradio doc: https://www.gradio.app/guides/environment-variables#7-gradio-root-path
-        // Issue with Gradio not loading assets when Gradio is run via proxy:
-        //     https://github.com/gradio-app/gradio/issues/9529
-        // Gradio works if we use these versions: gradio==3.3.1 fastapi==0.85.2 httpx==0.24.1
-        env.GRADIO_ROOT_PATH = urlPrefix;
-    }
     return { program: document.uri.fsPath, env };
 }
 

@@ -25,6 +25,9 @@ import { LabeledTextInput } from '../positronComponents/positronModalDialog/comp
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
 import { checkIfPathValid, isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 
 /**
  * Shows the new folder modal dialog.
@@ -39,7 +42,9 @@ export const showNewFolderModalDialog = async (
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
+	labelService: ILabelService,
 	layoutService: IWorkbenchLayoutService,
+	pathService: IPathService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -52,6 +57,8 @@ export const showNewFolderModalDialog = async (
 	renderer.render(
 		<NewFolderModalDialog
 			fileDialogService={fileDialogService}
+			labelService={labelService}
+			pathService={pathService}
 			renderer={renderer}
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
@@ -91,6 +98,8 @@ interface NewFolderResult {
  */
 interface NewFolderModalDialogProps {
 	fileDialogService: IFileDialogService;
+	labelService: ILabelService;
+	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderResult) => Promise<void>;
@@ -106,6 +115,9 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 	const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
 	// State hooks.
+	const [parentFolderLabel, setParentFolderLabel] = useState(
+		() => pathUriToLabel(props.parentFolder, props.labelService)
+	);
 	const [result, setResult] = useState<NewFolderResult>({
 		folder: '',
 		parentFolder: props.parentFolder,
@@ -114,18 +126,38 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 
 	// The browse handler.
 	const browseHandler = async () => {
+		// Construct the parent folder URI.
+		const parentFolderUri = await combineLabelWithPathUri(
+			parentFolderLabel,
+			props.parentFolder,
+			props.pathService
+		);
+
 		// Show the open dialog.
 		const uri = await props.fileDialogService.showOpenDialog({
-			defaultUri: result.parentFolder ? result.parentFolder : await props.fileDialogService.defaultFolderPath(),
+			defaultUri: parentFolderUri,
 			canSelectFiles: false,
 			canSelectFolders: true
 		});
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
+			const pathLabel = pathUriToLabel(uri[0], props.labelService);
+			setParentFolderLabel(pathLabel);
 			setResult({ ...result, parentFolder: uri[0] });
 			folderNameRef.current.focus();
 		}
+	};
+
+	// Update the parent folder.
+	const onChangeParentFolder = async (folder: string) => {
+		setParentFolderLabel(folder);
+		const parentFolderUri = await combineLabelWithPathUri(
+			folder,
+			props.parentFolder,
+			props.pathService
+		);
+		setResult({ ...result, parentFolder: parentFolderUri });
 	};
 
 	// Render.
@@ -158,9 +190,9 @@ const NewFolderModalDialog = (props: NewFolderModalDialogProps) => {
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.fsPath}
+					value={parentFolderLabel}
 					onBrowse={browseHandler}
-					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
+					onChange={async (e) => onChangeParentFolder(e.target.value)}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>

@@ -30,6 +30,7 @@ import { IWorkspaceTrustManagementService } from '../../../platform/workspace/co
 import { showChooseNewProjectWindowModalDialog } from './chooseNewProjectWindowModalDialog.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { URI } from '../../../base/common/uri.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
 
 /**
  * Shows the NewProjectModalDialog.
@@ -40,6 +41,7 @@ export const showNewProjectModalDialog = async (
 	fileDialogService: IFileDialogService,
 	fileService: IFileService,
 	keybindingService: IKeybindingService,
+	labelService: ILabelService,
 	languageRuntimeService: ILanguageRuntimeService,
 	layoutService: IWorkbenchLayoutService,
 	logService: ILogService,
@@ -48,7 +50,7 @@ export const showNewProjectModalDialog = async (
 	positronNewProjectService: IPositronNewProjectService,
 	runtimeSessionService: IRuntimeSessionService,
 	runtimeStartupService: IRuntimeStartupService,
-	workspaceTrustManagementService: IWorkspaceTrustManagementService
+	workspaceTrustManagementService: IWorkspaceTrustManagementService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -66,6 +68,7 @@ export const showNewProjectModalDialog = async (
 				fileDialogService,
 				fileService,
 				keybindingService,
+				labelService,
 				languageRuntimeService,
 				layoutService,
 				logService,
@@ -120,9 +123,10 @@ export const showNewProjectModalDialog = async (
 					// Create the new project configuration.
 					const newProjectConfig: NewProjectConfiguration = {
 						folderScheme: folder.scheme,
+						folderAuthority: folder.authority,
 						runtimeMetadata: result.selectedRuntime || undefined,
 						projectType: result.projectType || '',
-						projectFolder: folder.fsPath,
+						projectFolder: folder.path,
 						projectName: result.projectName,
 						initGitRepo: result.initGitRepo,
 						pythonEnvProviderId: result.pythonEnvProviderId,

@@ -64,7 +64,6 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 			context.projectNameFeedback = await checkProjectName(
 				defaultProjectName,
 				context.parentFolder,
-				context.services.pathService,
 				context.services.fileService
 			);
 		}

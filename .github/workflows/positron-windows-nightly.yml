@@ -23,6 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+
+      - name: Set screen resolution
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

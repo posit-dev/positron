@@ -11,7 +11,7 @@ test.use({
 	suiteId: __filename
 });
 
-test('Data Explorer 100x100 - R [C674521]', { tag: ['@win'] }, async function ({ app, r }) {
+test('Data Explorer 100x100 - R [C674521]', { tag: ['@win', '@data-explorer'] }, async function ({ app, r }) {
 	test.slow();
 
 	// Test the data explorer.

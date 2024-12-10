@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R Markdown', { tag: ['@web'] }, () => {
+test.describe('R Markdown', { tag: ['@web', '@r-markdown'] }, () => {
 	test('Render R Markdown [C680618]', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 

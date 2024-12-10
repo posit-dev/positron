@@ -12,7 +12,7 @@ test.use({
 });
 
 test.describe('Headless Data Explorer - Large Data Frame', {
-	tag: ['@web']
+	tag: ['@web', '@data-explorer', '@duck-db']
 }, () => {
 	// python fixture not actually needed but serves as a long wait so that we can be sure
 	// headless/duckdb open will work

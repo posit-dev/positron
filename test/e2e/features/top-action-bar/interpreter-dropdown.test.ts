@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: ['@web'] }, () => {
+test.describe.skip('Interpreter Dropdown in Top Action Bar', { tag: ['@web', '@top-action-bar'] }, () => {
 	let interpreterDropdown: PositronInterpreterDropdown;
 	let positronConsole: PositronConsole;
 

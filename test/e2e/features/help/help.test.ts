@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Help', () => {
+test.describe('Help', { tag: ['@help'] }, () => {
 
 	test('Python - Verifies basic help functionality [C633814]', async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');

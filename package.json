@@ -33,6 +33,7 @@
     "kill-watch-extensionsd": "deemon --kill npm run watch-extensions",
     "precommit": "node build/hygiene.js",
     "gulp": "node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js",
+    "big-gulp": "DISABLE_MANGLE=true node --max-old-space-size=8192 ./node_modules/gulp/bin/gulp.js",
     "electron": "node build/lib/electron",
     "7z": "7z",
     "update-grammars": "node build/npm/update-all-grammars.mjs",

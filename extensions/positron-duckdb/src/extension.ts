@@ -683,8 +683,8 @@ export class DuckDBTableView {
 	private _sortClause: string = '';
 	private _whereClause: string = '';
 
-	constructor(readonly uri: string, readonly tableName: string,
-		readonly fullSchema: Array<SchemaEntry>,
+	constructor(readonly uri: string, private tableName: string,
+		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
 		readonly isConnected: boolean = true,
 		readonly errorMessage: string = ''
@@ -695,6 +695,29 @@ export class DuckDBTableView {
 			this._unfilteredShape = Promise.resolve([0, 0]);
 		}
 		this._filteredShape = this._unfilteredShape;
+	}
+
+	async onFileUpdated(newTableName: string, newSchema: Array<SchemaEntry>) {
+		if (!this.isConnected) {
+			return;
+		}
+
+		this.tableName = newTableName;
+		this.fullSchema = newSchema;
+
+		this._unfilteredShape = this._getShape();
+
+		// Need to re-apply the row filters, if any
+		await this._applyRowFilters();
+
+		// When the file changes, refuse to guess and send SchemaUpdate event
+		return vscode.commands.executeCommand(
+			'positron-data-explorer.sendUiEvent', {
+				uri: this.uri,
+				method: DataExplorerFrontendEvent.SchemaUpdate,
+				params: {}
+			} satisfies DataExplorerUiEvent
+		);
 	}
 
 	static getDisconnected(uri: string, errorMessage: string, db: DuckDBInstance) {
@@ -1108,7 +1131,12 @@ END`;
 
 	async setRowFilters(params: SetRowFiltersParams): RpcResponse<FilterResult> {
 		this.rowFilters = params.filters;
+		await this._applyRowFilters();
+		const newShape = await this._filteredShape;
+		return { selected_num_rows: newShape[0] };
+	}
 
+	private async _applyRowFilters() {
 		if (this.rowFilters.length === 0) {
 			this._whereClause = '';
 			const unfilteredShape = await this._unfilteredShape;
@@ -1122,9 +1150,6 @@ END`;
 		const whereExprs = this.rowFilters.map(makeWhereExpr);
 		this._whereClause = `\nWHERE ${whereExprs.join(' AND ')}`;
 		this._filteredShape = this._getShape(this._whereClause);
-
-		const newShape = await this._filteredShape;
-		return { selected_num_rows: newShape[0] };
 	}
 
 	async setSortColumns(params: SetSortColumnsParams): RpcResponse<void> {
@@ -1175,14 +1200,52 @@ export class DataExplorerRpcHandler {
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		let scanQuery, tableName;
 		const duckdbPath = params.uri.match(/^duckdb:\/\/(.+)$/);
+		let filePath: string | undefined = undefined;
 		if (duckdbPath) {
 			// We are querying a table in the transient in-memory database. We can modify this later
 			// to read from different .duckb database files
 			tableName = duckdbPath[1];
-			scanQuery = `SELECT * FROM ${tableName}`;
 		} else {
 			tableName = `positron_${this._tableIndex++}`;
-			const filePath = uriToFilePath(params.uri);
+			filePath = uriToFilePath(params.uri);
+			await this.createTableFromFilePath(filePath, tableName);
+		}
+
+		let tableView: DuckDBTableView;
+		try {
+			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
+			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+
+			if (filePath !== undefined) {
+				// watch file for changes and fire `onDatasetChanged` event when it changes
+				fs.watchFile(filePath, { interval: 1000 }, async () => {
+					const newTableName = `positron_${this._tableIndex++}`;
+
+					await this.createTableFromFilePath(filePath, newTableName);
+
+					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
+					await tableView.onFileUpdated(newTableName, newSchema);
+				});
+			}
+		} catch (error) {
+			const errorMessage = error instanceof Error ?
+				error.message : 'Unable to open for unknown reason';
+			tableView = DuckDBTableView.getDisconnected(params.uri, errorMessage, this.db);
+
+		}
+		this._uriToTableView.set(params.uri, tableView);
+		return {};
+	}
+
+	async createTableFromFilePath(filePath: string, catalogName: string) {
+		// Depending on the size of the file, we use CREATE VIEW (less memory,
+		// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
+		// and especially given that Parquet files may materialize much larger than that appear
+		// on disk.
+		const VIEW_THRESHOLD = 25_000_000;
+		const fileStats = fs.statSync(filePath);
+
+		const getCtasQuery = (filePath: string, catalogType: string = 'TABLE') => {
 			const fileExt = path.extname(filePath);
 			let scanOperation;
 			switch (fileExt) {
@@ -1199,37 +1262,29 @@ export class DataExplorerRpcHandler {
 					scanOperation = `read_csv('${filePath}', delim='\t')`;
 					break;
 				default:
-					return { error_message: `Unsupported file extension: ${fileExt}` };
+					throw new Error(`Unsupported file extension: ${fileExt}`);
 			}
-
-			const fileStats = fs.statSync(filePath);
-
-			// Depending on the size of the file, we use CREATE VIEW (less memory,
-			// but slower) vs CREATE TABLE (more memory but faster). We may tweak this threshold,
-			// and especially given that Parquet files may materialize much larger than that appear
-			// on disk.
-			const VIEW_THRESHOLD = 25_000_000;
-			const catalogType = fileStats.size > VIEW_THRESHOLD ? 'VIEW' : 'TABLE';
-
-			scanQuery = `
-			CREATE ${catalogType} ${tableName} AS
+			return `CREATE ${catalogType} ${catalogName} AS
 			SELECT * FROM ${scanOperation};`;
-		}
+		};
 
-		let tableView;
-		try {
-			let result = await this.db.runQuery(scanQuery);
-			const schemaQuery = `DESCRIBE ${tableName};`;
-			result = await this.db.runQuery(schemaQuery);
-			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
-		} catch (error) {
-			const errorMessage = error instanceof Error ?
-				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(params.uri, errorMessage, this.db);
+		if (fileStats.size < VIEW_THRESHOLD) {
+			// For smaller files, read the entire contents and register it as a temp file to avoid
+			// caching in duckdb-wasm
+			const fileContents = fs.readFileSync(filePath, { encoding: null });
+			const virtualPath = path.basename(filePath);
+			await this.db.db.registerFileBuffer(virtualPath, fileContents);
 
+			const ctasQuery = getCtasQuery(virtualPath);
+			try {
+				await this.db.runQuery(ctasQuery);
+			} finally {
+				await this.db.db.dropFile(virtualPath);
+			}
+		} else {
+			const ctasQuery = getCtasQuery(filePath);
+			await this.db.runQuery(ctasQuery);
 		}
-		this._uriToTableView.set(params.uri, tableView);
-		return {};
 	}
 
 	async handleRequest(rpc: DataExplorerRpc): Promise<DataExplorerResponse> {

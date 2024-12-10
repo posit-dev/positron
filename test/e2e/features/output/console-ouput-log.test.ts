@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Console Output Log', { tag: ['@web'] }, () => {
+test.describe('Console Output Log', { tag: ['@web', '@output', '@console'] }, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});

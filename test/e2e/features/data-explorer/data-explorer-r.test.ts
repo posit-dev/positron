@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Data Explorer - R ', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@data-explorer']
 }, () => {
 	test('R - Verifies basic data explorer functionality [C609620]', { tag: ['@pr'] }, async function ({ app, r, logger }) {
 		// snippet from https://www.w3schools.com/r/r_data_frames.asp

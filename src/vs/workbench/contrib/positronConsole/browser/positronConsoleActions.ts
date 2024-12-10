@@ -26,7 +26,7 @@ import { KeybindingWeight } from '../../../../platform/keybinding/common/keybind
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { NOTEBOOK_EDITOR_FOCUSED } from '../../notebook/common/notebookContextKeys.js';
-import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IExecutionHistoryService } from '../../executionHistory/common/executionHistoryService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -271,6 +271,7 @@ export function registerPositronConsoleActions() {
 		 *   - languageId: Optionally, a language override for the code to execute. If `undefined`, the language of the active text editor is used. Useful for notebooks.
 		 *   - advance: Optionally, if the cursor should be advanced to the next statement. If `undefined`, fallbacks to `true`.
 		 *   - mode: Optionally, the code execution mode for a language runtime. If `undefined` fallbacks to `Interactive`.
+		 *   - errorBehavior: Optionally, the error behavior for a language runtime. If `undefined` fallbacks to `Continue`.
 		 */
 		async run(
 			accessor: ServicesAccessor,
@@ -279,6 +280,7 @@ export function registerPositronConsoleActions() {
 				languageId?: string;
 				advance?: boolean;
 				mode?: RuntimeCodeExecutionMode;
+				errorBehavior?: RuntimeErrorBehavior;
 			} = {}
 		) {
 			// Access services.
@@ -430,7 +432,7 @@ export function registerPositronConsoleActions() {
 
 			// Ask the Positron console service to execute the code. Do not focus the console as
 			// this will rip focus away from the editor.
-			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.mode)) {
+			if (!await positronConsoleService.executeCode(languageId, code, false, allowIncomplete, opts.mode, opts.errorBehavior)) {
 				const languageName = languageService.getLanguageName(languageId);
 				notificationService.notify({
 					severity: Severity.Info,

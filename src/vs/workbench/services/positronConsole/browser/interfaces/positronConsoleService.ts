@@ -9,7 +9,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { RuntimeItem } from '../classes/runtimeItem.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
-import { RuntimeCodeExecutionMode } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -90,9 +90,10 @@ export interface IPositronConsoleService {
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime
+	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @returns A value which indicates whether the code could be executed.
 	 */
-	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<boolean>;
+	executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): Promise<boolean>;
 }
 
 /**
@@ -121,6 +122,9 @@ export interface ILanguageRuntimeCodeExecutedEvent {
 
 	/* The mode used to execute the code in the language runtime session */
 	mode: RuntimeCodeExecutionMode;
+
+	/* The error disposition used to execute the code in the language runtime session */
+	errorBehavior: RuntimeErrorBehavior;
 }
 
 /**
@@ -310,6 +314,7 @@ export interface IPositronConsoleInstance {
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime.
+	 * @param errorBehavior Possible error behavior for a language runtime
 	 */
 	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode): Promise<void>;
 
@@ -317,8 +322,9 @@ export interface IPositronConsoleInstance {
 	 * Executes code.
 	 * @param code The code to execute.
 	 * @param mode Possible code execution modes for a language runtime.
+	 * @param errorBehavior Possible error behavior for a language runtime
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode): void;
+	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior): void;
 
 	/**
 	 * Replies to a prompt.

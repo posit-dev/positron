@@ -24,6 +24,7 @@ import { LanguageIds, NewProjectType } from '../../services/positronNewProject/c
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
 import { URI } from '../../../base/common/uri.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
 
 /**
  * NewProjectWizardServices interface.
@@ -35,6 +36,7 @@ interface NewProjectWizardServices {
 	readonly fileDialogService: IFileDialogService;
 	readonly fileService: IFileService;
 	readonly keybindingService: IKeybindingService;
+	readonly labelService: ILabelService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly logService: ILogService;

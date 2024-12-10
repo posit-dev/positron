@@ -85,6 +85,7 @@ export enum NewProjectTask {
  */
 export interface NewProjectConfiguration {
 	readonly folderScheme: string;
+	readonly folderAuthority: string;
 	readonly runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 	readonly projectType: string;
 	readonly projectFolder: string;

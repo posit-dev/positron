@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - XLSX', {
-	tag: ['@web', '@win']
+	tag: ['@web', '@win', '@data-explorer']
 }, () => {
 
 	test.afterEach(async function ({ app }) {

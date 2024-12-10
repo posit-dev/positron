@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Python Applications', { tag: ['@pr'] }, () => {
+test.describe('Python Applications', { tag: ['@pr', '@apps', '@viewer', '@editor'] }, () => {
 	test.afterEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 
@@ -57,9 +57,8 @@ test.describe('Python Applications', { tag: ['@pr'] }, () => {
 	});
 
 	// TODO: update for pop out to editor when issue resolved
-	test.skip('Python - Verify Basic Gradio App [C903307]', {
+	test('Python - Verify Basic Gradio App [C903307]', {
 		tag: ['@win'],
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5459' }]
 	}, async function ({ app, python }) {
 		const viewer = app.workbench.positronViewer;
 

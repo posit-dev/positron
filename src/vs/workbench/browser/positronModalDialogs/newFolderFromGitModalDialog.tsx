@@ -25,6 +25,9 @@ import { LabeledTextInput } from '../positronComponents/positronModalDialog/comp
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
 import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
+import { ILabelService } from '../../../platform/label/common/label.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
+import { IPathService } from '../../services/path/common/pathService.js';
 
 /**
  * Shows the new folder from Git modal dialog.
@@ -39,7 +42,9 @@ export const showNewFolderFromGitModalDialog = async (
 	configurationService: IConfigurationService,
 	fileDialogService: IFileDialogService,
 	keybindingService: IKeybindingService,
+	labelService: ILabelService,
 	layoutService: IWorkbenchLayoutService,
+	pathService: IPathService,
 ): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
@@ -52,6 +57,8 @@ export const showNewFolderFromGitModalDialog = async (
 	renderer.render(
 		<NewFolderFromGitModalDialog
 			fileDialogService={fileDialogService}
+			labelService={labelService}
+			pathService={pathService}
 			renderer={renderer}
 			parentFolder={await fileDialogService.defaultFolderPath()}
 			createFolder={async result => {
@@ -64,11 +71,17 @@ export const showNewFolderFromGitModalDialog = async (
 						kGitOpenAfterClone,
 						result.newWindow ? 'alwaysNewWindow' : 'always'
 					);
+					// The Git clone command works with a path string instead of a URI. We need to
+					// convert the folder URI to an OS-aware path string using the label service.
+					const parentFolder = labelService.getUriLabel(
+						result.parentFolder,
+						{ noPrefix: true }
+					);
 					try {
 						await commandService.executeCommand(
 							'git.clone',
 							result.repo,
-							result.parentFolder.fsPath
+							parentFolder
 						);
 					} finally {
 						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
@@ -93,6 +106,8 @@ interface NewFolderFromGitResult {
  */
 interface NewFolderFromGitModalDialogProps {
 	fileDialogService: IFileDialogService;
+	labelService: ILabelService;
+	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
@@ -108,6 +123,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 	const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
 	// State hooks.
+	const [parentFolderLabel, setParentFolderLabel] = useState(
+		() => pathUriToLabel(props.parentFolder, props.labelService)
+	);
 	const [result, setResult] = useState<NewFolderFromGitResult>({
 		repo: '',
 		parentFolder: props.parentFolder,
@@ -116,18 +134,38 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 	// The browse handler.
 	const browseHandler = async () => {
+		// Construct the parent folder URI.
+		const parentFolderUri = await combineLabelWithPathUri(
+			parentFolderLabel,
+			props.parentFolder,
+			props.pathService
+		);
+
 		// Show the open dialog.
 		const uri = await props.fileDialogService.showOpenDialog({
-			defaultUri: result.parentFolder ? result.parentFolder : await props.fileDialogService.defaultFolderPath(),
+			defaultUri: parentFolderUri,
 			canSelectFiles: false,
 			canSelectFolders: true
 		});
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
+			const pathLabel = pathUriToLabel(uri[0], props.labelService);
+			setParentFolderLabel(pathLabel);
 			setResult({ ...result, parentFolder: uri[0] });
 			folderNameRef.current.focus();
 		}
+	};
+
+	// Update the parent folder.
+	const onChangeParentFolder = async (folder: string) => {
+		setParentFolderLabel(folder);
+		const parentFolderUri = await combineLabelWithPathUri(
+			folder,
+			props.parentFolder,
+			props.pathService
+		);
+		setResult({ ...result, parentFolder: parentFolderUri });
 	};
 
 	// Render.
@@ -166,9 +204,9 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 						'positron.createFolderAsSubfolderOf',
 						"Create folder as subfolder of"
 					))()}
-					value={result.parentFolder.fsPath}
+					value={parentFolderLabel}
 					onBrowse={browseHandler}
-					onChange={e => setResult({ ...result, parentFolder: result.parentFolder.with({ path: e.target.value }) })}
+					onChange={e => onChangeParentFolder(e.target.value)}
 				/>
 			</VerticalStack>
 			<VerticalSpacer>
