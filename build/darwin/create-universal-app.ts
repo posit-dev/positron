@@ -54,6 +54,7 @@ const stashPatterns = [
 	'**/quarto/bin/tools/**',
 	// Exclusions from Node Addon API
 	'**/@vscode/node-addon-api/**',
+	'**/@parcel/node-addon-api/**',
 ];
 
 // Some generated files may end up being different in both distributions.
