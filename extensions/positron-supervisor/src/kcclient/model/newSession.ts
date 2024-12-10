@@ -50,6 +50,10 @@ export class NewSession {
     * Environment variables to set for the session
     */
     'env': { [key: string]: string; };
+    /**
+    * The number of seconds to wait for a connection to the session\'s ZeroMQ sockets before timing out
+    */
+    'connectionTimeout'?: number = 30;
     'interruptMode': InterruptMode;
 
     static discriminator: string | undefined = undefined;
@@ -99,6 +103,11 @@ export class NewSession {
             "name": "env",
             "baseName": "env",
             "type": "{ [key: string]: string; }"
+        },
+        {
+            "name": "connectionTimeout",
+            "baseName": "connection_timeout",
+            "type": "number"
         },
         {
             "name": "interruptMode",
