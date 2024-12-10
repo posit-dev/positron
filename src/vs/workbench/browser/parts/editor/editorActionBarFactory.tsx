@@ -16,12 +16,12 @@ import { actionTooltip } from 'vs/platform/positronActionBar/common/helpers';
 import { IKeybindingService } from 'vs/platform/keybinding/common/keybinding';
 import { IContextKeyService } from 'vs/platform/contextkey/common/contextkey';
 import { PositronActionBar } from 'vs/platform/positronActionBar/browser/positronActionBar';
-import { IMenu, IMenuService, MenuId, MenuItemAction } from 'vs/platform/actions/common/actions';
 import { ActionBarRegion } from 'vs/platform/positronActionBar/browser/components/actionBarRegion';
 import { ActionBarSeparator } from 'vs/platform/positronActionBar/browser/components/actionBarSeparator';
 import { ActionBarMenuButton } from 'vs/platform/positronActionBar/browser/components/actionBarMenuButton';
 import { ActionBarActionButton } from 'vs/platform/positronActionBar/browser/components/actionBarActionButton';
 import { ActionBarCommandButton } from 'vs/platform/positronActionBar/browser/components/actionBarCommandButton';
+import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction } from 'vs/platform/actions/common/actions';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -185,7 +185,11 @@ export class EditorActionBarFactory extends Disposable {
 		const primaryActions: IAction[] = [];
 		const secondaryActions: IAction[] = [];
 		const submenuDescriptors = new Set<SubmenuDescriptor>();
-		for (const [group, actions] of this._editorTitleMenu.getActions()) {
+		const options = {
+			arg: this._editorGroup.activeEditor?.resource,
+			shouldForwardArgs: true
+		} satisfies IMenuActionOptions;
+		for (const [group, actions] of this._editorTitleMenu.getActions(options)) {
 			// Determine the target actions.
 			const targetActions = this.isPrimaryGroup(group) ? primaryActions : secondaryActions;
 
