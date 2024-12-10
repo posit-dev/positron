@@ -7,32 +7,32 @@ on:
   workflow_dispatch:
       inputs:
         run_e2e_linux:
-          description: "Run E2E Electron (Linux) Tests"
+          description: "E2E Electron (Linux) Tests"
           required: false
           default: true
           type: boolean
         run_e2e_windows:
-          description: "Run E2E Electron (Windows) Tests"
+          description: "E2E Electron (Windows) Tests"
           required: false
           default: true
           type: boolean
         run_e2e_browser:
-          description: "Run E2E Browser (Linux) Tests"
+          description: "E2E Browser (Linux) Tests"
           required: false
           default: true
           type: boolean
         run_unit_tests:
-          description: "Run Unit Tests"
+          description: "Unit Tests"
           required: false
           default: true
           type: boolean
         run_integration_tests:
-          description: "Run Integration Tests"
+          description: "Integration Tests"
           required: false
           default: true
           type: boolean
         notify_on:
-            description: "Send Slack notification:"
+            description: "Slack notification on:"
             required: false
             default: "failure"
             type: choice
