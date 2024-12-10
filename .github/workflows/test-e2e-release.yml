@@ -88,7 +88,7 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "@release,${{ inputs.grep }}"
+          CURRENTS_TAG: "release,${{ inputs.grep }}"
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
