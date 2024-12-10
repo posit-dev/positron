@@ -1,0 +1,74 @@
+name: "Test: PR"
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - 'prerelease/**'
+
+jobs:
+  pr-tags:
+    runs-on: ubuntu-latest
+    outputs:
+      tags: ${{ steps.pr-tags.outputs.tags }}
+    steps:
+      - name: Get PR Body
+        run: |
+          echo "Extracting PR body..."
+          PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
+          echo "PR_BODY=$PR_BODY" >> $GITHUB_ENV
+        env:
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+
+      - name: Parse Tags from PR Body
+        id: pr-tags
+        env:
+          PR_BODY: ${{ env.PR_BODY }}
+        run: |
+          echo "Parsing tags from PR body..."
+
+          # Check if &all is present in the PR body
+          if echo "$PR_BODY" | grep -q "&all"; then
+            echo "Found &all tag in PR body. Setting tags to run all tests."
+            TAGS="" # Set to an empty string to indicate all tests should run
+          else
+            # Parse tags starting with '&' and convert to '@'
+            TAGS=$(echo "$PR_BODY" | grep -o "&[a-zA-Z0-9_-]*" | sed 's/&/@/g' | tr '\n' ',' | sed 's/,$//')
+
+            # Always add @critical if not already included
+            if [[ ! "$TAGS" =~ "@critical" ]]; then
+              if [[ -n "$TAGS" ]]; then
+                TAGS="@critical,$TAGS"
+              else
+                TAGS="@critical"
+              fi
+            fi
+          fi
+
+          # Output the extracted or empty tags
+          echo "Extracted Tags: $TAGS"
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+
+  e2e-electron:
+    name: e2e
+    uses: ./.github/workflows/test-e2e-linux.yml
+    needs: pr-tags
+    with:
+      grep: ${{ needs.pr-tags.outputs.tags }}
+      display_name: "electron (linux)"
+      currents_tags: "pull-request,electron/linux,$TAGS"
+    secrets: inherit
+
+  unit-tests:
+    name: test
+    uses: ./.github/workflows/test-unit.yml
+    secrets: inherit
+
+  integration-tests:
+    name: test
+    uses: ./.github/workflows/test-integration.yml
+    secrets: inherit
+
+
+
