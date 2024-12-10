@@ -10,7 +10,7 @@ jobs:
   extract-pr-tags:
     runs-on: ubuntu-latest
     outputs:
-      parsed-tags: ${{ steps.extract-tags.outputs.tags }}
+      pr-tags: ${{ steps.extract-tags.outputs.tags }}
     steps:
 
       - name: Extract PR Body
@@ -36,8 +36,9 @@ jobs:
   e2e-electron:
     name: e2e
     uses: ./.github/workflows/test-e2e-linux.yml
+    needs: extract-pr-tags
     with:
-      grep: "@pr,${{ needs.extract-tags.outputs.tags }}"
+      grep: "pr,${{ needs.extract-pr-tags.outputs.pr-tags }}"
       display_name: "electron (linux)"
       currents_tags: "electron/linux"
     secrets: inherit
