@@ -13,9 +13,11 @@ import Severity from 'vs/base/common/severity';
 import { Driver, Input, InputType } from 'vs/workbench/contrib/positronConnections/browser/components/newConnectionModalDialog/driver';
 import { LabeledTextInput } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/labeledTextInput';
 import { RadioGroup } from 'vs/workbench/browser/positronComponents/positronModalDialog/components/radioGroup';
+import { PositronModalReactRenderer } from 'vs/workbench/browser/positronModalReactRenderer/positronModalReactRenderer';
 
 interface CreateConnectionProps {
 	readonly services: PositronConnectionsServices;
+	readonly renderer: PositronModalReactRenderer;
 	readonly onCancel: () => void;
 	readonly onBack: () => void;
 	readonly selectedDriver: Driver;
@@ -40,6 +42,36 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		}, 200);
 		return () => clearTimeout(timeoutId);
 	}, [inputs, generateCode, setCode]);
+
+	const onConnectHandler = async () => {
+		// Acquire code before disposing of the renderer
+		const code = editorRef.current?.getValue();
+
+		props.renderer.dispose();
+		const handle = services.notificationService.notify({
+			message: localize(
+				'positron.newConnectionModalDialog.createConnection.connecting',
+				"Connecting to data source ({0})...",
+				props.selectedDriver.name
+			),
+			severity: Severity.Info
+		});
+
+		try {
+			const connect = props.selectedDriver.connect;
+			if (!connect) {
+				throw new Error(
+					localize('positron.newConnectionModalDialog.createConnection.connectNotImplemented', "Connect method not implemented")
+				);
+			}
+
+			connect(code);
+		} catch (err) {
+			services.notificationService.error(err);
+		}
+
+		handle.close();
+	};
 
 	const onCopy = async () => {
 		const code = editorRef.current.getValue();
@@ -89,7 +121,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</PositronButton>
 			<PositronButton
 				className='button action-bar-button'
-				onPressed={props.onCancel}
+				onPressed={onCancel}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.cancel', 'Cancel'))()}
 			</PositronButton>
@@ -104,7 +136,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 			</PositronButton>
 			<PositronButton
 				className='button action-bar-button default'
-				onPressed={onCancel}
+				onPressed={onConnectHandler}
 			>
 				{(() => localize('positron.newConnectionModalDialog.createConnection.connect', 'Connect'))()}
 			</PositronButton>

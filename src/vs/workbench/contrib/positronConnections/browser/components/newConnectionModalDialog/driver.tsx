@@ -38,6 +38,8 @@ export interface Driver {
 	inputs: Array<Input>;
 	// Generates the connection code based on the inputs.
 	generateCode?: (inputs: Array<Input>) => string;
+	// Connect session
+	connect?: (code: string) => Promise<void>;
 	// Checks if the dependencies for the driver are installed
 	// and functioning.
 	checkDependencies?: () => Promise<boolean>;

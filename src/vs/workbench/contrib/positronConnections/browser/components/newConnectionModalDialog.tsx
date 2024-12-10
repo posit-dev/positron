@@ -65,6 +65,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 					selectedDriver ?
 						<CreateConnection
 							services={props.services}
+							renderer={props.renderer}
 							onCancel={cancelHandler}
 							onBack={backHandler}
 							selectedDriver={selectedDriver} /> :
