@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Top Action Bar - Save Actions', {
-	tag: ['@web', '@top-action-bar']
+	tag: [tags.WEB, tags.TOP_ACTION_BAR]
 }, () => {
 
 	test.beforeAll(async function ({ app, userSettings }) {

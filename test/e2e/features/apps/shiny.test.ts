@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Shiny Application', { tag: ['@apps', '@viewer'] }, () => {
+test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER] }, () => {
 	test.beforeAll(async function ({ app }) {
 		try {
 			await app.workbench.extensions.installExtension('posit.shiny', true);

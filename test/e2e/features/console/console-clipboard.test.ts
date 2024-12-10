@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as os from 'os';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 import { Application } from '../../../automation';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Console - Clipboard', { tag: ['@console'] }, () => {
+test.describe('Console - Clipboard', { tag: [tags.CONSOLE] }, () => {
 	test('Python - Copy from console & paste to console [C608100]', async function ({ app, python }) {
 		await testBody(app);
 	});

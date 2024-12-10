@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { PositronPythonFixtures, ProjectType, ProjectWizardNavigateAction } from '../../../automation';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -14,7 +14,7 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.positronConsole.waitForReadyOrNoInterpreter();
 });
 
-test.describe('Python - New Project Wizard', { tag: ['@new-project-wizard'] }, () => {
+test.describe('Python - New Project Wizard', { tag: [tags.NEW_PROJECT_WIZARD] }, () => {
 	const defaultProjectName = 'my-python-project';
 
 	test('Create a new Conda environment [C628628]', async function ({ app, page }) {
@@ -43,7 +43,7 @@ test.describe('Python - New Project Wizard', { tag: ['@new-project-wizard'] }, (
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Create a new Venv environment [C627912]', { tag: ['@pr'] }, async function ({ app, page }) {
+	test('Create a new Venv environment [C627912]', { tag: [tags.CRITICAL] }, async function ({ app, page }) {
 		// This is the default behavior for a new Python Project in the Project Wizard
 		const projSuffix = addRandomNumSuffix('_new_venv');
 		const pw = app.workbench.positronNewProjectWizard;
@@ -149,7 +149,7 @@ test.describe('Python - New Project Wizard', { tag: ['@new-project-wizard'] }, (
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('Default Python Project with git init [C674522]', { tag: ['@pr', '@win'] }, async function ({ app, page }) {
+	test('Default Python Project with git init [C674522]', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, page }) {
 		const projSuffix = addRandomNumSuffix('_gitInit');
 		const pw = app.workbench.positronNewProjectWizard;
 		await pw.startNewProject(ProjectType.PYTHON_PROJECT);

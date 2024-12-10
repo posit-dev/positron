@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Data Explorer - XLSX', {
-	tag: ['@web', '@win', '@data-explorer']
+	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
 	test.afterEach(async function ({ app }) {

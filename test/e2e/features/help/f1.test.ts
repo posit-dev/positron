@@ -4,15 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 
-test.describe('F1 Help #web #win', {
-	tag: ['@web', '@win', '@help']
+test.describe('F1 Help', {
+	tag: [tags.WEB, tags.WIN, tags.HELP]
 }, () => {
 
 	test.afterEach(async function ({ app }) {

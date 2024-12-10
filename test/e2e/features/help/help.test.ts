@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Help', { tag: ['@help'] }, () => {
+test.describe('Help', { tag: [tags.HELP] }, () => {
 
 	test('Python - Verifies basic help functionality [C633814]', async function ({ app, python }) {
 		await app.workbench.positronConsole.executeCode('Python', `?load`, '>>>');

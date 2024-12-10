@@ -3,14 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Console History', {
-	tag: ['@web', '@win', '@console']
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
 	test.afterEach(async function ({ app }) {
 		app.workbench.positronConsole.sendKeyboardKey('Escape');
