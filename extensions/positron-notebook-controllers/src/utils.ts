@@ -19,6 +19,18 @@ export function formatCount(count: number, unit: string): string {
 }
 
 /**
+ * Check if a given notebook URI is the current active notebook editor.
+ *
+ * @param notebookUri The notebook URI to check.
+ * @returns True if the notebook URI is the current active notebook editor.
+ */
+export function isActiveNotebookEditorUri(notebookUri: vscode.Uri): boolean {
+	const activeNotebookEditorUri = vscode.window.activeNotebookEditor?.notebook.uri;
+	return Boolean(activeNotebookEditorUri &&
+		notebookUri.toString() === activeNotebookEditorUri.toString());
+}
+
+/**
  * Get the language runtime session for a notebook.
  *
  * @param notebookUri The URI of the notebook.
