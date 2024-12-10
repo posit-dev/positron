@@ -10,10 +10,18 @@ main branch by either pulling or rebasing.
 <!--
   Describe briefly what problem this pull request resolves, or what
   new feature it introduces. Include screenshots of any new or altered
-  UI. Link to any GitHub issues but avoid "magic" keywords that will 
-  automatically close the issue. If there are any details about your 
-  approach that are unintuitive or you want to draw attention to, please 
+  UI. Link to any GitHub issues but avoid "magic" keywords that will
+  automatically close the issue. If there are any details about your
+  approach that are unintuitive or you want to draw attention to, please
   describe them here.
+-->
+
+### Tests to Run
+
+&critical
+<!-- Available tags:
+  &apps, &connections, &console, &data-explorer, &duck-db, &help, &layouts, &viewer, &editor, &quarto, &console, &new-project-wizard
+  &notebook, &outline, &plots, &editor, &r-markdown, &r-pkg-development, &reticulate, &test-explorer, &top-action-bar, &variables
 -->
 
 ### QA Notes

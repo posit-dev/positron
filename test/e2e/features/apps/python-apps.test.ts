@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Python Applications', { tag: ['@pr', '@apps', '@viewer', '@editor'] }, () => {
+test.describe('Python Applications', { tag: ['@critical', '@apps', '@viewer', '@editor'] }, () => {
 	test.afterEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 

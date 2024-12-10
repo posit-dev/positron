@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Python Polars', {
-	tag: ['@win', '@web', '@pr', '@data-explorer']
+	tag: ['@win', '@web', '@critical', '@data-explorer']
 }, () => {
 	test('Python Polars - Verifies basic data explorer functionality [C644538]', async function ({ app, python, logger }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
