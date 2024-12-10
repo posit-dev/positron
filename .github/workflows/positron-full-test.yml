@@ -5,8 +5,13 @@ on:
     inputs:
       grep:
         required: false
-        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames, etc. For windows, use this format: (?=.*@win)(?=.*@feature)"
-        default: "@win"
+        description: "Only run tests matching this regex. Supports tags (comma-separated), titles, filenames. Confirm pattern matching locally with: npx playwright test --grep=<regex>"
+        default: "@critical"
+        type: string
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
         type: string
       repeat_each:
         required: false
@@ -16,20 +21,28 @@ on:
       display_name:
         required: false
         description: "The name of the job as it will appear in the GitHub Actions UI."
-        default: "e2e-windows"
+        default: "e2e-linux"
         type: string
       currents_tags:
         required: false
         description: "The tags to use for Currents recording."
-        default: ""
+        default: "@linux"
         type: string
 
   workflow_dispatch:
     inputs:
+      project:
+        required: false
+        description: "The name of the Playwright project to run tests for."
+        default: "e2e-electron"
+        type: choice
+        options:
+          - e2e-electron
+          - e2e-browser
       grep:
         required: false
-        description: "Only tests tagged with @win are pre-filtered. Specify other tags, test titles, filenames, etc. to filter tests further."
-        default: "@win"
+        description: "Run tests matching a regular expression. Supports tags, test titles, and filenames. Leave blank to run all tests. For project `e2e-browser`, tests tagged with @web are pre-filtered; additional tags, titles, or filenames can be specified to refine filtering."
+        default: "@critical"
         type: string
       repeat_each:
         required: false
@@ -42,119 +55,68 @@ permissions:
   contents: read
 
 jobs:
-  e2e-windows:
-    name: ${{ inputs.display_name }}
-    runs-on:
-      labels: [windows-latest-8x]
-    timeout-minutes: 80
+  e2e-linux:
+    name: ${{ inputs.display_name || 'e2e-linux' }}
+    timeout-minutes: 45
+    runs-on: ubuntu-latest-8x
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
+      _R_CHECK_FUTURE_FILE_TIMESTAMPS_: false # this check can be flaky in the R pkg tests
+      _R_CHECK_CRAN_INCOMING_: false
+      _R_CHECK_SYSTEM_CLOCK_: false
       AWS_S3_BUCKET: positron-test-reports
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set screen resolution
-        shell: pwsh
-        run: |
-          Set-DisplayResolution -Width 1920 -Height 1080 -Force
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-
-      - name: Install System Level Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10.10"
 
       - name: Cache node_modules, build, extensions, and remote
         uses: ./.github/actions/cache-multi-paths
 
-      - name: Install node dependencies with yarn
-        env:
-          npm_config_arch: x64
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
-          ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
-        shell: pwsh
-        # nvm on windows does not see .nvmrc
-        #
-        # the installation of the npm package windows-process-tree is known to fail
-        # intermittently in the Github Actions build environment, so we retry
-        # this step a few times if necessary.
-        #
-        # see https://github.com/posit-dev/positron/issues/3481
-        run: |
-          corepack enable
-          .\scripts\run-with-retry.ps1 -maxAttempts 3 -command "yarn --network-timeout 120000"
-          yarn --cwd test/automation install --frozen-lockfile
-          yarn --cwd test/e2e install --frozen-lockfile
+      - name: Setup Build and Compile
+        uses: ./.github/actions/setup-build-env
 
-      - name: Compile and Download
-        run: yarn npm-run-all --max-old-space-size=4095 -lp compile "electron x64" playwright-install download-builtin-extensions
-
-      - name: Compile E2E Tests
-        run: |
-          yarn --cwd test/automation compile
-          yarn --cwd test/e2e compile
-
-      - name: Install python dependencies
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/requirements.txt --output requirements.txt
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install ipykernel trcli
-
-      - name: Set up R
-        uses: r-lib/actions/setup-r@v2
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
         with:
-          r-version: "4.4.0"
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Install R packages
-        run: |
-          curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
-          Rscript -e "install.packages('pak')"
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
-
-      - name: Setup Graphviz
-        uses: ts-graphviz/setup-graphviz@v2.0.2
-
-      - name: Set up Quarto
-        uses: quarto-dev/quarto-actions/setup@v2
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Setup E2E Test Environment
+        uses: ./.github/actions/setup-test-env
         with:
-          tinytex: true
-
-      - name: Setup AWS S3 Access
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
+          aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Preloading ensures the Node.js binary is fully built and ready before
+      # any parallel processes start, preventing runtime conflicts
+      - name: Preload Node.js Binary
+        if: ${{ inputs.project == 'e2e-browser' }}
+        run: yarn gulp node
 
       - name: Get and set Playwright tags to $PW_TAGS
-        run: bash scripts/playwright-tags.sh "e2e-windows" "${{ inputs.grep }}"
+        run: bash scripts/playwright-tags.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
         if: ${{ !cancelled() }}
 
-      - name: Run Tests on Windows (Electron)
+      - name: Run Playwright Tests (Electron)
         env:
-          POSITRON_PY_VER_SEL: 3.10.10
+          POSITRON_PY_VER_SEL: 3.10.12
           POSITRON_R_VER_SEL: 4.4.0
-          CURRENTS_PROJECT_ID: ZOs5z2
           CURRENTS_RECORD_KEY: ${{ secrets.CURRENTS_RECORD_KEY }}
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
-          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }} # only works on push events
+          COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags }}
-        if: ${{ !cancelled() }}
-        run: npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }}
+        run: |
+          DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 --grep "${{ env.PW_TAGS }}" --repeat-each ${{ inputs.repeat_each }}
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -162,3 +124,4 @@ jobs:
         with:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
+
