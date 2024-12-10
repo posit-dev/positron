@@ -8,20 +8,20 @@ import * as React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
+import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
-import { IEditorGroupView } from './editor.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { IMenu, IMenuService, MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction } from '../../../../platform/actions/common/actions.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -185,7 +185,11 @@ export class EditorActionBarFactory extends Disposable {
 		const primaryActions: IAction[] = [];
 		const secondaryActions: IAction[] = [];
 		const submenuDescriptors = new Set<SubmenuDescriptor>();
-		for (const [group, actions] of this._editorTitleMenu.getActions()) {
+		const options = {
+			arg: this._editorGroup.activeEditor?.resource,
+			shouldForwardArgs: true
+		} satisfies IMenuActionOptions;
+		for (const [group, actions] of this._editorTitleMenu.getActions(options)) {
 			// Determine the target actions.
 			const targetActions = this.isPrimaryGroup(group) ? primaryActions : secondaryActions;
 
