@@ -52,6 +52,8 @@ const stashPatterns = [
 	'**/kcserver',              // Compiled Jupyter supervisor
 	// Exclusions from Quarto
 	'**/quarto/bin/tools/**',
+	// Exclusions from Node Addon API
+	'**/nothing.target.mk',
 ];
 
 // Some generated files may end up being different in both distributions.
