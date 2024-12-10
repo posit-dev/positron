@@ -15,6 +15,8 @@ jobs:
 
       - name: Extract PR Body
         id: extract-body
+        # if @all, set to ""
+        # else append @critical
         run: |
           echo "Extracting PR body..."
           PR_BODY=$(jq -r '.pull_request.body' "$GITHUB_EVENT_PATH" | tr '\n' ' ' | sed 's/"/\\"/g')
@@ -29,7 +31,7 @@ jobs:
           # Parse tags starting with '&' and convert to '@'
           TAGS=$(echo "$PR_BODY" | grep -o "&[a-zA-Z0-9_-]*" | sed 's/&/@/g' | tr '\n' ',' | sed 's/,$//')
           echo "Extracted Tags: $TAGS"
-          echo "::set-output name=tags::$TAGS"
+          echo "tags=$TAGS" >> $GITHUB_OUTPUT
         env:
           PR_BODY: ${{ env.PR_BODY }}
 
@@ -38,9 +40,9 @@ jobs:
     uses: ./.github/workflows/test-e2e-linux.yml
     needs: extract-pr-tags
     with:
-      grep: "@critical,${{ needs.extract-pr-tags.outputs.pr-tags }}"
+      grep: "@critical,$TAGS"
       display_name: "electron (linux)"
-      currents_tags: "electron/linux"
+      currents_tags: "electron/linux,$TAGS"
     secrets: inherit
 
   unit-tests:
