@@ -22,7 +22,7 @@ suite('REPL - Native REPL', () => {
         interpreterService = TypeMoq.Mock.ofType<IInterpreterService>();
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
         disposable = TypeMoq.Mock.ofType<Disposable>();
         disposableArray = [disposable.object];
 
@@ -46,7 +46,7 @@ suite('REPL - Native REPL', () => {
         const createMethodStub = sinon.stub(NativeRepl, 'create');
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
         const interpreter = await interpreterService.object.getActiveInterpreter();
         await getNativeRepl(interpreter as PythonEnvironment, disposableArray);
 
@@ -57,7 +57,7 @@ suite('REPL - Native REPL', () => {
         const interpreter = await interpreterService.object.getActiveInterpreter();
         interpreterService
             .setup((i) => i.getActiveInterpreter(TypeMoq.It.isAny()))
-            .returns(() => Promise.resolve({ path: 'ps' } as unknown as PythonEnvironment));
+            .returns(() => Promise.resolve(({ path: 'ps' } as unknown) as PythonEnvironment));
 
         await NativeRepl.create(interpreter as PythonEnvironment);
 
