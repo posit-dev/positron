@@ -4,17 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test } from '../_test.setup';
+import { tags, test } from '../_test.setup';
 import { expect } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Matplotlib Interact', { tag: ['@plots', '@notebook'] }, () => {
+test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOK] }, () => {
 
 	test('Python - Matplotlib Interact Test [C1067443]', {
-		tag: ['@pr', '@web', '@win'],
+		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
 	}, async function ({ app, python }) {
 
 		const notebooks = app.workbench.positronNotebooks;
