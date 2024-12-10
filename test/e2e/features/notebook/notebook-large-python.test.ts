@@ -22,11 +22,7 @@ test.describe('Large Python Notebook', { tag: ['@notebook'] }, () => {
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-		await app.code.driver.page.getByLabel('Run All').click();
-
-		const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
-		await expect(stopExecutionLocator).toBeVisible();
-		await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
+		await notebooks.runAllCells(120000);
 
 		await app.workbench.quickaccess.runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
