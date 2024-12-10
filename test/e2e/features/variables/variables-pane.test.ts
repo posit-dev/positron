@@ -3,13 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Variables Pane', { tag: ['@web', '@win', '@pr', '@variables'] }, () => {
+test.describe('Variables Pane', {
+	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.VARIABLES]
+}, () => {
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.positronLayouts.enterLayout('stacked');
 	});

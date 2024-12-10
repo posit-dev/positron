@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Outline #web #win', {
-	tag: ['@web', '@win', '@outline']
+	tag: [tags.WEB, tags.WIN, tags.OUTLINE]
 }, () => {
 
 	test('Python - Verify Outline Contents [C956870]', async function ({ app, python }) {

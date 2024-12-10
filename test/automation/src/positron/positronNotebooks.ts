@@ -94,4 +94,11 @@ export class PositronNotebooks {
 		await expect(markdownLocator).toBeVisible();
 		await expect(markdownLocator).toHaveText(expectedText);
 	}
+
+	async runAllCells(timeout: number = 30000) {
+		await this.code.driver.page.getByLabel('Run All').click();
+		const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
+		await expect(stopExecutionLocator).toBeVisible();
+		await expect(stopExecutionLocator).not.toBeVisible({ timeout: timeout });
+	}
 }

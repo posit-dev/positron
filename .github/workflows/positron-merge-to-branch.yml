@@ -9,14 +9,14 @@ on:
     inputs:
       e2e_grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        description: "Grep filter to apply to the e2e tests: @critical, @win, etc."
         default: ""
         type: string
   workflow_dispatch:
     inputs:
       e2e_grep:
         required: false
-        description: "Grep filter to apply to the e2e tests: @pr, @win, etc."
+        description: "Grep filter to apply to the e2e tests: @critical, @win, etc."
         default: ""
         type: string
 

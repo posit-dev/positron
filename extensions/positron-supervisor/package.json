@@ -39,6 +39,11 @@
           "default": false,
           "description": "%configuration.showTerminal.description%"
         },
+        "positronKernelSupervisor.connectionTimeout": {
+          "type": "integer",
+          "default": 30,
+          "description": "%configuration.connectionTimeout.description%"
+        },
         "positronKernelSupervisor.logLevel": {
           "scope": "window",
           "type": "string",
@@ -97,7 +102,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.21"
+      "kallichore": "0.1.22"
     }
   },
   "dependencies": {

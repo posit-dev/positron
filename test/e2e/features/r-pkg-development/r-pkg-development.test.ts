@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path = require('path');
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('R Package Development', { tag: ['@web', '@r-pkg-development'] }, () => {
+test.describe('R Package Development', { tag: [tags.WEB, tags.R_PKG_DEVELOPMENT] }, () => {
 	test.beforeAll(async function ({ app, r, userSettings }) {
 		try {
 			// don't use native file picker

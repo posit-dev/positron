@@ -4,18 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import { test, expect, tags } from '../_test.setup';
 const compareImages = require('resemblejs/compareImages');
 import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
-import { test, expect } from '../_test.setup';
 import { Application } from '../../../automation';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
+test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	// Some tests are not tagged @win because they woould require a new master image.
 	test.describe('Python Plots', () => {
 
@@ -40,7 +40,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 		});
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
-			tag: ['@pr', '@web']
+			tag: [tags.CRITICAL, tags.WEB]
 		}, async function ({ app, logger, headless }) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
@@ -86,7 +86,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('Python - Verifies basic plot functionality - Static Plot [C654401]', { tag: ['@pr', '@web'] }, async function ({ app, logger }) {
+		test('Python - Verifies basic plot functionality - Static Plot [C654401]', { tag: [tags.CRITICAL, tags.WEB] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonStaticPlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentStaticPlot();
@@ -114,7 +114,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 
 		});
 
-		test('Python - Verifies the plots pane action bar - Plot actions [C656297]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies the plots pane action bar - Plot actions [C656297]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			const plots = app.workbench.positronPlots;
 
 			// default plot pane state for action bar
@@ -161,7 +161,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verifies saving a Python plot [C557005]', { tag: ['@win'] }, async function ({ app, logger }) {
+		test('Python - Verifies saving a Python plot [C557005]', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', savePlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -172,23 +172,23 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('Python-scatter.jpeg');
 		});
 
-		test('Python - Verifies bqplot Python widget [C720869]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies bqplot Python widget [C720869]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, bgplot, '.svg-figure');
 		});
 
-		test('Python - Verifies ipydatagrid Python widget [C720870]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies ipydatagrid Python widget [C720870]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipydatagrid, 'canvas:nth-child(1)');
 		});
 
-		test('Python - Verifies ipyleaflet Python widget [C720871]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies ipyleaflet Python widget [C720871]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test('Python - Verifies hvplot can load with plotly extension [C766660]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies hvplot can load with plotly extension [C766660]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, plotly, '.plotly');
 		});
 
-		test('Python - Verifies ipytree Python widget [C720872]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies ipytree Python widget [C720872]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipytree, '.jstree-container-ul');
 
 			// fullauxbar layout needed for some smaller windows
@@ -203,7 +203,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await expect(treeNodes).toHaveCount(3);
 		});
 
-		test('Python - Verifies ipywidget.Output Python widget', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies ipywidget.Output Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await app.workbench.positronConsole.pasteCodeToConsole(ipywidgetOutput);
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronPlots.waitForWebviewPlot('.widget-output', 'attached');
@@ -220,7 +220,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			expect(lines).not.toContain('Hello, world!');
 		});
 
-		test('Python - Verifies bokeh Python widget [C730343]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('Python - Verifies bokeh Python widget [C730343]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await app.workbench.positronConsole.pasteCodeToConsole(bokeh);
 			await app.workbench.positronConsole.sendEnterKey();
 
@@ -278,7 +278,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('R - Verifies basic plot functionality [C628633]', { tag: ['@pr', '@web'] }, async function ({ app, logger, headless }) {
+		test('R - Verifies basic plot functionality [C628633]', { tag: [tags.CRITICAL, tags.WEB] }, async function ({ app, logger, headless }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -321,7 +321,7 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronPlots.waitForNoPlots();
 		});
 
-		test('R - Verifies saving an R plot [C557006]', { tag: ['@win'] }, async function ({ app, logger }) {
+		test('R - Verifies saving an R plot [C557006]', { tag: [tags.WIN] }, async function ({ app, logger }) {
 			logger.log('Sending code to console');
 
 			await app.workbench.positronConsole.executeCode('R', rSavePlot, '>');
@@ -334,21 +334,21 @@ test.describe('Plots', { tag: ['@plots', '@editor'] }, () => {
 			await app.workbench.positronExplorer.waitForProjectFileToAppear('R-cars.svg');
 		});
 
-		test('R - Verifies rplot plot [C720873]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('R - Verifies rplot plot [C720873]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await app.workbench.positronConsole.pasteCodeToConsole(rplot);
 			await app.workbench.positronConsole.sendEnterKey();
 			await app.workbench.positronPlots.waitForCurrentPlot();
 		});
 
-		test('R - Verifies highcharter plot [C720874]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('R - Verifies highcharter plot [C720874]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, highcharter, 'svg', app.web);
 		});
 
-		test('R - Verifies leaflet plot [C720875]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('R - Verifies leaflet plot [C720875]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, leaflet, '.leaflet', app.web);
 		});
 
-		test('R - Verifies plotly plot [C720876]', { tag: ['@web', '@win'] }, async function ({ app }) {
+		test('R - Verifies plotly plot [C720876]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, rPlotly, '.plot-container', app.web);
 		});
 	});

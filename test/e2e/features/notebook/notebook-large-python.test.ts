@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename,
@@ -12,7 +12,9 @@ test.use({
 });
 
 // Note that this test is too heavy to pass on web and windows
-test.describe('Large Python Notebook', { tag: ['@notebook'] }, () => {
+test.describe('Large Python Notebook', {
+	tag: [tags.NOTEBOOK]
+}, () => {
 
 	test('Python - Large notebook execution [C983592]', async function ({ app, python }) {
 		test.setTimeout(480_000); // huge timeout because this is a heavy test
@@ -22,11 +24,7 @@ test.describe('Large Python Notebook', { tag: ['@notebook'] }, () => {
 		await app.workbench.positronQuickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python Environments', process.env.POSITRON_PY_VER_SEL!);
 
-		await app.code.driver.page.getByLabel('Run All').click();
-
-		const stopExecutionLocator = app.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
-		await expect(stopExecutionLocator).toBeVisible();
-		await expect(stopExecutionLocator).not.toBeVisible({ timeout: 120000 });
+		await notebooks.runAllCells(120000);
 
 		await app.workbench.quickaccess.runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();

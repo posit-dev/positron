@@ -11,4 +11,4 @@ jobs:
     uses: ./.github/workflows/positron-merge-to-branch.yml
     secrets: inherit
     with:
-      e2e_grep: "@pr"
+      e2e_grep: "@critical"

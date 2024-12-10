@@ -6,7 +6,7 @@
 import { fail } from 'assert';
 import { join } from 'path';
 import { downloadFileFromS3, S3FileDownloadOptions } from '../../../automation';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-test.describe('Data Explorer - Very Large Data Frame', { tag: ['@win', '@data-explorer'] }, () => {
+test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.beforeAll(async function ({ app }) {
 		if (githubActions) {
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);

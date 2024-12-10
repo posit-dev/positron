@@ -19,6 +19,10 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 		sessionId: 'test-session',
 	} as positron.RuntimeSessionMetadata;
 
+	constructor(
+		public readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
+	) { }
+
 	execute(_code: string, id: string, _mode: positron.RuntimeCodeExecutionMode, _errorBehavior: positron.RuntimeErrorBehavior) {
 		this._lastExecutionId = id;
 		this._onDidExecute.fire(id);

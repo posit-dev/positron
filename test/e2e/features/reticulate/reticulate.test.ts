@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -14,7 +14,7 @@ test.use({
 // to the installed python path
 
 test.describe('Reticulate', {
-	tag: ['@web', '@reticulate'],
+	tag: [tags.WEB, tags.RETICULATE],
 	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5226' }]
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {

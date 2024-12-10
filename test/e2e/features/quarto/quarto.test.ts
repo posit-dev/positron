@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Application } from '../../../automation';
-import { test, expect } from '../_test.setup';
+import { test, expect, tags } from '../_test.setup';
 const path = require('path');
 const fs = require('fs-extra');
 
@@ -14,7 +14,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Quarto', { tag: ['@web', '@quarto'] }, () => {
+test.describe('Quarto', { tag: [tags.WEB, tags.QUARTO] }, () => {
 	test.beforeAll(async function ({ app, browserName }) {
 		await app.workbench.quickaccess.openFile(path.join(app.workspacePathOrFolder, 'workspaces', 'quarto_basic', 'quarto_basic.qmd'));
 		isWeb = browserName === 'chromium';
