@@ -41,7 +41,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verifies basic plot functionality - Dynamic Plot [C608114]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless }) {
+		}, async function ({ app, logger, headless, logsPath }) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonDynamicPlot, '>>>');
@@ -55,10 +55,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
 					// @ts-ignore
-					fs.writeFileSync(path.join(...diffPlotsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
+					fs.writeFileSync(path.join(logsPath, 'pythonScatterplotDiff.png'), data.getBuffer(true));
 				}
 				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'pythonScatterplot.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'pythonScatterplot.png') });
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
@@ -88,7 +88,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verifies basic plot functionality - Static Plot [C654401]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger }) {
+		}, async function ({ app, logger, logsPath }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('Python', pythonStaticPlot, '>>>');
 			await app.workbench.positronPlots.waitForCurrentStaticPlot();
@@ -101,10 +101,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
 					// @ts-ignore
-					fs.writeFileSync(path.join(...diffPlotsPath, 'graphvizDiff.png'), data.getBuffer(true));
+					fs.writeFileSync(path.join(logsPath, 'graphvizDiff.png'), data.getBuffer(true));
 				}
 				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'graphviz.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'graphviz.png') });
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
 
@@ -282,7 +282,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verifies basic plot functionality [C628633]', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless }) {
+		}, async function ({ app, logger, headless, logsPath }) {
 			logger.log('Sending code to console');
 			await app.workbench.positronConsole.executeCode('R', rBasicPlot, '>');
 			await app.workbench.positronPlots.waitForCurrentPlot();
@@ -294,10 +294,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					// FIXME: Temporarily ignore compilation issue
 					// See "Type 'Buffer' is not assignable" errors on https://github.com/microsoft/TypeScript/issues/59451
 					// @ts-ignore
-					fs.writeFileSync(path.join(...diffPlotsPath, 'autosDiff.png'), data.getBuffer(true));
+					fs.writeFileSync(path.join(logsPath, 'autosDiff.png'), data.getBuffer(true));
 				}
 				// capture a new master image in CI
-				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(...diffPlotsPath, 'autos.png') });
+				await app.workbench.positronPlots.currentPlot.screenshot({ path: path.join(logsPath, 'autos.png') });
 
 				fail(`Image comparison failed with mismatch percentage: ${data.rawMisMatchPercentage}`);
 			}
@@ -358,7 +358,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	});
 });
 
-const diffPlotsPath = ['..', '..', '.build', 'logs', 'smoke-tests-electron'];
 const options: ComparisonOptions = {
 	output: {
 		errorColor: {
