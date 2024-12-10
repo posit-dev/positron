@@ -96,11 +96,11 @@ jobs:
           CURRENTS_CI_BUILD_ID: ${{ github.run_id }}-${{ github.run_attempt }}
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-          CURRENTS_TAG: "release,${{ inputs.grep }}"
+          CURRENTS_TAG: "release,electron/linux"
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep=${{ env.grep }}
+          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep=${{ env.PW_TAGS }}
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
